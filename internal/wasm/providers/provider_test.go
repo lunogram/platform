@@ -254,14 +254,14 @@ func TestProviderSend(t *testing.T) {
 	})
 
 	type test struct {
-		req     *providers.SendRequest[map[string]any]
+		req     providers.SendRequest[map[string]any]
 		wantErr bool
 		errMsg  string
 	}
 
 	tests := map[string]test{
 		"email": {
-			req: &providers.SendRequest[map[string]any]{
+			req: providers.SendRequest[map[string]any]{
 				Channel: providers.ChannelEmail,
 				Config:  map[string]any{},
 				Payload: emailPayload,
@@ -269,7 +269,7 @@ func TestProviderSend(t *testing.T) {
 			wantErr: false,
 		},
 		"sms": {
-			req: &providers.SendRequest[map[string]any]{
+			req: providers.SendRequest[map[string]any]{
 				Channel: providers.ChannelSMS,
 				Config:  map[string]any{},
 				Payload: smsPayload,
@@ -277,7 +277,7 @@ func TestProviderSend(t *testing.T) {
 			wantErr: false,
 		},
 		"push": {
-			req: &providers.SendRequest[map[string]any]{
+			req: providers.SendRequest[map[string]any]{
 				Channel: providers.ChannelPush,
 				Config:  map[string]any{},
 				Payload: pushPayload,
@@ -285,7 +285,7 @@ func TestProviderSend(t *testing.T) {
 			wantErr: false,
 		},
 		"unsupported channel": {
-			req: &providers.SendRequest[map[string]any]{
+			req: providers.SendRequest[map[string]any]{
 				Channel: providers.Channel("unknown"),
 				Config:  map[string]any{},
 				Payload: []byte("{}"),
@@ -325,7 +325,7 @@ func TestProviderSendInvalidPayload(t *testing.T) {
 	provider, found := registry.Get("testprovider")
 	require.True(t, found)
 
-	req := &providers.SendRequest[map[string]any]{
+	req := providers.SendRequest[map[string]any]{
 		Channel: providers.ChannelEmail,
 		Config:  map[string]any{},
 		Payload: []byte("invalid json"),

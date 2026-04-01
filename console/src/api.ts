@@ -1,5 +1,6 @@
 import Axios from "axios"
 import { env } from "./config/env"
+import { oapiClient } from "./oapi/client"
 import type {
     Action,
     ActionCreateParams,
@@ -26,10 +27,6 @@ import type {
     ProjectAdminParams,
     ProjectApiKey,
     ProjectApiKeyParams,
-    Provider,
-    ProviderCreateParams,
-    ProviderMeta,
-    ProviderUpdateParams,
     Resource,
     RulePath,
     SearchParams,
@@ -263,9 +260,28 @@ const api = {
                 console.debug("Failed to fetch organization schemas:", error)
             }
 
+            // Fetch scheduled schemas (with fallback to empty array)
+            let scheduledSuggestions: VariableSuggestions["scheduledPaths"] = []
+            try {
+                const { data } = await oapiClient.GET(
+                    "/api/admin/projects/{projectID}/subjects/user/scheduled/schema",
+                    { params: { path: { projectID: projectId } } },
+                )
+                const scheduled = data?.results ?? []
+
+                scheduledSuggestions = scheduled.map((s) => ({
+                    ...s,
+                    schema: s.schema ?? [],
+                })) as VariableSuggestions["scheduledPaths"]
+            } catch (error) {
+                // Scheduled schema endpoint may not exist yet, fallback to empty
+                console.debug("Failed to fetch scheduled schemas:", error)
+            }
+
             return {
                 eventPaths: eventSuggestions,
                 userPaths: userSuggestions,
+                scheduledPaths: scheduledSuggestions,
                 organizationEventPaths: organizationEventSuggestions,
                 organizationUserPaths: organizationUserSuggestions,
                 organizationPaths: organizationSuggestions,
@@ -416,14 +432,16 @@ const api = {
                     .then((r) => r.data),
         },
         users: {
-            getState: async (projectId: UUID, journeyId: UUID, userId: UUID) => {
+            getState: async (projectId: UUID, journeyId: UUID, userId: UUID, entranceId?: UUID) => {
                 const response = await client.get<
                     Array<{
                         external_step_id: string
                         step_type: string
                         is_completed: boolean
                     }>
-                >(`${projectUrl(projectId)}/journeys/${journeyId}/users/${userId}/state`)
+                >(`${projectUrl(projectId)}/journeys/${journeyId}/users/${userId}/state`, {
+                    params: entranceId ? { entrance_id: entranceId } : undefined,
+                })
                 return response.data
             },
             skipDelay: async (projectId: UUID, journeyId: UUID, userId: UUID, stepId: UUID) =>
@@ -580,42 +598,6 @@ const api = {
         SubscriptionCreateParams,
         SubscriptionUpdateParams
     >("subscriptions"),
-
-    providers: {
-        search: async (projectId: UUID, params: string) =>
-            await client
-                .get<SearchResult<Provider>>(`${projectUrl(projectId)}/providers`, { params })
-                .then((r) => r.data),
-        options: async (projectId: UUID) =>
-            await client
-                .get<ProviderMeta[]>(`${projectUrl(projectId)}/providers/meta`)
-                .then((r) => r.data),
-        get: async (projectId: UUID, channel: string, module: string, entityId: UUID) =>
-            await client
-                .get<Provider>(
-                    `${projectUrl(projectId)}/providers/${channel}/${module}/${entityId}`,
-                )
-                .then((r) => r.data),
-        create: async (projectId: UUID, { channel, module, ...provider }: ProviderCreateParams) =>
-            await client
-                .post<Provider>(`${projectUrl(projectId)}/providers/${channel}/${module}`, provider)
-                .then((r) => r.data),
-        update: async (
-            projectId: UUID,
-            entityId: UUID,
-            { channel, module, ...provider }: ProviderUpdateParams,
-        ) =>
-            await client
-                .patch<Provider>(
-                    `${projectUrl(projectId)}/providers/${channel}/${module}/${entityId}`,
-                    provider,
-                )
-                .then((r) => r.data),
-        delete: async (projectId: UUID, id: UUID) =>
-            await client
-                .delete<number>(`${projectUrl(projectId)}/providers/${id}`)
-                .then((r) => r.data),
-    },
 
     images: {
         ...createProjectEntityPath<Image>("documents"),

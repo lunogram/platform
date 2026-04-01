@@ -119,6 +119,9 @@ export function ruleDescription(
         if (rule.group === "user") {
             nodes.push("user property ")
         }
+        if (rule.group === "journey") {
+            nodes.push("journey data ")
+        }
 
         nodes.push(
             <code

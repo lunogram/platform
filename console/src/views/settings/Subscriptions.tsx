@@ -300,7 +300,7 @@ function SubscriptionDialog({ editing, onClose, onSave }: SubscriptionDialogProp
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {["email", "push", "text"].map((channel) => (
+                                    {["email", "push", "sms"].map((channel) => (
                                         <SelectItem key={channel} value={channel}>
                                             {snakeToTitle(channel)}
                                         </SelectItem>

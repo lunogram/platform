@@ -1,57 +1,109 @@
 import { useCallback, useContext, useEffect, useMemo, useState } from "react"
-import { useForm } from "react-hook-form"
+import type { FieldPath } from "react-hook-form"
+import { Controller, useForm } from "react-hook-form"
 import { useNavigate, useParams } from "react-router"
 import { useTranslation } from "react-i18next"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, Gauge } from "lucide-react"
 
-import api from "../../api"
+import oapiClient from "@/oapi/client"
+import type { Provider, ProviderMeta, CreateProvider, UpdateProvider } from "@/oapi/client"
 import { ProjectContext } from "../../contexts"
 import { useResolver } from "../../hooks"
-import type { Provider, ProviderCreateParams, ProviderMeta } from "../../types"
-import type { SchemaProperty } from "@/components/schema-fields"
+import type { SchemaProperty, Schema } from "@/components/schema-fields"
 
 import { Button } from "@/components/ui/button"
+import { Label } from "@/components/ui/label"
+import { Switch } from "@/components/ui/switch"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
-import { Field, FieldLabel } from "@/components/ui/field"
+import { Field, FieldLabel, FieldDescription } from "@/components/ui/field"
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select"
 import { FormSchemaFields } from "@/components/schema-fields"
 import { StaggeredMosaic } from "@/components/icon-mosaic"
 
 import { SenderIdentityList } from "@/components/sender-identity-list"
 
+type ProviderWithExtras = Provider & {
+    setup?: { name: string; value: string }[]
+    external_id?: string
+}
+
+type ProviderFormValues = CreateProvider & {
+    module: string
+    rate_limit?: number | null
+    rate_interval?: string | null
+}
+
+/** Map human-friendly interval labels to Go duration strings */
+const RATE_INTERVAL_OPTIONS = [
+    { value: "1s", label: "per second" },
+    { value: "1m", label: "per minute" },
+    { value: "1h", label: "per hour" },
+    { value: "24h", label: "per day" },
+] as const
+
 /**
  * Handles both creating and editing integrations:
  * - Create: /projects/:projectId/integrations/new/:channel/:module
  * - Edit:   /projects/:projectId/integrations/:id
+ *
+ * External integrations (with external_id) are shown as read-only.
+ * Email-channel integrations also show a domain management section (enterprise only).
  */
 export default function IntegrationSetup() {
     const { t } = useTranslation()
     const [project] = useContext(ProjectContext)
     const navigate = useNavigate()
-    const { channel, module: moduleName, id } = useParams()
+    const { module: moduleName, id } = useParams()
     const isEdit = !!id && id !== "new"
 
-    const [provider, setProvider] = useState<Provider | undefined>()
+    const [provider, setProvider] = useState<ProviderWithExtras | undefined>()
     const [isSaving, setIsSaving] = useState(false)
     const [listKey] = useState(0)
 
     // Load all provider metas to find the schema
     const [options] = useResolver(
-        useCallback(async () => await api.providers.options(project.id), [project]),
+        useCallback(async () => {
+            const { data } = await oapiClient.GET(
+                "/api/admin/projects/{projectID}/providers/meta",
+                {
+                    params: { path: { projectID: project.id } },
+                },
+            )
+            return data
+        }, [project]),
     )
 
     // For edit mode: load the existing provider
     useEffect(() => {
         if (isEdit && id) {
-            api.providers
-                .search(project.id, { limit: 100 } as any)
-                .then((result) => {
-                    const found = result?.results?.find((p: Provider) => p.id === id)
+            oapiClient
+                .GET("/api/admin/projects/{projectID}/providers", {
+                    params: {
+                        path: { projectID: project.id },
+                        query: { limit: 100 },
+                    },
+                })
+                .then(({ data }) => {
+                    const found = data?.results?.find((p) => p.id === id)
                     if (found) {
-                        // Fetch full provider details
-                        api.providers
-                            .get(project.id, found.channel, found.module, found.id)
-                            .then((full) => setProvider(full))
+                        oapiClient
+                            .GET("/api/admin/projects/{projectID}/providers/{type}/{providerID}", {
+                                params: {
+                                    path: {
+                                        projectID: project.id,
+                                        type: found.module,
+                                        providerID: found.id,
+                                    },
+                                },
+                            })
+                            .then(({ data: full }) => setProvider(full ?? found))
                             .catch(() => setProvider(found))
                     } else {
                         navigate(`/projects/${project.id}/integrations`)
@@ -65,67 +117,113 @@ export default function IntegrationSetup() {
     const meta = useMemo(() => {
         if (!options) return undefined
         if (isEdit && provider) {
-            return options.find(
-                (o: ProviderMeta) => o.group === provider.channel && o.type === provider.module,
-            )
+            return options.find((o: ProviderMeta) => o.type === provider.module)
         }
-        return options.find((o: ProviderMeta) => o.group === channel && o.type === moduleName)
-    }, [options, isEdit, provider, channel, moduleName])
+        return options.find((o: ProviderMeta) => o.type === moduleName)
+    }, [options, isEdit, provider, moduleName])
 
-    const effectiveChannel = isEdit ? provider?.channel : channel
+    const effectiveChannels = isEdit ? provider?.channels : meta?.channels
     const effectiveModule = isEdit ? provider?.module : moduleName
+    const isExternal = !!provider?.external_id
 
     // Strip any legacy default_from* fields from the schema so they aren't
     // rendered as generic form inputs — sender identity is handled by a
     // dedicated component based on the channel.
-    const dataSchema = useMemo(() => {
-        const rawSchema = Array.isArray(meta?.schema?.properties)
-            ? meta?.schema?.properties?.find((p: SchemaProperty) => p.name === "data")?.schema
-            : meta?.schema?.properties?.data
+    const dataSchema = useMemo((): Schema | undefined => {
+        const schema = meta?.schema as unknown as Schema | undefined
+        if (!schema?.properties) return undefined
+
+        const rawSchema = Array.isArray(schema.properties)
+            ? schema.properties.find((p) => p.name === "data")?.schema
+            : (schema.properties as Record<string, Schema>).data
         if (!rawSchema?.properties) return rawSchema
 
         const senderKeys = new Set(["default_from"])
-        const props = Array.isArray(rawSchema.properties)
+        const props: SchemaProperty[] = Array.isArray(rawSchema.properties)
             ? rawSchema.properties
-            : Object.entries(rawSchema.properties).map(([name, schema]: [string, any]) => ({
-                  name,
-                  schema,
-              }))
+            : Object.entries(rawSchema.properties as Record<string, Schema>).map(
+                  ([name, propSchema]) => ({
+                      name,
+                      schema: propSchema,
+                  }),
+              )
 
-        const filtered = props.filter((p: any) => !senderKeys.has(p.name))
+        const filtered = props.filter((p) => !senderKeys.has(p.name))
 
         return { ...rawSchema, properties: filtered }
     }, [meta])
 
-    const senderIdentityChannel = effectiveChannel === "text" ? "sms" : effectiveChannel
+    const senderIdentityChannel = effectiveChannels?.find((c) => c === "email" || c === "sms")
 
-    const form = useForm<ProviderCreateParams>({
+    const rateLimitOverride = meta?.rate_limit?.override === true
+    const manifestRateLimit = meta?.rate_limit
+    const maxRateLimit = meta?.max_rate_limit
+
+    const form = useForm<ProviderFormValues>({
         values: provider
             ? {
                   name: provider.name,
                   data: provider.data,
                   module: effectiveModule ?? "",
-                  channel: effectiveChannel ?? "",
+                  link_wrap: provider?.link_wrap ?? false,
+                  rate_limit: provider?.rate_limit ?? null,
+                  rate_interval: provider?.rate_interval ?? "1s",
               }
             : {
                   name: "",
                   data: {},
                   module: effectiveModule ?? "",
-                  channel: effectiveChannel ?? "",
+                  link_wrap: true,
+                  rate_limit: null,
+                  rate_interval: "1s",
               },
     })
 
-    const handleSubmit = async (values: ProviderCreateParams) => {
-        if (!effectiveChannel || !effectiveModule) return
+    const handleSubmit = async (values: ProviderFormValues) => {
+        if (isExternal) return
+        if (!effectiveModule) return
         setIsSaving(true)
         try {
-            const params = { ...values, module: effectiveModule, channel: effectiveChannel }
+            const { name, data, link_wrap, rate_limit, rate_interval } = values
+            const body: CreateProvider & UpdateProvider = { name, data, link_wrap }
+
+            // Only send rate limit fields when the manifest allows overrides
+            if (rateLimitOverride) {
+                body.rate_limit = rate_limit && rate_limit > 0 ? rate_limit : null
+                body.rate_interval = rate_limit && rate_limit > 0 ? (rate_interval ?? "1s") : null
+            }
+
             if (isEdit && provider?.id) {
-                await api.providers.update(project.id, provider.id, params)
+                await oapiClient.PATCH(
+                    "/api/admin/projects/{projectID}/providers/{type}/{providerID}",
+                    {
+                        params: {
+                            path: {
+                                projectID: project.id,
+                                type: effectiveModule,
+                                providerID: provider.id,
+                            },
+                        },
+                        body,
+                    },
+                )
             } else {
-                const created = await api.providers.create(project.id, params)
-                navigate(`/projects/${project.id}/integrations/${created.id}`)
-                return
+                const { data: created } = await oapiClient.POST(
+                    "/api/admin/projects/{projectID}/providers/{type}",
+                    {
+                        params: {
+                            path: {
+                                projectID: project.id,
+                                type: effectiveModule,
+                            },
+                        },
+                        body,
+                    },
+                )
+                if (created) {
+                    navigate(`/projects/${project.id}/integrations/${created.id}`)
+                    return
+                }
             }
             navigate(`/projects/${project.id}/integrations`)
         } finally {
@@ -224,7 +322,7 @@ export default function IntegrationSetup() {
                     onSubmit={form.handleSubmit(handleSubmit)}
                     className="grid gap-6 max-w-2xl"
                 >
-                    {isEdit && provider?.setup?.length > 0 && (
+                    {isEdit && provider?.setup && provider.setup.length > 0 && (
                         <>
                             <h4 className="text-sm font-medium">{t("details", "Details")}</h4>
                             {provider.setup.map((item) => (
@@ -243,10 +341,141 @@ export default function IntegrationSetup() {
                         <FieldLabel>
                             {t("name")} <span className="text-destructive">*</span>
                         </FieldLabel>
-                        <Input {...form.register("name", { required: true })} />
+                        <Input
+                            {...form.register("name", { required: true })}
+                            disabled={isExternal}
+                        />
                     </Field>
 
-                    <FormSchemaFields parent="data" schema={dataSchema} form={form} />
+                    {!isExternal && dataSchema && (
+                        <FormSchemaFields parent="data" schema={dataSchema} form={form} />
+                    )}
+
+                    {!isExternal && (
+                        <Controller
+                            control={form.control}
+                            name="link_wrap"
+                            render={({ field }) => (
+                                <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
+                                    <div className="space-y-0.5">
+                                        <Label htmlFor="link_wrap" className="text-sm font-medium">
+                                            {t("link_wrapping", "Link Wrapping")}
+                                        </Label>
+                                        <p className="text-xs text-muted-foreground">
+                                            {t(
+                                                "link_wrapping_description",
+                                                "Wrap links in messages to track clicks.",
+                                            )}
+                                        </p>
+                                    </div>
+                                    <Switch
+                                        id="link_wrap"
+                                        checked={!!field.value}
+                                        onCheckedChange={field.onChange}
+                                    />
+                                </div>
+                            )}
+                        />
+                    )}
+
+                    {/* Rate Limit Section */}
+                    {!isExternal && manifestRateLimit && (
+                        <>
+                            <Separator />
+                            <div className="space-y-4">
+                                <div className="flex items-center gap-2">
+                                    <Gauge className="h-4 w-4 text-muted-foreground" />
+                                    <h4 className="text-sm font-medium">
+                                        {t("rate_limit", "Rate Limit")}
+                                    </h4>
+                                </div>
+
+                                <div className="rounded-lg border p-4 space-y-4">
+                                    <div className="space-y-1">
+                                        <p className="text-sm text-muted-foreground">
+                                            {t(
+                                                "rate_limit_default_label",
+                                                "Default: {{limit}} requests / {{interval}}",
+                                                {
+                                                    limit: manifestRateLimit.limit,
+                                                    interval: manifestRateLimit.interval || "1s",
+                                                },
+                                            )}
+                                        </p>
+                                        {!rateLimitOverride && (
+                                            <p className="text-xs text-muted-foreground/70">
+                                                {t(
+                                                    "rate_limit_locked",
+                                                    "This provider does not allow rate limit adjustments.",
+                                                )}
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    {rateLimitOverride && (
+                                        <div className="space-y-3">
+                                            <Field>
+                                                <FieldLabel>
+                                                    {t("rate_limit_override", "Custom Rate Limit")}
+                                                </FieldLabel>
+                                                <FieldDescription>
+                                                    {t(
+                                                        "rate_limit_override_description",
+                                                        "Override the default rate limit for this provider. Leave empty to use the default." +
+                                                            (maxRateLimit
+                                                                ? ` Maximum: ${maxRateLimit} requests per minute.`
+                                                                : ""),
+                                                    )}
+                                                </FieldDescription>
+                                                <div className="flex items-center gap-2">
+                                                    <Input
+                                                        type="number"
+                                                        min={0}
+                                                        max={maxRateLimit ?? undefined}
+                                                        placeholder={String(
+                                                            manifestRateLimit.limit,
+                                                        )}
+                                                        className="w-28"
+                                                        {...form.register("rate_limit", {
+                                                            valueAsNumber: true,
+                                                            min: 0,
+                                                            max: maxRateLimit ?? undefined,
+                                                        })}
+                                                    />
+                                                    <Controller
+                                                        control={form.control}
+                                                        name="rate_interval"
+                                                        render={({ field }) => (
+                                                            <Select
+                                                                value={field.value ?? "1s"}
+                                                                onValueChange={field.onChange}
+                                                            >
+                                                                <SelectTrigger className="w-36">
+                                                                    <SelectValue />
+                                                                </SelectTrigger>
+                                                                <SelectContent>
+                                                                    {RATE_INTERVAL_OPTIONS.map(
+                                                                        (opt) => (
+                                                                            <SelectItem
+                                                                                key={opt.value}
+                                                                                value={opt.value}
+                                                                            >
+                                                                                {opt.label}
+                                                                            </SelectItem>
+                                                                        ),
+                                                                    )}
+                                                                </SelectContent>
+                                                            </Select>
+                                                        )}
+                                                    />
+                                                </div>
+                                            </Field>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </>
+                    )}
                 </form>
 
                 {/* Sender identity management — edit mode only */}
@@ -257,28 +486,38 @@ export default function IntegrationSetup() {
                             projectId={project.id}
                             providerId={provider.id}
                             channel={senderIdentityChannel as "email" | "sms"}
-                            defaultFromId={form.watch("data.default_from")}
+                            defaultFromId={
+                                form.watch("data.default_from" as FieldPath<ProviderFormValues>) as
+                                    | string
+                                    | undefined
+                            }
                             onDefaultChange={(identityId) =>
-                                form.setValue("data.default_from", identityId, {
-                                    shouldDirty: true,
-                                })
+                                form.setValue(
+                                    "data.default_from" as FieldPath<ProviderFormValues>,
+                                    identityId,
+                                    {
+                                        shouldDirty: true,
+                                    },
+                                )
                             }
                         />
                     </div>
                 )}
 
-                <div className="flex items-center gap-3 pt-8 pb-6 max-w-2xl">
-                    <Button type="submit" form="integration-form" disabled={isSaving}>
-                        {isSaving
-                            ? t("saving", "Saving...")
-                            : isEdit
-                              ? t("update_integration", "Update Integration")
-                              : t("create_integration", "Create Integration")}
-                    </Button>
-                    <Button type="button" variant="outline" onClick={() => navigate(backUrl)}>
-                        {t("cancel")}
-                    </Button>
-                </div>
+                {!isExternal && (
+                    <div className="flex items-center gap-3 pt-8 pb-6 max-w-2xl">
+                        <Button type="submit" form="integration-form" disabled={isSaving}>
+                            {isSaving
+                                ? t("saving", "Saving...")
+                                : isEdit
+                                  ? t("update_integration", "Update Integration")
+                                  : t("create_integration", "Create Integration")}
+                        </Button>
+                        <Button type="button" variant="outline" onClick={() => navigate(backUrl)}>
+                            {t("cancel")}
+                        </Button>
+                    </div>
+                )}
             </div>
         </div>
     )

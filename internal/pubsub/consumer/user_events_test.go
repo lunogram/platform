@@ -19,6 +19,7 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 )
 
@@ -66,7 +67,7 @@ func TestUserEventsProjectHandlerSuccess(t *testing.T) {
 	err := Bootstrap(ctx, logger, jet, ns)
 	require.NoError(t, err)
 
-	usersState := subjects.NewState(usrsDB)
+	usersState := subjects.NewState(usrsDB, zap.NewNop())
 	journeyState := journey.NewState(jrnyDB)
 	email := "test@example.com"
 	userID, err := usersState.UsersStore.UpsertUser(ctx, projectID, subjects.UpsertUserParams{
@@ -75,7 +76,7 @@ func TestUserEventsProjectHandlerSuccess(t *testing.T) {
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet, string(ns))
-	handler := UserEventsHandler(logger, usersState, journeyState, pub)
+	handler := UserEventsHandler(logger, usersState, journeyState, pub, nil)
 
 	event := schemas.UserEvent{
 		Name:      "test_event",
@@ -125,7 +126,7 @@ func TestUserEventsProjectHandlerWithoutData(t *testing.T) {
 	err := Bootstrap(ctx, logger, jet, ns)
 	require.NoError(t, err)
 
-	usersState := subjects.NewState(usrsDB)
+	usersState := subjects.NewState(usrsDB, zap.NewNop())
 	journeyState := journey.NewState(jrnyDB)
 	email := "test2@example.com"
 	userID, err := usersState.UsersStore.UpsertUser(ctx, projectID, subjects.UpsertUserParams{
@@ -134,7 +135,7 @@ func TestUserEventsProjectHandlerWithoutData(t *testing.T) {
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet, string(ns))
-	handler := UserEventsHandler(logger, usersState, journeyState, pub)
+	handler := UserEventsHandler(logger, usersState, journeyState, pub, nil)
 
 	event := schemas.UserEvent{
 		Name:      "test_event_no_data",
@@ -176,25 +177,29 @@ func TestUserEventsProjectHandlerWithIdentifiers(t *testing.T) {
 	err := Bootstrap(ctx, logger, jet, ns)
 	require.NoError(t, err)
 
-	usersState := subjects.NewState(usrsDB)
+	usersState := subjects.NewState(usrsDB, zap.NewNop())
 	journeyState := journey.NewState(jrnyDB)
 	externalID := "user_123"
 	anonymousID := "anon_abc"
 
 	_, err = usersState.UsersStore.UpsertUser(ctx, projectID, subjects.UpsertUserParams{
-		ExternalID:  &externalID,
-		AnonymousID: &anonymousID,
+		Identifiers: []subjects.ExternalIDParam{
+			{Source: "default", ExternalID: externalID},
+			{Source: "anonymous", ExternalID: anonymousID},
+		},
 	})
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet, string(ns))
-	handler := UserEventsHandler(logger, usersState, journeyState, pub)
+	handler := UserEventsHandler(logger, usersState, journeyState, pub, nil)
 
 	event := schemas.UserEvent{
-		Name:        "user_action",
-		ProjectID:   projectID,
-		ExternalId:  &externalID,
-		AnonymousId: &anonymousID,
+		Name:      "user_action",
+		ProjectID: projectID,
+		Identifiers: []schemas.ExternalID{
+			{Source: "default", ExternalID: externalID},
+			{Source: "anonymous", ExternalID: anonymousID},
+		},
 		Data: map[string]any{
 			"action": "click",
 		},
@@ -224,7 +229,7 @@ func TestUserEventsSchemaHandlerSuccess(t *testing.T) {
 	err := Bootstrap(ctx, logger, jet, ns)
 	require.NoError(t, err)
 
-	usersState := subjects.NewState(usrsDB)
+	usersState := subjects.NewState(usrsDB, zap.NewNop())
 	eventID, err := usersState.EventsStore.UpsertEvent(ctx, projectID, "test_event", subjects.SubjectTypeUser)
 	require.NoError(t, err)
 
@@ -270,7 +275,7 @@ func TestUserEventsSchemaHandlerComplexNestedData(t *testing.T) {
 	err := Bootstrap(ctx, logger, jet, ns)
 	require.NoError(t, err)
 
-	usersState := subjects.NewState(usrsDB)
+	usersState := subjects.NewState(usrsDB, zap.NewNop())
 	eventID, err := usersState.EventsStore.UpsertEvent(ctx, projectID, "complex_event", subjects.SubjectTypeUser)
 	require.NoError(t, err)
 

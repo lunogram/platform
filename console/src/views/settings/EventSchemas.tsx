@@ -4,6 +4,7 @@ import { Search, Zap, MoreHorizontal, Trash2, ChevronRight } from "lucide-react"
 import { ProjectContext } from "../../contexts"
 import { useResolver } from "../../hooks"
 import oapiClient from "../../oapi/client"
+import { client } from "../../api"
 import type { components } from "../../oapi/management.generated"
 
 import { Input } from "@/components/ui/input"
@@ -21,6 +22,14 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
@@ -29,7 +38,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 type EventWithSchema = components["schemas"]["EventWithSchema"]
 
 interface EventSchemaItem extends EventWithSchema {
-    subject_type: "user" | "organization"
+    subject_type: "user" | "organization" | "scheduled"
 }
 
 export default function EventSchemas() {
@@ -37,6 +46,7 @@ export default function EventSchemas() {
     const [project] = useContext(ProjectContext)
     const [searchQuery, setSearchQuery] = useState("")
     const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
+    const [deleteTarget, setDeleteTarget] = useState<EventSchemaItem | null>(null)
 
     const toggleRow = (id: string) => {
         setExpandedRows((prev) => {
@@ -70,11 +80,24 @@ export default function EventSchemas() {
         }, [project.id]),
     )
 
-    const reload = useCallback(async () => {
-        await Promise.all([reloadUser(), reloadOrg()])
-    }, [reloadUser, reloadOrg])
+    const [scheduledResult, , reloadScheduled] = useResolver(
+        useCallback(async () => {
+            try {
+                const { data } = await client.get<{ results: EventWithSchema[] }>(
+                    `/admin/projects/${project.id}/subjects/user/scheduled/schema`,
+                )
+                return data
+            } catch {
+                return { results: [] as EventWithSchema[] }
+            }
+        }, [project.id]),
+    )
 
-    const isLoading = !userResult && !orgResult
+    const reload = useCallback(async () => {
+        await Promise.all([reloadUser(), reloadOrg(), reloadScheduled()])
+    }, [reloadUser, reloadOrg, reloadScheduled])
+
+    const isLoading = !userResult && !orgResult && !scheduledResult
 
     const events = useMemo(() => {
         const userEvents: EventSchemaItem[] = (userResult?.results ?? []).map((e) => ({
@@ -85,7 +108,13 @@ export default function EventSchemas() {
             ...e,
             subject_type: "organization" as const,
         }))
-        const all = [...userEvents, ...orgEvents].sort((a, b) => a.name.localeCompare(b.name))
+        const scheduledEvents: EventSchemaItem[] = (scheduledResult?.results ?? []).map((e) => ({
+            ...e,
+            subject_type: "scheduled" as const,
+        }))
+        const all = [...userEvents, ...orgEvents, ...scheduledEvents].sort((a, b) =>
+            a.name.localeCompare(b.name),
+        )
         if (!searchQuery) return all
         const query = searchQuery.toLowerCase()
         return all.filter(
@@ -93,10 +122,17 @@ export default function EventSchemas() {
                 e.name.toLowerCase().includes(query) ||
                 e.subject_type.toLowerCase().includes(query),
         )
-    }, [userResult, orgResult, searchQuery])
+    }, [userResult, orgResult, scheduledResult, searchQuery])
 
     const handleDelete = async (e: React.MouseEvent, event: EventSchemaItem) => {
         e.stopPropagation()
+        setDeleteTarget(event)
+    }
+
+    const confirmDelete = async () => {
+        if (!deleteTarget) return
+        const event = deleteTarget
+        setDeleteTarget(null)
         if (event.subject_type === "user") {
             await oapiClient.DELETE(
                 "/api/admin/projects/{projectID}/subjects/user/events/schema/{eventID}",
@@ -106,7 +142,7 @@ export default function EventSchemas() {
                     },
                 },
             )
-        } else {
+        } else if (event.subject_type === "organization") {
             await oapiClient.DELETE(
                 "/api/admin/projects/{projectID}/subjects/organization/events/schema/{eventID}",
                 {
@@ -114,6 +150,10 @@ export default function EventSchemas() {
                         path: { projectID: project.id, eventID: event.id },
                     },
                 },
+            )
+        } else {
+            await client.delete(
+                `/admin/projects/${project.id}/subjects/user/scheduled/schema/${event.id}`,
             )
         }
         await reload()
@@ -123,13 +163,11 @@ export default function EventSchemas() {
         <div className="flex flex-col gap-6">
             {/* Header */}
             <div>
-                <h2 className="text-2xl font-semibold tracking-tight">
-                    {t("event_schemas", "Event Schemas")}
-                </h2>
+                <h2 className="text-2xl font-semibold tracking-tight">{t("schemas", "Schemas")}</h2>
                 <p className="text-sm text-muted-foreground mt-1">
                     {t(
-                        "event_schemas_description",
-                        "Event schemas are automatically discovered based on the events published into the platform.",
+                        "schemas_description",
+                        "Schemas are automatically discovered based on the events and scheduled data published into the platform.",
                     )}
                 </p>
             </div>
@@ -189,8 +227,8 @@ export default function EventSchemas() {
                                             {searchQuery
                                                 ? t("no_results")
                                                 : t(
-                                                      "no_event_schemas_yet",
-                                                      "No event schemas discovered yet. Schemas are automatically created when events are received.",
+                                                      "no_schemas_yet",
+                                                      "No schemas discovered yet. Schemas are automatically created when events or scheduled data are received.",
                                                   )}
                                         </p>
                                     </div>
@@ -342,13 +380,39 @@ export default function EventSchemas() {
                     <div className="flex items-center justify-between border-t px-4 py-3">
                         <p className="text-sm text-muted-foreground">
                             {events.length}{" "}
-                            {events.length === 1
-                                ? t("event_schema", "event schema")
-                                : t("event_schemas", "event schemas")}
+                            {events.length === 1 ? t("schema", "schema") : t("schemas", "schemas")}
                         </p>
                     </div>
                 )}
             </div>
+
+            {/* Delete Confirmation Dialog */}
+            <Dialog
+                open={deleteTarget !== null}
+                onOpenChange={(open) => {
+                    if (!open) setDeleteTarget(null)
+                }}
+            >
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>{t("delete_schema", "Delete Schema")}</DialogTitle>
+                        <DialogDescription>
+                            {t(
+                                "delete_schema_confirmation",
+                                `Delete schema "${deleteTarget?.name}"?`,
+                            )}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button variant="ghost" onClick={() => setDeleteTarget(null)}>
+                            {t("cancel")}
+                        </Button>
+                        <Button variant="destructive" onClick={confirmDelete}>
+                            {t("delete")}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     )
 }

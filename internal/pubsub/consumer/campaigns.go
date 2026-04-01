@@ -3,18 +3,20 @@ package consumer
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
-	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/providers/channels"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
 	"github.com/lunogram/platform/internal/render"
 	"github.com/lunogram/platform/internal/store/management"
 	"github.com/lunogram/platform/internal/store/subjects"
-	"github.com/lunogram/platform/pkg/modules/providers"
+	wasmProviders "github.com/lunogram/platform/internal/wasm/providers"
+	providers "github.com/lunogram/platform/pkg/modules/providers"
 	"github.com/nats-io/nats.go/jetstream"
 	"go.uber.org/zap"
 
@@ -35,11 +37,11 @@ func userToMap(user *subjects.User) map[string]any {
 	if user.Phone != nil {
 		m["phone"] = *user.Phone
 	}
-	if user.ExternalID != nil {
-		m["external_id"] = *user.ExternalID
+	if r := user.ExternalIDBySource("default"); r != nil {
+		m["external_id"] = r.ExternalID
 	}
-	if user.AnonymousID != nil {
-		m["anonymous_id"] = *user.AnonymousID
+	if r := user.ExternalIDBySource("anonymous"); r != nil {
+		m["anonymous_id"] = r.ExternalID
 	}
 	if user.Timezone != nil {
 		m["timezone"] = *user.Timezone
@@ -109,28 +111,44 @@ func buildRenderData(publicURL string, user *subjects.User, campaign *management
 
 	data["now"] = time.Now()
 
-	base := strings.TrimRight(publicURL, "/")
-	data["preferences_url"] = fmt.Sprintf("%s/preferences/%s/%s", base, campaign.ProjectID, user.ID)
+	data["preferences_url"] = fmt.Sprintf("%s/preferences/%s/%s", publicURL, campaign.ProjectID, user.ID)
 
 	if campaign.SubscriptionID != nil {
 		unsubLink := url.Values{}
 		unsubLink.Set("u", user.ID.String())
 		unsubLink.Set("c", campaign.ID.String())
-		data["unsubscribe_url"] = fmt.Sprintf("%s/unsubscribe/email?link=%s", base, url.QueryEscape("?"+unsubLink.Encode()))
+		data["unsubscribe_url"] = fmt.Sprintf("%s/unsubscribe/email?link=%s", publicURL, url.QueryEscape("?"+unsubLink.Encode()))
 	}
 
 	return data
 }
 
-func CampaignsSendHandler(logger *zap.Logger, mgmt *management.State, usrs *subjects.State, registry *internalProviders.Registry, renderer *pubsub.EmailRenderer, publicURL string) HandlerFunc {
-	return func(ctx context.Context, msg jetstream.Msg) error {
+func CampaignsSendHandler(logger *zap.Logger, mgmt *management.State, usrs *subjects.State, registry *internalProviders.Registry, renderer *pubsub.EmailRenderer, pub pubsub.Publisher, limiter *Limiter, publicURL string, linkKey []byte, trackingURL string) HandlerFunc {
+	return func(ctx context.Context, msg jetstream.Msg) (err error) {
 		var event schemas.SendCampaign
-		if err := json.Unmarshal(msg.Data(), &event); err != nil {
+		err = json.Unmarshal(msg.Data(), &event)
+		if err != nil {
 			logger.Error("failed to unmarshal send campaign message", zap.Error(err))
-			return err
+			return Permanent(err)
 		}
 
 		logger := logger.With(zap.String("project_id", event.ProjectID.String()), zap.String("campaign_id", event.CampaignID.String()), zap.String("user_id", event.UserID.String()))
+
+		err = limiter.Throttle(ctx, logger, event.RateLimit, msg)
+		limiter, is := IsRateLimited(err)
+		if is {
+			subject := schemas.CampaignsSend(event.ProjectID, event.CampaignID)
+			at := pubsub.At(time.Now().Add(limiter.RetryAfter))
+			if err := pub.Publish(ctx, subject, event, at); err != nil {
+				return fmt.Errorf("schedule rate-limited message: %w", err)
+			}
+			return err
+		}
+
+		if err != nil {
+			return err
+		}
+
 		logger.Info("processing send campaign message")
 
 		campaign, err := mgmt.GetCampaign(ctx, event.ProjectID, event.CampaignID)
@@ -154,13 +172,13 @@ func CampaignsSendHandler(logger *zap.Logger, mgmt *management.State, usrs *subj
 		provider, exists := registry.Get(campaign.Provider.Module)
 		if !exists {
 			logger.Error("provider module not found", zap.String("module", campaign.Provider.Module))
-			return fmt.Errorf("module %s not found", campaign.Provider.Module)
+			return Permanentf("module %s not found", campaign.Provider.Module)
 		}
 
 		var config map[string]any
 		if err := json.Unmarshal(campaign.Provider.Data, &config); err != nil {
 			logger.Error("failed to unmarshal provider config", zap.Error(err))
-			return err
+			return Permanent(err)
 		}
 
 		data := buildRenderData(publicURL, user, campaign, event.Data)
@@ -180,13 +198,13 @@ func CampaignsSendHandler(logger *zap.Logger, mgmt *management.State, usrs *subj
 			template.Data, err = render.RenderJSON(template.Data, data)
 			if err != nil {
 				logger.Error("failed to render template metadata", zap.Error(err))
-				return err
+				return Permanent(err)
 			}
 		default:
 			template.Data, err = render.RenderJSON(template.Data, data)
 			if err != nil {
 				logger.Error("failed to render template data", zap.Error(err))
-				return err
+				return Permanent(err)
 			}
 		}
 
@@ -207,29 +225,114 @@ func CampaignsSendHandler(logger *zap.Logger, mgmt *management.State, usrs *subj
 			return err
 		}
 
-		var opts *channels.ComposeOptions
+		opts := &channels.ComposeOptions{}
+
+		if len(linkKey) > 0 && trackingURL != "" && campaign.Provider != nil && campaign.Provider.LinkWrap {
+			opts.LinkWrap = &channels.LinkWrapConfig{
+				Key:         linkKey,
+				TrackingURL: trackingURL,
+				ProjectID:   event.ProjectID,
+				CampaignID:  event.CampaignID,
+				UserID:      event.UserID,
+			}
+		}
+
 		if providers.Channel(campaign.Channel) == providers.ChannelPush {
 			userDevices, err := usrs.ListDevicesByUser(ctx, event.ProjectID, event.UserID)
 			if err != nil {
 				logger.Error("failed to get user devices", zap.Error(err))
 				return err
 			}
-			opts = &channels.ComposeOptions{Devices: userDevices}
+			opts.Devices = userDevices
 		}
 
-		request, err := channels.Compose(ctx, providers.Channel(campaign.Channel), templateSender, providerDefaultSender, config, template, user, opts)
+		request, err := channels.Compose(ctx, logger, providers.Channel(campaign.Channel), templateSender, providerDefaultSender, config, template, user, opts)
 		if err != nil {
 			logger.Error("failed to compose request", zap.Error(err))
-			return err
+			// Compose errors are configuration/validation issues (e.g. "user has no email address",
+			// "no from address specified") that will not resolve on retry.
+			return Permanent(err)
 		}
 
 		response, err := provider.Send(ctx, request)
 		if err != nil {
 			logger.Error("failed to send via provider", zap.Error(err))
+			// Check if the WASM provider signaled a permanent failure.
+			var providerErr *wasmProviders.ProviderError
+			if errors.As(err, &providerErr) && providerErr.IsPermanent() {
+				return Permanent(err)
+			}
 			return err
 		}
 
+		// Persist the send record so we can track delivery and attribute the
+		// send back to a broadcast (when present).
+		now := time.Now()
+		state := subjects.CampaignSendStateSent
+		referenceType := campaign.Provider.Module
+		referenceID := response.ID
+
+		sendRecord := subjects.CampaignSend{
+			CampaignID:    event.CampaignID,
+			UserID:        event.UserID,
+			BroadcastID:   event.BroadcastID,
+			State:         &state,
+			SentAt:        &now,
+			ReferenceType: &referenceType,
+			ReferenceID:   referenceID,
+		}
+
+		err = usrs.CampaignSendsStore.InsertCampaignSend(ctx, sendRecord)
+		if err != nil {
+			logger.Error("failed to insert campaign send record", zap.Error(err))
+			return fmt.Errorf("failed to insert campaign send record: %w", err)
+		}
+
 		logger.Info("campaign sent successfully", zap.String("status", response.Status), zap.String("id", response.ID))
+
+		// If this send belongs to a broadcast, check whether all messages
+		// have now been delivered. The batch handler keeps the broadcast in
+		// "sending" state after publishing all SendCampaign messages; we
+		// transition to "completed" here once the last one is actually sent.
+		if event.BroadcastID != nil {
+			if err := checkBroadcastCompletion(ctx, logger, mgmt, usrs, event.ProjectID, *event.BroadcastID); err != nil {
+				logger.Error("broadcast completion check failed", zap.Error(err))
+			}
+		}
+
 		return nil
 	}
+}
+
+// checkBroadcastCompletion determines whether all sends for a broadcast have
+// been delivered and, if so, transitions the broadcast to the completed state.
+func checkBroadcastCompletion(ctx context.Context, logger *zap.Logger, mgmt *management.State, usrs *subjects.State, projectID, broadcastID uuid.UUID) error {
+	broadcast, err := mgmt.GetBroadcast(ctx, projectID, broadcastID)
+	if err != nil {
+		return fmt.Errorf("get broadcast: %w", err)
+	}
+
+	if broadcast.State != management.BroadcastStateSending || broadcast.Total <= 0 {
+		return nil
+	}
+
+	sent, err := usrs.CampaignSendsStore.CountSendsByBroadcastID(ctx, broadcastID)
+	if err != nil {
+		return fmt.Errorf("count sends: %w", err)
+	}
+
+	if sent < broadcast.Total {
+		return nil
+	}
+
+	transitioned, err := mgmt.BroadcastsStore.TransitionBroadcastState(ctx, projectID, broadcastID, management.BroadcastStateSending, management.BroadcastStateCompleted, broadcast.Total, nil)
+	if err != nil {
+		return fmt.Errorf("transition broadcast state: %w", err)
+	}
+
+	if transitioned {
+		logger.Info("broadcast completed", zap.String("broadcast_id", broadcastID.String()), zap.Int("sent", sent), zap.Int("total", broadcast.Total))
+	}
+
+	return nil
 }

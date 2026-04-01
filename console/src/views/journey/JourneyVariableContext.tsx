@@ -102,8 +102,17 @@ export function JourneyVariableProvider({
                         ? suggestions?.eventPaths?.find((evt) => evt.name === ancestor.event_name)
                         : undefined
 
+                    // Match scheduled schema (if the entrance trigger is "scheduled")
+                    const matchingScheduled = ancestor.scheduled_name
+                        ? suggestions?.scheduledPaths?.find(
+                              (s) => s.name === ancestor.scheduled_name,
+                          )
+                        : undefined
+
+                    const schemaSource = matchingEvent ?? matchingScheduled
+
                     const fieldVars: Variable[] =
-                        matchingEvent?.schema?.map((field) => {
+                        schemaSource?.schema?.map((field) => {
                             // API returns paths with a leading dot (e.g. ".data.amount"),
                             // strip it to avoid double-dot in the resulting path.
                             const cleanPath = field.path.replace(/^\./, "")

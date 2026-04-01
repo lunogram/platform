@@ -1,5 +1,5 @@
 import type { RouteObject } from "react-router"
-import { createBrowserRouter, Outlet, redirect, useNavigate, useParams } from "react-router"
+import { createBrowserRouter, Outlet, redirect } from "react-router"
 import api from "../api"
 import oapiClient from "../oapi/client"
 
@@ -26,6 +26,7 @@ import UserDetail from "./users/UserDetail"
 import { createStatefulRoute } from "./createStatefulRoute"
 import UserDetailAttrs from "./users/UserDetailAttrs"
 import UserDetailEvents from "./users/UserDetailEvents"
+import UserDetailScheduled from "./users/UserDetailScheduled"
 import UserDetailSubscriptions from "./users/UserDetailSubscriptions"
 import Campaigns from "./campaign/Campaigns"
 import Campaign from "./campaign/Campaign"
@@ -35,6 +36,7 @@ import Template from "./campaign/template/Template"
 import TemplateContent from "./campaign/template/Content"
 import TemplateReview from "./campaign/template/Review"
 import EmailEditor from "./campaign/template/mail/editor/Editor"
+// EmailBuilder is now embedded within the Editor view (not a separate route)
 import Journeys from "./journey/Journeys"
 import JourneyEditor from "./journey/editor/JourneyEditor"
 import Actions from "./action/Actions"
@@ -58,7 +60,9 @@ import {
     SettingsIcon,
     UsersIcon,
 } from "@/components/icons"
-import { Zap } from "lucide-react"
+import { Radio, Zap } from "lucide-react"
+import Broadcasts from "./broadcast/Broadcasts"
+import { BroadcastDetailRoute } from "./broadcast/BroadcastDetail"
 import { Projects } from "./project/Projects"
 import { completedGettingStarted } from "../utils"
 import Settings from "./settings/Settings"
@@ -68,7 +72,10 @@ import ProjectOnboarding from "./project/ProjectOnboarding"
 import ProjectOnboardingGettingStarted from "./project/ProjectOnboardingGettingStarted"
 import ProjectOnboardingUsers from "./project/ProjectOnboardingUsers"
 import ProjectOnboardingIntegration from "./project/ProjectOnboardingIntegration"
+import ProjectOnboardingDomain from "./project/ProjectOnboardingDomain"
 import Locales from "./settings/Locales"
+import Domains from "./settings/Domains"
+import { isEnterprise } from "@/config/enterprise"
 import JourneyUserEntrances from "./journey/JourneyUserEntrances"
 import UserDetailJourneys from "./users/UserDetailJourneys"
 import UserDetailOrganizations from "./users/UserDetailOrganizations"
@@ -78,25 +85,11 @@ import OrganizationDetail from "./organizations/OrganizationDetail"
 import OrganizationDetailAttrs from "./organizations/OrganizationDetailAttrs"
 import OrganizationDetailEvents from "./organizations/OrganizationDetailEvents"
 import OrganizationDetailMembers from "./organizations/OrganizationDetailMembers"
+import OrganizationDetailScheduled from "./organizations/OrganizationDetailScheduled"
 import { Translation } from "react-i18next"
 import type { UUID } from "@/types/common"
 import type { Project } from "../types"
 import type { SidebarLink } from "@/types/sidebar"
-
-export const useRoute = (includeProject = true) => {
-    const { projectId = "" } = useParams()
-    const navigate = useNavigate()
-    const parts: string[] = []
-    if (includeProject) {
-        parts.push("projects", projectId)
-    }
-    return (path: string) => {
-        const newParts = [...parts, path]
-        navigate("/" + newParts.join("/"))?.catch((e) => {
-            console.error("Failed to navigate to:", e)
-        })
-    }
-}
 
 export interface RouterProps {
     routes?: (routes: RouteObject[]) => RouteObject[]
@@ -177,6 +170,28 @@ export const createRouter = ({
                                         },
                                         element: <ProjectOnboardingIntegration />,
                                     },
+                                    ...(isEnterprise
+                                        ? [
+                                              {
+                                                  path: "domain",
+                                                  loader: async ({
+                                                      params: { projectId = "" },
+                                                  }: {
+                                                      params: { projectId?: string }
+                                                  }) => {
+                                                      const { hasCourierProvider } =
+                                                          await import("@/utils")
+                                                      const hasProvider =
+                                                          await hasCourierProvider(projectId)
+                                                      if (!hasProvider) {
+                                                          return redirect("../users")
+                                                      }
+                                                      return null
+                                                  },
+                                                  element: <ProjectOnboardingDomain />,
+                                              },
+                                          ]
+                                        : []),
                                     {
                                         path: "users",
                                         element: <ProjectOnboardingUsers />,
@@ -226,6 +241,23 @@ export const createRouter = ({
                                                 icon: <CampaignsIcon />,
                                                 minRole: "editor",
                                             },
+                                            ...(isEnterprise
+                                                ? [
+                                                      {
+                                                          key: "broadcasts",
+                                                          to: "broadcasts",
+                                                          children: (
+                                                              <Translation>
+                                                                  {(t) =>
+                                                                      t("broadcasts", "Broadcasts")
+                                                                  }
+                                                              </Translation>
+                                                          ),
+                                                          icon: <Radio className="h-4 w-4" />,
+                                                          minRole: "editor" as const,
+                                                      },
+                                                  ]
+                                                : []),
                                             {
                                                 key: "journeys",
                                                 to: "journeys",
@@ -410,6 +442,18 @@ export const createRouter = ({
                                             }),
                                         ],
                                     },
+                                    ...(isEnterprise
+                                        ? [
+                                              {
+                                                  path: "broadcasts",
+                                                  element: <Broadcasts />,
+                                              },
+                                              {
+                                                  path: "broadcasts/:broadcastId",
+                                                  element: <BroadcastDetailRoute />,
+                                              },
+                                          ]
+                                        : []),
                                     createStatefulRoute({
                                         path: "journeys",
                                         apiPath: api.journeys,
@@ -471,6 +515,10 @@ export const createRouter = ({
                                             {
                                                 path: "events",
                                                 element: <UserDetailEvents />,
+                                            },
+                                            {
+                                                path: "scheduled",
+                                                element: <UserDetailScheduled />,
                                             },
                                             {
                                                 path: "subscriptions",
@@ -539,6 +587,10 @@ export const createRouter = ({
                                                 path: "members",
                                                 element: <OrganizationDetailMembers />,
                                             },
+                                            {
+                                                path: "scheduled",
+                                                element: <OrganizationDetailScheduled />,
+                                            },
                                         ],
                                     },
                                     {
@@ -560,7 +612,7 @@ export const createRouter = ({
                                         element: <NewIntegration />,
                                     },
                                     {
-                                        path: "integrations/new/:channel/:module",
+                                        path: "integrations/new/:module",
                                         element: <IntegrationSetup />,
                                     },
                                     {
@@ -591,6 +643,14 @@ export const createRouter = ({
                                                 path: "event-schemas",
                                                 element: <EventSchemas />,
                                             },
+                                            ...(isEnterprise
+                                                ? [
+                                                      {
+                                                          path: "domains",
+                                                          element: <Domains />,
+                                                      },
+                                                  ]
+                                                : []),
                                         ],
                                     },
                                 ],

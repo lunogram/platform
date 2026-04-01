@@ -16,9 +16,7 @@ type Project struct {
 	Description       *string    `db:"description"`
 	Timezone          string     `db:"timezone"`
 	TextOptOutMessage *string    `db:"text_opt_out_message"`
-	LinkWrapEmail     bool       `db:"link_wrap_email"`
 	TextHelpMessage   *string    `db:"text_help_message"`
-	LinkWrapPush      bool       `db:"link_wrap_push"`
 	Locale            string     `db:"locale"`
 	IntegrationsCount int        `db:"integrations_count"`
 	CampaignsCount    int        `db:"campaigns_count"`
@@ -35,8 +33,6 @@ func (p *Project) OAPI() oapi.Project {
 		Name:              p.Name,
 		Timezone:          p.Timezone,
 		Locale:            p.Locale,
-		LinkWrapEmail:     &p.LinkWrapEmail,
-		LinkWrapPush:      &p.LinkWrapPush,
 		IntegrationsCount: &p.IntegrationsCount,
 		CampaignsCount:    &p.CampaignsCount,
 		JourneysCount:     &p.JourneysCount,
@@ -76,12 +72,12 @@ type ProjectsStore struct {
 
 func (s *ProjectsStore) CreateProject(ctx context.Context, project Project) (uuid.UUID, error) {
 	stmt := `
-	INSERT INTO projects (organization_id, name, description, timezone, text_opt_out_message, link_wrap_email, text_help_message, link_wrap_push, locale)
-	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+	INSERT INTO projects (organization_id, name, description, timezone, text_opt_out_message, text_help_message, locale)
+	VALUES ($1, $2, $3, $4, $5, $6, $7)
 	RETURNING id`
 
 	var id uuid.UUID
-	err := s.db.GetContext(ctx, &id, stmt, project.OrganizationID, project.Name, project.Description, project.Timezone, project.TextOptOutMessage, project.LinkWrapEmail, project.TextHelpMessage, project.LinkWrapPush, project.Locale)
+	err := s.db.GetContext(ctx, &id, stmt, project.OrganizationID, project.Name, project.Description, project.Timezone, project.TextOptOutMessage, project.TextHelpMessage, project.Locale)
 	if err != nil {
 		return uuid.Nil, err
 	}
@@ -91,7 +87,7 @@ func (s *ProjectsStore) CreateProject(ctx context.Context, project Project) (uui
 
 func (s *ProjectsStore) GetProject(ctx context.Context, id uuid.UUID) (*Project, error) {
 	query := `
-	SELECT id, organization_id, name, description, timezone, text_opt_out_message, link_wrap_email, text_help_message, link_wrap_push, locale, created_at, updated_at,
+	SELECT id, organization_id, name, description, timezone, text_opt_out_message, text_help_message, locale, created_at, updated_at,
 		COALESCE(pr.integrations_count, 0) AS integrations_count,
 		COALESCE(ca.campaigns_count, 0)    AS campaigns_count
 	FROM projects
@@ -123,7 +119,7 @@ func (s *ProjectsStore) ListProjects(ctx context.Context, organizationID uuid.UU
 	// TODO: include counts as in GetProject
 	query := `
 	SELECT DISTINCT p.id, p.organization_id, p.name, p.description, p.timezone, p.text_opt_out_message,
-	       p.link_wrap_email, p.text_help_message, p.link_wrap_push, p.locale,
+	       p.text_help_message, p.locale,
 	       p.created_at, p.updated_at,
 	       COUNT(*) OVER() AS total_count
 	FROM projects p
@@ -163,8 +159,6 @@ type ProjectUpdate struct {
 	Locale            *string
 	TextOptOutMessage *string
 	TextHelpMessage   *string
-	LinkWrapEmail     *bool
-	LinkWrapPush      *bool
 }
 
 func (s *ProjectsStore) UpdateProject(ctx context.Context, projectID uuid.UUID, update ProjectUpdate) error {
@@ -175,13 +169,11 @@ func (s *ProjectsStore) UpdateProject(ctx context.Context, projectID uuid.UUID, 
 	    timezone = COALESCE($4, timezone),
 	    locale = COALESCE($5, locale),
 	    text_opt_out_message = COALESCE($6, text_opt_out_message),
-	    text_help_message = COALESCE($7, text_help_message),
-	    link_wrap_email = COALESCE($8, link_wrap_email),
-	    link_wrap_push = COALESCE($9, link_wrap_push)
+	    text_help_message = COALESCE($7, text_help_message)
 	WHERE id = $1
 	  AND deleted_at IS NULL`
 
-	_, err := s.db.ExecContext(ctx, query, projectID, update.Name, update.Description, update.Timezone, update.Locale, update.TextOptOutMessage, update.TextHelpMessage, update.LinkWrapEmail, update.LinkWrapPush)
+	_, err := s.db.ExecContext(ctx, query, projectID, update.Name, update.Description, update.Timezone, update.Locale, update.TextOptOutMessage, update.TextHelpMessage)
 	return err
 }
 

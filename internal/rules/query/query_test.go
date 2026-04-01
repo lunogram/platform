@@ -2106,3 +2106,167 @@ func TestQueryBuilderOrWithMixedJoinAndUserRules(t *testing.T) {
 		})
 	}
 }
+
+func TestQueryBuilderOrganizationWrapperEdgeCases(t *testing.T) {
+	type test struct {
+		name     string
+		ruleSet  rules.RuleSet
+		wantSQL  string
+		wantArgs []any
+		wantErr  bool
+	}
+
+	tests := map[string]test{
+		"organization wrapper with no property filters returns org members only": {
+			name: "organization wrapper with no property filters returns org members only",
+			ruleSet: rules.RuleSet{
+				Rule: rules.Rule{
+					Type:     rules.RuleTypeWrapper,
+					Group:    rules.RuleGroupOrganization,
+					Operator: rules.OperatorAnd,
+				},
+			},
+			wantSQL:  "SELECT u.id FROM users u JOIN (SELECT DISTINCT ou.user_id FROM organization_users ou JOIN organizations o ON o.id = ou.organization_id WHERE o.project_id = $1 AND TRUE) e1 ON e1.user_id = u.id WHERE u.project_id = $2",
+			wantArgs: []any{testProjectID, testProjectID},
+			wantErr:  false,
+		},
+		"organization wrapper with user_match all and no property filters": {
+			name: "organization wrapper with user_match all and no property filters",
+			ruleSet: rules.RuleSet{
+				Rule: rules.Rule{
+					Type:     rules.RuleTypeWrapper,
+					Group:    rules.RuleGroupOrganization,
+					Operator: rules.OperatorAnd,
+					UserMatch: &rules.UserMatch{
+						Type: rules.UserMatchAll,
+					},
+				},
+			},
+			wantSQL:  "SELECT u.id FROM users u JOIN (SELECT DISTINCT ou.user_id FROM organization_users ou JOIN organizations o ON o.id = ou.organization_id WHERE o.project_id = $1 AND TRUE) e1 ON e1.user_id = u.id WHERE u.project_id = $2",
+			wantArgs: []any{testProjectID, testProjectID},
+			wantErr:  false,
+		},
+		"organization wrapper with member conditions and no property filters": {
+			name: "organization wrapper with member conditions and no property filters",
+			ruleSet: rules.RuleSet{
+				Rule: rules.Rule{
+					Type:     rules.RuleTypeWrapper,
+					Group:    rules.RuleGroupOrganization,
+					Operator: rules.OperatorAnd,
+					UserMatch: &rules.UserMatch{
+						Type: rules.UserMatchConditions,
+						MemberConditions: &rules.Rule{
+							Type:     rules.RuleTypeWrapper,
+							Group:    rules.RuleGroupParent,
+							Operator: rules.OperatorAnd,
+							Children: []rules.Rule{
+								{
+									Type:     rules.RuleTypeBoolean,
+									Group:    rules.RuleGroupUser,
+									Path:     ".is_primary_contact",
+									Operator: rules.OperatorEquals,
+									Value:    false,
+								},
+							},
+						},
+					},
+				},
+			},
+			wantSQL:  "SELECT u.id FROM users u JOIN (SELECT DISTINCT ou.user_id FROM organization_users ou JOIN organizations o ON o.id = ou.organization_id WHERE o.project_id = $2 AND TRUE AND (ou.data->>'is_primary_contact')::boolean = $1) e1 ON e1.user_id = u.id WHERE u.project_id = $3",
+			wantArgs: []any{false, testProjectID, testProjectID},
+			wantErr:  false,
+		},
+		"organization wrapper with property filter and member conditions": {
+			name: "organization wrapper with property filter and member conditions",
+			ruleSet: rules.RuleSet{
+				Rule: rules.Rule{
+					Type:     rules.RuleTypeWrapper,
+					Group:    rules.RuleGroupOrganization,
+					Operator: rules.OperatorAnd,
+					Children: []rules.Rule{
+						{
+							Type:     rules.RuleTypeString,
+							Group:    rules.RuleGroupOrganization,
+							Path:     ".data.tier",
+							Operator: rules.OperatorEquals,
+							Value:    "gold",
+						},
+					},
+					UserMatch: &rules.UserMatch{
+						Type: rules.UserMatchConditions,
+						MemberConditions: &rules.Rule{
+							Type:     rules.RuleTypeWrapper,
+							Group:    rules.RuleGroupParent,
+							Operator: rules.OperatorAnd,
+							Children: []rules.Rule{
+								{
+									Type:     rules.RuleTypeBoolean,
+									Group:    rules.RuleGroupUser,
+									Path:     ".is_primary_contact",
+									Operator: rules.OperatorEquals,
+									Value:    true,
+								},
+							},
+						},
+					},
+				},
+			},
+			wantSQL:  "SELECT u.id FROM users u JOIN (SELECT DISTINCT ou.user_id FROM organization_users ou JOIN organizations o ON o.id = ou.organization_id WHERE o.project_id = $3 AND (o.data->>'tier')::text = $1 AND (ou.data->>'is_primary_contact')::boolean = $2) e1 ON e1.user_id = u.id WHERE u.project_id = $4",
+			wantArgs: []any{"gold", true, testProjectID, testProjectID},
+			wantErr:  false,
+		},
+		"parent wrapper containing organization wrapper child with member conditions": {
+			name: "parent wrapper containing organization wrapper child with member conditions",
+			ruleSet: rules.RuleSet{
+				Rule: rules.Rule{
+					Type:     rules.RuleTypeWrapper,
+					Group:    rules.RuleGroupParent,
+					Operator: rules.OperatorAnd,
+					Children: []rules.Rule{
+						{
+							Type:     rules.RuleTypeWrapper,
+							Group:    rules.RuleGroupOrganization,
+							Operator: rules.OperatorAnd,
+							UserMatch: &rules.UserMatch{
+								Type: rules.UserMatchConditions,
+								MemberConditions: &rules.Rule{
+									Type:     rules.RuleTypeWrapper,
+									Group:    rules.RuleGroupParent,
+									Operator: rules.OperatorAnd,
+									Children: []rules.Rule{
+										{
+											Type:     rules.RuleTypeBoolean,
+											Group:    rules.RuleGroupUser,
+											Path:     ".is_primary_contact",
+											Operator: rules.OperatorEquals,
+											Value:    false,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantSQL:  "SELECT u.id FROM users u JOIN (SELECT DISTINCT ou.user_id FROM organization_users ou JOIN organizations o ON o.id = ou.organization_id WHERE o.project_id = $2 AND TRUE AND (ou.data->>'is_primary_contact')::boolean = $1) e1 ON e1.user_id = u.id WHERE u.project_id = $3",
+			wantArgs: []any{false, testProjectID, testProjectID},
+			wantErr:  false,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			qb := NewQueryBuilder(testProjectID, nil)
+			result, err := qb.Query(tc.ruleSet)
+
+			if tc.wantErr {
+				require.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tc.wantSQL, result.SQL)
+			assert.Equal(t, tc.wantArgs, result.Args)
+		})
+	}
+}

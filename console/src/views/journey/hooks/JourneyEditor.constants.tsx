@@ -9,7 +9,7 @@ import {
 } from "@/components/icons"
 
 export const DATA_FORMAT = "application/lunogram-journey-step"
-export const STEP_STYLE = "smoothstep"
+export const STEP_STYLE = "step"
 
 export const statIcons: Record<string, ReactNode> = {
     campaign: <ActionStepIcon />,

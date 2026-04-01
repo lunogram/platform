@@ -55,7 +55,7 @@ func TestSubscriptionCreation(t *testing.T) {
 		"sms-subscription": {
 			body: oapi.CreateSubscriptionJSONRequestBody{
 				Name:     "Order Updates",
-				Channel:  oapi.Channel("text"),
+				Channel:  oapi.Channel("sms"),
 				IsPublic: &isPublicTrue,
 			},
 			code: 201,

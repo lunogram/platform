@@ -2,7 +2,9 @@ package v1
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -18,13 +20,14 @@ import (
 	internalProviders "github.com/lunogram/platform/internal/providers"
 )
 
-func NewProvidersController(logger *zap.Logger, db *sqlx.DB, registry *internalProviders.Registry, engine *rbac.Engine) *ProvidersController {
+func NewProvidersController(logger *zap.Logger, db *sqlx.DB, registry *internalProviders.Registry, engine *rbac.Engine, baseURL string) *ProvidersController {
 	return &ProvidersController{
 		logger:   logger,
 		db:       db,
 		store:    management.NewState(db),
 		registry: registry,
 		engine:   engine,
+		baseURL:  baseURL,
 	}
 }
 
@@ -34,6 +37,7 @@ type ProvidersController struct {
 	store    *management.State
 	registry *internalProviders.Registry
 	engine   *rbac.Engine
+	baseURL  string
 }
 
 func (srv *ProvidersController) ListProviders(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, params oapi.ListProvidersParams) {
@@ -90,45 +94,61 @@ func (srv *ProvidersController) ListProviderMeta(w http.ResponseWriter, r *http.
 			continue
 		}
 
-		for _, channel := range manifest.Spec.Channels {
-			schema, err := json.Marshal(manifest.Spec.Config)
-			if err != nil {
-				logger.Error("failed to marshal provider schema", zap.String("module", manifest.Metadata.ID), zap.String("channel", string(channel)), zap.Error(err))
-				oapi.WriteProblem(w, err)
-				return
-			}
-
-			pm := oapi.ProviderMeta{
-				Type:        manifest.Metadata.ID,
-				Name:        manifest.Metadata.Title,
-				Description: &manifest.Metadata.Description,
-				Url:         &manifest.Website,
-				Group:       string(channel),
-				Schema:      json.RawMessage(schema),
-			}
-
-			if manifest.Metadata.Icon != "" {
-				pm.Icon = &manifest.Metadata.Icon
-			}
-
-			if manifest.Metadata.Color != "" {
-				pm.Color = &manifest.Metadata.Color
-			}
-
-			if manifest.Spec.Locked {
-				locked := true
-				pm.Locked = &locked
-			}
-
-			meta = append(meta, pm)
+		schema, err := json.Marshal(manifest.Spec.Config)
+		if err != nil {
+			logger.Error("failed to marshal provider schema", zap.String("module", manifest.Metadata.ID), zap.Error(err))
+			oapi.WriteProblem(w, err)
+			return
 		}
+
+		channels := make([]oapi.Channel, len(manifest.Spec.Channels))
+		for i, ch := range manifest.Spec.Channels {
+			channels[i] = oapi.Channel(ch)
+		}
+
+		pm := oapi.ProviderMeta{
+			Type:        manifest.Metadata.ID,
+			Name:        manifest.Metadata.Title,
+			Description: &manifest.Metadata.Description,
+			Url:         &manifest.Website,
+			Channels:    channels,
+			Schema:      json.RawMessage(schema),
+		}
+
+		if manifest.Metadata.Icon != "" {
+			pm.Icon = &manifest.Metadata.Icon
+		}
+
+		if manifest.Metadata.Color != "" {
+			pm.Color = &manifest.Metadata.Color
+		}
+
+		if manifest.Spec.Locked {
+			locked := true
+			pm.Locked = &locked
+		}
+
+		if rl := manifest.Spec.RateLimit; rl != nil {
+			pm.RateLimit = &oapi.ProviderRateLimit{
+				Limit:    rl.Limit,
+				Interval: rl.Interval,
+				Override: rl.Override,
+			}
+			if pm.RateLimit.Interval == "" {
+				pm.RateLimit.Interval = "1s"
+			}
+			maxRL := providers.ProjectMaxRateLimit.Requests
+			pm.MaxRateLimit = &maxRL
+		}
+
+		meta = append(meta, pm)
 	}
 
 	logger.Info("listed provider meta", zap.Int("count", len(meta)))
 	json.Write(w, http.StatusOK, meta)
 }
 
-func (srv *ProvidersController) CreateProvider(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, group string, providerType string) {
+func (srv *ProvidersController) CreateProvider(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, providerType string) {
 	ctx := r.Context()
 	err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("providers", projectID))
 	if err != nil {
@@ -145,24 +165,45 @@ func (srv *ProvidersController) CreateProvider(w http.ResponseWriter, r *http.Re
 
 	logger := srv.logger.With(
 		zap.Stringer("project_id", projectID),
-		zap.String("group", group),
 		zap.String("type", providerType),
 		zap.String("name", body.Name),
 	)
 	logger.Info("creating provider")
 
-	channel := providers.Channel(group)
-	if !srv.registry.SupportsChannel(providerType, channel) {
-		logger.Warn("module does not support channel", zap.String("module", providerType), zap.String("channel", string(channel)))
-		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("module does not support the specified channel")))
-		return
-	}
-
-	_, exists := srv.registry.Get(providerType)
+	module, exists := srv.registry.Get(providerType)
 	if !exists {
 		logger.Warn("module not found", zap.String("module", providerType))
 		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("provider module not found")))
 		return
+	}
+
+	// Derive channels from the module manifest.
+	manifest := module.Manifest()
+
+	// Reject rate limit overrides when the manifest does not allow them.
+	if body.RateLimit != nil && body.RateLimit.Limit > 0 {
+		rl := manifest.Spec.RateLimit
+		if rl == nil || !rl.Override {
+			logger.Warn("rate limit override not allowed for this provider module", zap.String("module", providerType))
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("this provider does not allow rate limit overrides")))
+			return
+		}
+	}
+
+	if body.RateLimit != nil {
+		if body.RateLimit.Limit < 0 {
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("rate_limit.limit must not be negative")))
+			return
+		}
+		if _, err := time.ParseDuration(body.RateLimit.Interval); err != nil {
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("rate_limit.interval must be a valid Go duration (e.g. \"1s\", \"1m\")")))
+			return
+		}
+	}
+
+	channels := make(management.Channels, len(manifest.Spec.Channels))
+	for i, ch := range manifest.Spec.Channels {
+		channels[i] = string(ch)
 	}
 
 	var data json.RawMessage
@@ -170,16 +211,41 @@ func (srv *ProvidersController) CreateProvider(w http.ResponseWriter, r *http.Re
 		data = *body.Data
 	}
 
-	provider := management.Provider{
-		ProjectID: projectID,
-		Module:    providerType,
-		Channel:   string(channel),
-		Name:      body.Name,
-		Data:      data,
+	// Validate the provider configuration before persisting.
+	// If the module does not export a validate() function, this is a no-op.
+	valid, err := module.Validate(ctx, providers.ValidateRequest{
+		Config: json.RawMessage(data),
+	})
+	if err != nil {
+		logger.Error("provider validation failed", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("provider configuration validation failed")))
+		return
 	}
 
-	if body.IsDefault != nil {
-		provider.IsDefault = *body.IsDefault
+	if !valid.Valid {
+		logger.Warn("provider configuration invalid", zap.Any("errors", valid.Errors))
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe(fmt.Sprintf("invalid provider configuration: %s", valid.Message))))
+		return
+	}
+
+	provider := management.Provider{
+		ProjectID:    projectID,
+		Module:       providerType,
+		Channels:     channels,
+		Name:         body.Name,
+		Data:         data,
+		LinkWrap:     true,
+		RateLimit:    0,
+		RateInterval: "1s",
+	}
+
+	if body.LinkWrap != nil {
+		provider.LinkWrap = *body.LinkWrap
+	}
+
+	if body.RateLimit != nil {
+		provider.RateLimit = body.RateLimit.Limit
+		provider.RateInterval = body.RateLimit.Interval
 	}
 
 	providerID, err := srv.store.ProvidersStore.CreateProvider(ctx, provider)
@@ -187,6 +253,33 @@ func (srv *ProvidersController) CreateProvider(w http.ResponseWriter, r *http.Re
 		logger.Error("failed to create provider", zap.Error(err))
 		oapi.WriteProblem(w, err)
 		return
+	}
+
+	init, err := module.Init(ctx, providers.InitRequest{
+		Config:     json.RawMessage(data),
+		WebhookURL: providers.WebhookURL(srv.baseURL, projectID, providerID),
+		ProviderID: providerID.String(),
+		ProjectID:  projectID.String(),
+	})
+	if err != nil {
+		logger.Error("provider init failed", zap.Stringer("provider_id", providerID), zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("provider initialization failed")))
+		return
+	}
+
+	if len(init.ConfigPatch) > 0 {
+		data, err := mergeJSON(data, init.ConfigPatch)
+		if err != nil {
+			logger.Error("failed to merge init config patch", zap.Error(err))
+			oapi.WriteProblem(w, err)
+			return
+		}
+
+		patch := json.RawMessage(data)
+		err = srv.store.ProvidersStore.UpdateProvider(ctx, projectID, providerID, management.ProviderUpdate{Data: &patch})
+		if err != nil {
+			logger.Error("failed to persist init config patch", zap.Error(err))
+		}
 	}
 
 	created, err := srv.store.ProvidersStore.GetProviderByProject(ctx, projectID, providerID)
@@ -200,7 +293,7 @@ func (srv *ProvidersController) CreateProvider(w http.ResponseWriter, r *http.Re
 	json.Write(w, http.StatusCreated, created.OAPI())
 }
 
-func (srv *ProvidersController) GetProvider(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, group string, providerType string, providerID uuid.UUID) {
+func (srv *ProvidersController) GetProvider(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, providerType string, providerID uuid.UUID) {
 	ctx := r.Context()
 	err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("providers", projectID))
 	if err != nil {
@@ -210,7 +303,6 @@ func (srv *ProvidersController) GetProvider(w http.ResponseWriter, r *http.Reque
 
 	logger := srv.logger.With(
 		zap.Stringer("project_id", projectID),
-		zap.String("group", group),
 		zap.String("type", providerType),
 		zap.Stringer("provider_id", providerID),
 	)
@@ -233,7 +325,7 @@ func (srv *ProvidersController) GetProvider(w http.ResponseWriter, r *http.Reque
 	json.Write(w, http.StatusOK, provider.OAPI())
 }
 
-func (srv *ProvidersController) UpdateProvider(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, group string, providerType string, providerID uuid.UUID) {
+func (srv *ProvidersController) UpdateProvider(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, providerType string, providerID uuid.UUID) {
 	ctx := r.Context()
 	err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("providers", projectID))
 	if err != nil {
@@ -248,7 +340,7 @@ func (srv *ProvidersController) UpdateProvider(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.String("group", group), zap.String("type", providerType), zap.Stringer("provider_id", providerID))
+	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.String("type", providerType), zap.Stringer("provider_id", providerID))
 	logger.Info("updating provider")
 
 	_, err = srv.store.ProvidersStore.GetProviderByProject(ctx, projectID, providerID)
@@ -264,10 +356,39 @@ func (srv *ProvidersController) UpdateProvider(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	// Reject rate limit overrides when the manifest does not allow them.
+	if body.RateLimit != nil && body.RateLimit.Limit > 0 {
+		module, exists := srv.registry.Get(providerType)
+		if exists {
+			rl := module.Manifest().Spec.RateLimit
+			if rl == nil || !rl.Override {
+				logger.Warn("rate limit override not allowed for this provider module", zap.String("module", providerType))
+				oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("this provider does not allow rate limit overrides")))
+				return
+			}
+		}
+	}
+
+	if body.RateLimit != nil {
+		if body.RateLimit.Limit < 0 {
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("rate_limit.limit must not be negative")))
+			return
+		}
+		if _, err := time.ParseDuration(body.RateLimit.Interval); err != nil {
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("rate_limit.interval must be a valid Go duration (e.g. \"1s\", \"1m\")")))
+			return
+		}
+	}
+
 	update := management.ProviderUpdate{
-		Name:      body.Name,
-		Data:      body.Data,
-		IsDefault: body.IsDefault,
+		Name:     body.Name,
+		Data:     body.Data,
+		LinkWrap: body.LinkWrap,
+	}
+
+	if body.RateLimit != nil {
+		update.RateLimit = &body.RateLimit.Limit
+		update.RateInterval = &body.RateLimit.Interval
 	}
 
 	err = srv.store.ProvidersStore.UpdateProvider(ctx, projectID, providerID, update)
@@ -312,12 +433,28 @@ func (srv *ProvidersController) DeleteProvider(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	// Check if the provider module is locked and cannot be deleted
-	if module, exists := srv.registry.Get(provider.Module); exists {
-		if module.Manifest().Spec.Locked {
-			logger.Warn("cannot delete locked provider", zap.String("module", provider.Module))
-			oapi.WriteProblem(w, problem.ErrForbidden(problem.Describe("this provider is locked and cannot be deleted")))
-			return
+	// Check if the provider module is locked and cannot be deleted.
+	// Also use the looked-up module for the destroy() call below.
+	module, has := srv.registry.Get(provider.Module)
+	if has && module.Manifest().Spec.Locked {
+		logger.Warn("cannot delete locked provider", zap.String("module", provider.Module))
+		oapi.WriteProblem(w, problem.ErrForbidden(problem.Describe("this provider is locked and cannot be deleted")))
+		return
+	}
+
+	// Destroy the provider (deregister webhooks, clean up external resources).
+	// If the module does not export a destroy() function, this is a no-op.
+	if has {
+		_, err = module.Destroy(ctx, providers.DestroyRequest{
+			Config:     json.RawMessage(provider.Data),
+			ProviderID: providerID.String(),
+			ProjectID:  projectID.String(),
+		})
+		if err != nil {
+			logger.Error("provider destroy failed (proceeding with deletion)",
+				zap.Stringer("provider_id", providerID),
+				zap.Error(err),
+			)
 		}
 	}
 
@@ -330,4 +467,29 @@ func (srv *ProvidersController) DeleteProvider(w http.ResponseWriter, r *http.Re
 
 	logger.Info("provider deleted")
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// mergeJSON performs a JSON merge-patch: it merges patch fields into base,
+// with patch values taking precedence. Both inputs must be JSON objects.
+func mergeJSON(base, patch json.RawMessage) (json.RawMessage, error) {
+	var baseMap map[string]json.RawMessage
+	if len(base) > 0 {
+		if err := json.Unmarshal(base, &baseMap); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal base config: %w", err)
+		}
+	}
+	if baseMap == nil {
+		baseMap = make(map[string]json.RawMessage)
+	}
+
+	var patchMap map[string]json.RawMessage
+	if err := json.Unmarshal(patch, &patchMap); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal config patch: %w", err)
+	}
+
+	for k, v := range patchMap {
+		baseMap[k] = v
+	}
+
+	return json.Marshal(baseMap)
 }

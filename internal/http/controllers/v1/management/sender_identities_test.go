@@ -32,7 +32,7 @@ func TestCreateSenderIdentity(t *testing.T) {
 	emailProviderID, err := providerStore.CreateProvider(ctx, management.Provider{
 		ProjectID: projectID,
 		Module:    "test",
-		Channel:   "email",
+		Channels:  management.Channels{"email"},
 		Name:      "Test Email Provider",
 		Data:      json.RawMessage(`{}`),
 	})
@@ -41,7 +41,7 @@ func TestCreateSenderIdentity(t *testing.T) {
 	smsProviderID, err := providerStore.CreateProvider(ctx, management.Provider{
 		ProjectID: projectID,
 		Module:    "test",
-		Channel:   "sms",
+		Channels:  management.Channels{"sms"},
 		Name:      "Test SMS Provider",
 		Data:      json.RawMessage(`{}`),
 	})
@@ -193,7 +193,7 @@ func TestListSenderIdentities(t *testing.T) {
 	emailProviderID, err := providerStore.CreateProvider(ctx, management.Provider{
 		ProjectID: projectID,
 		Module:    "test",
-		Channel:   "email",
+		Channels:  management.Channels{"email"},
 		Name:      "Test Email Provider",
 		Data:      json.RawMessage(`{}`),
 	})
@@ -202,7 +202,7 @@ func TestListSenderIdentities(t *testing.T) {
 	smsProviderID, err := providerStore.CreateProvider(ctx, management.Provider{
 		ProjectID: projectID,
 		Module:    "test",
-		Channel:   "sms",
+		Channels:  management.Channels{"sms"},
 		Name:      "Test SMS Provider",
 		Data:      json.RawMessage(`{}`),
 	})
@@ -362,7 +362,7 @@ func TestGetSenderIdentity(t *testing.T) {
 	emailProviderID, err := providerStore.CreateProvider(ctx, management.Provider{
 		ProjectID: projectID,
 		Module:    "test",
-		Channel:   "email",
+		Channels:  management.Channels{"email"},
 		Name:      "Test Email Provider",
 		Data:      json.RawMessage(`{}`),
 	})
@@ -464,7 +464,7 @@ func TestDeleteSenderIdentity(t *testing.T) {
 	emailProviderID, err := providerStore.CreateProvider(ctx, management.Provider{
 		ProjectID: projectID,
 		Module:    "test",
-		Channel:   "email",
+		Channels:  management.Channels{"email"},
 		Name:      "Test Email Provider",
 		Data:      json.RawMessage(`{}`),
 	})
@@ -561,7 +561,7 @@ func TestCreateAndGetSenderIdentityRoundTrip(t *testing.T) {
 	emailProviderID, err := providerStore.CreateProvider(ctx, management.Provider{
 		ProjectID: projectID,
 		Module:    "test",
-		Channel:   "email",
+		Channels:  management.Channels{"email"},
 		Name:      "Test Email Provider",
 		Data:      json.RawMessage(`{}`),
 	})

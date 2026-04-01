@@ -26,6 +26,7 @@ type Token = TextToken | VarToken
 const TOKEN_RE = /\{\{\s*(.*?)\s*\}\}/g
 
 function tokenize(input: string): Token[] {
+    if (!input) return []
     const tokens: Token[] = []
     let last = 0
     for (const m of input.matchAll(TOKEN_RE)) {

@@ -1,0 +1,16 @@
+---
+title: Reservations
+description: Build a flight check-in reminder journey
+---
+
+Send users a reminder to check into their flight before departure. The journey triggers on ticket purchase, delays until close to the flight date, then sends a notification.
+
+![Journey Airline Example](/img/journeys_airline.png)
+
+## Steps
+
+1. Create an `Entrance` step:
+   - Event-based, listening for a `ticket.purchased` event
+   - Set the `Data Key` to `entrance` so you can reference the event data in later steps
+2. Add a `Delay` step using the `Until Date` type. Set the value to the flight date from the entrance event data. You can reference it using the journey data key, for example `journey["entrance"].flight_date`.
+3. Create a `Send` step with an email campaign. You can reference `journey["entrance"]` in the email template to include details like flight number, departure time, and destination.

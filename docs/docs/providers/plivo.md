@@ -1,4 +1,0 @@
-# Plivo
-## Setup
-## Outbound
-## Inbound

@@ -7,7 +7,7 @@ import { useContext, useEffect, useRef, useState } from "react"
 import { ProjectContext } from "../contexts"
 import clsx from "clsx"
 import { compileEmail } from "@/views/campaign/template/mail/editor/codeEditor/compileEmail"
-import { getSystemPreviewProps } from "@/views/campaign/template/mail/editor/codeEditor/variableScope"
+import { getSystemPreviewProps } from "@/views/campaign/template/mail/editor/variableScope"
 
 interface PreviewProps {
     template: Pick<Template, "type" | "data">
@@ -71,7 +71,7 @@ export default function Preview({ template, size = "large" }: PreviewProps) {
     let preview: ReactNode = null
     if (type === "email") {
         preview = <EmailPreviewContent data={data} size={size} />
-    } else if (type === "text") {
+    } else if (type === "sms") {
         preview = (
             <div className="text-frame phone-frame">
                 <div className="text-frame-header">

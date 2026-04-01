@@ -1,4 +1,4 @@
-import { useContext } from "react"
+import { useContext, useEffect } from "react"
 import {
     CampaignContext,
     ProjectContext,
@@ -19,7 +19,41 @@ export default function TemplateContent() {
 
     const config = channels[campaign.channel]
 
-    if (!config) {
+    const form = config?.form(campaign, template)
+
+    useEffect(() => {
+        if (!config || !form) {
+            return
+        }
+
+        const unsubscribe = onSubmit(async () => {
+            if (!template) {
+                return false
+            }
+
+            const isValid = await form.trigger()
+            if (!isValid) {
+                return false
+            }
+
+            const { sender_identity_id, ...data } = form.getValues()
+            const updated = await api.campaigns.templates.update(
+                project.id,
+                campaign.id,
+                template.id,
+                {
+                    data: { ...template.data, ...data },
+                    sender_identity_id: sender_identity_id || null,
+                },
+            )
+
+            setTemplate(updated)
+            return true
+        })
+        return unsubscribe
+    })
+
+    if (!config || !form) {
         return (
             <div className="flex flex-1 items-center justify-center bg-muted/20">
                 <div className="text-center">
@@ -29,29 +63,8 @@ export default function TemplateContent() {
         )
     }
 
-    const form = config.form(campaign, template)
     const FormControlComponent = config.FormControl
     const PreviewComponent = config.Preview
-
-    onSubmit(async () => {
-        if (!template) {
-            return false
-        }
-
-        const isValid = await form.trigger()
-        if (!isValid) {
-            return false
-        }
-
-        const { sender_identity_id, ...data } = form.getValues()
-        const updated = await api.campaigns.templates.update(project.id, campaign.id, template.id, {
-            data: { ...template.data, ...data },
-            sender_identity_id: sender_identity_id || null,
-        })
-
-        setTemplate(updated)
-        return true
-    })
 
     return (
         <div className="flex flex-1 bg-muted/20 overflow-hidden">

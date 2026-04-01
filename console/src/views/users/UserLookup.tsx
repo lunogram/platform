@@ -1,7 +1,8 @@
 import { useCallback, useContext, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { Search, User, Mail, Hash } from "lucide-react"
+import { Search, User, Mail } from "lucide-react"
 import type { User as UserType } from "../../types"
+import { getUserDisplayName, getUserInitials } from "@/lib/name"
 import { ProjectContext } from "../../contexts"
 import api from "../../api"
 import { useResolver } from "../../hooks"
@@ -80,17 +81,6 @@ export const UserLookup = ({ open, onClose, onSelected }: UserLookupProps) => {
         onClose(isOpen)
     }
 
-    const getUserDisplayName = (user: UserType) => {
-        if (user.full_name) return user.full_name
-        if (user.email) return user.email
-        return user.external_id ?? user.anonymous_id ?? "Unknown"
-    }
-
-    const getUserInitials = (user: UserType) => {
-        const name = getUserDisplayName(user)
-        return name.substring(0, 2).toUpperCase()
-    }
-
     return (
         <Dialog open={open} onOpenChange={handleOpenChange}>
             <DialogContent className="sm:max-w-2xl max-h-[80vh] flex flex-col">
@@ -128,7 +118,6 @@ export const UserLookup = ({ open, onClose, onSelected }: UserLookupProps) => {
                             <TableRow>
                                 <TableHead>{t("name")}</TableHead>
                                 <TableHead>{t("email")}</TableHead>
-                                <TableHead>{t("external_id")}</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -145,14 +134,11 @@ export const UserLookup = ({ open, onClose, onSelected }: UserLookupProps) => {
                                         <TableCell>
                                             <Skeleton className="h-4 w-36" />
                                         </TableCell>
-                                        <TableCell>
-                                            <Skeleton className="h-4 w-20" />
-                                        </TableCell>
                                     </TableRow>
                                 ))
                             ) : users.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={3} className="h-32 text-center">
+                                    <TableCell colSpan={2} className="h-32 text-center">
                                         <div className="flex flex-col items-center gap-2 text-muted-foreground">
                                             <User className="h-8 w-8" />
                                             <p>{t("no_users_found")}</p>
@@ -181,20 +167,6 @@ export const UserLookup = ({ open, onClose, onSelected }: UserLookupProps) => {
                                                 <div className="flex items-center gap-2 text-muted-foreground">
                                                     <Mail className="h-3 w-3" />
                                                     <span className="text-sm">{user.email}</span>
-                                                </div>
-                                            ) : (
-                                                <span className="text-sm text-muted-foreground">
-                                                    —
-                                                </span>
-                                            )}
-                                        </TableCell>
-                                        <TableCell>
-                                            {user.external_id ? (
-                                                <div className="flex items-center gap-2 text-muted-foreground">
-                                                    <Hash className="h-3 w-3" />
-                                                    <code className="text-sm">
-                                                        {user.external_id}
-                                                    </code>
                                                 </div>
                                             ) : (
                                                 <span className="text-sm text-muted-foreground">

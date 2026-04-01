@@ -1,0 +1,18 @@
+{
+  "title": "Integrations",
+  "pages": [
+    "---Email---",
+    "resend",
+    "mailgun",
+    "sendgrid",
+    "ses",
+    "smtp",
+    "---SMS---",
+    "twilio",
+    "telnyx",
+    "plivo",
+    "vonage",
+    "---Push Notifications---",
+    "push-notifications"
+  ]
+}

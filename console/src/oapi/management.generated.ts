@@ -486,7 +486,11 @@ export interface paths {
          * @description Triggers a user into a journey at a specific entrance step, typically used for testing or manual overrides
          */
         post: operations["triggerUser"];
-        delete?: never;
+        /**
+         * Cancel user journey
+         * @description Cancels all active (non-completed) journey states for a user, stopping further step processing including delayed steps
+         */
+        delete: operations["cancelUserJourney"];
         options?: never;
         head?: never;
         patch?: never;
@@ -683,7 +687,7 @@ export interface paths {
         put?: never;
         /**
          * Identify user
-         * @description Creates or updates a user by anonymous_id or external_id
+         * @description Creates or updates a user by external identifiers
          */
         post: operations["identifyUser"];
         delete?: never;
@@ -740,6 +744,26 @@ export interface paths {
         patch: operations["updateUser"];
         trace?: never;
     };
+    "/api/admin/projects/{projectID}/subjects/users/{userID}/identifiers/{identifierID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete user external identifier
+         * @description Removes an external identifier from a user. Cannot remove the last remaining identifier.
+         */
+        delete: operations["deleteUserExternalID"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/subjects/users/{userID}/events": {
         parameters: {
             query?: never;
@@ -753,7 +777,11 @@ export interface paths {
          */
         get: operations["getUserEvents"];
         put?: never;
-        post?: never;
+        /**
+         * Create user event
+         * @description Creates a new event for a specific user
+         */
+        post: operations["createUserEvent"];
         delete?: never;
         options?: never;
         head?: never;
@@ -919,7 +947,7 @@ export interface paths {
         put?: never;
         /**
          * Create or update subject organization
-         * @description Creates or updates an organization (subject) by external_id
+         * @description Creates or updates an organization (subject) by external identifiers
          */
         post: operations["upsertOrganization"];
         delete?: never;
@@ -954,6 +982,26 @@ export interface paths {
          * @description Updates organization properties
          */
         patch: operations["updateOrganization"];
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/identifiers/{identifierID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete organization external identifier
+         * @description Removes an external identifier from an organization. Cannot remove the last remaining identifier.
+         */
+        delete: operations["deleteOrganizationExternalID"];
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/users": {
@@ -1013,7 +1061,11 @@ export interface paths {
          */
         get: operations["getOrganizationEvents"];
         put?: never;
-        post?: never;
+        /**
+         * Create organization event
+         * @description Creates a new event for a specific organization
+         */
+        post: operations["createOrganizationEvent"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1698,7 +1750,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/admin/projects/{projectID}/providers/{group}/{type}": {
+    "/api/admin/projects/{projectID}/providers/{type}": {
         parameters: {
             query?: never;
             header?: never;
@@ -1718,7 +1770,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/admin/projects/{projectID}/providers/{group}/{type}/{providerID}": {
+    "/api/admin/projects/{projectID}/providers/{type}/{providerID}": {
         parameters: {
             query?: never;
             header?: never;
@@ -1762,6 +1814,274 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/projects/{projectID}/subjects/user/scheduled/schema": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List scheduled schemas
+         * @description Retrieves all scheduled definitions and their schema paths for a project
+         */
+        get: operations["listScheduledSchemas"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/subjects/user/scheduled/schema/{scheduledID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete scheduled schema
+         * @description Soft-deletes a scheduled definition by project and scheduled ID
+         */
+        delete: operations["deleteScheduledSchema"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/subjects/user/scheduled/schema/{scheduledID}/offsets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create schedule offset
+         * @description Creates a new offset for a schedule definition
+         */
+        post: operations["createScheduleOffset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/subjects/users/{userID}/scheduled": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get user scheduled
+         * @description Retrieves scheduled instances for a specific user
+         */
+        get: operations["getUserScheduled"];
+        /**
+         * Upsert user scheduled
+         * @description Creates or updates a scheduled instance for a specific user
+         */
+        put: operations["upsertUserScheduled"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/subjects/users/{userID}/scheduled/{scheduledInstanceID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete user scheduled instance
+         * @description Deletes a specific scheduled instance for a user
+         */
+        delete: operations["deleteUserScheduled"];
+        options?: never;
+        head?: never;
+        /**
+         * Update user scheduled instance
+         * @description Updates the scheduled_at time for a user scheduled instance and recalculates offset events
+         */
+        patch: operations["updateUserScheduled"];
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/scheduled": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get organization scheduled
+         * @description Retrieves scheduled instances for a specific organization
+         */
+        get: operations["getOrganizationScheduled"];
+        /**
+         * Upsert organization scheduled
+         * @description Creates or updates a scheduled instance for a specific organization
+         */
+        put: operations["upsertOrganizationScheduled"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/scheduled/{scheduledInstanceID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete organization scheduled instance
+         * @description Deletes a specific scheduled instance for an organization
+         */
+        delete: operations["deleteOrganizationScheduled"];
+        options?: never;
+        head?: never;
+        /**
+         * Update organization scheduled instance
+         * @description Updates the scheduled_at time for an organization scheduled instance and recalculates offset events
+         */
+        patch: operations["updateOrganizationScheduled"];
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/broadcasts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List broadcasts
+         * @description Retrieves a list of broadcasts with optional filtering
+         */
+        get: operations["listBroadcasts"];
+        put?: never;
+        /**
+         * Create broadcast
+         * @description Creates a new broadcast for a campaign and list
+         */
+        post: operations["createBroadcast"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/broadcasts/{broadcastID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get broadcast
+         * @description Retrieves a single broadcast by ID
+         */
+        get: operations["getBroadcast"];
+        put?: never;
+        post?: never;
+        /**
+         * Cancel broadcast
+         * @description Cancels a broadcast. Only allowed when the broadcast is in 'pending' or 'scheduled' state.
+         */
+        delete: operations["cancelBroadcast"];
+        options?: never;
+        head?: never;
+        /**
+         * Update broadcast
+         * @description Updates a broadcast. Only allowed when the broadcast is in 'pending' or 'scheduled' state.
+         */
+        patch: operations["updateBroadcast"];
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/broadcasts/{broadcastID}/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get broadcast users
+         * @description Retrieves the users that were sent to as part of a broadcast
+         */
+        get: operations["getBroadcastUsers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/broadcasts/{broadcastID}/progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Stream broadcast progress
+         * @description Streams real-time broadcast sending progress using Server-Sent Events (SSE). Events include individual send completions and terminal state changes (completed, failed, cancelled).
+         */
+        get: operations["streamBroadcastProgress"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/broadcasts/{broadcastID}/send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send broadcast
+         * @description Triggers sending of a pending broadcast
+         */
+        post: operations["sendBroadcast"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1771,7 +2091,7 @@ export interface components {
          * @example email
          * @enum {string}
          */
-        Channel: "email" | "text" | "push";
+        Channel: "email" | "sms" | "push";
         /**
          * @description Type of action (module ID from registered action modules)
          * @example webhook
@@ -1920,7 +2240,7 @@ export interface components {
          * @example entrance
          * @enum {string}
          */
-        JourneyStepType: "entrance" | "exit" | "delay" | "action" | "campaign" | "gate" | "experiment" | "sticky" | "balancer" | "update" | "event";
+        JourneyStepType: "entrance" | "exit" | "delay" | "action" | "campaign" | "gate" | "experiment" | "sticky" | "balancer" | "update" | "event" | "schedule";
         /** @description Data for entrance step - entry point into journey */
         EntranceStepData: {
             /**
@@ -2067,6 +2387,34 @@ export interface components {
              */
             template?: string;
         };
+        /** @description Data for schedule step - assign user to a schedule */
+        ScheduleStepData: {
+            /**
+             * @description Name of the schedule to assign the user to
+             * @example onboarding_reminders
+             */
+            schedule_name: string;
+            /**
+             * @description Optional RFC3339 date-time for when the schedule should fire. Supports Liquid templates.
+             * @example 2024-01-15T09:00:00Z
+             */
+            scheduled_at?: string;
+            /**
+             * @description Optional PostgreSQL interval string (e.g. '1 day', '2 hours'). Supports Liquid templates.
+             * @example 1 day
+             */
+            interval?: string;
+            /**
+             * @description Optional RFC3339 date-time for when the schedule interval should start. Supports Liquid templates.
+             * @example 2024-01-15T09:00:00Z
+             */
+            start_at?: string;
+            /**
+             * @description JSON template string for schedule data
+             * @example {"source": "journey"}
+             */
+            template?: string;
+        };
         /** @description Data for experiment step children - defines branch ratio */
         ExperimentChildData: {
             /**
@@ -2125,6 +2473,49 @@ export interface components {
              */
             offset: number;
         };
+        /** @description An external identifier with source and optional metadata */
+        ExternalID: {
+            /**
+             * @description Source of the identifier (e.g. "default", "anonymous", or a custom source). Defaults to "default" if not provided.
+             * @default default
+             * @example default
+             */
+            source: string;
+            /**
+             * @description The external identifier value
+             * @example user_12345
+             */
+            external_id: string;
+            /** @description Optional metadata associated with this identifier */
+            metadata?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        /** @description An external identifier as returned in responses, including database ID and timestamps */
+        ExternalIDResponse: {
+            /**
+             * Format: uuid
+             * @example a1b2c3d4-e5f6-7890-abcd-ef1234567890
+             */
+            id: string;
+            /** @example default */
+            source: string;
+            /** @example user_12345 */
+            external_id: string;
+            metadata?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Format: date-time
+             * @example 2025-11-19T14:18:42.960Z
+             */
+            created_at: string;
+            /**
+             * Format: date-time
+             * @example 2025-11-23T17:20:00.021Z
+             */
+            updated_at: string;
+        };
         UserList: components["schemas"]["PaginatedResponse"] & {
             results: components["schemas"]["User"][];
         };
@@ -2159,10 +2550,6 @@ export interface components {
             text_opt_out_message?: string;
             /** @example Reply HELP for assistance */
             text_help_message?: string;
-            /** @example false */
-            link_wrap_email?: boolean;
-            /** @example false */
-            link_wrap_push?: boolean;
             /** @example 3 */
             integrations_count?: number;
             /** @example 12 */
@@ -2197,10 +2584,6 @@ export interface components {
             text_opt_out_message?: string;
             /** @example Reply HELP for assistance */
             text_help_message?: string;
-            /** @example false */
-            link_wrap_email?: boolean;
-            /** @example false */
-            link_wrap_push?: boolean;
         };
         UpdateProject: {
             /** @example Updated Project Name */
@@ -2215,10 +2598,6 @@ export interface components {
             text_opt_out_message?: string;
             /** @example Reply HELP for assistance */
             text_help_message?: string;
-            /** @example true */
-            link_wrap_email?: boolean;
-            /** @example true */
-            link_wrap_push?: boolean;
         };
         CreateCampaign: {
             /** @example Welcome Campaign */
@@ -2283,8 +2662,7 @@ export interface components {
         };
         SendTest: {
             /**
-             * Format: email
-             * @description The recipient address to send the test to
+             * @description The recipient address or phone number to send the test to
              * @example test@example.com
              */
             to: string;
@@ -2458,10 +2836,8 @@ export interface components {
              * @example 4c9d3163-7b64-4f9e-9068-d2e4b96be56b
              */
             project_id: string;
-            channel: components["schemas"]["Channel"];
+            channels: components["schemas"]["Channel"][];
             data?: components["schemas"]["EmailProviderData"] | components["schemas"]["SmsProviderData"] | components["schemas"]["PushProviderData"];
-            /** @example true */
-            is_default: boolean;
             /**
              * Format: date-time
              * @example 2025-11-05T13:38:03.861Z
@@ -2472,6 +2848,9 @@ export interface components {
              * @example 2025-11-11T13:58:40.657Z
              */
             updated_at: string;
+            /** @example false */
+            link_wrap?: boolean;
+            rate_limit: components["schemas"]["RateLimit"];
         };
         CreateProvider: {
             /** @example My Email Provider */
@@ -2480,7 +2859,8 @@ export interface components {
                 [key: string]: unknown;
             };
             /** @example false */
-            is_default?: boolean;
+            link_wrap?: boolean;
+            rate_limit?: components["schemas"]["RateLimit"];
         };
         UpdateProvider: {
             /** @example My Email Provider */
@@ -2488,7 +2868,40 @@ export interface components {
             data?: {
                 [key: string]: unknown;
             };
-            is_default?: boolean;
+            link_wrap?: boolean;
+            rate_limit?: components["schemas"]["RateLimit"];
+        };
+        /** @description Rate limit configuration for a provider instance. */
+        RateLimit: {
+            /**
+             * @description Max number of messages per interval. 0 means use the module default.
+             * @default 0
+             * @example 10
+             */
+            limit: number;
+            /**
+             * @description Time window as a Go duration string (e.g. '1s', '1m', '1h', '24h').
+             * @default 1s
+             * @example 1s
+             */
+            interval: string;
+        };
+        ProviderRateLimit: {
+            /**
+             * @description Maximum number of requests allowed per interval
+             * @example 5
+             */
+            limit: number;
+            /**
+             * @description Time window as a Go duration string (e.g. '1s', '1m', '1h'). Defaults to '1s'.
+             * @example 1s
+             */
+            interval: string;
+            /**
+             * @description Whether users may override this rate limit at the provider level. When false, the module value is authoritative.
+             * @example true
+             */
+            override: boolean;
         };
         ProviderMeta: {
             /**
@@ -2505,8 +2918,7 @@ export interface components {
             icon?: string;
             /** @description Brand color hex code for the module */
             color?: string;
-            /** @example email */
-            group: string;
+            channels: components["schemas"]["Channel"][];
             schema: {
                 [key: string]: unknown;
             };
@@ -2514,6 +2926,12 @@ export interface components {
             hidden?: boolean;
             /** @description Whether providers of this module type are locked and cannot be deleted */
             locked?: boolean;
+            rate_limit?: components["schemas"]["ProviderRateLimit"];
+            /**
+             * @description Absolute project-wide maximum rate limit (requests per minute). User overrides are clamped to this ceiling.
+             * @example 250
+             */
+            max_rate_limit?: number;
         };
         Template: {
             /**
@@ -2681,10 +3099,8 @@ export interface components {
              * @example 4c9d3163-7b64-4f9e-9068-d2e4b96be56b
              */
             project_id: string;
-            /** @example anon_abc123xyz */
-            anonymous_id: string;
-            /** @example user_123 */
-            external_id?: string;
+            /** @description External identifiers associated with this user */
+            identifier: components["schemas"]["ExternalIDResponse"][];
             /**
              * Format: email
              * @example user@example.com
@@ -2725,10 +3141,8 @@ export interface components {
             updated_at: string;
         };
         IdentifyUser: {
-            /** @example anon_abc123xyz */
-            anonymous_id?: string;
-            /** @example user_123 */
-            external_id?: string;
+            /** @description One or more external identifiers to identify the user */
+            identifier: components["schemas"]["ExternalID"][];
             /**
              * Format: email
              * @example user@example.com
@@ -2753,7 +3167,7 @@ export interface components {
             data?: {
                 [key: string]: unknown;
             };
-        } & (unknown | unknown);
+        };
         UpdateUser: {
             /**
              * Format: email
@@ -2791,11 +3205,8 @@ export interface components {
              * @example 4c9d3163-7b64-4f9e-9068-d2e4b96be56b
              */
             project_id: string;
-            /**
-             * @description External identifier for the organization from your system
-             * @example org_123
-             */
-            external_id: string;
+            /** @description External identifiers associated with this organization */
+            identifier: components["schemas"]["ExternalIDResponse"][];
             /** @example Acme Corp */
             name?: string;
             /**
@@ -2860,11 +3271,8 @@ export interface components {
             results: components["schemas"]["OrganizationEvent"][];
         };
         UpsertOrganization: {
-            /**
-             * @description External identifier for the organization from your system
-             * @example org_123
-             */
-            external_id: string;
+            /** @description One or more external identifiers to identify the organization */
+            identifier: components["schemas"]["ExternalID"][];
             /** @example Acme Corp */
             name?: string;
             /**
@@ -2901,10 +3309,8 @@ export interface components {
              * @example 4c9d3163-7b64-4f9e-9068-d2e4b96be56b
              */
             project_id: string;
-            /** @example anon_abc123xyz */
-            anonymous_id: string;
-            /** @example user_123 */
-            external_id?: string;
+            /** @description External identifiers associated with this user */
+            identifier: components["schemas"]["ExternalIDResponse"][];
             /**
              * Format: email
              * @example user@example.com
@@ -3613,6 +4019,63 @@ export interface components {
             name: string;
             schema: components["schemas"]["SchemaPath"][];
         };
+        ScheduledEventWithSchema: {
+            /**
+             * Format: uuid
+             * @example 5c9d3163-7b64-4f9e-9068-d2e4b96be56b
+             */
+            id: string;
+            /** @example subscription_renewal */
+            name: string;
+            schema: components["schemas"]["SchemaPath"][];
+            offsets: components["schemas"]["ScheduleOffset"][];
+        };
+        ScheduleOffset: {
+            /**
+             * Format: uuid
+             * @example a1b2c3d4-e5f6-7890-abcd-ef1234567890
+             */
+            id: string;
+            /**
+             * Format: uuid
+             * @example 5c9d3163-7b64-4f9e-9068-d2e4b96be56b
+             */
+            schedule_id: string;
+            /**
+             * @description Duration offset relative to schedule time (e.g. "0m", "-30m", "1h", "-1M"). Negative = before, positive = after, "0m" = exact. Units are m (minutes), h (hours), d (days), M (months), y (years).
+             * @example 0m
+             */
+            offset: string;
+            /**
+             * @description Whether the offset fires "before" or "after" the scheduled time.
+             * @example after
+             * @enum {string}
+             */
+            direction: "before" | "after";
+            /**
+             * Format: date-time
+             * @example 2024-01-01T00:00:00Z
+             */
+            created_at: string;
+            /**
+             * Format: date-time
+             * @example 2024-01-01T00:00:00Z
+             */
+            updated_at: string;
+        };
+        CreateScheduleOffsetRequest: {
+            /**
+             * @description Duration offset relative to schedule time (e.g. "0m", "-30m", "1h", "-1M"). Negative = before, positive = after, "0m" = exact. Units are m (minutes), h (hours), d (days), M (months), y (years).
+             * @example -30m
+             */
+            offset: string;
+            /**
+             * @description Whether the offset fires "before" or "after" the scheduled time.
+             * @example before
+             * @enum {string}
+             */
+            direction: "before" | "after";
+        };
         SchemaPath: {
             /** @example .email */
             path: string;
@@ -3672,6 +4135,376 @@ export interface components {
             /** @description Block editor JSON data for the visual editor mode */
             blocks?: {
                 [key: string]: unknown;
+            };
+        };
+        UserScheduled: {
+            /**
+             * Format: uuid
+             * @example 550e8400-e29b-41d4-a716-446655440000
+             */
+            id: string;
+            /**
+             * Format: uuid
+             * @example 550e8400-e29b-41d4-a716-446655440001
+             */
+            user_id: string;
+            /**
+             * Format: uuid
+             * @example 550e8400-e29b-41d4-a716-446655440002
+             */
+            scheduled_id: string;
+            /**
+             * Format: date-time
+             * @example 2025-01-15T10:00:00Z
+             */
+            scheduled_at: string;
+            /**
+             * Format: date-time
+             * @description Start time of the recurring schedule interval
+             * @example 2025-01-15T10:00:00Z
+             */
+            start_at?: string | null;
+            /**
+             * Format: date-time
+             * @description Anchor time used as the base for occurrence calculations. Rebased when scheduled_at is explicitly set.
+             * @example 2025-01-15T10:00:00Z
+             */
+            anchor_at?: string | null;
+            /**
+             * @description Interval for recurring schedules
+             * @example 24h
+             */
+            interval?: string | null;
+            data: {
+                [key: string]: unknown;
+            };
+            /**
+             * Format: date-time
+             * @description When set, the schedule is paused and the scheduler will not advance it
+             * @example null
+             */
+            paused_at?: string | null;
+            /**
+             * Format: date-time
+             * @example 2025-01-10T08:00:00Z
+             */
+            created_at: string;
+            /**
+             * Format: date-time
+             * @example 2025-01-10T08:00:00Z
+             */
+            updated_at: string;
+        };
+        UserScheduledList: components["schemas"]["PaginatedResponse"] & {
+            results: components["schemas"]["UserScheduled"][];
+        };
+        OrganizationScheduled: {
+            /**
+             * Format: uuid
+             * @example 550e8400-e29b-41d4-a716-446655440000
+             */
+            id: string;
+            /**
+             * Format: uuid
+             * @example 550e8400-e29b-41d4-a716-446655440001
+             */
+            organization_id: string;
+            /**
+             * Format: uuid
+             * @example 550e8400-e29b-41d4-a716-446655440002
+             */
+            scheduled_id: string;
+            /**
+             * Format: date-time
+             * @example 2024-01-15T09:00:00Z
+             */
+            scheduled_at: string;
+            /**
+             * Format: date-time
+             * @description Start time of the recurring schedule interval
+             * @example 2024-01-15T09:00:00Z
+             */
+            start_at?: string | null;
+            /**
+             * @description Interval for recurring schedules
+             * @example 24h
+             */
+            interval?: string | null;
+            data: {
+                [key: string]: unknown;
+            };
+            /**
+             * Format: date-time
+             * @description When set, the schedule is paused and the scheduler will not advance it
+             * @example null
+             */
+            paused_at?: string | null;
+            /**
+             * Format: date-time
+             * @example 2024-01-01T00:00:00Z
+             */
+            created_at: string;
+            /**
+             * Format: date-time
+             * @example 2024-01-01T00:00:00Z
+             */
+            updated_at: string;
+        };
+        OrganizationScheduledList: components["schemas"]["PaginatedResponse"] & {
+            results: components["schemas"]["OrganizationScheduled"][];
+        };
+        UpsertUserScheduledRequest: {
+            /**
+             * Format: uuid
+             * @description The scheduled definition ID. Either scheduled_id or scheduled_name must be provided.
+             * @example 550e8400-e29b-41d4-a716-446655440002
+             */
+            scheduled_id?: string;
+            /**
+             * @description The schedule name. When provided, creates the schedule definition if it does not exist and uses its ID. Either scheduled_id or scheduled_name must be provided.
+             * @example subscription_renewal
+             */
+            scheduled_name?: string;
+            /**
+             * Format: date-time
+             * @description The time at which the scheduled resource is set to trigger. Required for single schedules.
+             * @example 2025-12-25T10:00:00Z
+             */
+            scheduled_at?: string | null;
+            /**
+             * Format: date-time
+             * @description Start time for recurring schedules. If omitted for recurring schedules, defaults to now.
+             * @example 2025-01-01T00:00:00Z
+             */
+            start_at?: string | null;
+            /**
+             * @description Interval for recurring schedules. When set, the schedule type is automatically set to recurring.
+             * @example 24h
+             */
+            interval?: string | null;
+            /**
+             * @description Scheduled resource data
+             * @example {
+             *       "plan": "pro",
+             *       "amount": 29.99
+             *     }
+             */
+            data?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        UpsertOrganizationScheduledRequest: {
+            /**
+             * Format: uuid
+             * @description The scheduled definition ID. Either scheduled_id or scheduled_name must be provided.
+             * @example 550e8400-e29b-41d4-a716-446655440002
+             */
+            scheduled_id?: string;
+            /**
+             * @description The schedule name. When provided, creates the schedule definition if it does not exist and uses its ID. Either scheduled_id or scheduled_name must be provided.
+             * @example subscription_renewal
+             */
+            scheduled_name?: string;
+            /**
+             * Format: date-time
+             * @description The time at which the scheduled resource is set to trigger. Required for single schedules.
+             * @example 2025-12-25T10:00:00Z
+             */
+            scheduled_at?: string | null;
+            /**
+             * Format: date-time
+             * @description Start time for recurring schedules. If omitted for recurring schedules, defaults to now.
+             * @example 2025-01-01T00:00:00Z
+             */
+            start_at?: string | null;
+            /**
+             * @description Interval for recurring schedules. When set, the schedule type is automatically set to recurring.
+             * @example 24h
+             */
+            interval?: string | null;
+            /**
+             * @description Scheduled resource data
+             * @example {
+             *       "contract_type": "enterprise",
+             *       "seats": 100
+             *     }
+             */
+            data?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        UpdateUserScheduledRequest: {
+            /**
+             * Format: date-time
+             * @description The new time at which the scheduled resource should trigger
+             * @example 2025-12-25T10:00:00Z
+             */
+            scheduled_at?: string;
+            /**
+             * @description Pause the schedule. "immediately" deletes all unfired events. "after_next_interval" keeps existing events but prevents advancement.
+             * @enum {string}
+             */
+            pause?: "immediately" | "after_next_interval";
+            /**
+             * @description Resume a paused schedule. "immediately" rebases anchor to now. "at_next_interval" computes from existing anchor.
+             * @enum {string}
+             */
+            resume?: "immediately" | "at_next_interval";
+        };
+        UpdateOrganizationScheduledRequest: {
+            /**
+             * Format: date-time
+             * @description The new time at which the scheduled resource should trigger
+             * @example 2025-12-25T10:00:00Z
+             */
+            scheduled_at?: string;
+            /**
+             * @description Pause the schedule. "immediately" deletes all unfired events. "after_next_interval" keeps existing events but prevents advancement.
+             * @enum {string}
+             */
+            pause?: "immediately" | "after_next_interval";
+            /**
+             * @description Resume a paused schedule. "immediately" rebases anchor to now. "at_next_interval" computes from existing anchor.
+             * @enum {string}
+             */
+            resume?: "immediately" | "at_next_interval";
+        };
+        CreateUserEventRequest: {
+            /**
+             * @description The name of the event
+             * @example page_viewed
+             */
+            name: string;
+            /** @description Event data payload */
+            data?: {
+                [key: string]: unknown;
+            };
+        };
+        CreateOrganizationEventRequest: {
+            /**
+             * @description The name of the event
+             * @example subscription_upgraded
+             */
+            name: string;
+            /** @description Event data payload */
+            data?: {
+                [key: string]: unknown;
+            };
+        };
+        /**
+         * @description Current state of the broadcast
+         * @example pending
+         * @enum {string}
+         */
+        BroadcastState: "scheduled" | "pending" | "sending" | "completed" | "failed" | "cancelled";
+        /** @description Real-time progress event published during broadcast processing. Sent via SSE to connected clients. */
+        BroadcastProgressEvent: {
+            /**
+             * Format: uuid
+             * @description The broadcast this event belongs to
+             */
+            broadcast_id: string;
+            /**
+             * Format: uuid
+             * @description The user this send was for. Only present on non-terminal per-send events.
+             */
+            user_id?: string;
+            /**
+             * @description Current state: sent (per-user), completed, failed, or cancelled (terminal)
+             * @example sent
+             */
+            state: string;
+            /**
+             * @description Running count of successfully sent messages
+             * @example 42
+             */
+            total_sent: number;
+            /**
+             * @description True when the broadcast has reached a final state and no more events will follow
+             * @example false
+             */
+            terminal: boolean;
+            /** @description Full name of the recipient user (non-terminal events only) */
+            full_name?: string;
+            /** @description Email of the recipient user (non-terminal events only) */
+            email?: string;
+            /** @description Phone number of the recipient user (non-terminal events only) */
+            phone?: string;
+        };
+        CreateBroadcast: {
+            /**
+             * Format: uuid
+             * @description The campaign to broadcast
+             */
+            campaign_id: string;
+            /**
+             * Format: uuid
+             * @description The list of users to send the broadcast to
+             */
+            list_id: string;
+            /**
+             * Format: date-time
+             * @description Optional scheduled send time. If provided, the broadcast is created in 'scheduled' state.
+             */
+            scheduled_at?: string;
+        };
+        UpdateBroadcast: {
+            /**
+             * Format: date-time
+             * @description Set or update the scheduled send time. Pass null to remove the schedule and revert to pending. Only allowed when the broadcast is in 'pending' or 'scheduled' state.
+             */
+            scheduled_at?: string | null;
+        };
+        Broadcast: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            project_id: string;
+            /** Format: uuid */
+            campaign_id: string;
+            /** Format: uuid */
+            list_id: string;
+            /** @description Snapshot of the list name at broadcast creation time */
+            list_name: string;
+            /** @description Snapshot of the list type at broadcast creation time */
+            list_type: string;
+            state: components["schemas"]["BroadcastState"];
+            /**
+             * @description Total number of users in the audience at send time
+             * @example 0
+             */
+            total: number;
+            /**
+             * @description Number of messages actually delivered so far
+             * @example 0
+             */
+            sent?: number;
+            /** @description Error message if the broadcast failed */
+            error?: string;
+            /**
+             * Format: date-time
+             * @description When the broadcast is scheduled to be sent
+             */
+            scheduled_at?: string;
+            /**
+             * Format: date-time
+             * @description When the broadcast started sending
+             */
+            started_at?: string;
+            /**
+             * Format: date-time
+             * @description When the broadcast completed or failed
+             */
+            completed_at?: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            campaign?: {
+                /** Format: uuid */
+                id?: string;
+                name?: string;
+                channel?: string;
             };
         };
     };
@@ -3773,6 +4606,17 @@ export interface components {
                 };
             };
         };
+        /** @description Scheduled events retrieved successfully */
+        ScheduledEventListResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": {
+                    results: components["schemas"]["ScheduledEventWithSchema"][];
+                };
+            };
+        };
         /** @description Providers retrieved successfully */
         ProviderListResponse: {
             headers: {
@@ -3803,6 +4647,17 @@ export interface components {
             content: {
                 "application/json": components["schemas"]["PaginatedResponse"] & {
                     results: components["schemas"]["Action"][];
+                };
+            };
+        };
+        /** @description Broadcasts retrieved successfully */
+        BroadcastListResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["PaginatedResponse"] & {
+                    results: components["schemas"]["Broadcast"][];
                 };
             };
         };
@@ -4883,6 +5738,32 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    cancelUserJourney: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The journey ID */
+                journeyID: string;
+                /** @description The user ID whose journey execution should be cancelled */
+                userID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description User journey cancelled successfully */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     getJourneySteps: {
         parameters: {
             query?: never;
@@ -5260,7 +6141,7 @@ export interface operations {
                 "multipart/form-data": {
                     /**
                      * Format: binary
-                     * @description CSV file with user data (must include external_id column)
+                     * @description CSV file with user data (must include source and external_id columns)
                      */
                     file: string;
                 };
@@ -5357,6 +6238,32 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    deleteUserExternalID: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The user ID */
+                userID: string;
+                /** @description The external identifier ID to delete */
+                identifierID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description External identifier deleted successfully */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     getUserEvents: {
         parameters: {
             query?: {
@@ -5386,6 +6293,34 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["UserEventList"];
                 };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createUserEvent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The user ID */
+                userID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateUserEventRequest"];
+            };
+        };
+        responses: {
+            /** @description Event accepted for processing */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             default: components["responses"]["Error"];
         };
@@ -5739,6 +6674,32 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    deleteOrganizationExternalID: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The organization ID */
+                organizationID: string;
+                /** @description The external identifier ID to delete */
+                identifierID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description External identifier deleted successfully */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     listOrganizationMembers: {
         parameters: {
             query?: {
@@ -5831,6 +6792,8 @@ export interface operations {
                 limit?: components["parameters"]["Limit"];
                 /** @description Number of items to skip */
                 offset?: components["parameters"]["Offset"];
+                /** @description Search query string */
+                search?: components["parameters"]["Search"];
             };
             header?: never;
             path: {
@@ -5851,6 +6814,34 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["OrganizationEventList"];
                 };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createOrganizationEvent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The organization ID */
+                organizationID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateOrganizationEventRequest"];
+            };
+        };
+        responses: {
+            /** @description Event accepted for processing */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             default: components["responses"]["Error"];
         };
@@ -7164,8 +8155,6 @@ export interface operations {
             path: {
                 /** @description The project ID */
                 projectID: string;
-                /** @description The provider group (email, text, push) */
-                group: string;
                 /** @description The provider module type (e.g., resend, twilio) */
                 type: string;
             };
@@ -7196,8 +8185,6 @@ export interface operations {
             path: {
                 /** @description The project ID */
                 projectID: string;
-                /** @description The provider group (email, text, push) */
-                group: string;
                 /** @description The provider module type */
                 type: string;
                 /** @description The provider ID */
@@ -7226,8 +8213,6 @@ export interface operations {
             path: {
                 /** @description The project ID */
                 projectID: string;
-                /** @description The provider group (email, text, push) */
-                group: string;
                 /** @description The provider module type */
                 type: string;
                 /** @description The provider ID */
@@ -7273,6 +8258,554 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listScheduledSchemas: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ScheduledEventListResponse"];
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteScheduledSchema: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The scheduled ID */
+                scheduledID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Scheduled schema deleted successfully */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createScheduleOffset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The schedule definition ID */
+                scheduledID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateScheduleOffsetRequest"];
+            };
+        };
+        responses: {
+            /** @description Schedule offset created successfully */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScheduleOffset"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getUserScheduled: {
+        parameters: {
+            query?: {
+                /** @description Maximum number of items to return */
+                limit?: components["parameters"]["Limit"];
+                /** @description Number of items to skip */
+                offset?: components["parameters"]["Offset"];
+            };
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The user ID */
+                userID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description User scheduled retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserScheduledList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    upsertUserScheduled: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The user ID */
+                userID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpsertUserScheduledRequest"];
+            };
+        };
+        responses: {
+            /** @description User scheduled upserted successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserScheduled"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteUserScheduled: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The user ID */
+                userID: string;
+                /** @description The scheduled instance ID */
+                scheduledInstanceID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description User scheduled instance deleted successfully */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateUserScheduled: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The user ID */
+                userID: string;
+                /** @description The scheduled instance ID */
+                scheduledInstanceID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateUserScheduledRequest"];
+            };
+        };
+        responses: {
+            /** @description User scheduled instance updated successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserScheduled"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getOrganizationScheduled: {
+        parameters: {
+            query?: {
+                /** @description Maximum number of items to return */
+                limit?: components["parameters"]["Limit"];
+                /** @description Number of items to skip */
+                offset?: components["parameters"]["Offset"];
+            };
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The organization ID */
+                organizationID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Organization scheduled retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationScheduledList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    upsertOrganizationScheduled: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The organization ID */
+                organizationID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpsertOrganizationScheduledRequest"];
+            };
+        };
+        responses: {
+            /** @description Organization scheduled upserted successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationScheduled"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteOrganizationScheduled: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The organization ID */
+                organizationID: string;
+                /** @description The scheduled instance ID */
+                scheduledInstanceID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Organization scheduled instance deleted successfully */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateOrganizationScheduled: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The organization ID */
+                organizationID: string;
+                /** @description The scheduled instance ID */
+                scheduledInstanceID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateOrganizationScheduledRequest"];
+            };
+        };
+        responses: {
+            /** @description Organization scheduled instance updated successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationScheduled"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listBroadcasts: {
+        parameters: {
+            query?: {
+                /** @description Maximum number of items to return */
+                limit?: components["parameters"]["Limit"];
+                /** @description Number of items to skip */
+                offset?: components["parameters"]["Offset"];
+                /** @description Search query string */
+                search?: components["parameters"]["Search"];
+                /** @description Filter by campaign ID */
+                campaign_id?: string;
+                /** @description Filter by list ID */
+                list_id?: string;
+                /** @description Filter by broadcast state */
+                state?: components["schemas"]["BroadcastState"];
+            };
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["BroadcastListResponse"];
+            default: components["responses"]["Error"];
+        };
+    };
+    createBroadcast: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateBroadcast"];
+            };
+        };
+        responses: {
+            /** @description Broadcast created successfully */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Broadcast"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getBroadcast: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The broadcast ID */
+                broadcastID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Broadcast retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Broadcast"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    cancelBroadcast: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The broadcast ID */
+                broadcastID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Broadcast cancelled successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Broadcast"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateBroadcast: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The broadcast ID */
+                broadcastID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateBroadcast"];
+            };
+        };
+        responses: {
+            /** @description Broadcast updated successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Broadcast"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getBroadcastUsers: {
+        parameters: {
+            query?: {
+                /** @description Maximum number of items to return */
+                limit?: components["parameters"]["Limit"];
+                /** @description Number of items to skip */
+                offset?: components["parameters"]["Offset"];
+                /** @description Search query string */
+                search?: components["parameters"]["Search"];
+            };
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The broadcast ID */
+                broadcastID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Broadcast users retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        results: {
+                            /** Format: uuid */
+                            id?: string;
+                            /** Format: uuid */
+                            user_id?: string;
+                            state?: string;
+                            /** Format: date-time */
+                            sent_at?: string;
+                            full_name?: string;
+                            email?: string;
+                            phone?: string;
+                        }[];
+                        total: number;
+                        limit: number;
+                        offset: number;
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    streamBroadcastProgress: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The broadcast ID */
+                broadcastID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Server-Sent Event stream of broadcast progress updates */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": string;
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    sendBroadcast: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The broadcast ID */
+                broadcastID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Broadcast send triggered successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Broadcast"];
+                };
             };
             default: components["responses"]["Error"];
         };

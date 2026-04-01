@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -45,7 +46,7 @@ func (srv *ClientController) PostUserEvents(w http.ResponseWriter, r *http.Reque
 
 	projectID := actor.ProjectID
 	if projectID == uuid.Nil {
-		srv.logger.Error("project_id is required")
+		srv.logger.Warn("project_id is required")
 		oapi.WriteProblem(w, problem.ErrUnauthorized())
 		return
 	}
@@ -67,15 +68,38 @@ func (srv *ClientController) PostUserEvents(w http.ResponseWriter, r *http.Reque
 	logger.Info("posting events")
 
 	for _, event := range events {
-		msg := schemas.UserEvent{
-			ProjectID:   projectID,
-			Name:        event.Name,
-			AnonymousId: event.AnonymousId,
-			Data:        event.Data,
-			ExternalId:  event.ExternalId,
+		// match and identifier are mutually exclusive
+		if event.Match != nil && event.Identifier != nil {
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("match and identifier are mutually exclusive")))
+			return
+		}
+		if event.Match == nil && event.Identifier == nil {
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("one of match or identifier is required")))
+			return
 		}
 
-		err = srv.pubsub.Publish(ctx, schemas.Subject(schemas.UserEventsProcess(projectID)), msg)
+		switch {
+		case event.Match != nil:
+			msg := schemas.MatchUserEvent{
+				ProjectID: projectID,
+				Name:      event.Name,
+				Match:     *event.Match,
+				Data:      event.Data,
+			}
+			err = srv.pubsub.Publish(ctx, schemas.UserEventsMatch(projectID), msg)
+
+		default:
+			msg := schemas.UserEvent{
+				ProjectID: projectID,
+				Name:      event.Name,
+				Data:      event.Data,
+			}
+			if event.Identifier != nil {
+				msg.Identifiers = oapi.ToParams(*event.Identifier)
+			}
+			err = srv.pubsub.Publish(ctx, schemas.Subject(schemas.UserEventsProcess(projectID)), msg)
+		}
+
 		if err != nil {
 			logger.Error("failed to publish event", zap.Error(err))
 			oapi.WriteProblem(w, problem.ErrInternal())
@@ -97,7 +121,7 @@ func (srv *ClientController) DeleteUserClient(w http.ResponseWriter, r *http.Req
 
 	projectID := actor.ProjectID
 	if projectID == uuid.Nil {
-		srv.logger.Error("project_id is required")
+		srv.logger.Warn("project_id is required")
 		oapi.WriteProblem(w, problem.ErrUnauthorized())
 		return
 	}
@@ -116,17 +140,17 @@ func (srv *ClientController) DeleteUserClient(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	if req.ExternalId == nil && req.AnonymousId == nil {
-		srv.logger.Error("either external_id or anonymous_id is required")
-		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("either external_id or anonymous_id is required")))
+	if len(req.Identifier) == 0 {
+		srv.logger.Error("at least one identifier is required")
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("at least one identifier is required")))
 		return
 	}
 
 	logger := srv.logger.With(zap.Stringer("project_id", projectID))
 	logger.Info("deleting user")
 
-	userID, err := srv.users.LookupUserID(ctx, projectID, req.ExternalId, req.AnonymousId)
-	if errors.Is(err, sql.ErrNoRows) {
+	userID, err := srv.users.LookupUserID(ctx, projectID, oapi.ToParams(req.Identifier))
+	if errors.Is(err, subjects.ErrUserNotFound) {
 		logger.Info("user not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
 		return
@@ -158,7 +182,7 @@ func (srv *ClientController) UpsertUserClient(w http.ResponseWriter, r *http.Req
 
 	projectID := actor.ProjectID
 	if projectID == uuid.Nil {
-		srv.logger.Error("project_id is required")
+		srv.logger.Warn("project_id is required")
 		oapi.WriteProblem(w, problem.ErrUnauthorized())
 		return
 	}
@@ -180,9 +204,9 @@ func (srv *ClientController) UpsertUserClient(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	if req.ExternalId == nil && req.AnonymousId == nil {
-		logger.Error("either external_id or anonymous_id is required")
-		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("either external_id or anonymous_id is required")))
+	if len(req.Identifier) == 0 {
+		logger.Error("at least one identifier is required")
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("at least one identifier is required")))
 		return
 	}
 
@@ -201,9 +225,9 @@ func (srv *ClientController) UpsertUserClient(w http.ResponseWriter, r *http.Req
 		data = *req.Data
 	}
 
+	identifiers := oapi.ToParams(req.Identifier)
 	params := subjects.UpsertUserParams{
-		AnonymousID: req.AnonymousId,
-		ExternalID:  req.ExternalId,
+		Identifiers: identifiers,
 		Email:       req.Email,
 		Phone:       req.Phone,
 		Timezone:    req.Timezone,
@@ -221,8 +245,7 @@ func (srv *ClientController) UpsertUserClient(w http.ResponseWriter, r *http.Req
 	msg := schemas.User{
 		ProjectID:   projectID,
 		ID:          user.ID,
-		AnonymousID: user.AnonymousID,
-		ExternalID:  user.ExternalID,
+		Identifiers: identifiers,
 		Email:       user.Email,
 		Phone:       user.Phone,
 		Timezone:    user.Timezone,
@@ -259,7 +282,7 @@ func (srv *ClientController) UpsertOrganizationClient(w http.ResponseWriter, r *
 
 	projectID := actor.ProjectID
 	if projectID == uuid.Nil {
-		srv.logger.Error("project_id is required")
+		srv.logger.Warn("project_id is required")
 		oapi.WriteProblem(w, problem.ErrUnauthorized())
 		return
 	}
@@ -280,7 +303,7 @@ func (srv *ClientController) UpsertOrganizationClient(w http.ResponseWriter, r *
 
 	logger := srv.logger.With(
 		zap.Stringer("project_id", projectID),
-		zap.String("external_id", req.ExternalId),
+		zap.Int("identifiers", len(req.Identifier)),
 	)
 	logger.Info("upserting organization")
 
@@ -299,10 +322,11 @@ func (srv *ClientController) UpsertOrganizationClient(w http.ResponseWriter, r *
 	defer tx.Rollback() //nolint:errcheck
 	orgsStore := subjects.NewOrganizationsStore(tx)
 
+	orgIdentifiers := oapi.ToParams(req.Identifier)
 	params := subjects.UpsertOrganizationParams{
-		ExternalID: req.ExternalId,
-		Name:       req.Name,
-		Data:       data,
+		Identifiers: orgIdentifiers,
+		Name:        req.Name,
+		Data:        data,
 	}
 
 	orgID, err := orgsStore.UpsertOrganization(ctx, projectID, params)
@@ -321,12 +345,12 @@ func (srv *ClientController) UpsertOrganizationClient(w http.ResponseWriter, r *
 
 	// Publish to pubsub for schema extraction
 	msg := schemas.Organization{
-		ID:         org.ID,
-		ProjectID:  projectID,
-		ExternalID: org.ExternalID,
-		Name:       org.Name,
-		Data:       data,
-		Version:    org.Version,
+		ID:          org.ID,
+		ProjectID:   projectID,
+		Identifiers: orgIdentifiers,
+		Name:        org.Name,
+		Data:        data,
+		Version:     org.Version,
 	}
 
 	err = srv.pubsub.Publish(ctx, schemas.OrganizationsProcess(projectID), msg)
@@ -357,7 +381,7 @@ func (srv *ClientController) DeleteOrganizationClient(w http.ResponseWriter, r *
 
 	projectID := actor.ProjectID
 	if projectID == uuid.Nil {
-		srv.logger.Error("project_id is required")
+		srv.logger.Warn("project_id is required")
 		oapi.WriteProblem(w, problem.ErrUnauthorized())
 		return
 	}
@@ -378,12 +402,12 @@ func (srv *ClientController) DeleteOrganizationClient(w http.ResponseWriter, r *
 
 	logger := srv.logger.With(
 		zap.Stringer("project_id", projectID),
-		zap.String("external_id", req.ExternalId),
+		zap.Int("identifiers", len(req.Identifier)),
 	)
 	logger.Info("deleting organization")
 
-	orgID, err := srv.users.LookupOrganizationID(ctx, projectID, req.ExternalId)
-	if errors.Is(err, sql.ErrNoRows) {
+	orgID, err := srv.users.LookupOrganizationID(ctx, projectID, oapi.ToParams(req.Identifier))
+	if errors.Is(err, subjects.ErrOrgNotFound) {
 		logger.Info("organization not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("organization not found")))
 		return
@@ -415,7 +439,7 @@ func (srv *ClientController) AddOrganizationUserClient(w http.ResponseWriter, r 
 
 	projectID := actor.ProjectID
 	if projectID == uuid.Nil {
-		srv.logger.Error("project_id is required")
+		srv.logger.Warn("project_id is required")
 		oapi.WriteProblem(w, problem.ErrUnauthorized())
 		return
 	}
@@ -436,8 +460,8 @@ func (srv *ClientController) AddOrganizationUserClient(w http.ResponseWriter, r 
 
 	logger := srv.logger.With(
 		zap.Stringer("project_id", projectID),
-		zap.String("org_external_id", req.OrganizationExternalId),
-		zap.String("user_external_id", req.UserExternalId),
+		zap.Int("org_identifiers", len(req.Organization.Identifier)),
+		zap.Int("user_identifiers", len(req.User.Identifier)),
 	)
 	logger.Info("adding user to organization")
 
@@ -452,9 +476,9 @@ func (srv *ClientController) AddOrganizationUserClient(w http.ResponseWriter, r 
 	orgsStore := subjects.NewOrganizationsStore(tx)
 	usersStore := subjects.NewUsersStore(tx)
 
-	// Look up organization by external ID
-	orgID, err := orgsStore.LookupOrganizationID(ctx, projectID, req.OrganizationExternalId)
-	if errors.Is(err, sql.ErrNoRows) {
+	// Look up organization by identifiers
+	orgID, err := orgsStore.LookupOrganizationID(ctx, projectID, oapi.ToParams(req.Organization.Identifier))
+	if errors.Is(err, subjects.ErrOrgNotFound) {
 		logger.Info("organization not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("organization not found")))
 		return
@@ -465,9 +489,9 @@ func (srv *ClientController) AddOrganizationUserClient(w http.ResponseWriter, r 
 		return
 	}
 
-	// Look up user by external ID
-	userID, err := usersStore.LookupUserID(ctx, projectID, &req.UserExternalId, nil)
-	if errors.Is(err, sql.ErrNoRows) {
+	// Look up user by identifiers
+	userID, err := usersStore.LookupUserID(ctx, projectID, oapi.ToParams(req.User.Identifier))
+	if errors.Is(err, subjects.ErrUserNotFound) {
 		logger.Info("user not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
 		return
@@ -491,12 +515,12 @@ func (srv *ClientController) AddOrganizationUserClient(w http.ResponseWriter, r 
 	}
 
 	msg := schemas.OrganizationUser{
-		OrganizationID:         orgID,
-		OrganizationExternalID: req.OrganizationExternalId,
-		UserID:                 userID,
-		ProjectID:              projectID,
-		Data:                   data,
-		Version:                orgUser.Version,
+		OrganizationID:          orgID,
+		OrganizationIdentifiers: oapi.ToParams(req.Organization.Identifier),
+		UserID:                  userID,
+		ProjectID:               projectID,
+		Data:                    data,
+		Version:                 orgUser.Version,
 	}
 
 	err = srv.pubsub.Publish(ctx, schemas.OrganizationUsersProcess(projectID), msg)
@@ -527,7 +551,7 @@ func (srv *ClientController) RemoveOrganizationUserClient(w http.ResponseWriter,
 
 	projectID := actor.ProjectID
 	if projectID == uuid.Nil {
-		srv.logger.Error("project_id is required")
+		srv.logger.Warn("project_id is required")
 		oapi.WriteProblem(w, problem.ErrUnauthorized())
 		return
 	}
@@ -548,14 +572,14 @@ func (srv *ClientController) RemoveOrganizationUserClient(w http.ResponseWriter,
 
 	logger := srv.logger.With(
 		zap.Stringer("project_id", projectID),
-		zap.String("org_external_id", req.OrganizationExternalId),
-		zap.String("user_external_id", req.UserExternalId),
+		zap.Int("org_identifiers", len(req.Organization.Identifier)),
+		zap.Int("user_identifiers", len(req.User.Identifier)),
 	)
 	logger.Info("removing user from organization")
 
-	// Look up organization by external ID
-	orgID, err := srv.users.LookupOrganizationID(ctx, projectID, req.OrganizationExternalId)
-	if errors.Is(err, sql.ErrNoRows) {
+	// Look up organization by identifiers
+	orgID, err := srv.users.LookupOrganizationID(ctx, projectID, oapi.ToParams(req.Organization.Identifier))
+	if errors.Is(err, subjects.ErrOrgNotFound) {
 		logger.Info("organization not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("organization not found")))
 		return
@@ -566,9 +590,9 @@ func (srv *ClientController) RemoveOrganizationUserClient(w http.ResponseWriter,
 		return
 	}
 
-	// Look up user by external ID
-	userID, err := srv.users.LookupUserID(ctx, projectID, &req.UserExternalId, nil)
-	if errors.Is(err, sql.ErrNoRows) {
+	// Look up user by identifiers
+	userID, err := srv.users.LookupUserID(ctx, projectID, oapi.ToParams(req.User.Identifier))
+	if errors.Is(err, subjects.ErrUserNotFound) {
 		logger.Info("user not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
 		return
@@ -600,7 +624,7 @@ func (srv *ClientController) PostOrganizationEventsClient(w http.ResponseWriter,
 
 	projectID := actor.ProjectID
 	if projectID == uuid.Nil {
-		srv.logger.Error("project_id is required")
+		srv.logger.Warn("project_id is required")
 		oapi.WriteProblem(w, problem.ErrUnauthorized())
 		return
 	}
@@ -623,17 +647,13 @@ func (srv *ClientController) PostOrganizationEventsClient(w http.ResponseWriter,
 	logger.Info("posting organization events")
 
 	for _, event := range events {
-		// Look up organization by external ID
-		orgID, err := srv.users.LookupOrganizationID(ctx, projectID, event.OrganizationExternalId)
-		if errors.Is(err, sql.ErrNoRows) {
-			logger.Warn("organization not found, skipping event",
-				zap.String("org_external_id", event.OrganizationExternalId),
-				zap.String("event_name", event.Name))
-			continue
+		// match and identifier are mutually exclusive
+		if event.Match != nil && event.Identifier != nil {
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("match and identifier are mutually exclusive")))
+			return
 		}
-		if err != nil {
-			logger.Error("failed to lookup organization", zap.Error(err))
-			oapi.WriteProblem(w, problem.ErrInternal())
+		if event.Match == nil && event.Identifier == nil {
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("one of match or identifier is required")))
 			return
 		}
 
@@ -642,15 +662,43 @@ func (srv *ClientController) PostOrganizationEventsClient(w http.ResponseWriter,
 			data = *event.Data
 		}
 
-		msg := schemas.OrganizationEvent{
-			Name:                   event.Name,
-			ProjectID:              projectID,
-			OrganizationID:         orgID,
-			OrganizationExternalID: event.OrganizationExternalId,
-			Data:                   data,
+		switch {
+		case event.Match != nil:
+			msg := schemas.MatchOrganizationEvent{
+				ProjectID: projectID,
+				Name:      event.Name,
+				Match:     *event.Match,
+				Data:      data,
+			}
+			err = srv.pubsub.Publish(ctx, schemas.OrganizationEventsMatch(projectID), msg)
+
+		case event.Identifier != nil:
+			orgIdentifiers := oapi.ToParams(*event.Identifier)
+			var orgID uuid.UUID
+			orgID, err = srv.users.LookupOrganizationID(ctx, projectID, orgIdentifiers)
+			if errors.Is(err, subjects.ErrOrgNotFound) {
+				logger.Warn("organization not found, skipping event",
+					zap.Int("org_identifiers", len(*event.Identifier)),
+					zap.String("event_name", event.Name))
+				continue
+			}
+			if err != nil {
+				logger.Error("failed to lookup organization", zap.Error(err))
+				oapi.WriteProblem(w, problem.ErrInternal())
+				return
+			}
+
+			msg := schemas.OrganizationEvent{
+				Name:                    event.Name,
+				ProjectID:               projectID,
+				OrganizationID:          orgID,
+				OrganizationIdentifiers: orgIdentifiers,
+				Data:                    data,
+			}
+
+			err = srv.pubsub.Publish(ctx, schemas.OrganizationEventsProcess(projectID), msg)
 		}
 
-		err = srv.pubsub.Publish(ctx, schemas.OrganizationEventsProcess(projectID), msg)
 		if err != nil {
 			logger.Error("failed to publish organization event", zap.Error(err))
 			oapi.WriteProblem(w, problem.ErrInternal())
@@ -660,6 +708,364 @@ func (srv *ClientController) PostOrganizationEventsClient(w http.ResponseWriter,
 
 	logger.Info("organization events processed successfully")
 	w.WriteHeader(http.StatusAccepted)
+}
+
+func (srv *ClientController) UpsertUserScheduledClient(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	actor := rbac.FromContext(ctx)
+	if actor == nil {
+		oapi.WriteProblem(w, problem.ErrUnauthorized())
+		return
+	}
+
+	projectID := actor.ProjectID
+	if projectID == uuid.Nil {
+		srv.logger.Warn("project_id is required")
+		oapi.WriteProblem(w, problem.ErrUnauthorized())
+		return
+	}
+
+	err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("scheduled", projectID))
+	if err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	var req oapi.UpsertUserScheduledRequest
+	err = json.Decode(r.Body, &req)
+	if err != nil {
+		srv.logger.Error("failed to decode request body", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid request body")))
+		return
+	}
+
+	if req.Identifier == nil || len(*req.Identifier) == 0 {
+		srv.logger.Error("at least one identifier is required")
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("at least one identifier is required")))
+		return
+	}
+	// Determine schedule type and validate the request.
+	scheduleType := "single"
+	if req.Interval != nil {
+		scheduleType = "recurring"
+		if !srv.users.ValidateInterval(ctx, *req.Interval) {
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid interval")))
+			return
+		}
+	}
+
+	// For recurring schedules, default start_at to now if not provided.
+	// This ensures the scheduler has a valid anchor for computing occurrences.
+	if scheduleType == "recurring" && req.StartAt == nil {
+		now := time.Now().UTC()
+		req.StartAt = &now
+	}
+
+	if scheduleType == "single" && req.ScheduledAt == nil {
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("scheduled_at is required for single schedules")))
+		return
+	}
+
+	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.String("scheduled_name", req.Name))
+	logger.Info("upserting user scheduled", zap.String("type", scheduleType))
+
+	var data map[string]any
+	if req.Data != nil {
+		data = *req.Data
+	}
+
+	userIDParams := oapi.ToParams(*req.Identifier)
+	msg := schemas.ScheduledMsg{
+		ID:          uuid.New(),
+		ProjectID:   projectID,
+		Name:        req.Name,
+		Type:        scheduleType,
+		SubjectType: "user",
+		Data:        data,
+		Identifiers: userIDParams,
+		StartAt:     req.StartAt,
+		Interval:    req.Interval,
+	}
+
+	if req.ScheduledAt != nil {
+		msg.ScheduledAt = *req.ScheduledAt
+	}
+
+	err = srv.pubsub.Publish(ctx, schemas.ScheduledProcess(projectID), msg)
+	if err != nil {
+		logger.Error("failed to publish user scheduled", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal())
+		return
+	}
+
+	logger.Info("user scheduled accepted for processing", zap.Stringer("id", msg.ID))
+
+	var scheduledAt time.Time
+	if req.ScheduledAt != nil {
+		scheduledAt = *req.ScheduledAt
+	} else if req.StartAt != nil {
+		scheduledAt = *req.StartAt
+	}
+
+	json.Write(w, http.StatusAccepted, oapi.ScheduledAccepted{
+		Id:          msg.ID,
+		Name:        req.Name,
+		ScheduledAt: scheduledAt,
+		Data:        req.Data,
+	})
+}
+
+func (srv *ClientController) DeleteUserScheduledClient(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	actor := rbac.FromContext(ctx)
+	if actor == nil {
+		oapi.WriteProblem(w, problem.ErrUnauthorized())
+		return
+	}
+
+	projectID := actor.ProjectID
+	if projectID == uuid.Nil {
+		srv.logger.Warn("project_id is required")
+		oapi.WriteProblem(w, problem.ErrUnauthorized())
+		return
+	}
+
+	err := srv.engine.Allowed(ctx, rbac.Delete, rbac.ProjectResourceScope("scheduled", projectID))
+	if err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	var req oapi.DeleteUserScheduledRequest
+	err = json.Decode(r.Body, &req)
+	if err != nil {
+		srv.logger.Error("failed to decode request body", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid request body")))
+		return
+	}
+
+	if req.Identifier == nil || len(*req.Identifier) == 0 {
+		srv.logger.Error("at least one identifier is required")
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("at least one identifier is required")))
+		return
+	}
+
+	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.String("scheduled_name", req.Name))
+	logger.Info("deleting user scheduled")
+
+	userID, err := srv.users.LookupUserID(ctx, projectID, oapi.ToParams(*req.Identifier))
+	if errors.Is(err, subjects.ErrUserNotFound) {
+		logger.Info("user not found")
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
+		return
+	}
+	if err != nil {
+		logger.Error("failed to lookup user", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal())
+		return
+	}
+
+	schedule, err := srv.users.GetScheduleByName(ctx, projectID, req.Name)
+	if errors.Is(err, sql.ErrNoRows) {
+		logger.Info("schedule not found")
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("schedule not found")))
+		return
+	}
+	if err != nil {
+		logger.Error("failed to get schedule by name", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal())
+		return
+	}
+
+	err = srv.users.DeleteUserScheduleByScheduleID(ctx, userID, schedule.ID)
+	if err != nil {
+		logger.Error("failed to delete user schedule", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal())
+		return
+	}
+
+	logger.Info("user scheduled deleted")
+	w.WriteHeader(http.StatusOK)
+}
+
+func (srv *ClientController) UpsertOrganizationScheduledClient(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	actor := rbac.FromContext(ctx)
+	if actor == nil {
+		oapi.WriteProblem(w, problem.ErrUnauthorized())
+		return
+	}
+
+	projectID := actor.ProjectID
+	if projectID == uuid.Nil {
+		srv.logger.Warn("project_id is required")
+		oapi.WriteProblem(w, problem.ErrUnauthorized())
+		return
+	}
+
+	err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("scheduled", projectID))
+	if err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	var req oapi.UpsertOrganizationScheduledRequest
+	err = json.Decode(r.Body, &req)
+	if err != nil {
+		srv.logger.Error("failed to decode request body", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid request body")))
+		return
+	}
+
+	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.String("scheduled_name", req.Name))
+	logger.Info("upserting organization scheduled")
+
+	orgIdentifiers := oapi.ToParams(req.Identifier)
+	orgID, err := srv.users.LookupOrganizationID(ctx, projectID, orgIdentifiers)
+	if errors.Is(err, subjects.ErrOrgNotFound) {
+		logger.Info("organization not found")
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("organization not found")))
+		return
+	}
+	if err != nil {
+		logger.Error("failed to lookup organization", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal())
+		return
+	}
+
+	// Determine schedule type and validate the request.
+	scheduleType := "single"
+	if req.Interval != nil {
+		scheduleType = "recurring"
+		if !srv.users.ValidateInterval(ctx, *req.Interval) {
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid interval")))
+			return
+		}
+	}
+
+	// For recurring schedules, default start_at to now if not provided.
+	// This ensures the scheduler has a valid anchor for computing occurrences.
+	if scheduleType == "recurring" && req.StartAt == nil {
+		now := time.Now().UTC()
+		req.StartAt = &now
+	}
+
+	if scheduleType == "single" && req.ScheduledAt == nil {
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("scheduled_at is required for single schedules")))
+		return
+	}
+
+	var data map[string]any
+	if req.Data != nil {
+		data = *req.Data
+	}
+
+	msg := schemas.ScheduledMsg{
+		ID:             uuid.New(),
+		ProjectID:      projectID,
+		Name:           req.Name,
+		Type:           scheduleType,
+		SubjectType:    "organization",
+		Data:           data,
+		OrganizationID: orgID,
+		Identifiers:    orgIdentifiers,
+		StartAt:        req.StartAt,
+		Interval:       req.Interval,
+	}
+
+	if req.ScheduledAt != nil {
+		msg.ScheduledAt = *req.ScheduledAt
+	}
+
+	err = srv.pubsub.Publish(ctx, schemas.ScheduledProcess(projectID), msg)
+	if err != nil {
+		logger.Error("failed to publish organization scheduled", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal())
+		return
+	}
+
+	logger.Info("organization scheduled accepted for processing", zap.Stringer("id", msg.ID))
+
+	var scheduledAt time.Time
+	if req.ScheduledAt != nil {
+		scheduledAt = *req.ScheduledAt
+	} else if req.StartAt != nil {
+		scheduledAt = *req.StartAt
+	}
+
+	json.Write(w, http.StatusAccepted, oapi.ScheduledAccepted{
+		Id:          msg.ID,
+		Name:        req.Name,
+		ScheduledAt: scheduledAt,
+		Data:        req.Data,
+	})
+}
+
+func (srv *ClientController) DeleteOrganizationScheduledClient(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	actor := rbac.FromContext(ctx)
+	if actor == nil {
+		oapi.WriteProblem(w, problem.ErrUnauthorized())
+		return
+	}
+
+	projectID := actor.ProjectID
+	if projectID == uuid.Nil {
+		srv.logger.Warn("project_id is required")
+		oapi.WriteProblem(w, problem.ErrUnauthorized())
+		return
+	}
+
+	err := srv.engine.Allowed(ctx, rbac.Delete, rbac.ProjectResourceScope("scheduled", projectID))
+	if err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	var req oapi.DeleteOrganizationScheduledRequest
+	err = json.Decode(r.Body, &req)
+	if err != nil {
+		srv.logger.Error("failed to decode request body", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid request body")))
+		return
+	}
+
+	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.String("scheduled_name", req.Name))
+	logger.Info("deleting organization scheduled")
+
+	orgID, err := srv.users.LookupOrganizationID(ctx, projectID, oapi.ToParams(req.Identifier))
+	if errors.Is(err, subjects.ErrOrgNotFound) {
+		logger.Info("organization not found")
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("organization not found")))
+		return
+	}
+	if err != nil {
+		logger.Error("failed to lookup organization", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal())
+		return
+	}
+
+	schedule, err := srv.users.GetScheduleByName(ctx, projectID, req.Name)
+	if errors.Is(err, sql.ErrNoRows) {
+		logger.Info("schedule not found")
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("schedule not found")))
+		return
+	}
+	if err != nil {
+		logger.Error("failed to get schedule by name", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal())
+		return
+	}
+
+	err = srv.users.DeleteOrganizationScheduleByScheduleID(ctx, orgID, schedule.ID)
+	if err != nil {
+		logger.Error("failed to delete organization schedule", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal())
+		return
+	}
+
+	logger.Info("organization scheduled deleted")
+	w.WriteHeader(http.StatusOK)
 }
 
 // orgToClientOAPI converts a subjects.Organization to client oapi.Organization
@@ -675,11 +1081,32 @@ func orgToClientOAPI(org *subjects.Organization) oapi.Organization {
 	return oapi.Organization{
 		Id:         org.ID,
 		ProjectId:  org.ProjectID,
-		ExternalId: org.ExternalID,
+		Identifier: externalIDRecordsToClientOAPI(org.ExternalIDs),
 		Name:       org.Name,
 		Data:       data,
 		Version:    org.Version,
 		CreatedAt:  org.CreatedAt,
 		UpdatedAt:  org.UpdatedAt,
 	}
+}
+
+// externalIDRecordsToClientOAPI converts store ExternalIDRecord slice to client oapi ExternalIDResponse slice.
+func externalIDRecordsToClientOAPI(records []subjects.ExternalIDRecord) []oapi.ExternalIDResponse {
+	result := make([]oapi.ExternalIDResponse, len(records))
+	for i, r := range records {
+		result[i] = oapi.ExternalIDResponse{
+			Id:         r.ID,
+			Source:     r.Source,
+			ExternalId: r.ExternalID,
+			CreatedAt:  r.CreatedAt,
+			UpdatedAt:  r.UpdatedAt,
+		}
+		if len(r.Metadata) > 0 && string(r.Metadata) != "null" {
+			var m map[string]any
+			if err := json.Unmarshal(r.Metadata, &m); err == nil {
+				result[i].Metadata = &m
+			}
+		}
+	}
+	return result
 }

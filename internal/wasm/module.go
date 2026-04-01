@@ -34,6 +34,14 @@ func (m *Module[T]) Call(ctx context.Context, fn string, input []byte) (uint32, 
 	return m.plugin.CallWithContext(ctx, fn, input)
 }
 
+// FunctionExists checks if the WASM plugin exports a function with the given name.
+func (m *Module[T]) FunctionExists(name string) bool {
+	if m.plugin == nil {
+		return false
+	}
+	return m.plugin.FunctionExists(name)
+}
+
 // Close closes the underlying plugin.
 // Uses a separate context with timeout if the provided context is already canceled.
 func (m *Module[T]) Close(ctx context.Context) {
@@ -66,6 +74,7 @@ func NewPlugin(ctx context.Context, wasm []byte, logger *zap.Logger) (*extism.Pl
 
 	if logger != nil {
 		// TODO: store the logs inside the database or a log management system
+		extism.SetLogLevel(extism.LogLevelTrace)
 		plugin.SetLogger(func(level extism.LogLevel, message string) {
 			switch level {
 			case extism.LogLevelTrace, extism.LogLevelDebug:

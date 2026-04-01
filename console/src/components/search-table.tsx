@@ -38,6 +38,7 @@ export interface ColSort {
     direction: string
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export interface SearchTableProps<T extends Record<string, any>> {
     columns: Array<DataTableCol<T>>
     title?: ReactNode
@@ -56,14 +57,14 @@ export interface SearchTableProps<T extends Record<string, any>> {
     onSelectRow?: (row: T) => void
 }
 
-const DEFAULT_ITEMS_PER_PAGE = 25
+const DEFAULT_ITEMS_PER_PAGE = 15
 const DEFAULT_PAGE = 0
 
 const toTableParams = (searchParams: URLSearchParams): SearchParams => {
     return {
         cursor: searchParams.get("cursor") ?? undefined,
         page: searchParams.get("page") === "prev" ? "prev" : "next",
-        limit: parseInt(searchParams.get("limit") ?? "25"),
+        limit: parseInt(searchParams.get("limit") ?? "15"),
         search: searchParams.get("search") ?? undefined,
         tag: searchParams.getAll("tag"),
         sort: searchParams.get("sort") ?? undefined,
@@ -122,7 +123,7 @@ export function useSearchTableState<T>(
     initialParams?: Partial<SearchParams>,
 ) {
     const [params, setParams] = useState<SearchParams>({
-        limit: 25,
+        limit: 15,
         search: "",
         ...(initialParams ?? {}),
     })
@@ -212,6 +213,7 @@ function SortableHeaderCell<T>({
     )
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function SearchTable<T extends Record<string, any>>({
     actions,
     columns,
@@ -305,7 +307,9 @@ export function SearchTable<T extends Record<string, any>>({
                         {items && items.length > 0 ? (
                             items.map((item) => {
                                 const args = { item }
-                                const key = itemKey ? itemKey(args) : (item as any).id
+                                const key = itemKey
+                                    ? itemKey(args)
+                                    : ((item as Record<string, unknown>).id as Key)
 
                                 return (
                                     <TableRow
@@ -318,6 +322,7 @@ export function SearchTable<T extends Record<string, any>>({
                                         data-state={selectedRow === key ? "selected" : undefined}
                                     >
                                         {columns.map((col) => {
+                                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
                                             let value: any = col.cell
                                                 ? col.cell(args)
                                                 : item[col.key as keyof T]

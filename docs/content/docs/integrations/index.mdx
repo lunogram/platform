@@ -1,0 +1,63 @@
+---
+title: Integrations
+description: Integrations that let Lunogram send messages and track analytics
+---
+
+import { Cards, Card } from "fumadocs-ui/components/card";
+
+Integrations are WASM plugins that enable Lunogram to send messages through various channels. Integrations are configured through the Lunogram UI under **Project Settings > Integrations**.
+
+## Email
+
+<Cards>
+  <Card title="Resend" href="/integrations/resend">
+    Modern email API built for developers with excellent deliverability.
+  </Card>
+</Cards>
+
+### Coming Soon
+
+The following email integrations are planned:
+
+- **Amazon SES** - Cost-effective email sending with AWS
+- **Mailgun** - Email API with powerful tracking
+- **SendGrid** - Transactional and marketing email
+- **SMTP** - Generic SMTP support
+
+## SMS
+
+<Cards>
+  <Card title="Twilio" href="/integrations/twilio">
+    Cloud communications platform for SMS messaging.
+  </Card>
+</Cards>
+
+### Coming Soon
+
+The following SMS integrations are planned:
+
+- **Telnyx** - Communications platform with SMS and voice
+- **Plivo** - Cloud communications for SMS and voice
+- **Vonage** - Communications APIs including SMS
+
+## Push Notifications
+
+<Cards>
+  <Card title="APNs & FCM" href="/integrations/push-notifications">
+    Send push notifications to iOS (Apple Push Notification service) and Android
+    (Firebase Cloud Messaging) devices.
+  </Card>
+</Cards>
+
+## How Integrations Work
+
+Lunogram uses [WebAssembly (WASM)](https://webassembly.org/) plugins for integrations, powered by the [Extism](https://extism.org/) runtime. This architecture provides:
+
+- **Sandboxed execution** - Integrations run in isolated environments
+- **Language flexibility** - Integrations can be written in Go, Rust, or any WASM-compatible language
+- **Hot reloading** - Add new integrations without restarting Lunogram
+- **Security** - Integration code cannot access the host system directly
+
+## Creating Custom Integrations
+
+You can create custom integrations for internal systems or unsupported services. Examples are available in the [modules/providers](https://github.com/lunogram/platform/tree/main/modules/providers) directory.

@@ -17,15 +17,38 @@ var (
 	// Must be greater than len(DefaultBackOff) per NATS requirements.
 	DefaultMaxDeliver = len(DefaultBackOff) + 1
 
-	// UnlimitedMaxDeliver is used for consumers that should retry indefinitely.
-	// NATS requires MaxDeliver > len(BackOff) when BackOff is set, so we use
-	// a large finite value instead of -1.
-	UnlimitedMaxDeliver = 1_000_000
+	// ProcessMaxDeliver is the maximum number of delivery attempts for process consumers.
+	// After exhausting the BackOff schedule, remaining retries use the last backoff interval (10m).
+	// With 20 attempts: 5 backoff steps + 14 retries at 10m = ~2h 23m + 13s of total retry time.
+	ProcessMaxDeliver = 20
 )
 
-func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream, ns Namespace) error {
-	logger.Info("bootstrapping pubsub streams and consumers...", zap.String("namespace", string(ns)))
-	bootstrap := NewBootstrapper(logger, jet)
+// BootstrapOption configures optional Bootstrap behaviour.
+type BootstrapOption func(*bootstrapOptions)
+
+type bootstrapOptions struct {
+	// managedExternally skips updating existing streams and consumers,
+	// only creating them if they don't exist yet. Use this when streams
+	// are managed by an external tool (e.g. Terraform, nats CLI) and
+	// the application should not overwrite their configuration.
+	managedExternally bool
+}
+
+// WithManagedExternally configures the bootstrapper to only create streams
+// and consumers that don't exist yet, leaving existing ones untouched.
+// This is useful when JetStream resources are managed by an external system.
+func WithManagedExternally(managed bool) BootstrapOption {
+	return func(o *bootstrapOptions) { o.managedExternally = managed }
+}
+
+func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream, ns Namespace, opts ...BootstrapOption) error {
+	var o bootstrapOptions
+	for _, fn := range opts {
+		fn(&o)
+	}
+
+	logger.Info("bootstrapping pubsub streams and consumers...", zap.String("namespace", string(ns)), zap.Bool("managed_externally", o.managedExternally))
+	bootstrap := NewBootstrapper(logger, jet, o.managedExternally)
 
 	bootstrap.EnsureStream(ctx, jetstream.StreamConfig{
 		Name:        ns.Stream(StreamUsers),
@@ -42,7 +65,7 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 		Description:   "Processes incoming users",
 		AckPolicy:     jetstream.AckExplicitPolicy,
 		BackOff:       DefaultBackOff,
-		MaxDeliver:    UnlimitedMaxDeliver,
+		MaxDeliver:    ProcessMaxDeliver,
 	})
 
 	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamUsers), jetstream.ConsumerConfig{
@@ -69,7 +92,7 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 		Description:   "Processes incoming user events",
 		AckPolicy:     jetstream.AckExplicitPolicy,
 		BackOff:       DefaultBackOff,
-		MaxDeliver:    UnlimitedMaxDeliver,
+		MaxDeliver:    ProcessMaxDeliver,
 	})
 
 	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamUserEvents), jetstream.ConsumerConfig{
@@ -79,6 +102,54 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 		AckPolicy:     jetstream.AckExplicitPolicy,
 		BackOff:       DefaultBackOff,
 		MaxDeliver:    DefaultMaxDeliver,
+	})
+
+	// Match consumers scan potentially large result sets and publish per-row,
+	// so they need a generous ack deadline as a safety net alongside the InProgress heartbeat.
+	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamUserEvents), jetstream.ConsumerConfig{
+		Name:          ns.Consumer(ConsumerUserEventsMatch),
+		FilterSubject: ns.Subject("users.events.match.>"),
+		Description:   "Resolves JSONB match filters into individual user events",
+		AckPolicy:     jetstream.AckExplicitPolicy,
+		AckWait:       5 * time.Minute,
+		BackOff:       DefaultBackOff,
+		MaxDeliver:    ProcessMaxDeliver,
+	})
+
+	bootstrap.EnsureStream(ctx, jetstream.StreamConfig{
+		Name:        ns.Stream(StreamScheduled),
+		Description: "Responsible for receiving incoming scheduled entities (user and organization)",
+		Subjects:    []string{ns.Subject("scheduled.process.>"), ns.Subject("scheduled.schema.>"), ns.Subject("scheduled.backfill.>")},
+		Discard:     jetstream.DiscardOld,
+		MaxAge:      24 * time.Hour,
+		Replicas:    1,
+	})
+
+	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamScheduled), jetstream.ConsumerConfig{
+		Name:          ns.Consumer(ConsumerScheduledProcess),
+		FilterSubject: ns.Subject("scheduled.process.>"),
+		Description:   "Processes incoming scheduled entities",
+		AckPolicy:     jetstream.AckExplicitPolicy,
+		BackOff:       DefaultBackOff,
+		MaxDeliver:    ProcessMaxDeliver,
+	})
+
+	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamScheduled), jetstream.ConsumerConfig{
+		Name:          ns.Consumer(ConsumerScheduledSchema),
+		FilterSubject: ns.Subject("scheduled.schema.>"),
+		Description:   "Processes scheduled schema definitions",
+		AckPolicy:     jetstream.AckExplicitPolicy,
+		BackOff:       DefaultBackOff,
+		MaxDeliver:    DefaultMaxDeliver,
+	})
+
+	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamScheduled), jetstream.ConsumerConfig{
+		Name:          ns.Consumer(ConsumerScheduledBackfill),
+		FilterSubject: ns.Subject("scheduled.backfill.>"),
+		Description:   "Backfills scheduled events when a new offset is created",
+		AckPolicy:     jetstream.AckExplicitPolicy,
+		BackOff:       DefaultBackOff,
+		MaxDeliver:    ProcessMaxDeliver,
 	})
 
 	bootstrap.EnsureStream(ctx, jetstream.StreamConfig{
@@ -96,7 +167,7 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 		AckPolicy:     jetstream.AckExplicitPolicy,
 		FilterSubject: ns.Subject("lists.recompute.>"),
 		BackOff:       DefaultBackOff,
-		MaxDeliver:    UnlimitedMaxDeliver,
+		MaxDeliver:    ProcessMaxDeliver,
 	})
 
 	bootstrap.EnsureStream(ctx, jetstream.StreamConfig{
@@ -114,7 +185,7 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 		AckPolicy:     jetstream.AckExplicitPolicy,
 		FilterSubject: ns.Subject("journeys.advance.>"),
 		BackOff:       DefaultBackOff,
-		MaxDeliver:    UnlimitedMaxDeliver,
+		MaxDeliver:    ProcessMaxDeliver,
 	})
 
 	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamJourneys), jetstream.ConsumerConfig{
@@ -123,16 +194,27 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 		AckPolicy:     jetstream.AckExplicitPolicy,
 		FilterSubject: ns.Subject("journeys.advance.>"),
 		BackOff:       DefaultBackOff,
-		MaxDeliver:    UnlimitedMaxDeliver,
+		MaxDeliver:    ProcessMaxDeliver,
+	})
+
+	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamJourneys), jetstream.ConsumerConfig{
+		Name:          ns.Consumer(ConsumerJourneysEntrance),
+		Description:   "Processes journey entrance eligibility and state creation",
+		AckPolicy:     jetstream.AckExplicitPolicy,
+		FilterSubject: ns.Subject("journeys.entrance.>"),
+		BackOff:       DefaultBackOff,
+		MaxDeliver:    ProcessMaxDeliver,
 	})
 
 	bootstrap.EnsureStream(ctx, jetstream.StreamConfig{
-		Name:        ns.Stream(StreamCampaigns),
-		Description: "Campaign sending and execution",
-		Subjects:    []string{ns.Subject("campaigns.>")},
-		Discard:     jetstream.DiscardOld,
-		MaxAge:      24 * time.Hour,
-		Replicas:    1,
+		Name:              ns.Stream(StreamCampaigns),
+		Description:       "Campaign sending and execution",
+		Subjects:          []string{ns.Subject("campaigns.>"), ns.Subject("schedules.campaigns.>")},
+		Discard:           jetstream.DiscardOld,
+		MaxAge:            24 * time.Hour,
+		Replicas:          1,
+		AllowMsgSchedules: true,
+		AllowMsgTTL:       true,
 	})
 
 	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamCampaigns), jetstream.ConsumerConfig{
@@ -141,7 +223,34 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 		AckPolicy:     jetstream.AckExplicitPolicy,
 		FilterSubject: ns.Subject("campaigns.send.>"),
 		BackOff:       DefaultBackOff,
-		MaxDeliver:    UnlimitedMaxDeliver,
+		MaxDeliver:    ProcessMaxDeliver,
+	})
+
+	bootstrap.EnsureStream(ctx, jetstream.StreamConfig{
+		Name:        ns.Stream(StreamBroadcasts),
+		Description: "Broadcast processing and execution",
+		Subjects:    []string{ns.Subject("broadcasts.process.>"), ns.Subject("broadcasts.batch.>")},
+		Discard:     jetstream.DiscardOld,
+		MaxAge:      24 * time.Hour,
+		Replicas:    1,
+	})
+
+	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamBroadcasts), jetstream.ConsumerConfig{
+		Name:          ns.Consumer(ConsumerBroadcastsProcess),
+		Description:   "Processes broadcast send requests",
+		AckPolicy:     jetstream.AckExplicitPolicy,
+		FilterSubject: ns.Subject("broadcasts.process.>"),
+		BackOff:       DefaultBackOff,
+		MaxDeliver:    ProcessMaxDeliver,
+	})
+
+	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamBroadcasts), jetstream.ConsumerConfig{
+		Name:          ns.Consumer(ConsumerBroadcastsBatch),
+		Description:   "Processes broadcast batch fan-out",
+		AckPolicy:     jetstream.AckExplicitPolicy,
+		FilterSubject: ns.Subject("broadcasts.batch.>"),
+		BackOff:       DefaultBackOff,
+		MaxDeliver:    ProcessMaxDeliver,
 	})
 
 	bootstrap.EnsureStream(ctx, jetstream.StreamConfig{
@@ -159,7 +268,7 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 		AckPolicy:     jetstream.AckExplicitPolicy,
 		FilterSubject: ns.Subject("organizations.process.>"),
 		BackOff:       DefaultBackOff,
-		MaxDeliver:    UnlimitedMaxDeliver,
+		MaxDeliver:    ProcessMaxDeliver,
 	})
 
 	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamOrganizations), jetstream.ConsumerConfig{
@@ -186,7 +295,7 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 		AckPolicy:     jetstream.AckExplicitPolicy,
 		FilterSubject: ns.Subject("organizations.users.process.>"),
 		BackOff:       DefaultBackOff,
-		MaxDeliver:    UnlimitedMaxDeliver,
+		MaxDeliver:    ProcessMaxDeliver,
 	})
 
 	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamOrganizationUsers), jetstream.ConsumerConfig{
@@ -213,16 +322,28 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 		AckPolicy:     jetstream.AckExplicitPolicy,
 		FilterSubject: ns.Subject("organizations.events.process.>"),
 		BackOff:       DefaultBackOff,
-		MaxDeliver:    UnlimitedMaxDeliver,
+		MaxDeliver:    ProcessMaxDeliver,
 	})
 
 	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamOrganizationEvents), jetstream.ConsumerConfig{
 		Name:          ns.Consumer(ConsumerOrganizationEventsSchema),
+		FilterSubject: ns.Subject("organizations.events.schema.>"),
 		Description:   "Processes organization event schema definitions",
 		AckPolicy:     jetstream.AckExplicitPolicy,
-		FilterSubject: ns.Subject("organizations.events.schema.>"),
 		BackOff:       DefaultBackOff,
 		MaxDeliver:    DefaultMaxDeliver,
+	})
+
+	// Match consumers scan potentially large result sets and publish per-row,
+	// so they need a generous ack deadline as a safety net alongside the InProgress heartbeat.
+	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamOrganizationEvents), jetstream.ConsumerConfig{
+		Name:          ns.Consumer(ConsumerOrganizationEventsMatch),
+		FilterSubject: ns.Subject("organizations.events.match.>"),
+		Description:   "Resolves JSONB match filters into individual organization events",
+		AckPolicy:     jetstream.AckExplicitPolicy,
+		AckWait:       5 * time.Minute,
+		BackOff:       DefaultBackOff,
+		MaxDeliver:    ProcessMaxDeliver,
 	})
 
 	bootstrap.EnsureStream(ctx, jetstream.StreamConfig{
@@ -258,23 +379,25 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 		AckPolicy:     jetstream.AckExplicitPolicy,
 		FilterSubject: ns.Subject("projects.events.>"),
 		BackOff:       DefaultBackOff,
-		MaxDeliver:    UnlimitedMaxDeliver,
+		MaxDeliver:    ProcessMaxDeliver,
 	})
 
 	return bootstrap.Error()
 }
 
-func NewBootstrapper(logger *zap.Logger, jet jetstream.JetStream) *Bootstrapper {
+func NewBootstrapper(logger *zap.Logger, jet jetstream.JetStream, managedExternally bool) *Bootstrapper {
 	return &Bootstrapper{
-		jet:    jet,
-		logger: logger,
+		jet:               jet,
+		logger:            logger,
+		managedExternally: managedExternally,
 	}
 }
 
 type Bootstrapper struct {
-	err    error
-	jet    jetstream.JetStream
-	logger *zap.Logger
+	err               error
+	jet               jetstream.JetStream
+	logger            *zap.Logger
+	managedExternally bool
 }
 
 func (b *Bootstrapper) EnsureStream(ctx graceful.Context, config jetstream.StreamConfig) {
@@ -284,19 +407,35 @@ func (b *Bootstrapper) EnsureStream(ctx graceful.Context, config jetstream.Strea
 
 	b.logger.Info("ensuring stream", zap.String("stream", config.Name))
 
-	_, b.err = b.jet.Stream(ctx, config.Name)
-	if b.err != nil && b.err != jetstream.ErrStreamNotFound {
-		b.logger.Error("error checking for stream", zap.String("stream", config.Name), zap.Error(b.err))
+	if b.managedExternally {
+		_, b.err = b.jet.Stream(ctx, config.Name)
+		if b.err != nil && b.err != jetstream.ErrStreamNotFound {
+			b.logger.Error("error checking for stream", zap.String("stream", config.Name), zap.Error(b.err))
+			return
+		}
+		if b.err == nil {
+			b.logger.Info("stream already exists (managed externally, skipping update)", zap.String("stream", config.Name))
+			return
+		}
+		b.logger.Info("creating stream (not found, even in managed-externally mode)", zap.String("stream", config.Name))
+		_, b.err = b.jet.CreateStream(ctx, config)
 		return
 	}
 
-	if b.err == nil {
-		b.logger.Info("stream already exists", zap.String("stream", config.Name))
+	_, err := b.jet.Stream(ctx, config.Name)
+	existed := err == nil
+
+	_, b.err = b.jet.CreateOrUpdateStream(ctx, config)
+	if b.err != nil {
+		b.logger.Error("failed to create or update stream", zap.String("stream", config.Name), zap.Error(b.err))
 		return
 	}
 
-	b.logger.Info("creating stream", zap.String("stream", config.Name))
-	_, b.err = b.jet.CreateStream(ctx, config)
+	if existed {
+		b.logger.Info("stream updated", zap.String("stream", config.Name))
+	} else {
+		b.logger.Info("stream created", zap.String("stream", config.Name))
+	}
 }
 
 func (b *Bootstrapper) EnsureConsumer(ctx context.Context, stream string, config jetstream.ConsumerConfig) {
@@ -314,19 +453,35 @@ func (b *Bootstrapper) EnsureConsumer(ctx context.Context, stream string, config
 		config.Durable = config.Name
 	}
 
-	_, b.err = b.jet.Consumer(ctx, stream, config.Durable)
-	if b.err != nil && b.err != jetstream.ErrConsumerNotFound {
-		b.logger.Error("error checking for consumer", zap.String("stream", stream), zap.String("consumer", config.Durable), zap.Error(b.err))
+	if b.managedExternally {
+		_, b.err = b.jet.Consumer(ctx, stream, config.Durable)
+		if b.err != nil && b.err != jetstream.ErrConsumerNotFound {
+			b.logger.Error("error checking for consumer", zap.String("stream", stream), zap.String("consumer", config.Durable), zap.Error(b.err))
+			return
+		}
+		if b.err == nil {
+			b.logger.Info("consumer already exists (managed externally, skipping update)", zap.String("stream", stream), zap.String("consumer", config.Durable))
+			return
+		}
+		b.logger.Info("creating consumer (not found, even in managed-externally mode)", zap.String("stream", stream), zap.String("consumer", config.Durable))
+		_, b.err = b.jet.CreateConsumer(ctx, stream, config)
 		return
 	}
 
-	if b.err == nil {
-		b.logger.Info("consumer already exists", zap.String("stream", stream), zap.String("consumer", config.Durable))
+	_, err := b.jet.Consumer(ctx, stream, config.Durable)
+	existed := err == nil
+
+	_, b.err = b.jet.CreateOrUpdateConsumer(ctx, stream, config)
+	if b.err != nil {
+		b.logger.Error("failed to create or update consumer", zap.String("stream", stream), zap.String("consumer", config.Name), zap.Error(b.err))
 		return
 	}
 
-	b.logger.Info("creating consumer", zap.String("stream", stream), zap.String("consumer", config.Durable))
-	_, b.err = b.jet.CreateConsumer(ctx, stream, config)
+	if existed {
+		b.logger.Info("consumer updated", zap.String("stream", stream), zap.String("consumer", config.Name))
+	} else {
+		b.logger.Info("consumer created", zap.String("stream", stream), zap.String("consumer", config.Name))
+	}
 }
 
 func (b *Bootstrapper) Error() error {

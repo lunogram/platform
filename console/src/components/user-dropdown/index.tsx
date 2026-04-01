@@ -11,7 +11,11 @@ interface AuthProvider {
 
 const providers: Record<string, AuthProvider> = {
     clerk: {
-        isConfigured: () => Boolean(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY),
+        isConfigured: () =>
+            Boolean(
+                window.__CONFIG__?.CLERK_PUBLISHABLE_KEY ||
+                import.meta.env.VITE_CLERK_PUBLISHABLE_KEY,
+            ),
         Component: ClerkUserDropdown,
     },
     default: {

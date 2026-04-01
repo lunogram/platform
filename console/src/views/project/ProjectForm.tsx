@@ -3,7 +3,7 @@ import type { Project } from "../../types"
 import { useTranslation } from "react-i18next"
 import type { UseFormReturn } from "react-hook-form"
 import { Controller, FormProvider, useForm } from "react-hook-form"
-import { Globe, MessageSquareText, Link2 } from "lucide-react"
+import { Globe, MessageSquareText } from "lucide-react"
 
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -17,7 +17,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select"
-import { Switch } from "@/components/ui/switch"
+
 import { Separator } from "@/components/ui/separator"
 import { LocalePicker } from "@/components/locale/picker"
 
@@ -57,8 +57,6 @@ export default function ProjectForm({ project, onSave }: ProjectFormProps) {
     const defaults = project ?? {
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         locale: browserLocale,
-        link_wrap_email: false,
-        link_wrap_push: false,
     }
     const form = useForm<Project>({
         defaultValues: defaults,
@@ -72,8 +70,6 @@ export default function ProjectForm({ project, onSave }: ProjectFormProps) {
             timezone,
             text_opt_out_message,
             text_help_message,
-            link_wrap_email,
-            link_wrap_push,
         }) => {
             const params = {
                 name,
@@ -82,8 +78,6 @@ export default function ProjectForm({ project, onSave }: ProjectFormProps) {
                 timezone,
                 text_opt_out_message,
                 text_help_message,
-                link_wrap_email,
-                link_wrap_push,
             }
 
             try {
@@ -410,74 +404,6 @@ export function ProjectSettingsFields({ form }: { form: UseFormReturn<Project> }
                         <p className="text-xs text-muted-foreground">
                             {t("sms_help_message_subtitle")}
                         </p>
-                    </div>
-                </div>
-            </section>
-
-            <Separator />
-
-            {/* Link Wrapping */}
-            <section className="space-y-6">
-                <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
-                        <Link2 className="h-4 w-4 text-primary" />
-                    </div>
-                    <div>
-                        <h3 className="font-semibold leading-none tracking-tight">
-                            {t("link_wrapping", "Link Wrapping")}
-                        </h3>
-                        <p className="text-sm text-muted-foreground">
-                            {t(
-                                "link_wrapping_description",
-                                "Enable link tracking for different channels.",
-                            )}
-                        </p>
-                    </div>
-                </div>
-
-                <div className="grid gap-4">
-                    <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
-                        <div className="space-y-0.5">
-                            <Label htmlFor="link_wrap_email" className="text-sm font-medium">
-                                {t("link_wrapping_email")}
-                            </Label>
-                            <p className="text-xs text-muted-foreground">
-                                {t("link_wrapping_email_subtitle")}
-                            </p>
-                        </div>
-                        <Controller
-                            control={form.control}
-                            name="link_wrap_email"
-                            render={({ field }) => (
-                                <Switch
-                                    id="link_wrap_email"
-                                    checked={!!field.value}
-                                    onCheckedChange={field.onChange}
-                                />
-                            )}
-                        />
-                    </div>
-
-                    <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
-                        <div className="space-y-0.5">
-                            <Label htmlFor="link_wrap_push" className="text-sm font-medium">
-                                {t("link_wrapping_push")}
-                            </Label>
-                            <p className="text-xs text-muted-foreground">
-                                {t("link_wrapping_push_subtitle")}
-                            </p>
-                        </div>
-                        <Controller
-                            control={form.control}
-                            name="link_wrap_push"
-                            render={({ field }) => (
-                                <Switch
-                                    id="link_wrap_push"
-                                    checked={!!field.value}
-                                    onCheckedChange={field.onChange}
-                                />
-                            )}
-                        />
                     </div>
                 </div>
             </section>

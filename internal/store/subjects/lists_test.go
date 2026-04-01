@@ -1012,28 +1012,13 @@ func TestPreviewListUsers(t *testing.T) {
 	ctx := context.Background()
 
 	// Create users with different data
-	_, err := db.CreateUser(ctx, User{
-		ProjectID:  projectID,
-		ExternalID: ptr("alice"),
-		Email:      ptr("alice@example.com"),
-		Data:       []byte(`{"name":"Alice","age":30}`),
-	})
+	_, err := db.CreateUser(ctx, projectID, ptr("alice@example.com"), nil, []byte(`{"name":"Alice","age":30}`), nil, nil, []ExternalIDParam{{Source: "default", ExternalID: "alice"}})
 	require.NoError(t, err)
 
-	_, err = db.CreateUser(ctx, User{
-		ProjectID:  projectID,
-		ExternalID: ptr("bob"),
-		Email:      ptr("bob@example.com"),
-		Data:       []byte(`{"name":"Bob","age":17}`),
-	})
+	_, err = db.CreateUser(ctx, projectID, ptr("bob@example.com"), nil, []byte(`{"name":"Bob","age":17}`), nil, nil, []ExternalIDParam{{Source: "default", ExternalID: "bob"}})
 	require.NoError(t, err)
 
-	_, err = db.CreateUser(ctx, User{
-		ProjectID:  projectID,
-		ExternalID: ptr("carol"),
-		Email:      ptr("carol@example.com"),
-		Data:       []byte(`{"name":"Carol","age":25}`),
-	})
+	_, err = db.CreateUser(ctx, projectID, ptr("carol@example.com"), nil, []byte(`{"name":"Carol","age":25}`), nil, nil, []ExternalIDParam{{Source: "default", ExternalID: "carol"}})
 	require.NoError(t, err)
 
 	// Rule: age >= 18 — should match Alice (30) and Carol (25) but not Bob (17)
@@ -1056,8 +1041,9 @@ func TestPreviewListUsers(t *testing.T) {
 	// Verify the returned users are Alice and Carol (not Bob)
 	extIDs := make(map[string]bool)
 	for _, u := range users {
-		require.NotNil(t, u.ExternalID)
-		extIDs[*u.ExternalID] = true
+		rec := u.ExternalIDBySource("default")
+		require.NotNil(t, rec)
+		extIDs[rec.ExternalID] = true
 	}
 	require.True(t, extIDs["alice"], "Alice should match")
 	require.True(t, extIDs["carol"], "Carol should match")
@@ -1073,11 +1059,7 @@ func TestPreviewListUsers_RespectsLimit(t *testing.T) {
 
 	// Create 5 users
 	for i := 0; i < 5; i++ {
-		_, err := db.CreateUser(ctx, User{
-			ProjectID:  projectID,
-			ExternalID: ptr(fmt.Sprintf("user_%d", i)),
-			Data:       []byte(`{"name":"Test"}`),
-		})
+		_, err := db.CreateUser(ctx, projectID, nil, nil, []byte(`{"name":"Test"}`), nil, nil, []ExternalIDParam{{Source: "default", ExternalID: fmt.Sprintf("user_%d", i)}})
 		require.NoError(t, err)
 	}
 
@@ -1105,11 +1087,7 @@ func TestPreviewListUsers_NoMatches(t *testing.T) {
 	ctx := context.Background()
 
 	// Create a user with age 10
-	_, err := db.CreateUser(ctx, User{
-		ProjectID:  projectID,
-		ExternalID: ptr("young"),
-		Data:       []byte(`{"name":"Young","age":10}`),
-	})
+	_, err := db.CreateUser(ctx, projectID, nil, nil, []byte(`{"name":"Young","age":10}`), nil, nil, []ExternalIDParam{{Source: "default", ExternalID: "young"}})
 	require.NoError(t, err)
 
 	// Rule: age >= 100 — should match nobody
@@ -1138,11 +1116,7 @@ func TestPreviewListUsers_DoesNotWriteListUsers(t *testing.T) {
 	ctx := context.Background()
 
 	// Create users
-	_, err := db.CreateUser(ctx, User{
-		ProjectID:  projectID,
-		ExternalID: ptr("user1"),
-		Data:       []byte(`{"name":"User1"}`),
-	})
+	_, err := db.CreateUser(ctx, projectID, nil, nil, []byte(`{"name":"User1"}`), nil, nil, []ExternalIDParam{{Source: "default", ExternalID: "user1"}})
 	require.NoError(t, err)
 
 	// Create a dynamic list

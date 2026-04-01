@@ -83,7 +83,55 @@ remarkNoSetextHeadings.data = {
 }
 
 const preprocessText = (text: string): string => {
-    const withLinks = text.replace(PLAIN_DOMAIN_REGEX, (match) => `[${match}](https://${match})`)
+    // Split text into segments: code blocks, inline code, and regular text
+    // This ensures we only auto-link URLs in regular text, not inside code
+    const segments: { type: "code" | "text"; content: string }[] = []
+    let currentIndex = 0
+
+    // Match both code blocks (```...```) and inline code (`...`)
+    // Use non-greedy matching and handle both single and triple backticks
+    const codeRegex = /(`{1,3})([\s\S]*?)\1/g
+    let match: RegExpExecArray | null
+
+    while ((match = codeRegex.exec(text)) !== null) {
+        // Add text before code as regular text
+        if (match.index > currentIndex) {
+            segments.push({
+                type: "text",
+                content: text.substring(currentIndex, match.index),
+            })
+        }
+
+        // Add the code segment (including backticks)
+        segments.push({
+            type: "code",
+            content: match[0],
+        })
+
+        currentIndex = match.index + match[0].length
+    }
+
+    // Add remaining text after last code segment
+    if (currentIndex < text.length) {
+        segments.push({
+            type: "text",
+            content: text.substring(currentIndex),
+        })
+    }
+
+    // Apply auto-linking only to non-code segments
+    const withLinks = segments
+        .map((segment) => {
+            if (segment.type === "code") {
+                return segment.content
+            }
+            return segment.content.replace(
+                PLAIN_DOMAIN_REGEX,
+                (match) => `[${match}](https://${match})`,
+            )
+        })
+        .join("")
+
     const withBreaks = "\n" + withLinks + "\n"
 
     return withBreaks.replace(/\n\n+/g, (match) => {

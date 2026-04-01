@@ -16,15 +16,6 @@ import { cn } from "@/utils"
 
 import { searchLocales, findLocale } from "./locales"
 
-// ---------------------------------------------------------------------------
-// LocalePicker – a searchable combobox backed by the standardised locale list.
-//
-// Use-cases:
-//   1. ProjectForm   – pick the project's default locale
-//   2. Locales page  – add a new project locale
-//   3. Anywhere a single locale key needs to be chosen
-// ---------------------------------------------------------------------------
-
 interface LocalePickerProps {
     /** Currently selected locale key (e.g. "en") */
     value?: string

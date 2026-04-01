@@ -30,27 +30,43 @@ const (
 	Secret ApiKeyScope = "secret"
 )
 
+// Defines values for BroadcastState.
+const (
+	BroadcastStateCancelled BroadcastState = "cancelled"
+	BroadcastStateCompleted BroadcastState = "completed"
+	BroadcastStateFailed    BroadcastState = "failed"
+	BroadcastStatePending   BroadcastState = "pending"
+	BroadcastStateScheduled BroadcastState = "scheduled"
+	BroadcastStateSending   BroadcastState = "sending"
+)
+
 // Defines values for CampaignUserStatus.
 const (
-	Aborted   CampaignUserStatus = "aborted"
-	Failed    CampaignUserStatus = "failed"
-	Opened    CampaignUserStatus = "opened"
-	Pending   CampaignUserStatus = "pending"
-	Sent      CampaignUserStatus = "sent"
-	Throttled CampaignUserStatus = "throttled"
+	CampaignUserStatusAborted   CampaignUserStatus = "aborted"
+	CampaignUserStatusFailed    CampaignUserStatus = "failed"
+	CampaignUserStatusOpened    CampaignUserStatus = "opened"
+	CampaignUserStatusPending   CampaignUserStatus = "pending"
+	CampaignUserStatusSent      CampaignUserStatus = "sent"
+	CampaignUserStatusThrottled CampaignUserStatus = "throttled"
 )
 
 // Defines values for Channel.
 const (
 	ChannelEmail Channel = "email"
 	ChannelPush  Channel = "push"
-	ChannelText  Channel = "text"
+	ChannelSms   Channel = "sms"
 )
 
 // Defines values for CreateListType.
 const (
 	CreateListTypeDynamic CreateListType = "dynamic"
 	CreateListTypeStatic  CreateListType = "static"
+)
+
+// Defines values for CreateScheduleOffsetRequestDirection.
+const (
+	CreateScheduleOffsetRequestDirectionAfter  CreateScheduleOffsetRequestDirection = "after"
+	CreateScheduleOffsetRequestDirectionBefore CreateScheduleOffsetRequestDirection = "before"
 )
 
 // Defines values for CreateSenderIdentityChannel.
@@ -77,6 +93,7 @@ const (
 	JourneyStepTypeExit       JourneyStepType = "exit"
 	JourneyStepTypeExperiment JourneyStepType = "experiment"
 	JourneyStepTypeGate       JourneyStepType = "gate"
+	JourneyStepTypeSchedule   JourneyStepType = "schedule"
 	JourneyStepTypeSticky     JourneyStepType = "sticky"
 	JourneyStepTypeUpdate     JourneyStepType = "update"
 )
@@ -109,6 +126,12 @@ const (
 	ProjectRoleSupport ProjectRole = "support"
 )
 
+// Defines values for ScheduleOffsetDirection.
+const (
+	ScheduleOffsetDirectionAfter  ScheduleOffsetDirection = "after"
+	ScheduleOffsetDirectionBefore ScheduleOffsetDirection = "before"
+)
+
 // Defines values for SenderIdentityChannel.
 const (
 	SenderIdentityChannelEmail SenderIdentityChannel = "email"
@@ -119,6 +142,30 @@ const (
 const (
 	Subscribed   SubscriptionState = "subscribed"
 	Unsubscribed SubscriptionState = "unsubscribed"
+)
+
+// Defines values for UpdateOrganizationScheduledRequestPause.
+const (
+	UpdateOrganizationScheduledRequestPauseAfterNextInterval UpdateOrganizationScheduledRequestPause = "after_next_interval"
+	UpdateOrganizationScheduledRequestPauseImmediately       UpdateOrganizationScheduledRequestPause = "immediately"
+)
+
+// Defines values for UpdateOrganizationScheduledRequestResume.
+const (
+	UpdateOrganizationScheduledRequestResumeAtNextInterval UpdateOrganizationScheduledRequestResume = "at_next_interval"
+	UpdateOrganizationScheduledRequestResumeImmediately    UpdateOrganizationScheduledRequestResume = "immediately"
+)
+
+// Defines values for UpdateUserScheduledRequestPause.
+const (
+	UpdateUserScheduledRequestPauseAfterNextInterval UpdateUserScheduledRequestPause = "after_next_interval"
+	UpdateUserScheduledRequestPauseImmediately       UpdateUserScheduledRequestPause = "immediately"
+)
+
+// Defines values for UpdateUserScheduledRequestResume.
+const (
+	UpdateUserScheduledRequestResumeAtNextInterval UpdateUserScheduledRequestResume = "at_next_interval"
+	UpdateUserScheduledRequestResumeImmediately    UpdateUserScheduledRequestResume = "immediately"
 )
 
 // Defines values for ListSenderIdentitiesParamsChannel.
@@ -274,6 +321,51 @@ type AuthCallbackRequest struct {
 	Redirect *string `json:"redirect,omitempty"`
 }
 
+// Broadcast defines model for Broadcast.
+type Broadcast struct {
+	Campaign *struct {
+		Channel *string             `json:"channel,omitempty"`
+		Id      *openapi_types.UUID `json:"id,omitempty"`
+		Name    *string             `json:"name,omitempty"`
+	} `json:"campaign,omitempty"`
+	CampaignId openapi_types.UUID `json:"campaign_id"`
+
+	// CompletedAt When the broadcast completed or failed
+	CompletedAt *time.Time `json:"completed_at,omitempty"`
+	CreatedAt   time.Time  `json:"created_at"`
+
+	// Error Error message if the broadcast failed
+	Error  *string            `json:"error,omitempty"`
+	Id     openapi_types.UUID `json:"id"`
+	ListId openapi_types.UUID `json:"list_id"`
+
+	// ListName Snapshot of the list name at broadcast creation time
+	ListName string `json:"list_name"`
+
+	// ListType Snapshot of the list type at broadcast creation time
+	ListType  string             `json:"list_type"`
+	ProjectId openapi_types.UUID `json:"project_id"`
+
+	// ScheduledAt When the broadcast is scheduled to be sent
+	ScheduledAt *time.Time `json:"scheduled_at,omitempty"`
+
+	// Sent Number of messages actually delivered so far
+	Sent *int `json:"sent,omitempty"`
+
+	// StartedAt When the broadcast started sending
+	StartedAt *time.Time `json:"started_at,omitempty"`
+
+	// State Current state of the broadcast
+	State BroadcastState `json:"state"`
+
+	// Total Total number of users in the audience at send time
+	Total     int       `json:"total"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// BroadcastState Current state of the broadcast
+type BroadcastState string
+
 // Campaign defines model for Campaign.
 type Campaign struct {
 	// Channel Communication channel type
@@ -348,6 +440,18 @@ type CreateApiKey struct {
 	Scope ApiKeyScope `json:"scope"`
 }
 
+// CreateBroadcast defines model for CreateBroadcast.
+type CreateBroadcast struct {
+	// CampaignId The campaign to broadcast
+	CampaignId openapi_types.UUID `json:"campaign_id"`
+
+	// ListId The list of users to send the broadcast to
+	ListId openapi_types.UUID `json:"list_id"`
+
+	// ScheduledAt Optional scheduled send time. If provided, the broadcast is created in 'scheduled' state.
+	ScheduledAt *time.Time `json:"scheduled_at,omitempty"`
+}
+
 // CreateCampaign defines model for CreateCampaign.
 type CreateCampaign struct {
 	// Channel Communication channel type
@@ -383,11 +487,18 @@ type CreateLocale struct {
 	Label string `json:"label"`
 }
 
+// CreateOrganizationEventRequest defines model for CreateOrganizationEventRequest.
+type CreateOrganizationEventRequest struct {
+	// Data Event data payload
+	Data *map[string]interface{} `json:"data,omitempty"`
+
+	// Name The name of the event
+	Name string `json:"name"`
+}
+
 // CreateProject defines model for CreateProject.
 type CreateProject struct {
 	Description       *string `json:"description,omitempty"`
-	LinkWrapEmail     *bool   `json:"link_wrap_email,omitempty"`
-	LinkWrapPush      *bool   `json:"link_wrap_push,omitempty"`
 	Locale            string  `json:"locale"`
 	Name              string  `json:"name"`
 	TextHelpMessage   *string `json:"text_help_message,omitempty"`
@@ -397,10 +508,25 @@ type CreateProject struct {
 
 // CreateProvider defines model for CreateProvider.
 type CreateProvider struct {
-	Data      *json.RawMessage `json:"data,omitempty"`
-	IsDefault *bool            `json:"is_default,omitempty"`
-	Name      string           `json:"name"`
+	Data     *json.RawMessage `json:"data,omitempty"`
+	LinkWrap *bool            `json:"link_wrap,omitempty"`
+	Name     string           `json:"name"`
+
+	// RateLimit Rate limit configuration for a provider instance.
+	RateLimit *RateLimit `json:"rate_limit,omitempty"`
 }
+
+// CreateScheduleOffsetRequest defines model for CreateScheduleOffsetRequest.
+type CreateScheduleOffsetRequest struct {
+	// Direction Whether the offset fires "before" or "after" the scheduled time.
+	Direction CreateScheduleOffsetRequestDirection `json:"direction"`
+
+	// Offset Duration offset relative to schedule time (e.g. "0m", "-30m", "1h", "-1M"). Negative = before, positive = after, "0m" = exact. Units are m (minutes), h (hours), d (days), M (months), y (years).
+	Offset string `json:"offset"`
+}
+
+// CreateScheduleOffsetRequestDirection Whether the offset fires "before" or "after" the scheduled time.
+type CreateScheduleOffsetRequestDirection string
 
 // CreateSenderIdentity defines model for CreateSenderIdentity.
 type CreateSenderIdentity struct {
@@ -442,6 +568,15 @@ type CreateTemplate struct {
 
 	// SenderIdentityId The ID of the sender identity to use for this template
 	SenderIdentityId *openapi_types.UUID `json:"sender_identity_id"`
+}
+
+// CreateUserEventRequest defines model for CreateUserEventRequest.
+type CreateUserEventRequest struct {
+	// Data Event data payload
+	Data *map[string]interface{} `json:"data,omitempty"`
+
+	// Name The name of the event
+	Name string `json:"name"`
 }
 
 // Delivery defines model for Delivery.
@@ -554,28 +689,44 @@ type ExperimentChildData struct {
 	Ratio float32 `json:"ratio"`
 }
 
+// ExternalID An external identifier with source and optional metadata
+type ExternalID struct {
+	// ExternalId The external identifier value
+	ExternalId string `json:"external_id"`
+
+	// Metadata Optional metadata associated with this identifier
+	Metadata *map[string]any `json:"metadata"`
+
+	// Source Source of the identifier (e.g. "default", "anonymous", or a custom source). Defaults to "default" if not provided.
+	Source *string `json:"source,omitempty"`
+}
+
+// ExternalIDResponse An external identifier as returned in responses, including database ID and timestamps
+type ExternalIDResponse struct {
+	CreatedAt  time.Time          `json:"created_at"`
+	ExternalId string             `json:"external_id"`
+	Id         openapi_types.UUID `json:"id"`
+	Metadata   *map[string]any    `json:"metadata"`
+	Source     string             `json:"source"`
+	UpdatedAt  time.Time          `json:"updated_at"`
+}
+
 // GateChildData Data for gate step children - typically empty, path determines branch
 type GateChildData = map[string]interface{}
 
 // IdentifyUser defines model for IdentifyUser.
 type IdentifyUser struct {
-	AnonymousId *string         `json:"anonymous_id,omitempty"`
-	Data        *map[string]any `json:"data,omitempty"`
-	Email       *string         `json:"email,omitempty"`
-	ExternalId  *string         `json:"external_id,omitempty"`
-	Locale      *string         `json:"locale,omitempty"`
+	Data  *map[string]any `json:"data,omitempty"`
+	Email *string         `json:"email,omitempty"`
+
+	// Identifier One or more external identifiers to identify the user
+	Identifier []ExternalID `json:"identifier"`
+	Locale     *string      `json:"locale,omitempty"`
 
 	// Phone E.164 formatted phone number
 	Phone    *string `json:"phone,omitempty"`
 	Timezone *string `json:"timezone,omitempty"`
-	union    json.RawMessage
 }
-
-// IdentifyUser0 defines model for .
-type IdentifyUser0 = interface{}
-
-// IdentifyUser1 defines model for .
-type IdentifyUser1 = interface{}
 
 // Journey defines model for Journey.
 type Journey struct {
@@ -694,16 +845,16 @@ type Locale struct {
 
 // Organization defines model for Organization.
 type Organization struct {
-	CreatedAt time.Time       `json:"created_at"`
-	Data      json.RawMessage `json:"data"`
+	CreatedAt time.Time          `json:"created_at"`
+	Data      json.RawMessage    `json:"data"`
+	Id        openapi_types.UUID `json:"id"`
 
-	// ExternalId External identifier for the organization from your system
-	ExternalId string             `json:"external_id"`
-	Id         openapi_types.UUID `json:"id"`
-	Name       *string            `json:"name,omitempty"`
-	ProjectId  openapi_types.UUID `json:"project_id"`
-	UpdatedAt  time.Time          `json:"updated_at"`
-	Version    int32              `json:"version"`
+	// Identifier External identifiers associated with this organization
+	Identifier []ExternalIDResponse `json:"identifier"`
+	Name       *string              `json:"name,omitempty"`
+	ProjectId  openapi_types.UUID   `json:"project_id"`
+	UpdatedAt  time.Time            `json:"updated_at"`
+	Version    int32                `json:"version"`
 }
 
 // OrganizationEvent defines model for OrganizationEvent.
@@ -744,14 +895,15 @@ type OrganizationList struct {
 
 // OrganizationMember defines model for OrganizationMember.
 type OrganizationMember struct {
-	AnonymousId   string             `json:"anonymous_id"`
 	CreatedAt     time.Time          `json:"created_at"`
 	Data          json.RawMessage    `json:"data"`
 	Email         *string            `json:"email,omitempty"`
-	ExternalId    *string            `json:"external_id,omitempty"`
 	HasPushDevice bool               `json:"has_push_device"`
 	Id            openapi_types.UUID `json:"id"`
-	Locale        *string            `json:"locale,omitempty"`
+
+	// Identifier External identifiers associated with this user
+	Identifier []ExternalIDResponse `json:"identifier"`
+	Locale     *string              `json:"locale,omitempty"`
 
 	// OrganizationData Organization-specific data for this user
 	OrganizationData json.RawMessage `json:"organization_data"`
@@ -779,6 +931,39 @@ type OrganizationMemberList struct {
 
 // OrganizationRole Role within an organization
 type OrganizationRole string
+
+// OrganizationScheduled defines model for OrganizationScheduled.
+type OrganizationScheduled struct {
+	CreatedAt time.Time          `json:"created_at"`
+	Data      json.RawMessage    `json:"data"`
+	Id        openapi_types.UUID `json:"id"`
+
+	// Interval Interval for recurring schedules
+	Interval       *string            `json:"interval"`
+	OrganizationId openapi_types.UUID `json:"organization_id"`
+
+	// PausedAt When set, the schedule is paused and the scheduler will not advance it
+	PausedAt    *time.Time         `json:"paused_at"`
+	ScheduledAt time.Time          `json:"scheduled_at"`
+	ScheduledId openapi_types.UUID `json:"scheduled_id"`
+
+	// StartAt Start time of the recurring schedule interval
+	StartAt   *time.Time `json:"start_at"`
+	UpdatedAt time.Time  `json:"updated_at"`
+}
+
+// OrganizationScheduledList defines model for OrganizationScheduledList.
+type OrganizationScheduledList struct {
+	// Limit Maximum number of items returned
+	Limit int `json:"limit"`
+
+	// Offset Number of items skipped
+	Offset  int                     `json:"offset"`
+	Results []OrganizationScheduled `json:"results"`
+
+	// Total Total number of items matching the filters
+	Total int `json:"total"`
+}
 
 // PaginatedResponse defines model for PaginatedResponse.
 type PaginatedResponse struct {
@@ -809,8 +994,6 @@ type Project struct {
 	Id                openapi_types.UUID  `json:"id"`
 	IntegrationsCount *int                `json:"integrations_count,omitempty"`
 	JourneysCount     *int                `json:"journeys_count,omitempty"`
-	LinkWrapEmail     *bool               `json:"link_wrap_email,omitempty"`
-	LinkWrapPush      *bool               `json:"link_wrap_push,omitempty"`
 	ListsCount        *int                `json:"lists_count,omitempty"`
 	Locale            string              `json:"locale"`
 	Name              string              `json:"name"`
@@ -869,37 +1052,56 @@ type ProjectRole string
 
 // Provider defines model for Provider.
 type Provider struct {
-	// Channel Communication channel type
-	Channel   Channel            `json:"channel"`
+	Channels  []Channel          `json:"channels"`
 	CreatedAt time.Time          `json:"created_at"`
 	Data      *json.RawMessage   `json:"data,omitempty"`
 	Id        openapi_types.UUID `json:"id"`
-	IsDefault bool               `json:"is_default"`
+	LinkWrap  *bool              `json:"link_wrap,omitempty"`
 	Module    string             `json:"module"`
 	Name      string             `json:"name"`
 	ProjectId openapi_types.UUID `json:"project_id"`
-	UpdatedAt time.Time          `json:"updated_at"`
+
+	// RateLimit Rate limit configuration for a provider instance.
+	RateLimit RateLimit `json:"rate_limit"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 // ProviderMeta defines model for ProviderMeta.
 type ProviderMeta struct {
+	Channels []Channel `json:"channels"`
+
 	// Color Brand color hex code for the module
 	Color       *string `json:"color,omitempty"`
 	Description *string `json:"description,omitempty"`
-	Group       string  `json:"group"`
 
 	// Hidden Whether this module is hidden from the UI
 	Hidden *bool   `json:"hidden,omitempty"`
 	Icon   *string `json:"icon,omitempty"`
 
 	// Locked Whether providers of this module type are locked and cannot be deleted
-	Locked *bool           `json:"locked,omitempty"`
-	Name   string          `json:"name"`
-	Schema json.RawMessage `json:"schema"`
+	Locked *bool `json:"locked,omitempty"`
+
+	// MaxRateLimit Absolute project-wide maximum rate limit (requests per minute). User overrides are clamped to this ceiling.
+	MaxRateLimit *int               `json:"max_rate_limit,omitempty"`
+	Name         string             `json:"name"`
+	RateLimit    *ProviderRateLimit `json:"rate_limit,omitempty"`
+	Schema       json.RawMessage    `json:"schema"`
 
 	// Type Module ID
 	Type string  `json:"type"`
 	Url  *string `json:"url,omitempty"`
+}
+
+// ProviderRateLimit defines model for ProviderRateLimit.
+type ProviderRateLimit struct {
+	// Interval Time window as a Go duration string (e.g. '1s', '1m', '1h'). Defaults to '1s'.
+	Interval string `json:"interval"`
+
+	// Limit Maximum number of requests allowed per interval
+	Limit int `json:"limit"`
+
+	// Override Whether users may override this rate limit at the provider level. When false, the module value is authoritative.
+	Override bool `json:"override"`
 }
 
 // PushProviderData defines model for PushProviderData.
@@ -917,6 +1119,40 @@ type PushTemplateData struct {
 	Title *string `json:"title,omitempty"`
 }
 
+// RateLimit Rate limit configuration for a provider instance.
+type RateLimit struct {
+	// Interval Time window as a Go duration string (e.g. '1s', '1m', '1h', '24h').
+	Interval string `json:"interval"`
+
+	// Limit Max number of messages per interval. 0 means use the module default.
+	Limit int `json:"limit"`
+}
+
+// ScheduleOffset defines model for ScheduleOffset.
+type ScheduleOffset struct {
+	CreatedAt time.Time `json:"created_at"`
+
+	// Direction Whether the offset fires "before" or "after" the scheduled time.
+	Direction ScheduleOffsetDirection `json:"direction"`
+	Id        openapi_types.UUID      `json:"id"`
+
+	// Offset Duration offset relative to schedule time (e.g. "0m", "-30m", "1h", "-1M"). Negative = before, positive = after, "0m" = exact. Units are m (minutes), h (hours), d (days), M (months), y (years).
+	Offset     string             `json:"offset"`
+	ScheduleId openapi_types.UUID `json:"schedule_id"`
+	UpdatedAt  time.Time          `json:"updated_at"`
+}
+
+// ScheduleOffsetDirection Whether the offset fires "before" or "after" the scheduled time.
+type ScheduleOffsetDirection string
+
+// ScheduledEventWithSchema defines model for ScheduledEventWithSchema.
+type ScheduledEventWithSchema struct {
+	Id      openapi_types.UUID `json:"id"`
+	Name    string             `json:"name"`
+	Offsets []ScheduleOffset   `json:"offsets"`
+	Schema  []SchemaPath       `json:"schema"`
+}
+
 // SchemaPath defines model for SchemaPath.
 type SchemaPath struct {
 	Path  string   `json:"path"`
@@ -928,8 +1164,8 @@ type SendTest struct {
 	// Props Optional template variables/props for rendering
 	Props *map[string]interface{} `json:"props,omitempty"`
 
-	// To The recipient address to send the test to
-	To openapi_types.Email `json:"to"`
+	// To The recipient address or phone number to send the test to
+	To string `json:"to"`
 }
 
 // SenderIdentity defines model for SenderIdentity.
@@ -1065,6 +1301,12 @@ type UpdateApiKey struct {
 	Role *ProjectRole `json:"role,omitempty"`
 }
 
+// UpdateBroadcast defines model for UpdateBroadcast.
+type UpdateBroadcast struct {
+	// ScheduledAt Set or update the scheduled send time. Pass null to remove the schedule and revert to pending. Only allowed when the broadcast is in 'pending' or 'scheduled' state.
+	ScheduledAt *time.Time `json:"scheduled_at"`
+}
+
 // UpdateCampaign defines model for UpdateCampaign.
 type UpdateCampaign struct {
 	Name       *string             `json:"name,omitempty"`
@@ -1094,11 +1336,27 @@ type UpdateOrganization struct {
 	Name *string          `json:"name,omitempty"`
 }
 
+// UpdateOrganizationScheduledRequest defines model for UpdateOrganizationScheduledRequest.
+type UpdateOrganizationScheduledRequest struct {
+	// Pause Pause the schedule. "immediately" deletes all unfired events. "after_next_interval" keeps existing events but prevents advancement.
+	Pause *UpdateOrganizationScheduledRequestPause `json:"pause,omitempty"`
+
+	// Resume Resume a paused schedule. "immediately" rebases anchor to now. "at_next_interval" computes from existing anchor.
+	Resume *UpdateOrganizationScheduledRequestResume `json:"resume,omitempty"`
+
+	// ScheduledAt The new time at which the scheduled resource should trigger
+	ScheduledAt *time.Time `json:"scheduled_at,omitempty"`
+}
+
+// UpdateOrganizationScheduledRequestPause Pause the schedule. "immediately" deletes all unfired events. "after_next_interval" keeps existing events but prevents advancement.
+type UpdateOrganizationScheduledRequestPause string
+
+// UpdateOrganizationScheduledRequestResume Resume a paused schedule. "immediately" rebases anchor to now. "at_next_interval" computes from existing anchor.
+type UpdateOrganizationScheduledRequestResume string
+
 // UpdateProject defines model for UpdateProject.
 type UpdateProject struct {
 	Description       *string `json:"description,omitempty"`
-	LinkWrapEmail     *bool   `json:"link_wrap_email,omitempty"`
-	LinkWrapPush      *bool   `json:"link_wrap_push,omitempty"`
 	Locale            *string `json:"locale,omitempty"`
 	Name              *string `json:"name,omitempty"`
 	TextHelpMessage   *string `json:"text_help_message,omitempty"`
@@ -1114,9 +1372,12 @@ type UpdateProjectAdmin struct {
 
 // UpdateProvider defines model for UpdateProvider.
 type UpdateProvider struct {
-	Data      *json.RawMessage `json:"data,omitempty"`
-	IsDefault *bool            `json:"is_default,omitempty"`
-	Name      *string          `json:"name,omitempty"`
+	Data     *json.RawMessage `json:"data,omitempty"`
+	LinkWrap *bool            `json:"link_wrap,omitempty"`
+	Name     *string          `json:"name,omitempty"`
+
+	// RateLimit Rate limit configuration for a provider instance.
+	RateLimit *RateLimit `json:"rate_limit,omitempty"`
 }
 
 // UpdateSubscription defines model for UpdateSubscription.
@@ -1150,6 +1411,24 @@ type UpdateUser struct {
 	Timezone *string `json:"timezone,omitempty"`
 }
 
+// UpdateUserScheduledRequest defines model for UpdateUserScheduledRequest.
+type UpdateUserScheduledRequest struct {
+	// Pause Pause the schedule. "immediately" deletes all unfired events. "after_next_interval" keeps existing events but prevents advancement.
+	Pause *UpdateUserScheduledRequestPause `json:"pause,omitempty"`
+
+	// Resume Resume a paused schedule. "immediately" rebases anchor to now. "at_next_interval" computes from existing anchor.
+	Resume *UpdateUserScheduledRequestResume `json:"resume,omitempty"`
+
+	// ScheduledAt The new time at which the scheduled resource should trigger
+	ScheduledAt *time.Time `json:"scheduled_at,omitempty"`
+}
+
+// UpdateUserScheduledRequestPause Pause the schedule. "immediately" deletes all unfired events. "after_next_interval" keeps existing events but prevents advancement.
+type UpdateUserScheduledRequestPause string
+
+// UpdateUserScheduledRequestResume Resume a paused schedule. "immediately" rebases anchor to now. "at_next_interval" computes from existing anchor.
+type UpdateUserScheduledRequestResume string
+
 // UpdateUserSubscriptions defines model for UpdateUserSubscriptions.
 type UpdateUserSubscriptions = []struct {
 	// State User subscription state
@@ -1161,21 +1440,64 @@ type UpdateUserSubscriptions = []struct {
 type UpsertOrganization struct {
 	Data *map[string]any `json:"data,omitempty"`
 
-	// ExternalId External identifier for the organization from your system
-	ExternalId string  `json:"external_id"`
-	Name       *string `json:"name,omitempty"`
+	// Identifier One or more external identifiers to identify the organization
+	Identifier []ExternalID `json:"identifier"`
+	Name       *string      `json:"name,omitempty"`
+}
+
+// UpsertOrganizationScheduledRequest defines model for UpsertOrganizationScheduledRequest.
+type UpsertOrganizationScheduledRequest struct {
+	// Data Scheduled resource data
+	Data *json.RawMessage `json:"data"`
+
+	// Interval Interval for recurring schedules. When set, the schedule type is automatically set to recurring.
+	Interval *string `json:"interval"`
+
+	// ScheduledAt The time at which the scheduled resource is set to trigger. Required for single schedules.
+	ScheduledAt *time.Time `json:"scheduled_at"`
+
+	// ScheduledId The scheduled definition ID. Either scheduled_id or scheduled_name must be provided.
+	ScheduledId *openapi_types.UUID `json:"scheduled_id,omitempty"`
+
+	// ScheduledName The schedule name. When provided, creates the schedule definition if it does not exist and uses its ID. Either scheduled_id or scheduled_name must be provided.
+	ScheduledName *string `json:"scheduled_name,omitempty"`
+
+	// StartAt Start time for recurring schedules. If omitted for recurring schedules, defaults to now.
+	StartAt *time.Time `json:"start_at"`
+}
+
+// UpsertUserScheduledRequest defines model for UpsertUserScheduledRequest.
+type UpsertUserScheduledRequest struct {
+	// Data Scheduled resource data
+	Data *json.RawMessage `json:"data"`
+
+	// Interval Interval for recurring schedules. When set, the schedule type is automatically set to recurring.
+	Interval *string `json:"interval"`
+
+	// ScheduledAt The time at which the scheduled resource is set to trigger. Required for single schedules.
+	ScheduledAt *time.Time `json:"scheduled_at"`
+
+	// ScheduledId The scheduled definition ID. Either scheduled_id or scheduled_name must be provided.
+	ScheduledId *openapi_types.UUID `json:"scheduled_id,omitempty"`
+
+	// ScheduledName The schedule name. When provided, creates the schedule definition if it does not exist and uses its ID. Either scheduled_id or scheduled_name must be provided.
+	ScheduledName *string `json:"scheduled_name,omitempty"`
+
+	// StartAt Start time for recurring schedules. If omitted for recurring schedules, defaults to now.
+	StartAt *time.Time `json:"start_at"`
 }
 
 // User defines model for User.
 type User struct {
-	AnonymousId   string             `json:"anonymous_id"`
 	CreatedAt     time.Time          `json:"created_at"`
 	Data          json.RawMessage    `json:"data"`
 	Email         *string            `json:"email,omitempty"`
-	ExternalId    *string            `json:"external_id,omitempty"`
 	HasPushDevice bool               `json:"has_push_device"`
 	Id            openapi_types.UUID `json:"id"`
-	Locale        *string            `json:"locale,omitempty"`
+
+	// Identifier External identifiers associated with this user
+	Identifier []ExternalIDResponse `json:"identifier"`
+	Locale     *string              `json:"locale,omitempty"`
 
 	// Phone E.164 formatted phone number
 	Phone     *string            `json:"phone,omitempty"`
@@ -1264,6 +1586,41 @@ type UserList struct {
 	Total int `json:"total"`
 }
 
+// UserScheduled defines model for UserScheduled.
+type UserScheduled struct {
+	// AnchorAt Anchor time used as the base for occurrence calculations. Rebased when scheduled_at is explicitly set.
+	AnchorAt  *time.Time         `json:"anchor_at"`
+	CreatedAt time.Time          `json:"created_at"`
+	Data      json.RawMessage    `json:"data"`
+	Id        openapi_types.UUID `json:"id"`
+
+	// Interval Interval for recurring schedules
+	Interval *string `json:"interval"`
+
+	// PausedAt When set, the schedule is paused and the scheduler will not advance it
+	PausedAt    *time.Time         `json:"paused_at"`
+	ScheduledAt time.Time          `json:"scheduled_at"`
+	ScheduledId openapi_types.UUID `json:"scheduled_id"`
+
+	// StartAt Start time of the recurring schedule interval
+	StartAt   *time.Time         `json:"start_at"`
+	UpdatedAt time.Time          `json:"updated_at"`
+	UserId    openapi_types.UUID `json:"user_id"`
+}
+
+// UserScheduledList defines model for UserScheduledList.
+type UserScheduledList struct {
+	// Limit Maximum number of items returned
+	Limit int `json:"limit"`
+
+	// Offset Number of items skipped
+	Offset  int             `json:"offset"`
+	Results []UserScheduled `json:"results"`
+
+	// Total Total number of items matching the filters
+	Total int `json:"total"`
+}
+
 // UserSubscription defines model for UserSubscription.
 type UserSubscription struct {
 	// Channel Communication channel type
@@ -1318,6 +1675,19 @@ type ApiKeyListResponse struct {
 	// Offset Number of items skipped
 	Offset  int      `json:"offset"`
 	Results []ApiKey `json:"results"`
+
+	// Total Total number of items matching the filters
+	Total int `json:"total"`
+}
+
+// BroadcastListResponse defines model for BroadcastListResponse.
+type BroadcastListResponse struct {
+	// Limit Maximum number of items returned
+	Limit int `json:"limit"`
+
+	// Offset Number of items skipped
+	Offset  int         `json:"offset"`
+	Results []Broadcast `json:"results"`
 
 	// Total Total number of items matching the filters
 	Total int `json:"total"`
@@ -1409,6 +1779,11 @@ type ProviderListResponse struct {
 	Total int `json:"total"`
 }
 
+// ScheduledEventListResponse defines model for ScheduledEventListResponse.
+type ScheduledEventListResponse struct {
+	Results []ScheduledEventWithSchema `json:"results"`
+}
+
 // SubscriptionListResponse defines model for SubscriptionListResponse.
 type SubscriptionListResponse struct {
 	// Limit Maximum number of items returned
@@ -1461,6 +1836,39 @@ type ListActionsParams struct {
 
 // ListProjectAdminsParams defines parameters for ListProjectAdmins.
 type ListProjectAdminsParams struct {
+	// Limit Maximum number of items to return
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Offset Number of items to skip
+	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
+
+	// Search Search query string
+	Search *Search `form:"search,omitempty" json:"search,omitempty"`
+}
+
+// ListBroadcastsParams defines parameters for ListBroadcasts.
+type ListBroadcastsParams struct {
+	// Limit Maximum number of items to return
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Offset Number of items to skip
+	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
+
+	// Search Search query string
+	Search *Search `form:"search,omitempty" json:"search,omitempty"`
+
+	// CampaignId Filter by campaign ID
+	CampaignId *openapi_types.UUID `form:"campaign_id,omitempty" json:"campaign_id,omitempty"`
+
+	// ListId Filter by list ID
+	ListId *openapi_types.UUID `form:"list_id,omitempty" json:"list_id,omitempty"`
+
+	// State Filter by broadcast state
+	State *BroadcastState `form:"state,omitempty" json:"state,omitempty"`
+}
+
+// GetBroadcastUsersParams defines parameters for GetBroadcastUsers.
+type GetBroadcastUsersParams struct {
 	// Limit Maximum number of items to return
 	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
 
@@ -1652,6 +2060,18 @@ type GetOrganizationEventsParams struct {
 
 	// Offset Number of items to skip
 	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
+
+	// Search Search query string
+	Search *Search `form:"search,omitempty" json:"search,omitempty"`
+}
+
+// GetOrganizationScheduledParams defines parameters for GetOrganizationScheduled.
+type GetOrganizationScheduledParams struct {
+	// Limit Maximum number of items to return
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Offset Number of items to skip
+	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
 }
 
 // ListOrganizationMembersParams defines parameters for ListOrganizationMembers.
@@ -1677,7 +2097,7 @@ type ListUsersParams struct {
 
 // ImportUsersMultipartBody defines parameters for ImportUsers.
 type ImportUsersMultipartBody struct {
-	// File CSV file with user data (must include external_id column)
+	// File CSV file with user data (must include source and external_id columns)
 	File openapi_types.File `json:"file"`
 }
 
@@ -1695,6 +2115,15 @@ type GetUserEventsParams struct {
 
 // GetUserJourneysParams defines parameters for GetUserJourneys.
 type GetUserJourneysParams struct {
+	// Limit Maximum number of items to return
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Offset Number of items to skip
+	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
+// GetUserScheduledParams defines parameters for GetUserScheduled.
+type GetUserScheduledParams struct {
 	// Limit Maximum number of items to return
 	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
 
@@ -1783,6 +2212,12 @@ type TestActionFunctionJSONRequestBody = TestActionFunctionRequest
 // UpdateProjectAdminJSONRequestBody defines body for UpdateProjectAdmin for application/json ContentType.
 type UpdateProjectAdminJSONRequestBody = UpdateProjectAdmin
 
+// CreateBroadcastJSONRequestBody defines body for CreateBroadcast for application/json ContentType.
+type CreateBroadcastJSONRequestBody = CreateBroadcast
+
+// UpdateBroadcastJSONRequestBody defines body for UpdateBroadcast for application/json ContentType.
+type UpdateBroadcastJSONRequestBody = UpdateBroadcast
+
 // CreateCampaignJSONRequestBody defines body for CreateCampaign for application/json ContentType.
 type CreateCampaignJSONRequestBody = CreateCampaign
 
@@ -1849,8 +2284,20 @@ type UpsertOrganizationJSONRequestBody = UpsertOrganization
 // UpdateOrganizationJSONRequestBody defines body for UpdateOrganization for application/json ContentType.
 type UpdateOrganizationJSONRequestBody = UpdateOrganization
 
+// CreateOrganizationEventJSONRequestBody defines body for CreateOrganizationEvent for application/json ContentType.
+type CreateOrganizationEventJSONRequestBody = CreateOrganizationEventRequest
+
+// UpsertOrganizationScheduledJSONRequestBody defines body for UpsertOrganizationScheduled for application/json ContentType.
+type UpsertOrganizationScheduledJSONRequestBody = UpsertOrganizationScheduledRequest
+
+// UpdateOrganizationScheduledJSONRequestBody defines body for UpdateOrganizationScheduled for application/json ContentType.
+type UpdateOrganizationScheduledJSONRequestBody = UpdateOrganizationScheduledRequest
+
 // AddOrganizationMemberJSONRequestBody defines body for AddOrganizationMember for application/json ContentType.
 type AddOrganizationMemberJSONRequestBody = AddOrganizationMember
+
+// CreateScheduleOffsetJSONRequestBody defines body for CreateScheduleOffset for application/json ContentType.
+type CreateScheduleOffsetJSONRequestBody = CreateScheduleOffsetRequest
 
 // IdentifyUserJSONRequestBody defines body for IdentifyUser for application/json ContentType.
 type IdentifyUserJSONRequestBody = IdentifyUser
@@ -1860,6 +2307,15 @@ type ImportUsersMultipartRequestBody ImportUsersMultipartBody
 
 // UpdateUserJSONRequestBody defines body for UpdateUser for application/json ContentType.
 type UpdateUserJSONRequestBody = UpdateUser
+
+// CreateUserEventJSONRequestBody defines body for CreateUserEvent for application/json ContentType.
+type CreateUserEventJSONRequestBody = CreateUserEventRequest
+
+// UpsertUserScheduledJSONRequestBody defines body for UpsertUserScheduled for application/json ContentType.
+type UpsertUserScheduledJSONRequestBody = UpsertUserScheduledRequest
+
+// UpdateUserScheduledJSONRequestBody defines body for UpdateUserScheduled for application/json ContentType.
+type UpdateUserScheduledJSONRequestBody = UpdateUserScheduledRequest
 
 // UpdateUserSubscriptionsJSONRequestBody defines body for UpdateUserSubscriptions for application/json ContentType.
 type UpdateUserSubscriptionsJSONRequestBody = UpdateUserSubscriptions
@@ -1884,186 +2340,6 @@ type UpdateAdminJSONRequestBody = UpdateAdmin
 
 // AuthCallbackJSONRequestBody defines body for AuthCallback for application/json ContentType.
 type AuthCallbackJSONRequestBody = AuthCallbackRequest
-
-// AsIdentifyUser0 returns the union data inside the IdentifyUser as a IdentifyUser0
-func (t IdentifyUser) AsIdentifyUser0() (IdentifyUser0, error) {
-	var body IdentifyUser0
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromIdentifyUser0 overwrites any union data inside the IdentifyUser as the provided IdentifyUser0
-func (t *IdentifyUser) FromIdentifyUser0(v IdentifyUser0) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeIdentifyUser0 performs a merge with any union data inside the IdentifyUser, using the provided IdentifyUser0
-func (t *IdentifyUser) MergeIdentifyUser0(v IdentifyUser0) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsIdentifyUser1 returns the union data inside the IdentifyUser as a IdentifyUser1
-func (t IdentifyUser) AsIdentifyUser1() (IdentifyUser1, error) {
-	var body IdentifyUser1
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromIdentifyUser1 overwrites any union data inside the IdentifyUser as the provided IdentifyUser1
-func (t *IdentifyUser) FromIdentifyUser1(v IdentifyUser1) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeIdentifyUser1 performs a merge with any union data inside the IdentifyUser, using the provided IdentifyUser1
-func (t *IdentifyUser) MergeIdentifyUser1(v IdentifyUser1) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-func (t IdentifyUser) MarshalJSON() ([]byte, error) {
-	b, err := t.union.MarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	object := make(map[string]json.RawMessage)
-	if t.union != nil {
-		err = json.Unmarshal(b, &object)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if t.AnonymousId != nil {
-		object["anonymous_id"], err = json.Marshal(t.AnonymousId)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling 'anonymous_id': %w", err)
-		}
-	}
-
-	if t.Data != nil {
-		object["data"], err = json.Marshal(t.Data)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling 'data': %w", err)
-		}
-	}
-
-	if t.Email != nil {
-		object["email"], err = json.Marshal(t.Email)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling 'email': %w", err)
-		}
-	}
-
-	if t.ExternalId != nil {
-		object["external_id"], err = json.Marshal(t.ExternalId)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling 'external_id': %w", err)
-		}
-	}
-
-	if t.Locale != nil {
-		object["locale"], err = json.Marshal(t.Locale)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling 'locale': %w", err)
-		}
-	}
-
-	if t.Phone != nil {
-		object["phone"], err = json.Marshal(t.Phone)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling 'phone': %w", err)
-		}
-	}
-
-	if t.Timezone != nil {
-		object["timezone"], err = json.Marshal(t.Timezone)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling 'timezone': %w", err)
-		}
-	}
-	b, err = json.Marshal(object)
-	return b, err
-}
-
-func (t *IdentifyUser) UnmarshalJSON(b []byte) error {
-	err := t.union.UnmarshalJSON(b)
-	if err != nil {
-		return err
-	}
-	object := make(map[string]json.RawMessage)
-	err = json.Unmarshal(b, &object)
-	if err != nil {
-		return err
-	}
-
-	if raw, found := object["anonymous_id"]; found {
-		err = json.Unmarshal(raw, &t.AnonymousId)
-		if err != nil {
-			return fmt.Errorf("error reading 'anonymous_id': %w", err)
-		}
-	}
-
-	if raw, found := object["data"]; found {
-		err = json.Unmarshal(raw, &t.Data)
-		if err != nil {
-			return fmt.Errorf("error reading 'data': %w", err)
-		}
-	}
-
-	if raw, found := object["email"]; found {
-		err = json.Unmarshal(raw, &t.Email)
-		if err != nil {
-			return fmt.Errorf("error reading 'email': %w", err)
-		}
-	}
-
-	if raw, found := object["external_id"]; found {
-		err = json.Unmarshal(raw, &t.ExternalId)
-		if err != nil {
-			return fmt.Errorf("error reading 'external_id': %w", err)
-		}
-	}
-
-	if raw, found := object["locale"]; found {
-		err = json.Unmarshal(raw, &t.Locale)
-		if err != nil {
-			return fmt.Errorf("error reading 'locale': %w", err)
-		}
-	}
-
-	if raw, found := object["phone"]; found {
-		err = json.Unmarshal(raw, &t.Phone)
-		if err != nil {
-			return fmt.Errorf("error reading 'phone': %w", err)
-		}
-	}
-
-	if raw, found := object["timezone"]; found {
-		err = json.Unmarshal(raw, &t.Timezone)
-		if err != nil {
-			return fmt.Errorf("error reading 'timezone': %w", err)
-		}
-	}
-
-	return err
-}
 
 // RequestEditorFn  is the function signature for the RequestEditor callback function
 type RequestEditorFn func(ctx context.Context, req *http.Request) error
@@ -2212,6 +2488,34 @@ type ClientInterface interface {
 
 	UpdateProjectAdmin(ctx context.Context, projectID openapi_types.UUID, adminID openapi_types.UUID, body UpdateProjectAdminJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListBroadcasts request
+	ListBroadcasts(ctx context.Context, projectID openapi_types.UUID, params *ListBroadcastsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateBroadcastWithBody request with any body
+	CreateBroadcastWithBody(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateBroadcast(ctx context.Context, projectID openapi_types.UUID, body CreateBroadcastJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CancelBroadcast request
+	CancelBroadcast(ctx context.Context, projectID openapi_types.UUID, broadcastID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetBroadcast request
+	GetBroadcast(ctx context.Context, projectID openapi_types.UUID, broadcastID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateBroadcastWithBody request with any body
+	UpdateBroadcastWithBody(ctx context.Context, projectID openapi_types.UUID, broadcastID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateBroadcast(ctx context.Context, projectID openapi_types.UUID, broadcastID openapi_types.UUID, body UpdateBroadcastJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// StreamBroadcastProgress request
+	StreamBroadcastProgress(ctx context.Context, projectID openapi_types.UUID, broadcastID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SendBroadcast request
+	SendBroadcast(ctx context.Context, projectID openapi_types.UUID, broadcastID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetBroadcastUsers request
+	GetBroadcastUsers(ctx context.Context, projectID openapi_types.UUID, broadcastID openapi_types.UUID, params *GetBroadcastUsersParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListCampaigns request
 	ListCampaigns(ctx context.Context, projectID openapi_types.UUID, params *ListCampaignsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -2309,6 +2613,9 @@ type ClientInterface interface {
 
 	SetJourneySteps(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, body SetJourneyStepsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// CancelUserJourney request
+	CancelUserJourney(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// StreamUserJourneySteps request
 	StreamUserJourneySteps(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -2398,21 +2705,21 @@ type ClientInterface interface {
 	// ListProviderMeta request
 	ListProviderMeta(ctx context.Context, projectID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// CreateProviderWithBody request with any body
-	CreateProviderWithBody(ctx context.Context, projectID openapi_types.UUID, group string, pType string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	CreateProvider(ctx context.Context, projectID openapi_types.UUID, group string, pType string, body CreateProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// GetProvider request
-	GetProvider(ctx context.Context, projectID openapi_types.UUID, group string, pType string, providerID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// UpdateProviderWithBody request with any body
-	UpdateProviderWithBody(ctx context.Context, projectID openapi_types.UUID, group string, pType string, providerID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	UpdateProvider(ctx context.Context, projectID openapi_types.UUID, group string, pType string, providerID openapi_types.UUID, body UpdateProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// DeleteProvider request
 	DeleteProvider(ctx context.Context, projectID openapi_types.UUID, providerID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateProviderWithBody request with any body
+	CreateProviderWithBody(ctx context.Context, projectID openapi_types.UUID, pType string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateProvider(ctx context.Context, projectID openapi_types.UUID, pType string, body CreateProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetProvider request
+	GetProvider(ctx context.Context, projectID openapi_types.UUID, pType string, providerID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateProviderWithBody request with any body
+	UpdateProviderWithBody(ctx context.Context, projectID openapi_types.UUID, pType string, providerID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateProvider(ctx context.Context, projectID openapi_types.UUID, pType string, providerID openapi_types.UUID, body UpdateProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListSenderIdentities request
 	ListSenderIdentities(ctx context.Context, projectID openapi_types.UUID, params *ListSenderIdentitiesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -2462,6 +2769,30 @@ type ClientInterface interface {
 	// GetOrganizationEvents request
 	GetOrganizationEvents(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, params *GetOrganizationEventsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// CreateOrganizationEventWithBody request with any body
+	CreateOrganizationEventWithBody(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateOrganizationEvent(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, body CreateOrganizationEventJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteOrganizationExternalID request
+	DeleteOrganizationExternalID(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, identifierID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetOrganizationScheduled request
+	GetOrganizationScheduled(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, params *GetOrganizationScheduledParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpsertOrganizationScheduledWithBody request with any body
+	UpsertOrganizationScheduledWithBody(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpsertOrganizationScheduled(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, body UpsertOrganizationScheduledJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteOrganizationScheduled request
+	DeleteOrganizationScheduled(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, scheduledInstanceID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateOrganizationScheduledWithBody request with any body
+	UpdateOrganizationScheduledWithBody(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, scheduledInstanceID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateOrganizationScheduled(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, scheduledInstanceID openapi_types.UUID, body UpdateOrganizationScheduledJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListOrganizationMembers request
 	ListOrganizationMembers(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, params *ListOrganizationMembersParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -2478,6 +2809,17 @@ type ClientInterface interface {
 
 	// DeleteUserEventSchema request
 	DeleteUserEventSchema(ctx context.Context, projectID openapi_types.UUID, eventID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListScheduledSchemas request
+	ListScheduledSchemas(ctx context.Context, projectID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteScheduledSchema request
+	DeleteScheduledSchema(ctx context.Context, projectID openapi_types.UUID, scheduledID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateScheduleOffsetWithBody request with any body
+	CreateScheduleOffsetWithBody(ctx context.Context, projectID openapi_types.UUID, scheduledID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateScheduleOffset(ctx context.Context, projectID openapi_types.UUID, scheduledID openapi_types.UUID, body CreateScheduleOffsetJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListUsers request
 	ListUsers(ctx context.Context, projectID openapi_types.UUID, params *ListUsersParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -2513,8 +2855,32 @@ type ClientInterface interface {
 	// GetUserEvents request
 	GetUserEvents(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, params *GetUserEventsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// CreateUserEventWithBody request with any body
+	CreateUserEventWithBody(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateUserEvent(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, body CreateUserEventJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteUserExternalID request
+	DeleteUserExternalID(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, identifierID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetUserJourneys request
 	GetUserJourneys(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, params *GetUserJourneysParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetUserScheduled request
+	GetUserScheduled(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, params *GetUserScheduledParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpsertUserScheduledWithBody request with any body
+	UpsertUserScheduledWithBody(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpsertUserScheduled(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, body UpsertUserScheduledJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteUserScheduled request
+	DeleteUserScheduled(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, scheduledInstanceID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateUserScheduledWithBody request with any body
+	UpdateUserScheduledWithBody(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, scheduledInstanceID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateUserScheduled(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, scheduledInstanceID openapi_types.UUID, body UpdateUserScheduledJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetUserOrganizations request
 	GetUserOrganizations(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, params *GetUserOrganizationsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -2910,6 +3276,126 @@ func (c *Client) UpdateProjectAdminWithBody(ctx context.Context, projectID opena
 
 func (c *Client) UpdateProjectAdmin(ctx context.Context, projectID openapi_types.UUID, adminID openapi_types.UUID, body UpdateProjectAdminJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateProjectAdminRequest(c.Server, projectID, adminID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListBroadcasts(ctx context.Context, projectID openapi_types.UUID, params *ListBroadcastsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListBroadcastsRequest(c.Server, projectID, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateBroadcastWithBody(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateBroadcastRequestWithBody(c.Server, projectID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateBroadcast(ctx context.Context, projectID openapi_types.UUID, body CreateBroadcastJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateBroadcastRequest(c.Server, projectID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CancelBroadcast(ctx context.Context, projectID openapi_types.UUID, broadcastID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCancelBroadcastRequest(c.Server, projectID, broadcastID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetBroadcast(ctx context.Context, projectID openapi_types.UUID, broadcastID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetBroadcastRequest(c.Server, projectID, broadcastID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateBroadcastWithBody(ctx context.Context, projectID openapi_types.UUID, broadcastID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateBroadcastRequestWithBody(c.Server, projectID, broadcastID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateBroadcast(ctx context.Context, projectID openapi_types.UUID, broadcastID openapi_types.UUID, body UpdateBroadcastJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateBroadcastRequest(c.Server, projectID, broadcastID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) StreamBroadcastProgress(ctx context.Context, projectID openapi_types.UUID, broadcastID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStreamBroadcastProgressRequest(c.Server, projectID, broadcastID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) SendBroadcast(ctx context.Context, projectID openapi_types.UUID, broadcastID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSendBroadcastRequest(c.Server, projectID, broadcastID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetBroadcastUsers(ctx context.Context, projectID openapi_types.UUID, broadcastID openapi_types.UUID, params *GetBroadcastUsersParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetBroadcastUsersRequest(c.Server, projectID, broadcastID, params)
 	if err != nil {
 		return nil, err
 	}
@@ -3340,6 +3826,18 @@ func (c *Client) SetJourneySteps(ctx context.Context, projectID openapi_types.UU
 	return c.Client.Do(req)
 }
 
+func (c *Client) CancelUserJourney(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCancelUserJourneyRequest(c.Server, projectID, journeyID, userID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) StreamUserJourneySteps(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewStreamUserJourneyStepsRequest(c.Server, projectID, journeyID, userID)
 	if err != nil {
@@ -3724,68 +4222,68 @@ func (c *Client) ListProviderMeta(ctx context.Context, projectID openapi_types.U
 	return c.Client.Do(req)
 }
 
-func (c *Client) CreateProviderWithBody(ctx context.Context, projectID openapi_types.UUID, group string, pType string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateProviderRequestWithBody(c.Server, projectID, group, pType, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) CreateProvider(ctx context.Context, projectID openapi_types.UUID, group string, pType string, body CreateProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateProviderRequest(c.Server, projectID, group, pType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) GetProvider(ctx context.Context, projectID openapi_types.UUID, group string, pType string, providerID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetProviderRequest(c.Server, projectID, group, pType, providerID)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) UpdateProviderWithBody(ctx context.Context, projectID openapi_types.UUID, group string, pType string, providerID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateProviderRequestWithBody(c.Server, projectID, group, pType, providerID, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) UpdateProvider(ctx context.Context, projectID openapi_types.UUID, group string, pType string, providerID openapi_types.UUID, body UpdateProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateProviderRequest(c.Server, projectID, group, pType, providerID, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
 func (c *Client) DeleteProvider(ctx context.Context, projectID openapi_types.UUID, providerID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDeleteProviderRequest(c.Server, projectID, providerID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateProviderWithBody(ctx context.Context, projectID openapi_types.UUID, pType string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateProviderRequestWithBody(c.Server, projectID, pType, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateProvider(ctx context.Context, projectID openapi_types.UUID, pType string, body CreateProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateProviderRequest(c.Server, projectID, pType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetProvider(ctx context.Context, projectID openapi_types.UUID, pType string, providerID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetProviderRequest(c.Server, projectID, pType, providerID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateProviderWithBody(ctx context.Context, projectID openapi_types.UUID, pType string, providerID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateProviderRequestWithBody(c.Server, projectID, pType, providerID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateProvider(ctx context.Context, projectID openapi_types.UUID, pType string, providerID openapi_types.UUID, body UpdateProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateProviderRequest(c.Server, projectID, pType, providerID, body)
 	if err != nil {
 		return nil, err
 	}
@@ -4000,6 +4498,114 @@ func (c *Client) GetOrganizationEvents(ctx context.Context, projectID openapi_ty
 	return c.Client.Do(req)
 }
 
+func (c *Client) CreateOrganizationEventWithBody(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateOrganizationEventRequestWithBody(c.Server, projectID, organizationID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateOrganizationEvent(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, body CreateOrganizationEventJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateOrganizationEventRequest(c.Server, projectID, organizationID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteOrganizationExternalID(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, identifierID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteOrganizationExternalIDRequest(c.Server, projectID, organizationID, identifierID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetOrganizationScheduled(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, params *GetOrganizationScheduledParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetOrganizationScheduledRequest(c.Server, projectID, organizationID, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpsertOrganizationScheduledWithBody(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpsertOrganizationScheduledRequestWithBody(c.Server, projectID, organizationID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpsertOrganizationScheduled(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, body UpsertOrganizationScheduledJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpsertOrganizationScheduledRequest(c.Server, projectID, organizationID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteOrganizationScheduled(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, scheduledInstanceID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteOrganizationScheduledRequest(c.Server, projectID, organizationID, scheduledInstanceID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateOrganizationScheduledWithBody(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, scheduledInstanceID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateOrganizationScheduledRequestWithBody(c.Server, projectID, organizationID, scheduledInstanceID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateOrganizationScheduled(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, scheduledInstanceID openapi_types.UUID, body UpdateOrganizationScheduledJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateOrganizationScheduledRequest(c.Server, projectID, organizationID, scheduledInstanceID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) ListOrganizationMembers(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, params *ListOrganizationMembersParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListOrganizationMembersRequest(c.Server, projectID, organizationID, params)
 	if err != nil {
@@ -4062,6 +4668,54 @@ func (c *Client) ListUserEventSchemas(ctx context.Context, projectID openapi_typ
 
 func (c *Client) DeleteUserEventSchema(ctx context.Context, projectID openapi_types.UUID, eventID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDeleteUserEventSchemaRequest(c.Server, projectID, eventID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListScheduledSchemas(ctx context.Context, projectID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListScheduledSchemasRequest(c.Server, projectID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteScheduledSchema(ctx context.Context, projectID openapi_types.UUID, scheduledID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteScheduledSchemaRequest(c.Server, projectID, scheduledID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateScheduleOffsetWithBody(ctx context.Context, projectID openapi_types.UUID, scheduledID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateScheduleOffsetRequestWithBody(c.Server, projectID, scheduledID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateScheduleOffset(ctx context.Context, projectID openapi_types.UUID, scheduledID openapi_types.UUID, body CreateScheduleOffsetJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateScheduleOffsetRequest(c.Server, projectID, scheduledID, body)
 	if err != nil {
 		return nil, err
 	}
@@ -4216,8 +4870,116 @@ func (c *Client) GetUserEvents(ctx context.Context, projectID openapi_types.UUID
 	return c.Client.Do(req)
 }
 
+func (c *Client) CreateUserEventWithBody(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateUserEventRequestWithBody(c.Server, projectID, userID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateUserEvent(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, body CreateUserEventJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateUserEventRequest(c.Server, projectID, userID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteUserExternalID(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, identifierID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteUserExternalIDRequest(c.Server, projectID, userID, identifierID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) GetUserJourneys(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, params *GetUserJourneysParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetUserJourneysRequest(c.Server, projectID, userID, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetUserScheduled(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, params *GetUserScheduledParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetUserScheduledRequest(c.Server, projectID, userID, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpsertUserScheduledWithBody(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpsertUserScheduledRequestWithBody(c.Server, projectID, userID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpsertUserScheduled(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, body UpsertUserScheduledJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpsertUserScheduledRequest(c.Server, projectID, userID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteUserScheduled(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, scheduledInstanceID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteUserScheduledRequest(c.Server, projectID, userID, scheduledInstanceID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateUserScheduledWithBody(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, scheduledInstanceID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateUserScheduledRequestWithBody(c.Server, projectID, userID, scheduledInstanceID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateUserScheduled(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, scheduledInstanceID openapi_types.UUID, body UpdateUserScheduledJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateUserScheduledRequest(c.Server, projectID, userID, scheduledInstanceID, body)
 	if err != nil {
 		return nil, err
 	}
@@ -5561,6 +6323,502 @@ func NewUpdateProjectAdminRequestWithBody(server string, projectID openapi_types
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListBroadcastsRequest generates requests for ListBroadcasts
+func NewListBroadcastsRequest(server string, projectID openapi_types.UUID, params *ListBroadcastsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/broadcasts", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Offset != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "offset", runtime.ParamLocationQuery, *params.Offset); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Search != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "search", runtime.ParamLocationQuery, *params.Search); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.CampaignId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "campaign_id", runtime.ParamLocationQuery, *params.CampaignId); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.ListId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "list_id", runtime.ParamLocationQuery, *params.ListId); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.State != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "state", runtime.ParamLocationQuery, *params.State); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateBroadcastRequest calls the generic CreateBroadcast builder with application/json body
+func NewCreateBroadcastRequest(server string, projectID openapi_types.UUID, body CreateBroadcastJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateBroadcastRequestWithBody(server, projectID, "application/json", bodyReader)
+}
+
+// NewCreateBroadcastRequestWithBody generates requests for CreateBroadcast with any type of body
+func NewCreateBroadcastRequestWithBody(server string, projectID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/broadcasts", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewCancelBroadcastRequest generates requests for CancelBroadcast
+func NewCancelBroadcastRequest(server string, projectID openapi_types.UUID, broadcastID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "broadcastID", runtime.ParamLocationPath, broadcastID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/broadcasts/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetBroadcastRequest generates requests for GetBroadcast
+func NewGetBroadcastRequest(server string, projectID openapi_types.UUID, broadcastID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "broadcastID", runtime.ParamLocationPath, broadcastID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/broadcasts/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateBroadcastRequest calls the generic UpdateBroadcast builder with application/json body
+func NewUpdateBroadcastRequest(server string, projectID openapi_types.UUID, broadcastID openapi_types.UUID, body UpdateBroadcastJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateBroadcastRequestWithBody(server, projectID, broadcastID, "application/json", bodyReader)
+}
+
+// NewUpdateBroadcastRequestWithBody generates requests for UpdateBroadcast with any type of body
+func NewUpdateBroadcastRequestWithBody(server string, projectID openapi_types.UUID, broadcastID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "broadcastID", runtime.ParamLocationPath, broadcastID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/broadcasts/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PATCH", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewStreamBroadcastProgressRequest generates requests for StreamBroadcastProgress
+func NewStreamBroadcastProgressRequest(server string, projectID openapi_types.UUID, broadcastID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "broadcastID", runtime.ParamLocationPath, broadcastID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/broadcasts/%s/progress", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewSendBroadcastRequest generates requests for SendBroadcast
+func NewSendBroadcastRequest(server string, projectID openapi_types.UUID, broadcastID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "broadcastID", runtime.ParamLocationPath, broadcastID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/broadcasts/%s/send", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetBroadcastUsersRequest generates requests for GetBroadcastUsers
+func NewGetBroadcastUsersRequest(server string, projectID openapi_types.UUID, broadcastID openapi_types.UUID, params *GetBroadcastUsersParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "broadcastID", runtime.ParamLocationPath, broadcastID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/broadcasts/%s/users", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Offset != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "offset", runtime.ParamLocationQuery, *params.Offset); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Search != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "search", runtime.ParamLocationQuery, *params.Search); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -7017,6 +8275,54 @@ func NewSetJourneyStepsRequestWithBody(server string, projectID openapi_types.UU
 	return req, nil
 }
 
+// NewCancelUserJourneyRequest generates requests for CancelUserJourney
+func NewCancelUserJourneyRequest(server string, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "journeyID", runtime.ParamLocationPath, journeyID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "userID", runtime.ParamLocationPath, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/journeys/%s/users/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewStreamUserJourneyStepsRequest generates requests for StreamUserJourneySteps
 func NewStreamUserJourneyStepsRequest(server string, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID) (*http.Request, error) {
 	var err error
@@ -8351,190 +9657,6 @@ func NewListProviderMetaRequest(server string, projectID openapi_types.UUID) (*h
 	return req, nil
 }
 
-// NewCreateProviderRequest calls the generic CreateProvider builder with application/json body
-func NewCreateProviderRequest(server string, projectID openapi_types.UUID, group string, pType string, body CreateProviderJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewCreateProviderRequestWithBody(server, projectID, group, pType, "application/json", bodyReader)
-}
-
-// NewCreateProviderRequestWithBody generates requests for CreateProvider with any type of body
-func NewCreateProviderRequestWithBody(server string, projectID openapi_types.UUID, group string, pType string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam1 string
-
-	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "group", runtime.ParamLocationPath, group)
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam2 string
-
-	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "type", runtime.ParamLocationPath, pType)
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/admin/projects/%s/providers/%s/%s", pathParam0, pathParam1, pathParam2)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewGetProviderRequest generates requests for GetProvider
-func NewGetProviderRequest(server string, projectID openapi_types.UUID, group string, pType string, providerID openapi_types.UUID) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam1 string
-
-	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "group", runtime.ParamLocationPath, group)
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam2 string
-
-	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "type", runtime.ParamLocationPath, pType)
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam3 string
-
-	pathParam3, err = runtime.StyleParamWithLocation("simple", false, "providerID", runtime.ParamLocationPath, providerID)
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/admin/projects/%s/providers/%s/%s/%s", pathParam0, pathParam1, pathParam2, pathParam3)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewUpdateProviderRequest calls the generic UpdateProvider builder with application/json body
-func NewUpdateProviderRequest(server string, projectID openapi_types.UUID, group string, pType string, providerID openapi_types.UUID, body UpdateProviderJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewUpdateProviderRequestWithBody(server, projectID, group, pType, providerID, "application/json", bodyReader)
-}
-
-// NewUpdateProviderRequestWithBody generates requests for UpdateProvider with any type of body
-func NewUpdateProviderRequestWithBody(server string, projectID openapi_types.UUID, group string, pType string, providerID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam1 string
-
-	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "group", runtime.ParamLocationPath, group)
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam2 string
-
-	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "type", runtime.ParamLocationPath, pType)
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam3 string
-
-	pathParam3, err = runtime.StyleParamWithLocation("simple", false, "providerID", runtime.ParamLocationPath, providerID)
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/admin/projects/%s/providers/%s/%s/%s", pathParam0, pathParam1, pathParam2, pathParam3)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("PATCH", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
 // NewDeleteProviderRequest generates requests for DeleteProvider
 func NewDeleteProviderRequest(server string, projectID openapi_types.UUID, providerID openapi_types.UUID) (*http.Request, error) {
 	var err error
@@ -8572,6 +9694,169 @@ func NewDeleteProviderRequest(server string, projectID openapi_types.UUID, provi
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewCreateProviderRequest calls the generic CreateProvider builder with application/json body
+func NewCreateProviderRequest(server string, projectID openapi_types.UUID, pType string, body CreateProviderJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateProviderRequestWithBody(server, projectID, pType, "application/json", bodyReader)
+}
+
+// NewCreateProviderRequestWithBody generates requests for CreateProvider with any type of body
+func NewCreateProviderRequestWithBody(server string, projectID openapi_types.UUID, pType string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "type", runtime.ParamLocationPath, pType)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/providers/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetProviderRequest generates requests for GetProvider
+func NewGetProviderRequest(server string, projectID openapi_types.UUID, pType string, providerID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "type", runtime.ParamLocationPath, pType)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "providerID", runtime.ParamLocationPath, providerID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/providers/%s/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateProviderRequest calls the generic UpdateProvider builder with application/json body
+func NewUpdateProviderRequest(server string, projectID openapi_types.UUID, pType string, providerID openapi_types.UUID, body UpdateProviderJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateProviderRequestWithBody(server, projectID, pType, providerID, "application/json", bodyReader)
+}
+
+// NewUpdateProviderRequestWithBody generates requests for UpdateProvider with any type of body
+func NewUpdateProviderRequestWithBody(server string, projectID openapi_types.UUID, pType string, providerID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "type", runtime.ParamLocationPath, pType)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "providerID", runtime.ParamLocationPath, providerID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/providers/%s/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PATCH", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -9291,6 +10576,22 @@ func NewGetOrganizationEventsRequest(server string, projectID openapi_types.UUID
 
 		}
 
+		if params.Search != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "search", runtime.ParamLocationQuery, *params.Search); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
 		queryURL.RawQuery = queryValues.Encode()
 	}
 
@@ -9298,6 +10599,350 @@ func NewGetOrganizationEventsRequest(server string, projectID openapi_types.UUID
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewCreateOrganizationEventRequest calls the generic CreateOrganizationEvent builder with application/json body
+func NewCreateOrganizationEventRequest(server string, projectID openapi_types.UUID, organizationID openapi_types.UUID, body CreateOrganizationEventJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateOrganizationEventRequestWithBody(server, projectID, organizationID, "application/json", bodyReader)
+}
+
+// NewCreateOrganizationEventRequestWithBody generates requests for CreateOrganizationEvent with any type of body
+func NewCreateOrganizationEventRequestWithBody(server string, projectID openapi_types.UUID, organizationID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "organizationID", runtime.ParamLocationPath, organizationID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/subjects/organizations/%s/events", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteOrganizationExternalIDRequest generates requests for DeleteOrganizationExternalID
+func NewDeleteOrganizationExternalIDRequest(server string, projectID openapi_types.UUID, organizationID openapi_types.UUID, identifierID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "organizationID", runtime.ParamLocationPath, organizationID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "identifierID", runtime.ParamLocationPath, identifierID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/subjects/organizations/%s/identifiers/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetOrganizationScheduledRequest generates requests for GetOrganizationScheduled
+func NewGetOrganizationScheduledRequest(server string, projectID openapi_types.UUID, organizationID openapi_types.UUID, params *GetOrganizationScheduledParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "organizationID", runtime.ParamLocationPath, organizationID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/subjects/organizations/%s/scheduled", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Offset != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "offset", runtime.ParamLocationQuery, *params.Offset); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpsertOrganizationScheduledRequest calls the generic UpsertOrganizationScheduled builder with application/json body
+func NewUpsertOrganizationScheduledRequest(server string, projectID openapi_types.UUID, organizationID openapi_types.UUID, body UpsertOrganizationScheduledJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpsertOrganizationScheduledRequestWithBody(server, projectID, organizationID, "application/json", bodyReader)
+}
+
+// NewUpsertOrganizationScheduledRequestWithBody generates requests for UpsertOrganizationScheduled with any type of body
+func NewUpsertOrganizationScheduledRequestWithBody(server string, projectID openapi_types.UUID, organizationID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "organizationID", runtime.ParamLocationPath, organizationID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/subjects/organizations/%s/scheduled", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteOrganizationScheduledRequest generates requests for DeleteOrganizationScheduled
+func NewDeleteOrganizationScheduledRequest(server string, projectID openapi_types.UUID, organizationID openapi_types.UUID, scheduledInstanceID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "organizationID", runtime.ParamLocationPath, organizationID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "scheduledInstanceID", runtime.ParamLocationPath, scheduledInstanceID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/subjects/organizations/%s/scheduled/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateOrganizationScheduledRequest calls the generic UpdateOrganizationScheduled builder with application/json body
+func NewUpdateOrganizationScheduledRequest(server string, projectID openapi_types.UUID, organizationID openapi_types.UUID, scheduledInstanceID openapi_types.UUID, body UpdateOrganizationScheduledJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateOrganizationScheduledRequestWithBody(server, projectID, organizationID, scheduledInstanceID, "application/json", bodyReader)
+}
+
+// NewUpdateOrganizationScheduledRequestWithBody generates requests for UpdateOrganizationScheduled with any type of body
+func NewUpdateOrganizationScheduledRequestWithBody(server string, projectID openapi_types.UUID, organizationID openapi_types.UUID, scheduledInstanceID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "organizationID", runtime.ParamLocationPath, organizationID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "scheduledInstanceID", runtime.ParamLocationPath, scheduledInstanceID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/subjects/organizations/%s/scheduled/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PATCH", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -9554,6 +11199,135 @@ func NewDeleteUserEventSchemaRequest(server string, projectID openapi_types.UUID
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewListScheduledSchemasRequest generates requests for ListScheduledSchemas
+func NewListScheduledSchemasRequest(server string, projectID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/subjects/user/scheduled/schema", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewDeleteScheduledSchemaRequest generates requests for DeleteScheduledSchema
+func NewDeleteScheduledSchemaRequest(server string, projectID openapi_types.UUID, scheduledID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "scheduledID", runtime.ParamLocationPath, scheduledID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/subjects/user/scheduled/schema/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateScheduleOffsetRequest calls the generic CreateScheduleOffset builder with application/json body
+func NewCreateScheduleOffsetRequest(server string, projectID openapi_types.UUID, scheduledID openapi_types.UUID, body CreateScheduleOffsetJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateScheduleOffsetRequestWithBody(server, projectID, scheduledID, "application/json", bodyReader)
+}
+
+// NewCreateScheduleOffsetRequestWithBody generates requests for CreateScheduleOffset with any type of body
+func NewCreateScheduleOffsetRequestWithBody(server string, projectID openapi_types.UUID, scheduledID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "scheduledID", runtime.ParamLocationPath, scheduledID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/subjects/user/scheduled/schema/%s/offsets", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -10083,6 +11857,108 @@ func NewGetUserEventsRequest(server string, projectID openapi_types.UUID, userID
 	return req, nil
 }
 
+// NewCreateUserEventRequest calls the generic CreateUserEvent builder with application/json body
+func NewCreateUserEventRequest(server string, projectID openapi_types.UUID, userID openapi_types.UUID, body CreateUserEventJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateUserEventRequestWithBody(server, projectID, userID, "application/json", bodyReader)
+}
+
+// NewCreateUserEventRequestWithBody generates requests for CreateUserEvent with any type of body
+func NewCreateUserEventRequestWithBody(server string, projectID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "userID", runtime.ParamLocationPath, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/subjects/users/%s/events", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteUserExternalIDRequest generates requests for DeleteUserExternalID
+func NewDeleteUserExternalIDRequest(server string, projectID openapi_types.UUID, userID openapi_types.UUID, identifierID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "userID", runtime.ParamLocationPath, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "identifierID", runtime.ParamLocationPath, identifierID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/subjects/users/%s/identifiers/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetUserJourneysRequest generates requests for GetUserJourneys
 func NewGetUserJourneysRequest(server string, projectID openapi_types.UUID, userID openapi_types.UUID, params *GetUserJourneysParams) (*http.Request, error) {
 	var err error
@@ -10158,6 +12034,248 @@ func NewGetUserJourneysRequest(server string, projectID openapi_types.UUID, user
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewGetUserScheduledRequest generates requests for GetUserScheduled
+func NewGetUserScheduledRequest(server string, projectID openapi_types.UUID, userID openapi_types.UUID, params *GetUserScheduledParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "userID", runtime.ParamLocationPath, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/subjects/users/%s/scheduled", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Offset != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "offset", runtime.ParamLocationQuery, *params.Offset); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpsertUserScheduledRequest calls the generic UpsertUserScheduled builder with application/json body
+func NewUpsertUserScheduledRequest(server string, projectID openapi_types.UUID, userID openapi_types.UUID, body UpsertUserScheduledJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpsertUserScheduledRequestWithBody(server, projectID, userID, "application/json", bodyReader)
+}
+
+// NewUpsertUserScheduledRequestWithBody generates requests for UpsertUserScheduled with any type of body
+func NewUpsertUserScheduledRequestWithBody(server string, projectID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "userID", runtime.ParamLocationPath, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/subjects/users/%s/scheduled", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteUserScheduledRequest generates requests for DeleteUserScheduled
+func NewDeleteUserScheduledRequest(server string, projectID openapi_types.UUID, userID openapi_types.UUID, scheduledInstanceID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "userID", runtime.ParamLocationPath, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "scheduledInstanceID", runtime.ParamLocationPath, scheduledInstanceID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/subjects/users/%s/scheduled/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateUserScheduledRequest calls the generic UpdateUserScheduled builder with application/json body
+func NewUpdateUserScheduledRequest(server string, projectID openapi_types.UUID, userID openapi_types.UUID, scheduledInstanceID openapi_types.UUID, body UpdateUserScheduledJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateUserScheduledRequestWithBody(server, projectID, userID, scheduledInstanceID, "application/json", bodyReader)
+}
+
+// NewUpdateUserScheduledRequestWithBody generates requests for UpdateUserScheduled with any type of body
+func NewUpdateUserScheduledRequestWithBody(server string, projectID openapi_types.UUID, userID openapi_types.UUID, scheduledInstanceID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "userID", runtime.ParamLocationPath, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "scheduledInstanceID", runtime.ParamLocationPath, scheduledInstanceID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/subjects/users/%s/scheduled/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PATCH", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -11363,6 +13481,34 @@ type ClientWithResponsesInterface interface {
 
 	UpdateProjectAdminWithResponse(ctx context.Context, projectID openapi_types.UUID, adminID openapi_types.UUID, body UpdateProjectAdminJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateProjectAdminResponse, error)
 
+	// ListBroadcastsWithResponse request
+	ListBroadcastsWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListBroadcastsParams, reqEditors ...RequestEditorFn) (*ListBroadcastsResponse, error)
+
+	// CreateBroadcastWithBodyWithResponse request with any body
+	CreateBroadcastWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateBroadcastResponse, error)
+
+	CreateBroadcastWithResponse(ctx context.Context, projectID openapi_types.UUID, body CreateBroadcastJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateBroadcastResponse, error)
+
+	// CancelBroadcastWithResponse request
+	CancelBroadcastWithResponse(ctx context.Context, projectID openapi_types.UUID, broadcastID openapi_types.UUID, reqEditors ...RequestEditorFn) (*CancelBroadcastResponse, error)
+
+	// GetBroadcastWithResponse request
+	GetBroadcastWithResponse(ctx context.Context, projectID openapi_types.UUID, broadcastID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetBroadcastResponse, error)
+
+	// UpdateBroadcastWithBodyWithResponse request with any body
+	UpdateBroadcastWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, broadcastID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateBroadcastResponse, error)
+
+	UpdateBroadcastWithResponse(ctx context.Context, projectID openapi_types.UUID, broadcastID openapi_types.UUID, body UpdateBroadcastJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateBroadcastResponse, error)
+
+	// StreamBroadcastProgressWithResponse request
+	StreamBroadcastProgressWithResponse(ctx context.Context, projectID openapi_types.UUID, broadcastID openapi_types.UUID, reqEditors ...RequestEditorFn) (*StreamBroadcastProgressResponse, error)
+
+	// SendBroadcastWithResponse request
+	SendBroadcastWithResponse(ctx context.Context, projectID openapi_types.UUID, broadcastID openapi_types.UUID, reqEditors ...RequestEditorFn) (*SendBroadcastResponse, error)
+
+	// GetBroadcastUsersWithResponse request
+	GetBroadcastUsersWithResponse(ctx context.Context, projectID openapi_types.UUID, broadcastID openapi_types.UUID, params *GetBroadcastUsersParams, reqEditors ...RequestEditorFn) (*GetBroadcastUsersResponse, error)
+
 	// ListCampaignsWithResponse request
 	ListCampaignsWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListCampaignsParams, reqEditors ...RequestEditorFn) (*ListCampaignsResponse, error)
 
@@ -11460,6 +13606,9 @@ type ClientWithResponsesInterface interface {
 
 	SetJourneyStepsWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, body SetJourneyStepsJSONRequestBody, reqEditors ...RequestEditorFn) (*SetJourneyStepsResponse, error)
 
+	// CancelUserJourneyWithResponse request
+	CancelUserJourneyWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*CancelUserJourneyResponse, error)
+
 	// StreamUserJourneyStepsWithResponse request
 	StreamUserJourneyStepsWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*StreamUserJourneyStepsResponse, error)
 
@@ -11549,21 +13698,21 @@ type ClientWithResponsesInterface interface {
 	// ListProviderMetaWithResponse request
 	ListProviderMetaWithResponse(ctx context.Context, projectID openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListProviderMetaResponse, error)
 
-	// CreateProviderWithBodyWithResponse request with any body
-	CreateProviderWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, group string, pType string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateProviderResponse, error)
-
-	CreateProviderWithResponse(ctx context.Context, projectID openapi_types.UUID, group string, pType string, body CreateProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateProviderResponse, error)
-
-	// GetProviderWithResponse request
-	GetProviderWithResponse(ctx context.Context, projectID openapi_types.UUID, group string, pType string, providerID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetProviderResponse, error)
-
-	// UpdateProviderWithBodyWithResponse request with any body
-	UpdateProviderWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, group string, pType string, providerID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateProviderResponse, error)
-
-	UpdateProviderWithResponse(ctx context.Context, projectID openapi_types.UUID, group string, pType string, providerID openapi_types.UUID, body UpdateProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateProviderResponse, error)
-
 	// DeleteProviderWithResponse request
 	DeleteProviderWithResponse(ctx context.Context, projectID openapi_types.UUID, providerID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteProviderResponse, error)
+
+	// CreateProviderWithBodyWithResponse request with any body
+	CreateProviderWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, pType string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateProviderResponse, error)
+
+	CreateProviderWithResponse(ctx context.Context, projectID openapi_types.UUID, pType string, body CreateProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateProviderResponse, error)
+
+	// GetProviderWithResponse request
+	GetProviderWithResponse(ctx context.Context, projectID openapi_types.UUID, pType string, providerID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetProviderResponse, error)
+
+	// UpdateProviderWithBodyWithResponse request with any body
+	UpdateProviderWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, pType string, providerID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateProviderResponse, error)
+
+	UpdateProviderWithResponse(ctx context.Context, projectID openapi_types.UUID, pType string, providerID openapi_types.UUID, body UpdateProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateProviderResponse, error)
 
 	// ListSenderIdentitiesWithResponse request
 	ListSenderIdentitiesWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListSenderIdentitiesParams, reqEditors ...RequestEditorFn) (*ListSenderIdentitiesResponse, error)
@@ -11613,6 +13762,30 @@ type ClientWithResponsesInterface interface {
 	// GetOrganizationEventsWithResponse request
 	GetOrganizationEventsWithResponse(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, params *GetOrganizationEventsParams, reqEditors ...RequestEditorFn) (*GetOrganizationEventsResponse, error)
 
+	// CreateOrganizationEventWithBodyWithResponse request with any body
+	CreateOrganizationEventWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateOrganizationEventResponse, error)
+
+	CreateOrganizationEventWithResponse(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, body CreateOrganizationEventJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateOrganizationEventResponse, error)
+
+	// DeleteOrganizationExternalIDWithResponse request
+	DeleteOrganizationExternalIDWithResponse(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, identifierID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteOrganizationExternalIDResponse, error)
+
+	// GetOrganizationScheduledWithResponse request
+	GetOrganizationScheduledWithResponse(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, params *GetOrganizationScheduledParams, reqEditors ...RequestEditorFn) (*GetOrganizationScheduledResponse, error)
+
+	// UpsertOrganizationScheduledWithBodyWithResponse request with any body
+	UpsertOrganizationScheduledWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpsertOrganizationScheduledResponse, error)
+
+	UpsertOrganizationScheduledWithResponse(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, body UpsertOrganizationScheduledJSONRequestBody, reqEditors ...RequestEditorFn) (*UpsertOrganizationScheduledResponse, error)
+
+	// DeleteOrganizationScheduledWithResponse request
+	DeleteOrganizationScheduledWithResponse(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, scheduledInstanceID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteOrganizationScheduledResponse, error)
+
+	// UpdateOrganizationScheduledWithBodyWithResponse request with any body
+	UpdateOrganizationScheduledWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, scheduledInstanceID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateOrganizationScheduledResponse, error)
+
+	UpdateOrganizationScheduledWithResponse(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, scheduledInstanceID openapi_types.UUID, body UpdateOrganizationScheduledJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateOrganizationScheduledResponse, error)
+
 	// ListOrganizationMembersWithResponse request
 	ListOrganizationMembersWithResponse(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, params *ListOrganizationMembersParams, reqEditors ...RequestEditorFn) (*ListOrganizationMembersResponse, error)
 
@@ -11629,6 +13802,17 @@ type ClientWithResponsesInterface interface {
 
 	// DeleteUserEventSchemaWithResponse request
 	DeleteUserEventSchemaWithResponse(ctx context.Context, projectID openapi_types.UUID, eventID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteUserEventSchemaResponse, error)
+
+	// ListScheduledSchemasWithResponse request
+	ListScheduledSchemasWithResponse(ctx context.Context, projectID openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListScheduledSchemasResponse, error)
+
+	// DeleteScheduledSchemaWithResponse request
+	DeleteScheduledSchemaWithResponse(ctx context.Context, projectID openapi_types.UUID, scheduledID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteScheduledSchemaResponse, error)
+
+	// CreateScheduleOffsetWithBodyWithResponse request with any body
+	CreateScheduleOffsetWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, scheduledID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateScheduleOffsetResponse, error)
+
+	CreateScheduleOffsetWithResponse(ctx context.Context, projectID openapi_types.UUID, scheduledID openapi_types.UUID, body CreateScheduleOffsetJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateScheduleOffsetResponse, error)
 
 	// ListUsersWithResponse request
 	ListUsersWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListUsersParams, reqEditors ...RequestEditorFn) (*ListUsersResponse, error)
@@ -11664,8 +13848,32 @@ type ClientWithResponsesInterface interface {
 	// GetUserEventsWithResponse request
 	GetUserEventsWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, params *GetUserEventsParams, reqEditors ...RequestEditorFn) (*GetUserEventsResponse, error)
 
+	// CreateUserEventWithBodyWithResponse request with any body
+	CreateUserEventWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateUserEventResponse, error)
+
+	CreateUserEventWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, body CreateUserEventJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateUserEventResponse, error)
+
+	// DeleteUserExternalIDWithResponse request
+	DeleteUserExternalIDWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, identifierID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteUserExternalIDResponse, error)
+
 	// GetUserJourneysWithResponse request
 	GetUserJourneysWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, params *GetUserJourneysParams, reqEditors ...RequestEditorFn) (*GetUserJourneysResponse, error)
+
+	// GetUserScheduledWithResponse request
+	GetUserScheduledWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, params *GetUserScheduledParams, reqEditors ...RequestEditorFn) (*GetUserScheduledResponse, error)
+
+	// UpsertUserScheduledWithBodyWithResponse request with any body
+	UpsertUserScheduledWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpsertUserScheduledResponse, error)
+
+	UpsertUserScheduledWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, body UpsertUserScheduledJSONRequestBody, reqEditors ...RequestEditorFn) (*UpsertUserScheduledResponse, error)
+
+	// DeleteUserScheduledWithResponse request
+	DeleteUserScheduledWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, scheduledInstanceID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteUserScheduledResponse, error)
+
+	// UpdateUserScheduledWithBodyWithResponse request with any body
+	UpdateUserScheduledWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, scheduledInstanceID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateUserScheduledResponse, error)
+
+	UpdateUserScheduledWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, scheduledInstanceID openapi_types.UUID, body UpdateUserScheduledJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateUserScheduledResponse, error)
 
 	// GetUserOrganizationsWithResponse request
 	GetUserOrganizationsWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, params *GetUserOrganizationsParams, reqEditors ...RequestEditorFn) (*GetUserOrganizationsResponse, error)
@@ -12197,6 +14405,202 @@ func (r UpdateProjectAdminResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r UpdateProjectAdminResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListBroadcastsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *BroadcastListResponse
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListBroadcastsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListBroadcastsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateBroadcastResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *Broadcast
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateBroadcastResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateBroadcastResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CancelBroadcastResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Broadcast
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CancelBroadcastResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CancelBroadcastResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetBroadcastResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Broadcast
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetBroadcastResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetBroadcastResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateBroadcastResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Broadcast
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateBroadcastResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateBroadcastResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type StreamBroadcastProgressResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r StreamBroadcastProgressResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r StreamBroadcastProgressResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type SendBroadcastResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Broadcast
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r SendBroadcastResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SendBroadcastResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetBroadcastUsersResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *struct {
+		Limit   int `json:"limit"`
+		Offset  int `json:"offset"`
+		Results []struct {
+			Email    *string             `json:"email,omitempty"`
+			FullName *string             `json:"full_name,omitempty"`
+			Id       *openapi_types.UUID `json:"id,omitempty"`
+			Phone    *string             `json:"phone,omitempty"`
+			SentAt   *time.Time          `json:"sent_at,omitempty"`
+			State    *string             `json:"state,omitempty"`
+			UserId   *openapi_types.UUID `json:"user_id,omitempty"`
+		} `json:"results"`
+		Total int `json:"total"`
+	}
+	JSONDefault *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetBroadcastUsersResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetBroadcastUsersResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -12830,6 +15234,28 @@ func (r SetJourneyStepsResponse) StatusCode() int {
 	return 0
 }
 
+type CancelUserJourneyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CancelUserJourneyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CancelUserJourneyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type StreamUserJourneyStepsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -13412,6 +15838,28 @@ func (r ListProviderMetaResponse) StatusCode() int {
 	return 0
 }
 
+type DeleteProviderResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteProviderResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteProviderResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type CreateProviderResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -13475,28 +15923,6 @@ func (r UpdateProviderResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r UpdateProviderResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type DeleteProviderResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSONDefault  *Error
-}
-
-// Status returns HTTPResponse.Status
-func (r DeleteProviderResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r DeleteProviderResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -13836,6 +16262,141 @@ func (r GetOrganizationEventsResponse) StatusCode() int {
 	return 0
 }
 
+type CreateOrganizationEventResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateOrganizationEventResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateOrganizationEventResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteOrganizationExternalIDResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteOrganizationExternalIDResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteOrganizationExternalIDResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetOrganizationScheduledResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *OrganizationScheduledList
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetOrganizationScheduledResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetOrganizationScheduledResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpsertOrganizationScheduledResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *OrganizationScheduled
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r UpsertOrganizationScheduledResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpsertOrganizationScheduledResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteOrganizationScheduledResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteOrganizationScheduledResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteOrganizationScheduledResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateOrganizationScheduledResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *OrganizationScheduled
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateOrganizationScheduledResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateOrganizationScheduledResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ListOrganizationMembersResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -13942,6 +16503,74 @@ func (r DeleteUserEventSchemaResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r DeleteUserEventSchemaResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListScheduledSchemasResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ScheduledEventListResponse
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListScheduledSchemasResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListScheduledSchemasResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteScheduledSchemaResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteScheduledSchemaResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteScheduledSchemaResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateScheduleOffsetResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *ScheduleOffset
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateScheduleOffsetResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateScheduleOffsetResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -14177,6 +16806,50 @@ func (r GetUserEventsResponse) StatusCode() int {
 	return 0
 }
 
+type CreateUserEventResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateUserEventResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateUserEventResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteUserExternalIDResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteUserExternalIDResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteUserExternalIDResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type GetUserJourneysResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -14194,6 +16867,97 @@ func (r GetUserJourneysResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetUserJourneysResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetUserScheduledResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *UserScheduledList
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetUserScheduledResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetUserScheduledResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpsertUserScheduledResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *UserScheduled
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r UpsertUserScheduledResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpsertUserScheduledResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteUserScheduledResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteUserScheduledResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteUserScheduledResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateUserScheduledResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *UserScheduled
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateUserScheduledResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateUserScheduledResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -14920,6 +17684,94 @@ func (c *ClientWithResponses) UpdateProjectAdminWithResponse(ctx context.Context
 	return ParseUpdateProjectAdminResponse(rsp)
 }
 
+// ListBroadcastsWithResponse request returning *ListBroadcastsResponse
+func (c *ClientWithResponses) ListBroadcastsWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListBroadcastsParams, reqEditors ...RequestEditorFn) (*ListBroadcastsResponse, error) {
+	rsp, err := c.ListBroadcasts(ctx, projectID, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListBroadcastsResponse(rsp)
+}
+
+// CreateBroadcastWithBodyWithResponse request with arbitrary body returning *CreateBroadcastResponse
+func (c *ClientWithResponses) CreateBroadcastWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateBroadcastResponse, error) {
+	rsp, err := c.CreateBroadcastWithBody(ctx, projectID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateBroadcastResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateBroadcastWithResponse(ctx context.Context, projectID openapi_types.UUID, body CreateBroadcastJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateBroadcastResponse, error) {
+	rsp, err := c.CreateBroadcast(ctx, projectID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateBroadcastResponse(rsp)
+}
+
+// CancelBroadcastWithResponse request returning *CancelBroadcastResponse
+func (c *ClientWithResponses) CancelBroadcastWithResponse(ctx context.Context, projectID openapi_types.UUID, broadcastID openapi_types.UUID, reqEditors ...RequestEditorFn) (*CancelBroadcastResponse, error) {
+	rsp, err := c.CancelBroadcast(ctx, projectID, broadcastID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCancelBroadcastResponse(rsp)
+}
+
+// GetBroadcastWithResponse request returning *GetBroadcastResponse
+func (c *ClientWithResponses) GetBroadcastWithResponse(ctx context.Context, projectID openapi_types.UUID, broadcastID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetBroadcastResponse, error) {
+	rsp, err := c.GetBroadcast(ctx, projectID, broadcastID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetBroadcastResponse(rsp)
+}
+
+// UpdateBroadcastWithBodyWithResponse request with arbitrary body returning *UpdateBroadcastResponse
+func (c *ClientWithResponses) UpdateBroadcastWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, broadcastID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateBroadcastResponse, error) {
+	rsp, err := c.UpdateBroadcastWithBody(ctx, projectID, broadcastID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateBroadcastResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateBroadcastWithResponse(ctx context.Context, projectID openapi_types.UUID, broadcastID openapi_types.UUID, body UpdateBroadcastJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateBroadcastResponse, error) {
+	rsp, err := c.UpdateBroadcast(ctx, projectID, broadcastID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateBroadcastResponse(rsp)
+}
+
+// StreamBroadcastProgressWithResponse request returning *StreamBroadcastProgressResponse
+func (c *ClientWithResponses) StreamBroadcastProgressWithResponse(ctx context.Context, projectID openapi_types.UUID, broadcastID openapi_types.UUID, reqEditors ...RequestEditorFn) (*StreamBroadcastProgressResponse, error) {
+	rsp, err := c.StreamBroadcastProgress(ctx, projectID, broadcastID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStreamBroadcastProgressResponse(rsp)
+}
+
+// SendBroadcastWithResponse request returning *SendBroadcastResponse
+func (c *ClientWithResponses) SendBroadcastWithResponse(ctx context.Context, projectID openapi_types.UUID, broadcastID openapi_types.UUID, reqEditors ...RequestEditorFn) (*SendBroadcastResponse, error) {
+	rsp, err := c.SendBroadcast(ctx, projectID, broadcastID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSendBroadcastResponse(rsp)
+}
+
+// GetBroadcastUsersWithResponse request returning *GetBroadcastUsersResponse
+func (c *ClientWithResponses) GetBroadcastUsersWithResponse(ctx context.Context, projectID openapi_types.UUID, broadcastID openapi_types.UUID, params *GetBroadcastUsersParams, reqEditors ...RequestEditorFn) (*GetBroadcastUsersResponse, error) {
+	rsp, err := c.GetBroadcastUsers(ctx, projectID, broadcastID, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetBroadcastUsersResponse(rsp)
+}
+
 // ListCampaignsWithResponse request returning *ListCampaignsResponse
 func (c *ClientWithResponses) ListCampaignsWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListCampaignsParams, reqEditors ...RequestEditorFn) (*ListCampaignsResponse, error) {
 	rsp, err := c.ListCampaigns(ctx, projectID, params, reqEditors...)
@@ -15227,6 +18079,15 @@ func (c *ClientWithResponses) SetJourneyStepsWithResponse(ctx context.Context, p
 	return ParseSetJourneyStepsResponse(rsp)
 }
 
+// CancelUserJourneyWithResponse request returning *CancelUserJourneyResponse
+func (c *ClientWithResponses) CancelUserJourneyWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*CancelUserJourneyResponse, error) {
+	rsp, err := c.CancelUserJourney(ctx, projectID, journeyID, userID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCancelUserJourneyResponse(rsp)
+}
+
 // StreamUserJourneyStepsWithResponse request returning *StreamUserJourneyStepsResponse
 func (c *ClientWithResponses) StreamUserJourneyStepsWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*StreamUserJourneyStepsResponse, error) {
 	rsp, err := c.StreamUserJourneySteps(ctx, projectID, journeyID, userID, reqEditors...)
@@ -15508,49 +18369,6 @@ func (c *ClientWithResponses) ListProviderMetaWithResponse(ctx context.Context, 
 	return ParseListProviderMetaResponse(rsp)
 }
 
-// CreateProviderWithBodyWithResponse request with arbitrary body returning *CreateProviderResponse
-func (c *ClientWithResponses) CreateProviderWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, group string, pType string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateProviderResponse, error) {
-	rsp, err := c.CreateProviderWithBody(ctx, projectID, group, pType, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseCreateProviderResponse(rsp)
-}
-
-func (c *ClientWithResponses) CreateProviderWithResponse(ctx context.Context, projectID openapi_types.UUID, group string, pType string, body CreateProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateProviderResponse, error) {
-	rsp, err := c.CreateProvider(ctx, projectID, group, pType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseCreateProviderResponse(rsp)
-}
-
-// GetProviderWithResponse request returning *GetProviderResponse
-func (c *ClientWithResponses) GetProviderWithResponse(ctx context.Context, projectID openapi_types.UUID, group string, pType string, providerID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetProviderResponse, error) {
-	rsp, err := c.GetProvider(ctx, projectID, group, pType, providerID, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseGetProviderResponse(rsp)
-}
-
-// UpdateProviderWithBodyWithResponse request with arbitrary body returning *UpdateProviderResponse
-func (c *ClientWithResponses) UpdateProviderWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, group string, pType string, providerID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateProviderResponse, error) {
-	rsp, err := c.UpdateProviderWithBody(ctx, projectID, group, pType, providerID, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseUpdateProviderResponse(rsp)
-}
-
-func (c *ClientWithResponses) UpdateProviderWithResponse(ctx context.Context, projectID openapi_types.UUID, group string, pType string, providerID openapi_types.UUID, body UpdateProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateProviderResponse, error) {
-	rsp, err := c.UpdateProvider(ctx, projectID, group, pType, providerID, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseUpdateProviderResponse(rsp)
-}
-
 // DeleteProviderWithResponse request returning *DeleteProviderResponse
 func (c *ClientWithResponses) DeleteProviderWithResponse(ctx context.Context, projectID openapi_types.UUID, providerID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteProviderResponse, error) {
 	rsp, err := c.DeleteProvider(ctx, projectID, providerID, reqEditors...)
@@ -15558,6 +18376,49 @@ func (c *ClientWithResponses) DeleteProviderWithResponse(ctx context.Context, pr
 		return nil, err
 	}
 	return ParseDeleteProviderResponse(rsp)
+}
+
+// CreateProviderWithBodyWithResponse request with arbitrary body returning *CreateProviderResponse
+func (c *ClientWithResponses) CreateProviderWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, pType string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateProviderResponse, error) {
+	rsp, err := c.CreateProviderWithBody(ctx, projectID, pType, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateProviderResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateProviderWithResponse(ctx context.Context, projectID openapi_types.UUID, pType string, body CreateProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateProviderResponse, error) {
+	rsp, err := c.CreateProvider(ctx, projectID, pType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateProviderResponse(rsp)
+}
+
+// GetProviderWithResponse request returning *GetProviderResponse
+func (c *ClientWithResponses) GetProviderWithResponse(ctx context.Context, projectID openapi_types.UUID, pType string, providerID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetProviderResponse, error) {
+	rsp, err := c.GetProvider(ctx, projectID, pType, providerID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetProviderResponse(rsp)
+}
+
+// UpdateProviderWithBodyWithResponse request with arbitrary body returning *UpdateProviderResponse
+func (c *ClientWithResponses) UpdateProviderWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, pType string, providerID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateProviderResponse, error) {
+	rsp, err := c.UpdateProviderWithBody(ctx, projectID, pType, providerID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateProviderResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateProviderWithResponse(ctx context.Context, projectID openapi_types.UUID, pType string, providerID openapi_types.UUID, body UpdateProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateProviderResponse, error) {
+	rsp, err := c.UpdateProvider(ctx, projectID, pType, providerID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateProviderResponse(rsp)
 }
 
 // ListSenderIdentitiesWithResponse request returning *ListSenderIdentitiesResponse
@@ -15710,6 +18571,84 @@ func (c *ClientWithResponses) GetOrganizationEventsWithResponse(ctx context.Cont
 	return ParseGetOrganizationEventsResponse(rsp)
 }
 
+// CreateOrganizationEventWithBodyWithResponse request with arbitrary body returning *CreateOrganizationEventResponse
+func (c *ClientWithResponses) CreateOrganizationEventWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateOrganizationEventResponse, error) {
+	rsp, err := c.CreateOrganizationEventWithBody(ctx, projectID, organizationID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateOrganizationEventResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateOrganizationEventWithResponse(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, body CreateOrganizationEventJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateOrganizationEventResponse, error) {
+	rsp, err := c.CreateOrganizationEvent(ctx, projectID, organizationID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateOrganizationEventResponse(rsp)
+}
+
+// DeleteOrganizationExternalIDWithResponse request returning *DeleteOrganizationExternalIDResponse
+func (c *ClientWithResponses) DeleteOrganizationExternalIDWithResponse(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, identifierID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteOrganizationExternalIDResponse, error) {
+	rsp, err := c.DeleteOrganizationExternalID(ctx, projectID, organizationID, identifierID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteOrganizationExternalIDResponse(rsp)
+}
+
+// GetOrganizationScheduledWithResponse request returning *GetOrganizationScheduledResponse
+func (c *ClientWithResponses) GetOrganizationScheduledWithResponse(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, params *GetOrganizationScheduledParams, reqEditors ...RequestEditorFn) (*GetOrganizationScheduledResponse, error) {
+	rsp, err := c.GetOrganizationScheduled(ctx, projectID, organizationID, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetOrganizationScheduledResponse(rsp)
+}
+
+// UpsertOrganizationScheduledWithBodyWithResponse request with arbitrary body returning *UpsertOrganizationScheduledResponse
+func (c *ClientWithResponses) UpsertOrganizationScheduledWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpsertOrganizationScheduledResponse, error) {
+	rsp, err := c.UpsertOrganizationScheduledWithBody(ctx, projectID, organizationID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpsertOrganizationScheduledResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpsertOrganizationScheduledWithResponse(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, body UpsertOrganizationScheduledJSONRequestBody, reqEditors ...RequestEditorFn) (*UpsertOrganizationScheduledResponse, error) {
+	rsp, err := c.UpsertOrganizationScheduled(ctx, projectID, organizationID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpsertOrganizationScheduledResponse(rsp)
+}
+
+// DeleteOrganizationScheduledWithResponse request returning *DeleteOrganizationScheduledResponse
+func (c *ClientWithResponses) DeleteOrganizationScheduledWithResponse(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, scheduledInstanceID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteOrganizationScheduledResponse, error) {
+	rsp, err := c.DeleteOrganizationScheduled(ctx, projectID, organizationID, scheduledInstanceID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteOrganizationScheduledResponse(rsp)
+}
+
+// UpdateOrganizationScheduledWithBodyWithResponse request with arbitrary body returning *UpdateOrganizationScheduledResponse
+func (c *ClientWithResponses) UpdateOrganizationScheduledWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, scheduledInstanceID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateOrganizationScheduledResponse, error) {
+	rsp, err := c.UpdateOrganizationScheduledWithBody(ctx, projectID, organizationID, scheduledInstanceID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateOrganizationScheduledResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateOrganizationScheduledWithResponse(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, scheduledInstanceID openapi_types.UUID, body UpdateOrganizationScheduledJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateOrganizationScheduledResponse, error) {
+	rsp, err := c.UpdateOrganizationScheduled(ctx, projectID, organizationID, scheduledInstanceID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateOrganizationScheduledResponse(rsp)
+}
+
 // ListOrganizationMembersWithResponse request returning *ListOrganizationMembersResponse
 func (c *ClientWithResponses) ListOrganizationMembersWithResponse(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, params *ListOrganizationMembersParams, reqEditors ...RequestEditorFn) (*ListOrganizationMembersResponse, error) {
 	rsp, err := c.ListOrganizationMembers(ctx, projectID, organizationID, params, reqEditors...)
@@ -15761,6 +18700,41 @@ func (c *ClientWithResponses) DeleteUserEventSchemaWithResponse(ctx context.Cont
 		return nil, err
 	}
 	return ParseDeleteUserEventSchemaResponse(rsp)
+}
+
+// ListScheduledSchemasWithResponse request returning *ListScheduledSchemasResponse
+func (c *ClientWithResponses) ListScheduledSchemasWithResponse(ctx context.Context, projectID openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListScheduledSchemasResponse, error) {
+	rsp, err := c.ListScheduledSchemas(ctx, projectID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListScheduledSchemasResponse(rsp)
+}
+
+// DeleteScheduledSchemaWithResponse request returning *DeleteScheduledSchemaResponse
+func (c *ClientWithResponses) DeleteScheduledSchemaWithResponse(ctx context.Context, projectID openapi_types.UUID, scheduledID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteScheduledSchemaResponse, error) {
+	rsp, err := c.DeleteScheduledSchema(ctx, projectID, scheduledID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteScheduledSchemaResponse(rsp)
+}
+
+// CreateScheduleOffsetWithBodyWithResponse request with arbitrary body returning *CreateScheduleOffsetResponse
+func (c *ClientWithResponses) CreateScheduleOffsetWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, scheduledID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateScheduleOffsetResponse, error) {
+	rsp, err := c.CreateScheduleOffsetWithBody(ctx, projectID, scheduledID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateScheduleOffsetResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateScheduleOffsetWithResponse(ctx context.Context, projectID openapi_types.UUID, scheduledID openapi_types.UUID, body CreateScheduleOffsetJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateScheduleOffsetResponse, error) {
+	rsp, err := c.CreateScheduleOffset(ctx, projectID, scheduledID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateScheduleOffsetResponse(rsp)
 }
 
 // ListUsersWithResponse request returning *ListUsersResponse
@@ -15869,6 +18843,32 @@ func (c *ClientWithResponses) GetUserEventsWithResponse(ctx context.Context, pro
 	return ParseGetUserEventsResponse(rsp)
 }
 
+// CreateUserEventWithBodyWithResponse request with arbitrary body returning *CreateUserEventResponse
+func (c *ClientWithResponses) CreateUserEventWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateUserEventResponse, error) {
+	rsp, err := c.CreateUserEventWithBody(ctx, projectID, userID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateUserEventResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateUserEventWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, body CreateUserEventJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateUserEventResponse, error) {
+	rsp, err := c.CreateUserEvent(ctx, projectID, userID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateUserEventResponse(rsp)
+}
+
+// DeleteUserExternalIDWithResponse request returning *DeleteUserExternalIDResponse
+func (c *ClientWithResponses) DeleteUserExternalIDWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, identifierID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteUserExternalIDResponse, error) {
+	rsp, err := c.DeleteUserExternalID(ctx, projectID, userID, identifierID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteUserExternalIDResponse(rsp)
+}
+
 // GetUserJourneysWithResponse request returning *GetUserJourneysResponse
 func (c *ClientWithResponses) GetUserJourneysWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, params *GetUserJourneysParams, reqEditors ...RequestEditorFn) (*GetUserJourneysResponse, error) {
 	rsp, err := c.GetUserJourneys(ctx, projectID, userID, params, reqEditors...)
@@ -15876,6 +18876,58 @@ func (c *ClientWithResponses) GetUserJourneysWithResponse(ctx context.Context, p
 		return nil, err
 	}
 	return ParseGetUserJourneysResponse(rsp)
+}
+
+// GetUserScheduledWithResponse request returning *GetUserScheduledResponse
+func (c *ClientWithResponses) GetUserScheduledWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, params *GetUserScheduledParams, reqEditors ...RequestEditorFn) (*GetUserScheduledResponse, error) {
+	rsp, err := c.GetUserScheduled(ctx, projectID, userID, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetUserScheduledResponse(rsp)
+}
+
+// UpsertUserScheduledWithBodyWithResponse request with arbitrary body returning *UpsertUserScheduledResponse
+func (c *ClientWithResponses) UpsertUserScheduledWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpsertUserScheduledResponse, error) {
+	rsp, err := c.UpsertUserScheduledWithBody(ctx, projectID, userID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpsertUserScheduledResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpsertUserScheduledWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, body UpsertUserScheduledJSONRequestBody, reqEditors ...RequestEditorFn) (*UpsertUserScheduledResponse, error) {
+	rsp, err := c.UpsertUserScheduled(ctx, projectID, userID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpsertUserScheduledResponse(rsp)
+}
+
+// DeleteUserScheduledWithResponse request returning *DeleteUserScheduledResponse
+func (c *ClientWithResponses) DeleteUserScheduledWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, scheduledInstanceID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteUserScheduledResponse, error) {
+	rsp, err := c.DeleteUserScheduled(ctx, projectID, userID, scheduledInstanceID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteUserScheduledResponse(rsp)
+}
+
+// UpdateUserScheduledWithBodyWithResponse request with arbitrary body returning *UpdateUserScheduledResponse
+func (c *ClientWithResponses) UpdateUserScheduledWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, scheduledInstanceID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateUserScheduledResponse, error) {
+	rsp, err := c.UpdateUserScheduledWithBody(ctx, projectID, userID, scheduledInstanceID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateUserScheduledResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateUserScheduledWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, scheduledInstanceID openapi_types.UUID, body UpdateUserScheduledJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateUserScheduledResponse, error) {
+	rsp, err := c.UpdateUserScheduled(ctx, projectID, userID, scheduledInstanceID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateUserScheduledResponse(rsp)
 }
 
 // GetUserOrganizationsWithResponse request returning *GetUserOrganizationsResponse
@@ -16763,6 +19815,276 @@ func ParseUpdateProjectAdminResponse(rsp *http.Response) (*UpdateProjectAdminRes
 	return response, nil
 }
 
+// ParseListBroadcastsResponse parses an HTTP response from a ListBroadcastsWithResponse call
+func ParseListBroadcastsResponse(rsp *http.Response) (*ListBroadcastsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListBroadcastsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest BroadcastListResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateBroadcastResponse parses an HTTP response from a CreateBroadcastWithResponse call
+func ParseCreateBroadcastResponse(rsp *http.Response) (*CreateBroadcastResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateBroadcastResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest Broadcast
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCancelBroadcastResponse parses an HTTP response from a CancelBroadcastWithResponse call
+func ParseCancelBroadcastResponse(rsp *http.Response) (*CancelBroadcastResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CancelBroadcastResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Broadcast
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetBroadcastResponse parses an HTTP response from a GetBroadcastWithResponse call
+func ParseGetBroadcastResponse(rsp *http.Response) (*GetBroadcastResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetBroadcastResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Broadcast
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateBroadcastResponse parses an HTTP response from a UpdateBroadcastWithResponse call
+func ParseUpdateBroadcastResponse(rsp *http.Response) (*UpdateBroadcastResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateBroadcastResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Broadcast
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseStreamBroadcastProgressResponse parses an HTTP response from a StreamBroadcastProgressWithResponse call
+func ParseStreamBroadcastProgressResponse(rsp *http.Response) (*StreamBroadcastProgressResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &StreamBroadcastProgressResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSendBroadcastResponse parses an HTTP response from a SendBroadcastWithResponse call
+func ParseSendBroadcastResponse(rsp *http.Response) (*SendBroadcastResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SendBroadcastResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Broadcast
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetBroadcastUsersResponse parses an HTTP response from a GetBroadcastUsersWithResponse call
+func ParseGetBroadcastUsersResponse(rsp *http.Response) (*GetBroadcastUsersResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetBroadcastUsersResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Limit   int `json:"limit"`
+			Offset  int `json:"offset"`
+			Results []struct {
+				Email    *string             `json:"email,omitempty"`
+				FullName *string             `json:"full_name,omitempty"`
+				Id       *openapi_types.UUID `json:"id,omitempty"`
+				Phone    *string             `json:"phone,omitempty"`
+				SentAt   *time.Time          `json:"sent_at,omitempty"`
+				State    *string             `json:"state,omitempty"`
+				UserId   *openapi_types.UUID `json:"user_id,omitempty"`
+			} `json:"results"`
+			Total int `json:"total"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListCampaignsResponse parses an HTTP response from a ListCampaignsWithResponse call
 func ParseListCampaignsResponse(rsp *http.Response) (*ListCampaignsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -17624,6 +20946,32 @@ func ParseSetJourneyStepsResponse(rsp *http.Response) (*SetJourneyStepsResponse,
 	return response, nil
 }
 
+// ParseCancelUserJourneyResponse parses an HTTP response from a CancelUserJourneyWithResponse call
+func ParseCancelUserJourneyResponse(rsp *http.Response) (*CancelUserJourneyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CancelUserJourneyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseStreamUserJourneyStepsResponse parses an HTTP response from a StreamUserJourneyStepsWithResponse call
 func ParseStreamUserJourneyStepsResponse(rsp *http.Response) (*StreamUserJourneyStepsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -18414,6 +21762,32 @@ func ParseListProviderMetaResponse(rsp *http.Response) (*ListProviderMetaRespons
 	return response, nil
 }
 
+// ParseDeleteProviderResponse parses an HTTP response from a DeleteProviderWithResponse call
+func ParseDeleteProviderResponse(rsp *http.Response) (*DeleteProviderResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteProviderResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseCreateProviderResponse parses an HTTP response from a CreateProviderWithResponse call
 func ParseCreateProviderResponse(rsp *http.Response) (*CreateProviderResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -18501,32 +21875,6 @@ func ParseUpdateProviderResponse(rsp *http.Response) (*UpdateProviderResponse, e
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseDeleteProviderResponse parses an HTTP response from a DeleteProviderWithResponse call
-func ParseDeleteProviderResponse(rsp *http.Response) (*DeleteProviderResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &DeleteProviderResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -18994,6 +22342,183 @@ func ParseGetOrganizationEventsResponse(rsp *http.Response) (*GetOrganizationEve
 	return response, nil
 }
 
+// ParseCreateOrganizationEventResponse parses an HTTP response from a CreateOrganizationEventWithResponse call
+func ParseCreateOrganizationEventResponse(rsp *http.Response) (*CreateOrganizationEventResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateOrganizationEventResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteOrganizationExternalIDResponse parses an HTTP response from a DeleteOrganizationExternalIDWithResponse call
+func ParseDeleteOrganizationExternalIDResponse(rsp *http.Response) (*DeleteOrganizationExternalIDResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteOrganizationExternalIDResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetOrganizationScheduledResponse parses an HTTP response from a GetOrganizationScheduledWithResponse call
+func ParseGetOrganizationScheduledResponse(rsp *http.Response) (*GetOrganizationScheduledResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetOrganizationScheduledResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest OrganizationScheduledList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpsertOrganizationScheduledResponse parses an HTTP response from a UpsertOrganizationScheduledWithResponse call
+func ParseUpsertOrganizationScheduledResponse(rsp *http.Response) (*UpsertOrganizationScheduledResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpsertOrganizationScheduledResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest OrganizationScheduled
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteOrganizationScheduledResponse parses an HTTP response from a DeleteOrganizationScheduledWithResponse call
+func ParseDeleteOrganizationScheduledResponse(rsp *http.Response) (*DeleteOrganizationScheduledResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteOrganizationScheduledResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateOrganizationScheduledResponse parses an HTTP response from a UpdateOrganizationScheduledWithResponse call
+func ParseUpdateOrganizationScheduledResponse(rsp *http.Response) (*UpdateOrganizationScheduledResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateOrganizationScheduledResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest OrganizationScheduled
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListOrganizationMembersResponse parses an HTTP response from a ListOrganizationMembersWithResponse call
 func ParseListOrganizationMembersResponse(rsp *http.Response) (*ListOrganizationMembersResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -19126,6 +22651,98 @@ func ParseDeleteUserEventSchemaResponse(rsp *http.Response) (*DeleteUserEventSch
 	}
 
 	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListScheduledSchemasResponse parses an HTTP response from a ListScheduledSchemasWithResponse call
+func ParseListScheduledSchemasResponse(rsp *http.Response) (*ListScheduledSchemasResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListScheduledSchemasResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ScheduledEventListResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteScheduledSchemaResponse parses an HTTP response from a DeleteScheduledSchemaWithResponse call
+func ParseDeleteScheduledSchemaResponse(rsp *http.Response) (*DeleteScheduledSchemaResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteScheduledSchemaResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateScheduleOffsetResponse parses an HTTP response from a CreateScheduleOffsetWithResponse call
+func ParseCreateScheduleOffsetResponse(rsp *http.Response) (*CreateScheduleOffsetResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateScheduleOffsetResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest ScheduleOffset
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -19449,6 +23066,58 @@ func ParseGetUserEventsResponse(rsp *http.Response) (*GetUserEventsResponse, err
 	return response, nil
 }
 
+// ParseCreateUserEventResponse parses an HTTP response from a CreateUserEventWithResponse call
+func ParseCreateUserEventResponse(rsp *http.Response) (*CreateUserEventResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateUserEventResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteUserExternalIDResponse parses an HTTP response from a DeleteUserExternalIDWithResponse call
+func ParseDeleteUserExternalIDResponse(rsp *http.Response) (*DeleteUserExternalIDResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteUserExternalIDResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseGetUserJourneysResponse parses an HTTP response from a GetUserJourneysWithResponse call
 func ParseGetUserJourneysResponse(rsp *http.Response) (*GetUserJourneysResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -19465,6 +23134,131 @@ func ParseGetUserJourneysResponse(rsp *http.Response) (*GetUserJourneysResponse,
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest UserJourneyList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetUserScheduledResponse parses an HTTP response from a GetUserScheduledWithResponse call
+func ParseGetUserScheduledResponse(rsp *http.Response) (*GetUserScheduledResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetUserScheduledResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest UserScheduledList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpsertUserScheduledResponse parses an HTTP response from a UpsertUserScheduledWithResponse call
+func ParseUpsertUserScheduledResponse(rsp *http.Response) (*UpsertUserScheduledResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpsertUserScheduledResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest UserScheduled
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteUserScheduledResponse parses an HTTP response from a DeleteUserScheduledWithResponse call
+func ParseDeleteUserScheduledResponse(rsp *http.Response) (*DeleteUserScheduledResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteUserScheduledResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateUserScheduledResponse parses an HTTP response from a UpdateUserScheduledWithResponse call
+func ParseUpdateUserScheduledResponse(rsp *http.Response) (*UpdateUserScheduledResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateUserScheduledResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest UserScheduled
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -20214,6 +24008,30 @@ type ServerInterface interface {
 	// Update project admin role
 	// (PATCH /api/admin/projects/{projectID}/admins/{adminID})
 	UpdateProjectAdmin(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, adminID openapi_types.UUID)
+	// List broadcasts
+	// (GET /api/admin/projects/{projectID}/broadcasts)
+	ListBroadcasts(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListBroadcastsParams)
+	// Create broadcast
+	// (POST /api/admin/projects/{projectID}/broadcasts)
+	CreateBroadcast(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID)
+	// Cancel broadcast
+	// (DELETE /api/admin/projects/{projectID}/broadcasts/{broadcastID})
+	CancelBroadcast(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, broadcastID openapi_types.UUID)
+	// Get broadcast
+	// (GET /api/admin/projects/{projectID}/broadcasts/{broadcastID})
+	GetBroadcast(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, broadcastID openapi_types.UUID)
+	// Update broadcast
+	// (PATCH /api/admin/projects/{projectID}/broadcasts/{broadcastID})
+	UpdateBroadcast(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, broadcastID openapi_types.UUID)
+	// Stream broadcast progress
+	// (GET /api/admin/projects/{projectID}/broadcasts/{broadcastID}/progress)
+	StreamBroadcastProgress(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, broadcastID openapi_types.UUID)
+	// Send broadcast
+	// (POST /api/admin/projects/{projectID}/broadcasts/{broadcastID}/send)
+	SendBroadcast(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, broadcastID openapi_types.UUID)
+	// Get broadcast users
+	// (GET /api/admin/projects/{projectID}/broadcasts/{broadcastID}/users)
+	GetBroadcastUsers(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, broadcastID openapi_types.UUID, params GetBroadcastUsersParams)
 	// List campaigns
 	// (GET /api/admin/projects/{projectID}/campaigns)
 	ListCampaigns(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListCampaignsParams)
@@ -20295,6 +24113,9 @@ type ServerInterface interface {
 	// Set journey steps
 	// (PUT /api/admin/projects/{projectID}/journeys/{journeyID}/steps)
 	SetJourneySteps(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID)
+	// Cancel user journey
+	// (DELETE /api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID})
+	CancelUserJourney(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID)
 	// Stream user journey steps
 	// (GET /api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID})
 	StreamUserJourneySteps(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID)
@@ -20370,18 +24191,18 @@ type ServerInterface interface {
 	// List available provider modules
 	// (GET /api/admin/projects/{projectID}/providers/meta)
 	ListProviderMeta(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID)
-	// Create provider
-	// (POST /api/admin/projects/{projectID}/providers/{group}/{type})
-	CreateProvider(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, group string, pType string)
-	// Get provider by ID
-	// (GET /api/admin/projects/{projectID}/providers/{group}/{type}/{providerID})
-	GetProvider(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, group string, pType string, providerID openapi_types.UUID)
-	// Update provider
-	// (PATCH /api/admin/projects/{projectID}/providers/{group}/{type}/{providerID})
-	UpdateProvider(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, group string, pType string, providerID openapi_types.UUID)
 	// Delete provider
 	// (DELETE /api/admin/projects/{projectID}/providers/{providerID})
 	DeleteProvider(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, providerID openapi_types.UUID)
+	// Create provider
+	// (POST /api/admin/projects/{projectID}/providers/{type})
+	CreateProvider(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, pType string)
+	// Get provider by ID
+	// (GET /api/admin/projects/{projectID}/providers/{type}/{providerID})
+	GetProvider(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, pType string, providerID openapi_types.UUID)
+	// Update provider
+	// (PATCH /api/admin/projects/{projectID}/providers/{type}/{providerID})
+	UpdateProvider(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, pType string, providerID openapi_types.UUID)
 	// List sender identities
 	// (GET /api/admin/projects/{projectID}/sender-identities)
 	ListSenderIdentities(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListSenderIdentitiesParams)
@@ -20424,6 +24245,24 @@ type ServerInterface interface {
 	// Get organization events
 	// (GET /api/admin/projects/{projectID}/subjects/organizations/{organizationID}/events)
 	GetOrganizationEvents(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, organizationID openapi_types.UUID, params GetOrganizationEventsParams)
+	// Create organization event
+	// (POST /api/admin/projects/{projectID}/subjects/organizations/{organizationID}/events)
+	CreateOrganizationEvent(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, organizationID openapi_types.UUID)
+	// Delete organization external identifier
+	// (DELETE /api/admin/projects/{projectID}/subjects/organizations/{organizationID}/identifiers/{identifierID})
+	DeleteOrganizationExternalID(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, organizationID openapi_types.UUID, identifierID openapi_types.UUID)
+	// Get organization scheduled
+	// (GET /api/admin/projects/{projectID}/subjects/organizations/{organizationID}/scheduled)
+	GetOrganizationScheduled(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, organizationID openapi_types.UUID, params GetOrganizationScheduledParams)
+	// Upsert organization scheduled
+	// (PUT /api/admin/projects/{projectID}/subjects/organizations/{organizationID}/scheduled)
+	UpsertOrganizationScheduled(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, organizationID openapi_types.UUID)
+	// Delete organization scheduled instance
+	// (DELETE /api/admin/projects/{projectID}/subjects/organizations/{organizationID}/scheduled/{scheduledInstanceID})
+	DeleteOrganizationScheduled(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, organizationID openapi_types.UUID, scheduledInstanceID openapi_types.UUID)
+	// Update organization scheduled instance
+	// (PATCH /api/admin/projects/{projectID}/subjects/organizations/{organizationID}/scheduled/{scheduledInstanceID})
+	UpdateOrganizationScheduled(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, organizationID openapi_types.UUID, scheduledInstanceID openapi_types.UUID)
 	// List organization users
 	// (GET /api/admin/projects/{projectID}/subjects/organizations/{organizationID}/users)
 	ListOrganizationMembers(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, organizationID openapi_types.UUID, params ListOrganizationMembersParams)
@@ -20439,6 +24278,15 @@ type ServerInterface interface {
 	// Delete user event schema
 	// (DELETE /api/admin/projects/{projectID}/subjects/user/events/schema/{eventID})
 	DeleteUserEventSchema(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, eventID openapi_types.UUID)
+	// List scheduled schemas
+	// (GET /api/admin/projects/{projectID}/subjects/user/scheduled/schema)
+	ListScheduledSchemas(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID)
+	// Delete scheduled schema
+	// (DELETE /api/admin/projects/{projectID}/subjects/user/scheduled/schema/{scheduledID})
+	DeleteScheduledSchema(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, scheduledID openapi_types.UUID)
+	// Create schedule offset
+	// (POST /api/admin/projects/{projectID}/subjects/user/scheduled/schema/{scheduledID}/offsets)
+	CreateScheduleOffset(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, scheduledID openapi_types.UUID)
 	// List users
 	// (GET /api/admin/projects/{projectID}/subjects/users)
 	ListUsers(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListUsersParams)
@@ -20469,9 +24317,27 @@ type ServerInterface interface {
 	// Get user events
 	// (GET /api/admin/projects/{projectID}/subjects/users/{userID}/events)
 	GetUserEvents(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID, params GetUserEventsParams)
+	// Create user event
+	// (POST /api/admin/projects/{projectID}/subjects/users/{userID}/events)
+	CreateUserEvent(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID)
+	// Delete user external identifier
+	// (DELETE /api/admin/projects/{projectID}/subjects/users/{userID}/identifiers/{identifierID})
+	DeleteUserExternalID(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID, identifierID openapi_types.UUID)
 	// Get user journeys
 	// (GET /api/admin/projects/{projectID}/subjects/users/{userID}/journeys)
 	GetUserJourneys(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID, params GetUserJourneysParams)
+	// Get user scheduled
+	// (GET /api/admin/projects/{projectID}/subjects/users/{userID}/scheduled)
+	GetUserScheduled(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID, params GetUserScheduledParams)
+	// Upsert user scheduled
+	// (PUT /api/admin/projects/{projectID}/subjects/users/{userID}/scheduled)
+	UpsertUserScheduled(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID)
+	// Delete user scheduled instance
+	// (DELETE /api/admin/projects/{projectID}/subjects/users/{userID}/scheduled/{scheduledInstanceID})
+	DeleteUserScheduled(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID, scheduledInstanceID openapi_types.UUID)
+	// Update user scheduled instance
+	// (PATCH /api/admin/projects/{projectID}/subjects/users/{userID}/scheduled/{scheduledInstanceID})
+	UpdateUserScheduled(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID, scheduledInstanceID openapi_types.UUID)
 	// Get user organizations
 	// (GET /api/admin/projects/{projectID}/subjects/users/{userID}/subject-organizations)
 	GetUserOrganizations(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID, params GetUserOrganizationsParams)
@@ -20661,6 +24527,54 @@ func (_ Unimplemented) UpdateProjectAdmin(w http.ResponseWriter, r *http.Request
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// List broadcasts
+// (GET /api/admin/projects/{projectID}/broadcasts)
+func (_ Unimplemented) ListBroadcasts(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListBroadcastsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Create broadcast
+// (POST /api/admin/projects/{projectID}/broadcasts)
+func (_ Unimplemented) CreateBroadcast(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Cancel broadcast
+// (DELETE /api/admin/projects/{projectID}/broadcasts/{broadcastID})
+func (_ Unimplemented) CancelBroadcast(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, broadcastID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Get broadcast
+// (GET /api/admin/projects/{projectID}/broadcasts/{broadcastID})
+func (_ Unimplemented) GetBroadcast(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, broadcastID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Update broadcast
+// (PATCH /api/admin/projects/{projectID}/broadcasts/{broadcastID})
+func (_ Unimplemented) UpdateBroadcast(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, broadcastID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Stream broadcast progress
+// (GET /api/admin/projects/{projectID}/broadcasts/{broadcastID}/progress)
+func (_ Unimplemented) StreamBroadcastProgress(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, broadcastID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Send broadcast
+// (POST /api/admin/projects/{projectID}/broadcasts/{broadcastID}/send)
+func (_ Unimplemented) SendBroadcast(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, broadcastID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Get broadcast users
+// (GET /api/admin/projects/{projectID}/broadcasts/{broadcastID}/users)
+func (_ Unimplemented) GetBroadcastUsers(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, broadcastID openapi_types.UUID, params GetBroadcastUsersParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // List campaigns
 // (GET /api/admin/projects/{projectID}/campaigns)
 func (_ Unimplemented) ListCampaigns(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListCampaignsParams) {
@@ -20823,6 +24737,12 @@ func (_ Unimplemented) SetJourneySteps(w http.ResponseWriter, r *http.Request, p
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// Cancel user journey
+// (DELETE /api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID})
+func (_ Unimplemented) CancelUserJourney(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // Stream user journey steps
 // (GET /api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID})
 func (_ Unimplemented) StreamUserJourneySteps(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID) {
@@ -20973,27 +24893,27 @@ func (_ Unimplemented) ListProviderMeta(w http.ResponseWriter, r *http.Request, 
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// Delete provider
+// (DELETE /api/admin/projects/{projectID}/providers/{providerID})
+func (_ Unimplemented) DeleteProvider(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, providerID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // Create provider
-// (POST /api/admin/projects/{projectID}/providers/{group}/{type})
-func (_ Unimplemented) CreateProvider(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, group string, pType string) {
+// (POST /api/admin/projects/{projectID}/providers/{type})
+func (_ Unimplemented) CreateProvider(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, pType string) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Get provider by ID
-// (GET /api/admin/projects/{projectID}/providers/{group}/{type}/{providerID})
-func (_ Unimplemented) GetProvider(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, group string, pType string, providerID openapi_types.UUID) {
+// (GET /api/admin/projects/{projectID}/providers/{type}/{providerID})
+func (_ Unimplemented) GetProvider(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, pType string, providerID openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Update provider
-// (PATCH /api/admin/projects/{projectID}/providers/{group}/{type}/{providerID})
-func (_ Unimplemented) UpdateProvider(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, group string, pType string, providerID openapi_types.UUID) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// Delete provider
-// (DELETE /api/admin/projects/{projectID}/providers/{providerID})
-func (_ Unimplemented) DeleteProvider(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, providerID openapi_types.UUID) {
+// (PATCH /api/admin/projects/{projectID}/providers/{type}/{providerID})
+func (_ Unimplemented) UpdateProvider(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, pType string, providerID openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -21081,6 +25001,42 @@ func (_ Unimplemented) GetOrganizationEvents(w http.ResponseWriter, r *http.Requ
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// Create organization event
+// (POST /api/admin/projects/{projectID}/subjects/organizations/{organizationID}/events)
+func (_ Unimplemented) CreateOrganizationEvent(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, organizationID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Delete organization external identifier
+// (DELETE /api/admin/projects/{projectID}/subjects/organizations/{organizationID}/identifiers/{identifierID})
+func (_ Unimplemented) DeleteOrganizationExternalID(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, organizationID openapi_types.UUID, identifierID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Get organization scheduled
+// (GET /api/admin/projects/{projectID}/subjects/organizations/{organizationID}/scheduled)
+func (_ Unimplemented) GetOrganizationScheduled(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, organizationID openapi_types.UUID, params GetOrganizationScheduledParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Upsert organization scheduled
+// (PUT /api/admin/projects/{projectID}/subjects/organizations/{organizationID}/scheduled)
+func (_ Unimplemented) UpsertOrganizationScheduled(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, organizationID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Delete organization scheduled instance
+// (DELETE /api/admin/projects/{projectID}/subjects/organizations/{organizationID}/scheduled/{scheduledInstanceID})
+func (_ Unimplemented) DeleteOrganizationScheduled(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, organizationID openapi_types.UUID, scheduledInstanceID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Update organization scheduled instance
+// (PATCH /api/admin/projects/{projectID}/subjects/organizations/{organizationID}/scheduled/{scheduledInstanceID})
+func (_ Unimplemented) UpdateOrganizationScheduled(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, organizationID openapi_types.UUID, scheduledInstanceID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // List organization users
 // (GET /api/admin/projects/{projectID}/subjects/organizations/{organizationID}/users)
 func (_ Unimplemented) ListOrganizationMembers(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, organizationID openapi_types.UUID, params ListOrganizationMembersParams) {
@@ -21108,6 +25064,24 @@ func (_ Unimplemented) ListUserEventSchemas(w http.ResponseWriter, r *http.Reque
 // Delete user event schema
 // (DELETE /api/admin/projects/{projectID}/subjects/user/events/schema/{eventID})
 func (_ Unimplemented) DeleteUserEventSchema(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, eventID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// List scheduled schemas
+// (GET /api/admin/projects/{projectID}/subjects/user/scheduled/schema)
+func (_ Unimplemented) ListScheduledSchemas(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Delete scheduled schema
+// (DELETE /api/admin/projects/{projectID}/subjects/user/scheduled/schema/{scheduledID})
+func (_ Unimplemented) DeleteScheduledSchema(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, scheduledID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Create schedule offset
+// (POST /api/admin/projects/{projectID}/subjects/user/scheduled/schema/{scheduledID}/offsets)
+func (_ Unimplemented) CreateScheduleOffset(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, scheduledID openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -21171,9 +25145,45 @@ func (_ Unimplemented) GetUserEvents(w http.ResponseWriter, r *http.Request, pro
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// Create user event
+// (POST /api/admin/projects/{projectID}/subjects/users/{userID}/events)
+func (_ Unimplemented) CreateUserEvent(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Delete user external identifier
+// (DELETE /api/admin/projects/{projectID}/subjects/users/{userID}/identifiers/{identifierID})
+func (_ Unimplemented) DeleteUserExternalID(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID, identifierID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // Get user journeys
 // (GET /api/admin/projects/{projectID}/subjects/users/{userID}/journeys)
 func (_ Unimplemented) GetUserJourneys(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID, params GetUserJourneysParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Get user scheduled
+// (GET /api/admin/projects/{projectID}/subjects/users/{userID}/scheduled)
+func (_ Unimplemented) GetUserScheduled(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID, params GetUserScheduledParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Upsert user scheduled
+// (PUT /api/admin/projects/{projectID}/subjects/users/{userID}/scheduled)
+func (_ Unimplemented) UpsertUserScheduled(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Delete user scheduled instance
+// (DELETE /api/admin/projects/{projectID}/subjects/users/{userID}/scheduled/{scheduledInstanceID})
+func (_ Unimplemented) DeleteUserScheduled(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID, scheduledInstanceID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Update user scheduled instance
+// (PATCH /api/admin/projects/{projectID}/subjects/users/{userID}/scheduled/{scheduledInstanceID})
+func (_ Unimplemented) UpdateUserScheduled(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID, scheduledInstanceID openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -22072,6 +26082,386 @@ func (siw *ServerInterfaceWrapper) UpdateProjectAdmin(w http.ResponseWriter, r *
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UpdateProjectAdmin(w, r, projectID, adminID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListBroadcasts operation middleware
+func (siw *ServerInterfaceWrapper) ListBroadcasts(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListBroadcastsParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "limit", r.URL.Query(), &params.Limit)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "offset", r.URL.Query(), &params.Offset)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "search" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "search", r.URL.Query(), &params.Search)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "search", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "campaign_id" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "campaign_id", r.URL.Query(), &params.CampaignId)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "campaign_id", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "list_id" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "list_id", r.URL.Query(), &params.ListId)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "list_id", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "state" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "state", r.URL.Query(), &params.State)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "state", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListBroadcasts(w, r, projectID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateBroadcast operation middleware
+func (siw *ServerInterfaceWrapper) CreateBroadcast(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateBroadcast(w, r, projectID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CancelBroadcast operation middleware
+func (siw *ServerInterfaceWrapper) CancelBroadcast(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "broadcastID" -------------
+	var broadcastID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "broadcastID", chi.URLParam(r, "broadcastID"), &broadcastID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "broadcastID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CancelBroadcast(w, r, projectID, broadcastID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetBroadcast operation middleware
+func (siw *ServerInterfaceWrapper) GetBroadcast(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "broadcastID" -------------
+	var broadcastID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "broadcastID", chi.URLParam(r, "broadcastID"), &broadcastID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "broadcastID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetBroadcast(w, r, projectID, broadcastID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateBroadcast operation middleware
+func (siw *ServerInterfaceWrapper) UpdateBroadcast(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "broadcastID" -------------
+	var broadcastID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "broadcastID", chi.URLParam(r, "broadcastID"), &broadcastID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "broadcastID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateBroadcast(w, r, projectID, broadcastID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// StreamBroadcastProgress operation middleware
+func (siw *ServerInterfaceWrapper) StreamBroadcastProgress(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "broadcastID" -------------
+	var broadcastID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "broadcastID", chi.URLParam(r, "broadcastID"), &broadcastID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "broadcastID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.StreamBroadcastProgress(w, r, projectID, broadcastID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SendBroadcast operation middleware
+func (siw *ServerInterfaceWrapper) SendBroadcast(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "broadcastID" -------------
+	var broadcastID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "broadcastID", chi.URLParam(r, "broadcastID"), &broadcastID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "broadcastID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SendBroadcast(w, r, projectID, broadcastID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetBroadcastUsers operation middleware
+func (siw *ServerInterfaceWrapper) GetBroadcastUsers(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "broadcastID" -------------
+	var broadcastID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "broadcastID", chi.URLParam(r, "broadcastID"), &broadcastID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "broadcastID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetBroadcastUsersParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "limit", r.URL.Query(), &params.Limit)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "offset", r.URL.Query(), &params.Offset)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "search" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "search", r.URL.Query(), &params.Search)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "search", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetBroadcastUsers(w, r, projectID, broadcastID, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -23264,6 +27654,55 @@ func (siw *ServerInterfaceWrapper) SetJourneySteps(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
+// CancelUserJourney operation middleware
+func (siw *ServerInterfaceWrapper) CancelUserJourney(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "journeyID" -------------
+	var journeyID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "journeyID", chi.URLParam(r, "journeyID"), &journeyID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "journeyID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "userID" -------------
+	var userID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userID", chi.URLParam(r, "userID"), &userID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "userID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CancelUserJourney(w, r, projectID, journeyID, userID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // StreamUserJourneySteps operation middleware
 func (siw *ServerInterfaceWrapper) StreamUserJourneySteps(w http.ResponseWriter, r *http.Request) {
 
@@ -24350,171 +28789,6 @@ func (siw *ServerInterfaceWrapper) ListProviderMeta(w http.ResponseWriter, r *ht
 	handler.ServeHTTP(w, r)
 }
 
-// CreateProvider operation middleware
-func (siw *ServerInterfaceWrapper) CreateProvider(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-
-	// ------------- Path parameter "projectID" -------------
-	var projectID openapi_types.UUID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
-		return
-	}
-
-	// ------------- Path parameter "group" -------------
-	var group string
-
-	err = runtime.BindStyledParameterWithOptions("simple", "group", chi.URLParam(r, "group"), &group, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "group", Err: err})
-		return
-	}
-
-	// ------------- Path parameter "type" -------------
-	var pType string
-
-	err = runtime.BindStyledParameterWithOptions("simple", "type", chi.URLParam(r, "type"), &pType, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "type", Err: err})
-		return
-	}
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
-
-	r = r.WithContext(ctx)
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.CreateProvider(w, r, projectID, group, pType)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// GetProvider operation middleware
-func (siw *ServerInterfaceWrapper) GetProvider(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-
-	// ------------- Path parameter "projectID" -------------
-	var projectID openapi_types.UUID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
-		return
-	}
-
-	// ------------- Path parameter "group" -------------
-	var group string
-
-	err = runtime.BindStyledParameterWithOptions("simple", "group", chi.URLParam(r, "group"), &group, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "group", Err: err})
-		return
-	}
-
-	// ------------- Path parameter "type" -------------
-	var pType string
-
-	err = runtime.BindStyledParameterWithOptions("simple", "type", chi.URLParam(r, "type"), &pType, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "type", Err: err})
-		return
-	}
-
-	// ------------- Path parameter "providerID" -------------
-	var providerID openapi_types.UUID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "providerID", chi.URLParam(r, "providerID"), &providerID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "providerID", Err: err})
-		return
-	}
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
-
-	r = r.WithContext(ctx)
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetProvider(w, r, projectID, group, pType, providerID)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// UpdateProvider operation middleware
-func (siw *ServerInterfaceWrapper) UpdateProvider(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-
-	// ------------- Path parameter "projectID" -------------
-	var projectID openapi_types.UUID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
-		return
-	}
-
-	// ------------- Path parameter "group" -------------
-	var group string
-
-	err = runtime.BindStyledParameterWithOptions("simple", "group", chi.URLParam(r, "group"), &group, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "group", Err: err})
-		return
-	}
-
-	// ------------- Path parameter "type" -------------
-	var pType string
-
-	err = runtime.BindStyledParameterWithOptions("simple", "type", chi.URLParam(r, "type"), &pType, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "type", Err: err})
-		return
-	}
-
-	// ------------- Path parameter "providerID" -------------
-	var providerID openapi_types.UUID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "providerID", chi.URLParam(r, "providerID"), &providerID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "providerID", Err: err})
-		return
-	}
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
-
-	r = r.WithContext(ctx)
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.UpdateProvider(w, r, projectID, group, pType, providerID)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
 // DeleteProvider operation middleware
 func (siw *ServerInterfaceWrapper) DeleteProvider(w http.ResponseWriter, r *http.Request) {
 
@@ -24546,6 +28820,144 @@ func (siw *ServerInterfaceWrapper) DeleteProvider(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.DeleteProvider(w, r, projectID, providerID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateProvider operation middleware
+func (siw *ServerInterfaceWrapper) CreateProvider(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "type" -------------
+	var pType string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "type", chi.URLParam(r, "type"), &pType, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "type", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateProvider(w, r, projectID, pType)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetProvider operation middleware
+func (siw *ServerInterfaceWrapper) GetProvider(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "type" -------------
+	var pType string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "type", chi.URLParam(r, "type"), &pType, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "type", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "providerID" -------------
+	var providerID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "providerID", chi.URLParam(r, "providerID"), &providerID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "providerID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetProvider(w, r, projectID, pType, providerID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateProvider operation middleware
+func (siw *ServerInterfaceWrapper) UpdateProvider(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "type" -------------
+	var pType string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "type", chi.URLParam(r, "type"), &pType, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "type", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "providerID" -------------
+	var providerID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "providerID", chi.URLParam(r, "providerID"), &providerID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "providerID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateProvider(w, r, projectID, pType, providerID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -25122,8 +29534,302 @@ func (siw *ServerInterfaceWrapper) GetOrganizationEvents(w http.ResponseWriter, 
 		return
 	}
 
+	// ------------- Optional query parameter "search" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "search", r.URL.Query(), &params.Search)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "search", Err: err})
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetOrganizationEvents(w, r, projectID, organizationID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateOrganizationEvent operation middleware
+func (siw *ServerInterfaceWrapper) CreateOrganizationEvent(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "organizationID" -------------
+	var organizationID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "organizationID", chi.URLParam(r, "organizationID"), &organizationID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "organizationID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateOrganizationEvent(w, r, projectID, organizationID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteOrganizationExternalID operation middleware
+func (siw *ServerInterfaceWrapper) DeleteOrganizationExternalID(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "organizationID" -------------
+	var organizationID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "organizationID", chi.URLParam(r, "organizationID"), &organizationID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "organizationID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "identifierID" -------------
+	var identifierID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "identifierID", chi.URLParam(r, "identifierID"), &identifierID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "identifierID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteOrganizationExternalID(w, r, projectID, organizationID, identifierID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetOrganizationScheduled operation middleware
+func (siw *ServerInterfaceWrapper) GetOrganizationScheduled(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "organizationID" -------------
+	var organizationID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "organizationID", chi.URLParam(r, "organizationID"), &organizationID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "organizationID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetOrganizationScheduledParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "limit", r.URL.Query(), &params.Limit)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "offset", r.URL.Query(), &params.Offset)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetOrganizationScheduled(w, r, projectID, organizationID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpsertOrganizationScheduled operation middleware
+func (siw *ServerInterfaceWrapper) UpsertOrganizationScheduled(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "organizationID" -------------
+	var organizationID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "organizationID", chi.URLParam(r, "organizationID"), &organizationID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "organizationID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpsertOrganizationScheduled(w, r, projectID, organizationID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteOrganizationScheduled operation middleware
+func (siw *ServerInterfaceWrapper) DeleteOrganizationScheduled(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "organizationID" -------------
+	var organizationID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "organizationID", chi.URLParam(r, "organizationID"), &organizationID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "organizationID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "scheduledInstanceID" -------------
+	var scheduledInstanceID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "scheduledInstanceID", chi.URLParam(r, "scheduledInstanceID"), &scheduledInstanceID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "scheduledInstanceID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteOrganizationScheduled(w, r, projectID, organizationID, scheduledInstanceID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateOrganizationScheduled operation middleware
+func (siw *ServerInterfaceWrapper) UpdateOrganizationScheduled(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "organizationID" -------------
+	var organizationID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "organizationID", chi.URLParam(r, "organizationID"), &organizationID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "organizationID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "scheduledInstanceID" -------------
+	var scheduledInstanceID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "scheduledInstanceID", chi.URLParam(r, "scheduledInstanceID"), &scheduledInstanceID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "scheduledInstanceID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateOrganizationScheduled(w, r, projectID, organizationID, scheduledInstanceID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -25343,6 +30049,117 @@ func (siw *ServerInterfaceWrapper) DeleteUserEventSchema(w http.ResponseWriter, 
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.DeleteUserEventSchema(w, r, projectID, eventID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListScheduledSchemas operation middleware
+func (siw *ServerInterfaceWrapper) ListScheduledSchemas(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListScheduledSchemas(w, r, projectID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteScheduledSchema operation middleware
+func (siw *ServerInterfaceWrapper) DeleteScheduledSchema(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "scheduledID" -------------
+	var scheduledID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "scheduledID", chi.URLParam(r, "scheduledID"), &scheduledID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "scheduledID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteScheduledSchema(w, r, projectID, scheduledID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateScheduleOffset operation middleware
+func (siw *ServerInterfaceWrapper) CreateScheduleOffset(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "scheduledID" -------------
+	var scheduledID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "scheduledID", chi.URLParam(r, "scheduledID"), &scheduledID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "scheduledID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateScheduleOffset(w, r, projectID, scheduledID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -25779,6 +30596,95 @@ func (siw *ServerInterfaceWrapper) GetUserEvents(w http.ResponseWriter, r *http.
 	handler.ServeHTTP(w, r)
 }
 
+// CreateUserEvent operation middleware
+func (siw *ServerInterfaceWrapper) CreateUserEvent(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "userID" -------------
+	var userID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userID", chi.URLParam(r, "userID"), &userID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "userID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateUserEvent(w, r, projectID, userID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteUserExternalID operation middleware
+func (siw *ServerInterfaceWrapper) DeleteUserExternalID(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "userID" -------------
+	var userID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userID", chi.URLParam(r, "userID"), &userID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "userID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "identifierID" -------------
+	var identifierID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "identifierID", chi.URLParam(r, "identifierID"), &identifierID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "identifierID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteUserExternalID(w, r, projectID, userID, identifierID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetUserJourneys operation middleware
 func (siw *ServerInterfaceWrapper) GetUserJourneys(w http.ResponseWriter, r *http.Request) {
 
@@ -25829,6 +30735,203 @@ func (siw *ServerInterfaceWrapper) GetUserJourneys(w http.ResponseWriter, r *htt
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetUserJourneys(w, r, projectID, userID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetUserScheduled operation middleware
+func (siw *ServerInterfaceWrapper) GetUserScheduled(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "userID" -------------
+	var userID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userID", chi.URLParam(r, "userID"), &userID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "userID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetUserScheduledParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "limit", r.URL.Query(), &params.Limit)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "offset", r.URL.Query(), &params.Offset)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetUserScheduled(w, r, projectID, userID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpsertUserScheduled operation middleware
+func (siw *ServerInterfaceWrapper) UpsertUserScheduled(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "userID" -------------
+	var userID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userID", chi.URLParam(r, "userID"), &userID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "userID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpsertUserScheduled(w, r, projectID, userID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteUserScheduled operation middleware
+func (siw *ServerInterfaceWrapper) DeleteUserScheduled(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "userID" -------------
+	var userID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userID", chi.URLParam(r, "userID"), &userID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "userID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "scheduledInstanceID" -------------
+	var scheduledInstanceID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "scheduledInstanceID", chi.URLParam(r, "scheduledInstanceID"), &scheduledInstanceID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "scheduledInstanceID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteUserScheduled(w, r, projectID, userID, scheduledInstanceID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateUserScheduled operation middleware
+func (siw *ServerInterfaceWrapper) UpdateUserScheduled(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "userID" -------------
+	var userID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userID", chi.URLParam(r, "userID"), &userID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "userID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "scheduledInstanceID" -------------
+	var scheduledInstanceID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "scheduledInstanceID", chi.URLParam(r, "scheduledInstanceID"), &scheduledInstanceID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "scheduledInstanceID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateUserScheduled(w, r, projectID, userID, scheduledInstanceID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -26794,6 +31897,30 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Patch(options.BaseURL+"/api/admin/projects/{projectID}/admins/{adminID}", wrapper.UpdateProjectAdmin)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/broadcasts", wrapper.ListBroadcasts)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/broadcasts", wrapper.CreateBroadcast)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/admin/projects/{projectID}/broadcasts/{broadcastID}", wrapper.CancelBroadcast)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/broadcasts/{broadcastID}", wrapper.GetBroadcast)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/admin/projects/{projectID}/broadcasts/{broadcastID}", wrapper.UpdateBroadcast)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/broadcasts/{broadcastID}/progress", wrapper.StreamBroadcastProgress)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/broadcasts/{broadcastID}/send", wrapper.SendBroadcast)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/broadcasts/{broadcastID}/users", wrapper.GetBroadcastUsers)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/campaigns", wrapper.ListCampaigns)
 	})
 	r.Group(func(r chi.Router) {
@@ -26875,6 +32002,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Put(options.BaseURL+"/api/admin/projects/{projectID}/journeys/{journeyID}/steps", wrapper.SetJourneySteps)
 	})
 	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID}", wrapper.CancelUserJourney)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID}", wrapper.StreamUserJourneySteps)
 	})
 	r.Group(func(r chi.Router) {
@@ -26950,16 +32080,16 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/providers/meta", wrapper.ListProviderMeta)
 	})
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/providers/{group}/{type}", wrapper.CreateProvider)
-	})
-	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/providers/{group}/{type}/{providerID}", wrapper.GetProvider)
-	})
-	r.Group(func(r chi.Router) {
-		r.Patch(options.BaseURL+"/api/admin/projects/{projectID}/providers/{group}/{type}/{providerID}", wrapper.UpdateProvider)
-	})
-	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/api/admin/projects/{projectID}/providers/{providerID}", wrapper.DeleteProvider)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/providers/{type}", wrapper.CreateProvider)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/providers/{type}/{providerID}", wrapper.GetProvider)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/admin/projects/{projectID}/providers/{type}/{providerID}", wrapper.UpdateProvider)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/sender-identities", wrapper.ListSenderIdentities)
@@ -27004,6 +32134,24 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/events", wrapper.GetOrganizationEvents)
 	})
 	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/events", wrapper.CreateOrganizationEvent)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/identifiers/{identifierID}", wrapper.DeleteOrganizationExternalID)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/scheduled", wrapper.GetOrganizationScheduled)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/scheduled", wrapper.UpsertOrganizationScheduled)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/scheduled/{scheduledInstanceID}", wrapper.DeleteOrganizationScheduled)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/scheduled/{scheduledInstanceID}", wrapper.UpdateOrganizationScheduled)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/users", wrapper.ListOrganizationMembers)
 	})
 	r.Group(func(r chi.Router) {
@@ -27017,6 +32165,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/api/admin/projects/{projectID}/subjects/user/events/schema/{eventID}", wrapper.DeleteUserEventSchema)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/subjects/user/scheduled/schema", wrapper.ListScheduledSchemas)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/admin/projects/{projectID}/subjects/user/scheduled/schema/{scheduledID}", wrapper.DeleteScheduledSchema)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/subjects/user/scheduled/schema/{scheduledID}/offsets", wrapper.CreateScheduleOffset)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/subjects/users", wrapper.ListUsers)
@@ -27049,7 +32206,25 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/subjects/users/{userID}/events", wrapper.GetUserEvents)
 	})
 	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/subjects/users/{userID}/events", wrapper.CreateUserEvent)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/admin/projects/{projectID}/subjects/users/{userID}/identifiers/{identifierID}", wrapper.DeleteUserExternalID)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/subjects/users/{userID}/journeys", wrapper.GetUserJourneys)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/subjects/users/{userID}/scheduled", wrapper.GetUserScheduled)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/api/admin/projects/{projectID}/subjects/users/{userID}/scheduled", wrapper.UpsertUserScheduled)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/admin/projects/{projectID}/subjects/users/{userID}/scheduled/{scheduledInstanceID}", wrapper.DeleteUserScheduled)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/admin/projects/{projectID}/subjects/users/{userID}/scheduled/{scheduledInstanceID}", wrapper.UpdateUserScheduled)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/subjects/users/{userID}/subject-organizations", wrapper.GetUserOrganizations)

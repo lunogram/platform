@@ -14,6 +14,7 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 )
 
@@ -28,18 +29,18 @@ func TestOrganizationEventsHandlerSuccess(t *testing.T) {
 	err := Bootstrap(ctx, logger, jet, ns)
 	require.NoError(t, err)
 
-	usersState := subjects.NewState(usrsDB)
+	usersState := subjects.NewState(usrsDB, zap.NewNop())
 	journeyState := journey.NewState(jrnyDB)
 	pub := pubsub.NewPublisher(jet, string(ns))
 
 	// First, create an organization in the database
 	orgID, err := usersState.UpsertOrganization(ctx, projectID, subjects.UpsertOrganizationParams{
-		ExternalID: "org_event_test",
-		Name:       strPtr("Test Org for Events"),
+		Identifiers: []subjects.ExternalIDParam{{Source: "default", ExternalID: "org_event_test"}},
+		Name:        strPtr("Test Org for Events"),
 	})
 	require.NoError(t, err)
 
-	handler := OrganizationEventsHandler(logger, usersState, journeyState, pub)
+	handler := OrganizationEventsHandler(logger, usersState, journeyState, pub, nil)
 
 	event := schemas.OrganizationEvent{
 		Name:           "purchase.completed",
@@ -91,26 +92,26 @@ func TestOrganizationEventsHandlerWithExternalID(t *testing.T) {
 	err := Bootstrap(ctx, logger, jet, ns)
 	require.NoError(t, err)
 
-	usersState := subjects.NewState(usrsDB)
+	usersState := subjects.NewState(usrsDB, zap.NewNop())
 	journeyState := journey.NewState(jrnyDB)
 	pub := pubsub.NewPublisher(jet, string(ns))
 
 	// Create an organization with a known external ID
 	externalID := "org_external_123"
 	_, err = usersState.UpsertOrganization(ctx, projectID, subjects.UpsertOrganizationParams{
-		ExternalID: externalID,
-		Name:       strPtr("External ID Org"),
+		Identifiers: []subjects.ExternalIDParam{{Source: "default", ExternalID: externalID}},
+		Name:        strPtr("External ID Org"),
 	})
 	require.NoError(t, err)
 
-	handler := OrganizationEventsHandler(logger, usersState, journeyState, pub)
+	handler := OrganizationEventsHandler(logger, usersState, journeyState, pub, nil)
 
 	// Send event using external ID instead of internal ID
 	event := schemas.OrganizationEvent{
-		Name:                   "subscription.renewed",
-		ProjectID:              projectID,
-		OrganizationID:         uuid.Nil, // No internal ID
-		OrganizationExternalID: externalID,
+		Name:                    "subscription.renewed",
+		ProjectID:               projectID,
+		OrganizationID:          uuid.Nil, // No internal ID
+		OrganizationIdentifiers: []schemas.ExternalID{{Source: "default", ExternalID: externalID}},
 		Data: map[string]any{
 			"plan": "enterprise",
 		},
@@ -143,18 +144,18 @@ func TestOrganizationEventsHandlerWithoutData(t *testing.T) {
 	err := Bootstrap(ctx, logger, jet, ns)
 	require.NoError(t, err)
 
-	usersState := subjects.NewState(usrsDB)
+	usersState := subjects.NewState(usrsDB, zap.NewNop())
 	journeyState := journey.NewState(jrnyDB)
 	pub := pubsub.NewPublisher(jet, string(ns))
 
 	// Create an organization
 	orgID, err := usersState.UpsertOrganization(ctx, projectID, subjects.UpsertOrganizationParams{
-		ExternalID: "org_no_data_event",
-		Name:       strPtr("No Data Event Org"),
+		Identifiers: []subjects.ExternalIDParam{{Source: "default", ExternalID: "org_no_data_event"}},
+		Name:        strPtr("No Data Event Org"),
 	})
 	require.NoError(t, err)
 
-	handler := OrganizationEventsHandler(logger, usersState, journeyState, pub)
+	handler := OrganizationEventsHandler(logger, usersState, journeyState, pub, nil)
 
 	event := schemas.OrganizationEvent{
 		Name:           "org.activated",
@@ -197,7 +198,7 @@ func TestOrganizationEventSchemasHandlerSuccess(t *testing.T) {
 	err := Bootstrap(ctx, logger, jet, ns)
 	require.NoError(t, err)
 
-	usersState := subjects.NewState(usrsDB)
+	usersState := subjects.NewState(usrsDB, zap.NewNop())
 
 	// First, create the event in the database
 	eventID, err := usersState.UpsertEvent(ctx, projectID, "org.contract.signed", subjects.SubjectTypeOrganization)
@@ -246,7 +247,7 @@ func TestOrganizationEventSchemasHandlerComplexNestedData(t *testing.T) {
 	err := Bootstrap(ctx, logger, jet, ns)
 	require.NoError(t, err)
 
-	usersState := subjects.NewState(usrsDB)
+	usersState := subjects.NewState(usrsDB, zap.NewNop())
 
 	// Create event
 	eventID, err := usersState.UpsertEvent(ctx, projectID, "org.deal.closed", subjects.SubjectTypeOrganization)

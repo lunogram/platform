@@ -73,7 +73,7 @@ export default function Lists() {
     const { t } = useTranslation()
     const navigate = useNavigate()
 
-    const pageSize = 25
+    const pageSize = 15
     const [searchQuery, setSearchQuery] = useState("")
     const [debouncedQuery, setDebouncedQuery] = useState("")
     const [isCreateOpen, setIsCreateOpen] = useState(false)
@@ -328,7 +328,7 @@ export default function Lists() {
                 {lists && lists.length > 0 && (
                     <div className="flex items-center justify-between border-t px-4 py-3">
                         <p className="text-sm text-muted-foreground">
-                            {lists.length} {t("lists").toLowerCase()}
+                            {total} {t("lists").toLowerCase()}
                         </p>
                         {(hasPrevPage || hasNextPage) && (
                             <div className="flex items-center gap-2">

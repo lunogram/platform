@@ -8,6 +8,7 @@ import (
 	"math/big"
 
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
+	"github.com/lunogram/platform/internal/node/metrics"
 	"github.com/lunogram/platform/internal/store/journey"
 )
 
@@ -30,6 +31,8 @@ func HandleExperiment(ctx HandlerContext, step journey.JourneyVersionStep, state
 	if err != nil {
 		return state, nil, err
 	}
+
+	metrics.JourneyExperimentAssignmentsTotal.WithLabelValues(ctx.ProjectID.String(), selected.ChildExternalID).Inc()
 
 	state.CompletedAt = Now()
 	state, err = WithStateData(state, ExperimentData{

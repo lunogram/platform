@@ -7,12 +7,14 @@ import {
     FileText,
     Users,
     Activity,
+    CalendarClock,
     ChevronRight,
     MoreHorizontal,
 } from "lucide-react"
 import { ProjectContext, OrganizationContext } from "../../contexts"
 import { PreferencesContext } from "@/contexts/PreferencesContext"
 import { getRandomColor } from "@/lib/colors"
+import { getPrimaryExternalId } from "@/lib/name"
 import { formatDate } from "../../utils"
 import oapiClient from "../../oapi/client"
 import { toast } from "sonner"
@@ -45,7 +47,9 @@ export default function OrganizationDetail() {
     const [isDeleteOpen, setIsDeleteOpen] = useState(false)
     const [isDeleting, setIsDeleting] = useState(false)
 
-    const orgColor = getRandomColor(organization.external_id)
+    const orgColor = getRandomColor(
+        getPrimaryExternalId(organization as unknown as Record<string, unknown>) ?? organization.id,
+    )
 
     // Determine active tab
     const basePath = `/projects/${project.id}/organizations/${organization.id}`
@@ -76,6 +80,12 @@ export default function OrganizationDetail() {
         { key: "details", to: "", label: t("details"), icon: FileText },
         { key: "members", to: "members", label: t("members"), icon: Users },
         { key: "events", to: "events", label: t("events"), icon: Activity },
+        {
+            key: "scheduled",
+            to: "scheduled",
+            label: t("scheduled", "Scheduled"),
+            icon: CalendarClock,
+        },
     ]
 
     return (
@@ -93,7 +103,10 @@ export default function OrganizationDetail() {
                         </Link>
                         <ChevronRight className="h-3.5 w-3.5" />
                         <span className="text-foreground font-medium">
-                            {organization.name || organization.external_id}
+                            {organization.name ||
+                                getPrimaryExternalId(
+                                    organization as unknown as Record<string, unknown>,
+                                )}
                         </span>
                     </nav>
 
@@ -129,19 +142,20 @@ export default function OrganizationDetail() {
                                             )
                                         }
                                     }}
-                                    placeholder={organization.external_id}
+                                    placeholder={getPrimaryExternalId(
+                                        organization as unknown as Record<string, unknown>,
+                                    )}
                                     triggerClassName="gap-1.5"
                                     pencilSize="h-3.5 w-3.5"
                                 >
                                     <h1 className="text-2xl font-semibold tracking-tight">
-                                        {organization.name || organization.external_id}
+                                        {organization.name ||
+                                            getPrimaryExternalId(
+                                                organization as unknown as Record<string, unknown>,
+                                            )}
                                     </h1>
                                 </InlineEdit>
                                 <p className="text-sm text-muted-foreground">
-                                    <code className="text-xs bg-muted px-1.5 py-0.5 rounded">
-                                        {organization.external_id}
-                                    </code>
-                                    <span className="mx-2">·</span>
                                     <span>
                                         Created{" "}
                                         {formatDate(preferences, organization.created_at, "PP")}
@@ -200,10 +214,15 @@ export default function OrganizationDetail() {
                             </div>
                             <div>
                                 <p className="font-medium">
-                                    {organization.name || organization.external_id}
+                                    {organization.name ||
+                                        getPrimaryExternalId(
+                                            organization as unknown as Record<string, unknown>,
+                                        )}
                                 </p>
                                 <p className="text-sm text-muted-foreground">
-                                    {organization.external_id}
+                                    {getPrimaryExternalId(
+                                        organization as unknown as Record<string, unknown>,
+                                    )}
                                 </p>
                             </div>
                         </div>

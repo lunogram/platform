@@ -29,7 +29,7 @@ func NewUsersController(logger *zap.Logger, pub pubsub.Publisher, usersDB, journ
 		logger:        logger,
 		usersDB:       usersDB,
 		mgmt:          mgmt,
-		users:         subjects.NewState(usersDB),
+		users:         subjects.NewState(usersDB, logger),
 		journey:       journey.NewState(journeyDB),
 		pubsub:        pub,
 		maxUploadSize: maxUploadSize,
@@ -101,9 +101,9 @@ func (srv *UsersController) IdentifyUser(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
-	if body.AnonymousId == nil && body.ExternalId == nil {
-		srv.logger.Error("either anonymous_id or external_id required")
-		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("either anonymous_id or external_id required")))
+	if len(body.Identifier) == 0 {
+		srv.logger.Error("at least one identifier is required")
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("at least one identifier is required")))
 		return
 	}
 
@@ -126,8 +126,7 @@ func (srv *UsersController) IdentifyUser(w http.ResponseWriter, r *http.Request,
 	usersStore := subjects.NewUsersStore(tx)
 
 	params := subjects.UpsertUserParams{
-		AnonymousID: body.AnonymousId,
-		ExternalID:  body.ExternalId,
+		Identifiers: oapi.ToParams(body.Identifier),
 		Email:       body.Email,
 		Phone:       body.Phone,
 		Timezone:    body.Timezone,
@@ -136,17 +135,26 @@ func (srv *UsersController) IdentifyUser(w http.ResponseWriter, r *http.Request,
 	}
 
 	user, err := usersStore.IdentifyAndGetUser(ctx, projectID, params, true)
+	if errors.Is(err, subjects.ErrIdentifierBelongsToOther) {
+		logger.Info("identifier belongs to another user", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrConflict(problem.Describe("one or more identifiers already belong to a different user")))
+		return
+	}
+	if errors.Is(err, subjects.ErrConflictingIdentifiers) {
+		logger.Info("conflicting identifiers", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrConflict(problem.Describe("identifiers resolve to different existing users")))
+		return
+	}
 	if err != nil {
 		logger.Error("failed to identify user", zap.Error(err))
-		oapi.WriteProblem(w, err)
+		oapi.WriteProblem(w, problem.ErrInternal())
 		return
 	}
 
 	msg := schemas.User{
 		ProjectID:   projectID,
 		ID:          user.ID,
-		AnonymousID: user.AnonymousID,
-		ExternalID:  user.ExternalID,
+		Identifiers: user.ExternalIDs.Params(),
 		Email:       user.Email,
 		Phone:       user.Phone,
 		Timezone:    user.Timezone,
@@ -293,7 +301,7 @@ func (srv *UsersController) UpdateUser(w http.ResponseWriter, r *http.Request, p
 
 	if err != nil {
 		srv.logger.Error("failed to get user", zap.Error(err))
-		oapi.WriteProblem(w, err)
+		oapi.WriteProblem(w, problem.ErrInternal())
 		return
 	}
 
@@ -342,14 +350,14 @@ func (srv *UsersController) UpdateUser(w http.ResponseWriter, r *http.Request, p
 	err = users.UpdateUser(ctx, userID, update)
 	if err != nil {
 		logger.Error("failed to update user", zap.Error(err))
-		oapi.WriteProblem(w, err)
+		oapi.WriteProblem(w, problem.ErrInternal())
 		return
 	}
 
 	updatedUser, err := users.GetUser(ctx, projectID, userID)
 	if err != nil {
 		logger.Error("failed to get updated user", zap.Error(err))
-		oapi.WriteProblem(w, err)
+		oapi.WriteProblem(w, problem.ErrInternal())
 		return
 	}
 
@@ -357,8 +365,7 @@ func (srv *UsersController) UpdateUser(w http.ResponseWriter, r *http.Request, p
 	msg := schemas.User{
 		ProjectID:   projectID,
 		ID:          updatedUser.ID,
-		AnonymousID: updatedUser.AnonymousID,
-		ExternalID:  updatedUser.ExternalID,
+		Identifiers: updatedUser.ExternalIDs.Params(),
 		Email:       updatedUser.Email,
 		Phone:       updatedUser.Phone,
 		Timezone:    updatedUser.Timezone,
@@ -475,6 +482,59 @@ func (srv *UsersController) GetUserEvents(w http.ResponseWriter, r *http.Request
 	}
 
 	json.Write(w, http.StatusOK, response)
+}
+
+func (srv *UsersController) CreateUserEvent(w http.ResponseWriter, r *http.Request, projectID, userID uuid.UUID) {
+	ctx := r.Context()
+	err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("events", projectID))
+	if err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	_, err = srv.users.GetUser(ctx, projectID, userID)
+	if errors.Is(err, sql.ErrNoRows) {
+		srv.logger.Info("user not found")
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
+		return
+	}
+
+	if err != nil {
+		srv.logger.Error("failed to get user", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	var body oapi.CreateUserEventJSONRequestBody
+	err = json.Decode(r.Body, &body)
+	if err != nil {
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid request body")))
+		return
+	}
+
+	if body.Name == "" {
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("name is required")))
+		return
+	}
+
+	msg := schemas.UserEvent{
+		ProjectID: projectID,
+		UserID:    userID,
+		Name:      body.Name,
+		Data:      nil,
+	}
+	if body.Data != nil {
+		msg.Data = *body.Data
+	}
+
+	err = srv.pubsub.Publish(ctx, schemas.UserEventsProcess(projectID), msg)
+	if err != nil {
+		srv.logger.Error("failed to publish user event", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal())
+		return
+	}
+
+	w.WriteHeader(http.StatusAccepted)
 }
 
 func (srv *UsersController) GetUserSubscriptions(w http.ResponseWriter, r *http.Request, projectID, userID uuid.UUID, params oapi.GetUserSubscriptionsParams) {
@@ -659,8 +719,6 @@ var userDirectColumns = []oapi.SchemaPath{
 	{Path: ".phone", Types: []string{"string"}},
 	{Path: ".locale", Types: []string{"string"}},
 	{Path: ".timezone", Types: []string{"string"}},
-	{Path: ".external_id", Types: []string{"string"}},
-	{Path: ".anonymous_id", Types: []string{"string"}},
 	{Path: ".created_at", Types: []string{"date"}},
 }
 
@@ -768,7 +826,7 @@ func (srv *UsersController) processUserImport(ctx context.Context, logger *zap.L
 	}
 
 	defer tx.Rollback() //nolint:errcheck
-	usersStore := subjects.NewState(tx)
+	usersStore := subjects.NewState(tx, logger)
 
 	for {
 		record, err := reader.Read()
@@ -842,17 +900,60 @@ func (srv *UsersController) GetUserOrganizations(w http.ResponseWriter, r *http.
 
 	logger.Info("user organizations listed", zap.Int("total", total), zap.Int("count", len(orgs)))
 
-	response := struct {
-		Results []oapi.Organization `json:"results"`
-		Total   int                 `json:"total"`
-		Limit   int                 `json:"limit"`
-		Offset  int                 `json:"offset"`
-	}{
+	json.Write(w, http.StatusOK, oapi.OrganizationList{
 		Results: subjects.Organizations(orgs).OAPI(),
 		Total:   total,
 		Limit:   pagination.Limit,
 		Offset:  pagination.Offset,
+	})
+}
+
+func (srv *UsersController) DeleteUserExternalID(w http.ResponseWriter, r *http.Request, projectID, userID, identifierID uuid.UUID) {
+	ctx := r.Context()
+	err := srv.engine.Allowed(ctx, rbac.Delete, rbac.ProjectResourceScope("users", projectID))
+	if err != nil {
+		oapi.WriteProblem(w, err)
+		return
 	}
 
-	json.Write(w, http.StatusOK, response)
+	logger := srv.logger.With(
+		zap.String("project_id", projectID.String()),
+		zap.String("user_id", userID.String()),
+		zap.String("identifier_id", identifierID.String()),
+	)
+
+	// Verify the user exists in this project.
+	_, err = srv.users.GetUser(ctx, projectID, userID)
+	if errors.Is(err, sql.ErrNoRows) {
+		logger.Info("user not found")
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
+		return
+	}
+	if err != nil {
+		logger.Error("failed to get user", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal())
+		return
+	}
+
+	logger.Info("deleting user external identifier")
+
+	err = srv.users.DeleteUserExternalIDByID(ctx, userID, identifierID)
+	if errors.Is(err, subjects.ErrLastIdentifier) {
+		logger.Info("cannot delete last identifier")
+		oapi.WriteProblem(w, problem.ErrConflict(problem.Describe("cannot delete the last remaining identifier")))
+		return
+	}
+	if errors.Is(err, sql.ErrNoRows) {
+		logger.Info("identifier not found")
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("identifier not found")))
+		return
+	}
+	if err != nil {
+		logger.Error("failed to delete user external identifier", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal())
+		return
+	}
+
+	logger.Info("user external identifier deleted")
+	w.WriteHeader(http.StatusNoContent)
 }

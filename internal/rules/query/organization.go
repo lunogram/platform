@@ -10,14 +10,13 @@ import (
 // organizationDirectColumns are columns that exist directly on the organizations table
 // and should NOT be normalized to the JSONB data column.
 var organizationDirectColumns = map[string]bool{
-	".name":        true,
-	".external_id": true,
-	".created_at":  true,
-	".updated_at":  true,
+	".name":       true,
+	".created_at": true,
+	".updated_at": true,
 }
 
 // normalizeOrganizationPath normalizes a path for organization queries.
-// Direct columns (name, external_id, etc.) are left as-is, while other
+// Direct columns (name, etc.) are left as-is, while other
 // paths are normalized to access the JSONB data column.
 func normalizeOrganizationPath(path string) string {
 	if organizationDirectColumns[path] {
@@ -67,13 +66,17 @@ func (qb *QueryBuilder) buildOrganizationPropertyRule(rule *rules.Rule) (string,
 	if err != nil {
 		return "", err
 	}
-	if orgCondition == "" {
-		return "", nil
-	}
 
 	memberCondition, err := qb.extractMemberConditions(rule)
 	if err != nil {
 		return "", err
+	}
+
+	// When there are no property conditions (e.g., the organization wrapper
+	// has no leaf rules), we still need to constrain the result to users who
+	// belong to at least one organization by adding a JOIN.
+	if orgCondition == "" {
+		orgCondition = "TRUE"
 	}
 
 	subquery := qb.buildOrgUserSubquery(orgCondition, memberCondition)
@@ -91,13 +94,28 @@ func (qb *QueryBuilder) buildOrganizationWrapperRule(rule *rules.Rule) (string, 
 		return "", nil
 	}
 
+	// If any child is itself an organization wrapper (e.g., has user_match
+	// or nested conditions), delegate each child through buildRule so that
+	// organization property rules with member conditions are handled properly.
+	for _, child := range rule.Children {
+		if child.IsWrapper() && child.Group == rules.RuleGroupOrganization {
+			return qb.buildWrapper(rule)
+		}
+	}
+
 	orgConditions, orgUserConditions, err := qb.collectOrgAndOrgUserConditions(rule)
 	if err != nil {
 		return "", err
 	}
 
 	allConditions := append(orgConditions, orgUserConditions...)
+
+	// When there are no property conditions (e.g., the organization wrapper
+	// has no leaf rules), we still need to constrain the result to users who
+	// belong to at least one organization by adding a JOIN.
 	if len(allConditions) == 0 {
+		subquery := qb.buildOrgUserSubquery("TRUE", "")
+		qb.addJoinForUserIDs(subquery)
 		return "", nil
 	}
 

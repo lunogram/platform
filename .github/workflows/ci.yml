@@ -87,6 +87,24 @@ jobs:
       - name: Build Console
         run: cd console && pnpm build
 
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ vars.PNPM_VERSION }}
+      - name: Set-up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ vars.NODEJS_VERSION }}
+          cache: "pnpm"
+          cache-dependency-path: docs/pnpm-lock.yaml
+      - name: Install Dependencies
+        run: cd docs && pnpm install
+      - name: Build Docs
+        run: cd docs && pnpm build
+
   generate:
     runs-on: ubuntu-latest
     steps:

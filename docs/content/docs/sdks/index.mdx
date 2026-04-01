@@ -1,0 +1,45 @@
+---
+title: SDKs
+description: Official libraries for integrating Lunogram into your applications
+---
+
+import { Cards, Card } from "fumadocs-ui/components/card";
+
+Lunogram provides official SDKs to integrate user tracking, event ingestion, and push notifications into your applications. All SDKs wrap the [Client API](/api/client) and handle authentication, request formatting, and error handling for you.
+
+## Available SDKs
+
+<Cards>
+  <Card title="JavaScript" href="/sdks/javascript">
+    For web browsers and Node.js. Available on npm.
+  </Card>
+  <Card title="iOS (Swift)" href="/sdks/ios">
+    For iOS and Mac Catalyst applications. Coming soon.
+  </Card>
+  <Card title="Android (Kotlin)" href="/sdks/android">
+    For Android applications. Coming soon.
+  </Card>
+</Cards>
+
+## Core functionality
+
+Every SDK provides the same set of capabilities:
+
+| Feature                     | Description                                                          |
+| --------------------------- | -------------------------------------------------------------------- |
+| **User identification**     | Create and update user profiles with custom attributes               |
+| **Event tracking**          | Record user actions that trigger journeys and update list membership |
+| **Organization management** | Group users into organizations with shared attributes and events     |
+| **Scheduling**              | Create recurring or one-time schedules that emit events              |
+| **Device registration**     | Register devices for push notification delivery                      |
+| **Deeplink handling**       | Unwrap Lunogram tracking links for universal/app link support        |
+
+## Authentication
+
+All SDKs authenticate with a public API key (prefixed `pk_`). These keys are safe to use in client-side code as they only allow data ingestion.
+
+You can [create API keys](/settings/api-keys) in your project settings.
+
+## Direct API access
+
+If an SDK is not available for your language, you can integrate directly with the [Client API](/api/client). The API accepts standard JSON requests with a Bearer token and is straightforward to call from any HTTP client.

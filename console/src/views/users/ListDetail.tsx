@@ -14,16 +14,32 @@ import {
     AlertCircle,
     Users,
     Eye,
+    Radio,
 } from "lucide-react"
 import api from "../../api"
 import oapiClient from "../../oapi/client"
 import { ListContext, ProjectContext } from "../../contexts"
 import { PreferencesContext } from "@/contexts/PreferencesContext"
+import { isEnterprise } from "@/config/enterprise"
 import type { DynamicList, ListUpdateParams, Rule, WrapperRule } from "../../types"
+
+/** Subset of user fields used by the list detail view, compatible with both the local User type and the OAPI-generated User type. */
+interface ListUser {
+    id: string
+    full_name?: string
+    identifier?: Array<{
+        source: string
+        external_id: string
+        metadata?: Record<string, unknown> | null
+    }>
+    email?: string
+    phone?: string
+}
 import { formatDate, snakeToTitle } from "../../utils"
 import { getRandomColor } from "@/lib/colors"
+import { getUserDisplayName } from "@/lib/name"
 import RuleBuilder from "./rules/RuleBuilder"
-import { useRoute } from "../router"
+import { useRoute } from "@/hooks/use-route"
 import { useBlocker } from "react-router"
 
 import { Button } from "@/components/ui/button"
@@ -56,6 +72,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Label } from "@/components/ui/label"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { InlineEdit } from "@/components/ui/inline-edit"
+import { CreateBroadcastDialog } from "@/views/broadcast/CreateBroadcastDialog"
 
 import type { ListState } from "../../types"
 
@@ -147,13 +164,14 @@ export default function ListDetail() {
     const [preferences] = useContext(PreferencesContext)
     const [list, setList] = useContext(ListContext)
     const [isUploadOpen, setIsUploadOpen] = useState(false)
+    const [isBroadcastOpen, setIsBroadcastOpen] = useState(false)
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
     const [isSaving, setIsSaving] = useState(false)
     const [savingAction, setSavingAction] = useState<"rule" | "publish" | "other" | null>(null)
     const [error, setError] = useState<string | undefined>()
 
     // Users table state
-    const [users, setUsers] = useState<any[] | null>(null)
+    const [users, setUsers] = useState<ListUser[] | null>(null)
     const [searchQuery, setSearchQuery] = useState("")
     const [debouncedQuery, setDebouncedQuery] = useState("")
     const [offset, setOffset] = useState(0)
@@ -179,7 +197,7 @@ export default function ListDetail() {
                         },
                     },
                 )
-                setUsers(data?.results ?? [])
+                setUsers((data?.results as ListUser[]) ?? [])
                 setTotal(data?.total ?? data?.results?.length ?? 0)
             } else {
                 const result = await api.lists.users(project.id, list.id, {
@@ -398,6 +416,31 @@ export default function ListDetail() {
                                     {t("upload_list")}
                                 </Button>
                             )}
+                            {isEnterprise && (
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <div>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => setIsBroadcastOpen(true)}
+                                                disabled={list.state !== "ready"}
+                                            >
+                                                <Radio className="mr-2 h-3.5 w-3.5" />
+                                                {t("send_broadcast", "Send Broadcast")}
+                                            </Button>
+                                        </div>
+                                    </TooltipTrigger>
+                                    {list.state !== "ready" && (
+                                        <TooltipContent>
+                                            {t(
+                                                "broadcast_requires_published_list",
+                                                "Publish the list before sending a broadcast",
+                                            )}
+                                        </TooltipContent>
+                                    )}
+                                </Tooltip>
+                            )}
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                     <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -527,9 +570,6 @@ export default function ListDetail() {
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>{t("name")}</TableHead>
-                                    <TableHead className="hidden md:table-cell">
-                                        {t("external_id")}
-                                    </TableHead>
                                     <TableHead>{t("email")}</TableHead>
                                     <TableHead className="hidden sm:table-cell">
                                         {t("phone")}
@@ -543,9 +583,6 @@ export default function ListDetail() {
                                             <TableCell>
                                                 <Skeleton className="h-4 w-32" />
                                             </TableCell>
-                                            <TableCell className="hidden md:table-cell">
-                                                <Skeleton className="h-4 w-24" />
-                                            </TableCell>
                                             <TableCell>
                                                 <Skeleton className="h-4 w-36" />
                                             </TableCell>
@@ -556,7 +593,7 @@ export default function ListDetail() {
                                     ))
                                 ) : users.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={4} className="h-32 text-center">
+                                        <TableCell colSpan={3} className="h-32 text-center">
                                             <div className="flex flex-col items-center gap-2 text-muted-foreground">
                                                 <Users className="h-8 w-8" />
                                                 <p>
@@ -571,19 +608,14 @@ export default function ListDetail() {
                                         </TableCell>
                                     </TableRow>
                                 ) : (
-                                    users.map((user: any) => (
+                                    users.map((user) => (
                                         <TableRow
                                             key={user.id}
                                             className="cursor-pointer"
                                             onClick={() => route(`users/${user.id}`)}
                                         >
                                             <TableCell className="font-medium">
-                                                {user.full_name || "—"}
-                                            </TableCell>
-                                            <TableCell className="text-muted-foreground hidden md:table-cell">
-                                                <code className="text-xs bg-muted px-1.5 py-0.5 rounded">
-                                                    {user.external_id}
-                                                </code>
+                                                {getUserDisplayName(user, "—")}
                                             </TableCell>
                                             <TableCell className="text-muted-foreground">
                                                 {user.email || "—"}
@@ -681,6 +713,13 @@ export default function ListDetail() {
                     </form>
                 </DialogContent>
             </Dialog>
+
+            <CreateBroadcastDialog
+                open={isBroadcastOpen}
+                onOpenChange={setIsBroadcastOpen}
+                listId={list.id}
+                list={list}
+            />
         </div>
     )
 }

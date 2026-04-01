@@ -144,6 +144,8 @@ export function PropsEditorPanel({
                             smoothScrolling: true,
                             cursorBlinking: "smooth",
                             cursorSmoothCaretAnimation: "on",
+                            guides: { indentation: false },
+                            stickyScroll: { enabled: false },
                             tabSize: 2,
                             wordWrap: "on",
                             folding: true,

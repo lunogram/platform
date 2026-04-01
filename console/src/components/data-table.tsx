@@ -109,7 +109,9 @@ export function DataTable<T>({
             {items && items.length > 0 ? (
                 items.map((item) => {
                     const args = { item }
-                    const key = itemKey ? itemKey(args) : (item as any).id
+                    const key = itemKey
+                        ? itemKey(args)
+                        : ((item as Record<string, unknown>).id as Key)
 
                     return (
                         <div
@@ -122,6 +124,7 @@ export function DataTable<T>({
                             onClick={() => onSelectRow?.(item)}
                         >
                             {columns.map((col) => {
+                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                                 let value: any = col.cell
                                     ? col.cell(args)
                                     : item[col.key as keyof T]

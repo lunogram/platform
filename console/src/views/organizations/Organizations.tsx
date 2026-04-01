@@ -12,10 +12,11 @@ import {
     Settings,
 } from "lucide-react"
 import { NIL } from "uuid"
-import { useRoute } from "../router"
+import { useRoute } from "@/hooks/use-route"
 import { useResolver } from "../../hooks"
 import { formatDate } from "../../utils"
 import { getRandomColor } from "@/lib/colors"
+import { getPrimaryExternalId } from "@/lib/name"
 import { PreferencesContext } from "@/contexts/PreferencesContext"
 import { useContext } from "react"
 import { BuildingIcon } from "@/components/icons"
@@ -42,6 +43,7 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
+import { AttributeEditor } from "@/components/ui/attribute-editor"
 
 export default function Organizations() {
     const { projectId = NIL as UUID } = useParams<{ projectId: UUID }>()
@@ -55,8 +57,9 @@ export default function Organizations() {
     const [isCreating, setIsCreating] = useState(false)
     const [newOrgExternalId, setNewOrgExternalId] = useState("")
     const [newOrgName, setNewOrgName] = useState("")
+    const [newOrgData, setNewOrgData] = useState<Record<string, unknown>>({})
     const [page, setPage] = useState(1)
-    const limit = 25
+    const limit = 15
     const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>()
 
     // Debounce search
@@ -102,14 +105,16 @@ export default function Organizations() {
             await oapiClient.POST("/api/admin/projects/{projectID}/subjects/organizations", {
                 params: { path: { projectID: projectId } },
                 body: {
-                    external_id: newOrgExternalId.trim(),
+                    identifier: [{ source: "default", external_id: newOrgExternalId.trim() }],
                     name: newOrgName.trim() || undefined,
+                    data: Object.keys(newOrgData).length > 0 ? newOrgData : undefined,
                 } as UpsertOrganization,
             })
             await reload()
             setIsCreateOpen(false)
             setNewOrgExternalId("")
             setNewOrgName("")
+            setNewOrgData({})
         } finally {
             setIsCreating(false)
         }
@@ -216,7 +221,11 @@ export default function Organizations() {
                             </TableRow>
                         ) : (
                             organizations.map((org) => {
-                                const orgColor = getRandomColor(org.external_id)
+                                const orgColor = getRandomColor(
+                                    getPrimaryExternalId(
+                                        org as unknown as Record<string, unknown>,
+                                    ) ?? org.id,
+                                )
                                 return (
                                     <TableRow
                                         key={org.id}
@@ -233,10 +242,21 @@ export default function Organizations() {
                                                 </div>
                                                 <div>
                                                     <div className="font-medium">
-                                                        {org.name || org.external_id}
+                                                        {org.name ||
+                                                            getPrimaryExternalId(
+                                                                org as unknown as Record<
+                                                                    string,
+                                                                    unknown
+                                                                >,
+                                                            )}
                                                     </div>
                                                     <div className="text-sm text-muted-foreground">
-                                                        {org.external_id}
+                                                        {getPrimaryExternalId(
+                                                            org as unknown as Record<
+                                                                string,
+                                                                unknown
+                                                            >,
+                                                        )}
                                                     </div>
                                                 </div>
                                             </div>
@@ -338,7 +358,7 @@ export default function Organizations() {
 
             {/* Create Organization Dialog */}
             <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-                <DialogContent>
+                <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle>{t("create_organization")}</DialogTitle>
                         <DialogDescription>
@@ -349,25 +369,41 @@ export default function Organizations() {
                         </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
-                        <div className="grid gap-2">
-                            <Label htmlFor="external_id">{t("external_id")} *</Label>
-                            <Input
-                                id="external_id"
-                                placeholder={t("enter_external_id", "e.g., org-123")}
-                                value={newOrgExternalId}
-                                onChange={(e) => setNewOrgExternalId(e.target.value)}
-                            />
-                            <p className="text-xs text-muted-foreground">
-                                {t("external_id_help", "A unique identifier from your system")}
-                            </p>
+                        <div className="grid sm:grid-cols-2 gap-4">
+                            <div className="grid gap-2 content-start">
+                                <Label htmlFor="external_id">
+                                    {t("identifier", "Identifier")} *
+                                </Label>
+                                <Input
+                                    id="external_id"
+                                    placeholder={t("enter_identifier", "e.g., org-123")}
+                                    value={newOrgExternalId}
+                                    onChange={(e) => setNewOrgExternalId(e.target.value)}
+                                />
+                                <p className="text-xs text-muted-foreground">
+                                    {t("identifier_help", "A unique identifier from your system")}
+                                </p>
+                            </div>
+                            <div className="grid gap-2 content-start">
+                                <Label htmlFor="name">{t("name")}</Label>
+                                <Input
+                                    id="name"
+                                    placeholder={t("enter_organization_name", "e.g., Acme Corp")}
+                                    value={newOrgName}
+                                    onChange={(e) => setNewOrgName(e.target.value)}
+                                />
+                            </div>
                         </div>
                         <div className="grid gap-2">
-                            <Label htmlFor="name">{t("name")}</Label>
-                            <Input
-                                id="name"
-                                placeholder={t("enter_organization_name", "e.g., Acme Corp")}
-                                value={newOrgName}
-                                onChange={(e) => setNewOrgName(e.target.value)}
+                            <Label>{t("data", "Data")}</Label>
+                            <AttributeEditor
+                                value={newOrgData}
+                                onChange={setNewOrgData}
+                                emptyTitle={t("no_data", "No data")}
+                                emptyDescription={t(
+                                    "no_data_description_org",
+                                    "Add custom attributes to this organization.",
+                                )}
                             />
                         </div>
                     </div>
