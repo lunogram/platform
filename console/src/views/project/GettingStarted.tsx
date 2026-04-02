@@ -95,7 +95,7 @@ export default function ProjectGettingStarted() {
             await api.devices.register(projectId, {
                 device_id: testDeviceId,
                 os: "web",
-                user_id: "a9baf96b-b001-4cac-92c7-5de0632c2963",
+                user_id: "efbc9518-a917-4172-9b24-56fa9357541d",
                 push_subscription: {
                     endpoint: subJSON.endpoint,
                     keys: subJSON.keys,

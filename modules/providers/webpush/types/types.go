@@ -36,16 +36,20 @@ type JSONSchemaProperty struct {
 // JSONSchema represents a JSON Schema object compatible with the frontend.
 // This follows the JSON Schema draft-07 specification.
 type JSONSchema struct {
-	Type        string               `json:"type"`
-	Title       string               `json:"title,omitempty"`
-	Description string               `json:"description,omitempty"`
-	Format      string               `json:"format,omitempty"`
-	Properties  []JSONSchemaProperty `json:"properties,omitempty"`
-	Required    []string             `json:"required,omitempty"`
-	Enum        []string             `json:"enum,omitempty"`
-	MinLength   *int                 `json:"minLength,omitempty"`
-	MaxLength   *int                 `json:"maxLength,omitempty"`
-	Preview     string               `json:"preview,omitempty"`
+	Type          string               `json:"type"`
+	Title         string               `json:"title,omitempty"`
+	Description   string               `json:"description,omitempty"`
+	Format        string               `json:"format,omitempty"`
+	Properties    []JSONSchemaProperty `json:"properties,omitempty"`
+	Required      []string             `json:"required,omitempty"`
+	Enum          []string             `json:"enum,omitempty"`
+	MinLength     *int                 `json:"minLength,omitempty"`
+	MaxLength     *int                 `json:"maxLength,omitempty"`
+	Preview       string               `json:"preview,omitempty"`
+	FileUpload    bool                 `json:"fileUpload,omitempty"`
+	FileAccept    string               `json:"fileAccept,omitempty"`
+	RequireBase64 bool                 `json:"requireBase64,omitempty"`
+	Hidden        bool                 `json:"hidden,omitempty"`
 }
 
 // ProviderManifest is the manifest for provider modules.
@@ -133,6 +137,7 @@ type WebPushTarget struct {
 type PushPayload struct {
 	Tokens         []string        `json:"tokens"`
 	WebPushTargets []WebPushTarget `json:"web_push_targets,omitempty"`
+	APNsTokens     []string        `json:"apnsTokens,omitempty"`
 	Title          string          `json:"title"`
 	Body           string          `json:"body"`
 	ImageURL       *string         `json:"image_url,omitempty"`
