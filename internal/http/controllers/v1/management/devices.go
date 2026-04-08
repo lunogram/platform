@@ -111,35 +111,38 @@ func (srv *DevicesController) RegisterDevice(w http.ResponseWriter, r *http.Requ
 		AppVersion: req.AppVersion,
 	}
 
-	// Handle push credentials - either FCM token OR Web Push subscription, not both
-	if req.Token != nil && *req.Token != "" {
-		// FCM token provided - save token, leave device_credentials NULL
-		logger.Info("registering device with FCM token")
-		device.Token = req.Token
-		device.DeviceCredentials = nil
-	} else if req.PushSubscription.Endpoint != "" {
-		// Web Push subscription provided - save credentials, leave token NULL
-		logger.Info("registering device with Web Push subscription")
-		device.Token = nil
-		device.DeviceCredentials = &subjects.DeviceCredentials{
-			Endpoint: req.PushSubscription.Endpoint,
-			Keys: struct {
-				Auth   string `json:"auth"`
-				P256dh string `json:"p256dh"`
-			}{
-				Auth:   req.PushSubscription.Keys.Auth,
-				P256dh: req.PushSubscription.Keys.P256dh,
-			},
+	// Map push_config from request to internal type
+	pc := subjects.PushConfig{
+		Type: subjects.PushConfigType(req.PushConfig.Type),
+	}
+	switch pc.Type {
+	case subjects.PushConfigTypeFCM, subjects.PushConfigTypeAPNs:
+		if req.PushConfig.Token == nil || *req.PushConfig.Token == "" {
+			logger.Error("push_config.token is required for fcm/apns")
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("push_config.token is required for fcm/apns")))
+			return
 		}
-		if req.PushSubscription.ExpirationTime != nil {
-			device.DeviceCredentials.ExpirationTime = req.PushSubscription.ExpirationTime
+		pc.Token = *req.PushConfig.Token
+	case subjects.PushConfigTypeWebPush:
+		if req.PushConfig.Endpoint == nil || *req.PushConfig.Endpoint == "" {
+			logger.Error("push_config.endpoint is required for webpush")
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("push_config.endpoint is required for webpush")))
+			return
 		}
-	} else {
-		// Neither provided - error
-		logger.Error("neither token nor push_subscription provided")
-		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("must provide either 'token' (FCM) or 'push_subscription' (Web Push)")))
+		pc.Endpoint = *req.PushConfig.Endpoint
+		pc.ExpirationTime = req.PushConfig.ExpirationTime
+		if req.PushConfig.Keys != nil {
+			pc.Keys = &subjects.PushConfigKeys{
+				Auth:   req.PushConfig.Keys.Auth,
+				P256dh: req.PushConfig.Keys.P256dh,
+			}
+		}
+	default:
+		logger.Error("invalid push_config.type", zap.String("type", string(req.PushConfig.Type)))
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("push_config.type must be fcm, apns, or webpush")))
 		return
 	}
+	device.PushConfig = &pc
 
 	err = devicesStore.UpsertDevice(ctx, device)
 	if err != nil {

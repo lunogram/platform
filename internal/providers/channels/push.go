@@ -27,33 +27,36 @@ func ComposePush(_ context.Context, config map[string]any, template management.T
 		return providers.SendRequest[map[string]any]{}, fmt.Errorf("failed to unmarshal push template data: %w", err)
 	}
 
-	// Collect FCM tokens
 	tokens := make([]string, 0, len(devices))
-	for _, device := range devices {
-		if device.HasFCMToken() {
-			tokens = append(tokens, *device.Token)
-		}
-	}
-
-	// Collect Web Push subscriptions
+	apnsTokens := make([]string, 0, len(devices))
 	webPushTargets := make([]providers.WebPushTarget, 0, len(devices))
+
 	for _, device := range devices {
-		if device.HasWebPushSubscription() {
+		if device.PushConfig == nil {
+			continue
+		}
+		switch device.PushConfig.Type {
+		case subjects.PushConfigTypeFCM:
+			tokens = append(tokens, device.PushConfig.Token)
+		case subjects.PushConfigTypeAPNs:
+			apnsTokens = append(apnsTokens, device.PushConfig.Token)
+		case subjects.PushConfigTypeWebPush:
 			target := providers.WebPushTarget{
-				Endpoint: device.DeviceCredentials.Endpoint,
+				Endpoint: device.PushConfig.Endpoint,
 			}
-			if device.DeviceCredentials.ExpirationTime != nil {
-				expTime := device.DeviceCredentials.ExpirationTime.Unix()
-				target.ExpirationTime = &expTime
+			if device.PushConfig.ExpirationTime != nil {
+				exp := device.PushConfig.ExpirationTime.Unix()
+				target.ExpirationTime = &exp
 			}
-			target.Keys.Auth = device.DeviceCredentials.Keys.Auth
-			target.Keys.P256dh = device.DeviceCredentials.Keys.P256dh
+			if device.PushConfig.Keys != nil {
+				target.Keys.Auth = device.PushConfig.Keys.Auth
+				target.Keys.P256dh = device.PushConfig.Keys.P256dh
+			}
 			webPushTargets = append(webPushTargets, target)
 		}
 	}
 
-	// Ensure we have at least one target
-	if len(tokens) == 0 && len(webPushTargets) == 0 {
+	if len(tokens) == 0 && len(apnsTokens) == 0 && len(webPushTargets) == 0 {
 		return providers.SendRequest[map[string]any]{}, fmt.Errorf("user has no devices with push tokens or web push subscriptions")
 	}
 
@@ -64,6 +67,7 @@ func ComposePush(_ context.Context, config map[string]any, template management.T
 
 	payload := providers.PushPayload{
 		Tokens:         tokens,
+		APNsTokens:     apnsTokens,
 		WebPushTargets: webPushTargets,
 		Title:          data.Title,
 		Body:           data.Body,

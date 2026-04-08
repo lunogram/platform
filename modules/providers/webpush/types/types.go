@@ -137,7 +137,7 @@ type WebPushTarget struct {
 type PushPayload struct {
 	Tokens         []string        `json:"tokens"`
 	WebPushTargets []WebPushTarget `json:"web_push_targets,omitempty"`
-	APNsTokens     []string        `json:"apnsTokens,omitempty"`
+	APNsTokens     []string        `json:"apns_tokens,omitempty"`
 	Title          string          `json:"title"`
 	Body           string          `json:"body"`
 	ImageURL       *string         `json:"image_url,omitempty"`

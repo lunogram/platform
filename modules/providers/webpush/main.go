@@ -908,8 +908,15 @@ func sendAPNsNotification(config Config, deviceToken string, push types.PushPayl
 
 	// Determine APNs endpoint (production vs sandbox)
 	endpoint := "https://api.push.apple.com"
-	if config.APNs.Production != nil && !*config.APNs.Production {
-		endpoint = "https://api.sandbox.push.apple.com"
+	productionMode := "nil (defaulting to production)"
+
+	if config.APNs.Production != nil {
+		if *config.APNs.Production {
+			productionMode = "true (production)"
+		} else {
+			productionMode = "false (sandbox)"
+			endpoint = "https://api.sandbox.push.apple.com"
+		}
 	}
 
 	url := fmt.Sprintf("%s/3/device/%s", endpoint, deviceToken)
@@ -923,31 +930,49 @@ func sendAPNsNotification(config Config, deviceToken string, push types.PushPayl
 		SetBody(payloadBytes).
 		Send()
 
+	responseBody := string(resp.Body())
+
 	switch resp.Status() {
 	case 200:
 		return nil
 	case 400:
-		return fmt.Errorf("bad request (400): %s", string(resp.Body()))
+		pdk.Log(pdk.LogWarn, fmt.Sprintf("APNs request failed - team_id=%s, key_id=%s, bundle_id=%s, production=%s, endpoint=%s, token_length=%d",
+			config.APNs.TeamID, config.APNs.KeyID, config.APNs.BundleID, productionMode, endpoint, len(deviceToken)))
+		pdk.Log(pdk.LogWarn, fmt.Sprintf("APNs response: %s", responseBody))
+		return fmt.Errorf("bad request (400): %s", responseBody)
 	case 403:
-		return fmt.Errorf("forbidden - check certificate/bundle ID (403)")
+		pdk.Log(pdk.LogWarn, fmt.Sprintf("APNs request failed - team_id=%s, key_id=%s, bundle_id=%s, production=%s, endpoint=%s, token_length=%d",
+			config.APNs.TeamID, config.APNs.KeyID, config.APNs.BundleID, productionMode, endpoint, len(deviceToken)))
+		pdk.Log(pdk.LogWarn, fmt.Sprintf("APNs response: %s", responseBody))
+		return fmt.Errorf("forbidden (403) - check certificate/bundle ID/team ID: %s", responseBody)
 	case 404:
-		return fmt.Errorf("device token invalid/expired (404)")
+		pdk.Log(pdk.LogWarn, fmt.Sprintf("APNs response: %s", responseBody))
+		return fmt.Errorf("device token invalid/expired (404): %s", responseBody)
 	case 410:
-		return fmt.Errorf("device token no longer active (410)")
+		pdk.Log(pdk.LogWarn, fmt.Sprintf("APNs response: %s", responseBody))
+		return fmt.Errorf("device token no longer active (410): %s", responseBody)
 	case 413:
-		return fmt.Errorf("payload too large (413)")
+		pdk.Log(pdk.LogWarn, fmt.Sprintf("APNs response: %s", responseBody))
+		return fmt.Errorf("payload too large (413): %s", responseBody)
 	case 429:
-		return fmt.Errorf("rate limited (429)")
+		pdk.Log(pdk.LogWarn, fmt.Sprintf("APNs response: %s", responseBody))
+		return fmt.Errorf("rate limited (429): %s", responseBody)
 	case 500:
-		return fmt.Errorf("APNs server error (500)")
+		pdk.Log(pdk.LogWarn, fmt.Sprintf("APNs response: %s", responseBody))
+		return fmt.Errorf("APNs server error (500): %s", responseBody)
 	case 503:
-		return fmt.Errorf("APNs service unavailable (503)")
+		pdk.Log(pdk.LogWarn, fmt.Sprintf("APNs response: %s", responseBody))
+		return fmt.Errorf("APNs service unavailable (503): %s", responseBody)
 	default:
-		return fmt.Errorf("unexpected status %d: %s", resp.Status(), string(resp.Body()))
+		pdk.Log(pdk.LogWarn, fmt.Sprintf("APNs unexpected status - team_id=%s, key_id=%s, bundle_id=%s, production=%s, endpoint=%s",
+			config.APNs.TeamID, config.APNs.KeyID, config.APNs.BundleID, productionMode, endpoint))
+		pdk.Log(pdk.LogWarn, fmt.Sprintf("APNs response: %s", responseBody))
+		return fmt.Errorf("unexpected status %d: %s", resp.Status(), responseBody)
 	}
 }
 
 func buildAPNsJWT(teamID, keyID, privateKeyB64 string) (string, error) {
+
 	// Decode the .p8 private key (base64 encoded)
 	privKeyPEM, err := decodeBase64Lenient(privateKeyB64)
 	if err != nil {

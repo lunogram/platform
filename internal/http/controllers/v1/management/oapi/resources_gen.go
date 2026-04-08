@@ -72,6 +72,13 @@ const (
 	Web     DeviceRegistrationOs = "web"
 )
 
+// Defines values for DeviceRegistrationPushConfigType.
+const (
+	Apns    DeviceRegistrationPushConfigType = "apns"
+	Fcm     DeviceRegistrationPushConfigType = "fcm"
+	Webpush DeviceRegistrationPushConfigType = "webpush"
+)
+
 // Defines values for JourneyStatus.
 const (
 	JourneyStatusArchived  JourneyStatus = "archived"
@@ -531,19 +538,23 @@ type DeviceRegistration struct {
 	DeviceId    string  `json:"device_id"`
 
 	// ExternalId User's external ID to associate with this device
-	ExternalId       *string               `json:"external_id,omitempty"`
-	Model            *string               `json:"model,omitempty"`
-	Os               *DeviceRegistrationOs `json:"os,omitempty"`
-	OsVersion        *string               `json:"os_version,omitempty"`
-	Token            *string               `json:"token,omitempty"`
-	PushSubscription struct {
-		Endpoint       string     `json:"endpoint"`
+	ExternalId *string               `json:"external_id,omitempty"`
+	Model      *string               `json:"model,omitempty"`
+	Os         *DeviceRegistrationOs `json:"os,omitempty"`
+	OsVersion  *string               `json:"os_version,omitempty"`
+	PushConfig struct {
+		// Endpoint Web Push subscription endpoint URL
+		Endpoint       *string    `json:"endpoint,omitempty"`
 		ExpirationTime *time.Time `json:"expiration_time,omitempty"`
-		Keys           struct {
+		Keys           *struct {
 			Auth   string `json:"auth"`
 			P256dh string `json:"p256dh"`
-		} `json:"keys"`
-	} `json:"push_subscription,omitempty"`
+		} `json:"keys,omitempty"`
+
+		// Token Device token for FCM or APNs
+		Token *string                          `json:"token,omitempty"`
+		Type  DeviceRegistrationPushConfigType `json:"type"`
+	} `json:"push_config"`
 
 	// UserId User ID to associate with this device
 	UserId *string `json:"user_id,omitempty"`
@@ -551,6 +562,9 @@ type DeviceRegistration struct {
 
 // DeviceRegistrationOs defines model for DeviceRegistration.Os.
 type DeviceRegistrationOs string
+
+// DeviceRegistrationPushConfigType defines model for DeviceRegistration.PushConfig.Type.
+type DeviceRegistrationPushConfigType string
 
 // Document defines model for Document.
 type Document struct {
@@ -1427,7 +1441,6 @@ type UserDevice struct {
 	Model      *string            `json:"model"`
 	Os         *string            `json:"os"`
 	OsVersion  *string            `json:"os_version"`
-	Token      *string            `json:"token"`
 	UpdatedAt  time.Time          `json:"updated_at"`
 }
 
@@ -25377,12 +25390,6 @@ func (siw *ServerInterfaceWrapper) RegisterDevice(w http.ResponseWriter, r *http
 		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
 		return
 	}
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
-
-	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.RegisterDevice(w, r, projectID)

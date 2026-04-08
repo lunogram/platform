@@ -3218,8 +3218,6 @@ export interface components {
             id: string;
             /** @example AB12CD34-EF56-GH78-IJ90 */
             device_id: string;
-            /** @example fcm_token_abc123 */
-            token?: string | null;
             /** @example iOS */
             os?: string | null;
             /** @example 17.2 */
@@ -4190,14 +4188,18 @@ export interface components {
             /** @enum {string} */
             os?: "web" | "ios" | "android";
             os_version?: string;
-            token?: string;
             model?: string;
             app_version?: string;
-            push_subscription?: {
-                endpoint: string;
+            push_config: {
+                /** @enum {string} */
+                type: "fcm" | "apns" | "webpush";
+                /** @description Device token for FCM or APNs */
+                token?: string;
+                /** @description Web Push subscription endpoint URL */
+                endpoint?: string;
                 /** Format: date-time */
                 expiration_time?: string;
-                keys: {
+                keys?: {
                     p256dh: string;
                     auth: string;
                 };

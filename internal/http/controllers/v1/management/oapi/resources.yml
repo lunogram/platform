@@ -6774,10 +6774,6 @@ components:
         device_id:
           type: string
           example: "AB12CD34-EF56-GH78-IJ90"
-        token:
-          type: string
-          nullable: true
-          example: "fcm_token_abc123"
         os:
           type: string
           nullable: true
@@ -7999,6 +7995,7 @@ components:
       type: object
       required:
         - device_id
+        - push_config
       properties:
         user_id:
           type: string
@@ -8016,20 +8013,24 @@ components:
           enum: [web, ios, android]
         os_version:
           type: string
-        token:
-          type: string
         model:
           type: string
         app_version:
           type: string
-        push_subscription:
+        push_config:
           type: object
           required:
-            - endpoint
-            - keys
+            - type
           properties:
+            type:
+              type: string
+              enum: [fcm, apns, webpush]
+            token:
+              type: string
+              description: Device token for FCM or APNs
             endpoint:
               type: string
+              description: Web Push subscription endpoint URL
             expiration_time:
               type: string
               format: date-time

@@ -46,6 +46,7 @@ type WebPushTarget struct {
 // PushPayload contains push notification-specific message data.
 type PushPayload struct {
 	Tokens         []string        `json:"tokens"`
+	APNsTokens     []string        `json:"apns_tokens,omitempty"`
 	WebPushTargets []WebPushTarget `json:"web_push_targets,omitempty"`
 	Title          string          `json:"title"`
 	Body           string          `json:"body"`
