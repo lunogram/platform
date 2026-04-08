@@ -28,7 +28,7 @@ export default function ProjectOnboardingUsers() {
 
     async function createInitialUser() {
         const admin = await api.admins.whoami()
-        if (!admin) return
+        if (!admin || !admin.email) return
 
         let fullName
         if (admin.first_name || admin.last_name) {
@@ -37,7 +37,7 @@ export default function ProjectOnboardingUsers() {
 
         await api.users.create(projectId, {
             identifier: [
-                { source: "anonymous", external_id: crypto.randomUUID() },
+                { source: "default", external_id: admin.email },
             ] as unknown as User["identifier"],
             data: {
                 full_name: fullName,

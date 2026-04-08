@@ -124,14 +124,12 @@ export default function Users() {
     const hasPrevPage = page > 1
 
     const createUser = async () => {
-        if (!newUserEmail.trim() && !newUserExternalId.trim()) return
+        if (!newUserExternalId.trim()) return
 
         setIsCreating(true)
         try {
             const newUser: User = {
-                identifier: newUserExternalId.trim()
-                    ? [{ source: "default", external_id: newUserExternalId.trim() }]
-                    : [{ source: "anonymous", external_id: crypto.randomUUID() }],
+                identifier: [{ source: "default", external_id: newUserExternalId.trim() }],
                 email: newUserEmail.trim() || undefined,
                 phone: newUserPhone.trim() || undefined,
                 timezone: newUserTimezone.trim() || undefined,
