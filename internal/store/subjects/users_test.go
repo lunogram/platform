@@ -2,6 +2,7 @@ package subjects
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"testing"
 
@@ -278,6 +279,8 @@ func TestUpsertUser(t *testing.T) {
 		setupData        json.RawMessage
 		upsertData       UpsertUserParams
 		expectedEmail    *string
+		expectedAnonID   *string
+		removedAnonID    *string
 		description      string
 	}
 
@@ -291,8 +294,9 @@ func TestUpsertUser(t *testing.T) {
 				Email: ptr("new@example.com"),
 				Data:  map[string]any{},
 			},
-			expectedEmail: ptr("new@example.com"),
-			description:   "should create new user",
+			expectedEmail:  ptr("new@example.com"),
+			expectedAnonID: ptr("anon_new"),
+			description:    "should create new user",
 		},
 		"update existing user by external_id": {
 			setupIdentifiers: []ExternalIDParam{
@@ -309,8 +313,10 @@ func TestUpsertUser(t *testing.T) {
 				Email: ptr("updated@example.com"),
 				Data:  map[string]any{},
 			},
-			expectedEmail: ptr("updated@example.com"),
-			description:   "should update email on conflict",
+			expectedEmail:  ptr("updated@example.com"),
+			expectedAnonID: ptr("anon_different"),
+			removedAnonID:  ptr("anon_existing"),
+			description:    "should update email on conflict",
 		},
 		"upsert with JSONB data": {
 			setupIdentifiers: []ExternalIDParam{
@@ -325,8 +331,9 @@ func TestUpsertUser(t *testing.T) {
 				},
 				Data: map[string]any{"new": "data"},
 			},
-			expectedEmail: nil,
-			description:   "should update JSONB data",
+			expectedEmail:  nil,
+			expectedAnonID: ptr("anon_json"),
+			description:    "should update JSONB data",
 		},
 	}
 
@@ -350,6 +357,15 @@ func TestUpsertUser(t *testing.T) {
 			user, err := db.GetUser(ctx, projectID, userID)
 			require.NoError(t, err)
 			require.Equal(t, tt.expectedEmail, user.Email, tt.description)
+
+			anon := user.ExternalIDBySource("anonymous")
+			require.NotNil(t, anon)
+			require.Equal(t, *tt.expectedAnonID, anon.ExternalID)
+
+			if tt.removedAnonID != nil {
+				_, err = db.GetUserByExternalID(ctx, projectID, "anonymous", *tt.removedAnonID)
+				require.ErrorIs(t, err, sql.ErrNoRows)
+			}
 		})
 	}
 }

@@ -480,6 +480,22 @@ func (s *UsersStore) upsertExternalID(ctx context.Context, projectID, userID uui
 		return ErrIdentifierBelongsToOther
 	}
 
+	// Keep a single anonymous identifier per user by replacing older ones.
+	if ident.Source == "anonymous" {
+		_, err = s.db.ExecContext(
+			ctx,
+			`DELETE FROM user_external_ids
+			 WHERE project_id = $1 AND user_id = $2 AND source = $3 AND external_id <> $4`,
+			projectID,
+			userID,
+			ident.Source,
+			ident.ExternalID,
+		)
+		if err != nil {
+			return err
+		}
+	}
+
 	stmt := `
 	INSERT INTO user_external_ids (project_id, user_id, source, external_id, metadata)
 	VALUES ($1, $2, $3, $4, $5)
