@@ -412,26 +412,6 @@ export interface paths {
         patch: operations["updateProject"];
         trace?: never;
     };
-    "/api/admin/projects/{projectID}/devices": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Register device
-         * @description Register or update a device's push subscription
-         */
-        post: operations["registerDevice"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/admin/projects/{projectID}/journeys": {
         parameters: {
             query?: never;
@@ -5528,31 +5508,6 @@ export interface operations {
                 };
             };
             default: components["responses"]["Error"];
-        };
-    };
-    registerDevice: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description The project ID */
-                projectID: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": components["schemas"]["DeviceRegistration"];
-            };
-        };
-        responses: {
-            /** @description Device registered successfully */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
         };
     };
     listJourneys: {

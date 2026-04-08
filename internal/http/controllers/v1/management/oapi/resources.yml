@@ -998,28 +998,6 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
-  /api/admin/projects/{projectID}/devices:
-    post:
-      summary: Register device
-      description: Register or update a device's push subscription
-      operationId: registerDevice
-      parameters:
-        - name: projectID
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          description: The project ID
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/DeviceRegistration"
-      responses:
-        "201":
-          description: Device registered successfully
-
   /api/admin/projects/{projectID}/journeys:
     get:
       summary: List journeys
@@ -8678,58 +8656,6 @@ components:
               type: string
             channel:
               type: string
-
-    DeviceRegistration:
-      type: object
-      required:
-        - device_id
-        - push_config
-      properties:
-        user_id:
-          type: string
-          description: User ID to associate with this device
-        device_id:
-          type: string
-        external_id:
-          type: string
-          description: User's external ID to associate with this device
-        anonymous_id:
-          type: string
-          description: User's anonymous ID to associate with this device
-        os:
-          type: string
-          enum: [web, ios, android]
-        os_version:
-          type: string
-        model:
-          type: string
-        app_version:
-          type: string
-        push_config:
-          type: object
-          required:
-            - type
-          properties:
-            type:
-              type: string
-              enum: [fcm, apns, webpush]
-            token:
-              type: string
-              description: Device token for FCM or APNs
-            endpoint:
-              type: string
-              description: Web Push subscription endpoint URL
-            expiration_time:
-              type: string
-              format: date-time
-            keys:
-              type: object
-              required: [p256dh, auth]
-              properties:
-                p256dh:
-                  type: string
-                auth:
-                  type: string
 
   securitySchemes:
     HttpBearerAuth:

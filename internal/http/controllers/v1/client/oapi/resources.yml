@@ -404,6 +404,27 @@ paths:
               schema:
                 type: string
 
+  /api/client/devices:
+    post:
+      summary: Register device
+      description: Register or update a device's push subscription. The project is determined from the API key.
+      operationId: registerDevice
+      tags:
+        - Client
+      security:
+        - HttpBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeviceRegistration"
+      responses:
+        "201":
+          description: Device registered successfully
+        default:
+          $ref: "#/components/responses/Error"
+
 components:
   responses:
     Error:
@@ -565,6 +586,52 @@ components:
       minItems: 1
       items:
         $ref: "#/components/schemas/ExternalID"
+
+    DeviceRegistration:
+      type: object
+      required:
+        - identifier
+        - device_id
+        - push_config
+      properties:
+        identifier:
+          $ref: "#/components/schemas/UserIdentifier"
+        device_id:
+          type: string
+        os:
+          type: string
+          enum: [web, ios, android]
+        os_version:
+          type: string
+        model:
+          type: string
+        app_version:
+          type: string
+        push_config:
+          type: object
+          required:
+            - type
+          properties:
+            type:
+              type: string
+              enum: [fcm, apns, webpush]
+            token:
+              type: string
+              description: Device token for FCM or APNs
+            endpoint:
+              type: string
+              description: Web Push subscription endpoint URL
+            expiration_time:
+              type: string
+              format: date-time
+            keys:
+              type: object
+              required: [p256dh, auth]
+              properties:
+                p256dh:
+                  type: string
+                auth:
+                  type: string
 
     IdentifyRequest:
       type: object

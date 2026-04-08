@@ -23,6 +23,20 @@ const (
 	HttpBearerAuthScopes = "HttpBearerAuth.Scopes"
 )
 
+// Defines values for DeviceRegistrationOs.
+const (
+	Android DeviceRegistrationOs = "android"
+	Ios     DeviceRegistrationOs = "ios"
+	Web     DeviceRegistrationOs = "web"
+)
+
+// Defines values for DeviceRegistrationPushConfigType.
+const (
+	Apns    DeviceRegistrationPushConfigType = "apns"
+	Fcm     DeviceRegistrationPushConfigType = "fcm"
+	Webpush DeviceRegistrationPushConfigType = "webpush"
+)
+
 // DeleteOrganizationRequest defines model for DeleteOrganizationRequest.
 type DeleteOrganizationRequest struct {
 	// Identifier One or more external identifiers to identify the organization
@@ -52,6 +66,37 @@ type DeleteUserScheduledRequest struct {
 	// Name The name of the scheduled resource to delete
 	Name string `json:"name"`
 }
+
+// DeviceRegistration defines model for DeviceRegistration.
+type DeviceRegistration struct {
+	AppVersion *string `json:"app_version,omitempty"`
+	DeviceId   string  `json:"device_id"`
+
+	// Identifier One or more external identifiers to identify the user
+	Identifier UserIdentifier        `json:"identifier"`
+	Model      *string               `json:"model,omitempty"`
+	Os         *DeviceRegistrationOs `json:"os,omitempty"`
+	OsVersion  *string               `json:"os_version,omitempty"`
+	PushConfig struct {
+		// Endpoint Web Push subscription endpoint URL
+		Endpoint       *string    `json:"endpoint,omitempty"`
+		ExpirationTime *time.Time `json:"expiration_time,omitempty"`
+		Keys           *struct {
+			Auth   string `json:"auth"`
+			P256dh string `json:"p256dh"`
+		} `json:"keys,omitempty"`
+
+		// Token Device token for FCM or APNs
+		Token *string                          `json:"token,omitempty"`
+		Type  DeviceRegistrationPushConfigType `json:"type"`
+	} `json:"push_config"`
+}
+
+// DeviceRegistrationOs defines model for DeviceRegistration.Os.
+type DeviceRegistrationOs string
+
+// DeviceRegistrationPushConfigType defines model for DeviceRegistration.PushConfig.Type.
+type DeviceRegistrationPushConfigType string
 
 // Event defines model for Event.
 type Event struct {
@@ -282,6 +327,9 @@ type EmailUnsubscribeParams struct {
 	Link string `form:"link" json:"link"`
 }
 
+// RegisterDeviceJSONRequestBody defines body for RegisterDevice for application/json ContentType.
+type RegisterDeviceJSONRequestBody = DeviceRegistration
+
 // DeleteOrganizationClientJSONRequestBody defines body for DeleteOrganizationClient for application/json ContentType.
 type DeleteOrganizationClientJSONRequestBody = DeleteOrganizationRequest
 
@@ -394,6 +442,11 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 
 // The interface specification for the client above.
 type ClientInterface interface {
+	// RegisterDeviceWithBody request with any body
+	RegisterDeviceWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	RegisterDevice(ctx context.Context, body RegisterDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// DeleteOrganizationClientWithBody request with any body
 	DeleteOrganizationClientWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -464,6 +517,30 @@ type ClientInterface interface {
 
 	// EmailUnsubscribe request
 	EmailUnsubscribe(ctx context.Context, params *EmailUnsubscribeParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+}
+
+func (c *Client) RegisterDeviceWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRegisterDeviceRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RegisterDevice(ctx context.Context, body RegisterDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRegisterDeviceRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
 }
 
 func (c *Client) DeleteOrganizationClientWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -800,6 +877,46 @@ func (c *Client) EmailUnsubscribe(ctx context.Context, params *EmailUnsubscribeP
 		return nil, err
 	}
 	return c.Client.Do(req)
+}
+
+// NewRegisterDeviceRequest calls the generic RegisterDevice builder with application/json body
+func NewRegisterDeviceRequest(server string, body RegisterDeviceJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewRegisterDeviceRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewRegisterDeviceRequestWithBody generates requests for RegisterDevice with any type of body
+func NewRegisterDeviceRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/client/devices")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
 }
 
 // NewDeleteOrganizationClientRequest calls the generic DeleteOrganizationClient builder with application/json body
@@ -1465,6 +1582,11 @@ func WithBaseURL(baseURL string) ClientOption {
 
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
+	// RegisterDeviceWithBodyWithResponse request with any body
+	RegisterDeviceWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RegisterDeviceResponse, error)
+
+	RegisterDeviceWithResponse(ctx context.Context, body RegisterDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*RegisterDeviceResponse, error)
+
 	// DeleteOrganizationClientWithBodyWithResponse request with any body
 	DeleteOrganizationClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteOrganizationClientResponse, error)
 
@@ -1535,6 +1657,28 @@ type ClientWithResponsesInterface interface {
 
 	// EmailUnsubscribeWithResponse request
 	EmailUnsubscribeWithResponse(ctx context.Context, params *EmailUnsubscribeParams, reqEditors ...RequestEditorFn) (*EmailUnsubscribeResponse, error)
+}
+
+type RegisterDeviceResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r RegisterDeviceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RegisterDeviceResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
 }
 
 type DeleteOrganizationClientResponse struct {
@@ -1868,6 +2012,23 @@ func (r EmailUnsubscribeResponse) StatusCode() int {
 	return 0
 }
 
+// RegisterDeviceWithBodyWithResponse request with arbitrary body returning *RegisterDeviceResponse
+func (c *ClientWithResponses) RegisterDeviceWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RegisterDeviceResponse, error) {
+	rsp, err := c.RegisterDeviceWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRegisterDeviceResponse(rsp)
+}
+
+func (c *ClientWithResponses) RegisterDeviceWithResponse(ctx context.Context, body RegisterDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*RegisterDeviceResponse, error) {
+	rsp, err := c.RegisterDevice(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRegisterDeviceResponse(rsp)
+}
+
 // DeleteOrganizationClientWithBodyWithResponse request with arbitrary body returning *DeleteOrganizationClientResponse
 func (c *ClientWithResponses) DeleteOrganizationClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteOrganizationClientResponse, error) {
 	rsp, err := c.DeleteOrganizationClientWithBody(ctx, contentType, body, reqEditors...)
@@ -2105,6 +2266,32 @@ func (c *ClientWithResponses) EmailUnsubscribeWithResponse(ctx context.Context, 
 		return nil, err
 	}
 	return ParseEmailUnsubscribeResponse(rsp)
+}
+
+// ParseRegisterDeviceResponse parses an HTTP response from a RegisterDeviceWithResponse call
+func ParseRegisterDeviceResponse(rsp *http.Response) (*RegisterDeviceResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RegisterDeviceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
 }
 
 // ParseDeleteOrganizationClientResponse parses an HTTP response from a DeleteOrganizationClientWithResponse call
@@ -2497,6 +2684,9 @@ func ParseEmailUnsubscribeResponse(rsp *http.Response) (*EmailUnsubscribeRespons
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// Register device
+	// (POST /api/client/devices)
+	RegisterDevice(w http.ResponseWriter, r *http.Request)
 	// Delete organization
 	// (DELETE /api/client/organizations)
 	DeleteOrganizationClient(w http.ResponseWriter, r *http.Request)
@@ -2547,6 +2737,12 @@ type ServerInterface interface {
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
 
 type Unimplemented struct{}
+
+// Register device
+// (POST /api/client/devices)
+func (_ Unimplemented) RegisterDevice(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
 
 // Delete organization
 // (DELETE /api/client/organizations)
@@ -2646,6 +2842,26 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
+
+// RegisterDevice operation middleware
+func (siw *ServerInterfaceWrapper) RegisterDevice(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RegisterDevice(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
 
 // DeleteOrganizationClient operation middleware
 func (siw *ServerInterfaceWrapper) DeleteOrganizationClient(w http.ResponseWriter, r *http.Request) {
@@ -3102,6 +3318,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		ErrorHandlerFunc:   options.ErrorHandlerFunc,
 	}
 
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/client/devices", wrapper.RegisterDevice)
+	})
 	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/api/client/organizations", wrapper.DeleteOrganizationClient)
 	})
