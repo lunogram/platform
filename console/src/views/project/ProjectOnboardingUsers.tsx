@@ -30,7 +30,12 @@ export default function ProjectOnboardingUsers() {
     async function createInitialUser() {
         const admin = await api.admins.whoami()
         if (!admin || !admin.email) {
-            toast.error(t("onboarding_users_create_failed", "Failed to create initial user"))
+            toast.error(
+                t(
+                    "onboarding_users_create_failed_missing_email",
+                    "Unable to create initial user: admin email is required",
+                ),
+            )
             return
         }
 
