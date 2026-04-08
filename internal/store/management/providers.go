@@ -47,15 +47,17 @@ func (p Providers) OAPI() []oapi.Provider {
 }
 
 type Provider struct {
-	ID        uuid.UUID       `db:"id"`
-	ProjectID uuid.UUID       `db:"project_id"`
-	Module    string          `db:"module"`
-	Channels  Channels        `db:"channels"`
-	Data      json.RawMessage `db:"data"`
-	LinkWrap  bool            `db:"link_wrap"`
-	Name      string          `db:"name"`
-	CreatedAt time.Time       `db:"created_at"`
-	UpdatedAt time.Time       `db:"updated_at"`
+	ID           uuid.UUID       `db:"id"`
+	ProjectID    uuid.UUID       `db:"project_id"`
+	Module       string          `db:"module"`
+	Channels     Channels        `db:"channels"`
+	Data         json.RawMessage `db:"data"`
+	LinkWrap     bool            `db:"link_wrap"`
+	Name         string          `db:"name"`
+	RateLimit    int             `db:"rate_limit"`
+	RateInterval string          `db:"rate_interval"`
+	CreatedAt    time.Time       `db:"created_at"`
+	UpdatedAt    time.Time       `db:"updated_at"`
 }
 
 func (provider Provider) OAPI() oapi.Provider {
@@ -72,6 +74,10 @@ func (provider Provider) OAPI() oapi.Provider {
 		Name:      provider.Name,
 		ProjectId: provider.ProjectID,
 		Module:    provider.Module,
+		RateLimit: oapi.RateLimit{
+			Limit:    provider.RateLimit,
+			Interval: provider.RateInterval,
+		},
 		CreatedAt: provider.CreatedAt,
 		UpdatedAt: provider.UpdatedAt,
 	}
@@ -89,7 +95,7 @@ type ProvidersStore struct {
 
 func (s *ProvidersStore) GetProvider(ctx context.Context, id uuid.UUID) (*Provider, error) {
 	query := `
-	SELECT id, project_id, module, channels, data, link_wrap, created_at, updated_at, name
+	SELECT id, project_id, module, channels, data, link_wrap, created_at, updated_at, name, rate_limit, rate_interval
 	FROM providers
 	WHERE id = $1`
 
@@ -121,8 +127,8 @@ func (s *ProvidersStore) HasProvider(ctx context.Context, projectID uuid.UUID) (
 
 func (s *ProvidersStore) CreateProvider(ctx context.Context, provider Provider) (uuid.UUID, error) {
 	stmt := `
-	INSERT INTO providers (project_id, module, channels, data, name, link_wrap)
-	VALUES ($1, $2, $3, $4, $5, $6)
+	INSERT INTO providers (project_id, module, channels, data, name, link_wrap, rate_limit, rate_interval)
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 	RETURNING id`
 
 	var id uuid.UUID
@@ -133,6 +139,8 @@ func (s *ProvidersStore) CreateProvider(ctx context.Context, provider Provider) 
 		provider.Data,
 		provider.Name,
 		provider.LinkWrap,
+		provider.RateLimit,
+		provider.RateInterval,
 	)
 	if err != nil {
 		return uuid.Nil, err
@@ -143,7 +151,7 @@ func (s *ProvidersStore) CreateProvider(ctx context.Context, provider Provider) 
 
 func (s *ProvidersStore) ListProviders(ctx context.Context, projectID uuid.UUID, pagination store.Pagination) (Providers, int, error) {
 	query := `
-	SELECT id, project_id, module, channels, data, link_wrap, name, created_at, updated_at,
+	SELECT id, project_id, module, channels, data, link_wrap, name, rate_limit, rate_interval, created_at, updated_at,
 		COUNT(*) OVER () AS total_count
 	FROM providers
 	WHERE project_id = $1
@@ -175,7 +183,7 @@ func (s *ProvidersStore) ListProviders(ctx context.Context, projectID uuid.UUID,
 
 func (s *ProvidersStore) GetProviderByProject(ctx context.Context, projectID, providerID uuid.UUID) (*Provider, error) {
 	query := `
-	SELECT id, project_id, module, channels, data, link_wrap, name, created_at, updated_at
+	SELECT id, project_id, module, channels, data, link_wrap, name, rate_limit, rate_interval, created_at, updated_at
 	FROM providers
 	WHERE project_id = $1
 	AND id = $2
@@ -191,9 +199,11 @@ func (s *ProvidersStore) GetProviderByProject(ctx context.Context, projectID, pr
 }
 
 type ProviderUpdate struct {
-	Name     *string
-	Data     *json.RawMessage
-	LinkWrap *bool
+	Name         *string
+	Data         *json.RawMessage
+	LinkWrap     *bool
+	RateLimit    *int
+	RateInterval *string
 }
 
 func (s *ProvidersStore) UpdateProvider(ctx context.Context, projectID, providerID uuid.UUID, update ProviderUpdate) error {
@@ -202,12 +212,14 @@ func (s *ProvidersStore) UpdateProvider(ctx context.Context, projectID, provider
 	SET
 		name = COALESCE($1, name),
 		data = COALESCE($2, data),
-		link_wrap = COALESCE($3, link_wrap)
-	WHERE project_id = $4
-	AND id = $5
+		link_wrap = COALESCE($3, link_wrap),
+		rate_limit = COALESCE($4, rate_limit),
+		rate_interval = COALESCE($5, rate_interval)
+	WHERE project_id = $6
+	AND id = $7
 	AND deleted_at IS NULL`
 
-	_, err := s.db.ExecContext(ctx, query, update.Name, update.Data, update.LinkWrap, projectID, providerID)
+	_, err := s.db.ExecContext(ctx, query, update.Name, update.Data, update.LinkWrap, update.RateLimit, update.RateInterval, projectID, providerID)
 	return err
 }
 

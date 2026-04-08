@@ -1,10 +1,13 @@
 package schemas
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lunogram/platform/internal/ratelimit"
+	"github.com/lunogram/platform/internal/store/subjects"
 )
 
 // Subject represents a NATS subject for publishing messages.
@@ -25,22 +28,24 @@ const (
 	EventProjectCreated = "project.created"
 )
 
+// ExternalID is an alias for subjects.ExternalIDParam so that pubsub messages
+// use the same type as the store layer without manual conversion.
+type ExternalID = subjects.ExternalIDParam
+
 // UserEvent represents a tracked event with associated user and project information.
 type UserEvent struct {
 	ID          uuid.UUID      `json:"id"`
 	Name        string         `json:"name"`
 	ProjectID   uuid.UUID      `json:"project_id"`
 	UserID      uuid.UUID      `json:"user_id"`
-	AnonymousId *string        `json:"anonymous_id"`
-	ExternalId  *string        `json:"external_id"`
+	Identifiers []ExternalID   `json:"identifiers,omitempty"`
 	Data        map[string]any `json:"data"`
 }
 
 type User struct {
 	ID          uuid.UUID      `json:"id"`
 	ProjectID   uuid.UUID      `json:"project_id"`
-	AnonymousID *string        `json:"anonymous_id"`
-	ExternalID  *string        `json:"external_id"`
+	Identifiers []ExternalID   `json:"identifiers,omitempty"`
 	Email       *string        `json:"email"`
 	Phone       *string        `json:"phone"`
 	Timezone    *string        `json:"timezone"`
@@ -53,8 +58,7 @@ func (u User) UserEvent(name string) UserEvent {
 	return UserEvent{
 		Name:        name,
 		ProjectID:   u.ProjectID,
-		AnonymousId: u.AnonymousID,
-		ExternalId:  u.ExternalID,
+		Identifiers: u.Identifiers,
 		Data: map[string]any{
 			"id":       u.ID,
 			"email":    u.Email,
@@ -68,10 +72,12 @@ func (u User) UserEvent(name string) UserEvent {
 }
 
 type SendCampaign struct {
-	ProjectID  uuid.UUID         `json:"project_id"`
-	UserID     uuid.UUID         `json:"user_id"`
-	CampaignID uuid.UUID         `json:"campaign_id"`
-	Data       map[string]string `json:"data,omitempty"`
+	ProjectID   uuid.UUID         `json:"project_id"`
+	UserID      uuid.UUID         `json:"user_id"`
+	CampaignID  uuid.UUID         `json:"campaign_id"`
+	BroadcastID *uuid.UUID        `json:"broadcast_id,omitempty"`
+	Data        map[string]string `json:"data,omitempty"`
+	RateLimit   ratelimit.Limit   `json:"rate_limit,omitempty"`
 }
 
 type JourneyStep struct {
@@ -95,26 +101,41 @@ type JourneyStepExecuted struct {
 	StepType       string    `json:"step_type"`
 }
 
+// JourneyEntrance is published when an event matches a journey entrance rule.
+// A dedicated handler performs the eligibility check, creates the initial
+// journey state, and advances the user into the first journey step(s).
+type JourneyEntrance struct {
+	ProjectID      uuid.UUID       `json:"project_id"`
+	JourneyID      uuid.UUID       `json:"journey_id"`
+	VersionID      uuid.UUID       `json:"version_id"`
+	UserID         uuid.UUID       `json:"user_id"`
+	ExternalStepID string          `json:"external_step_id"`
+	Multiple       bool            `json:"multiple"`
+	Concurrent     bool            `json:"concurrent"`
+	Data           map[string]any  `json:"data"`
+	Children       json.RawMessage `json:"children"`
+}
+
 // Organization represents an organization with associated project information.
 type Organization struct {
-	ID         uuid.UUID      `json:"id"`
-	ProjectID  uuid.UUID      `json:"project_id"`
-	ExternalID string         `json:"external_id"`
-	Name       *string        `json:"name"`
-	Data       map[string]any `json:"data"`
-	Version    int32          `json:"version"`
+	ID          uuid.UUID      `json:"id"`
+	ProjectID   uuid.UUID      `json:"project_id"`
+	Identifiers []ExternalID   `json:"identifiers,omitempty"`
+	Name        *string        `json:"name"`
+	Data        map[string]any `json:"data"`
+	Version     int32          `json:"version"`
 }
 
 // OrganizationEvent creates an OrganizationEvent from this Organization with the given event name.
 func (o Organization) OrganizationEvent(name string) OrganizationEvent {
 	return OrganizationEvent{
-		Name:                   name,
-		ProjectID:              o.ProjectID,
-		OrganizationID:         o.ID,
-		OrganizationExternalID: o.ExternalID,
+		Name:                    name,
+		ProjectID:               o.ProjectID,
+		OrganizationID:          o.ID,
+		OrganizationIdentifiers: o.Identifiers,
 		Data: map[string]any{
 			"id":          o.ID,
-			"external_id": o.ExternalID,
+			"identifiers": o.Identifiers,
 			"name":        o.Name,
 			"traits":      o.Data,
 			"version":     o.Version,
@@ -124,24 +145,24 @@ func (o Organization) OrganizationEvent(name string) OrganizationEvent {
 
 // OrganizationUser represents a user's membership in an organization.
 type OrganizationUser struct {
-	OrganizationID         uuid.UUID      `json:"organization_id"`
-	OrganizationExternalID string         `json:"organization_external_id"`
-	UserID                 uuid.UUID      `json:"user_id"`
-	ProjectID              uuid.UUID      `json:"project_id"`
-	Data                   map[string]any `json:"data"`
-	Version                int32          `json:"version"`
+	OrganizationID          uuid.UUID      `json:"organization_id"`
+	OrganizationIdentifiers []ExternalID   `json:"organization_identifiers,omitempty"`
+	UserID                  uuid.UUID      `json:"user_id"`
+	ProjectID               uuid.UUID      `json:"project_id"`
+	Data                    map[string]any `json:"data"`
+	Version                 int32          `json:"version"`
 }
 
 // OrganizationEvent creates an OrganizationEvent from this OrganizationUser with the given event name.
 func (ou OrganizationUser) OrganizationEvent(name string) OrganizationEvent {
 	return OrganizationEvent{
-		Name:                   name,
-		ProjectID:              ou.ProjectID,
-		OrganizationID:         ou.OrganizationID,
-		OrganizationExternalID: ou.OrganizationExternalID,
+		Name:                    name,
+		ProjectID:               ou.ProjectID,
+		OrganizationID:          ou.OrganizationID,
+		OrganizationIdentifiers: ou.OrganizationIdentifiers,
 		Data: map[string]any{
 			"organization_id":          ou.OrganizationID,
-			"organization_external_id": ou.OrganizationExternalID,
+			"organization_identifiers": ou.OrganizationIdentifiers,
 			"user_id":                  ou.UserID,
 			"traits":                   ou.Data,
 			"version":                  ou.Version,
@@ -151,12 +172,40 @@ func (ou OrganizationUser) OrganizationEvent(name string) OrganizationEvent {
 
 // OrganizationEvent represents an event that occurs on an organization (not a user).
 type OrganizationEvent struct {
-	ID                     uuid.UUID      `json:"id"`
-	Name                   string         `json:"name"`
-	ProjectID              uuid.UUID      `json:"project_id"`
-	OrganizationID         uuid.UUID      `json:"organization_id"`
-	OrganizationExternalID string         `json:"organization_external_id"`
-	Data                   map[string]any `json:"data"`
+	ID                      uuid.UUID      `json:"id"`
+	Name                    string         `json:"name"`
+	ProjectID               uuid.UUID      `json:"project_id"`
+	OrganizationID          uuid.UUID      `json:"organization_id"`
+	OrganizationIdentifiers []ExternalID   `json:"organization_identifiers,omitempty"`
+	Data                    map[string]any `json:"data"`
+}
+
+// ProcessBroadcast represents a request to process a broadcast send.
+type ProcessBroadcast struct {
+	ProjectID   uuid.UUID `json:"project_id"`
+	BroadcastID uuid.UUID `json:"broadcast_id"`
+}
+
+// ProcessBroadcastBatch represents a single batch of users to fan out during
+// broadcast processing. Each batch publishes SendCampaign messages for a page
+// of list users and then chains the next batch until the list is exhausted.
+type ProcessBroadcastBatch struct {
+	ProjectID   uuid.UUID       `json:"project_id"`
+	BroadcastID uuid.UUID       `json:"broadcast_id"`
+	Offset      int             `json:"offset"`
+	BatchSize   int             `json:"batch_size"`
+	Processed   int             `json:"processed"` // running total from prior batches
+	RateLimit   ratelimit.Limit `json:"rate_limit,omitempty"`
+}
+
+// BroadcastsProcess returns the NATS subject for broadcast processing.
+func BroadcastsProcess(projectID, broadcastID uuid.UUID) Subject {
+	return Subject(fmt.Sprintf("broadcasts.process.%s.%s", projectID, broadcastID))
+}
+
+// BroadcastsBatch returns the NATS subject for broadcast batch processing.
+func BroadcastsBatch(projectID, broadcastID uuid.UUID) Subject {
+	return Subject(fmt.Sprintf("broadcasts.batch.%s.%s", projectID, broadcastID))
 }
 
 // CampaignsSend returns the NATS subject for campaign sending.
@@ -199,6 +248,11 @@ func JourneysStepExecuted(projectID uuid.UUID, journeyID uuid.UUID, userID uuid.
 	return Subject(fmt.Sprintf("journeys.step_executed.%s.%s.%s", projectID, journeyID, userID))
 }
 
+// JourneysEntrance returns the NATS subject for journey entrance processing.
+func JourneysEntrance(projectID uuid.UUID, journeyID uuid.UUID, userID uuid.UUID) Subject {
+	return Subject(fmt.Sprintf("journeys.entrance.%s.%s.%s", projectID, journeyID, userID))
+}
+
 // OrganizationsProcess returns the NATS subject for organization processing.
 func OrganizationsProcess(projectID uuid.UUID) Subject {
 	return Subject(fmt.Sprintf("organizations.process.%s", projectID))
@@ -227,6 +281,36 @@ func OrganizationEventsProcess(projectID uuid.UUID) Subject {
 // OrganizationEventsSchema returns the NATS subject for organization event schema updates.
 func OrganizationEventsSchema(projectID uuid.UUID) Subject {
 	return Subject(fmt.Sprintf("organizations.events.schema.%s", projectID))
+}
+
+// MatchUserEvent is published when a user event uses a JSONB match filter
+// instead of explicit identifiers. The consumer resolves matching users and
+// publishes individual UserEvent messages for each match.
+type MatchUserEvent struct {
+	Name      string         `json:"name"`
+	ProjectID uuid.UUID      `json:"project_id"`
+	Match     map[string]any `json:"match"`
+	Data      map[string]any `json:"data"`
+}
+
+// MatchOrganizationEvent is published when an organization event uses a JSONB
+// match filter instead of explicit identifiers. The consumer resolves matching
+// organizations and publishes individual OrganizationEvent messages for each.
+type MatchOrganizationEvent struct {
+	Name      string         `json:"name"`
+	ProjectID uuid.UUID      `json:"project_id"`
+	Match     map[string]any `json:"match"`
+	Data      map[string]any `json:"data"`
+}
+
+// UserEventsMatch returns the NATS subject for user event match/fan-out processing.
+func UserEventsMatch(projectID uuid.UUID) Subject {
+	return Subject(fmt.Sprintf("users.events.match.%s", projectID))
+}
+
+// OrganizationEventsMatch returns the NATS subject for organization event match/fan-out processing.
+func OrganizationEventsMatch(projectID uuid.UUID) Subject {
+	return Subject(fmt.Sprintf("organizations.events.match.%s", projectID))
 }
 
 // ExecuteAction represents a request to execute an action via NATS.
@@ -388,6 +472,5 @@ type ScheduledMsg struct {
 	Data           map[string]any `json:"data,omitempty"`
 	UserID         uuid.UUID      `json:"user_id,omitempty"`
 	OrganizationID uuid.UUID      `json:"organization_id,omitempty"`
-	ExternalId     *string        `json:"external_id,omitempty"`
-	AnonymousId    *string        `json:"anonymous_id,omitempty"`
+	Identifiers    []ExternalID   `json:"identifiers,omitempty"`
 }

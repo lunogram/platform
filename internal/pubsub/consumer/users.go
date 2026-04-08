@@ -7,6 +7,7 @@ import (
 
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
+	iredis "github.com/lunogram/platform/internal/redis"
 	"github.com/lunogram/platform/internal/rules"
 	"github.com/lunogram/platform/internal/store/subjects"
 	"github.com/nats-io/nats.go/jetstream"
@@ -14,7 +15,7 @@ import (
 )
 
 // UsersHandler creates a handler that processes incoming users and stores them in the database.
-func UsersHandler(logger *zap.Logger, usrs *subjects.State, pub pubsub.Publisher) HandlerFunc {
+func UsersHandler(logger *zap.Logger, usrs *subjects.State, pub pubsub.Publisher, schemaCache *iredis.SchemaCache) HandlerFunc {
 	return func(ctx context.Context, msg jetstream.Msg) error {
 		user := schemas.User{}
 		err := json.Unmarshal(msg.Data(), &user)
@@ -32,10 +33,12 @@ func UsersHandler(logger *zap.Logger, usrs *subjects.State, pub pubsub.Publisher
 		}
 
 		if user.Data != nil {
-			err = pub.Publish(ctx, schemas.UsersSchema(user.ProjectID), user)
-			if err != nil {
-				logger.Error("failed to publish user to project subject", zap.Error(err))
-				return err
+			if !schemaCache.Seen(ctx, iredis.User, user.ProjectID, user.Data) {
+				err = pub.Publish(ctx, schemas.UsersSchema(user.ProjectID), user)
+				if err != nil {
+					logger.Error("failed to publish user to project subject", zap.Error(err))
+					return err
+				}
 			}
 		}
 
@@ -114,8 +117,7 @@ func PublishUserAnniversarySchedule(ctx context.Context, logger *zap.Logger, pub
 		StartAt:     &now,
 		Interval:    &interval,
 		UserID:      user.ID,
-		ExternalId:  user.ExternalID,
-		AnonymousId: user.AnonymousID,
+		Identifiers: user.Identifiers,
 		Data:        map[string]any{},
 	}
 

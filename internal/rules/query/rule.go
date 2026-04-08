@@ -129,6 +129,10 @@ func (qb *QueryBuilder) buildRule(rule *rules.Rule) (string, error) {
 		return qb.buildOrganizationUserRule(rule)
 	case rules.RuleGroupOrganizationEvent:
 		return qb.buildOrganizationEventRule(rule)
+	case rules.RuleGroupJourney:
+		// Journey rules are evaluated in-memory, not via SQL. Skip silently
+		// in case one slips through (e.g. unsplit rule set).
+		return "", nil
 	default:
 		return "", fmt.Errorf("unsupported rule group: %s", rule.Group)
 	}

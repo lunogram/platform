@@ -68,14 +68,16 @@ func TestOrganizationsHandlerSuccess(t *testing.T) {
 
 	usersState := subjects.NewState(usrsDB, zap.NewNop())
 	pub := pubsub.NewPublisher(jet, string(ns))
-	handler := OrganizationsHandler(logger, usersState, pub)
+	handler := OrganizationsHandler(logger, usersState, pub, nil)
 
 	orgID := uuid.New()
 	org := schemas.Organization{
-		ID:         orgID,
-		ProjectID:  projectID,
-		ExternalID: "org_123",
-		Name:       strPtr("Test Organization"),
+		ID:        orgID,
+		ProjectID: projectID,
+		Identifiers: []schemas.ExternalID{
+			{Source: "default", ExternalID: "org_123"},
+		},
+		Name: strPtr("Test Organization"),
 		Data: map[string]any{
 			"industry": "technology",
 		},
@@ -108,7 +110,8 @@ func TestOrganizationsHandlerSuccess(t *testing.T) {
 	err = json.Unmarshal(schemaMsg.Data(), &receivedOrg)
 	require.NoError(t, err)
 	assert.Equal(t, orgID, receivedOrg.ID)
-	assert.Equal(t, "org_123", receivedOrg.ExternalID)
+	require.Len(t, receivedOrg.Identifiers, 1)
+	assert.Equal(t, "org_123", receivedOrg.Identifiers[0].ExternalID)
 
 	// Verify organization.created event was published
 	orgEventsConsumer, err := jet.Consumer(ctx, ns.Stream(StreamOrganizationEvents), ns.Consumer(ConsumerOrganizationEventsProcess))
@@ -137,14 +140,16 @@ func TestOrganizationsHandlerUpdatedEvent(t *testing.T) {
 
 	usersState := subjects.NewState(usrsDB, zap.NewNop())
 	pub := pubsub.NewPublisher(jet, string(ns))
-	handler := OrganizationsHandler(logger, usersState, pub)
+	handler := OrganizationsHandler(logger, usersState, pub, nil)
 
 	orgID := uuid.New()
 	org := schemas.Organization{
-		ID:         orgID,
-		ProjectID:  projectID,
-		ExternalID: "org_456",
-		Name:       strPtr("Updated Organization"),
+		ID:        orgID,
+		ProjectID: projectID,
+		Identifiers: []schemas.ExternalID{
+			{Source: "default", ExternalID: "org_456"},
+		},
+		Name: strPtr("Updated Organization"),
 		Data: map[string]any{
 			"industry": "finance",
 		},
@@ -192,16 +197,18 @@ func TestOrganizationsHandlerWithoutData(t *testing.T) {
 
 	usersState := subjects.NewState(usrsDB, zap.NewNop())
 	pub := pubsub.NewPublisher(jet, string(ns))
-	handler := OrganizationsHandler(logger, usersState, pub)
+	handler := OrganizationsHandler(logger, usersState, pub, nil)
 
 	orgID := uuid.New()
 	org := schemas.Organization{
-		ID:         orgID,
-		ProjectID:  projectID,
-		ExternalID: "org_no_data",
-		Name:       strPtr("No Data Org"),
-		Data:       nil, // No data
-		Version:    0,
+		ID:        orgID,
+		ProjectID: projectID,
+		Identifiers: []schemas.ExternalID{
+			{Source: "default", ExternalID: "org_no_data"},
+		},
+		Name:    strPtr("No Data Org"),
+		Data:    nil, // No data
+		Version: 0,
 	}
 
 	err = pub.Publish(ctx, schemas.OrganizationsProcess(projectID), org)
@@ -243,9 +250,11 @@ func TestOrganizationSchemasHandlerSuccess(t *testing.T) {
 
 	orgID := uuid.New()
 	org := schemas.Organization{
-		ID:         orgID,
-		ProjectID:  projectID,
-		ExternalID: "org_schema_test",
+		ID:        orgID,
+		ProjectID: projectID,
+		Identifiers: []schemas.ExternalID{
+			{Source: "default", ExternalID: "org_schema_test"},
+		},
 		Data: map[string]any{
 			"company": map[string]any{
 				"name":     "Acme Corp",
@@ -284,15 +293,17 @@ func TestOrganizationUsersHandlerSuccess(t *testing.T) {
 
 	usersState := subjects.NewState(usrsDB, zap.NewNop())
 	pub := pubsub.NewPublisher(jet, string(ns))
-	handler := OrganizationUsersHandler(logger, usersState, pub)
+	handler := OrganizationUsersHandler(logger, usersState, pub, nil)
 
 	orgID := uuid.New()
 	userID := uuid.New()
 	orgUser := schemas.OrganizationUser{
-		OrganizationID:         orgID,
-		OrganizationExternalID: "org_user_test",
-		UserID:                 userID,
-		ProjectID:              projectID,
+		OrganizationID: orgID,
+		OrganizationIdentifiers: []schemas.ExternalID{
+			{Source: "default", ExternalID: "org_user_test"},
+		},
+		UserID:    userID,
+		ProjectID: projectID,
 		Data: map[string]any{
 			"role": "admin",
 		},
@@ -353,15 +364,17 @@ func TestOrganizationUsersHandlerUpdatedEvent(t *testing.T) {
 
 	usersState := subjects.NewState(usrsDB, zap.NewNop())
 	pub := pubsub.NewPublisher(jet, string(ns))
-	handler := OrganizationUsersHandler(logger, usersState, pub)
+	handler := OrganizationUsersHandler(logger, usersState, pub, nil)
 
 	orgID := uuid.New()
 	userID := uuid.New()
 	orgUser := schemas.OrganizationUser{
-		OrganizationID:         orgID,
-		OrganizationExternalID: "org_user_update",
-		UserID:                 userID,
-		ProjectID:              projectID,
+		OrganizationID: orgID,
+		OrganizationIdentifiers: []schemas.ExternalID{
+			{Source: "default", ExternalID: "org_user_update"},
+		},
+		UserID:    userID,
+		ProjectID: projectID,
 		Data: map[string]any{
 			"role": "member",
 		},
@@ -409,17 +422,17 @@ func TestOrganizationUsersHandlerWithoutData(t *testing.T) {
 
 	usersState := subjects.NewState(usrsDB, zap.NewNop())
 	pub := pubsub.NewPublisher(jet, string(ns))
-	handler := OrganizationUsersHandler(logger, usersState, pub)
+	handler := OrganizationUsersHandler(logger, usersState, pub, nil)
 
 	orgID := uuid.New()
 	userID := uuid.New()
 	orgUser := schemas.OrganizationUser{
-		OrganizationID:         orgID,
-		OrganizationExternalID: "org_user_no_data",
-		UserID:                 userID,
-		ProjectID:              projectID,
-		Data:                   nil, // No data
-		Version:                0,
+		OrganizationID:          orgID,
+		OrganizationIdentifiers: []schemas.ExternalID{{Source: "default", ExternalID: "org_user_no_data"}},
+		UserID:                  userID,
+		ProjectID:               projectID,
+		Data:                    nil, // No data
+		Version:                 0,
 	}
 
 	err = pub.Publish(ctx, schemas.OrganizationUsersProcess(projectID), orgUser)
@@ -462,10 +475,10 @@ func TestOrganizationUserSchemasHandlerSuccess(t *testing.T) {
 	orgID := uuid.New()
 	userID := uuid.New()
 	orgUser := schemas.OrganizationUser{
-		OrganizationID:         orgID,
-		OrganizationExternalID: "org_user_schema_test",
-		UserID:                 userID,
-		ProjectID:              projectID,
+		OrganizationID:          orgID,
+		OrganizationIdentifiers: []schemas.ExternalID{{Source: "default", ExternalID: "org_user_schema_test"}},
+		UserID:                  userID,
+		ProjectID:               projectID,
 		Data: map[string]any{
 			"role":        "owner",
 			"permissions": []string{"read", "write", "admin"},

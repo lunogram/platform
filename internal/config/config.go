@@ -63,8 +63,9 @@ type Redis struct {
 }
 
 type Nats struct {
-	URL       string `env:"URL" envDefault:"nats://127.0.0.1:4222"`
-	Namespace string `env:"NAMESPACE" envDefault:""`
+	URL               string `env:"URL" envDefault:"nats://127.0.0.1:4222"`
+	Namespace         string `env:"NAMESPACE" envDefault:""`
+	ManagedExternally bool   `env:"MANAGED_EXTERNALLY" envDefault:"false"`
 }
 
 type Cluster struct {

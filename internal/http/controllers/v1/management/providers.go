@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -127,6 +128,19 @@ func (srv *ProvidersController) ListProviderMeta(w http.ResponseWriter, r *http.
 			pm.Locked = &locked
 		}
 
+		if rl := manifest.Spec.RateLimit; rl != nil {
+			pm.RateLimit = &oapi.ProviderRateLimit{
+				Limit:    rl.Limit,
+				Interval: rl.Interval,
+				Override: rl.Override,
+			}
+			if pm.RateLimit.Interval == "" {
+				pm.RateLimit.Interval = "1s"
+			}
+			maxRL := providers.ProjectMaxRateLimit.Requests
+			pm.MaxRateLimit = &maxRL
+		}
+
 		meta = append(meta, pm)
 	}
 
@@ -165,6 +179,28 @@ func (srv *ProvidersController) CreateProvider(w http.ResponseWriter, r *http.Re
 
 	// Derive channels from the module manifest.
 	manifest := module.Manifest()
+
+	// Reject rate limit overrides when the manifest does not allow them.
+	if body.RateLimit != nil && body.RateLimit.Limit > 0 {
+		rl := manifest.Spec.RateLimit
+		if rl == nil || !rl.Override {
+			logger.Warn("rate limit override not allowed for this provider module", zap.String("module", providerType))
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("this provider does not allow rate limit overrides")))
+			return
+		}
+	}
+
+	if body.RateLimit != nil {
+		if body.RateLimit.Limit < 0 {
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("rate_limit.limit must not be negative")))
+			return
+		}
+		if _, err := time.ParseDuration(body.RateLimit.Interval); err != nil {
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("rate_limit.interval must be a valid Go duration (e.g. \"1s\", \"1m\")")))
+			return
+		}
+	}
+
 	channels := make(management.Channels, len(manifest.Spec.Channels))
 	for i, ch := range manifest.Spec.Channels {
 		channels[i] = string(ch)
@@ -220,16 +256,23 @@ func (srv *ProvidersController) CreateProvider(w http.ResponseWriter, r *http.Re
 	}
 
 	provider := management.Provider{
-		ProjectID: projectID,
-		Module:    providerType,
-		Channels:  channels,
-		Name:      body.Name,
-		Data:      data,
-		LinkWrap:  true,
+		ProjectID:    projectID,
+		Module:       providerType,
+		Channels:     channels,
+		Name:         body.Name,
+		Data:         data,
+		LinkWrap:     true,
+		RateLimit:    0,
+		RateInterval: "1s",
 	}
 
 	if body.LinkWrap != nil {
 		provider.LinkWrap = *body.LinkWrap
+	}
+
+	if body.RateLimit != nil {
+		provider.RateLimit = body.RateLimit.Limit
+		provider.RateInterval = body.RateLimit.Interval
 	}
 
 	providerID, err := srv.store.ProvidersStore.CreateProvider(ctx, provider)
@@ -340,10 +383,39 @@ func (srv *ProvidersController) UpdateProvider(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	// Reject rate limit overrides when the manifest does not allow them.
+	if body.RateLimit != nil && body.RateLimit.Limit > 0 {
+		module, exists := srv.registry.Get(providerType)
+		if exists {
+			rl := module.Manifest().Spec.RateLimit
+			if rl == nil || !rl.Override {
+				logger.Warn("rate limit override not allowed for this provider module", zap.String("module", providerType))
+				oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("this provider does not allow rate limit overrides")))
+				return
+			}
+		}
+	}
+
+	if body.RateLimit != nil {
+		if body.RateLimit.Limit < 0 {
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("rate_limit.limit must not be negative")))
+			return
+		}
+		if _, err := time.ParseDuration(body.RateLimit.Interval); err != nil {
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("rate_limit.interval must be a valid Go duration (e.g. \"1s\", \"1m\")")))
+			return
+		}
+	}
+
 	update := management.ProviderUpdate{
 		Name:     body.Name,
 		Data:     body.Data,
 		LinkWrap: body.LinkWrap,
+	}
+
+	if body.RateLimit != nil {
+		update.RateLimit = &body.RateLimit.Limit
+		update.RateInterval = &body.RateLimit.Interval
 	}
 
 	err = srv.store.ProvidersStore.UpdateProvider(ctx, projectID, providerID, update)

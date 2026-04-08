@@ -43,52 +43,59 @@ func TestCreateUser(t *testing.T) {
 	ctx := context.Background()
 
 	type test struct {
-		user User
+		email       *string
+		phone       *string
+		data        json.RawMessage
+		timezone    *string
+		locale      *string
+		identifiers []ExternalIDParam
 	}
 
 	tests := map[string]test{
 		"create user with all fields": {
-			user: User{
-				ProjectID:   projectID,
-				AnonymousID: ptr("anon_123"),
-				ExternalID:  ptr("user_123"),
-				Email:       ptr("test@example.com"),
-				Phone:       ptr("+1234567890"),
-				Data:        json.RawMessage(`{"first_name":"John","last_name":"Doe"}`),
-				Timezone:    ptr("America/New_York"),
-				Locale:      ptr("en"),
+			email:    ptr("test@example.com"),
+			phone:    ptr("+1234567890"),
+			data:     json.RawMessage(`{"first_name":"John","last_name":"Doe"}`),
+			timezone: ptr("America/New_York"),
+			locale:   ptr("en"),
+			identifiers: []ExternalIDParam{
+				{Source: "anonymous", ExternalID: "anon_123"},
+				{Source: "default", ExternalID: "user_123"},
 			},
 		},
 		"create user with minimal fields": {
-			user: User{
-				ProjectID:   projectID,
-				Data:        json.RawMessage(`{}`),
-				AnonymousID: ptr("anon_456"),
+			data: json.RawMessage(`{}`),
+			identifiers: []ExternalIDParam{
+				{Source: "anonymous", ExternalID: "anon_456"},
 			},
 		},
 		"create user with JSONB data": {
-			user: User{
-				ProjectID:   projectID,
-				AnonymousID: ptr("anon_789"),
-				Data:        json.RawMessage(`{"custom_field":"value","nested":{"key":"value"}}`),
+			data: json.RawMessage(`{"custom_field":"value","nested":{"key":"value"}}`),
+			identifiers: []ExternalIDParam{
+				{Source: "anonymous", ExternalID: "anon_789"},
 			},
 		},
 	}
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			userID, err := db.CreateUser(ctx, tt.user)
+			userID, err := db.CreateUser(ctx, projectID, tt.email, tt.phone, tt.data, tt.timezone, tt.locale, tt.identifiers)
 			require.NoError(t, err)
 			require.NotEqual(t, uuid.Nil, userID)
 
 			user, err := db.GetUser(ctx, projectID, userID)
 			require.NoError(t, err)
-			require.Equal(t, tt.user.AnonymousID, user.AnonymousID)
-			require.Equal(t, tt.user.ExternalID, user.ExternalID)
-			require.Equal(t, tt.user.Email, user.Email)
-			require.Equal(t, tt.user.Phone, user.Phone)
-			require.Equal(t, tt.user.Timezone, user.Timezone)
-			require.Equal(t, tt.user.Locale, user.Locale)
+			require.Equal(t, tt.email, user.Email)
+			require.Equal(t, tt.phone, user.Phone)
+			require.Equal(t, tt.timezone, user.Timezone)
+			require.Equal(t, tt.locale, user.Locale)
+
+			// Verify identifiers were created
+			for _, ident := range tt.identifiers {
+				rec := user.ExternalIDBySource(ident.Source)
+				require.NotNil(t, rec, "should have identifier with source %s", ident.Source)
+				require.Equal(t, ident.ExternalID, rec.ExternalID)
+			}
 		})
 	}
 }
@@ -101,19 +108,18 @@ func TestGetUserByExternalID(t *testing.T) {
 	ctx := context.Background()
 
 	externalID := "user_external_123"
-	userID, err := db.CreateUser(ctx, User{
-		ProjectID:   projectID,
-		Data:        json.RawMessage(`{}`),
-		AnonymousID: ptr("anon_123"),
-		ExternalID:  &externalID,
-		Email:       ptr("external@example.com"),
+	userID, err := db.CreateUser(ctx, projectID, ptr("external@example.com"), nil, json.RawMessage(`{}`), nil, nil, []ExternalIDParam{
+		{Source: "anonymous", ExternalID: "anon_123"},
+		{Source: "default", ExternalID: externalID},
 	})
 	require.NoError(t, err)
 
-	user, err := db.GetUserByExternalID(ctx, projectID, externalID)
+	user, err := db.GetUserByExternalID(ctx, projectID, "default", externalID)
 	require.NoError(t, err)
 	require.Equal(t, userID, user.ID)
-	require.Equal(t, externalID, *user.ExternalID)
+	rec := user.ExternalIDBySource("default")
+	require.NotNil(t, rec)
+	require.Equal(t, externalID, rec.ExternalID)
 }
 
 func TestGetUserByAnonymousID(t *testing.T) {
@@ -124,17 +130,17 @@ func TestGetUserByAnonymousID(t *testing.T) {
 	ctx := context.Background()
 
 	anonymousID := "anon_unique_123"
-	userID, err := db.CreateUser(ctx, User{
-		ProjectID:   projectID,
-		AnonymousID: &anonymousID,
-		Data:        json.RawMessage(`{}`),
+	userID, err := db.CreateUser(ctx, projectID, nil, nil, json.RawMessage(`{}`), nil, nil, []ExternalIDParam{
+		{Source: "anonymous", ExternalID: anonymousID},
 	})
 	require.NoError(t, err)
 
-	user, err := db.GetUserByAnonymousID(ctx, projectID, anonymousID)
+	user, err := db.GetUserByExternalID(ctx, projectID, "anonymous", anonymousID)
 	require.NoError(t, err)
 	require.Equal(t, userID, user.ID)
-	require.Equal(t, &anonymousID, user.AnonymousID)
+	rec := user.ExternalIDBySource("anonymous")
+	require.NotNil(t, rec)
+	require.Equal(t, anonymousID, rec.ExternalID)
 }
 
 func TestListUsersWithSearch(t *testing.T) {
@@ -144,29 +150,20 @@ func TestListUsersWithSearch(t *testing.T) {
 	projectID := uuid.New()
 	ctx := context.Background()
 
-	_, err := db.CreateUser(ctx, User{
-		ProjectID:   projectID,
-		Data:        json.RawMessage(`{}`),
-		AnonymousID: ptr("anon_1"),
-		ExternalID:  ptr("user_john"),
-		Email:       ptr("john@example.com"),
+	_, err := db.CreateUser(ctx, projectID, ptr("john@example.com"), nil, json.RawMessage(`{}`), nil, nil, []ExternalIDParam{
+		{Source: "anonymous", ExternalID: "anon_1"},
+		{Source: "default", ExternalID: "user_john"},
 	})
 	require.NoError(t, err)
 
-	_, err = db.CreateUser(ctx, User{
-		ProjectID:   projectID,
-		Data:        json.RawMessage(`{}`),
-		AnonymousID: ptr("anon_2"),
-		ExternalID:  ptr("user_jane"),
-		Email:       ptr("jane@example.com"),
+	_, err = db.CreateUser(ctx, projectID, ptr("jane@example.com"), nil, json.RawMessage(`{}`), nil, nil, []ExternalIDParam{
+		{Source: "anonymous", ExternalID: "anon_2"},
+		{Source: "default", ExternalID: "user_jane"},
 	})
 	require.NoError(t, err)
 
-	_, err = db.CreateUser(ctx, User{
-		ProjectID:   projectID,
-		Data:        json.RawMessage(`{}`),
-		AnonymousID: ptr("anon_3"),
-		Phone:       ptr("+1234567890"),
+	_, err = db.CreateUser(ctx, projectID, nil, ptr("+1234567890"), json.RawMessage(`{}`), nil, nil, []ExternalIDParam{
+		{Source: "anonymous", ExternalID: "anon_3"},
 	})
 	require.NoError(t, err)
 
@@ -223,10 +220,8 @@ func TestListUsersWithPagination(t *testing.T) {
 
 	for i := 0; i < 5; i++ {
 		anonID := uuid.New().String()
-		_, err := db.CreateUser(ctx, User{
-			ProjectID:   projectID,
-			AnonymousID: &anonID,
-			Data:        json.RawMessage(`{}`),
+		_, err := db.CreateUser(ctx, projectID, nil, nil, json.RawMessage(`{}`), nil, nil, []ExternalIDParam{
+			{Source: "anonymous", ExternalID: anonID},
 		})
 		require.NoError(t, err)
 	}
@@ -278,51 +273,57 @@ func TestUpsertUser(t *testing.T) {
 	ctx := context.Background()
 
 	type test struct {
-		setupUser     *User
-		upsertData    UpsertUserParams
-		expectedEmail *string
-		description   string
+		setupIdentifiers []ExternalIDParam
+		setupEmail       *string
+		setupData        json.RawMessage
+		upsertData       UpsertUserParams
+		expectedEmail    *string
+		description      string
 	}
 
 	tests := map[string]test{
 		"insert new user with external_id": {
 			upsertData: UpsertUserParams{
-				AnonymousID: ptr("anon_new"),
-				ExternalID:  ptr("user_new"),
-				Email:       ptr("new@example.com"),
-				Data:        map[string]any{},
+				Identifiers: []ExternalIDParam{
+					{Source: "anonymous", ExternalID: "anon_new"},
+					{Source: "default", ExternalID: "user_new"},
+				},
+				Email: ptr("new@example.com"),
+				Data:  map[string]any{},
 			},
 			expectedEmail: ptr("new@example.com"),
 			description:   "should create new user",
 		},
 		"update existing user by external_id": {
-			setupUser: &User{
-				ProjectID:   projectID,
-				AnonymousID: ptr("anon_existing"),
-				ExternalID:  ptr("user_existing"),
-				Email:       ptr("old@example.com"),
-				Data:        json.RawMessage(`{}`),
+			setupIdentifiers: []ExternalIDParam{
+				{Source: "anonymous", ExternalID: "anon_existing"},
+				{Source: "default", ExternalID: "user_existing"},
 			},
+			setupEmail: ptr("old@example.com"),
+			setupData:  json.RawMessage(`{}`),
 			upsertData: UpsertUserParams{
-				AnonymousID: ptr("anon_different"),
-				ExternalID:  ptr("user_existing"),
-				Email:       ptr("updated@example.com"),
-				Data:        map[string]any{},
+				Identifiers: []ExternalIDParam{
+					{Source: "anonymous", ExternalID: "anon_different"},
+					{Source: "default", ExternalID: "user_existing"},
+				},
+				Email: ptr("updated@example.com"),
+				Data:  map[string]any{},
 			},
 			expectedEmail: ptr("updated@example.com"),
 			description:   "should update email on conflict",
 		},
 		"upsert with JSONB data": {
-			setupUser: &User{
-				ProjectID:   projectID,
-				AnonymousID: ptr("anon_json"),
-				ExternalID:  ptr("user_json"),
-				Data:        json.RawMessage(`{"old":"value"}`),
+			setupIdentifiers: []ExternalIDParam{
+				{Source: "anonymous", ExternalID: "anon_json"},
+				{Source: "default", ExternalID: "user_json"},
 			},
+			setupData: json.RawMessage(`{"old":"value"}`),
 			upsertData: UpsertUserParams{
-				AnonymousID: ptr("anon_json"),
-				ExternalID:  ptr("user_json"),
-				Data:        map[string]any{"new": "data"},
+				Identifiers: []ExternalIDParam{
+					{Source: "anonymous", ExternalID: "anon_json"},
+					{Source: "default", ExternalID: "user_json"},
+				},
+				Data: map[string]any{"new": "data"},
 			},
 			expectedEmail: nil,
 			description:   "should update JSONB data",
@@ -332,9 +333,9 @@ func TestUpsertUser(t *testing.T) {
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			var existingUserID uuid.UUID
-			if tt.setupUser != nil {
+			if tt.setupIdentifiers != nil {
 				var err error
-				existingUserID, err = db.CreateUser(ctx, *tt.setupUser)
+				existingUserID, err = db.CreateUser(ctx, projectID, tt.setupEmail, nil, tt.setupData, nil, nil, tt.setupIdentifiers)
 				require.NoError(t, err)
 			}
 
@@ -342,7 +343,7 @@ func TestUpsertUser(t *testing.T) {
 			require.NoError(t, err)
 			require.NotEqual(t, uuid.Nil, userID)
 
-			if tt.setupUser != nil {
+			if tt.setupIdentifiers != nil {
 				require.Equal(t, existingUserID, userID, "should return existing user ID on conflict")
 			}
 
@@ -361,10 +362,8 @@ func TestUpdateUserWithDataMerge(t *testing.T) {
 	ctx := context.Background()
 
 	initialData := json.RawMessage(`{"first_name":"John","age":30,"nested":{"key":"value"}}`)
-	userID, err := db.CreateUser(ctx, User{
-		ProjectID:   projectID,
-		AnonymousID: ptr("anon_merge"),
-		Data:        initialData,
+	userID, err := db.CreateUser(ctx, projectID, nil, nil, initialData, nil, nil, []ExternalIDParam{
+		{Source: "anonymous", ExternalID: "anon_merge"},
 	})
 	require.NoError(t, err)
 
@@ -421,10 +420,8 @@ func TestDeleteUser(t *testing.T) {
 	projectID := uuid.New()
 	ctx := context.Background()
 
-	userID, err := db.CreateUser(ctx, User{
-		ProjectID:   projectID,
-		Data:        json.RawMessage(`{}`),
-		AnonymousID: ptr("anon_delete"),
+	userID, err := db.CreateUser(ctx, projectID, nil, nil, json.RawMessage(`{}`), nil, nil, []ExternalIDParam{
+		{Source: "anonymous", ExternalID: "anon_delete"},
 	})
 	require.NoError(t, err)
 
@@ -442,10 +439,8 @@ func TestVersionAutoIncrement(t *testing.T) {
 	projectID := uuid.New()
 	ctx := context.Background()
 
-	userID, err := db.CreateUser(ctx, User{
-		ProjectID:   projectID,
-		Data:        json.RawMessage(`{}`),
-		AnonymousID: ptr("anon_version"),
+	userID, err := db.CreateUser(ctx, projectID, nil, nil, json.RawMessage(`{}`), nil, nil, []ExternalIDParam{
+		{Source: "anonymous", ExternalID: "anon_version"},
 	})
 	require.NoError(t, err)
 
@@ -467,10 +462,12 @@ func TestUserOAPIConversion(t *testing.T) {
 	t.Parallel()
 
 	user := User{
-		ID:            uuid.New(),
-		ProjectID:     uuid.New(),
-		AnonymousID:   ptr("anon_123"),
-		ExternalID:    ptr("user_123"),
+		ID:        uuid.New(),
+		ProjectID: uuid.New(),
+		ExternalIDs: ExternalIDs{
+			{Source: "anonymous", ExternalID: "anon_123"},
+			{Source: "default", ExternalID: "user_123"},
+		},
 		Email:         ptr("test@example.com"),
 		Phone:         ptr("+1234567890"),
 		Data:          json.RawMessage(`{"key":"value"}`),
@@ -483,8 +480,7 @@ func TestUserOAPIConversion(t *testing.T) {
 	oapiUser := user.OAPI()
 
 	require.Equal(t, user.ID, oapiUser.Id)
-	require.Equal(t, *user.AnonymousID, oapiUser.AnonymousId)
-	require.Equal(t, user.ExternalID, oapiUser.ExternalId)
+	require.Len(t, oapiUser.Identifier, 2)
 	require.Equal(t, user.Version, oapiUser.Version)
 	require.False(t, oapiUser.HasPushDevice, "should be false when has_push_device is false")
 }
@@ -493,10 +489,12 @@ func TestUserOAPIConversionWithDevices(t *testing.T) {
 	t.Parallel()
 
 	user := User{
-		ID:            uuid.New(),
-		ProjectID:     uuid.New(),
-		Data:          json.RawMessage(`{}`),
-		AnonymousID:   ptr("anon_123"),
+		ID:        uuid.New(),
+		ProjectID: uuid.New(),
+		Data:      json.RawMessage(`{}`),
+		ExternalIDs: ExternalIDs{
+			{Source: "anonymous", ExternalID: "anon_123"},
+		},
 		HasPushDevice: true,
 		Version:       1,
 	}
@@ -505,10 +503,12 @@ func TestUserOAPIConversionWithDevices(t *testing.T) {
 	require.True(t, oapiUser.HasPushDevice, "should be true when has_push_device is true")
 
 	userWithoutDevice := User{
-		ID:            uuid.New(),
-		ProjectID:     uuid.New(),
-		Data:          json.RawMessage(`{}`),
-		AnonymousID:   ptr("anon_456"),
+		ID:        uuid.New(),
+		ProjectID: uuid.New(),
+		Data:      json.RawMessage(`{}`),
+		ExternalIDs: ExternalIDs{
+			{Source: "anonymous", ExternalID: "anon_456"},
+		},
 		HasPushDevice: false,
 		Version:       1,
 	}
@@ -525,10 +525,8 @@ func TestGetUserWithDevices(t *testing.T) {
 	ctx := context.Background()
 
 	// Create a user
-	userID, err := db.CreateUser(ctx, User{
-		ProjectID:   projectID,
-		AnonymousID: ptr("anon_with_devices"),
-		Data:        json.RawMessage(`{}`),
+	userID, err := db.CreateUser(ctx, projectID, nil, nil, json.RawMessage(`{}`), nil, nil, []ExternalIDParam{
+		{Source: "anonymous", ExternalID: "anon_with_devices"},
 	})
 	require.NoError(t, err)
 
@@ -567,17 +565,13 @@ func TestListUsersWithDevices(t *testing.T) {
 	ctx := context.Background()
 
 	// Create two users
-	user1ID, err := db.CreateUser(ctx, User{
-		ProjectID:   projectID,
-		AnonymousID: ptr("user1_with_device"),
-		Data:        json.RawMessage(`{}`),
+	user1ID, err := db.CreateUser(ctx, projectID, nil, nil, json.RawMessage(`{}`), nil, nil, []ExternalIDParam{
+		{Source: "anonymous", ExternalID: "user1_with_device"},
 	})
 	require.NoError(t, err)
 
-	user2ID, err := db.CreateUser(ctx, User{
-		ProjectID:   projectID,
-		AnonymousID: ptr("user2_no_device"),
-		Data:        json.RawMessage(`{}`),
+	user2ID, err := db.CreateUser(ctx, projectID, nil, nil, json.RawMessage(`{}`), nil, nil, []ExternalIDParam{
+		{Source: "anonymous", ExternalID: "user2_no_device"},
 	})
 	require.NoError(t, err)
 

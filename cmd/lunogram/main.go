@@ -18,13 +18,16 @@ import (
 	"github.com/lunogram/platform/internal/providers"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/consumer"
+	"github.com/lunogram/platform/internal/ratelimit"
 	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/rbac/access"
+	iredis "github.com/lunogram/platform/internal/redis"
 	"github.com/lunogram/platform/internal/storage"
 	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/journey"
 	"github.com/lunogram/platform/internal/store/management"
 	"github.com/lunogram/platform/internal/store/subjects"
+
 	"go.uber.org/zap"
 )
 
@@ -109,7 +112,7 @@ func run() error {
 		return err
 	}
 
-	err = consumer.Bootstrap(ctx, logger, jet, consumer.Namespace(conf.Nats.Namespace))
+	err = consumer.Bootstrap(ctx, logger, jet, consumer.Namespace(conf.Nats.Namespace), consumer.WithManagedExternally(conf.Nats.ManagedExternally))
 	if err != nil {
 		return err
 	}
@@ -139,11 +142,22 @@ func run() error {
 
 	logger.Info("link wrapping enabled", zap.String("tracking_url", trackingURL))
 
-	consumer.Serve(ctx, jet, logger, ns, db, managementStore, usersStore, journeyStore, providersRegisrtry, actionRegistry, req, conf.PublicBaseURL(), linkKey, trackingURL)
+	logger.Info("initializing redis client")
+
+	rclient, err := iredis.New(ctx, logger, conf.Redis.Address)
+	if err != nil {
+		return err
+	}
+
+	limiter := ratelimit.New(rclient, conf.Redis.KeyPrefix, logger)
+	recomputeLocker := iredis.NewRecomputeLocker(rclient, conf.Redis.KeyPrefix)
+	schemaCache := iredis.NewSchemaCache(rclient, conf.Redis.KeyPrefix)
+
+	consumer.Serve(ctx, jet, logger, ns, db, managementStore, usersStore, journeyStore, providersRegisrtry, actionRegistry, req, limiter, recomputeLocker, schemaCache, conf.PublicBaseURL(), linkKey, trackingURL)
 
 	logger.Info("initializing cluster")
 
-	sched := scheduler.NewController(ctx, logger, conf, journeyStore, usersStore, pub)
+	sched := scheduler.NewController(ctx, logger, conf, journeyStore, usersStore, managementStore, pub)
 	lead := leader.NewHandler(sched, managementStore, logger)
 	cons, err := consensus.NewCluster(ctx, logger, conf)
 	if err != nil {

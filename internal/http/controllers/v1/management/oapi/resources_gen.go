@@ -30,14 +30,24 @@ const (
 	Secret ApiKeyScope = "secret"
 )
 
+// Defines values for BroadcastState.
+const (
+	BroadcastStateCancelled BroadcastState = "cancelled"
+	BroadcastStateCompleted BroadcastState = "completed"
+	BroadcastStateFailed    BroadcastState = "failed"
+	BroadcastStatePending   BroadcastState = "pending"
+	BroadcastStateScheduled BroadcastState = "scheduled"
+	BroadcastStateSending   BroadcastState = "sending"
+)
+
 // Defines values for CampaignUserStatus.
 const (
-	Aborted   CampaignUserStatus = "aborted"
-	Failed    CampaignUserStatus = "failed"
-	Opened    CampaignUserStatus = "opened"
-	Pending   CampaignUserStatus = "pending"
-	Sent      CampaignUserStatus = "sent"
-	Throttled CampaignUserStatus = "throttled"
+	CampaignUserStatusAborted   CampaignUserStatus = "aborted"
+	CampaignUserStatusFailed    CampaignUserStatus = "failed"
+	CampaignUserStatusOpened    CampaignUserStatus = "opened"
+	CampaignUserStatusPending   CampaignUserStatus = "pending"
+	CampaignUserStatusSent      CampaignUserStatus = "sent"
+	CampaignUserStatusThrottled CampaignUserStatus = "throttled"
 )
 
 // Defines values for Channel.
@@ -97,6 +107,7 @@ const (
 	JourneyStepTypeExit       JourneyStepType = "exit"
 	JourneyStepTypeExperiment JourneyStepType = "experiment"
 	JourneyStepTypeGate       JourneyStepType = "gate"
+	JourneyStepTypeSchedule   JourneyStepType = "schedule"
 	JourneyStepTypeSticky     JourneyStepType = "sticky"
 	JourneyStepTypeUpdate     JourneyStepType = "update"
 )
@@ -324,6 +335,51 @@ type AuthCallbackRequest struct {
 	Redirect *string `json:"redirect,omitempty"`
 }
 
+// Broadcast defines model for Broadcast.
+type Broadcast struct {
+	Campaign *struct {
+		Channel *string             `json:"channel,omitempty"`
+		Id      *openapi_types.UUID `json:"id,omitempty"`
+		Name    *string             `json:"name,omitempty"`
+	} `json:"campaign,omitempty"`
+	CampaignId openapi_types.UUID `json:"campaign_id"`
+
+	// CompletedAt When the broadcast completed or failed
+	CompletedAt *time.Time `json:"completed_at,omitempty"`
+	CreatedAt   time.Time  `json:"created_at"`
+
+	// Error Error message if the broadcast failed
+	Error  *string            `json:"error,omitempty"`
+	Id     openapi_types.UUID `json:"id"`
+	ListId openapi_types.UUID `json:"list_id"`
+
+	// ListName Snapshot of the list name at broadcast creation time
+	ListName string `json:"list_name"`
+
+	// ListType Snapshot of the list type at broadcast creation time
+	ListType  string             `json:"list_type"`
+	ProjectId openapi_types.UUID `json:"project_id"`
+
+	// ScheduledAt When the broadcast is scheduled to be sent
+	ScheduledAt *time.Time `json:"scheduled_at,omitempty"`
+
+	// Sent Number of messages actually delivered so far
+	Sent *int `json:"sent,omitempty"`
+
+	// StartedAt When the broadcast started sending
+	StartedAt *time.Time `json:"started_at,omitempty"`
+
+	// State Current state of the broadcast
+	State BroadcastState `json:"state"`
+
+	// Total Total number of users in the audience at send time
+	Total     int       `json:"total"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// BroadcastState Current state of the broadcast
+type BroadcastState string
+
 // Campaign defines model for Campaign.
 type Campaign struct {
 	// Channel Communication channel type
@@ -398,6 +454,18 @@ type CreateApiKey struct {
 	Scope ApiKeyScope `json:"scope"`
 }
 
+// CreateBroadcast defines model for CreateBroadcast.
+type CreateBroadcast struct {
+	// CampaignId The campaign to broadcast
+	CampaignId openapi_types.UUID `json:"campaign_id"`
+
+	// ListId The list of users to send the broadcast to
+	ListId openapi_types.UUID `json:"list_id"`
+
+	// ScheduledAt Optional scheduled send time. If provided, the broadcast is created in 'scheduled' state.
+	ScheduledAt *time.Time `json:"scheduled_at,omitempty"`
+}
+
 // CreateCampaign defines model for CreateCampaign.
 type CreateCampaign struct {
 	// Channel Communication channel type
@@ -457,6 +525,9 @@ type CreateProvider struct {
 	Data     *json.RawMessage `json:"data,omitempty"`
 	LinkWrap *bool            `json:"link_wrap,omitempty"`
 	Name     string           `json:"name"`
+
+	// RateLimit Rate limit configuration for a provider instance.
+	RateLimit *RateLimit `json:"rate_limit,omitempty"`
 }
 
 // CreateScheduleOffsetRequest defines model for CreateScheduleOffsetRequest.
@@ -668,28 +739,44 @@ type ExperimentChildData struct {
 	Ratio float32 `json:"ratio"`
 }
 
+// ExternalID An external identifier with source and optional metadata
+type ExternalID struct {
+	// ExternalId The external identifier value
+	ExternalId string `json:"external_id"`
+
+	// Metadata Optional metadata associated with this identifier
+	Metadata *map[string]any `json:"metadata"`
+
+	// Source Source of the identifier (e.g. "default", "anonymous", or a custom source). Defaults to "default" if not provided.
+	Source *string `json:"source,omitempty"`
+}
+
+// ExternalIDResponse An external identifier as returned in responses, including database ID and timestamps
+type ExternalIDResponse struct {
+	CreatedAt  time.Time          `json:"created_at"`
+	ExternalId string             `json:"external_id"`
+	Id         openapi_types.UUID `json:"id"`
+	Metadata   *map[string]any    `json:"metadata"`
+	Source     string             `json:"source"`
+	UpdatedAt  time.Time          `json:"updated_at"`
+}
+
 // GateChildData Data for gate step children - typically empty, path determines branch
 type GateChildData = map[string]interface{}
 
 // IdentifyUser defines model for IdentifyUser.
 type IdentifyUser struct {
-	AnonymousId *string         `json:"anonymous_id,omitempty"`
-	Data        *map[string]any `json:"data,omitempty"`
-	Email       *string         `json:"email,omitempty"`
-	ExternalId  *string         `json:"external_id,omitempty"`
-	Locale      *string         `json:"locale,omitempty"`
+	Data  *map[string]any `json:"data,omitempty"`
+	Email *string         `json:"email,omitempty"`
+
+	// Identifier One or more external identifiers to identify the user
+	Identifier []ExternalID `json:"identifier"`
+	Locale     *string      `json:"locale,omitempty"`
 
 	// Phone E.164 formatted phone number
 	Phone    *string `json:"phone,omitempty"`
 	Timezone *string `json:"timezone,omitempty"`
-	union    json.RawMessage
 }
-
-// IdentifyUser0 defines model for .
-type IdentifyUser0 = interface{}
-
-// IdentifyUser1 defines model for .
-type IdentifyUser1 = interface{}
 
 // Journey defines model for Journey.
 type Journey struct {
@@ -808,16 +895,16 @@ type Locale struct {
 
 // Organization defines model for Organization.
 type Organization struct {
-	CreatedAt time.Time       `json:"created_at"`
-	Data      json.RawMessage `json:"data"`
+	CreatedAt time.Time          `json:"created_at"`
+	Data      json.RawMessage    `json:"data"`
+	Id        openapi_types.UUID `json:"id"`
 
-	// ExternalId External identifier for the organization from your system
-	ExternalId string             `json:"external_id"`
-	Id         openapi_types.UUID `json:"id"`
-	Name       *string            `json:"name,omitempty"`
-	ProjectId  openapi_types.UUID `json:"project_id"`
-	UpdatedAt  time.Time          `json:"updated_at"`
-	Version    int32              `json:"version"`
+	// Identifier External identifiers associated with this organization
+	Identifier []ExternalIDResponse `json:"identifier"`
+	Name       *string              `json:"name,omitempty"`
+	ProjectId  openapi_types.UUID   `json:"project_id"`
+	UpdatedAt  time.Time            `json:"updated_at"`
+	Version    int32                `json:"version"`
 }
 
 // OrganizationEvent defines model for OrganizationEvent.
@@ -858,14 +945,15 @@ type OrganizationList struct {
 
 // OrganizationMember defines model for OrganizationMember.
 type OrganizationMember struct {
-	AnonymousId   string             `json:"anonymous_id"`
 	CreatedAt     time.Time          `json:"created_at"`
 	Data          json.RawMessage    `json:"data"`
 	Email         *string            `json:"email,omitempty"`
-	ExternalId    *string            `json:"external_id,omitempty"`
 	HasPushDevice bool               `json:"has_push_device"`
 	Id            openapi_types.UUID `json:"id"`
-	Locale        *string            `json:"locale,omitempty"`
+
+	// Identifier External identifiers associated with this user
+	Identifier []ExternalIDResponse `json:"identifier"`
+	Locale     *string              `json:"locale,omitempty"`
 
 	// OrganizationData Organization-specific data for this user
 	OrganizationData json.RawMessage `json:"organization_data"`
@@ -1022,7 +1110,10 @@ type Provider struct {
 	Module    string             `json:"module"`
 	Name      string             `json:"name"`
 	ProjectId openapi_types.UUID `json:"project_id"`
-	UpdatedAt time.Time          `json:"updated_at"`
+
+	// RateLimit Rate limit configuration for a provider instance.
+	RateLimit RateLimit `json:"rate_limit"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 // ProviderMeta defines model for ProviderMeta.
@@ -1038,13 +1129,29 @@ type ProviderMeta struct {
 	Icon   *string `json:"icon,omitempty"`
 
 	// Locked Whether providers of this module type are locked and cannot be deleted
-	Locked *bool           `json:"locked,omitempty"`
-	Name   string          `json:"name"`
-	Schema json.RawMessage `json:"schema"`
+	Locked *bool `json:"locked,omitempty"`
+
+	// MaxRateLimit Absolute project-wide maximum rate limit (requests per minute). User overrides are clamped to this ceiling.
+	MaxRateLimit *int               `json:"max_rate_limit,omitempty"`
+	Name         string             `json:"name"`
+	RateLimit    *ProviderRateLimit `json:"rate_limit,omitempty"`
+	Schema       json.RawMessage    `json:"schema"`
 
 	// Type Module ID
 	Type string  `json:"type"`
 	Url  *string `json:"url,omitempty"`
+}
+
+// ProviderRateLimit defines model for ProviderRateLimit.
+type ProviderRateLimit struct {
+	// Interval Time window as a Go duration string (e.g. '1s', '1m', '1h'). Defaults to '1s'.
+	Interval string `json:"interval"`
+
+	// Limit Maximum number of requests allowed per interval
+	Limit int `json:"limit"`
+
+	// Override Whether users may override this rate limit at the provider level. When false, the module value is authoritative.
+	Override bool `json:"override"`
 }
 
 // PushProviderData defines model for PushProviderData.
@@ -1060,6 +1167,15 @@ type PushTemplateData struct {
 
 	// Title Push notification title
 	Title *string `json:"title,omitempty"`
+}
+
+// RateLimit Rate limit configuration for a provider instance.
+type RateLimit struct {
+	// Interval Time window as a Go duration string (e.g. '1s', '1m', '1h', '24h').
+	Interval string `json:"interval"`
+
+	// Limit Max number of messages per interval. 0 means use the module default.
+	Limit int `json:"limit"`
 }
 
 // ScheduleOffset defines model for ScheduleOffset.
@@ -1235,6 +1351,12 @@ type UpdateApiKey struct {
 	Role *ProjectRole `json:"role,omitempty"`
 }
 
+// UpdateBroadcast defines model for UpdateBroadcast.
+type UpdateBroadcast struct {
+	// ScheduledAt Set or update the scheduled send time. Pass null to remove the schedule and revert to pending. Only allowed when the broadcast is in 'pending' or 'scheduled' state.
+	ScheduledAt *time.Time `json:"scheduled_at"`
+}
+
 // UpdateCampaign defines model for UpdateCampaign.
 type UpdateCampaign struct {
 	Name       *string             `json:"name,omitempty"`
@@ -1303,6 +1425,9 @@ type UpdateProvider struct {
 	Data     *json.RawMessage `json:"data,omitempty"`
 	LinkWrap *bool            `json:"link_wrap,omitempty"`
 	Name     *string          `json:"name,omitempty"`
+
+	// RateLimit Rate limit configuration for a provider instance.
+	RateLimit *RateLimit `json:"rate_limit,omitempty"`
 }
 
 // UpdateSubscription defines model for UpdateSubscription.
@@ -1365,9 +1490,9 @@ type UpdateUserSubscriptions = []struct {
 type UpsertOrganization struct {
 	Data *map[string]any `json:"data,omitempty"`
 
-	// ExternalId External identifier for the organization from your system
-	ExternalId string  `json:"external_id"`
-	Name       *string `json:"name,omitempty"`
+	// Identifier One or more external identifiers to identify the organization
+	Identifier []ExternalID `json:"identifier"`
+	Name       *string      `json:"name,omitempty"`
 }
 
 // UpsertOrganizationScheduledRequest defines model for UpsertOrganizationScheduledRequest.
@@ -1414,14 +1539,15 @@ type UpsertUserScheduledRequest struct {
 
 // User defines model for User.
 type User struct {
-	AnonymousId   string             `json:"anonymous_id"`
 	CreatedAt     time.Time          `json:"created_at"`
 	Data          json.RawMessage    `json:"data"`
 	Email         *string            `json:"email,omitempty"`
-	ExternalId    *string            `json:"external_id,omitempty"`
 	HasPushDevice bool               `json:"has_push_device"`
 	Id            openapi_types.UUID `json:"id"`
-	Locale        *string            `json:"locale,omitempty"`
+
+	// Identifier External identifiers associated with this user
+	Identifier []ExternalIDResponse `json:"identifier"`
+	Locale     *string              `json:"locale,omitempty"`
 
 	// Phone E.164 formatted phone number
 	Phone     *string            `json:"phone,omitempty"`
@@ -1603,6 +1729,19 @@ type ApiKeyListResponse struct {
 	Total int `json:"total"`
 }
 
+// BroadcastListResponse defines model for BroadcastListResponse.
+type BroadcastListResponse struct {
+	// Limit Maximum number of items returned
+	Limit int `json:"limit"`
+
+	// Offset Number of items skipped
+	Offset  int         `json:"offset"`
+	Results []Broadcast `json:"results"`
+
+	// Total Total number of items matching the filters
+	Total int `json:"total"`
+}
+
 // CampaignListResponse defines model for CampaignListResponse.
 type CampaignListResponse struct {
 	// Limit Maximum number of items returned
@@ -1746,6 +1885,39 @@ type ListActionsParams struct {
 
 // ListProjectAdminsParams defines parameters for ListProjectAdmins.
 type ListProjectAdminsParams struct {
+	// Limit Maximum number of items to return
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Offset Number of items to skip
+	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
+
+	// Search Search query string
+	Search *Search `form:"search,omitempty" json:"search,omitempty"`
+}
+
+// ListBroadcastsParams defines parameters for ListBroadcasts.
+type ListBroadcastsParams struct {
+	// Limit Maximum number of items to return
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Offset Number of items to skip
+	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
+
+	// Search Search query string
+	Search *Search `form:"search,omitempty" json:"search,omitempty"`
+
+	// CampaignId Filter by campaign ID
+	CampaignId *openapi_types.UUID `form:"campaign_id,omitempty" json:"campaign_id,omitempty"`
+
+	// ListId Filter by list ID
+	ListId *openapi_types.UUID `form:"list_id,omitempty" json:"list_id,omitempty"`
+
+	// State Filter by broadcast state
+	State *BroadcastState `form:"state,omitempty" json:"state,omitempty"`
+}
+
+// GetBroadcastUsersParams defines parameters for GetBroadcastUsers.
+type GetBroadcastUsersParams struct {
 	// Limit Maximum number of items to return
 	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
 
@@ -1937,6 +2109,9 @@ type GetOrganizationEventsParams struct {
 
 	// Offset Number of items to skip
 	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
+
+	// Search Search query string
+	Search *Search `form:"search,omitempty" json:"search,omitempty"`
 }
 
 // GetOrganizationScheduledParams defines parameters for GetOrganizationScheduled.
@@ -1971,7 +2146,7 @@ type ListUsersParams struct {
 
 // ImportUsersMultipartBody defines parameters for ImportUsers.
 type ImportUsersMultipartBody struct {
-	// File CSV file with user data (must include external_id column)
+	// File CSV file with user data (must include source and external_id columns)
 	File openapi_types.File `json:"file"`
 }
 
@@ -2085,6 +2260,12 @@ type TestActionFunctionJSONRequestBody = TestActionFunctionRequest
 
 // UpdateProjectAdminJSONRequestBody defines body for UpdateProjectAdmin for application/json ContentType.
 type UpdateProjectAdminJSONRequestBody = UpdateProjectAdmin
+
+// CreateBroadcastJSONRequestBody defines body for CreateBroadcast for application/json ContentType.
+type CreateBroadcastJSONRequestBody = CreateBroadcast
+
+// UpdateBroadcastJSONRequestBody defines body for UpdateBroadcast for application/json ContentType.
+type UpdateBroadcastJSONRequestBody = UpdateBroadcast
 
 // CreateCampaignJSONRequestBody defines body for CreateCampaign for application/json ContentType.
 type CreateCampaignJSONRequestBody = CreateCampaign
@@ -2211,186 +2392,6 @@ type UpdateAdminJSONRequestBody = UpdateAdmin
 
 // AuthCallbackJSONRequestBody defines body for AuthCallback for application/json ContentType.
 type AuthCallbackJSONRequestBody = AuthCallbackRequest
-
-// AsIdentifyUser0 returns the union data inside the IdentifyUser as a IdentifyUser0
-func (t IdentifyUser) AsIdentifyUser0() (IdentifyUser0, error) {
-	var body IdentifyUser0
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromIdentifyUser0 overwrites any union data inside the IdentifyUser as the provided IdentifyUser0
-func (t *IdentifyUser) FromIdentifyUser0(v IdentifyUser0) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeIdentifyUser0 performs a merge with any union data inside the IdentifyUser, using the provided IdentifyUser0
-func (t *IdentifyUser) MergeIdentifyUser0(v IdentifyUser0) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsIdentifyUser1 returns the union data inside the IdentifyUser as a IdentifyUser1
-func (t IdentifyUser) AsIdentifyUser1() (IdentifyUser1, error) {
-	var body IdentifyUser1
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromIdentifyUser1 overwrites any union data inside the IdentifyUser as the provided IdentifyUser1
-func (t *IdentifyUser) FromIdentifyUser1(v IdentifyUser1) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeIdentifyUser1 performs a merge with any union data inside the IdentifyUser, using the provided IdentifyUser1
-func (t *IdentifyUser) MergeIdentifyUser1(v IdentifyUser1) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-func (t IdentifyUser) MarshalJSON() ([]byte, error) {
-	b, err := t.union.MarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	object := make(map[string]json.RawMessage)
-	if t.union != nil {
-		err = json.Unmarshal(b, &object)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if t.AnonymousId != nil {
-		object["anonymous_id"], err = json.Marshal(t.AnonymousId)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling 'anonymous_id': %w", err)
-		}
-	}
-
-	if t.Data != nil {
-		object["data"], err = json.Marshal(t.Data)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling 'data': %w", err)
-		}
-	}
-
-	if t.Email != nil {
-		object["email"], err = json.Marshal(t.Email)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling 'email': %w", err)
-		}
-	}
-
-	if t.ExternalId != nil {
-		object["external_id"], err = json.Marshal(t.ExternalId)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling 'external_id': %w", err)
-		}
-	}
-
-	if t.Locale != nil {
-		object["locale"], err = json.Marshal(t.Locale)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling 'locale': %w", err)
-		}
-	}
-
-	if t.Phone != nil {
-		object["phone"], err = json.Marshal(t.Phone)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling 'phone': %w", err)
-		}
-	}
-
-	if t.Timezone != nil {
-		object["timezone"], err = json.Marshal(t.Timezone)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling 'timezone': %w", err)
-		}
-	}
-	b, err = json.Marshal(object)
-	return b, err
-}
-
-func (t *IdentifyUser) UnmarshalJSON(b []byte) error {
-	err := t.union.UnmarshalJSON(b)
-	if err != nil {
-		return err
-	}
-	object := make(map[string]json.RawMessage)
-	err = json.Unmarshal(b, &object)
-	if err != nil {
-		return err
-	}
-
-	if raw, found := object["anonymous_id"]; found {
-		err = json.Unmarshal(raw, &t.AnonymousId)
-		if err != nil {
-			return fmt.Errorf("error reading 'anonymous_id': %w", err)
-		}
-	}
-
-	if raw, found := object["data"]; found {
-		err = json.Unmarshal(raw, &t.Data)
-		if err != nil {
-			return fmt.Errorf("error reading 'data': %w", err)
-		}
-	}
-
-	if raw, found := object["email"]; found {
-		err = json.Unmarshal(raw, &t.Email)
-		if err != nil {
-			return fmt.Errorf("error reading 'email': %w", err)
-		}
-	}
-
-	if raw, found := object["external_id"]; found {
-		err = json.Unmarshal(raw, &t.ExternalId)
-		if err != nil {
-			return fmt.Errorf("error reading 'external_id': %w", err)
-		}
-	}
-
-	if raw, found := object["locale"]; found {
-		err = json.Unmarshal(raw, &t.Locale)
-		if err != nil {
-			return fmt.Errorf("error reading 'locale': %w", err)
-		}
-	}
-
-	if raw, found := object["phone"]; found {
-		err = json.Unmarshal(raw, &t.Phone)
-		if err != nil {
-			return fmt.Errorf("error reading 'phone': %w", err)
-		}
-	}
-
-	if raw, found := object["timezone"]; found {
-		err = json.Unmarshal(raw, &t.Timezone)
-		if err != nil {
-			return fmt.Errorf("error reading 'timezone': %w", err)
-		}
-	}
-
-	return err
-}
 
 // RequestEditorFn  is the function signature for the RequestEditor callback function
 type RequestEditorFn func(ctx context.Context, req *http.Request) error
@@ -2538,6 +2539,34 @@ type ClientInterface interface {
 	UpdateProjectAdminWithBody(ctx context.Context, projectID openapi_types.UUID, adminID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	UpdateProjectAdmin(ctx context.Context, projectID openapi_types.UUID, adminID openapi_types.UUID, body UpdateProjectAdminJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListBroadcasts request
+	ListBroadcasts(ctx context.Context, projectID openapi_types.UUID, params *ListBroadcastsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateBroadcastWithBody request with any body
+	CreateBroadcastWithBody(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateBroadcast(ctx context.Context, projectID openapi_types.UUID, body CreateBroadcastJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CancelBroadcast request
+	CancelBroadcast(ctx context.Context, projectID openapi_types.UUID, broadcastID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetBroadcast request
+	GetBroadcast(ctx context.Context, projectID openapi_types.UUID, broadcastID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateBroadcastWithBody request with any body
+	UpdateBroadcastWithBody(ctx context.Context, projectID openapi_types.UUID, broadcastID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateBroadcast(ctx context.Context, projectID openapi_types.UUID, broadcastID openapi_types.UUID, body UpdateBroadcastJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// StreamBroadcastProgress request
+	StreamBroadcastProgress(ctx context.Context, projectID openapi_types.UUID, broadcastID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SendBroadcast request
+	SendBroadcast(ctx context.Context, projectID openapi_types.UUID, broadcastID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetBroadcastUsers request
+	GetBroadcastUsers(ctx context.Context, projectID openapi_types.UUID, broadcastID openapi_types.UUID, params *GetBroadcastUsersParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListCampaigns request
 	ListCampaigns(ctx context.Context, projectID openapi_types.UUID, params *ListCampaignsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -2802,6 +2831,9 @@ type ClientInterface interface {
 
 	CreateOrganizationEvent(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, body CreateOrganizationEventJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// DeleteOrganizationExternalID request
+	DeleteOrganizationExternalID(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, identifierID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetOrganizationScheduled request
 	GetOrganizationScheduled(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, params *GetOrganizationScheduledParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -2884,6 +2916,9 @@ type ClientInterface interface {
 	CreateUserEventWithBody(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	CreateUserEvent(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, body CreateUserEventJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteUserExternalID request
+	DeleteUserExternalID(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, identifierID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetUserJourneys request
 	GetUserJourneys(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, params *GetUserJourneysParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -3301,6 +3336,126 @@ func (c *Client) UpdateProjectAdminWithBody(ctx context.Context, projectID opena
 
 func (c *Client) UpdateProjectAdmin(ctx context.Context, projectID openapi_types.UUID, adminID openapi_types.UUID, body UpdateProjectAdminJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateProjectAdminRequest(c.Server, projectID, adminID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListBroadcasts(ctx context.Context, projectID openapi_types.UUID, params *ListBroadcastsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListBroadcastsRequest(c.Server, projectID, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateBroadcastWithBody(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateBroadcastRequestWithBody(c.Server, projectID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateBroadcast(ctx context.Context, projectID openapi_types.UUID, body CreateBroadcastJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateBroadcastRequest(c.Server, projectID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CancelBroadcast(ctx context.Context, projectID openapi_types.UUID, broadcastID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCancelBroadcastRequest(c.Server, projectID, broadcastID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetBroadcast(ctx context.Context, projectID openapi_types.UUID, broadcastID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetBroadcastRequest(c.Server, projectID, broadcastID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateBroadcastWithBody(ctx context.Context, projectID openapi_types.UUID, broadcastID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateBroadcastRequestWithBody(c.Server, projectID, broadcastID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateBroadcast(ctx context.Context, projectID openapi_types.UUID, broadcastID openapi_types.UUID, body UpdateBroadcastJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateBroadcastRequest(c.Server, projectID, broadcastID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) StreamBroadcastProgress(ctx context.Context, projectID openapi_types.UUID, broadcastID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStreamBroadcastProgressRequest(c.Server, projectID, broadcastID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) SendBroadcast(ctx context.Context, projectID openapi_types.UUID, broadcastID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSendBroadcastRequest(c.Server, projectID, broadcastID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetBroadcastUsers(ctx context.Context, projectID openapi_types.UUID, broadcastID openapi_types.UUID, params *GetBroadcastUsersParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetBroadcastUsersRequest(c.Server, projectID, broadcastID, params)
 	if err != nil {
 		return nil, err
 	}
@@ -4451,6 +4606,18 @@ func (c *Client) CreateOrganizationEvent(ctx context.Context, projectID openapi_
 	return c.Client.Do(req)
 }
 
+func (c *Client) DeleteOrganizationExternalID(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, identifierID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteOrganizationExternalIDRequest(c.Server, projectID, organizationID, identifierID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) GetOrganizationScheduled(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, params *GetOrganizationScheduledParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetOrganizationScheduledRequest(c.Server, projectID, organizationID, params)
 	if err != nil {
@@ -4801,6 +4968,18 @@ func (c *Client) CreateUserEventWithBody(ctx context.Context, projectID openapi_
 
 func (c *Client) CreateUserEvent(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, body CreateUserEventJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateUserEventRequest(c.Server, projectID, userID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteUserExternalID(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, identifierID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteUserExternalIDRequest(c.Server, projectID, userID, identifierID)
 	if err != nil {
 		return nil, err
 	}
@@ -6240,6 +6419,502 @@ func NewUpdateProjectAdminRequestWithBody(server string, projectID openapi_types
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListBroadcastsRequest generates requests for ListBroadcasts
+func NewListBroadcastsRequest(server string, projectID openapi_types.UUID, params *ListBroadcastsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/broadcasts", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Offset != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "offset", runtime.ParamLocationQuery, *params.Offset); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Search != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "search", runtime.ParamLocationQuery, *params.Search); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.CampaignId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "campaign_id", runtime.ParamLocationQuery, *params.CampaignId); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.ListId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "list_id", runtime.ParamLocationQuery, *params.ListId); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.State != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "state", runtime.ParamLocationQuery, *params.State); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateBroadcastRequest calls the generic CreateBroadcast builder with application/json body
+func NewCreateBroadcastRequest(server string, projectID openapi_types.UUID, body CreateBroadcastJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateBroadcastRequestWithBody(server, projectID, "application/json", bodyReader)
+}
+
+// NewCreateBroadcastRequestWithBody generates requests for CreateBroadcast with any type of body
+func NewCreateBroadcastRequestWithBody(server string, projectID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/broadcasts", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewCancelBroadcastRequest generates requests for CancelBroadcast
+func NewCancelBroadcastRequest(server string, projectID openapi_types.UUID, broadcastID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "broadcastID", runtime.ParamLocationPath, broadcastID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/broadcasts/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetBroadcastRequest generates requests for GetBroadcast
+func NewGetBroadcastRequest(server string, projectID openapi_types.UUID, broadcastID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "broadcastID", runtime.ParamLocationPath, broadcastID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/broadcasts/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateBroadcastRequest calls the generic UpdateBroadcast builder with application/json body
+func NewUpdateBroadcastRequest(server string, projectID openapi_types.UUID, broadcastID openapi_types.UUID, body UpdateBroadcastJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateBroadcastRequestWithBody(server, projectID, broadcastID, "application/json", bodyReader)
+}
+
+// NewUpdateBroadcastRequestWithBody generates requests for UpdateBroadcast with any type of body
+func NewUpdateBroadcastRequestWithBody(server string, projectID openapi_types.UUID, broadcastID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "broadcastID", runtime.ParamLocationPath, broadcastID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/broadcasts/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PATCH", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewStreamBroadcastProgressRequest generates requests for StreamBroadcastProgress
+func NewStreamBroadcastProgressRequest(server string, projectID openapi_types.UUID, broadcastID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "broadcastID", runtime.ParamLocationPath, broadcastID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/broadcasts/%s/progress", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewSendBroadcastRequest generates requests for SendBroadcast
+func NewSendBroadcastRequest(server string, projectID openapi_types.UUID, broadcastID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "broadcastID", runtime.ParamLocationPath, broadcastID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/broadcasts/%s/send", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetBroadcastUsersRequest generates requests for GetBroadcastUsers
+func NewGetBroadcastUsersRequest(server string, projectID openapi_types.UUID, broadcastID openapi_types.UUID, params *GetBroadcastUsersParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "broadcastID", runtime.ParamLocationPath, broadcastID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/broadcasts/%s/users", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Offset != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "offset", runtime.ParamLocationQuery, *params.Offset); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Search != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "search", runtime.ParamLocationQuery, *params.Search); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -10044,6 +10719,22 @@ func NewGetOrganizationEventsRequest(server string, projectID openapi_types.UUID
 
 		}
 
+		if params.Search != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "search", runtime.ParamLocationQuery, *params.Search); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
 		queryURL.RawQuery = queryValues.Encode()
 	}
 
@@ -10105,6 +10796,54 @@ func NewCreateOrganizationEventRequestWithBody(server string, projectID openapi_
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteOrganizationExternalIDRequest generates requests for DeleteOrganizationExternalID
+func NewDeleteOrganizationExternalIDRequest(server string, projectID openapi_types.UUID, organizationID openapi_types.UUID, identifierID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "organizationID", runtime.ParamLocationPath, organizationID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "identifierID", runtime.ParamLocationPath, identifierID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/subjects/organizations/%s/identifiers/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -11311,6 +12050,54 @@ func NewCreateUserEventRequestWithBody(server string, projectID openapi_types.UU
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteUserExternalIDRequest generates requests for DeleteUserExternalID
+func NewDeleteUserExternalIDRequest(server string, projectID openapi_types.UUID, userID openapi_types.UUID, identifierID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "userID", runtime.ParamLocationPath, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "identifierID", runtime.ParamLocationPath, identifierID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/subjects/users/%s/identifiers/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -12864,6 +13651,34 @@ type ClientWithResponsesInterface interface {
 
 	UpdateProjectAdminWithResponse(ctx context.Context, projectID openapi_types.UUID, adminID openapi_types.UUID, body UpdateProjectAdminJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateProjectAdminResponse, error)
 
+	// ListBroadcastsWithResponse request
+	ListBroadcastsWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListBroadcastsParams, reqEditors ...RequestEditorFn) (*ListBroadcastsResponse, error)
+
+	// CreateBroadcastWithBodyWithResponse request with any body
+	CreateBroadcastWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateBroadcastResponse, error)
+
+	CreateBroadcastWithResponse(ctx context.Context, projectID openapi_types.UUID, body CreateBroadcastJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateBroadcastResponse, error)
+
+	// CancelBroadcastWithResponse request
+	CancelBroadcastWithResponse(ctx context.Context, projectID openapi_types.UUID, broadcastID openapi_types.UUID, reqEditors ...RequestEditorFn) (*CancelBroadcastResponse, error)
+
+	// GetBroadcastWithResponse request
+	GetBroadcastWithResponse(ctx context.Context, projectID openapi_types.UUID, broadcastID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetBroadcastResponse, error)
+
+	// UpdateBroadcastWithBodyWithResponse request with any body
+	UpdateBroadcastWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, broadcastID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateBroadcastResponse, error)
+
+	UpdateBroadcastWithResponse(ctx context.Context, projectID openapi_types.UUID, broadcastID openapi_types.UUID, body UpdateBroadcastJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateBroadcastResponse, error)
+
+	// StreamBroadcastProgressWithResponse request
+	StreamBroadcastProgressWithResponse(ctx context.Context, projectID openapi_types.UUID, broadcastID openapi_types.UUID, reqEditors ...RequestEditorFn) (*StreamBroadcastProgressResponse, error)
+
+	// SendBroadcastWithResponse request
+	SendBroadcastWithResponse(ctx context.Context, projectID openapi_types.UUID, broadcastID openapi_types.UUID, reqEditors ...RequestEditorFn) (*SendBroadcastResponse, error)
+
+	// GetBroadcastUsersWithResponse request
+	GetBroadcastUsersWithResponse(ctx context.Context, projectID openapi_types.UUID, broadcastID openapi_types.UUID, params *GetBroadcastUsersParams, reqEditors ...RequestEditorFn) (*GetBroadcastUsersResponse, error)
+
 	// ListCampaignsWithResponse request
 	ListCampaignsWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListCampaignsParams, reqEditors ...RequestEditorFn) (*ListCampaignsResponse, error)
 
@@ -13127,6 +13942,9 @@ type ClientWithResponsesInterface interface {
 
 	CreateOrganizationEventWithResponse(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, body CreateOrganizationEventJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateOrganizationEventResponse, error)
 
+	// DeleteOrganizationExternalIDWithResponse request
+	DeleteOrganizationExternalIDWithResponse(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, identifierID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteOrganizationExternalIDResponse, error)
+
 	// GetOrganizationScheduledWithResponse request
 	GetOrganizationScheduledWithResponse(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, params *GetOrganizationScheduledParams, reqEditors ...RequestEditorFn) (*GetOrganizationScheduledResponse, error)
 
@@ -13209,6 +14027,9 @@ type ClientWithResponsesInterface interface {
 	CreateUserEventWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateUserEventResponse, error)
 
 	CreateUserEventWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, body CreateUserEventJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateUserEventResponse, error)
+
+	// DeleteUserExternalIDWithResponse request
+	DeleteUserExternalIDWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, identifierID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteUserExternalIDResponse, error)
 
 	// GetUserJourneysWithResponse request
 	GetUserJourneysWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, params *GetUserJourneysParams, reqEditors ...RequestEditorFn) (*GetUserJourneysResponse, error)
@@ -13762,6 +14583,202 @@ func (r UpdateProjectAdminResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r UpdateProjectAdminResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListBroadcastsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *BroadcastListResponse
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListBroadcastsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListBroadcastsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateBroadcastResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *Broadcast
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateBroadcastResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateBroadcastResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CancelBroadcastResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Broadcast
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CancelBroadcastResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CancelBroadcastResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetBroadcastResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Broadcast
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetBroadcastResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetBroadcastResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateBroadcastResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Broadcast
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateBroadcastResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateBroadcastResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type StreamBroadcastProgressResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r StreamBroadcastProgressResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r StreamBroadcastProgressResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type SendBroadcastResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Broadcast
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r SendBroadcastResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SendBroadcastResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetBroadcastUsersResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *struct {
+		Limit   int `json:"limit"`
+		Offset  int `json:"offset"`
+		Results []struct {
+			Email    *string             `json:"email,omitempty"`
+			FullName *string             `json:"full_name,omitempty"`
+			Id       *openapi_types.UUID `json:"id,omitempty"`
+			Phone    *string             `json:"phone,omitempty"`
+			SentAt   *time.Time          `json:"sent_at,omitempty"`
+			State    *string             `json:"state,omitempty"`
+			UserId   *openapi_types.UUID `json:"user_id,omitempty"`
+		} `json:"results"`
+		Total int `json:"total"`
+	}
+	JSONDefault *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetBroadcastUsersResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetBroadcastUsersResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -15466,6 +16483,28 @@ func (r CreateOrganizationEventResponse) StatusCode() int {
 	return 0
 }
 
+type DeleteOrganizationExternalIDResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteOrganizationExternalIDResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteOrganizationExternalIDResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type GetOrganizationScheduledResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -15982,6 +17021,28 @@ func (r CreateUserEventResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r CreateUserEventResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteUserExternalIDResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteUserExternalIDResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteUserExternalIDResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -16848,6 +17909,94 @@ func (c *ClientWithResponses) UpdateProjectAdminWithResponse(ctx context.Context
 	return ParseUpdateProjectAdminResponse(rsp)
 }
 
+// ListBroadcastsWithResponse request returning *ListBroadcastsResponse
+func (c *ClientWithResponses) ListBroadcastsWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListBroadcastsParams, reqEditors ...RequestEditorFn) (*ListBroadcastsResponse, error) {
+	rsp, err := c.ListBroadcasts(ctx, projectID, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListBroadcastsResponse(rsp)
+}
+
+// CreateBroadcastWithBodyWithResponse request with arbitrary body returning *CreateBroadcastResponse
+func (c *ClientWithResponses) CreateBroadcastWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateBroadcastResponse, error) {
+	rsp, err := c.CreateBroadcastWithBody(ctx, projectID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateBroadcastResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateBroadcastWithResponse(ctx context.Context, projectID openapi_types.UUID, body CreateBroadcastJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateBroadcastResponse, error) {
+	rsp, err := c.CreateBroadcast(ctx, projectID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateBroadcastResponse(rsp)
+}
+
+// CancelBroadcastWithResponse request returning *CancelBroadcastResponse
+func (c *ClientWithResponses) CancelBroadcastWithResponse(ctx context.Context, projectID openapi_types.UUID, broadcastID openapi_types.UUID, reqEditors ...RequestEditorFn) (*CancelBroadcastResponse, error) {
+	rsp, err := c.CancelBroadcast(ctx, projectID, broadcastID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCancelBroadcastResponse(rsp)
+}
+
+// GetBroadcastWithResponse request returning *GetBroadcastResponse
+func (c *ClientWithResponses) GetBroadcastWithResponse(ctx context.Context, projectID openapi_types.UUID, broadcastID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetBroadcastResponse, error) {
+	rsp, err := c.GetBroadcast(ctx, projectID, broadcastID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetBroadcastResponse(rsp)
+}
+
+// UpdateBroadcastWithBodyWithResponse request with arbitrary body returning *UpdateBroadcastResponse
+func (c *ClientWithResponses) UpdateBroadcastWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, broadcastID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateBroadcastResponse, error) {
+	rsp, err := c.UpdateBroadcastWithBody(ctx, projectID, broadcastID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateBroadcastResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateBroadcastWithResponse(ctx context.Context, projectID openapi_types.UUID, broadcastID openapi_types.UUID, body UpdateBroadcastJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateBroadcastResponse, error) {
+	rsp, err := c.UpdateBroadcast(ctx, projectID, broadcastID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateBroadcastResponse(rsp)
+}
+
+// StreamBroadcastProgressWithResponse request returning *StreamBroadcastProgressResponse
+func (c *ClientWithResponses) StreamBroadcastProgressWithResponse(ctx context.Context, projectID openapi_types.UUID, broadcastID openapi_types.UUID, reqEditors ...RequestEditorFn) (*StreamBroadcastProgressResponse, error) {
+	rsp, err := c.StreamBroadcastProgress(ctx, projectID, broadcastID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStreamBroadcastProgressResponse(rsp)
+}
+
+// SendBroadcastWithResponse request returning *SendBroadcastResponse
+func (c *ClientWithResponses) SendBroadcastWithResponse(ctx context.Context, projectID openapi_types.UUID, broadcastID openapi_types.UUID, reqEditors ...RequestEditorFn) (*SendBroadcastResponse, error) {
+	rsp, err := c.SendBroadcast(ctx, projectID, broadcastID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSendBroadcastResponse(rsp)
+}
+
+// GetBroadcastUsersWithResponse request returning *GetBroadcastUsersResponse
+func (c *ClientWithResponses) GetBroadcastUsersWithResponse(ctx context.Context, projectID openapi_types.UUID, broadcastID openapi_types.UUID, params *GetBroadcastUsersParams, reqEditors ...RequestEditorFn) (*GetBroadcastUsersResponse, error) {
+	rsp, err := c.GetBroadcastUsers(ctx, projectID, broadcastID, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetBroadcastUsersResponse(rsp)
+}
+
 // ListCampaignsWithResponse request returning *ListCampaignsResponse
 func (c *ClientWithResponses) ListCampaignsWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListCampaignsParams, reqEditors ...RequestEditorFn) (*ListCampaignsResponse, error) {
 	rsp, err := c.ListCampaigns(ctx, projectID, params, reqEditors...)
@@ -17681,6 +18830,15 @@ func (c *ClientWithResponses) CreateOrganizationEventWithResponse(ctx context.Co
 	return ParseCreateOrganizationEventResponse(rsp)
 }
 
+// DeleteOrganizationExternalIDWithResponse request returning *DeleteOrganizationExternalIDResponse
+func (c *ClientWithResponses) DeleteOrganizationExternalIDWithResponse(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, identifierID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteOrganizationExternalIDResponse, error) {
+	rsp, err := c.DeleteOrganizationExternalID(ctx, projectID, organizationID, identifierID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteOrganizationExternalIDResponse(rsp)
+}
+
 // GetOrganizationScheduledWithResponse request returning *GetOrganizationScheduledResponse
 func (c *ClientWithResponses) GetOrganizationScheduledWithResponse(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, params *GetOrganizationScheduledParams, reqEditors ...RequestEditorFn) (*GetOrganizationScheduledResponse, error) {
 	rsp, err := c.GetOrganizationScheduled(ctx, projectID, organizationID, params, reqEditors...)
@@ -17942,6 +19100,15 @@ func (c *ClientWithResponses) CreateUserEventWithResponse(ctx context.Context, p
 		return nil, err
 	}
 	return ParseCreateUserEventResponse(rsp)
+}
+
+// DeleteUserExternalIDWithResponse request returning *DeleteUserExternalIDResponse
+func (c *ClientWithResponses) DeleteUserExternalIDWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, identifierID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteUserExternalIDResponse, error) {
+	rsp, err := c.DeleteUserExternalID(ctx, projectID, userID, identifierID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteUserExternalIDResponse(rsp)
 }
 
 // GetUserJourneysWithResponse request returning *GetUserJourneysResponse
@@ -18882,6 +20049,276 @@ func ParseUpdateProjectAdminResponse(rsp *http.Response) (*UpdateProjectAdminRes
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest ProjectAdmin
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListBroadcastsResponse parses an HTTP response from a ListBroadcastsWithResponse call
+func ParseListBroadcastsResponse(rsp *http.Response) (*ListBroadcastsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListBroadcastsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest BroadcastListResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateBroadcastResponse parses an HTTP response from a CreateBroadcastWithResponse call
+func ParseCreateBroadcastResponse(rsp *http.Response) (*CreateBroadcastResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateBroadcastResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest Broadcast
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCancelBroadcastResponse parses an HTTP response from a CancelBroadcastWithResponse call
+func ParseCancelBroadcastResponse(rsp *http.Response) (*CancelBroadcastResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CancelBroadcastResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Broadcast
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetBroadcastResponse parses an HTTP response from a GetBroadcastWithResponse call
+func ParseGetBroadcastResponse(rsp *http.Response) (*GetBroadcastResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetBroadcastResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Broadcast
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateBroadcastResponse parses an HTTP response from a UpdateBroadcastWithResponse call
+func ParseUpdateBroadcastResponse(rsp *http.Response) (*UpdateBroadcastResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateBroadcastResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Broadcast
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseStreamBroadcastProgressResponse parses an HTTP response from a StreamBroadcastProgressWithResponse call
+func ParseStreamBroadcastProgressResponse(rsp *http.Response) (*StreamBroadcastProgressResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &StreamBroadcastProgressResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSendBroadcastResponse parses an HTTP response from a SendBroadcastWithResponse call
+func ParseSendBroadcastResponse(rsp *http.Response) (*SendBroadcastResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SendBroadcastResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Broadcast
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetBroadcastUsersResponse parses an HTTP response from a GetBroadcastUsersWithResponse call
+func ParseGetBroadcastUsersResponse(rsp *http.Response) (*GetBroadcastUsersResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetBroadcastUsersResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Limit   int `json:"limit"`
+			Offset  int `json:"offset"`
+			Results []struct {
+				Email    *string             `json:"email,omitempty"`
+				FullName *string             `json:"full_name,omitempty"`
+				Id       *openapi_types.UUID `json:"id,omitempty"`
+				Phone    *string             `json:"phone,omitempty"`
+				SentAt   *time.Time          `json:"sent_at,omitempty"`
+				State    *string             `json:"state,omitempty"`
+				UserId   *openapi_types.UUID `json:"user_id,omitempty"`
+			} `json:"results"`
+			Total int `json:"total"`
+		}
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -21198,6 +22635,32 @@ func ParseCreateOrganizationEventResponse(rsp *http.Response) (*CreateOrganizati
 	return response, nil
 }
 
+// ParseDeleteOrganizationExternalIDResponse parses an HTTP response from a DeleteOrganizationExternalIDWithResponse call
+func ParseDeleteOrganizationExternalIDResponse(rsp *http.Response) (*DeleteOrganizationExternalIDResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteOrganizationExternalIDResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseGetOrganizationScheduledResponse parses an HTTP response from a GetOrganizationScheduledWithResponse call
 func ParseGetOrganizationScheduledResponse(rsp *http.Response) (*GetOrganizationScheduledResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -21879,6 +23342,32 @@ func ParseCreateUserEventResponse(rsp *http.Response) (*CreateUserEventResponse,
 	}
 
 	response := &CreateUserEventResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteUserExternalIDResponse parses an HTTP response from a DeleteUserExternalIDWithResponse call
+func ParseDeleteUserExternalIDResponse(rsp *http.Response) (*DeleteUserExternalIDResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteUserExternalIDResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -22822,6 +24311,30 @@ type ServerInterface interface {
 	// Update project admin role
 	// (PATCH /api/admin/projects/{projectID}/admins/{adminID})
 	UpdateProjectAdmin(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, adminID openapi_types.UUID)
+	// List broadcasts
+	// (GET /api/admin/projects/{projectID}/broadcasts)
+	ListBroadcasts(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListBroadcastsParams)
+	// Create broadcast
+	// (POST /api/admin/projects/{projectID}/broadcasts)
+	CreateBroadcast(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID)
+	// Cancel broadcast
+	// (DELETE /api/admin/projects/{projectID}/broadcasts/{broadcastID})
+	CancelBroadcast(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, broadcastID openapi_types.UUID)
+	// Get broadcast
+	// (GET /api/admin/projects/{projectID}/broadcasts/{broadcastID})
+	GetBroadcast(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, broadcastID openapi_types.UUID)
+	// Update broadcast
+	// (PATCH /api/admin/projects/{projectID}/broadcasts/{broadcastID})
+	UpdateBroadcast(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, broadcastID openapi_types.UUID)
+	// Stream broadcast progress
+	// (GET /api/admin/projects/{projectID}/broadcasts/{broadcastID}/progress)
+	StreamBroadcastProgress(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, broadcastID openapi_types.UUID)
+	// Send broadcast
+	// (POST /api/admin/projects/{projectID}/broadcasts/{broadcastID}/send)
+	SendBroadcast(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, broadcastID openapi_types.UUID)
+	// Get broadcast users
+	// (GET /api/admin/projects/{projectID}/broadcasts/{broadcastID}/users)
+	GetBroadcastUsers(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, broadcastID openapi_types.UUID, params GetBroadcastUsersParams)
 	// List campaigns
 	// (GET /api/admin/projects/{projectID}/campaigns)
 	ListCampaigns(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListCampaignsParams)
@@ -23041,6 +24554,9 @@ type ServerInterface interface {
 	// Create organization event
 	// (POST /api/admin/projects/{projectID}/subjects/organizations/{organizationID}/events)
 	CreateOrganizationEvent(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, organizationID openapi_types.UUID)
+	// Delete organization external identifier
+	// (DELETE /api/admin/projects/{projectID}/subjects/organizations/{organizationID}/identifiers/{identifierID})
+	DeleteOrganizationExternalID(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, organizationID openapi_types.UUID, identifierID openapi_types.UUID)
 	// Get organization scheduled
 	// (GET /api/admin/projects/{projectID}/subjects/organizations/{organizationID}/scheduled)
 	GetOrganizationScheduled(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, organizationID openapi_types.UUID, params GetOrganizationScheduledParams)
@@ -23110,6 +24626,9 @@ type ServerInterface interface {
 	// Create user event
 	// (POST /api/admin/projects/{projectID}/subjects/users/{userID}/events)
 	CreateUserEvent(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID)
+	// Delete user external identifier
+	// (DELETE /api/admin/projects/{projectID}/subjects/users/{userID}/identifiers/{identifierID})
+	DeleteUserExternalID(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID, identifierID openapi_types.UUID)
 	// Get user journeys
 	// (GET /api/admin/projects/{projectID}/subjects/users/{userID}/journeys)
 	GetUserJourneys(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID, params GetUserJourneysParams)
@@ -23314,6 +24833,54 @@ func (_ Unimplemented) GetProjectAdmin(w http.ResponseWriter, r *http.Request, p
 // Update project admin role
 // (PATCH /api/admin/projects/{projectID}/admins/{adminID})
 func (_ Unimplemented) UpdateProjectAdmin(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, adminID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// List broadcasts
+// (GET /api/admin/projects/{projectID}/broadcasts)
+func (_ Unimplemented) ListBroadcasts(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListBroadcastsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Create broadcast
+// (POST /api/admin/projects/{projectID}/broadcasts)
+func (_ Unimplemented) CreateBroadcast(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Cancel broadcast
+// (DELETE /api/admin/projects/{projectID}/broadcasts/{broadcastID})
+func (_ Unimplemented) CancelBroadcast(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, broadcastID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Get broadcast
+// (GET /api/admin/projects/{projectID}/broadcasts/{broadcastID})
+func (_ Unimplemented) GetBroadcast(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, broadcastID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Update broadcast
+// (PATCH /api/admin/projects/{projectID}/broadcasts/{broadcastID})
+func (_ Unimplemented) UpdateBroadcast(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, broadcastID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Stream broadcast progress
+// (GET /api/admin/projects/{projectID}/broadcasts/{broadcastID}/progress)
+func (_ Unimplemented) StreamBroadcastProgress(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, broadcastID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Send broadcast
+// (POST /api/admin/projects/{projectID}/broadcasts/{broadcastID}/send)
+func (_ Unimplemented) SendBroadcast(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, broadcastID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Get broadcast users
+// (GET /api/admin/projects/{projectID}/broadcasts/{broadcastID}/users)
+func (_ Unimplemented) GetBroadcastUsers(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, broadcastID openapi_types.UUID, params GetBroadcastUsersParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -23755,6 +25322,12 @@ func (_ Unimplemented) CreateOrganizationEvent(w http.ResponseWriter, r *http.Re
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// Delete organization external identifier
+// (DELETE /api/admin/projects/{projectID}/subjects/organizations/{organizationID}/identifiers/{identifierID})
+func (_ Unimplemented) DeleteOrganizationExternalID(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, organizationID openapi_types.UUID, identifierID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // Get organization scheduled
 // (GET /api/admin/projects/{projectID}/subjects/organizations/{organizationID}/scheduled)
 func (_ Unimplemented) GetOrganizationScheduled(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, organizationID openapi_types.UUID, params GetOrganizationScheduledParams) {
@@ -23890,6 +25463,12 @@ func (_ Unimplemented) GetUserEvents(w http.ResponseWriter, r *http.Request, pro
 // Create user event
 // (POST /api/admin/projects/{projectID}/subjects/users/{userID}/events)
 func (_ Unimplemented) CreateUserEvent(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Delete user external identifier
+// (DELETE /api/admin/projects/{projectID}/subjects/users/{userID}/identifiers/{identifierID})
+func (_ Unimplemented) DeleteUserExternalID(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID, identifierID openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -24824,6 +26403,386 @@ func (siw *ServerInterfaceWrapper) UpdateProjectAdmin(w http.ResponseWriter, r *
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UpdateProjectAdmin(w, r, projectID, adminID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListBroadcasts operation middleware
+func (siw *ServerInterfaceWrapper) ListBroadcasts(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListBroadcastsParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "limit", r.URL.Query(), &params.Limit)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "offset", r.URL.Query(), &params.Offset)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "search" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "search", r.URL.Query(), &params.Search)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "search", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "campaign_id" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "campaign_id", r.URL.Query(), &params.CampaignId)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "campaign_id", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "list_id" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "list_id", r.URL.Query(), &params.ListId)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "list_id", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "state" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "state", r.URL.Query(), &params.State)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "state", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListBroadcasts(w, r, projectID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateBroadcast operation middleware
+func (siw *ServerInterfaceWrapper) CreateBroadcast(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateBroadcast(w, r, projectID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CancelBroadcast operation middleware
+func (siw *ServerInterfaceWrapper) CancelBroadcast(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "broadcastID" -------------
+	var broadcastID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "broadcastID", chi.URLParam(r, "broadcastID"), &broadcastID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "broadcastID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CancelBroadcast(w, r, projectID, broadcastID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetBroadcast operation middleware
+func (siw *ServerInterfaceWrapper) GetBroadcast(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "broadcastID" -------------
+	var broadcastID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "broadcastID", chi.URLParam(r, "broadcastID"), &broadcastID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "broadcastID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetBroadcast(w, r, projectID, broadcastID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateBroadcast operation middleware
+func (siw *ServerInterfaceWrapper) UpdateBroadcast(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "broadcastID" -------------
+	var broadcastID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "broadcastID", chi.URLParam(r, "broadcastID"), &broadcastID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "broadcastID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateBroadcast(w, r, projectID, broadcastID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// StreamBroadcastProgress operation middleware
+func (siw *ServerInterfaceWrapper) StreamBroadcastProgress(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "broadcastID" -------------
+	var broadcastID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "broadcastID", chi.URLParam(r, "broadcastID"), &broadcastID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "broadcastID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.StreamBroadcastProgress(w, r, projectID, broadcastID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SendBroadcast operation middleware
+func (siw *ServerInterfaceWrapper) SendBroadcast(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "broadcastID" -------------
+	var broadcastID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "broadcastID", chi.URLParam(r, "broadcastID"), &broadcastID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "broadcastID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SendBroadcast(w, r, projectID, broadcastID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetBroadcastUsers operation middleware
+func (siw *ServerInterfaceWrapper) GetBroadcastUsers(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "broadcastID" -------------
+	var broadcastID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "broadcastID", chi.URLParam(r, "broadcastID"), &broadcastID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "broadcastID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetBroadcastUsersParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "limit", r.URL.Query(), &params.Limit)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "offset", r.URL.Query(), &params.Offset)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "search" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "search", r.URL.Query(), &params.Search)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "search", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetBroadcastUsers(w, r, projectID, broadcastID, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -27921,6 +29880,14 @@ func (siw *ServerInterfaceWrapper) GetOrganizationEvents(w http.ResponseWriter, 
 		return
 	}
 
+	// ------------- Optional query parameter "search" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "search", r.URL.Query(), &params.Search)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "search", Err: err})
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetOrganizationEvents(w, r, projectID, organizationID, params)
 	}))
@@ -27963,6 +29930,55 @@ func (siw *ServerInterfaceWrapper) CreateOrganizationEvent(w http.ResponseWriter
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CreateOrganizationEvent(w, r, projectID, organizationID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteOrganizationExternalID operation middleware
+func (siw *ServerInterfaceWrapper) DeleteOrganizationExternalID(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "organizationID" -------------
+	var organizationID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "organizationID", chi.URLParam(r, "organizationID"), &organizationID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "organizationID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "identifierID" -------------
+	var identifierID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "identifierID", chi.URLParam(r, "identifierID"), &identifierID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "identifierID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteOrganizationExternalID(w, r, projectID, organizationID, identifierID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -28957,6 +30973,55 @@ func (siw *ServerInterfaceWrapper) CreateUserEvent(w http.ResponseWriter, r *htt
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CreateUserEvent(w, r, projectID, userID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteUserExternalID operation middleware
+func (siw *ServerInterfaceWrapper) DeleteUserExternalID(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "userID" -------------
+	var userID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userID", chi.URLParam(r, "userID"), &userID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "userID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "identifierID" -------------
+	var identifierID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "identifierID", chi.URLParam(r, "identifierID"), &identifierID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "identifierID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteUserExternalID(w, r, projectID, userID, identifierID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -30198,6 +32263,30 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Patch(options.BaseURL+"/api/admin/projects/{projectID}/admins/{adminID}", wrapper.UpdateProjectAdmin)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/broadcasts", wrapper.ListBroadcasts)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/broadcasts", wrapper.CreateBroadcast)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/admin/projects/{projectID}/broadcasts/{broadcastID}", wrapper.CancelBroadcast)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/broadcasts/{broadcastID}", wrapper.GetBroadcast)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/admin/projects/{projectID}/broadcasts/{broadcastID}", wrapper.UpdateBroadcast)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/broadcasts/{broadcastID}/progress", wrapper.StreamBroadcastProgress)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/broadcasts/{broadcastID}/send", wrapper.SendBroadcast)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/broadcasts/{broadcastID}/users", wrapper.GetBroadcastUsers)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/campaigns", wrapper.ListCampaigns)
 	})
 	r.Group(func(r chi.Router) {
@@ -30417,6 +32506,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/events", wrapper.CreateOrganizationEvent)
 	})
 	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/identifiers/{identifierID}", wrapper.DeleteOrganizationExternalID)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/scheduled", wrapper.GetOrganizationScheduled)
 	})
 	r.Group(func(r chi.Router) {
@@ -30484,6 +32576,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/subjects/users/{userID}/events", wrapper.CreateUserEvent)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/admin/projects/{projectID}/subjects/users/{userID}/identifiers/{identifierID}", wrapper.DeleteUserExternalID)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/subjects/users/{userID}/journeys", wrapper.GetUserJourneys)

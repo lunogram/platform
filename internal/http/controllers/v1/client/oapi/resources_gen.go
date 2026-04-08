@@ -25,35 +25,29 @@ const (
 
 // DeleteOrganizationRequest defines model for DeleteOrganizationRequest.
 type DeleteOrganizationRequest struct {
-	// ExternalId External identifier for the organization
-	ExternalId string `json:"external_id"`
+	// Identifier One or more external identifiers to identify the organization
+	Identifier OrganizationIdentifier `json:"identifier"`
 }
 
 // DeleteOrganizationScheduledRequest defines model for DeleteOrganizationScheduledRequest.
 type DeleteOrganizationScheduledRequest struct {
+	// Identifier One or more external identifiers to identify the organization
+	Identifier OrganizationIdentifier `json:"identifier"`
+
 	// Name The name of the scheduled resource to delete
 	Name string `json:"name"`
-
-	// OrganizationExternalId External identifier for the organization from your system
-	OrganizationExternalId string `json:"organization_external_id"`
 }
 
 // DeleteUserRequest defines model for DeleteUserRequest.
 type DeleteUserRequest struct {
-	// AnonymousId Anonymous identifier for the user
-	AnonymousId *string `json:"anonymous_id"`
-
-	// ExternalId External identifier for the user
-	ExternalId *string `json:"external_id"`
+	// Identifier One or more external identifiers to identify the user
+	Identifier UserIdentifier `json:"identifier"`
 }
 
 // DeleteUserScheduledRequest defines model for DeleteUserScheduledRequest.
 type DeleteUserScheduledRequest struct {
-	// AnonymousId Anonymous identifier for the user
-	AnonymousId *string `json:"anonymous_id"`
-
-	// ExternalId External identifier for the user from your system
-	ExternalId *string `json:"external_id"`
+	// Identifier One or more external identifiers to identify the user
+	Identifier *UserIdentifier `json:"identifier,omitempty"`
 
 	// Name The name of the scheduled resource to delete
 	Name string `json:"name"`
@@ -61,31 +55,50 @@ type DeleteUserScheduledRequest struct {
 
 // Event defines model for Event.
 type Event struct {
-	// AnonymousId Anonymous identifier for the user
-	AnonymousId *string `json:"anonymous_id"`
-
 	// Data Event-specific data
 	Data map[string]any `json:"data"`
 
-	// ExternalId External identifier for the user from your system
-	ExternalId *string `json:"external_id"`
+	// Identifier One or more external identifiers to identify the user
+	Identifier *UserIdentifier `json:"identifier,omitempty"`
+
+	// Match JSONB containment filter to match users by their data attributes. Mutually exclusive with identifier. When set, the event is delivered to every user whose data column contains the given key/value pairs.
+	Match *map[string]any `json:"match"`
 
 	// Name The name of the event
 	Name string `json:"name"`
 }
 
+// ExternalID An external identifier with source and optional metadata
+type ExternalID struct {
+	// ExternalId The external identifier value
+	ExternalId string `json:"external_id"`
+
+	// Metadata Optional metadata associated with this identifier
+	Metadata *map[string]any `json:"metadata"`
+
+	// Source Source of the identifier (e.g. "default", "anonymous", or a custom source). Defaults to "default" if not provided.
+	Source *string `json:"source,omitempty"`
+}
+
+// ExternalIDResponse An external identifier as returned in responses, including database ID and timestamps
+type ExternalIDResponse struct {
+	CreatedAt  time.Time          `json:"created_at"`
+	ExternalId string             `json:"external_id"`
+	Id         openapi_types.UUID `json:"id"`
+	Metadata   *map[string]any    `json:"metadata"`
+	Source     string             `json:"source"`
+	UpdatedAt  time.Time          `json:"updated_at"`
+}
+
 // IdentifyRequest defines model for IdentifyRequest.
 type IdentifyRequest struct {
-	// AnonymousId Anonymous identifier for the user
-	AnonymousId *string `json:"anonymous_id"`
-
 	// Data User-specific attributes
 	Data  *map[string]any `json:"data"`
 	Email *string         `json:"email"`
 
-	// ExternalId External identifier for the user from your system
-	ExternalId *string `json:"external_id"`
-	Locale     *string `json:"locale"`
+	// Identifier One or more external identifiers to identify the user
+	Identifier UserIdentifier `json:"identifier"`
+	Locale     *string        `json:"locale"`
 
 	// Phone E.164 formatted phone number
 	Phone    *string `json:"phone"`
@@ -94,16 +107,16 @@ type IdentifyRequest struct {
 
 // Organization defines model for Organization.
 type Organization struct {
-	CreatedAt time.Time      `json:"created_at"`
-	Data      map[string]any `json:"data"`
+	CreatedAt time.Time          `json:"created_at"`
+	Data      map[string]any     `json:"data"`
+	Id        openapi_types.UUID `json:"id"`
 
-	// ExternalId External identifier for the organization from your system
-	ExternalId string             `json:"external_id"`
-	Id         openapi_types.UUID `json:"id"`
-	Name       *string            `json:"name,omitempty"`
-	ProjectId  openapi_types.UUID `json:"project_id"`
-	UpdatedAt  time.Time          `json:"updated_at"`
-	Version    int32              `json:"version"`
+	// Identifier External identifiers associated with this organization
+	Identifier []ExternalIDResponse `json:"identifier"`
+	Name       *string              `json:"name,omitempty"`
+	ProjectId  openapi_types.UUID   `json:"project_id"`
+	UpdatedAt  time.Time            `json:"updated_at"`
+	Version    int32                `json:"version"`
 }
 
 // OrganizationEvent defines model for OrganizationEvent.
@@ -111,32 +124,40 @@ type OrganizationEvent struct {
 	// Data Event-specific data
 	Data *map[string]any `json:"data"`
 
+	// Identifier One or more external identifiers to identify the organization
+	Identifier *OrganizationIdentifier `json:"identifier,omitempty"`
+
+	// Match JSONB containment filter to match organizations by their data attributes. Mutually exclusive with identifier. When set, the event is delivered to every organization whose data column contains the given key/value pairs.
+	Match *map[string]any `json:"match"`
+
 	// Name The name of the event
 	Name string `json:"name"`
-
-	// OrganizationExternalId External identifier for the organization
-	OrganizationExternalId string `json:"organization_external_id"`
 }
+
+// OrganizationIdentifier One or more external identifiers to identify the organization
+type OrganizationIdentifier = []ExternalID
 
 // OrganizationRequest defines model for OrganizationRequest.
 type OrganizationRequest struct {
 	Data *map[string]any `json:"data"`
 
-	// ExternalId External identifier for the organization from your system
-	ExternalId string  `json:"external_id"`
-	Name       *string `json:"name"`
+	// Identifier One or more external identifiers to identify the organization
+	Identifier OrganizationIdentifier `json:"identifier"`
+	Name       *string                `json:"name"`
 }
 
 // OrganizationUserRequest defines model for OrganizationUserRequest.
 type OrganizationUserRequest struct {
 	// Data Organization-specific data for this user
-	Data *map[string]any `json:"data"`
-
-	// OrganizationExternalId External identifier for the organization
-	OrganizationExternalId string `json:"organization_external_id"`
-
-	// UserExternalId External identifier for the user
-	UserExternalId string `json:"user_external_id"`
+	Data         *map[string]any `json:"data"`
+	Organization struct {
+		// Identifier One or more external identifiers to identify the organization
+		Identifier OrganizationIdentifier `json:"identifier"`
+	} `json:"organization"`
+	User struct {
+		// Identifier One or more external identifiers to identify the user
+		Identifier UserIdentifier `json:"identifier"`
+	} `json:"user"`
 }
 
 // PostEventsRequest defines model for PostEventsRequest.
@@ -156,11 +177,14 @@ type Problem struct {
 
 // RemoveOrganizationUserRequest defines model for RemoveOrganizationUserRequest.
 type RemoveOrganizationUserRequest struct {
-	// OrganizationExternalId External identifier for the organization
-	OrganizationExternalId string `json:"organization_external_id"`
-
-	// UserExternalId External identifier for the user
-	UserExternalId string `json:"user_external_id"`
+	Organization struct {
+		// Identifier One or more external identifiers to identify the organization
+		Identifier OrganizationIdentifier `json:"identifier"`
+	} `json:"organization"`
+	User struct {
+		// Identifier One or more external identifiers to identify the user
+		Identifier UserIdentifier `json:"identifier"`
+	} `json:"user"`
 }
 
 // ScheduledAccepted defines model for ScheduledAccepted.
@@ -183,14 +207,14 @@ type UpsertOrganizationScheduledRequest struct {
 	// Data Scheduled resource data
 	Data *map[string]any `json:"data"`
 
+	// Identifier One or more external identifiers to identify the organization
+	Identifier OrganizationIdentifier `json:"identifier"`
+
 	// Interval Interval for recurring schedules. When set, the schedule type is automatically set to recurring.
 	Interval *string `json:"interval"`
 
 	// Name The name of the scheduled resource
 	Name string `json:"name"`
-
-	// OrganizationExternalId External identifier for the organization from your system
-	OrganizationExternalId string `json:"organization_external_id"`
 
 	// ScheduledAt The time at which the scheduled resource is set to trigger. Required for single schedules.
 	ScheduledAt *time.Time `json:"scheduled_at"`
@@ -201,14 +225,11 @@ type UpsertOrganizationScheduledRequest struct {
 
 // UpsertUserScheduledRequest defines model for UpsertUserScheduledRequest.
 type UpsertUserScheduledRequest struct {
-	// AnonymousId Anonymous identifier for the user
-	AnonymousId *string `json:"anonymous_id"`
-
 	// Data Scheduled resource data
 	Data *map[string]any `json:"data"`
 
-	// ExternalId External identifier for the user from your system
-	ExternalId *string `json:"external_id"`
+	// Identifier One or more external identifiers to identify the user
+	Identifier *UserIdentifier `json:"identifier,omitempty"`
 
 	// Interval Interval for recurring schedules. When set, the schedule type is automatically set to recurring.
 	Interval *string `json:"interval"`
@@ -225,14 +246,15 @@ type UpsertUserScheduledRequest struct {
 
 // User defines model for User.
 type User struct {
-	AnonymousId   string             `json:"anonymous_id"`
 	CreatedAt     time.Time          `json:"created_at"`
 	Data          map[string]any     `json:"data"`
 	Email         *string            `json:"email,omitempty"`
-	ExternalId    *string            `json:"external_id,omitempty"`
 	HasPushDevice bool               `json:"has_push_device"`
 	Id            openapi_types.UUID `json:"id"`
-	Locale        *string            `json:"locale,omitempty"`
+
+	// Identifier External identifiers associated with this user
+	Identifier []ExternalIDResponse `json:"identifier"`
+	Locale     *string              `json:"locale,omitempty"`
 
 	// Phone E.164 formatted phone number
 	Phone     *string            `json:"phone,omitempty"`
@@ -241,6 +263,9 @@ type User struct {
 	UpdatedAt time.Time          `json:"updated_at"`
 	Version   int32              `json:"version"`
 }
+
+// UserIdentifier One or more external identifiers to identify the user
+type UserIdentifier = []ExternalID
 
 // Error defines model for Error.
 type Error = Problem

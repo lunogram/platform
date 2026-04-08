@@ -11,9 +11,10 @@ import {
 import { ProjectContext, UserContext } from "../../contexts"
 import { PreferencesContext } from "@/contexts/PreferencesContext"
 import { useResolver } from "../../hooks"
-import { useRoute } from "../router"
+import { useRoute } from "@/hooks/use-route"
 import { formatDate, cn } from "../../utils"
 import { getRandomColor } from "@/lib/colors"
+import { getPrimaryExternalId } from "@/lib/name"
 import oapiClient, { type Organization } from "../../oapi/client"
 
 import { Button } from "@/components/ui/button"
@@ -145,7 +146,7 @@ export default function UserDetailOrganizations() {
 
     const getOrgDisplayName = (org: Organization) => {
         if (org.name) return org.name
-        return org.external_id ?? org.id
+        return getPrimaryExternalId(org as unknown as Record<string, unknown>) ?? org.id
     }
 
     const getOrgInitials = (org: Organization) => {
@@ -179,9 +180,7 @@ export default function UserDetailOrganizations() {
                         <TableRow>
                             <TableHead className="w-8 p-0"></TableHead>
                             <TableHead>{t("name")}</TableHead>
-                            <TableHead className="hidden md:table-cell">
-                                {t("external_id")}
-                            </TableHead>
+
                             <TableHead className="hidden sm:table-cell">
                                 {t("created_at")}
                             </TableHead>
@@ -200,9 +199,7 @@ export default function UserDetailOrganizations() {
                                             <Skeleton className="h-4 w-36" />
                                         </div>
                                     </TableCell>
-                                    <TableCell className="hidden md:table-cell">
-                                        <Skeleton className="h-4 w-24" />
-                                    </TableCell>
+
                                     <TableCell className="hidden sm:table-cell">
                                         <Skeleton className="h-4 w-28" />
                                     </TableCell>
@@ -210,7 +207,7 @@ export default function UserDetailOrganizations() {
                             ))
                         ) : organizations.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={4} className="h-48">
+                                <TableCell colSpan={3} className="h-48">
                                     <div className="flex flex-col items-center justify-center">
                                         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted mb-4">
                                             <Building2 className="h-6 w-6 text-muted-foreground" />
@@ -235,7 +232,11 @@ export default function UserDetailOrganizations() {
                         ) : (
                             organizations.map((org) => {
                                 const isExpanded = expandedOrgId === org.id
-                                const orgColor = getRandomColor(org.external_id ?? org.id)
+                                const orgColor = getRandomColor(
+                                    getPrimaryExternalId(
+                                        org as unknown as Record<string, unknown>,
+                                    ) ?? org.id,
+                                )
 
                                 return (
                                     <React.Fragment key={org.id}>
@@ -266,15 +267,7 @@ export default function UserDetailOrganizations() {
                                                     </span>
                                                 </div>
                                             </TableCell>
-                                            <TableCell className="hidden md:table-cell">
-                                                {org.external_id ? (
-                                                    <code className="text-sm text-muted-foreground">
-                                                        {org.external_id}
-                                                    </code>
-                                                ) : (
-                                                    <span className="text-muted-foreground">—</span>
-                                                )}
-                                            </TableCell>
+
                                             <TableCell className="hidden sm:table-cell text-muted-foreground">
                                                 {formatDate(preferences, org.created_at, "PP")}
                                             </TableCell>

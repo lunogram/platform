@@ -82,6 +82,7 @@ export type RuleGroup =
     | "organization"
     | "organization_user"
     | "organization_event"
+    | "journey"
 
 export type AnyJson = boolean | number | string | null | JsonArray | JsonMap
 export interface JsonMap {
@@ -383,10 +384,18 @@ export interface ProjectApiKey {
 
 export type ProjectApiKeyParams = Pick<ProjectApiKey, "name" | "description" | "scope" | "role">
 
+export interface ExternalIDResponse {
+    id: UUID
+    source: string
+    external_id: string
+    metadata?: Record<string, unknown> | null
+    created_at: string
+    updated_at: string
+}
+
 export interface User {
     id: UUID
-    anonymous_id?: string
-    external_id?: string
+    identifier: ExternalIDResponse[]
     full_name?: string
     email?: string
     phone?: string
@@ -400,7 +409,7 @@ export interface User {
 export interface SubjectOrganization {
     id: UUID
     project_id: UUID
-    external_id: string
+    identifier: ExternalIDResponse[]
     name?: string
     data: Record<string, unknown>
     version: number
@@ -408,10 +417,11 @@ export interface SubjectOrganization {
     updated_at: string
 }
 
-export type SubjectOrganizationCreateParams = Pick<
-    SubjectOrganization,
-    "external_id" | "name" | "data"
->
+export type SubjectOrganizationCreateParams = {
+    identifier: { source: string; external_id: string; metadata?: Record<string, unknown> | null }[]
+    name?: string
+    data: Record<string, unknown>
+}
 export type SubjectOrganizationUpdateParams = Pick<SubjectOrganization, "name" | "data">
 
 export interface SubjectOrganizationMember {
@@ -618,6 +628,43 @@ export interface Campaign {
 }
 
 export type CampaignSendState = "pending" | "sent" | "throttled" | "failed" | "bounced" | "aborted"
+
+export type BroadcastState =
+    | "scheduled"
+    | "pending"
+    | "sending"
+    | "completed"
+    | "failed"
+    | "cancelled"
+
+export interface Broadcast {
+    id: UUID
+    project_id: UUID
+    campaign_id: UUID
+    list_id: UUID
+    list_name: string
+    list_type: ListType
+    state: BroadcastState
+    total: number
+    sent: number
+    error?: string
+    created_at: string
+    updated_at: string
+    started_at?: string
+    completed_at?: string
+    scheduled_at?: string
+    campaign?: Pick<Campaign, "id" | "name" | "channel">
+}
+
+export interface BroadcastUser {
+    id: UUID
+    user_id: UUID
+    state: string
+    sent_at?: string
+    full_name?: string
+    email?: string
+    phone?: string
+}
 
 export type CampaignUpdateParams = Partial<
     Pick<Campaign, "name" | "provider_id" | "subscription_id" | "variables">

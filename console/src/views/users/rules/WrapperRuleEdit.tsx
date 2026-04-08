@@ -226,7 +226,8 @@ export default function WrapperRuleEdit({
                                 | "user"
                                 | "event"
                                 | "organization_event"
-                                | "organization" = "user"
+                                | "organization"
+                                | "journey" = "user"
                             if (rule?.group === "event" || rule?.group === "organization_event") {
                                 childGroup = rule.group
                             }
@@ -286,6 +287,34 @@ export default function WrapperRuleEdit({
                                         {t("rule_add_org_condition")}
                                     </Button>
                                 </>
+                            )}
+                            {journeyContext && journeyVariables && journeyVariables.length > 0 && (
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="shadow-none"
+                                    onClick={() => {
+                                        setRule({
+                                            ...rule,
+                                            children: [
+                                                ...(rule?.children ?? []),
+                                                {
+                                                    uuid: createUuid(),
+                                                    root_uuid: root?.uuid,
+                                                    parent_uuid: rule?.uuid,
+                                                    path: "",
+                                                    type: "string",
+                                                    group: "journey" as const,
+                                                    value: "",
+                                                    operator: "=",
+                                                },
+                                            ],
+                                        })
+                                    }}
+                                >
+                                    <Plus className="h-3.5 w-3.5 mr-1" />
+                                    {t("rule_add_journey_condition")}
+                                </Button>
                             )}
                         </>
                     )}

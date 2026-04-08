@@ -57,6 +57,17 @@ func (r *Router) HandleStream(stream, consumer string, handler HandlerFunc) {
 		metrics.NATSMessageProcessingDurationSeconds.WithLabelValues(stream, consumer).Observe(duration)
 
 		if err != nil {
+			if _, ok := IsRateLimited(err); ok {
+				// Handler already re-published the message as scheduled.
+				// Just Ack the original to avoid wasting MaxDeliver budget.
+				metrics.NATSMessagesRateLimitedTotal.WithLabelValues(stream, consumer).Inc()
+				if err := msg.Ack(); err != nil {
+					log.Error("failed to ACK rate-limited message, shutting down...", zap.Error(err))
+					r.ctx.Shutdown()
+				}
+				return
+			}
+
 			if IsPermanent(err) {
 				log.Warn("permanent error, terminating message", zap.Error(err))
 				metrics.NATSMessagesTerminatedTotal.WithLabelValues(stream, consumer).Inc()
@@ -115,4 +126,28 @@ func (r *Router) HandleCaller(subject string, handler CallerHandlerFunc) {
 	r.ctx.Closer(func() {
 		_ = sub.Unsubscribe()
 	})
+}
+
+// WithInProgress wraps a handler with a background goroutine that periodically
+// signals NATS that processing is still in progress. This resets the AckWait
+// deadline and prevents redelivery while long-running handlers (e.g. match
+// fan-out) are still working.
+func WithInProgress(handler HandlerFunc) HandlerFunc {
+	return func(ctx context.Context, msg jetstream.Msg) error {
+		done := make(chan struct{})
+		go func() {
+			ticker := time.NewTicker(10 * time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-done:
+					return
+				case <-ticker.C:
+					_ = msg.InProgress()
+				}
+			}
+		}()
+		defer close(done)
+		return handler(ctx, msg)
+	}
 }

@@ -188,6 +188,20 @@ var EventsListRecomputesTotal = promauto.NewCounter(prometheus.CounterOpts{
 })
 
 // ============================================================================
+// Match Event Fan-Out
+// ============================================================================
+
+var MatchEventsProcessedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "lunogram_match_events_processed_total",
+	Help: "Total match event messages processed (one per match message)",
+}, []string{"subject_type"})
+
+var MatchEventsMatchedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "lunogram_match_events_matched_total",
+	Help: "Total individual subjects matched and fanned out from match events",
+}, []string{"subject_type"})
+
+// ============================================================================
 // NATS Message Processing (Router)
 // ============================================================================
 
@@ -204,6 +218,11 @@ var NATSMessagesNackedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 var NATSMessagesTerminatedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 	Name: "lunogram_nats_messages_terminated_total",
 	Help: "Total NATS messages permanently failed and terminated",
+}, []string{"stream", "consumer"})
+
+var NATSMessagesRateLimitedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "lunogram_nats_messages_rate_limited_total",
+	Help: "Total NATS messages rate-limited and re-scheduled for later delivery",
 }, []string{"stream", "consumer"})
 
 var NATSMessageProcessingDurationSeconds = promauto.NewHistogramVec(prometheus.HistogramOpts{
