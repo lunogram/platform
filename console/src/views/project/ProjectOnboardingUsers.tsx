@@ -16,6 +16,7 @@ import type { User } from "../../types"
 import { useContext, useState } from "react"
 import { NIL } from "uuid"
 import { ProjectContext } from "@/contexts"
+import { toast } from "sonner"
 
 export default function ProjectOnboardingUsers() {
     const navigate = useNavigate()
@@ -28,7 +29,10 @@ export default function ProjectOnboardingUsers() {
 
     async function createInitialUser() {
         const admin = await api.admins.whoami()
-        if (!admin || !admin.email) return
+        if (!admin || !admin.email) {
+            toast.error(t("onboarding_users_create_failed", "Failed to create initial user"))
+            return
+        }
 
         let fullName
         if (admin.first_name || admin.last_name) {
