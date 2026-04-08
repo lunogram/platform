@@ -483,9 +483,7 @@ export default function Users() {
                         </Button>
                         <Button
                             onClick={createUser}
-                            disabled={
-                                (!newUserEmail.trim() && !newUserExternalId.trim()) || isCreating
-                            }
+                            disabled={!newUserExternalId.trim() || isCreating}
                         >
                             {isCreating ? t("creating") : t("create")}
                         </Button>
