@@ -76,3 +76,60 @@ func ComposePush(_ context.Context, config map[string]any, template management.T
 
 	return providers.NewPushRequest(config, payload)
 }
+
+// ComposePushForModule builds a push SendRequest containing only the devices
+// that match the given push module ("fcm", "apns", "webpush"). Returns
+// ErrNoTargets if none of the user's devices match the module.
+var ErrNoTargets = fmt.Errorf("no devices for this push module")
+
+func ComposePushForModule(_ context.Context, module string, config map[string]any, template management.Template, user *subjects.User, devices subjects.Devices) (providers.SendRequest[map[string]any], error) {
+	var data PushTemplateData
+	if err := json.Unmarshal(template.Data, &data); err != nil {
+		return providers.SendRequest[map[string]any]{}, fmt.Errorf("failed to unmarshal push template data: %w", err)
+	}
+
+	custom := data.Data
+	if custom == nil {
+		custom = make(map[string]any)
+	}
+
+	var payload providers.PushPayload
+	payload.Title = data.Title
+	payload.Body = data.Body
+	payload.Data = custom
+
+	for _, device := range devices {
+		if device.PushConfig == nil {
+			continue
+		}
+		switch module {
+		case "fcm":
+			if device.PushConfig.Type == subjects.PushConfigTypeFCM {
+				payload.Tokens = append(payload.Tokens, device.PushConfig.Token)
+			}
+		case "apns":
+			if device.PushConfig.Type == subjects.PushConfigTypeAPNs {
+				payload.APNsTokens = append(payload.APNsTokens, device.PushConfig.Token)
+			}
+		case "webpush":
+			if device.PushConfig.Type == subjects.PushConfigTypeWebPush {
+				target := providers.WebPushTarget{Endpoint: device.PushConfig.Endpoint}
+				if device.PushConfig.ExpirationTime != nil {
+					exp := device.PushConfig.ExpirationTime.Unix()
+					target.ExpirationTime = &exp
+				}
+				if device.PushConfig.Keys != nil {
+					target.Keys.Auth = device.PushConfig.Keys.Auth
+					target.Keys.P256dh = device.PushConfig.Keys.P256dh
+				}
+				payload.WebPushTargets = append(payload.WebPushTargets, target)
+			}
+		}
+	}
+
+	if len(payload.Tokens) == 0 && len(payload.APNsTokens) == 0 && len(payload.WebPushTargets) == 0 {
+		return providers.SendRequest[map[string]any]{}, ErrNoTargets
+	}
+
+	return providers.NewPushRequest(config, payload)
+}

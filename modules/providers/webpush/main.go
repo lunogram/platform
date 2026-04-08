@@ -1,22 +1,17 @@
 package main
 
 import (
-	gocrypto "crypto"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/hmac"
 	"crypto/rand"
-	"crypto/rsa"
 	"crypto/sha256"
-	gosha256 "crypto/sha256"
-	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"math/big"
-	"strings"
 	"time"
 
 	pdk "github.com/extism/go-pdk"
@@ -29,13 +24,13 @@ func Manifest() int32 {
 		Metadata: types.Metadata{
 			ID:          "webpush",
 			Title:       "Web Push",
-			Description: "Send push notifications via Web Push Protocol and/or FCM",
+			Description: "Send push notifications to browsers via the Web Push Protocol (VAPID)",
 			Icon:        "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJjdXJyZW50Q29sb3IiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cGF0aCBkPSJNMTggOGE2IDYgMCAwIDAtMTItMCIvPjxwYXRoIGQ9Ik0yIDhoMTYiLz48cGF0aCBkPSJNNiAxNWwtMi0zaDE2bC0yIDMiLz48cGF0aCBkPSJNNiAxNWgxMiIvPjwvc3ZnPg==",
 			Color:       "#5A67D8",
-			Tags:        []string{"push", "web", "browser", "notifications", "fcm", "firebase"},
+			Tags:        []string{"push", "web", "browser", "notifications", "vapid"},
 		},
 		Website: "https://developer.mozilla.org/en-US/docs/Web/API/Push_API",
-		Version: "1.1.0",
+		Version: "2.0.0",
 		License: "MIT",
 		Author: types.Author{
 			Name:  "Lunogram",
@@ -76,90 +71,8 @@ func Manifest() int32 {
 										Description: "Contact email for VAPID (e.g. mailto:admin@example.com). Required for Web Push.",
 									},
 								},
-								{
-									Name: "fcm",
-									Schema: &types.JSONSchema{
-										Type:  "object",
-										Title: "FCM (Android)",
-										Properties: []types.JSONSchemaProperty{
-											{
-												Name: "fcmProjectId",
-												Schema: &types.JSONSchema{
-													Type:        "string",
-													Title:       "Project ID",
-													Description: "Firebase project ID.",
-												},
-											},
-											{
-												Name: "fcmServiceAccountJSON",
-												Schema: &types.JSONSchema{
-													Type:          "string",
-													Title:         "Service Account JSON",
-													Description:   "Firebase service account JSON. Upload the file or paste and encode.",
-													Format:        "password",
-													FileUpload:    true,
-													FileAccept:    ".json",
-													RequireBase64: true,
-												},
-											},
-										},
-									},
-								},
-								{
-									Name: "apns",
-									Schema: &types.JSONSchema{
-										Type:  "object",
-										Title: "APNs (iOS)",
-										Properties: []types.JSONSchemaProperty{
-											{
-												Name: "apnsTeamId",
-												Schema: &types.JSONSchema{
-													Type:        "string",
-													Title:       "Team ID",
-													Description: "Apple Developer Team ID (10 characters).",
-												},
-											},
-											{
-												Name: "apnsKeyId",
-												Schema: &types.JSONSchema{
-													Type:        "string",
-													Title:       "Key ID",
-													Description: "APNs authentication key ID (10 characters).",
-												},
-											},
-											{
-												Name: "apnsPrivateKey",
-												Schema: &types.JSONSchema{
-													Type:          "string",
-													Title:         "Private Key (.p8)",
-													Description:   ".p8 private key from Apple Developer. Upload the file or paste and encode.",
-													Format:        "password",
-													FileUpload:    true,
-													FileAccept:    ".p8",
-													RequireBase64: true,
-												},
-											},
-											{
-												Name: "apnsBundleId",
-												Schema: &types.JSONSchema{
-													Type:        "string",
-													Title:       "Bundle ID",
-													Description: "iOS app bundle ID (e.g. com.yourcompany.app).",
-												},
-											},
-											{
-												Name: "apnsProduction",
-												Schema: &types.JSONSchema{
-													Type:        "boolean",
-													Title:       "Production Mode",
-													Description: "Use production APNs server (uncheck for sandbox/development).",
-												},
-											},
-										},
-									},
-								},
 							},
-							Required: []string{},
+							Required: []string{"vapidPublicKey", "vapidPrivateKey", "vapidEmail"},
 						},
 					},
 				},
@@ -179,84 +92,9 @@ func Manifest() int32 {
 // ---------------------------------------------------------------------------
 
 type Config struct {
-	VapidPublicKey  string     `json:"vapidPublicKey"`
-	VapidPrivateKey string     `json:"vapidPrivateKey"`
-	VapidEmail      string     `json:"vapidEmail"`
-	FCM             FCMConfig  `json:"fcm"`
-	APNs            APNsConfig `json:"apns"`
-}
-
-type FCMConfig struct {
-	ProjectID         string `json:"fcmProjectId"`
-	ServiceAccountB64 string `json:"fcmServiceAccountJSON"`
-}
-
-type APNsConfig struct {
-	TeamID     string `json:"apnsTeamId"`
-	KeyID      string `json:"apnsKeyId"`
-	PrivateKey string `json:"apnsPrivateKey"`
-	BundleID   string `json:"apnsBundleId"`
-	Production *bool  `json:"apnsProduction"`
-}
-
-type serviceAccount struct {
-	ClientEmail string `json:"client_email"`
-	PrivateKey  string `json:"private_key"`
-	TokenURI    string `json:"token_uri"`
-}
-
-type fcmMessage struct {
-	Message fcmMessageBody `json:"message"`
-}
-
-type fcmMessageBody struct {
-	Token        string            `json:"token"`
-	Notification *fcmNotification  `json:"notification,omitempty"`
-	Data         map[string]string `json:"data,omitempty"`
-	Android      *fcmAndroidConfig `json:"android,omitempty"`
-	APNS         *fcmAPNSConfig    `json:"apns,omitempty"`
-}
-
-type fcmNotification struct {
-	Title    string `json:"title,omitempty"`
-	Body     string `json:"body,omitempty"`
-	ImageURL string `json:"image,omitempty"`
-}
-
-type fcmAndroidConfig struct {
-	Notification *fcmAndroidNotification `json:"notification,omitempty"`
-}
-
-type fcmAndroidNotification struct {
-	Sound string `json:"sound,omitempty"`
-}
-
-type fcmAPNSConfig struct {
-	Payload *fcmAPNSPayload `json:"payload,omitempty"`
-}
-
-type fcmAPNSPayload struct {
-	APS *fcmAPS `json:"aps,omitempty"`
-}
-
-type fcmAPS struct {
-	Sound string `json:"sound,omitempty"`
-}
-
-// APNs payload structures for native iOS push
-type apnsPayload struct {
-	APS apnsAPS `json:"aps"`
-}
-
-type apnsAPS struct {
-	Alert *apnsAlert `json:"alert,omitempty"`
-	Badge *int       `json:"badge,omitempty"`
-	Sound *string    `json:"sound,omitempty"`
-}
-
-type apnsAlert struct {
-	Title string `json:"title,omitempty"`
-	Body  string `json:"body,omitempty"`
+	VapidPublicKey  string `json:"vapidPublicKey"`
+	VapidPrivateKey string `json:"vapidPrivateKey"`
+	VapidEmail      string `json:"vapidEmail"`
 }
 
 // ---------------------------------------------------------------------------
@@ -265,7 +103,7 @@ type apnsAlert struct {
 
 //go:export send
 func Send() int32 {
-	pdk.Log(pdk.LogInfo, "Send() called")
+	pdk.Log(pdk.LogInfo, "WebPush Send() called")
 
 	var req types.SendRequest[Config]
 	if err := pdk.InputJSON(&req); err != nil {
@@ -278,158 +116,57 @@ func Send() int32 {
 		return -1
 	}
 
+	if req.Config.VapidPublicKey == "" || req.Config.VapidPrivateKey == "" || req.Config.VapidEmail == "" {
+		pdk.SetError(fmt.Errorf("VAPID config incomplete: vapidPublicKey, vapidPrivateKey, and vapidEmail are required"))
+		return -1
+	}
+
 	push, err := req.GetPushPayload()
 	if err != nil {
 		pdk.SetError(fmt.Errorf("failed to parse push payload: %w", err))
 		return -1
 	}
 
-	hasWebPush := len(push.WebPushTargets) > 0
-	hasFCM := len(push.Tokens) > 0
-	hasAPNs := len(push.APNsTokens) > 0
-
-	if !hasWebPush && !hasFCM && !hasAPNs {
-		pdk.SetError(fmt.Errorf("no targets: need WebPushTargets, FCM tokens, or APNs tokens"))
+	if len(push.WebPushTargets) == 0 {
+		pdk.SetError(fmt.Errorf("no WebPushTargets in payload"))
 		return -1
 	}
 
+	wpPayload, err := buildWebPushPayload(push)
+	if err != nil {
+		pdk.SetError(fmt.Errorf("failed to build Web Push payload: %w", err))
+		return -1
+	}
+
+	ok, fail, errs := sendAllWebPush(req.Config, push.WebPushTargets, wpPayload)
+	pdk.Log(pdk.LogInfo, fmt.Sprintf("Web Push: %d ok, %d failed", ok, fail))
+
+	meta := map[string]any{
+		"success_count": ok,
+		"failure_count": fail,
+		"total_targets": len(push.WebPushTargets),
+	}
+	if len(errs) > 0 {
+		meta["errors"] = errs
+	}
+
+	status := "sent"
+	if ok == 0 {
+		status = "failed"
+	} else if fail > 0 {
+		status = "partial"
+	}
+
 	response := types.SendResponse{
-		Status:   "sent",
-		Metadata: map[string]any{},
+		Status:   status,
+		Metadata: map[string]any{"webpush": meta},
 	}
-
-	if hasWebPush {
-		if req.Config.VapidPublicKey == "" || req.Config.VapidPrivateKey == "" || req.Config.VapidEmail == "" {
-			pdk.SetError(fmt.Errorf("WebPushTargets provided but VAPID config incomplete"))
-			return -1
-		}
-
-		wpPayload, err := buildWebPushPayload(push)
-		if err != nil {
-			pdk.SetError(fmt.Errorf("failed to build Web Push payload: %w", err))
-			return -1
-		}
-
-		wpOk, wpFail, wpErrs := sendAllWebPush(req.Config, push.WebPushTargets, wpPayload)
-		pdk.Log(pdk.LogInfo, fmt.Sprintf("Web Push: %d ok, %d failed", wpOk, wpFail))
-
-		wpMeta := map[string]any{
-			"success_count": wpOk,
-			"failure_count": wpFail,
-			"total_targets": len(push.WebPushTargets),
-		}
-		if len(wpErrs) > 0 {
-			wpMeta["errors"] = wpErrs
-		}
-		response.Metadata["webpush"] = wpMeta
-		response.Metadata["webpush_status"] = legStatus(wpOk, wpFail)
-	}
-
-	if hasFCM {
-		if req.Config.FCM.ProjectID == "" {
-			pdk.SetError(fmt.Errorf("FCM tokens provided but fcmProjectId missing"))
-			return -1
-		}
-		if req.Config.FCM.ServiceAccountB64 == "" {
-			pdk.SetError(fmt.Errorf("FCM tokens provided but fcmServiceAccountJSON missing"))
-			return -1
-		}
-
-		accessToken, err := fetchFCMAccessToken(req.Config.FCM.ServiceAccountB64)
-		if err != nil {
-			pdk.SetError(fmt.Errorf("failed to get FCM access token: %w", err))
-			return -1
-		}
-
-		fcmOk, fcmFail, fcmErrs := sendAllFCM(accessToken, req.Config.FCM.ProjectID, push)
-		pdk.Log(pdk.LogInfo, fmt.Sprintf("FCM: %d ok, %d failed", fcmOk, fcmFail))
-
-		fcmMeta := map[string]any{
-			"success_count": fcmOk,
-			"failure_count": fcmFail,
-			"total_targets": len(push.Tokens),
-		}
-		if len(fcmErrs) > 0 {
-			fcmMeta["errors"] = fcmErrs
-		}
-		response.Metadata["fcm"] = fcmMeta
-		response.Metadata["fcm_status"] = legStatus(fcmOk, fcmFail)
-	}
-
-	// APNs (native iOS)
-	if hasAPNs {
-		if req.Config.APNs.TeamID == "" || req.Config.APNs.KeyID == "" ||
-			req.Config.APNs.PrivateKey == "" || req.Config.APNs.BundleID == "" {
-			pdk.SetError(fmt.Errorf("APNs tokens provided but APNs config incomplete"))
-			return -1
-		}
-
-		apnsOk, apnsFail, apnsErrs := sendAllAPNs(req.Config, push)
-		pdk.Log(pdk.LogInfo, fmt.Sprintf("APNs: %d ok, %d failed", apnsOk, apnsFail))
-
-		apnsMeta := map[string]any{
-			"success_count": apnsOk,
-			"failure_count": apnsFail,
-			"total_targets": len(push.APNsTokens),
-		}
-		if len(apnsErrs) > 0 {
-			apnsMeta["errors"] = apnsErrs
-		}
-		response.Metadata["apns"] = apnsMeta
-		response.Metadata["apns_status"] = legStatus(apnsOk, apnsFail)
-	}
-
-	response.Status = rollUpStatus(response.Metadata, hasWebPush, hasFCM, hasAPNs)
 
 	if err := pdk.OutputJSON(response); err != nil {
 		pdk.SetError(err)
 		return -1
 	}
 	return 0
-}
-
-func legStatus(success, failure int) string {
-	if success == 0 {
-		return "failed"
-	}
-	if failure > 0 {
-		return "partial"
-	}
-	return "sent"
-}
-
-func rollUpStatus(meta map[string]any, hadWP, hadFCM, hadAPNs bool) string {
-	allFailed := true
-	anyPartial := false
-	check := func(key string) {
-		v, ok := meta[key]
-		if !ok {
-			return
-		}
-		s, _ := v.(string)
-		if s != "failed" {
-			allFailed = false
-		}
-		if s == "partial" {
-			anyPartial = true
-		}
-	}
-	if hadWP {
-		check("webpush_status")
-	}
-	if hadFCM {
-		check("fcm_status")
-	}
-	if hadAPNs {
-		check("apns_status")
-	}
-	if allFailed {
-		return "failed"
-	}
-	if anyPartial {
-		return "partial"
-	}
-	return "sent"
 }
 
 // ---------------------------------------------------------------------------
@@ -478,19 +215,16 @@ func sendWebPushNotification(config Config, target types.WebPushTarget, payload 
 		return fmt.Errorf("missing p256dh key")
 	}
 
-	// Encrypt payload per RFC 8291 (aes128gcm)
 	encrypted, _, _, err := encryptWebPushPayload(payload, target.Keys.P256dh, target.Keys.Auth)
 	if err != nil {
 		return fmt.Errorf("encryption failed: %w", err)
 	}
 
-	// Build VAPID JWT
 	vapidJWT, err := buildVAPIDJWT(target.Endpoint, config.VapidPrivateKey, config.VapidEmail)
 	if err != nil {
 		return fmt.Errorf("VAPID JWT failed: %w", err)
 	}
 
-	// Authorization: vapid t=<jwt>, k=<pubkey>
 	authHeader := "vapid t=" + vapidJWT + ", k=" + config.VapidPublicKey
 
 	pdk.Log(pdk.LogDebug, fmt.Sprintf("endpoint: %s", target.Endpoint))
@@ -563,13 +297,11 @@ func buildVAPIDJWT(endpoint, vapidPrivateKeyB64, email string) (string, error) {
 		return "", fmt.Errorf("ECDSA sign failed: %w", err)
 	}
 
-	// ES256 sig = R || S, each 32 bytes zero-padded
 	sig := append(zeroPad(r.Bytes(), 32), zeroPad(s.Bytes(), 32)...)
 	return signingInput + "." + base64.RawURLEncoding.EncodeToString(sig), nil
 }
 
 // encryptWebPushPayload encrypts the payload per RFC 8291 (aes128gcm).
-// Returns: encrypted body, sender public key (uncompressed), salt, error.
 func encryptWebPushPayload(payload []byte, p256dhB64, authB64 string) ([]byte, []byte, []byte, error) {
 	p256dh, err := decodeBase64Lenient(p256dhB64)
 	if err != nil {
@@ -588,48 +320,37 @@ func encryptWebPushPayload(payload []byte, p256dhB64, authB64 string) ([]byte, [
 	receiverX := new(big.Int).SetBytes(p256dh[1:33])
 	receiverY := new(big.Int).SetBytes(p256dh[33:65])
 
-	// Ephemeral sender key pair
 	senderPriv, err := ecdsa.GenerateKey(curve, rand.Reader)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("failed to generate ephemeral key: %w", err)
 	}
 	senderPubKey := elliptic.Marshal(curve, senderPriv.PublicKey.X, senderPriv.PublicKey.Y)
 
-	// ECDH
 	sharedX, _ := curve.ScalarMult(receiverX, receiverY, senderPriv.D.Bytes())
 	sharedSecret := zeroPad(sharedX.Bytes(), 32)
 
-	// Random salt
 	salt := make([]byte, 16)
 	if _, err := rand.Read(salt); err != nil {
 		return nil, nil, nil, fmt.Errorf("failed to generate salt: %w", err)
 	}
 
-	// PRK = HMAC-SHA256(auth, sharedSecret)
 	prk := hmacSHA256(auth, sharedSecret)
 
-	// IKM = HKDF-Expand(prk, "WebPush: info\x00" || receiverPub || senderPub, 32)
 	keyInfo := append([]byte("WebPush: info\x00"), p256dh...)
 	keyInfo = append(keyInfo, senderPubKey...)
 	ikm := hkdfExpand(prk, keyInfo, 32)
 
-	// Second-stage PRK with salt
 	prk2 := hmacSHA256(salt, ikm)
 
-	// CEK = HKDF-Expand(prk2, "Content-Encoding: aes128gcm\x00", 16)
 	cek := hkdfExpand(prk2, []byte("Content-Encoding: aes128gcm\x00"), 16)
-
-	// Nonce = HKDF-Expand(prk2, "Content-Encoding: nonce\x00", 12)
 	nonce := hkdfExpand(prk2, []byte("Content-Encoding: nonce\x00"), 12)
 
-	// AES-128-GCM encrypt — payload || 0x02 delimiter
 	padded := append(payload, 0x02)
 	ciphertext, err := aesGCMEncrypt(cek, nonce, padded)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("AES-GCM failed: %w", err)
 	}
 
-	// RFC 8188 content header: salt(16) || rs(4) || idlen(1) || keyid || ciphertext
 	rs := uint32(4096)
 	header := make([]byte, 21+len(senderPubKey))
 	copy(header[0:16], salt)
@@ -644,189 +365,15 @@ func encryptWebPushPayload(payload []byte, p256dhB64, authB64 string) ([]byte, [
 }
 
 // ---------------------------------------------------------------------------
-// FCM HTTP v1 — pdk.HTTPRequest, manual JWT, no net/http or oauth2
-// ---------------------------------------------------------------------------
-
-func fetchFCMAccessToken(serviceAccountB64 string) (string, error) {
-	saJSON, err := decodeBase64Lenient(serviceAccountB64)
-	if err != nil {
-		return "", fmt.Errorf("failed to decode service account: %w", err)
-	}
-
-	var sa serviceAccount
-	if err := json.Unmarshal(saJSON, &sa); err != nil {
-		return "", fmt.Errorf("failed to parse service account JSON: %w", err)
-	}
-
-	jwt, err := buildServiceAccountJWT(sa)
-	if err != nil {
-		return "", fmt.Errorf("failed to build JWT: %w", err)
-	}
-
-	return exchangeJWTForToken(sa.TokenURI, jwt)
-}
-
-func buildServiceAccountJWT(sa serviceAccount) (string, error) {
-	now := time.Now().Unix()
-
-	header, err := jsonBase64URL(map[string]string{"alg": "RS256", "typ": "JWT"})
-	if err != nil {
-		return "", err
-	}
-	claims, err := jsonBase64URL(map[string]any{
-		"iss":   sa.ClientEmail,
-		"scope": "https://www.googleapis.com/auth/firebase.messaging",
-		"aud":   sa.TokenURI,
-		"iat":   now,
-		"exp":   now + 3600,
-	})
-	if err != nil {
-		return "", err
-	}
-
-	signingInput := header + "." + claims
-
-	// Strip PEM armor manually — encoding/pem works in TinyGo but let's keep it simple
-	const pemHeader = "-----BEGIN PRIVATE KEY-----"
-	const pemFooter = "-----END PRIVATE KEY-----"
-	start := strings.Index(sa.PrivateKey, pemHeader)
-	end := strings.Index(sa.PrivateKey, pemFooter)
-	if start == -1 || end == -1 {
-		return "", fmt.Errorf("invalid PEM private key")
-	}
-	b64Key := strings.ReplaceAll(sa.PrivateKey[start+len(pemHeader):end], "\n", "")
-	b64Key = strings.TrimSpace(b64Key)
-
-	derBytes, err := base64.StdEncoding.DecodeString(b64Key)
-	if err != nil {
-		return "", fmt.Errorf("failed to decode private key body: %w", err)
-	}
-
-	key, err := x509.ParsePKCS8PrivateKey(derBytes)
-	if err != nil {
-		return "", fmt.Errorf("failed to parse PKCS8 key: %w", err)
-	}
-	rsaKey, ok := key.(*rsa.PrivateKey)
-	if !ok {
-		return "", fmt.Errorf("service account key is not RSA")
-	}
-
-	digest := sha256.Sum256([]byte(signingInput))
-	sig, err := rsa.SignPKCS1v15(rand.Reader, rsaKey, gocrypto.SHA256, digest[:])
-	if err != nil {
-		return "", fmt.Errorf("RSA sign failed: %w", err)
-	}
-
-	return signingInput + "." + base64.RawURLEncoding.EncodeToString(sig), nil
-}
-
-func exchangeJWTForToken(tokenURI, jwt string) (string, error) {
-	body := []byte("grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=" + jwt)
-
-	resp := pdk.NewHTTPRequest(pdk.MethodPost, tokenURI).
-		SetHeader("Content-Type", "application/x-www-form-urlencoded").
-		SetBody(body).
-		Send()
-
-	if resp.Status() != 200 {
-		return "", fmt.Errorf("token endpoint returned %d: %s", resp.Status(), string(resp.Body()))
-	}
-
-	var result struct {
-		AccessToken string `json:"access_token"`
-	}
-	if err := json.Unmarshal(resp.Body(), &result); err != nil {
-		return "", fmt.Errorf("failed to decode token response: %w", err)
-	}
-	if result.AccessToken == "" {
-		return "", fmt.Errorf("empty access_token in response")
-	}
-	return result.AccessToken, nil
-}
-
-func sendAllFCM(accessToken, projectID string, push types.PushPayload) (ok, fail int, errs []string) {
-	for i, token := range push.Tokens {
-		if err := sendFCMNotification(accessToken, projectID, token, push); err != nil {
-			fail++
-			msg := fmt.Sprintf("token %d failed: %v", i+1, err)
-			errs = append(errs, msg)
-			pdk.Log(pdk.LogWarn, msg)
-		} else {
-			ok++
-		}
-	}
-	return
-}
-
-func sendFCMNotification(accessToken, projectID, token string, push types.PushPayload) error {
-	if token == "" {
-		return fmt.Errorf("empty FCM token")
-	}
-
-	msg := fcmMessageBody{
-		Token:        token,
-		Notification: &fcmNotification{Title: push.Title, Body: push.Body},
-	}
-	if push.ImageURL != nil {
-		msg.Notification.ImageURL = *push.ImageURL
-	}
-	if len(push.Data) > 0 {
-		stringData := make(map[string]string, len(push.Data))
-		for k, v := range push.Data {
-			stringData[k] = fmt.Sprintf("%v", v)
-		}
-		msg.Data = stringData
-	}
-	if push.Sound != nil {
-		msg.Android = &fcmAndroidConfig{Notification: &fcmAndroidNotification{Sound: *push.Sound}}
-		msg.APNS = &fcmAPNSConfig{Payload: &fcmAPNSPayload{APS: &fcmAPS{Sound: *push.Sound}}}
-	}
-
-	body, err := json.Marshal(fcmMessage{Message: msg})
-	if err != nil {
-		return fmt.Errorf("failed to marshal FCM message: %w", err)
-	}
-
-	url := fmt.Sprintf("https://fcm.googleapis.com/v1/projects/%s/messages:send", projectID)
-	resp := pdk.NewHTTPRequest(pdk.MethodPost, url).
-		SetHeader("Content-Type", "application/json").
-		SetHeader("Authorization", "Bearer "+accessToken).
-		SetBody(body).
-		Send()
-
-	if resp.Status() == 200 {
-		return nil
-	}
-	switch resp.Status() {
-	case 400:
-		return fmt.Errorf("invalid request (400): %s", string(resp.Body()))
-	case 401:
-		return fmt.Errorf("unauthorized - check service account (401)")
-	case 403:
-		return fmt.Errorf("forbidden - FCM API not enabled or wrong project (403)")
-	case 404:
-		return fmt.Errorf("token invalid/expired (404)")
-	case 429:
-		return fmt.Errorf("rate limited (429)")
-	default:
-		if resp.Status() >= 500 {
-			return fmt.Errorf("FCM server error (%d)", resp.Status())
-		}
-		return fmt.Errorf("unexpected status %d", resp.Status())
-	}
-}
-
-// ---------------------------------------------------------------------------
-// APNs (Native iOS Push) — HTTP/2 using pdk.HTTPRequest
+// Util
 // ---------------------------------------------------------------------------
 
 func hmacSHA256(key, data []byte) []byte {
-	mac := hmac.New(gosha256.New, key)
+	mac := hmac.New(sha256.New, key)
 	mac.Write(data)
 	return mac.Sum(nil)
 }
 
-// hkdfExpand is RFC 5869 HKDF-Expand — inline so we don't need golang.org/x/crypto/hkdf
 func hkdfExpand(prk, info []byte, length int) []byte {
 	var okm, prev []byte
 	for i := 1; len(okm) < length; i++ {
@@ -850,205 +397,7 @@ func aesGCMEncrypt(key, nonce, plaintext []byte) ([]byte, error) {
 	return gcm.Seal(nil, nonce, plaintext, nil), nil
 }
 
-// ---------------------------------------------------------------------------
-// APNs HTTP/2 — Native iOS push
-// ---------------------------------------------------------------------------
-
-func sendAllAPNs(config Config, push types.PushPayload) (ok, fail int, errs []string) {
-	for i, token := range push.APNsTokens {
-		if err := sendAPNsNotification(config, token, push); err != nil {
-			fail++
-			msg := fmt.Sprintf("APNs token %d failed: %v", i+1, err)
-			errs = append(errs, msg)
-			pdk.Log(pdk.LogWarn, msg)
-		} else {
-			ok++
-		}
-	}
-	return
-}
-
-func sendAPNsNotification(config Config, deviceToken string, push types.PushPayload) error {
-	if deviceToken == "" {
-		return fmt.Errorf("empty APNs device token")
-	}
-
-	// Build APNs JWT
-	apnsJWT, err := buildAPNsJWT(config.APNs.TeamID, config.APNs.KeyID, config.APNs.PrivateKey)
-	if err != nil {
-		return fmt.Errorf("failed to build APNs JWT: %w", err)
-	}
-
-	// Build payload
-	alert := &apnsAlert{
-		Title: push.Title,
-		Body:  push.Body,
-	}
-
-	aps := apnsAPS{
-		Alert: alert,
-	}
-
-	if push.Badge != nil {
-		aps.Badge = push.Badge
-	}
-
-	if push.Sound != nil {
-		aps.Sound = push.Sound
-	}
-
-	payload := apnsPayload{
-		APS: aps,
-	}
-
-	payloadBytes, err := json.Marshal(payload)
-	if err != nil {
-		return fmt.Errorf("failed to marshal APNs payload: %w", err)
-	}
-
-	// Determine APNs endpoint (production vs sandbox)
-	endpoint := "https://api.push.apple.com"
-	productionMode := "nil (defaulting to production)"
-
-	if config.APNs.Production != nil {
-		if *config.APNs.Production {
-			productionMode = "true (production)"
-		} else {
-			productionMode = "false (sandbox)"
-			endpoint = "https://api.sandbox.push.apple.com"
-		}
-	}
-
-	url := fmt.Sprintf("%s/3/device/%s", endpoint, deviceToken)
-
-	resp := pdk.NewHTTPRequest(pdk.MethodPost, url).
-		SetHeader("Authorization", "bearer "+apnsJWT).
-		SetHeader("apns-topic", config.APNs.BundleID).
-		SetHeader("apns-push-type", "alert").
-		SetHeader("apns-priority", "10").
-		SetHeader("Content-Type", "application/json").
-		SetBody(payloadBytes).
-		Send()
-
-	responseBody := string(resp.Body())
-
-	switch resp.Status() {
-	case 200:
-		return nil
-	case 400:
-		pdk.Log(pdk.LogWarn, fmt.Sprintf("APNs request failed - team_id=%s, key_id=%s, bundle_id=%s, production=%s, endpoint=%s, token_length=%d",
-			config.APNs.TeamID, config.APNs.KeyID, config.APNs.BundleID, productionMode, endpoint, len(deviceToken)))
-		pdk.Log(pdk.LogWarn, fmt.Sprintf("APNs response: %s", responseBody))
-		return fmt.Errorf("bad request (400): %s", responseBody)
-	case 403:
-		pdk.Log(pdk.LogWarn, fmt.Sprintf("APNs request failed - team_id=%s, key_id=%s, bundle_id=%s, production=%s, endpoint=%s, token_length=%d",
-			config.APNs.TeamID, config.APNs.KeyID, config.APNs.BundleID, productionMode, endpoint, len(deviceToken)))
-		pdk.Log(pdk.LogWarn, fmt.Sprintf("APNs response: %s", responseBody))
-		return fmt.Errorf("forbidden (403) - check certificate/bundle ID/team ID: %s", responseBody)
-	case 404:
-		pdk.Log(pdk.LogWarn, fmt.Sprintf("APNs response: %s", responseBody))
-		return fmt.Errorf("device token invalid/expired (404): %s", responseBody)
-	case 410:
-		pdk.Log(pdk.LogWarn, fmt.Sprintf("APNs response: %s", responseBody))
-		return fmt.Errorf("device token no longer active (410): %s", responseBody)
-	case 413:
-		pdk.Log(pdk.LogWarn, fmt.Sprintf("APNs response: %s", responseBody))
-		return fmt.Errorf("payload too large (413): %s", responseBody)
-	case 429:
-		pdk.Log(pdk.LogWarn, fmt.Sprintf("APNs response: %s", responseBody))
-		return fmt.Errorf("rate limited (429): %s", responseBody)
-	case 500:
-		pdk.Log(pdk.LogWarn, fmt.Sprintf("APNs response: %s", responseBody))
-		return fmt.Errorf("APNs server error (500): %s", responseBody)
-	case 503:
-		pdk.Log(pdk.LogWarn, fmt.Sprintf("APNs response: %s", responseBody))
-		return fmt.Errorf("APNs service unavailable (503): %s", responseBody)
-	default:
-		pdk.Log(pdk.LogWarn, fmt.Sprintf("APNs unexpected status - team_id=%s, key_id=%s, bundle_id=%s, production=%s, endpoint=%s",
-			config.APNs.TeamID, config.APNs.KeyID, config.APNs.BundleID, productionMode, endpoint))
-		pdk.Log(pdk.LogWarn, fmt.Sprintf("APNs response: %s", responseBody))
-		return fmt.Errorf("unexpected status %d: %s", resp.Status(), responseBody)
-	}
-}
-
-func buildAPNsJWT(teamID, keyID, privateKeyB64 string) (string, error) {
-
-	// Decode the .p8 private key (base64 encoded)
-	privKeyPEM, err := decodeBase64Lenient(privateKeyB64)
-	if err != nil {
-		return "", fmt.Errorf("failed to decode APNs private key: %w", err)
-	}
-
-	// Strip PEM headers if present
-	privKeyStr := string(privKeyPEM)
-	const pemHeader = "-----BEGIN PRIVATE KEY-----"
-	const pemFooter = "-----END PRIVATE KEY-----"
-	start := strings.Index(privKeyStr, pemHeader)
-	end := strings.Index(privKeyStr, pemFooter)
-
-	var derBytes []byte
-	if start != -1 && end != -1 {
-		// PEM format - extract base64 content
-		b64Key := strings.ReplaceAll(privKeyStr[start+len(pemHeader):end], "\n", "")
-		b64Key = strings.TrimSpace(b64Key)
-		derBytes, err = base64.StdEncoding.DecodeString(b64Key)
-		if err != nil {
-			return "", fmt.Errorf("failed to decode PEM content: %w", err)
-		}
-	} else {
-		// Assume already DER format
-		derBytes = privKeyPEM
-	}
-
-	// Parse PKCS8 private key
-	key, err := x509.ParsePKCS8PrivateKey(derBytes)
-	if err != nil {
-		return "", fmt.Errorf("failed to parse PKCS8 key: %w", err)
-	}
-
-	ecdsaKey, ok := key.(*ecdsa.PrivateKey)
-	if !ok {
-		return "", fmt.Errorf("APNs key is not ECDSA (expected P-256)")
-	}
-
-	// Build JWT header
-	header, err := jsonBase64URL(map[string]string{
-		"alg": "ES256",
-		"kid": keyID,
-	})
-	if err != nil {
-		return "", err
-	}
-
-	// Build JWT claims
-	claims, err := jsonBase64URL(map[string]any{
-		"iss": teamID,
-		"iat": time.Now().Unix(),
-	})
-	if err != nil {
-		return "", err
-	}
-
-	signingInput := header + "." + claims
-	digest := sha256.Sum256([]byte(signingInput))
-
-	// Sign with ECDSA
-	r, s, err := ecdsa.Sign(rand.Reader, ecdsaKey, digest[:])
-	if err != nil {
-		return "", fmt.Errorf("ECDSA sign failed: %w", err)
-	}
-
-	// ES256 signature = R || S, each 32 bytes
-	sig := append(zeroPad(r.Bytes(), 32), zeroPad(s.Bytes(), 32)...)
-	return signingInput + "." + base64.RawURLEncoding.EncodeToString(sig), nil
-}
-
-// ---------------------------------------------------------------------------
-// Util
-// ---------------------------------------------------------------------------
-
 func extractOrigin(endpoint string) string {
-	// "https://fcm.googleapis.com/fcm/send/abc" -> "https://fcm.googleapis.com"
 	for i := 8; i < len(endpoint); i++ {
 		if endpoint[i] == '/' {
 			return endpoint[:i]
@@ -1074,7 +423,6 @@ func zeroPad(b []byte, size int) []byte {
 	return padded
 }
 
-// decodeBase64Lenient tries padded then unpadded base64 decoding.
 func decodeBase64Lenient(s string) ([]byte, error) {
 	if b, err := base64.StdEncoding.DecodeString(s); err == nil {
 		return b, nil

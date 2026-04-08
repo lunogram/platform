@@ -181,6 +181,20 @@ func (s *ProvidersStore) ListProviders(ctx context.Context, projectID uuid.UUID,
 	return providers, total, nil
 }
 
+func (s *ProvidersStore) ListProvidersByChannel(ctx context.Context, projectID uuid.UUID, channel string) (Providers, error) {
+	query := `
+	SELECT id, project_id, module, channels, data, link_wrap, name, rate_limit, rate_interval, created_at, updated_at
+	FROM providers
+	WHERE project_id = $1
+	  AND channels @> $2::jsonb
+	  AND deleted_at IS NULL
+	ORDER BY created_at ASC`
+
+	var providers Providers
+	err := s.db.SelectContext(ctx, &providers, query, projectID, fmt.Sprintf(`["%s"]`, channel))
+	return providers, err
+}
+
 func (s *ProvidersStore) GetProviderByProject(ctx context.Context, projectID, providerID uuid.UUID) (*Provider, error) {
 	query := `
 	SELECT id, project_id, module, channels, data, link_wrap, name, rate_limit, rate_interval, created_at, updated_at

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react"
+import { useEffect, useMemo } from "react"
 import type { UseFormReturn } from "react-hook-form"
 import { snakeToTitle } from "@/utils"
 
@@ -6,7 +6,6 @@ import { Input } from "@/components/ui/input"
 import { TemplateInput } from "@/components/ui/template-input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
-import { Button } from "@/components/ui/button"
 import {
     Select,
     SelectContent,
@@ -18,135 +17,6 @@ import { Textarea } from "@/components/ui/textarea"
 import { CodeEditor } from "@/components/ui/code-editor"
 import { KeyValueEditor } from "@/components/ui/key-value-editor"
 import type { VariableGroup } from "@/views/journey/JourneyVariableContext"
-
-interface StringFieldWithFileProps {
-    fieldKey: string
-    item: Schema
-    value: Record<string, unknown>
-    set: (key: string, v: unknown) => void
-    required: boolean
-    fieldTitle: string
-    variables?: VariableGroup[]
-}
-
-function StringFieldWithFile({
-    fieldKey,
-    item,
-    value,
-    set,
-    required,
-    fieldTitle,
-    variables,
-}: StringFieldWithFileProps) {
-    const fileInputRef = useRef<HTMLInputElement>(null)
-    const currentValue = (value[fieldKey] as string) ?? ""
-
-    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0]
-        if (!file) return
-
-        const reader = new FileReader()
-        reader.onload = () => {
-            let result = reader.result as string
-            if (item.requireBase64) {
-                result = btoa(result)
-            }
-            set(fieldKey, result)
-            if (fileInputRef.current) {
-                fileInputRef.current.value = ""
-            }
-        }
-        reader.readAsText(file)
-    }
-
-    const handleBase64Encode = () => {
-        if (currentValue && !isBase64(currentValue)) {
-            set(fieldKey, btoa(currentValue))
-        }
-    }
-
-    const isBase64 = (str: string): boolean => {
-        if (!str) return false
-        try {
-            return btoa(atob(str)) === str
-        } catch {
-            return false
-        }
-    }
-
-    const useTextarea = (item.minLength ?? 0) >= 80
-    const useTemplateInput =
-        !useTextarea &&
-        !item.fileUpload &&
-        variables &&
-        variables.some((g) => g.variables.length > 0)
-
-    return (
-        <div className="grid gap-1.5">
-            <Label className="inline-flex items-center gap-1 text-sm font-medium">
-                {fieldTitle}
-                {required && <span className="text-destructive">*</span>}
-            </Label>
-            {item.description && (
-                <p className="text-sm text-muted-foreground">{item.description}</p>
-            )}
-            <div className="flex gap-2">
-                <div className="flex-1">
-                    {useTextarea ? (
-                        <Textarea
-                            value={currentValue}
-                            onChange={(e) => set(fieldKey, e.target.value)}
-                            placeholder={item.preview}
-                        />
-                    ) : useTemplateInput ? (
-                        <TemplateInput
-                            value={currentValue}
-                            onChange={(val) => set(fieldKey, val)}
-                            placeholder={item.preview}
-                            variables={variables}
-                        />
-                    ) : (
-                        <Input
-                            type={item.format === "password" ? "password" : "text"}
-                            value={currentValue}
-                            onChange={(e) => set(fieldKey, e.target.value)}
-                            placeholder={item.preview}
-                        />
-                    )}
-                </div>
-                {item.fileUpload && (
-                    <>
-                        <input
-                            type="file"
-                            ref={fileInputRef}
-                            accept={item.fileAccept}
-                            className="hidden"
-                            onChange={handleFileUpload}
-                        />
-                        <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => fileInputRef.current?.click()}
-                        >
-                            Upload File
-                        </Button>
-                    </>
-                )}
-                {item.requireBase64 && !item.fileUpload && currentValue && !isBase64(currentValue) && (
-                    <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={handleBase64Encode}
-                    >
-                        Base64 Encode
-                    </Button>
-                )}
-            </div>
-        </div>
-    )
-}
 
 export interface SchemaProperty {
     name: string
@@ -165,9 +35,6 @@ export interface Schema {
     format?: string
     order?: number
     preview?: string
-    fileUpload?: boolean
-    fileAccept?: string
-    requireBase64?: boolean
 }
 
 /**
@@ -316,23 +183,6 @@ export function SchemaFields({
 
                 // string / number
                 if (item.type === "string" || item.type === "number") {
-                    // String fields with file upload or base64 encoding
-                    if (item.type === "string" && (item.fileUpload || item.requireBase64)) {
-                        return (
-                            <StringFieldWithFile
-                                key={key}
-                                fieldKey={key}
-                                item={item}
-                                value={value}
-                                set={set}
-                                required={required ?? false}
-                                fieldTitle={fieldTitle}
-                                variables={variables}
-                            />
-                        )
-                    }
-
-                    // Regular string/number fields
                     const useTextarea = (item.minLength ?? 0) >= 80
                     const useTemplateInput =
                         item.type === "string" &&

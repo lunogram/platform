@@ -94,25 +94,14 @@ func (r SendRequest[T]) GetPushPayload() (PushPayload, error) {
 	return payload, nil
 }
 
-// WebPushTarget contains Web Push subscription data for a device.
-type WebPushTarget struct {
-	Endpoint       string `json:"endpoint"`
-	ExpirationTime *int64 `json:"expiration_time,omitempty"`
-	Keys           struct {
-		Auth   string `json:"auth"`
-		P256dh string `json:"p256dh"`
-	} `json:"keys"`
-}
-
 // PushPayload contains push notification-specific message data.
 type PushPayload struct {
-	Tokens         []string        `json:"tokens"`
-	WebPushTargets []WebPushTarget `json:"web_push_targets,omitempty"`
-	APNsTokens     []string        `json:"apns_tokens,omitempty"`
-	Title          string          `json:"title"`
-	Body           string          `json:"body"`
-	ImageURL       *string         `json:"image_url,omitempty"`
-	Data           map[string]any  `json:"data,omitempty"`
-	Sound          *string         `json:"sound,omitempty"`
-	Badge          *int            `json:"badge,omitempty"`
+	Tokens     []string       `json:"tokens"`
+	APNsTokens []string       `json:"apns_tokens,omitempty"`
+	Title      string         `json:"title"`
+	Body       string         `json:"body"`
+	ImageURL   *string        `json:"image_url,omitempty"`
+	Data       map[string]any `json:"data,omitempty"`
+	Sound      *string        `json:"sound,omitempty"`
+	Badge      *int           `json:"badge,omitempty"`
 }

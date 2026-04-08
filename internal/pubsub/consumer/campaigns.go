@@ -258,75 +258,141 @@ func CampaignsSendHandler(logger *zap.Logger, mgmt *management.State, usrs *subj
 				return err
 			}
 			opts.Devices = userDevices
-		}
 
-		request, err := channels.Compose(ctx, logger, providers.Channel(campaign.Channel), templateSender, providerDefaultSender, config, template, user, opts)
-		if err != nil {
-			logger.Error("failed to compose request", zap.Error(err))
-			// Compose errors are configuration/validation issues (e.g. "user has no email address",
-			// "no from address specified") that will not resolve on retry.
-			return Permanent(err)
-		}
+			// Fan-out: send to every push provider configured for this project.
+			pushProviders, err := mgmt.ListProvidersByChannel(ctx, event.ProjectID, string(providers.ChannelPush))
+			if err != nil {
+				logger.Error("failed to list push providers", zap.Error(err))
+				return err
+			}
+			if len(pushProviders) == 0 {
+				logger.Warn("no push providers configured for project")
+				return Permanent(fmt.Errorf("no push providers configured for project %s", event.ProjectID))
+			}
 
-		response, err := provider.Send(ctx, request)
-		if err != nil {
-			logger.Error("failed to send via provider", zap.Error(err))
+			var lastResponse *providers.SendResponse
+			for _, pushProvider := range pushProviders {
+				pLogger := logger.With(zap.String("push_module", pushProvider.Module))
 
-			// TEMPORARY: wasm crashes are not retryable — stop the storm
-			if strings.Contains(err.Error(), "wasm error:") {
-				logger.Warn("wasm crash detected, marking as permanent failure")
+				pushModule, exists := registry.Get(pushProvider.Module)
+				if !exists {
+					pLogger.Warn("push provider module not found, skipping")
+					continue
+				}
+
+				var pushConfig map[string]any
+				if err := json.Unmarshal(pushProvider.Data, &pushConfig); err != nil {
+					pLogger.Error("failed to unmarshal push provider config", zap.Error(err))
+					continue
+				}
+
+				req, err := channels.ComposePushForModule(ctx, pushProvider.Module, pushConfig, template, user, userDevices)
+				if errors.Is(err, channels.ErrNoTargets) {
+					pLogger.Debug("no devices for push module, skipping")
+					continue
+				}
+				if err != nil {
+					pLogger.Error("failed to compose push request", zap.Error(err))
+					continue
+				}
+
+				resp, err := pushModule.Send(ctx, req)
+				if err != nil {
+					pLogger.Error("failed to send push via provider", zap.Error(err))
+					continue
+				}
+
+				pLogger.Info("push sent", zap.String("status", resp.Status), zap.String("id", resp.ID))
+				if resp.Metadata != nil {
+					for key, meta := range resp.Metadata {
+						if m, ok := meta.(map[string]any); ok {
+							pLogger.Info("push delivery details",
+								zap.String("provider", key),
+								zap.Int("success_count", toInt(m["success_count"])),
+								zap.Int("failure_count", toInt(m["failure_count"])),
+								zap.Any("errors", m["errors"]),
+							)
+						}
+					}
+				}
+				lastResponse = resp
+			}
+
+			// Persist one send record for the campaign regardless of how many
+			// push providers were used. Use the last successful response for the
+			// reference ID, falling back to the campaign's primary provider module.
+			now := time.Now()
+			state := subjects.CampaignSendStateSent
+			referenceType := campaign.Provider.Module
+			var referenceID string
+			if lastResponse != nil {
+				referenceID = lastResponse.ID
+			}
+
+			sendRecord := subjects.CampaignSend{
+				CampaignID:    event.CampaignID,
+				UserID:        event.UserID,
+				BroadcastID:   event.BroadcastID,
+				State:         &state,
+				SentAt:        &now,
+				ReferenceType: &referenceType,
+				ReferenceID:   referenceID,
+			}
+
+			if err := usrs.CampaignSendsStore.InsertCampaignSend(ctx, sendRecord); err != nil {
+				logger.Error("failed to insert campaign send record", zap.Error(err))
+				return fmt.Errorf("failed to insert campaign send record: %w", err)
+			}
+
+			logger.Info("push campaign sent successfully")
+		} else {
+			request, err := channels.Compose(ctx, logger, providers.Channel(campaign.Channel), templateSender, providerDefaultSender, config, template, user, opts)
+			if err != nil {
+				logger.Error("failed to compose request", zap.Error(err))
+				// Compose errors are configuration/validation issues (e.g. "user has no email address",
+				// "no from address specified") that will not resolve on retry.
 				return Permanent(err)
 			}
 
-			var providerErr *wasmProviders.ProviderError
-			if errors.As(err, &providerErr) && providerErr.IsPermanent() {
-				return Permanent(err)
+			response, err := provider.Send(ctx, request)
+			if err != nil {
+				logger.Error("failed to send via provider", zap.Error(err))
+
+				// TEMPORARY: wasm crashes are not retryable — stop the storm
+				if strings.Contains(err.Error(), "wasm error:") {
+					logger.Warn("wasm crash detected, marking as permanent failure")
+					return Permanent(err)
+				}
+
+				var providerErr *wasmProviders.ProviderError
+				if errors.As(err, &providerErr) && providerErr.IsPermanent() {
+					return Permanent(err)
+				}
+				return err
 			}
-			return err
-		}
 
-		// Log detailed status from provider response
-		if response.Metadata != nil {
-			if fcmMeta, ok := response.Metadata["fcm"].(map[string]any); ok {
-				logger.Info("FCM delivery details",
-					zap.Int("success_count", toInt(fcmMeta["success_count"])),
-					zap.Int("failure_count", toInt(fcmMeta["failure_count"])),
-					zap.Any("errors", fcmMeta["errors"]),
-				)
+			now := time.Now()
+			state := subjects.CampaignSendStateSent
+			referenceType := campaign.Provider.Module
+			referenceID := response.ID
+
+			sendRecord := subjects.CampaignSend{
+				CampaignID:    event.CampaignID,
+				UserID:        event.UserID,
+				BroadcastID:   event.BroadcastID,
+				State:         &state,
+				SentAt:        &now,
+				ReferenceType: &referenceType,
+				ReferenceID:   referenceID,
 			}
-			if wpMeta, ok := response.Metadata["webpush"].(map[string]any); ok {
-				logger.Info("Web Push delivery details",
-					zap.Int("success_count", toInt(wpMeta["success_count"])),
-					zap.Int("failure_count", toInt(wpMeta["failure_count"])),
-					zap.Any("errors", wpMeta["errors"]),
-				)
+
+			if err := usrs.CampaignSendsStore.InsertCampaignSend(ctx, sendRecord); err != nil {
+				logger.Error("failed to insert campaign send record", zap.Error(err))
+				return fmt.Errorf("failed to insert campaign send record: %w", err)
 			}
+
+			logger.Info("campaign sent successfully", zap.String("status", response.Status), zap.String("id", response.ID))
 		}
-
-		// Persist the send record so we can track delivery and attribute the
-		// send back to a broadcast (when present).
-		now := time.Now()
-		state := subjects.CampaignSendStateSent
-		referenceType := campaign.Provider.Module
-		referenceID := response.ID
-
-		sendRecord := subjects.CampaignSend{
-			CampaignID:    event.CampaignID,
-			UserID:        event.UserID,
-			BroadcastID:   event.BroadcastID,
-			State:         &state,
-			SentAt:        &now,
-			ReferenceType: &referenceType,
-			ReferenceID:   referenceID,
-		}
-
-		err = usrs.CampaignSendsStore.InsertCampaignSend(ctx, sendRecord)
-		if err != nil {
-			logger.Error("failed to insert campaign send record", zap.Error(err))
-			return fmt.Errorf("failed to insert campaign send record: %w", err)
-		}
-
-		logger.Info("campaign sent successfully", zap.String("status", response.Status), zap.String("id", response.ID))
 
 		// If this send belongs to a broadcast, check whether all messages
 		// have now been delivered. The batch handler keeps the broadcast in
