@@ -24,19 +24,6 @@ import (
 	internalProviders "github.com/lunogram/platform/internal/providers"
 )
 
-func toInt(v any) int {
-	switch n := v.(type) {
-	case int:
-		return n
-	case int64:
-		return int(n)
-	case float64:
-		return int(n)
-	default:
-		return 0
-	}
-}
-
 // userToMap converts a User to a map suitable for Liquid template rendering.
 // The result can be used as the "user" key in the render context so that
 // {{ user.email }}, {{ user.data.first_name }} etc. work in templates.
@@ -272,44 +259,44 @@ func CampaignsSendHandler(logger *zap.Logger, mgmt *management.State, usrs *subj
 
 			var lastResponse *providers.SendResponse
 			for _, pushProvider := range pushProviders {
-				pLogger := logger.With(zap.String("push_module", pushProvider.Module))
+				logger := logger.With(zap.String("push_module", pushProvider.Module))
 
 				pushModule, exists := registry.Get(pushProvider.Module)
 				if !exists {
-					pLogger.Warn("push provider module not found, skipping")
+					logger.Warn("push provider module not found, skipping")
 					continue
 				}
 
 				var pushConfig map[string]any
 				if err := json.Unmarshal(pushProvider.Data, &pushConfig); err != nil {
-					pLogger.Error("failed to unmarshal push provider config", zap.Error(err))
+					logger.Error("failed to unmarshal push provider config", zap.Error(err))
 					continue
 				}
 
 				req, err := channels.ComposePushForModule(ctx, pushProvider.Module, pushConfig, template, user, userDevices)
 				if errors.Is(err, channels.ErrNoTargets) {
-					pLogger.Debug("no devices for push module, skipping")
+					logger.Debug("no devices for push module, skipping")
 					continue
 				}
 				if err != nil {
-					pLogger.Error("failed to compose push request", zap.Error(err))
+					logger.Error("failed to compose push request", zap.Error(err))
 					continue
 				}
 
 				resp, err := pushModule.Send(ctx, req)
 				if err != nil {
-					pLogger.Error("failed to send push via provider", zap.Error(err))
+					logger.Error("failed to send push via provider", zap.Error(err))
 					continue
 				}
 
-				pLogger.Info("push sent", zap.String("status", resp.Status), zap.String("id", resp.ID))
+				logger.Info("push sent", zap.String("status", resp.Status), zap.String("id", resp.ID))
 				if resp.Metadata != nil {
 					for key, meta := range resp.Metadata {
 						if m, ok := meta.(map[string]any); ok {
-							pLogger.Info("push delivery details",
+							logger.Info("push delivery details",
 								zap.String("provider", key),
-								zap.Int("success_count", toInt(m["success_count"])),
-								zap.Int("failure_count", toInt(m["failure_count"])),
+								zap.Any("success_count", m["success_count"]),
+								zap.Any("failure_count", m["failure_count"]),
 								zap.Any("errors", m["errors"]),
 							)
 						}

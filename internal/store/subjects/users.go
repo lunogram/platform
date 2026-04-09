@@ -270,7 +270,7 @@ func (s *UsersStore) GetUserByExternalID(ctx context.Context, projectID uuid.UUI
 	WHERE uei.source = $1 AND uei.external_id = $2 AND u.project_id = $3`
 
 	var user User
-	err := s.db.GetContext(ctx, &user, stmt, externalID, projectID)
+	err := s.db.GetContext(ctx, &user, stmt, source, externalID, projectID)
 	if err != nil {
 		return nil, err
 	}
@@ -285,8 +285,8 @@ func (s *UsersStore) GetUserByAnonymousID(ctx context.Context, projectID uuid.UU
 		EXISTS(
 			SELECT 1 FROM devices d
 			WHERE d.user_id = u.id
-			AND d.token IS NOT NULL
-			AND d.token != ''
+			AND d.push_config IS NOT NULL
+			AND d.deleted_at IS NULL
 		) as has_push_device
 	FROM users u
 	WHERE u.anonymous_id = $1 AND u.project_id = $2`

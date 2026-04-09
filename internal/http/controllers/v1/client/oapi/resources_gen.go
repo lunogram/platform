@@ -312,6 +312,12 @@ type User struct {
 // UserIdentifier One or more external identifiers to identify the user
 type UserIdentifier = []ExternalID
 
+// VapidPublicKey defines model for VapidPublicKey.
+type VapidPublicKey struct {
+	// PublicKey The VAPID public key
+	PublicKey string `json:"public_key"`
+}
+
 // Error defines model for Error.
 type Error = Problem
 
@@ -326,9 +332,6 @@ type EmailUnsubscribeParams struct {
 	// Link Encoded unsubscribe link with user and campaign data
 	Link string `form:"link" json:"link"`
 }
-
-// RegisterDeviceJSONRequestBody defines body for RegisterDevice for application/json ContentType.
-type RegisterDeviceJSONRequestBody = DeviceRegistration
 
 // DeleteOrganizationClientJSONRequestBody defines body for DeleteOrganizationClient for application/json ContentType.
 type DeleteOrganizationClientJSONRequestBody = DeleteOrganizationRequest
@@ -356,6 +359,9 @@ type DeleteUserClientJSONRequestBody = DeleteUserRequest
 
 // UpsertUserClientJSONRequestBody defines body for UpsertUserClient for application/json ContentType.
 type UpsertUserClientJSONRequestBody = IdentifyRequest
+
+// RegisterDeviceJSONRequestBody defines body for RegisterDevice for application/json ContentType.
+type RegisterDeviceJSONRequestBody = DeviceRegistration
 
 // PostUserEventsJSONRequestBody defines body for PostUserEvents for application/json ContentType.
 type PostUserEventsJSONRequestBody = PostEventsRequest
@@ -442,10 +448,8 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 
 // The interface specification for the client above.
 type ClientInterface interface {
-	// RegisterDeviceWithBody request with any body
-	RegisterDeviceWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	RegisterDevice(ctx context.Context, body RegisterDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// GetVapidPublicKey request
+	GetVapidPublicKey(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteOrganizationClientWithBody request with any body
 	DeleteOrganizationClientWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -492,6 +496,11 @@ type ClientInterface interface {
 
 	UpsertUserClient(ctx context.Context, body UpsertUserClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// RegisterDeviceWithBody request with any body
+	RegisterDeviceWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	RegisterDevice(ctx context.Context, body RegisterDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// PostUserEventsWithBody request with any body
 	PostUserEventsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -519,20 +528,8 @@ type ClientInterface interface {
 	EmailUnsubscribe(ctx context.Context, params *EmailUnsubscribeParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
-func (c *Client) RegisterDeviceWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewRegisterDeviceRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) RegisterDevice(ctx context.Context, body RegisterDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewRegisterDeviceRequest(c.Server, body)
+func (c *Client) GetVapidPublicKey(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetVapidPublicKeyRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -759,6 +756,30 @@ func (c *Client) UpsertUserClient(ctx context.Context, body UpsertUserClientJSON
 	return c.Client.Do(req)
 }
 
+func (c *Client) RegisterDeviceWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRegisterDeviceRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RegisterDevice(ctx context.Context, body RegisterDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRegisterDeviceRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) PostUserEventsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPostUserEventsRequestWithBody(c.Server, contentType, body)
 	if err != nil {
@@ -879,19 +900,8 @@ func (c *Client) EmailUnsubscribe(ctx context.Context, params *EmailUnsubscribeP
 	return c.Client.Do(req)
 }
 
-// NewRegisterDeviceRequest calls the generic RegisterDevice builder with application/json body
-func NewRegisterDeviceRequest(server string, body RegisterDeviceJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewRegisterDeviceRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewRegisterDeviceRequestWithBody generates requests for RegisterDevice with any type of body
-func NewRegisterDeviceRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+// NewGetVapidPublicKeyRequest generates requests for GetVapidPublicKey
+func NewGetVapidPublicKeyRequest(server string) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -899,7 +909,7 @@ func NewRegisterDeviceRequestWithBody(server string, contentType string, body io
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/client/devices")
+	operationPath := fmt.Sprintf("/api/admin/push/vapid")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -909,12 +919,10 @@ func NewRegisterDeviceRequestWithBody(server string, contentType string, body io
 		return nil, err
 	}
 
-	req, err := http.NewRequest("POST", queryURL.String(), body)
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
-
-	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -1279,6 +1287,46 @@ func NewUpsertUserClientRequestWithBody(server string, contentType string, body 
 	return req, nil
 }
 
+// NewRegisterDeviceRequest calls the generic RegisterDevice builder with application/json body
+func NewRegisterDeviceRequest(server string, body RegisterDeviceJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewRegisterDeviceRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewRegisterDeviceRequestWithBody generates requests for RegisterDevice with any type of body
+func NewRegisterDeviceRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/client/users/devices")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewPostUserEventsRequest calls the generic PostUserEvents builder with application/json body
 func NewPostUserEventsRequest(server string, body PostUserEventsJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -1582,10 +1630,8 @@ func WithBaseURL(baseURL string) ClientOption {
 
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
-	// RegisterDeviceWithBodyWithResponse request with any body
-	RegisterDeviceWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RegisterDeviceResponse, error)
-
-	RegisterDeviceWithResponse(ctx context.Context, body RegisterDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*RegisterDeviceResponse, error)
+	// GetVapidPublicKeyWithResponse request
+	GetVapidPublicKeyWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetVapidPublicKeyResponse, error)
 
 	// DeleteOrganizationClientWithBodyWithResponse request with any body
 	DeleteOrganizationClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteOrganizationClientResponse, error)
@@ -1632,6 +1678,11 @@ type ClientWithResponsesInterface interface {
 
 	UpsertUserClientWithResponse(ctx context.Context, body UpsertUserClientJSONRequestBody, reqEditors ...RequestEditorFn) (*UpsertUserClientResponse, error)
 
+	// RegisterDeviceWithBodyWithResponse request with any body
+	RegisterDeviceWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RegisterDeviceResponse, error)
+
+	RegisterDeviceWithResponse(ctx context.Context, body RegisterDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*RegisterDeviceResponse, error)
+
 	// PostUserEventsWithBodyWithResponse request with any body
 	PostUserEventsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostUserEventsResponse, error)
 
@@ -1659,14 +1710,15 @@ type ClientWithResponsesInterface interface {
 	EmailUnsubscribeWithResponse(ctx context.Context, params *EmailUnsubscribeParams, reqEditors ...RequestEditorFn) (*EmailUnsubscribeResponse, error)
 }
 
-type RegisterDeviceResponse struct {
+type GetVapidPublicKeyResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	JSON200      *VapidPublicKey
 	JSONDefault  *Error
 }
 
 // Status returns HTTPResponse.Status
-func (r RegisterDeviceResponse) Status() string {
+func (r GetVapidPublicKeyResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -1674,7 +1726,7 @@ func (r RegisterDeviceResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r RegisterDeviceResponse) StatusCode() int {
+func (r GetVapidPublicKeyResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -1882,6 +1934,28 @@ func (r UpsertUserClientResponse) StatusCode() int {
 	return 0
 }
 
+type RegisterDeviceResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r RegisterDeviceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RegisterDeviceResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type PostUserEventsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -2012,21 +2086,13 @@ func (r EmailUnsubscribeResponse) StatusCode() int {
 	return 0
 }
 
-// RegisterDeviceWithBodyWithResponse request with arbitrary body returning *RegisterDeviceResponse
-func (c *ClientWithResponses) RegisterDeviceWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RegisterDeviceResponse, error) {
-	rsp, err := c.RegisterDeviceWithBody(ctx, contentType, body, reqEditors...)
+// GetVapidPublicKeyWithResponse request returning *GetVapidPublicKeyResponse
+func (c *ClientWithResponses) GetVapidPublicKeyWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetVapidPublicKeyResponse, error) {
+	rsp, err := c.GetVapidPublicKey(ctx, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseRegisterDeviceResponse(rsp)
-}
-
-func (c *ClientWithResponses) RegisterDeviceWithResponse(ctx context.Context, body RegisterDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*RegisterDeviceResponse, error) {
-	rsp, err := c.RegisterDevice(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseRegisterDeviceResponse(rsp)
+	return ParseGetVapidPublicKeyResponse(rsp)
 }
 
 // DeleteOrganizationClientWithBodyWithResponse request with arbitrary body returning *DeleteOrganizationClientResponse
@@ -2182,6 +2248,23 @@ func (c *ClientWithResponses) UpsertUserClientWithResponse(ctx context.Context, 
 	return ParseUpsertUserClientResponse(rsp)
 }
 
+// RegisterDeviceWithBodyWithResponse request with arbitrary body returning *RegisterDeviceResponse
+func (c *ClientWithResponses) RegisterDeviceWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RegisterDeviceResponse, error) {
+	rsp, err := c.RegisterDeviceWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRegisterDeviceResponse(rsp)
+}
+
+func (c *ClientWithResponses) RegisterDeviceWithResponse(ctx context.Context, body RegisterDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*RegisterDeviceResponse, error) {
+	rsp, err := c.RegisterDevice(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRegisterDeviceResponse(rsp)
+}
+
 // PostUserEventsWithBodyWithResponse request with arbitrary body returning *PostUserEventsResponse
 func (c *ClientWithResponses) PostUserEventsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostUserEventsResponse, error) {
 	rsp, err := c.PostUserEventsWithBody(ctx, contentType, body, reqEditors...)
@@ -2268,20 +2351,27 @@ func (c *ClientWithResponses) EmailUnsubscribeWithResponse(ctx context.Context, 
 	return ParseEmailUnsubscribeResponse(rsp)
 }
 
-// ParseRegisterDeviceResponse parses an HTTP response from a RegisterDeviceWithResponse call
-func ParseRegisterDeviceResponse(rsp *http.Response) (*RegisterDeviceResponse, error) {
+// ParseGetVapidPublicKeyResponse parses an HTTP response from a GetVapidPublicKeyWithResponse call
+func ParseGetVapidPublicKeyResponse(rsp *http.Response) (*GetVapidPublicKeyResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &RegisterDeviceResponse{
+	response := &GetVapidPublicKeyResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
 
 	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest VapidPublicKey
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -2549,6 +2639,32 @@ func ParseUpsertUserClientResponse(rsp *http.Response) (*UpsertUserClientRespons
 	return response, nil
 }
 
+// ParseRegisterDeviceResponse parses an HTTP response from a RegisterDeviceWithResponse call
+func ParseRegisterDeviceResponse(rsp *http.Response) (*RegisterDeviceResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RegisterDeviceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParsePostUserEventsResponse parses an HTTP response from a PostUserEventsWithResponse call
 func ParsePostUserEventsResponse(rsp *http.Response) (*PostUserEventsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -2684,9 +2800,9 @@ func ParseEmailUnsubscribeResponse(rsp *http.Response) (*EmailUnsubscribeRespons
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
-	// Register device
-	// (POST /api/client/devices)
-	RegisterDevice(w http.ResponseWriter, r *http.Request)
+	// Get VAPID public key
+	// (GET /api/admin/push/vapid)
+	GetVapidPublicKey(w http.ResponseWriter, r *http.Request)
 	// Delete organization
 	// (DELETE /api/client/organizations)
 	DeleteOrganizationClient(w http.ResponseWriter, r *http.Request)
@@ -2714,6 +2830,9 @@ type ServerInterface interface {
 	// Upsert user
 	// (POST /api/client/users)
 	UpsertUserClient(w http.ResponseWriter, r *http.Request)
+	// Register device
+	// (POST /api/client/users/devices)
+	RegisterDevice(w http.ResponseWriter, r *http.Request)
 	// Post user events
 	// (POST /api/client/users/events)
 	PostUserEvents(w http.ResponseWriter, r *http.Request)
@@ -2738,9 +2857,9 @@ type ServerInterface interface {
 
 type Unimplemented struct{}
 
-// Register device
-// (POST /api/client/devices)
-func (_ Unimplemented) RegisterDevice(w http.ResponseWriter, r *http.Request) {
+// Get VAPID public key
+// (GET /api/admin/push/vapid)
+func (_ Unimplemented) GetVapidPublicKey(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -2798,6 +2917,12 @@ func (_ Unimplemented) UpsertUserClient(w http.ResponseWriter, r *http.Request) 
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// Register device
+// (POST /api/client/users/devices)
+func (_ Unimplemented) RegisterDevice(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // Post user events
 // (POST /api/client/users/events)
 func (_ Unimplemented) PostUserEvents(w http.ResponseWriter, r *http.Request) {
@@ -2843,8 +2968,8 @@ type ServerInterfaceWrapper struct {
 
 type MiddlewareFunc func(http.Handler) http.Handler
 
-// RegisterDevice operation middleware
-func (siw *ServerInterfaceWrapper) RegisterDevice(w http.ResponseWriter, r *http.Request) {
+// GetVapidPublicKey operation middleware
+func (siw *ServerInterfaceWrapper) GetVapidPublicKey(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 
@@ -2853,7 +2978,7 @@ func (siw *ServerInterfaceWrapper) RegisterDevice(w http.ResponseWriter, r *http
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.RegisterDevice(w, r)
+		siw.Handler.GetVapidPublicKey(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -3034,6 +3159,26 @@ func (siw *ServerInterfaceWrapper) UpsertUserClient(w http.ResponseWriter, r *ht
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UpsertUserClient(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RegisterDevice operation middleware
+func (siw *ServerInterfaceWrapper) RegisterDevice(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RegisterDevice(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -3319,7 +3464,7 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	}
 
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/api/client/devices", wrapper.RegisterDevice)
+		r.Get(options.BaseURL+"/api/admin/push/vapid", wrapper.GetVapidPublicKey)
 	})
 	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/api/client/organizations", wrapper.DeleteOrganizationClient)
@@ -3347,6 +3492,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/client/users", wrapper.UpsertUserClient)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/client/users/devices", wrapper.RegisterDevice)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/client/users/events", wrapper.PostUserEvents)

@@ -404,7 +404,7 @@ paths:
               schema:
                 type: string
 
-  /api/client/devices:
+  /api/client/users/devices:
     post:
       summary: Register device
       description: Register or update a device's push subscription. The project is determined from the API key.
@@ -422,6 +422,25 @@ paths:
       responses:
         "201":
           description: Device registered successfully
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/push/vapid:
+    get:
+      summary: Get VAPID public key
+      description: Retrieves the VAPID public key for push notifications
+      operationId: getVapidPublicKey
+      tags:
+        - Client
+      security:
+        - HttpBearerAuth: []
+      responses:
+        "200":
+          description: VAPID public key retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VapidPublicKey"
         default:
           $ref: "#/components/responses/Error"
 
@@ -632,6 +651,15 @@ components:
                   type: string
                 auth:
                   type: string
+
+    VapidPublicKey:
+      type: object
+      required:
+        - public_key
+      properties:
+        public_key:
+          type: string
+          description: The VAPID public key
 
     IdentifyRequest:
       type: object

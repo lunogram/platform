@@ -213,7 +213,7 @@ func (srv *ProvidersController) CreateProvider(w http.ResponseWriter, r *http.Re
 
 	// Auto-inject VAPID keys for webpush providers so users can't misconfigure them.
 	if providerType == "webpush" {
-		vapidKey, err := srv.store.VapidKeysStore.GetVapidKeyByName("default")
+		vapidKey, err := srv.store.VapidKeysStore.GetVapidKeyByName(ctx, management.DefaultVapidKeyName)
 		if err != nil {
 			logger.Error("failed to fetch VAPID keys for webpush provider", zap.Error(err))
 			oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("failed to fetch VAPID keys")))

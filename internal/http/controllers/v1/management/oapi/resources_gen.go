@@ -2927,9 +2927,6 @@ type ClientInterface interface {
 
 	UpdateTag(ctx context.Context, projectID openapi_types.UUID, tagID openapi_types.UUID, body UpdateTagJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// GetVapidPublicKey request
-	GetVapidPublicKey(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// ListAdmins request
 	ListAdmins(ctx context.Context, params *ListAdminsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -5186,18 +5183,6 @@ func (c *Client) UpdateTagWithBody(ctx context.Context, projectID openapi_types.
 
 func (c *Client) UpdateTag(ctx context.Context, projectID openapi_types.UUID, tagID openapi_types.UUID, body UpdateTagJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateTagRequest(c.Server, projectID, tagID, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) GetVapidPublicKey(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetVapidPublicKeyRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -13007,33 +12992,6 @@ func NewUpdateTagRequestWithBody(server string, projectID openapi_types.UUID, ta
 	return req, nil
 }
 
-// NewGetVapidPublicKeyRequest generates requests for GetVapidPublicKey
-func NewGetVapidPublicKeyRequest(server string) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/admin/push/vapid-public-key")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
 // NewListAdminsRequest generates requests for ListAdmins
 func NewListAdminsRequest(server string, params *ListAdminsParams) (*http.Request, error) {
 	var err error
@@ -13961,9 +13919,6 @@ type ClientWithResponsesInterface interface {
 	UpdateTagWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, tagID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateTagResponse, error)
 
 	UpdateTagWithResponse(ctx context.Context, projectID openapi_types.UUID, tagID openapi_types.UUID, body UpdateTagJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateTagResponse, error)
-
-	// GetVapidPublicKeyWithResponse request
-	GetVapidPublicKeyWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetVapidPublicKeyResponse, error)
 
 	// ListAdminsWithResponse request
 	ListAdminsWithResponse(ctx context.Context, params *ListAdminsParams, reqEditors ...RequestEditorFn) (*ListAdminsResponse, error)
@@ -17288,32 +17243,6 @@ func (r UpdateTagResponse) StatusCode() int {
 	return 0
 }
 
-type GetVapidPublicKeyResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *struct {
-		// PublicKey The VAPID public key
-		PublicKey string `json:"public_key"`
-	}
-	JSONDefault *Error
-}
-
-// Status returns HTTPResponse.Status
-func (r GetVapidPublicKeyResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r GetVapidPublicKeyResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
 type ListAdminsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -19146,15 +19075,6 @@ func (c *ClientWithResponses) UpdateTagWithResponse(ctx context.Context, project
 		return nil, err
 	}
 	return ParseUpdateTagResponse(rsp)
-}
-
-// GetVapidPublicKeyWithResponse request returning *GetVapidPublicKeyResponse
-func (c *ClientWithResponses) GetVapidPublicKeyWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetVapidPublicKeyResponse, error) {
-	rsp, err := c.GetVapidPublicKey(ctx, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseGetVapidPublicKeyResponse(rsp)
 }
 
 // ListAdminsWithResponse request returning *ListAdminsResponse
@@ -23749,42 +23669,6 @@ func ParseUpdateTagResponse(rsp *http.Response) (*UpdateTagResponse, error) {
 	return response, nil
 }
 
-// ParseGetVapidPublicKeyResponse parses an HTTP response from a GetVapidPublicKeyWithResponse call
-func ParseGetVapidPublicKeyResponse(rsp *http.Response) (*GetVapidPublicKeyResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &GetVapidPublicKeyResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest struct {
-			// PublicKey The VAPID public key
-			PublicKey string `json:"public_key"`
-		}
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
 // ParseListAdminsResponse parses an HTTP response from a ListAdminsWithResponse call
 func ParseListAdminsResponse(rsp *http.Response) (*ListAdminsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -24489,9 +24373,6 @@ type ServerInterface interface {
 	// Update tag
 	// (PATCH /api/admin/projects/{projectID}/tags/{tagID})
 	UpdateTag(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, tagID openapi_types.UUID)
-	// Get VAPID public key
-	// (GET /api/admin/push/vapid-public-key)
-	GetVapidPublicKey(w http.ResponseWriter, r *http.Request)
 	// List organization admins
 	// (GET /api/admin/tenant/admins)
 	ListAdmins(w http.ResponseWriter, r *http.Request, params ListAdminsParams)
@@ -25374,12 +25255,6 @@ func (_ Unimplemented) GetTag(w http.ResponseWriter, r *http.Request, projectID 
 // Update tag
 // (PATCH /api/admin/projects/{projectID}/tags/{tagID})
 func (_ Unimplemented) UpdateTag(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, tagID openapi_types.UUID) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// Get VAPID public key
-// (GET /api/admin/push/vapid-public-key)
-func (_ Unimplemented) GetVapidPublicKey(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -31601,26 +31476,6 @@ func (siw *ServerInterfaceWrapper) UpdateTag(w http.ResponseWriter, r *http.Requ
 	handler.ServeHTTP(w, r)
 }
 
-// GetVapidPublicKey operation middleware
-func (siw *ServerInterfaceWrapper) GetVapidPublicKey(w http.ResponseWriter, r *http.Request) {
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
-
-	r = r.WithContext(ctx)
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetVapidPublicKey(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
 // ListAdmins operation middleware
 func (siw *ServerInterfaceWrapper) ListAdmins(w http.ResponseWriter, r *http.Request) {
 
@@ -32405,9 +32260,6 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Patch(options.BaseURL+"/api/admin/projects/{projectID}/tags/{tagID}", wrapper.UpdateTag)
-	})
-	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/api/admin/push/vapid-public-key", wrapper.GetVapidPublicKey)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/tenant/admins", wrapper.ListAdmins)

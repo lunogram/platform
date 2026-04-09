@@ -513,10 +513,8 @@ func (s *OrganizationsStore) ListOrganizationMembers(ctx context.Context, projec
 		EXISTS(
 			SELECT 1 FROM devices d
 			WHERE d.user_id = u.id
-			AND (
-				(d.token IS NOT NULL AND d.token != '') OR
-				(d.device_credentials->>'endpoint' IS NOT NULL)
-			)
+			AND d.push_config IS NOT NULL
+			AND d.deleted_at IS NULL
 		) as has_push_device,
 		COALESCE(ueia.external_ids, '[]'::jsonb) AS external_ids,
 		ou.data as org_data,

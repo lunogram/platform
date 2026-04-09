@@ -13,7 +13,6 @@ import (
 	"github.com/lunogram/platform/internal/http/controllers/v1/client/oapi"
 	"github.com/lunogram/platform/internal/http/problem"
 	"github.com/lunogram/platform/internal/store/management"
-	"github.com/lunogram/platform/internal/store/subjects"
 	"go.uber.org/zap"
 )
 
@@ -21,25 +20,23 @@ import (
 var templatesFS embed.FS
 
 type SubscriptionsController struct {
-	logger *zap.Logger
-	db     *sqlx.DB
-	mgmt   *management.State
-	users  *subjects.State
-	tmpl   *template.Template
+	*ClientController
+	db   *sqlx.DB
+	mgmt *management.State
+	tmpl *template.Template
 }
 
-func NewSubscriptionsController(logger *zap.Logger, db *sqlx.DB, mgmt *management.State, usrs *subjects.State) (*SubscriptionsController, error) {
+func NewSubscriptionsController(client *ClientController, db *sqlx.DB, mgmt *management.State) (*SubscriptionsController, error) {
 	tmpl, err := template.ParseFS(templatesFS, "templates/*.html")
 	if err != nil {
 		return nil, err
 	}
 
 	return &SubscriptionsController{
-		logger: logger,
-		db:     db,
-		mgmt:   mgmt,
-		users:  usrs,
-		tmpl:   tmpl,
+		ClientController: client,
+		db:               db,
+		mgmt:             mgmt,
+		tmpl:             tmpl,
 	}, nil
 }
 

@@ -1,9 +1,15 @@
 package management
 
 import (
+	"context"
+	"database/sql"
+	"errors"
+
 	"github.com/SherClockHolmes/webpush-go"
 	"github.com/lunogram/platform/internal/store"
 )
+
+const DefaultVapidKeyName = "default"
 
 type VapidKey struct {
 	ID         string `db:"id"`
@@ -23,9 +29,9 @@ type VapidKeysStore struct {
 	db store.DB
 }
 
-func (s *VapidKeysStore) GetVapidKeyByName(name string) (*VapidKey, error) {
+func (s *VapidKeysStore) GetVapidKeyByName(ctx context.Context, name string) (*VapidKey, error) {
 	var key VapidKey
-	err := s.db.Get(&key, "SELECT id, name, public_key, private_key, created_at FROM vapid_keys WHERE name = $1 AND deleted_at IS NULL", name)
+	err := s.db.GetContext(ctx, &key, "SELECT id, name, public_key, private_key, created_at FROM vapid_keys WHERE name = $1 AND deleted_at IS NULL", name)
 	if err != nil {
 		return nil, err
 	}
@@ -33,30 +39,33 @@ func (s *VapidKeysStore) GetVapidKeyByName(name string) (*VapidKey, error) {
 	return &key, nil
 }
 
-func (s *VapidKeysStore) CreateVapidKey(name string) error {
-	privateKey, pblicKey, err := webpush.GenerateVAPIDKeys()
+func (s *VapidKeysStore) CreateVapidKey(ctx context.Context, name string) error {
+	privateKey, publicKey, err := webpush.GenerateVAPIDKeys()
 	if err != nil {
 		return err
 	}
 
-	_, err = s.db.Exec(
+	_, err = s.db.ExecContext(
+		ctx,
 		"INSERT INTO vapid_keys (name, public_key, private_key) VALUES ($1, $2, $3)",
 		name,
-		pblicKey,
+		publicKey,
 		privateKey,
 	)
 
 	return err
 }
 
-func (s *VapidKeysStore) CreateVapidKeysIfNotExist() error {
-	vapidKeyName := "default"
-	_, err := s.GetVapidKeyByName(vapidKeyName)
+func (s *VapidKeysStore) CreateVapidKeysIfNotExist(ctx context.Context) error {
+	_, err := s.GetVapidKeyByName(ctx, DefaultVapidKeyName)
 	if err == nil {
 		return nil
 	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return err
+	}
 
-	err = s.CreateVapidKey(vapidKeyName)
+	err = s.CreateVapidKey(ctx, DefaultVapidKeyName)
 	if err != nil {
 		return err
 	}

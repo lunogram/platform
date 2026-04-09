@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"database/sql"
 	"errors"
 	"net/http"
 
@@ -9,11 +10,47 @@ import (
 	"github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/http/problem"
 	"github.com/lunogram/platform/internal/rbac"
+	"github.com/lunogram/platform/internal/store/management"
 	"github.com/lunogram/platform/internal/store/subjects"
 	"go.uber.org/zap"
 )
 
-func (srv *ClientController) RegisterDevice(w http.ResponseWriter, r *http.Request) {
+type DevicesController struct {
+	*ClientController
+}
+
+func NewDevicesController(client *ClientController) *DevicesController {
+	return &DevicesController{ClientController: client}
+}
+
+func (srv *DevicesController) GetVapidPublicKey(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	actor := rbac.FromContext(ctx)
+	if actor == nil {
+		oapi.WriteProblem(w, problem.ErrUnauthorized())
+		return
+	}
+
+	logger := srv.logger.With(zap.Stringer("project_id", actor.ProjectID))
+	logger.Info("retrieving VAPID public key")
+
+	key, err := srv.mgmt.VapidKeysStore.GetVapidKeyByName(ctx, management.DefaultVapidKeyName)
+	if errors.Is(err, sql.ErrNoRows) {
+		logger.Info("VAPID key not found")
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("vapid key not found")))
+		return
+	}
+	if err != nil {
+		logger.Error("failed to get VAPID key", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal())
+		return
+	}
+
+	logger.Info("VAPID public key retrieved successfully")
+	json.Write(w, http.StatusOK, oapi.VapidPublicKey{PublicKey: key.PublicKey})
+}
+
+func (srv *DevicesController) RegisterDevice(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	actor := rbac.FromContext(ctx)
 	if actor == nil {
@@ -61,6 +98,29 @@ func (srv *ClientController) RegisterDevice(w http.ResponseWriter, r *http.Reque
 		osVal := string(*req.Os)
 		osStr = &osVal
 	}
+	if req.Os == nil {
+		logger.Error("os is required")
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("os is required")))
+		return
+	}
+
+	inferredType, ok := pushConfigTypeFromOS(*req.Os)
+	if !ok {
+		logger.Error("invalid os", zap.String("os", string(*req.Os)))
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("os must be web, ios, or android")))
+		return
+	}
+
+	if subjects.PushConfigType(req.PushConfig.Type) != inferredType {
+		logger.Error(
+			"push_config.type does not match os",
+			zap.String("os", string(*req.Os)),
+			zap.String("push_config_type", string(req.PushConfig.Type)),
+			zap.String("expected_type", string(inferredType)),
+		)
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("push_config.type does not match os")))
+		return
+	}
 
 	device := subjects.Device{
 		ProjectID:  projectID,
@@ -72,9 +132,7 @@ func (srv *ClientController) RegisterDevice(w http.ResponseWriter, r *http.Reque
 		AppVersion: req.AppVersion,
 	}
 
-	pc := subjects.PushConfig{
-		Type: subjects.PushConfigType(req.PushConfig.Type),
-	}
+	pc := subjects.PushConfig{Type: inferredType}
 	switch pc.Type {
 	case subjects.PushConfigTypeFCM, subjects.PushConfigTypeAPNs:
 		if req.PushConfig.Token == nil || *req.PushConfig.Token == "" {
@@ -89,13 +147,16 @@ func (srv *ClientController) RegisterDevice(w http.ResponseWriter, r *http.Reque
 			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("push_config.endpoint is required for webpush")))
 			return
 		}
+		if req.PushConfig.Keys == nil || req.PushConfig.Keys.Auth == "" || req.PushConfig.Keys.P256dh == "" {
+			logger.Error("push_config.keys.auth and push_config.keys.p256dh are required for webpush")
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("push_config.keys.auth and push_config.keys.p256dh are required for webpush")))
+			return
+		}
 		pc.Endpoint = *req.PushConfig.Endpoint
 		pc.ExpirationTime = req.PushConfig.ExpirationTime
-		if req.PushConfig.Keys != nil {
-			pc.Keys = &subjects.PushConfigKeys{
-				Auth:   req.PushConfig.Keys.Auth,
-				P256dh: req.PushConfig.Keys.P256dh,
-			}
+		pc.Keys = &subjects.PushConfigKeys{
+			Auth:   req.PushConfig.Keys.Auth,
+			P256dh: req.PushConfig.Keys.P256dh,
 		}
 	default:
 		logger.Error("invalid push_config.type", zap.String("type", string(req.PushConfig.Type)))
@@ -112,4 +173,17 @@ func (srv *ClientController) RegisterDevice(w http.ResponseWriter, r *http.Reque
 
 	logger.Info("device registered successfully")
 	w.WriteHeader(http.StatusCreated)
+}
+
+func pushConfigTypeFromOS(os oapi.DeviceRegistrationOs) (subjects.PushConfigType, bool) {
+	switch os {
+	case oapi.Android:
+		return subjects.PushConfigTypeFCM, true
+	case oapi.Ios:
+		return subjects.PushConfigTypeAPNs, true
+	case oapi.Web:
+		return subjects.PushConfigTypeWebPush, true
+	default:
+		return "", false
+	}
 }

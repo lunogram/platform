@@ -541,9 +541,12 @@ func TestGetUserWithDevices(t *testing.T) {
 		ProjectID: projectID,
 		UserID:    userID,
 		DeviceID:  "device_ios",
-		Token:     &token,
-		OS:        ptr("iOS"),
-		Model:     ptr("iPhone 14"),
+		PushConfig: &PushConfig{
+			Type:  PushConfigTypeAPNs,
+			Token: token,
+		},
+		OS:    ptr("iOS"),
+		Model: ptr("iPhone 14"),
 	})
 	require.NoError(t, err)
 
@@ -581,7 +584,10 @@ func TestListUsersWithDevices(t *testing.T) {
 		ProjectID: projectID,
 		UserID:    user1ID,
 		DeviceID:  "device1",
-		Token:     &token,
+		PushConfig: &PushConfig{
+			Type:  PushConfigTypeFCM,
+			Token: token,
+		},
 	})
 	require.NoError(t, err)
 

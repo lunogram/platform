@@ -10,18 +10,28 @@ import (
 )
 
 func NewController(logger *zap.Logger, mgmtDB, usersDB *sqlx.DB, mgmt *management.State, usrs *subjects.State, pub pubsub.Publisher, engine *rbac.Engine) (*Controller, error) {
-	subsController, err := NewSubscriptionsController(logger, mgmtDB, mgmt, usrs)
+	clientController := NewClientController(logger, usersDB, mgmtDB, usrs, pub, engine)
+
+	subsController, err := NewSubscriptionsController(clientController, mgmtDB, mgmt)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Controller{
-		ClientController:        NewClientController(logger, usersDB, usrs, pub, engine),
+		UsersController:         NewUsersController(clientController),
+		EventsController:        NewEventsController(clientController),
+		OrganizationsController: NewOrganizationsController(clientController),
+		ScheduledController:     NewScheduledController(clientController),
+		DevicesController:       NewDevicesController(clientController),
 		SubscriptionsController: subsController,
 	}, nil
 }
 
 type Controller struct {
-	*ClientController
+	*UsersController
+	*EventsController
+	*OrganizationsController
+	*ScheduledController
+	*DevicesController
 	*SubscriptionsController
 }

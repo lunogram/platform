@@ -191,7 +191,7 @@ func (s *ProvidersStore) ListProvidersByChannel(ctx context.Context, projectID u
 	ORDER BY created_at ASC`
 
 	var providers Providers
-	err := s.db.SelectContext(ctx, &providers, query, projectID, fmt.Sprintf(`["%s"]`, channel))
+	err := s.db.SelectContext(ctx, &providers, query, projectID, Channels{channel})
 	return providers, err
 }
 

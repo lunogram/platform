@@ -156,7 +156,6 @@ export default function ProjectGettingStarted() {
                                 )}
                             </li>
                         ))}
-
                     </ul>
                 </CardContent>
             </Card>

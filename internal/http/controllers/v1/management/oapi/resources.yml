@@ -74,31 +74,6 @@ paths:
         default:
           $ref: "#/components/responses/Error"
   
-  /api/admin/push/vapid-public-key:
-    get:
-      summary: Get VAPID public key
-      description: Retrieves the VAPID public key for push notifications
-      operationId: getVapidPublicKey
-      tags:
-        - Push Notifications
-      security:
-        - HttpBearerAuth: []
-      responses:
-        "200":
-          description: VAPID public key retrieved successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                required:
-                  - public_key
-                properties:
-                  public_key:
-                    type: string
-                    description: The VAPID public key
-        default:
-          $ref: "#/components/responses/Error"
-
   /api/admin/projects/{projectID}/campaigns:
     get:
       summary: List campaigns
