@@ -89,19 +89,24 @@ export default function ProjectGettingStarted() {
 
             const subJSON = subscription.toJSON()
 
-            // Just use a random user or an anonymous ID to register the device for testing
+            // Use an anonymous ID to register the device for testing
             const testDeviceId = "test-device-" + Math.random().toString(36).substring(7)
+            const anonymousId = "anon-" + Math.random().toString(36).substring(7)
 
             await api.devices.register(projectId, {
                 device_id: testDeviceId,
                 os: "web",
-                user_id: "efbc9518-a917-4172-9b24-56fa9357541d",
-                push_subscription: {
-                    endpoint: subJSON.endpoint,
-                    keys: subJSON.keys,
+                identifier: [{ external_id: anonymousId, anonymous: "external_id" }],
+                push_config: {
+                    type: "webpush",
+                    endpoint: subJSON.endpoint!,
                     expiration_time: subJSON.expirationTime
                         ? new Date(subJSON.expirationTime).toISOString()
                         : undefined,
+                    keys: {
+                        auth: subJSON.keys!.auth,
+                        p256dh: subJSON.keys!.p256dh,
+                    },
                 },
             })
 

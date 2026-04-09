@@ -674,10 +674,20 @@ const api = {
             projectId: UUID,
             params: {
                 device_id: string
-                external_id?: string
-                anonymous_id?: string
+                identifier: { external_id?: string; anonymous_id?: string }[]
                 os?: "web" | "ios" | "android"
-                push_subscription: any
+                os_version?: string
+                model?: string
+                app_version?: string
+                push_config:
+                    | { type: "fcm"; token: string }
+                    | { type: "apns"; token: string }
+                    | {
+                          type: "webpush"
+                          endpoint: string
+                          expiration_time?: string
+                          keys: { auth: string; p256dh: string }
+                      }
             },
         ) => await client.post(`${projectUrl(projectId)}/devices`, params).then((r) => r.data),
     },
