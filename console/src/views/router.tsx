@@ -22,6 +22,7 @@ import ListDetail from "./users/ListDetail"
 import Users from "./users/Users"
 import Subscriptions from "./settings/Subscriptions"
 import EventSchemas from "./settings/EventSchemas"
+import PushProviders from "./settings/PushProviders"
 import UserDetail from "./users/UserDetail"
 import { createStatefulRoute } from "./createStatefulRoute"
 import UserDetailAttrs from "./users/UserDetailAttrs"
@@ -31,7 +32,6 @@ import UserDetailSubscriptions from "./users/UserDetailSubscriptions"
 import Campaigns from "./campaign/Campaigns"
 import Campaign from "./campaign/Campaign"
 import CampaignDetails from "./campaign/CampaignDetails"
-import CampaignSetup from "./campaign/setup/Setup"
 import Template from "./campaign/template/Template"
 import TemplateContent from "./campaign/template/Content"
 import TemplateReview from "./campaign/template/Review"
@@ -381,10 +381,6 @@ export const createRouter = ({
                                                         element: <CampaignDetails />,
                                                     },
                                                     {
-                                                        path: "setup",
-                                                        element: <CampaignSetup />,
-                                                    },
-                                                    {
                                                         path: "templates/:templateId",
                                                         loader: async ({ params }) => {
                                                             const projectId = params.projectId as
@@ -642,6 +638,10 @@ export const createRouter = ({
                                             {
                                                 path: "event-schemas",
                                                 element: <EventSchemas />,
+                                            },
+                                            {
+                                                path: "push-providers",
+                                                element: <PushProviders />,
                                             },
                                             ...(isEnterprise
                                                 ? [

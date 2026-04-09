@@ -9,6 +9,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/nats-io/nats.go/jetstream"
+	"go.uber.org/zap"
+
+	internalProviders "github.com/lunogram/platform/internal/providers"
 	"github.com/lunogram/platform/internal/providers/channels"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
@@ -17,11 +21,218 @@ import (
 	"github.com/lunogram/platform/internal/store/subjects"
 	wasmProviders "github.com/lunogram/platform/internal/wasm/providers"
 	providers "github.com/lunogram/platform/pkg/modules/providers"
-	"github.com/nats-io/nats.go/jetstream"
-	"go.uber.org/zap"
-
-	internalProviders "github.com/lunogram/platform/internal/providers"
 )
+
+// CampaignsSendHandler returns a HandlerFunc that processes individual
+// campaign send messages (one per user).
+func CampaignsSendHandler(logger *zap.Logger, mgmt *management.State, usrs *subjects.State, registry *internalProviders.Registry, renderer *pubsub.EmailRenderer, pub pubsub.Publisher, limiter *Limiter, publicURL string, linkKey []byte, trackingURL string) HandlerFunc {
+	return func(ctx context.Context, msg jetstream.Msg) error {
+		var event schemas.SendCampaign
+		if err := json.Unmarshal(msg.Data(), &event); err != nil {
+			logger.Error("failed to unmarshal send campaign message", zap.Error(err))
+			return Permanent(err)
+		}
+
+		logger := logger.With(
+			zap.Stringer("project_id", event.ProjectID),
+			zap.Stringer("campaign_id", event.CampaignID),
+			zap.Stringer("user_id", event.UserID),
+		)
+		logger.Info("processing send campaign message")
+
+		campaign, err := mgmt.GetCampaign(ctx, event.ProjectID, event.CampaignID)
+		if err != nil {
+			logger.Error("failed to get campaign", zap.Error(err))
+			return err
+		}
+
+		project, err := mgmt.GetProject(ctx, event.ProjectID)
+		if err != nil {
+			logger.Error("failed to get project", zap.Error(err))
+			return err
+		}
+
+		user, err := usrs.GetUser(ctx, event.ProjectID, event.UserID)
+		if err != nil {
+			logger.Error("failed to get user", zap.Error(err))
+			return err
+		}
+
+		template := selectTemplate(campaign.Templates, user, project)
+
+		var (
+			provider       *management.Provider
+			senderIdentity *management.SenderIdentity
+			devices        subjects.Devices
+		)
+
+		switch providers.Channel(campaign.Channel) {
+		case providers.ChannelPush:
+			provider, devices, err = resolvePushProvider(ctx, mgmt, event.ProjectID, user, usrs)
+		default:
+			provider, senderIdentity, err = resolveMessageProvider(ctx, mgmt, event.ProjectID, template)
+		}
+		if err != nil {
+			logger.Error("failed to resolve provider", zap.Error(err))
+			return err
+		}
+
+		module, exists := registry.Get(provider.Module)
+		if !exists {
+			return Permanentf("module %s not found", provider.Module)
+		}
+
+		rateLimit := providers.ResolveLimit(
+			providers.ProviderKey(provider.ID),
+			module.Manifest().Spec.RateLimit,
+			provider.RateLimit,
+			provider.RateInterval,
+		)
+
+		err = limiter.Throttle(ctx, logger, rateLimit, msg)
+		if limit, is := IsRateLimited(err); is {
+			subject := schemas.CampaignsSend(event.ProjectID, event.CampaignID)
+			if err := pub.Publish(ctx, subject, event, pubsub.At(time.Now().Add(limit.RetryAfter))); err != nil {
+				return fmt.Errorf("schedule rate-limited message: %w", err)
+			}
+		}
+		if err != nil {
+			return err
+		}
+
+		config, defaultSender, err := resolveProviderConfig(ctx, mgmt, provider, event.ProjectID)
+		if err != nil {
+			logger.Error("failed to resolve provider config", zap.Error(err))
+			return err
+		}
+
+		data := buildRenderData(publicURL, user, campaign, event.Data)
+		template, err = renderCampaignTemplate(ctx, renderer, event.ProjectID, campaign.Channel, template, data)
+		if err != nil {
+			logger.Error("failed to render template", zap.Error(err))
+			return err
+		}
+
+		opts := &channels.ComposeOptions{
+			Devices: devices,
+		}
+		if len(linkKey) > 0 && trackingURL != "" && provider.LinkWrap {
+			opts.LinkWrap = &channels.LinkWrapConfig{
+				Key:         linkKey,
+				TrackingURL: trackingURL,
+				ProjectID:   event.ProjectID,
+				CampaignID:  event.CampaignID,
+				UserID:      event.UserID,
+			}
+		}
+
+		request, err := channels.Compose(ctx, logger, providers.Channel(campaign.Channel), senderIdentity, defaultSender, config, template, user, opts)
+		if err != nil {
+			logger.Error("failed to compose request", zap.Error(err))
+			// Compose errors are configuration/validation issues (e.g. "user
+			// has no email address") that will not resolve on retry.
+			return Permanent(err)
+		}
+
+		response, err := module.Send(ctx, request)
+		if err != nil {
+			logger.Error("failed to send via provider", zap.Error(err))
+			var providerErr *wasmProviders.ProviderError
+			if errors.As(err, &providerErr) && providerErr.IsPermanent() {
+				return Permanent(err)
+			}
+			return err
+		}
+
+		now := time.Now()
+		state := subjects.CampaignSendStateSent
+		referenceType := provider.Module
+
+		err = usrs.CampaignSendsStore.InsertCampaignSend(ctx, subjects.CampaignSend{
+			CampaignID:    event.CampaignID,
+			UserID:        event.UserID,
+			BroadcastID:   event.BroadcastID,
+			State:         &state,
+			SentAt:        &now,
+			ReferenceType: &referenceType,
+			ReferenceID:   response.ID,
+		})
+		if err != nil {
+			logger.Error("failed to insert campaign send record", zap.Error(err))
+			return fmt.Errorf("insert campaign send record: %w", err)
+		}
+
+		logger.Info("campaign sent successfully",
+			zap.String("status", response.Status),
+			zap.String("id", response.ID),
+		)
+
+		if event.BroadcastID != nil {
+			if err := checkBroadcastCompletion(ctx, logger, mgmt, usrs, event.ProjectID, *event.BroadcastID); err != nil {
+				logger.Error("broadcast completion check failed", zap.Error(err))
+			}
+		}
+
+		return nil
+	}
+}
+
+// resolveMessageProvider resolves the provider for email/SMS channels by
+// looking up the template's sender identity. It returns both the provider and
+// the sender identity so the caller can reuse it for composing the message.
+func resolveMessageProvider(ctx context.Context, mgmt *management.State, projectID uuid.UUID, template management.Template) (*management.Provider, *management.SenderIdentity, error) {
+	if template.SenderIdentityID == nil {
+		return nil, nil, Permanentf("template %s has no sender identity configured", template.ID)
+	}
+
+	senderIdentity, err := mgmt.SenderIdentitiesStore.GetSenderIdentity(ctx, projectID, *template.SenderIdentityID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("get sender identity: %w", err)
+	}
+
+	provider, err := mgmt.ProvidersStore.GetProvider(ctx, senderIdentity.ProviderID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("get provider from sender identity: %w", err)
+	}
+
+	return provider, senderIdentity, nil
+}
+
+// resolveProviderConfig unmarshals the provider's JSON config and resolves the
+// provider-level default sender identity. Called after the rate-limit check so
+// that rate-limited messages never pay this cost.
+func resolveProviderConfig(ctx context.Context, mgmt *management.State, provider *management.Provider, projectID uuid.UUID) (config map[string]any, defaultSender *management.SenderIdentity, err error) {
+	if err = json.Unmarshal(provider.Data, &config); err != nil {
+		return nil, nil, Permanent(fmt.Errorf("unmarshal provider config: %w", err))
+	}
+
+	defaultSender, err = channels.ResolveProviderDefaultFrom(ctx, mgmt.SenderIdentitiesStore, projectID, config)
+	if err != nil {
+		return nil, nil, fmt.Errorf("resolve provider default from: %w", err)
+	}
+
+	return config, defaultSender, nil
+}
+
+// renderCampaignTemplate applies Liquid (and for email, React Email) rendering
+// to the template using the provided render data.
+func renderCampaignTemplate(ctx context.Context, renderer *pubsub.EmailRenderer, projectID uuid.UUID, channel string, template management.Template, data map[string]any) (management.Template, error) {
+	var err error
+
+	if providers.Channel(channel) == providers.ChannelEmail {
+		template.Data, err = channels.ComposeEmailTemplateData(ctx, renderer, projectID, template.Data, data)
+		if err != nil {
+			return template, err // retryable — renderer may be temporarily unavailable
+		}
+	}
+
+	template.Data, err = render.RenderJSON(template.Data, data)
+	if err != nil {
+		return template, Permanent(err) // template syntax errors won't resolve on retry
+	}
+
+	return template, nil
+}
 
 // userToMap converts a User to a map suitable for Liquid template rendering.
 // The result can be used as the "user" key in the render context so that
@@ -67,19 +278,21 @@ func selectTemplate(templates management.Templates, user *subjects.User, project
 		return templates[0]
 	}
 
-	byLocale := make(map[string]management.Template, len(templates))
+	locales := make(map[string]management.Template, len(templates))
 	for _, t := range templates {
-		byLocale[t.Locale] = t
+		locales[t.Locale] = t
 	}
 
-	if user.Locale != nil {
-		if t, ok := byLocale[*user.Locale]; ok {
+	if user != nil && user.Locale != nil {
+		if t, ok := locales[*user.Locale]; ok {
 			return t
 		}
 	}
 
-	if t, ok := byLocale[project.Locale]; ok {
-		return t
+	if project != nil {
+		if t, ok := locales[project.Locale]; ok {
+			return t
+		}
 	}
 
 	return templates[0]
@@ -123,185 +336,56 @@ func buildRenderData(publicURL string, user *subjects.User, campaign *management
 	return data
 }
 
-func CampaignsSendHandler(logger *zap.Logger, mgmt *management.State, usrs *subjects.State, registry *internalProviders.Registry, renderer *pubsub.EmailRenderer, pub pubsub.Publisher, limiter *Limiter, publicURL string, linkKey []byte, trackingURL string) HandlerFunc {
-	return func(ctx context.Context, msg jetstream.Msg) (err error) {
-		var event schemas.SendCampaign
-		err = json.Unmarshal(msg.Data(), &event)
-		if err != nil {
-			logger.Error("failed to unmarshal send campaign message", zap.Error(err))
-			return Permanent(err)
-		}
-
-		logger := logger.With(zap.String("project_id", event.ProjectID.String()), zap.String("campaign_id", event.CampaignID.String()), zap.String("user_id", event.UserID.String()))
-
-		err = limiter.Throttle(ctx, logger, event.RateLimit, msg)
-		limiter, is := IsRateLimited(err)
-		if is {
-			subject := schemas.CampaignsSend(event.ProjectID, event.CampaignID)
-			at := pubsub.At(time.Now().Add(limiter.RetryAfter))
-			if err := pub.Publish(ctx, subject, event, at); err != nil {
-				return fmt.Errorf("schedule rate-limited message: %w", err)
-			}
-			return err
-		}
-
-		if err != nil {
-			return err
-		}
-
-		logger.Info("processing send campaign message")
-
-		campaign, err := mgmt.GetCampaign(ctx, event.ProjectID, event.CampaignID)
-		if err != nil {
-			logger.Error("failed to get campaign", zap.Error(err))
-			return err
-		}
-
-		project, err := mgmt.GetProject(ctx, event.ProjectID)
-		if err != nil {
-			logger.Error("failed to get project", zap.Error(err))
-			return err
-		}
-
-		user, err := usrs.GetUser(ctx, event.ProjectID, event.UserID)
-		if err != nil {
-			logger.Error("failed to get user", zap.Error(err))
-			return err
-		}
-
-		provider, exists := registry.Get(campaign.Provider.Module)
-		if !exists {
-			logger.Error("provider module not found", zap.String("module", campaign.Provider.Module))
-			return Permanentf("module %s not found", campaign.Provider.Module)
-		}
-
-		var config map[string]any
-		if err := json.Unmarshal(campaign.Provider.Data, &config); err != nil {
-			logger.Error("failed to unmarshal provider config", zap.Error(err))
-			return Permanent(err)
-		}
-
-		data := buildRenderData(publicURL, user, campaign, event.Data)
-		template := selectTemplate(campaign.Templates, user, project)
-
-		// Channel-specific template rendering:
-		// - Email: compile/render React Email body via Deno, then Liquid-render metadata (subject, from, etc.)
-		// - SMS, Push: Liquid rendering for the entire template
-		switch providers.Channel(campaign.Channel) {
-		case providers.ChannelEmail:
-			template.Data, err = channels.ComposeEmailTemplateData(ctx, renderer, event.ProjectID, template.Data, data)
-			if err != nil {
-				logger.Error("failed to compose email template data", zap.Error(err))
-				return err
-			}
-
-			template.Data, err = render.RenderJSON(template.Data, data)
-			if err != nil {
-				logger.Error("failed to render template metadata", zap.Error(err))
-				return Permanent(err)
-			}
-		default:
-			template.Data, err = render.RenderJSON(template.Data, data)
-			if err != nil {
-				logger.Error("failed to render template data", zap.Error(err))
-				return Permanent(err)
-			}
-		}
-
-		// Resolve template sender identity if set.
-		var templateSender *management.SenderIdentity
-		if template.SenderIdentityID != nil {
-			templateSender, err = mgmt.SenderIdentitiesStore.GetSenderIdentity(ctx, event.ProjectID, *template.SenderIdentityID)
-			if err != nil {
-				logger.Error("failed to get template sender identity", zap.Error(err))
-				return err
-			}
-		}
-
-		// Resolve provider default_from.
-		providerDefaultSender, err := channels.ResolveProviderDefaultFrom(ctx, mgmt.SenderIdentitiesStore, event.ProjectID, config)
-		if err != nil {
-			logger.Error("failed to resolve provider default from", zap.Error(err))
-			return err
-		}
-
-		opts := &channels.ComposeOptions{}
-
-		if len(linkKey) > 0 && trackingURL != "" && campaign.Provider != nil && campaign.Provider.LinkWrap {
-			opts.LinkWrap = &channels.LinkWrapConfig{
-				Key:         linkKey,
-				TrackingURL: trackingURL,
-				ProjectID:   event.ProjectID,
-				CampaignID:  event.CampaignID,
-				UserID:      event.UserID,
-			}
-		}
-
-		if providers.Channel(campaign.Channel) == providers.ChannelPush {
-			userDevices, err := usrs.ListDevicesByUser(ctx, event.ProjectID, event.UserID)
-			if err != nil {
-				logger.Error("failed to get user devices", zap.Error(err))
-				return err
-			}
-			opts.Devices = userDevices
-		}
-
-		request, err := channels.Compose(ctx, logger, providers.Channel(campaign.Channel), templateSender, providerDefaultSender, config, template, user, opts)
-		if err != nil {
-			logger.Error("failed to compose request", zap.Error(err))
-			// Compose errors are configuration/validation issues (e.g. "user has no email address",
-			// "no from address specified") that will not resolve on retry.
-			return Permanent(err)
-		}
-
-		response, err := provider.Send(ctx, request)
-		if err != nil {
-			logger.Error("failed to send via provider", zap.Error(err))
-			// Check if the WASM provider signaled a permanent failure.
-			var providerErr *wasmProviders.ProviderError
-			if errors.As(err, &providerErr) && providerErr.IsPermanent() {
-				return Permanent(err)
-			}
-			return err
-		}
-
-		// Persist the send record so we can track delivery and attribute the
-		// send back to a broadcast (when present).
-		now := time.Now()
-		state := subjects.CampaignSendStateSent
-		referenceType := campaign.Provider.Module
-		referenceID := response.ID
-
-		sendRecord := subjects.CampaignSend{
-			CampaignID:    event.CampaignID,
-			UserID:        event.UserID,
-			BroadcastID:   event.BroadcastID,
-			State:         &state,
-			SentAt:        &now,
-			ReferenceType: &referenceType,
-			ReferenceID:   referenceID,
-		}
-
-		err = usrs.CampaignSendsStore.InsertCampaignSend(ctx, sendRecord)
-		if err != nil {
-			logger.Error("failed to insert campaign send record", zap.Error(err))
-			return fmt.Errorf("failed to insert campaign send record: %w", err)
-		}
-
-		logger.Info("campaign sent successfully", zap.String("status", response.Status), zap.String("id", response.ID))
-
-		// If this send belongs to a broadcast, check whether all messages
-		// have now been delivered. The batch handler keeps the broadcast in
-		// "sending" state after publishing all SendCampaign messages; we
-		// transition to "completed" here once the last one is actually sent.
-		if event.BroadcastID != nil {
-			if err := checkBroadcastCompletion(ctx, logger, mgmt, usrs, event.ProjectID, *event.BroadcastID); err != nil {
-				logger.Error("broadcast completion check failed", zap.Error(err))
-			}
-		}
-
-		return nil
+// resolvePushProvider selects the appropriate push provider for a user by
+// matching the user's device platforms against the project's configured push
+// providers. It returns both the provider and the user's devices so that the
+// caller does not need to fetch devices again.
+func resolvePushProvider(ctx context.Context, mgmt *management.State, projectID uuid.UUID, user *subjects.User, usrs *subjects.State) (*management.Provider, subjects.Devices, error) {
+	devices, err := usrs.ListDevicesByUser(ctx, projectID, user.ID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("list user devices: %w", err)
 	}
+
+	if len(devices) == 0 {
+		return nil, nil, Permanentf("user %s has no push-enabled devices", user.ID)
+	}
+
+	pushProviders, err := mgmt.ProjectPushProvidersStore.ListProjectPushProviders(ctx, projectID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("list project push providers: %w", err)
+	}
+
+	if len(pushProviders) == 0 {
+		return nil, nil, Permanentf("project %s has no push providers configured", projectID)
+	}
+
+	// Build a lookup from platform → provider ID.
+	byPlatform := make(map[string]uuid.UUID, len(pushProviders))
+	for _, pp := range pushProviders {
+		byPlatform[pp.Platform] = pp.ProviderID
+	}
+
+	// Match the first device OS to a configured push provider.
+	for _, device := range devices {
+		if device.OS == nil {
+			continue
+		}
+		if providerID, ok := byPlatform[*device.OS]; ok {
+			provider, err := mgmt.ProvidersStore.GetProvider(ctx, providerID)
+			if err != nil {
+				return nil, nil, fmt.Errorf("get push provider %s: %w", providerID, err)
+			}
+			return provider, devices, nil
+		}
+	}
+
+	// No device OS matched a configured platform — fall back to the first
+	// configured push provider so the send can still proceed.
+	provider, err := mgmt.ProvidersStore.GetProvider(ctx, pushProviders[0].ProviderID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("get fallback push provider: %w", err)
+	}
+	return provider, devices, nil
 }
 
 // checkBroadcastCompletion determines whether all sends for a broadcast have

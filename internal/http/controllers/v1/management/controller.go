@@ -44,6 +44,7 @@ func NewController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB
 		ApiKeysController:          NewApiKeysController(logger, managementDB, engine),
 		EmailTemplatesController:   NewEmailTemplatesController(logger, webhookCaller, engine),
 		SenderIdentitiesController: NewSenderIdentitiesController(logger, managementDB, engine),
+		PushProvidersController:    NewPushProvidersController(logger, managementDB, engine),
 		BroadcastsController:       NewBroadcastsController(logger, managementDB, usersDB, pub, jet, engine, consumer.Namespace(cfg.Nats.Namespace)),
 	}
 
@@ -76,5 +77,6 @@ type Controller struct {
 	*ActionsController
 	*EmailTemplatesController
 	*SenderIdentitiesController
+	*PushProvidersController
 	*BroadcastsController
 }

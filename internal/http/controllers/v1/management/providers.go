@@ -128,6 +128,14 @@ func (srv *ProvidersController) ListProviderMeta(w http.ResponseWriter, r *http.
 			pm.Locked = &locked
 		}
 
+		if len(manifest.Spec.Platforms) > 0 {
+			platforms := make([]oapi.ProjectPushProviderPlatform, len(manifest.Spec.Platforms))
+			for i, p := range manifest.Spec.Platforms {
+				platforms[i] = oapi.ProjectPushProviderPlatform(p)
+			}
+			pm.Platforms = &platforms
+		}
+
 		if rl := manifest.Spec.RateLimit; rl != nil {
 			pm.RateLimit = &oapi.ProviderRateLimit{
 				Limit:    rl.Limit,
@@ -279,6 +287,44 @@ func (srv *ProvidersController) CreateProvider(w http.ResponseWriter, r *http.Re
 		err = srv.store.ProvidersStore.UpdateProvider(ctx, projectID, providerID, management.ProviderUpdate{Data: &patch})
 		if err != nil {
 			logger.Error("failed to persist init config patch", zap.Error(err))
+		}
+	}
+
+	// Auto-assign this provider as the default push provider for any platforms
+	// it supports that don't already have a provider configured in this project.
+	if len(manifest.Spec.Platforms) > 0 {
+		existing, err := srv.store.ProjectPushProvidersStore.ListProjectPushProviders(ctx, projectID)
+		if err != nil {
+			logger.Error("failed to list push providers for auto-default", zap.Error(err))
+		} else {
+			configured := make(map[string]bool, len(existing))
+			for _, pp := range existing {
+				configured[pp.Platform] = true
+			}
+
+			for _, platform := range manifest.Spec.Platforms {
+				if configured[platform.String()] {
+					continue
+				}
+
+				_, err := srv.store.ProjectPushProvidersStore.UpsertProjectPushProvider(ctx, management.ProjectPushProvider{
+					ProjectID:  projectID,
+					ProviderID: providerID,
+					Platform:   platform.String(),
+				})
+				if err != nil {
+					logger.Error("failed to auto-assign default push provider",
+						zap.String("platform", platform.String()),
+						zap.Stringer("provider_id", providerID),
+						zap.Error(err),
+					)
+				} else {
+					logger.Info("auto-assigned default push provider",
+						zap.String("platform", platform.String()),
+						zap.Stringer("provider_id", providerID),
+					)
+				}
+			}
 		}
 	}
 

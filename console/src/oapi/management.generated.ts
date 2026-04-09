@@ -845,7 +845,11 @@ export interface paths {
          */
         get: operations["getUserDevices"];
         put?: never;
-        post?: never;
+        /**
+         * Create or update user device
+         * @description Creates a user device, or updates the existing one if the device_id already exists for the project
+         */
+        post: operations["createUserDevice"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1385,6 +1389,50 @@ export interface paths {
          * @description Deletes a sender identity from a project
          */
         delete: operations["deleteSenderIdentity"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/push-providers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List push providers
+         * @description Lists the default push notification providers configured for each platform (iOS, Android, Web) in a project
+         */
+        get: operations["listProjectPushProviders"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/push-providers/{platform}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set push provider for platform
+         * @description Sets or updates the default push notification provider for a specific platform (ios, android, web) in a project
+         */
+        put: operations["upsertProjectPushProvider"];
+        post?: never;
+        /**
+         * Remove push provider for platform
+         * @description Removes the default push notification provider for a specific platform in a project
+         */
+        delete: operations["deleteProjectPushProvider"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2603,22 +2651,12 @@ export interface components {
             /** @example Welcome Campaign */
             name: string;
             channel: components["schemas"]["Channel"];
-            /**
-             * Format: uuid
-             * @example 5143f27c-cca9-4dc4-9059-e1dbb08144ad
-             */
-            provider_id?: string;
             /** Format: uuid */
             subscription_id?: string;
         };
         UpdateCampaign: {
             /** @example epic hopper */
             name?: string;
-            /**
-             * Format: uuid
-             * @example 5143f27c-cca9-4dc4-9059-e1dbb08144ad
-             */
-            provider_id?: string;
             variables?: components["schemas"]["CampaignVariable"][];
         };
         CampaignVariable: {
@@ -2694,7 +2732,6 @@ export interface components {
             channel: components["schemas"]["Channel"];
             /** Format: uuid */
             subscription_id?: string;
-            provider?: components["schemas"]["Provider"];
             templates: components["schemas"]["Template"][];
             variables?: components["schemas"]["CampaignVariable"][];
             delivery: components["schemas"]["Delivery"];
@@ -2919,6 +2956,8 @@ export interface components {
             /** @description Brand color hex code for the module */
             color?: string;
             channels: components["schemas"]["Channel"][];
+            /** @description Push notification platforms supported by this provider module (only present for push providers) */
+            platforms?: components["schemas"]["ProjectPushProviderPlatform"][];
             schema: {
                 [key: string]: unknown;
             };
@@ -3422,6 +3461,25 @@ export interface components {
         UserEventList: components["schemas"]["PaginatedResponse"] & {
             results: components["schemas"]["UserEvent"][];
         };
+        CreateUserDevice: {
+            /** @example AB12CD34-EF56-GH78-IJ90 */
+            device_id: string;
+            /** @example fcm_token_abc123 */
+            token: string;
+            /**
+             * @example ios
+             * @enum {string}
+             */
+            os: "ios" | "android" | "web";
+            /** @example 17.2 */
+            os_version?: string | null;
+            /** @example iPhone 15 Pro */
+            model?: string | null;
+            /** @example 142 */
+            app_build?: string | null;
+            /** @example 2.1.0 */
+            app_version?: string | null;
+        };
         UserDevice: {
             /**
              * Format: uuid
@@ -3803,6 +3861,35 @@ export interface components {
             traits: {
                 [key: string]: unknown;
             };
+        };
+        /**
+         * @description Target platform for push notifications
+         * @example ios
+         * @enum {string}
+         */
+        ProjectPushProviderPlatform: "ios" | "android" | "web";
+        ProjectPushProvider: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            project_id: string;
+            /**
+             * Format: uuid
+             * @description The push provider integration to use for this platform
+             */
+            provider_id: string;
+            platform: components["schemas"]["ProjectPushProviderPlatform"];
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        UpsertProjectPushProvider: {
+            /**
+             * Format: uuid
+             * @description The push provider integration to assign to this platform
+             */
+            provider_id: string;
         };
         Document: {
             /**
@@ -6443,6 +6530,34 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    createUserDevice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The user ID */
+                userID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateUserDevice"];
+            };
+        };
+        responses: {
+            /** @description Device created or updated successfully */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     deleteUserDevice: {
         parameters: {
             query?: never;
@@ -7448,6 +7563,86 @@ export interface operations {
         requestBody?: never;
         responses: {
             /** @description Sender identity deleted successfully */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listProjectPushProviders: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Push providers retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        results: components["schemas"]["ProjectPushProvider"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    upsertProjectPushProvider: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The target platform (ios, android, web) */
+                platform: components["schemas"]["ProjectPushProviderPlatform"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpsertProjectPushProvider"];
+            };
+        };
+        responses: {
+            /** @description Push provider set successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectPushProvider"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteProjectPushProvider: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The target platform (ios, android, web) */
+                platform: components["schemas"]["ProjectPushProviderPlatform"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Push provider removed successfully */
             204: {
                 headers: {
                     [name: string]: unknown;

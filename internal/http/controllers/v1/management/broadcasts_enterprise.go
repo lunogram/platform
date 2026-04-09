@@ -88,12 +88,6 @@ func (srv *BroadcastsController) CreateBroadcast(w http.ResponseWriter, r *http.
 		return
 	}
 
-	if campaign.ProviderID == nil {
-		logger.Info("campaign has no provider configured")
-		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("campaign has no provider configured")))
-		return
-	}
-
 	list, err := srv.usrs.GetList(ctx, projectID, body.ListId)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("list not found", zap.Stringer("list_id", body.ListId))

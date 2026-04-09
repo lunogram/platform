@@ -192,7 +192,10 @@ function TreeRow({
                     <div className="inline-flex items-center">
                         {/* Type Selector */}
                         <Select value={node.type} onValueChange={handleTypeChange}>
-                            <SelectTrigger className="h-8 w-[80px] px-2 text-xs font-medium rounded-r-none bg-muted/50 focus:z-10 shadow-none">
+                            <SelectTrigger
+                                elevation="flat"
+                                className="h-8 w-[80px] px-2 text-xs font-medium rounded-r-none bg-muted/50 focus:z-10"
+                            >
                                 <SelectValue>{TYPE_LABELS[node.type]}</SelectValue>
                             </SelectTrigger>
                             <SelectContent>
@@ -240,7 +243,10 @@ function TreeRow({
                                         value={node.value}
                                         onValueChange={(value) => handleUpdate({ value })}
                                     >
-                                        <SelectTrigger className="h-8 w-20 rounded-none border-l-0 text-sm focus:z-10 -ml-px shadow-none">
+                                        <SelectTrigger
+                                            elevation="flat"
+                                            className="h-8 w-20 rounded-none border-l-0 text-sm focus:z-10 -ml-px"
+                                        >
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>

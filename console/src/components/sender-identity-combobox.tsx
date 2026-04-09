@@ -12,12 +12,21 @@ import {
 } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Input } from "@/components/ui/input"
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select"
 import oapiClient, { type SenderIdentity } from "@/oapi/client"
+import type { components } from "@/oapi/management.generated"
+
+type Provider = components["schemas"]["Provider"]
 
 interface SenderIdentityComboboxProps {
     projectId: string
     channel: "email" | "sms"
-    providerId?: string
     value?: string
     onChange: (value: string) => void
     onIdentitySelect?: (identity: SenderIdentity) => void
@@ -35,7 +44,6 @@ type PopoverView = "list" | "create"
 export function SenderIdentityCombobox({
     projectId,
     channel,
-    providerId,
     value,
     onChange,
     onIdentitySelect,
@@ -55,6 +63,9 @@ export function SenderIdentityCombobox({
     const [view, setView] = React.useState<PopoverView>("list")
     const [newAddress, setNewAddress] = React.useState("")
     const [newName, setNewName] = React.useState("")
+    const [newProviderId, setNewProviderId] = React.useState("")
+    const [providers, setProviders] = React.useState<Provider[]>([])
+    const [providersLoading, setProvidersLoading] = React.useState(false)
     const [creating, setCreating] = React.useState(false)
     const [createError, setCreateError] = React.useState<string | null>(null)
 
@@ -87,7 +98,7 @@ export function SenderIdentityCombobox({
         return (resolvedIdentity.traits?.address as string) ?? ""
     }, [resolvedIdentity, value])
 
-    // Fetch identities
+    // Fetch all identities for the project+channel (no provider filter)
     const fetchIdentities = React.useCallback(async () => {
         if (fetchedRef.current) return
         setLoading(true)
@@ -97,7 +108,7 @@ export function SenderIdentityCombobox({
                 {
                     params: {
                         path: { projectID: projectId },
-                        query: { provider_id: providerId, channel },
+                        query: { channel },
                     },
                 },
             )
@@ -109,12 +120,36 @@ export function SenderIdentityCombobox({
         } finally {
             setLoading(false)
         }
-    }, [projectId, providerId, channel])
+    }, [projectId, channel])
+
+    // Fetch providers for the create view
+    const fetchProviders = React.useCallback(async () => {
+        setProvidersLoading(true)
+        try {
+            const { data } = await oapiClient.GET(
+                "/api/admin/projects/{projectID}/providers",
+                {
+                    params: {
+                        path: { projectID: projectId },
+                    },
+                },
+            )
+            const allProviders = data?.results ?? []
+            const filtered = allProviders.filter((p) => p.channels?.includes(channel))
+            setProviders(filtered)
+            // Auto-select the first provider if only one exists
+            if (filtered.length === 1) {
+                setNewProviderId(filtered[0].id)
+            }
+        } finally {
+            setProvidersLoading(false)
+        }
+    }, [projectId, channel])
 
     // Refetch when filters change
     React.useEffect(() => {
         fetchedRef.current = false
-    }, [projectId, providerId, channel])
+    }, [projectId, channel])
 
     // Fetch on mount when a value is already set so the display resolves
     React.useEffect(() => {
@@ -155,6 +190,7 @@ export function SenderIdentityCombobox({
     const resetCreateForm = () => {
         setNewAddress("")
         setNewName("")
+        setNewProviderId("")
         setCreateError(null)
         setCreating(false)
     }
@@ -162,6 +198,7 @@ export function SenderIdentityCombobox({
     const handleSwitchToCreate = () => {
         resetCreateForm()
         setView("create")
+        fetchProviders()
     }
 
     const handleCancelCreate = () => {
@@ -171,7 +208,7 @@ export function SenderIdentityCombobox({
 
     const handleCreate = async () => {
         const address = newAddress.trim()
-        if (!providerId || !address) return
+        if (!newProviderId || !address) return
 
         setCreating(true)
         setCreateError(null)
@@ -185,7 +222,7 @@ export function SenderIdentityCombobox({
                 "/api/admin/projects/{projectID}/sender-identities",
                 {
                     params: { path: { projectID: projectId } },
-                    body: { provider_id: providerId, channel, traits },
+                    body: { provider_id: newProviderId, channel, traits },
                 },
             )
             if (error || !newIdentity) {
@@ -267,6 +304,10 @@ export function SenderIdentityCombobox({
                         onAddressChange={setNewAddress}
                         name={newName}
                         onNameChange={setNewName}
+                        providerId={newProviderId}
+                        onProviderChange={setNewProviderId}
+                        providers={providers}
+                        providersLoading={providersLoading}
                         onSave={handleCreate}
                         onCancel={handleCancelCreate}
                         creating={creating}
@@ -412,6 +453,10 @@ interface CreateViewProps {
     onAddressChange: (value: string) => void
     name: string
     onNameChange: (value: string) => void
+    providerId: string
+    onProviderChange: (value: string) => void
+    providers: Provider[]
+    providersLoading: boolean
     onSave: () => void
     onCancel: () => void
     creating: boolean
@@ -425,6 +470,10 @@ function CreateView({
     onAddressChange,
     name,
     onNameChange,
+    providerId,
+    onProviderChange,
+    providers,
+    providersLoading,
     onSave,
     onCancel,
     creating,
@@ -436,7 +485,7 @@ function CreateView({
     const handleKeyDown = (e: React.KeyboardEvent) => {
         if (e.key === "Enter") {
             e.preventDefault()
-            if (address.trim()) handleSave()
+            if (address.trim() && providerId) handleSave()
         }
         if (e.key === "Escape") {
             e.preventDefault()
@@ -445,7 +494,7 @@ function CreateView({
     }
 
     const handleSave = () => {
-        if (!address.trim() || creating) return
+        if (!address.trim() || !providerId || creating) return
         onSave()
     }
 
@@ -467,6 +516,47 @@ function CreateView({
             </div>
 
             <div className="space-y-3">
+                <div className="space-y-1">
+                    <label
+                        htmlFor="new-sender-provider"
+                        className="text-xs font-medium text-foreground"
+                    >
+                        {t("integration", "Integration")}
+                    </label>
+                    {providersLoading ? (
+                        <div className="flex items-center gap-2 h-8 px-3 text-sm text-muted-foreground">
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                            {t("loading", "Loading...")}
+                        </div>
+                    ) : (
+                        <Select value={providerId} onValueChange={onProviderChange}>
+                            <SelectTrigger className="h-8 w-full">
+                                <SelectValue
+                                    placeholder={t(
+                                        "select_integration",
+                                        "Select integration...",
+                                    )}
+                                />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {providers.length === 0 ? (
+                                    <div className="py-2 px-2 text-sm text-muted-foreground">
+                                        {t(
+                                            "no_integrations_found",
+                                            "No integrations found for this channel.",
+                                        )}
+                                    </div>
+                                ) : (
+                                    providers.map((provider) => (
+                                        <SelectItem key={provider.id} value={provider.id}>
+                                            {provider.name}
+                                        </SelectItem>
+                                    ))
+                                )}
+                            </SelectContent>
+                        </Select>
+                    )}
+                </div>
                 {isEmail && (
                     <div className="space-y-1">
                         <label
@@ -516,7 +606,7 @@ function CreateView({
                 type="button"
                 size="sm"
                 onClick={handleSave}
-                disabled={!address.trim() || creating}
+                disabled={!address.trim() || !providerId || creating}
                 className="h-8"
             >
                 {creating && <Loader2 className="h-3 w-3 animate-spin mr-1.5" />}

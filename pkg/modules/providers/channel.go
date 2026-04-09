@@ -23,3 +23,27 @@ func (c Channel) IsValid() bool {
 		return false
 	}
 }
+
+// Platform represents a push notification platform.
+type Platform string
+
+const (
+	PlatformIOS     Platform = "ios"
+	PlatformAndroid Platform = "android"
+	PlatformWeb     Platform = "web"
+)
+
+// String returns the string representation of the platform.
+func (p Platform) String() string {
+	return string(p)
+}
+
+// IsValid checks if the platform is a valid known platform type.
+func (p Platform) IsValid() bool {
+	switch p {
+	case PlatformIOS, PlatformAndroid, PlatformWeb:
+		return true
+	default:
+		return false
+	}
+}

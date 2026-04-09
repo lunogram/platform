@@ -759,6 +759,151 @@ func TestListUserSchemasWithMultipleTypes(t *testing.T) {
 	require.Contains(t, pathMap[".data.name"], "string")
 }
 
+func TestCreateUserDevice(t *testing.T) {
+	t.Parallel()
+
+	controller, projectID, actorCtx := TNewUsersController(t)
+	ctx := context.Background()
+
+	usersStore := controller.users.UsersStore
+	userID, err := usersStore.CreateUser(ctx, projectID, nil, nil, json.RawMessage(`{}`), nil, nil, []subjects.ExternalIDParam{{Source: "anonymous", ExternalID: "anon_create_device"}})
+	require.NoError(t, err)
+
+	body := oapi.CreateUserDevice{
+		DeviceId:   "device-1",
+		Token:      "token-1",
+		Os:         oapi.CreateUserDeviceOsIos,
+		OsVersion:  ptr("18.1"),
+		Model:      ptr("iPhone 15"),
+		AppBuild:   ptr("101"),
+		AppVersion: ptr("1.0.1"),
+	}
+
+	bodyBytes, err := json.Marshal(body)
+	require.NoError(t, err)
+
+	res := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/admin/projects/"+projectID.String()+"/users/"+userID.String()+"/devices", bytes.NewReader(bodyBytes))
+	req.Header.Set("Content-Type", "application/json")
+	req = req.WithContext(actorCtx)
+
+	controller.CreateUserDevice(res, req, projectID, userID)
+
+	require.Equal(t, 204, res.Code)
+
+	devices, err := controller.users.ListDevicesByUser(ctx, projectID, userID)
+	require.NoError(t, err)
+	require.Len(t, devices, 1)
+	require.Equal(t, "device-1", devices[0].DeviceID)
+	require.NotNil(t, devices[0].Token)
+	require.Equal(t, "token-1", *devices[0].Token)
+	require.NotNil(t, devices[0].OS)
+	require.Equal(t, "ios", *devices[0].OS)
+}
+
+func TestCreateUserDeviceUserNotFound(t *testing.T) {
+	t.Parallel()
+
+	controller, projectID, actorCtx := TNewUsersController(t)
+	nonExistentUserID := uuid.New()
+
+	body := oapi.CreateUserDevice{
+		DeviceId: "device-404",
+		Token:    "token-404",
+		Os:       oapi.CreateUserDeviceOsAndroid,
+	}
+
+	bodyBytes, err := json.Marshal(body)
+	require.NoError(t, err)
+
+	res := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/admin/projects/"+projectID.String()+"/users/"+nonExistentUserID.String()+"/devices", bytes.NewReader(bodyBytes))
+	req.Header.Set("Content-Type", "application/json")
+	req = req.WithContext(actorCtx)
+
+	controller.CreateUserDevice(res, req, projectID, nonExistentUserID)
+
+	require.Equal(t, 404, res.Code)
+}
+
+func TestCreateUserDeviceTokenConflict(t *testing.T) {
+	t.Parallel()
+
+	controller, projectID, actorCtx := TNewUsersController(t)
+	ctx := context.Background()
+
+	usersStore := controller.users.UsersStore
+	user1ID, err := usersStore.CreateUser(ctx, projectID, nil, nil, json.RawMessage(`{}`), nil, nil, []subjects.ExternalIDParam{{Source: "anonymous", ExternalID: "anon_device_conflict_1"}})
+	require.NoError(t, err)
+
+	user2ID, err := usersStore.CreateUser(ctx, projectID, nil, nil, json.RawMessage(`{}`), nil, nil, []subjects.ExternalIDParam{{Source: "anonymous", ExternalID: "anon_device_conflict_2"}})
+	require.NoError(t, err)
+
+	_, err = controller.users.CreateDevice(ctx, subjects.Device{
+		ProjectID: projectID,
+		UserID:    user1ID,
+		DeviceID:  "existing-device",
+		Token:     ptr("shared-token"),
+		OS:        ptr("ios"),
+		Model:     ptr("iPhone"),
+	})
+	require.NoError(t, err)
+
+	body := oapi.CreateUserDevice{
+		DeviceId: "new-device",
+		Token:    "shared-token",
+		Os:       oapi.CreateUserDeviceOsAndroid,
+	}
+
+	bodyBytes, err := json.Marshal(body)
+	require.NoError(t, err)
+
+	res := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/admin/projects/"+projectID.String()+"/users/"+user2ID.String()+"/devices", bytes.NewReader(bodyBytes))
+	req.Header.Set("Content-Type", "application/json")
+	req = req.WithContext(actorCtx)
+
+	controller.CreateUserDevice(res, req, projectID, user2ID)
+
+	require.Equal(t, 409, res.Code)
+}
+
+func TestGetUserDevicesDoesNotExposeToken(t *testing.T) {
+	t.Parallel()
+
+	controller, projectID, actorCtx := TNewUsersController(t)
+	ctx := context.Background()
+
+	usersStore := controller.users.UsersStore
+	userID, err := usersStore.CreateUser(ctx, projectID, nil, nil, json.RawMessage(`{}`), nil, nil, []subjects.ExternalIDParam{{Source: "anonymous", ExternalID: "anon_devices_no_token"}})
+	require.NoError(t, err)
+
+	token := "super-secret-token"
+	_, err = controller.users.CreateDevice(ctx, subjects.Device{
+		ProjectID: projectID,
+		UserID:    userID,
+		DeviceID:  "device-no-token",
+		Token:     &token,
+		OS:        ptr("ios"),
+		Model:     ptr("iPhone"),
+	})
+	require.NoError(t, err)
+
+	res := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/users/"+userID.String()+"/devices", nil)
+	req = req.WithContext(actorCtx)
+
+	controller.GetUserDevices(res, req, projectID, userID)
+
+	require.Equal(t, 200, res.Code)
+
+	var response oapi.UserDeviceList
+	err = json.Unmarshal(res.Body.Bytes(), &response)
+	require.NoError(t, err)
+	require.Len(t, response.Results, 1)
+	require.Nil(t, response.Results[0].Token, "token should be omitted from response")
+}
+
 func TestImportUsers(t *testing.T) {
 	t.Parallel()
 

@@ -31,12 +31,10 @@ type Campaign struct {
 	ProjectID      uuid.UUID                      `db:"project_id"`
 	Name           string                         `db:"name"`
 	Channel        string                         `db:"channel"`
-	ProviderID     *uuid.UUID                     `db:"provider_id"`
 	SubscriptionID *uuid.UUID                     `db:"subscription_id"`
 	Delivery       store.JSONB[Delivery]          `db:"delivery"`
 	Variables      store.JSONB[CampaignVariables] `db:"variables"`
 	Templates      Templates                      `db:"-"`
-	Provider       *Provider                      `db:"-"`
 	CreatedAt      time.Time                      `db:"created_at"`
 	UpdatedAt      time.Time                      `db:"updated_at"`
 	DeletedAt      *time.Time                     `db:"deleted_at"`
@@ -64,11 +62,6 @@ func (campaign Campaign) OAPI() oapi.Campaign {
 		UpdatedAt:      campaign.UpdatedAt,
 	}
 
-	if campaign.Provider != nil {
-		provider := campaign.Provider.OAPI()
-		result.Provider = &provider
-	}
-
 	return result
 }
 
@@ -92,24 +85,22 @@ func NewCampaignsStore(db store.DB) *CampaignsStore {
 	return &CampaignsStore{
 		db:        db,
 		templates: NewTemplatesStore(db),
-		providers: NewProvidersStore(db),
 	}
 }
 
 type CampaignsStore struct {
 	db        store.DB
 	templates *TemplatesStore
-	providers *ProvidersStore
 }
 
 func (s *CampaignsStore) CreateCampaign(ctx context.Context, campaign Campaign) (uuid.UUID, error) {
 	stmt := `
-	INSERT INTO campaigns (project_id, name, channel, provider_id, subscription_id)
-	VALUES ($1, $2, $3, $4, $5)
+	INSERT INTO campaigns (project_id, name, channel, subscription_id)
+	VALUES ($1, $2, $3, $4)
 	RETURNING id`
 
 	var id uuid.UUID
-	err := s.db.GetContext(ctx, &id, stmt, campaign.ProjectID, campaign.Name, campaign.Channel, campaign.ProviderID, campaign.SubscriptionID)
+	err := s.db.GetContext(ctx, &id, stmt, campaign.ProjectID, campaign.Name, campaign.Channel, campaign.SubscriptionID)
 	if err != nil {
 		return uuid.Nil, err
 	}
@@ -119,7 +110,7 @@ func (s *CampaignsStore) CreateCampaign(ctx context.Context, campaign Campaign) 
 
 func (s *CampaignsStore) ListCampaigns(ctx context.Context, project uuid.UUID, pagination store.Pagination, search string) (Campaigns, int, error) {
 	query := `
-	SELECT id, project_id, name, channel, provider_id, subscription_id, delivery, variables, created_at, updated_at, deleted_at,
+	SELECT id, project_id, name, channel, subscription_id, delivery, variables, created_at, updated_at, deleted_at,
 		COUNT(*) OVER () AS total_count
 	FROM campaigns
 	WHERE project_id = $1
@@ -152,7 +143,7 @@ func (s *CampaignsStore) ListCampaigns(ctx context.Context, project uuid.UUID, p
 
 func (s *CampaignsStore) GetCampaign(ctx context.Context, projectID, campaignID uuid.UUID) (*Campaign, error) {
 	query := `
-	SELECT id, project_id, name, channel, provider_id, subscription_id, delivery, variables, created_at, updated_at, deleted_at
+	SELECT id, project_id, name, channel, subscription_id, delivery, variables, created_at, updated_at, deleted_at
 	FROM campaigns
 	WHERE project_id = $1
 	AND id = $2
@@ -169,20 +160,12 @@ func (s *CampaignsStore) GetCampaign(ctx context.Context, projectID, campaignID 
 		return nil, err
 	}
 
-	if campaign.ProviderID != nil {
-		campaign.Provider, err = s.providers.GetProvider(ctx, *campaign.ProviderID)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	return &campaign, nil
 }
 
 type CampaignUpdate struct {
-	Name       *string
-	ProviderID *uuid.UUID
-	Variables  *store.JSONB[CampaignVariables]
+	Name      *string
+	Variables *store.JSONB[CampaignVariables]
 }
 
 func (s *CampaignsStore) UpdateCampaign(ctx context.Context, projectID, campaignID uuid.UUID, update CampaignUpdate) error {
@@ -190,10 +173,9 @@ func (s *CampaignsStore) UpdateCampaign(ctx context.Context, projectID, campaign
 	UPDATE campaigns
 	SET
 		name = COALESCE($1, name),
-		provider_id = COALESCE($2, provider_id),
-		variables = COALESCE($3, variables)
-	WHERE project_id = $4
-	AND id = $5
+		variables = COALESCE($2, variables)
+	WHERE project_id = $3
+	AND id = $4
 	AND deleted_at IS NULL`
 
 	var variablesVal any
@@ -205,7 +187,7 @@ func (s *CampaignsStore) UpdateCampaign(ctx context.Context, projectID, campaign
 		variablesVal = v
 	}
 
-	_, err := s.db.ExecContext(ctx, query, update.Name, update.ProviderID, variablesVal, projectID, campaignID)
+	_, err := s.db.ExecContext(ctx, query, update.Name, variablesVal, projectID, campaignID)
 	return err
 }
 

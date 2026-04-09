@@ -17,8 +17,6 @@ import { Tabs, TabsContent } from "@/components/ui/tabs"
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { ProviderSelect } from "@/components/provider/select"
 import { CreateBroadcastDialog } from "@/views/broadcast/CreateBroadcastDialog"
 
 const campaignVariableSchema = z.object({
@@ -28,7 +26,6 @@ const campaignVariableSchema = z.object({
 
 const campaignSchema = z.object({
     name: z.string().min(1, "Name is required"),
-    provider_id: z.string().optional(),
     variables: z.array(campaignVariableSchema),
 })
 
@@ -46,7 +43,6 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
         resolver: zodResolver(campaignSchema),
         defaultValues: {
             name: campaign.name || "",
-            provider_id: campaign.provider?.id,
             variables: campaign.variables ?? [],
         },
     })
@@ -66,7 +62,6 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
         try {
             const updatedCampaign = await api.campaigns.update(project.id, campaign.id, {
                 name: data.name,
-                ...(data.provider_id ? { provider_id: data.provider_id } : {}),
                 variables: data.variables.filter((v) => v.name),
             })
 
@@ -115,31 +110,6 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
 
                             <FieldGroup>
                                 <Controller
-                                    name="provider_id"
-                                    control={form.control}
-                                    render={({ field, fieldState }) => (
-                                        <Field data-invalid={fieldState.invalid} className="gap-2">
-                                            <FieldLabel htmlFor="provider">
-                                                {t("campaign.setup.form.provider.label")}
-                                            </FieldLabel>
-                                            <ProviderSelect
-                                                value={field.value}
-                                                onChange={field.onChange}
-                                                channel={campaign.channel}
-                                            />
-                                            <FieldDescription className="whitespace-pre-line">
-                                                {t("campaign.setup.form.provider.description")}
-                                            </FieldDescription>
-                                            {fieldState.invalid && (
-                                                <FieldError errors={[fieldState.error]} />
-                                            )}
-                                        </Field>
-                                    )}
-                                />
-                            </FieldGroup>
-
-                            <FieldGroup>
-                                <Controller
                                     name="variables"
                                     control={form.control}
                                     render={({ field }) => (
@@ -171,28 +141,13 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
                                     {t("actions.save")}
                                 </Button>
                                 {isEnterprise && (
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <div>
-                                                <Button
-                                                    variant="outline"
-                                                    onClick={() => setIsBroadcastOpen(true)}
-                                                    disabled={!form.watch("provider_id")}
-                                                >
-                                                    <Radio className="mr-2 h-3.5 w-3.5" />
-                                                    {t("send_broadcast", "Send Broadcast")}
-                                                </Button>
-                                            </div>
-                                        </TooltipTrigger>
-                                        {!form.watch("provider_id") && (
-                                            <TooltipContent>
-                                                {t(
-                                                    "broadcast_requires_provider",
-                                                    "Select an integration before sending a broadcast",
-                                                )}
-                                            </TooltipContent>
-                                        )}
-                                    </Tooltip>
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => setIsBroadcastOpen(true)}
+                                    >
+                                        <Radio className="mr-2 h-3.5 w-3.5" />
+                                        {t("send_broadcast", "Send Broadcast")}
+                                    </Button>
                                 )}
                             </div>
                             <CreateBroadcastDialog

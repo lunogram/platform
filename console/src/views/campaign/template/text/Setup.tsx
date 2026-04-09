@@ -32,9 +32,7 @@ const textSetupFormSchema = z.object({
 
 export function TextForm(campaign: Campaign, template?: Template) {
     const formSchema = textSetupFormSchema.extend({
-        sender_identity_id: campaign?.provider?.data.default_from
-            ? z.string().optional()
-            : z.string("From number is required").min(1),
+        sender_identity_id: z.string("From number is required").min(1),
     })
 
     return useForm({
@@ -63,7 +61,6 @@ export function TextFormControl({ campaign, form, disabled = false }: TextFormCo
                 name="sender_identity_id"
                 control={form.control}
                 render={({ field, fieldState }) => {
-                    const defaultFrom = campaign?.provider?.data.default_from
                     return (
                         <Field data-invalid={fieldState.invalid} className="gap-2">
                             <FieldLabel htmlFor="form-rhf-demo-from">
@@ -72,23 +69,11 @@ export function TextFormControl({ campaign, form, disabled = false }: TextFormCo
                             <SenderIdentityCombobox
                                 projectId={project.id}
                                 channel="sms"
-                                providerId={campaign.provider?.id}
                                 value={field.value ?? ""}
                                 onChange={field.onChange}
-                                placeholder={
-                                    defaultFrom || t("select_from_number", "Select from number...")
-                                }
+                                placeholder={t("select_from_number", "Select from number...")}
                                 disabled={disabled}
                             />
-                            {!field.value && defaultFrom && (
-                                <p className="text-xs text-muted-foreground">
-                                    {t(
-                                        "sender_fallback_hint",
-                                        "Falls back to integration default: {{address}}",
-                                        { address: defaultFrom },
-                                    )}
-                                </p>
-                            )}
                             {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
                         </Field>
                     )

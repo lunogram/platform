@@ -113,6 +113,41 @@ func (s *DevicesStore) CreateDevice(ctx context.Context, device Device) (uuid.UU
 	return id, nil
 }
 
+func (s *DevicesStore) UpsertDevice(ctx context.Context, device Device) (uuid.UUID, error) {
+	stmt := `
+	INSERT INTO devices (project_id, user_id, device_id, token, os, os_version, model, app_build, app_version)
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+	ON CONFLICT (project_id, device_id)
+	DO UPDATE SET
+		user_id = EXCLUDED.user_id,
+		token = EXCLUDED.token,
+		os = EXCLUDED.os,
+		os_version = EXCLUDED.os_version,
+		model = EXCLUDED.model,
+		app_build = EXCLUDED.app_build,
+		app_version = EXCLUDED.app_version,
+		deleted_at = NULL
+	RETURNING id`
+
+	var id uuid.UUID
+	err := s.db.GetContext(ctx, &id, stmt,
+		device.ProjectID,
+		device.UserID,
+		device.DeviceID,
+		device.Token,
+		device.OS,
+		device.OSVersion,
+		device.Model,
+		device.AppBuild,
+		device.AppVersion,
+	)
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	return id, nil
+}
+
 func (s *DevicesStore) ListDevicesByUser(ctx context.Context, projectID, userID uuid.UUID) (Devices, error) {
 	query := `
 	SELECT id, project_id, user_id, device_id, token, os, os_version, model, app_build, app_version, created_at, updated_at
