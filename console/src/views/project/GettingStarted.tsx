@@ -91,12 +91,11 @@ export default function ProjectGettingStarted() {
 
             // Use an anonymous ID to register the device for testing
             const testDeviceId = "test-device-" + Math.random().toString(36).substring(7)
-            const anonymousId = "anon-" + Math.random().toString(36).substring(7)
 
-            await api.devices.register(projectId, {
+            await api.devices.register({
                 device_id: testDeviceId,
                 os: "web",
-                identifier: [{ external_id: anonymousId, anonymous: "external_id" }],
+                identifier: [{ external_id: "cadc9611-fac0-464e-893c-0d37f32f4768", source: "anonymous", metadata: null }],
                 push_config: {
                     type: "webpush",
                     endpoint: subJSON.endpoint!,
@@ -258,10 +257,10 @@ export default function ProjectGettingStarted() {
                                     {pushStatus === "granted"
                                         ? "Enabled"
                                         : pushStatus === "denied"
-                                          ? "Denied"
-                                          : pushStatus === "unsupported"
-                                            ? "Unsupported"
-                                            : "Enable"}
+                                            ? "Denied"
+                                            : pushStatus === "unsupported"
+                                                ? "Unsupported"
+                                                : "Enable"}
                                 </Button>
                             </div>
                         </li>

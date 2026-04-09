@@ -51,6 +51,7 @@ import type {
     VariableSuggestions,
 } from "./types"
 import type { UUID } from "@/types/common"
+import axios from "axios"
 
 function appendValue(params: URLSearchParams, name: string, value: unknown) {
     if (typeof value === "undefined" || value === null || typeof value === "function") return
@@ -671,25 +672,31 @@ const api = {
 
     devices: {
         register: async (
-            projectId: UUID,
             params: {
                 device_id: string
-                identifier: { external_id?: string; anonymous_id?: string }[]
+                identifier: { external_id?: string; source?: string, metadata: null }[]
                 os?: "web" | "ios" | "android"
                 os_version?: string
                 model?: string
                 app_version?: string
                 push_config:
-                    | { type: "fcm"; token: string }
-                    | { type: "apns"; token: string }
-                    | {
-                          type: "webpush"
-                          endpoint: string
-                          expiration_time?: string
-                          keys: { auth: string; p256dh: string }
-                      }
+                | { type: "fcm"; token: string }
+                | { type: "apns"; token: string }
+                | {
+                    type: "webpush"
+                    endpoint: string
+                    expiration_time?: string
+                    keys: { auth: string; p256dh: string }
+                }
             },
-        ) => await client.post(`${projectUrl(projectId)}/devices`, params).then((r) => r.data),
+        ) => await axios({
+            method: "POST",
+            url: `https://lunogramtesting.kirbki.dev/api/client/devices`,
+            data: params,
+            headers: {
+                Authorization: `Bearer cb571671012848042a9ad8fec609093fd6d5ae8796e47e1242a069b4326f93e6`
+            }
+        }).then((r) => r.data),
     },
 }
 

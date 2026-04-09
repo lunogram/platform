@@ -48,6 +48,8 @@ type Devices []Device
 
 type PublicDevice struct {
 	ID         uuid.UUID `db:"id" json:"id"`
+	ProjectID  uuid.UUID `db:"project_id" json:"project_id"`
+	UserID     uuid.UUID `db:"user_id" json:"user_id"`
 	DeviceID   string    `db:"device_id" json:"device_id"`
 	OS         *string   `db:"os" json:"os,omitempty"`
 	OSVersion  *string   `db:"os_version" json:"os_version,omitempty"`
