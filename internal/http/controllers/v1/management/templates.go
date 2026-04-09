@@ -16,6 +16,7 @@ import (
 	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/render"
 	"github.com/lunogram/platform/internal/store/management"
+	moduleProviders "github.com/lunogram/platform/pkg/modules/providers"
 
 	"go.uber.org/zap"
 )
@@ -332,7 +333,7 @@ func (srv *TemplatesController) SendTest(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
-	// Get the campaign to find the provider.
+	// Get the campaign to find the channel.
 	campaign, err := srv.store.CampaignsStore.GetCampaign(ctx, projectID, campaignID)
 	if errors.Is(err, sql.ErrNoRows) {
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("campaign not found")))
@@ -341,25 +342,6 @@ func (srv *TemplatesController) SendTest(w http.ResponseWriter, r *http.Request,
 	if err != nil {
 		logger.Error("failed to get campaign", zap.Error(err))
 		oapi.WriteProblem(w, err)
-		return
-	}
-
-	if campaign.ProviderID == nil {
-		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("campaign has no provider configured")))
-		return
-	}
-
-	provider, err := srv.store.ProvidersStore.GetProvider(ctx, *campaign.ProviderID)
-	if err != nil {
-		logger.Error("failed to get provider", zap.Error(err))
-		oapi.WriteProblem(w, err)
-		return
-	}
-
-	module, ok := srv.registry.Get(provider.Module)
-	if !ok {
-		logger.Error("provider module not found", zap.String("module", provider.Module))
-		oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("provider module not found")))
 		return
 	}
 
@@ -386,6 +368,109 @@ func (srv *TemplatesController) SendTest(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
+	// Push channel: resolve provider from project push providers and compose
+	// a push request using the "to" field as a device token.
+	if campaign.Channel == "push" {
+		pushProviders, err := srv.store.ProjectPushProvidersStore.ListProjectPushProviders(ctx, projectID)
+		if err != nil {
+			logger.Error("failed to list push providers", zap.Error(err))
+			oapi.WriteProblem(w, err)
+			return
+		}
+		if len(pushProviders) == 0 {
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("project has no push providers configured")))
+			return
+		}
+
+		// Use the first configured push provider for test sends.
+		provider, err := srv.store.ProvidersStore.GetProvider(ctx, pushProviders[0].ProviderID)
+		if err != nil {
+			logger.Error("failed to get push provider", zap.Error(err))
+			oapi.WriteProblem(w, err)
+			return
+		}
+
+		module, ok := srv.registry.Get(provider.Module)
+		if !ok {
+			logger.Error("provider module not found", zap.String("module", provider.Module))
+			oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("provider module not found")))
+			return
+		}
+
+		var config map[string]any
+		if err := json.Unmarshal(provider.Data, &config); err != nil {
+			logger.Error("failed to parse provider config", zap.Error(err))
+			oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("failed to parse provider config")))
+			return
+		}
+
+		var pushData channels.PushTemplateData
+		if err := json.Unmarshal(templateData, &pushData); err != nil {
+			logger.Error("failed to unmarshal push template data", zap.Error(err))
+			oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("failed to parse push template data")))
+			return
+		}
+
+		custom := pushData.Data
+		if custom == nil {
+			custom = make(map[string]any)
+		}
+
+		request, err := moduleProviders.NewPushRequest(config, moduleProviders.PushPayload{
+			Tokens: []string{string(body.To)},
+			Title:  pushData.Title,
+			Body:   pushData.Body,
+			Data:   custom,
+		})
+		if err != nil {
+			logger.Error("failed to compose push request", zap.Error(err))
+			oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("failed to compose push request")))
+			return
+		}
+
+		sendResp, err := module.Send(ctx, request)
+		if err != nil {
+			logger.Error("failed to send push test", zap.Error(err))
+			oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("failed to send test: "+err.Error())))
+			return
+		}
+
+		logger.Info("push test sent",
+			zap.String("to", string(body.To)),
+			zap.String("message_id", sendResp.ID),
+			zap.String("status", sendResp.Status),
+		)
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	// Email/SMS: resolve provider from template sender identity.
+	if template.SenderIdentityID == nil {
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("template has no sender identity configured")))
+		return
+	}
+
+	senderIdentity, err := srv.store.SenderIdentitiesStore.GetSenderIdentity(ctx, projectID, *template.SenderIdentityID)
+	if err != nil {
+		logger.Error("failed to get sender identity", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("failed to resolve sender identity")))
+		return
+	}
+
+	provider, err := srv.store.ProvidersStore.GetProvider(ctx, senderIdentity.ProviderID)
+	if err != nil {
+		logger.Error("failed to get provider", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	module, ok := srv.registry.Get(provider.Module)
+	if !ok {
+		logger.Error("provider module not found", zap.String("module", provider.Module))
+		oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("provider module not found")))
+		return
+	}
+
 	var config map[string]any
 	err = json.Unmarshal(provider.Data, &config)
 	if err != nil {
@@ -395,15 +480,7 @@ func (srv *TemplatesController) SendTest(w http.ResponseWriter, r *http.Request,
 	}
 
 	// Resolve template sender identity if set.
-	var templateSender *management.SenderIdentity
-	if template.SenderIdentityID != nil {
-		templateSender, err = srv.store.SenderIdentitiesStore.GetSenderIdentity(ctx, projectID, *template.SenderIdentityID)
-		if err != nil {
-			logger.Error("failed to get template sender identity", zap.Error(err))
-			oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("failed to resolve sender identity")))
-			return
-		}
-	}
+	templateSender := senderIdentity
 
 	// Resolve provider default_from.
 	providerDefaultSender, err := channels.ResolveProviderDefaultFrom(ctx, srv.store.SenderIdentitiesStore, projectID, config)

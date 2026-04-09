@@ -15,7 +15,6 @@ import { channels } from "./channels"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { TemplateWorkflowContext } from "./contexts"
 import { CreateBroadcastDialog } from "@/views/broadcast/CreateBroadcastDialog"
 
@@ -89,41 +88,19 @@ export default function TemplateReview() {
                             <FieldLabel>{t("campaign.setup.form.name.label")}</FieldLabel>
                             <Input value={campaign.name} readOnly disabled />
                         </Field>
-
-                        {campaign.provider && (
-                            <Field className="gap-2">
-                                <FieldLabel>{t("campaign.setup.form.provider.label")}</FieldLabel>
-                                <Input value={campaign.provider.name} readOnly disabled />
-                            </Field>
-                        )}
                     </FieldGroup>
 
                     <ChannelFormControl campaign={campaign} form={form} disabled />
 
                     {isEnterprise && (
                         <div className="pt-4">
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <div>
-                                        <Button
-                                            variant="outline"
-                                            onClick={() => setIsBroadcastOpen(true)}
-                                            disabled={!campaign.provider_id}
-                                        >
-                                            <Radio className="mr-2 h-3.5 w-3.5" />
-                                            {t("send_broadcast", "Send Broadcast")}
-                                        </Button>
-                                    </div>
-                                </TooltipTrigger>
-                                {!campaign.provider_id && (
-                                    <TooltipContent>
-                                        {t(
-                                            "broadcast_requires_provider",
-                                            "Select an integration before sending a broadcast",
-                                        )}
-                                    </TooltipContent>
-                                )}
-                            </Tooltip>
+                            <Button
+                                variant="outline"
+                                onClick={() => setIsBroadcastOpen(true)}
+                            >
+                                <Radio className="mr-2 h-3.5 w-3.5" />
+                                {t("send_broadcast", "Send Broadcast")}
+                            </Button>
                         </div>
                     )}
                     <CreateBroadcastDialog

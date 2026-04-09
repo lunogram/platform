@@ -177,6 +177,7 @@ func Model() []*openfgav1.TypeDefinition {
 		{name: "documents", read: "support", create: "editor", update: "editor", delete: "editor"},
 		{name: "locales", read: "support", create: "editor", update: "editor", delete: "editor"},
 		{name: "providers", read: "support", create: "admin", update: "admin", delete: "admin"},
+		{name: "push_providers", read: "support", create: "admin", update: "admin", delete: "admin"},
 		{name: "subscriptions", read: "support", create: "editor", update: "editor", delete: "admin"},
 		{name: "actions", read: "support", create: "editor", update: "editor", delete: "admin"},
 		{name: "organizations", read: "support", create: "client", update: "client", delete: "client"},

@@ -75,6 +75,13 @@ const (
 	CreateSenderIdentityChannelSms   CreateSenderIdentityChannel = "sms"
 )
 
+// Defines values for CreateUserDeviceOs.
+const (
+	CreateUserDeviceOsAndroid CreateUserDeviceOs = "android"
+	CreateUserDeviceOsIos     CreateUserDeviceOs = "ios"
+	CreateUserDeviceOsWeb     CreateUserDeviceOs = "web"
+)
+
 // Defines values for JourneyStatus.
 const (
 	JourneyStatusArchived  JourneyStatus = "archived"
@@ -116,6 +123,13 @@ const (
 	OrganizationRoleAdmin  OrganizationRole = "admin"
 	OrganizationRoleMember OrganizationRole = "member"
 	OrganizationRoleOwner  OrganizationRole = "owner"
+)
+
+// Defines values for ProjectPushProviderPlatform.
+const (
+	ProjectPushProviderPlatformAndroid ProjectPushProviderPlatform = "android"
+	ProjectPushProviderPlatformIos     ProjectPushProviderPlatform = "ios"
+	ProjectPushProviderPlatformWeb     ProjectPushProviderPlatform = "web"
 )
 
 // Defines values for ProjectRole.
@@ -375,7 +389,6 @@ type Campaign struct {
 	Id             openapi_types.UUID  `json:"id"`
 	Name           string              `json:"name"`
 	ProjectId      openapi_types.UUID  `json:"project_id"`
-	Provider       *Provider           `json:"provider,omitempty"`
 	SubscriptionId *openapi_types.UUID `json:"subscription_id,omitempty"`
 	Templates      []Template          `json:"templates"`
 	UpdatedAt      time.Time           `json:"updated_at"`
@@ -457,7 +470,6 @@ type CreateCampaign struct {
 	// Channel Communication channel type
 	Channel        Channel             `json:"channel"`
 	Name           string              `json:"name"`
-	ProviderId     *openapi_types.UUID `json:"provider_id,omitempty"`
 	SubscriptionId *openapi_types.UUID `json:"subscription_id,omitempty"`
 }
 
@@ -569,6 +581,20 @@ type CreateTemplate struct {
 	// SenderIdentityId The ID of the sender identity to use for this template
 	SenderIdentityId *openapi_types.UUID `json:"sender_identity_id"`
 }
+
+// CreateUserDevice defines model for CreateUserDevice.
+type CreateUserDevice struct {
+	AppBuild   *string            `json:"app_build"`
+	AppVersion *string            `json:"app_version"`
+	DeviceId   string             `json:"device_id"`
+	Model      *string            `json:"model"`
+	Os         CreateUserDeviceOs `json:"os"`
+	OsVersion  *string            `json:"os_version"`
+	Token      string             `json:"token"`
+}
+
+// CreateUserDeviceOs defines model for CreateUserDevice.Os.
+type CreateUserDeviceOs string
 
 // CreateUserEventRequest defines model for CreateUserEventRequest.
 type CreateUserEventRequest struct {
@@ -1047,6 +1073,23 @@ type ProjectList struct {
 	Total int `json:"total"`
 }
 
+// ProjectPushProvider defines model for ProjectPushProvider.
+type ProjectPushProvider struct {
+	CreatedAt time.Time          `json:"created_at"`
+	Id        openapi_types.UUID `json:"id"`
+
+	// Platform Target platform for push notifications
+	Platform  ProjectPushProviderPlatform `json:"platform"`
+	ProjectId openapi_types.UUID          `json:"project_id"`
+
+	// ProviderId The push provider integration to use for this platform
+	ProviderId openapi_types.UUID `json:"provider_id"`
+	UpdatedAt  time.Time          `json:"updated_at"`
+}
+
+// ProjectPushProviderPlatform Target platform for push notifications
+type ProjectPushProviderPlatform string
+
 // ProjectRole Role within a project
 type ProjectRole string
 
@@ -1082,10 +1125,13 @@ type ProviderMeta struct {
 	Locked *bool `json:"locked,omitempty"`
 
 	// MaxRateLimit Absolute project-wide maximum rate limit (requests per minute). User overrides are clamped to this ceiling.
-	MaxRateLimit *int               `json:"max_rate_limit,omitempty"`
-	Name         string             `json:"name"`
-	RateLimit    *ProviderRateLimit `json:"rate_limit,omitempty"`
-	Schema       json.RawMessage    `json:"schema"`
+	MaxRateLimit *int   `json:"max_rate_limit,omitempty"`
+	Name         string `json:"name"`
+
+	// Platforms Push notification platforms supported by this provider module (only present for push providers)
+	Platforms *[]ProjectPushProviderPlatform `json:"platforms,omitempty"`
+	RateLimit *ProviderRateLimit             `json:"rate_limit,omitempty"`
+	Schema    json.RawMessage                `json:"schema"`
 
 	// Type Module ID
 	Type string  `json:"type"`
@@ -1309,9 +1355,8 @@ type UpdateBroadcast struct {
 
 // UpdateCampaign defines model for UpdateCampaign.
 type UpdateCampaign struct {
-	Name       *string             `json:"name,omitempty"`
-	ProviderId *openapi_types.UUID `json:"provider_id,omitempty"`
-	Variables  *[]CampaignVariable `json:"variables,omitempty"`
+	Name      *string             `json:"name,omitempty"`
+	Variables *[]CampaignVariable `json:"variables,omitempty"`
 }
 
 // UpdateJourney defines model for UpdateJourney.
@@ -1464,6 +1509,12 @@ type UpsertOrganizationScheduledRequest struct {
 
 	// StartAt Start time for recurring schedules. If omitted for recurring schedules, defaults to now.
 	StartAt *time.Time `json:"start_at"`
+}
+
+// UpsertProjectPushProvider defines model for UpsertProjectPushProvider.
+type UpsertProjectPushProvider struct {
+	// ProviderId The push provider integration to assign to this platform
+	ProviderId openapi_types.UUID `json:"provider_id"`
 }
 
 // UpsertUserScheduledRequest defines model for UpsertUserScheduledRequest.
@@ -2274,6 +2325,9 @@ type CreateProviderJSONRequestBody = CreateProvider
 // UpdateProviderJSONRequestBody defines body for UpdateProvider for application/json ContentType.
 type UpdateProviderJSONRequestBody = UpdateProvider
 
+// UpsertProjectPushProviderJSONRequestBody defines body for UpsertProjectPushProvider for application/json ContentType.
+type UpsertProjectPushProviderJSONRequestBody = UpsertProjectPushProvider
+
 // CreateSenderIdentityJSONRequestBody defines body for CreateSenderIdentity for application/json ContentType.
 type CreateSenderIdentityJSONRequestBody = CreateSenderIdentity
 
@@ -2306,6 +2360,9 @@ type ImportUsersMultipartRequestBody ImportUsersMultipartBody
 
 // UpdateUserJSONRequestBody defines body for UpdateUser for application/json ContentType.
 type UpdateUserJSONRequestBody = UpdateUser
+
+// CreateUserDeviceJSONRequestBody defines body for CreateUserDevice for application/json ContentType.
+type CreateUserDeviceJSONRequestBody = CreateUserDevice
 
 // CreateUserEventJSONRequestBody defines body for CreateUserEvent for application/json ContentType.
 type CreateUserEventJSONRequestBody = CreateUserEventRequest
@@ -2720,6 +2777,17 @@ type ClientInterface interface {
 
 	UpdateProvider(ctx context.Context, projectID openapi_types.UUID, pType string, providerID openapi_types.UUID, body UpdateProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListProjectPushProviders request
+	ListProjectPushProviders(ctx context.Context, projectID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteProjectPushProvider request
+	DeleteProjectPushProvider(ctx context.Context, projectID openapi_types.UUID, platform ProjectPushProviderPlatform, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpsertProjectPushProviderWithBody request with any body
+	UpsertProjectPushProviderWithBody(ctx context.Context, projectID openapi_types.UUID, platform ProjectPushProviderPlatform, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpsertProjectPushProvider(ctx context.Context, projectID openapi_types.UUID, platform ProjectPushProviderPlatform, body UpsertProjectPushProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListSenderIdentities request
 	ListSenderIdentities(ctx context.Context, projectID openapi_types.UUID, params *ListSenderIdentitiesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -2847,6 +2915,11 @@ type ClientInterface interface {
 
 	// GetUserDevices request
 	GetUserDevices(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateUserDeviceWithBody request with any body
+	CreateUserDeviceWithBody(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateUserDevice(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, body CreateUserDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteUserDevice request
 	DeleteUserDevice(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, deviceID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -4293,6 +4366,54 @@ func (c *Client) UpdateProvider(ctx context.Context, projectID openapi_types.UUI
 	return c.Client.Do(req)
 }
 
+func (c *Client) ListProjectPushProviders(ctx context.Context, projectID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListProjectPushProvidersRequest(c.Server, projectID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteProjectPushProvider(ctx context.Context, projectID openapi_types.UUID, platform ProjectPushProviderPlatform, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteProjectPushProviderRequest(c.Server, projectID, platform)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpsertProjectPushProviderWithBody(ctx context.Context, projectID openapi_types.UUID, platform ProjectPushProviderPlatform, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpsertProjectPushProviderRequestWithBody(c.Server, projectID, platform, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpsertProjectPushProvider(ctx context.Context, projectID openapi_types.UUID, platform ProjectPushProviderPlatform, body UpsertProjectPushProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpsertProjectPushProviderRequest(c.Server, projectID, platform, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) ListSenderIdentities(ctx context.Context, projectID openapi_types.UUID, params *ListSenderIdentitiesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListSenderIdentitiesRequest(c.Server, projectID, params)
 	if err != nil {
@@ -4835,6 +4956,30 @@ func (c *Client) UpdateUser(ctx context.Context, projectID openapi_types.UUID, u
 
 func (c *Client) GetUserDevices(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetUserDevicesRequest(c.Server, projectID, userID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateUserDeviceWithBody(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateUserDeviceRequestWithBody(c.Server, projectID, userID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateUserDevice(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, body CreateUserDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateUserDeviceRequest(c.Server, projectID, userID, body)
 	if err != nil {
 		return nil, err
 	}
@@ -9860,6 +10005,135 @@ func NewUpdateProviderRequestWithBody(server string, projectID openapi_types.UUI
 	return req, nil
 }
 
+// NewListProjectPushProvidersRequest generates requests for ListProjectPushProviders
+func NewListProjectPushProvidersRequest(server string, projectID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/push-providers", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewDeleteProjectPushProviderRequest generates requests for DeleteProjectPushProvider
+func NewDeleteProjectPushProviderRequest(server string, projectID openapi_types.UUID, platform ProjectPushProviderPlatform) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "platform", runtime.ParamLocationPath, platform)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/push-providers/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpsertProjectPushProviderRequest calls the generic UpsertProjectPushProvider builder with application/json body
+func NewUpsertProjectPushProviderRequest(server string, projectID openapi_types.UUID, platform ProjectPushProviderPlatform, body UpsertProjectPushProviderJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpsertProjectPushProviderRequestWithBody(server, projectID, platform, "application/json", bodyReader)
+}
+
+// NewUpsertProjectPushProviderRequestWithBody generates requests for UpsertProjectPushProvider with any type of body
+func NewUpsertProjectPushProviderRequestWithBody(server string, projectID openapi_types.UUID, platform ProjectPushProviderPlatform, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "platform", runtime.ParamLocationPath, platform)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/push-providers/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListSenderIdentitiesRequest generates requests for ListSenderIdentities
 func NewListSenderIdentitiesRequest(server string, projectID openapi_types.UUID, params *ListSenderIdentitiesParams) (*http.Request, error) {
 	var err error
@@ -11709,6 +11983,60 @@ func NewGetUserDevicesRequest(server string, projectID openapi_types.UUID, userI
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewCreateUserDeviceRequest calls the generic CreateUserDevice builder with application/json body
+func NewCreateUserDeviceRequest(server string, projectID openapi_types.UUID, userID openapi_types.UUID, body CreateUserDeviceJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateUserDeviceRequestWithBody(server, projectID, userID, "application/json", bodyReader)
+}
+
+// NewCreateUserDeviceRequestWithBody generates requests for CreateUserDevice with any type of body
+func NewCreateUserDeviceRequestWithBody(server string, projectID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "userID", runtime.ParamLocationPath, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/subjects/users/%s/devices", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -13713,6 +14041,17 @@ type ClientWithResponsesInterface interface {
 
 	UpdateProviderWithResponse(ctx context.Context, projectID openapi_types.UUID, pType string, providerID openapi_types.UUID, body UpdateProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateProviderResponse, error)
 
+	// ListProjectPushProvidersWithResponse request
+	ListProjectPushProvidersWithResponse(ctx context.Context, projectID openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListProjectPushProvidersResponse, error)
+
+	// DeleteProjectPushProviderWithResponse request
+	DeleteProjectPushProviderWithResponse(ctx context.Context, projectID openapi_types.UUID, platform ProjectPushProviderPlatform, reqEditors ...RequestEditorFn) (*DeleteProjectPushProviderResponse, error)
+
+	// UpsertProjectPushProviderWithBodyWithResponse request with any body
+	UpsertProjectPushProviderWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, platform ProjectPushProviderPlatform, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpsertProjectPushProviderResponse, error)
+
+	UpsertProjectPushProviderWithResponse(ctx context.Context, projectID openapi_types.UUID, platform ProjectPushProviderPlatform, body UpsertProjectPushProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*UpsertProjectPushProviderResponse, error)
+
 	// ListSenderIdentitiesWithResponse request
 	ListSenderIdentitiesWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListSenderIdentitiesParams, reqEditors ...RequestEditorFn) (*ListSenderIdentitiesResponse, error)
 
@@ -13840,6 +14179,11 @@ type ClientWithResponsesInterface interface {
 
 	// GetUserDevicesWithResponse request
 	GetUserDevicesWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetUserDevicesResponse, error)
+
+	// CreateUserDeviceWithBodyWithResponse request with any body
+	CreateUserDeviceWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateUserDeviceResponse, error)
+
+	CreateUserDeviceWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, body CreateUserDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateUserDeviceResponse, error)
 
 	// DeleteUserDeviceWithResponse request
 	DeleteUserDeviceWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, deviceID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteUserDeviceResponse, error)
@@ -15928,6 +16272,76 @@ func (r UpdateProviderResponse) StatusCode() int {
 	return 0
 }
 
+type ListProjectPushProvidersResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *struct {
+		Results []ProjectPushProvider `json:"results"`
+	}
+	JSONDefault *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListProjectPushProvidersResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListProjectPushProvidersResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteProjectPushProviderResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteProjectPushProviderResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteProjectPushProviderResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpsertProjectPushProviderResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ProjectPushProvider
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r UpsertProjectPushProviderResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpsertProjectPushProviderResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ListSenderIdentitiesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -16754,6 +17168,28 @@ func (r GetUserDevicesResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetUserDevicesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateUserDeviceResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateUserDeviceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateUserDeviceResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -18420,6 +18856,41 @@ func (c *ClientWithResponses) UpdateProviderWithResponse(ctx context.Context, pr
 	return ParseUpdateProviderResponse(rsp)
 }
 
+// ListProjectPushProvidersWithResponse request returning *ListProjectPushProvidersResponse
+func (c *ClientWithResponses) ListProjectPushProvidersWithResponse(ctx context.Context, projectID openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListProjectPushProvidersResponse, error) {
+	rsp, err := c.ListProjectPushProviders(ctx, projectID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListProjectPushProvidersResponse(rsp)
+}
+
+// DeleteProjectPushProviderWithResponse request returning *DeleteProjectPushProviderResponse
+func (c *ClientWithResponses) DeleteProjectPushProviderWithResponse(ctx context.Context, projectID openapi_types.UUID, platform ProjectPushProviderPlatform, reqEditors ...RequestEditorFn) (*DeleteProjectPushProviderResponse, error) {
+	rsp, err := c.DeleteProjectPushProvider(ctx, projectID, platform, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteProjectPushProviderResponse(rsp)
+}
+
+// UpsertProjectPushProviderWithBodyWithResponse request with arbitrary body returning *UpsertProjectPushProviderResponse
+func (c *ClientWithResponses) UpsertProjectPushProviderWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, platform ProjectPushProviderPlatform, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpsertProjectPushProviderResponse, error) {
+	rsp, err := c.UpsertProjectPushProviderWithBody(ctx, projectID, platform, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpsertProjectPushProviderResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpsertProjectPushProviderWithResponse(ctx context.Context, projectID openapi_types.UUID, platform ProjectPushProviderPlatform, body UpsertProjectPushProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*UpsertProjectPushProviderResponse, error) {
+	rsp, err := c.UpsertProjectPushProvider(ctx, projectID, platform, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpsertProjectPushProviderResponse(rsp)
+}
+
 // ListSenderIdentitiesWithResponse request returning *ListSenderIdentitiesResponse
 func (c *ClientWithResponses) ListSenderIdentitiesWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListSenderIdentitiesParams, reqEditors ...RequestEditorFn) (*ListSenderIdentitiesResponse, error) {
 	rsp, err := c.ListSenderIdentities(ctx, projectID, params, reqEditors...)
@@ -18822,6 +19293,23 @@ func (c *ClientWithResponses) GetUserDevicesWithResponse(ctx context.Context, pr
 		return nil, err
 	}
 	return ParseGetUserDevicesResponse(rsp)
+}
+
+// CreateUserDeviceWithBodyWithResponse request with arbitrary body returning *CreateUserDeviceResponse
+func (c *ClientWithResponses) CreateUserDeviceWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateUserDeviceResponse, error) {
+	rsp, err := c.CreateUserDeviceWithBody(ctx, projectID, userID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateUserDeviceResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateUserDeviceWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, body CreateUserDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateUserDeviceResponse, error) {
+	rsp, err := c.CreateUserDevice(ctx, projectID, userID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateUserDeviceResponse(rsp)
 }
 
 // DeleteUserDeviceWithResponse request returning *DeleteUserDeviceResponse
@@ -21886,6 +22374,100 @@ func ParseUpdateProviderResponse(rsp *http.Response) (*UpdateProviderResponse, e
 	return response, nil
 }
 
+// ParseListProjectPushProvidersResponse parses an HTTP response from a ListProjectPushProvidersWithResponse call
+func ParseListProjectPushProvidersResponse(rsp *http.Response) (*ListProjectPushProvidersResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListProjectPushProvidersResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Results []ProjectPushProvider `json:"results"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteProjectPushProviderResponse parses an HTTP response from a DeleteProjectPushProviderWithResponse call
+func ParseDeleteProjectPushProviderResponse(rsp *http.Response) (*DeleteProjectPushProviderResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteProjectPushProviderResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpsertProjectPushProviderResponse parses an HTTP response from a UpsertProjectPushProviderWithResponse call
+func ParseUpsertProjectPushProviderResponse(rsp *http.Response) (*UpsertProjectPushProviderResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpsertProjectPushProviderResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ProjectPushProvider
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListSenderIdentitiesResponse parses an HTTP response from a ListSenderIdentitiesWithResponse call
 func ParseListSenderIdentitiesResponse(rsp *http.Response) (*ListSenderIdentitiesResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -22994,6 +23576,32 @@ func ParseGetUserDevicesResponse(rsp *http.Response) (*GetUserDevicesResponse, e
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateUserDeviceResponse parses an HTTP response from a CreateUserDeviceWithResponse call
+func ParseCreateUserDeviceResponse(rsp *http.Response) (*CreateUserDeviceResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateUserDeviceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -24202,6 +24810,15 @@ type ServerInterface interface {
 	// Update provider
 	// (PATCH /api/admin/projects/{projectID}/providers/{type}/{providerID})
 	UpdateProvider(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, pType string, providerID openapi_types.UUID)
+	// List push providers
+	// (GET /api/admin/projects/{projectID}/push-providers)
+	ListProjectPushProviders(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID)
+	// Remove push provider for platform
+	// (DELETE /api/admin/projects/{projectID}/push-providers/{platform})
+	DeleteProjectPushProvider(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, platform ProjectPushProviderPlatform)
+	// Set push provider for platform
+	// (PUT /api/admin/projects/{projectID}/push-providers/{platform})
+	UpsertProjectPushProvider(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, platform ProjectPushProviderPlatform)
 	// List sender identities
 	// (GET /api/admin/projects/{projectID}/sender-identities)
 	ListSenderIdentities(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListSenderIdentitiesParams)
@@ -24310,6 +24927,9 @@ type ServerInterface interface {
 	// Get user devices
 	// (GET /api/admin/projects/{projectID}/subjects/users/{userID}/devices)
 	GetUserDevices(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID)
+	// Create or update user device
+	// (POST /api/admin/projects/{projectID}/subjects/users/{userID}/devices)
+	CreateUserDevice(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID)
 	// Delete user device
 	// (DELETE /api/admin/projects/{projectID}/subjects/users/{userID}/devices/{deviceID})
 	DeleteUserDevice(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID, deviceID openapi_types.UUID)
@@ -24916,6 +25536,24 @@ func (_ Unimplemented) UpdateProvider(w http.ResponseWriter, r *http.Request, pr
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// List push providers
+// (GET /api/admin/projects/{projectID}/push-providers)
+func (_ Unimplemented) ListProjectPushProviders(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Remove push provider for platform
+// (DELETE /api/admin/projects/{projectID}/push-providers/{platform})
+func (_ Unimplemented) DeleteProjectPushProvider(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, platform ProjectPushProviderPlatform) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Set push provider for platform
+// (PUT /api/admin/projects/{projectID}/push-providers/{platform})
+func (_ Unimplemented) UpsertProjectPushProvider(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, platform ProjectPushProviderPlatform) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // List sender identities
 // (GET /api/admin/projects/{projectID}/sender-identities)
 func (_ Unimplemented) ListSenderIdentities(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListSenderIdentitiesParams) {
@@ -25129,6 +25767,12 @@ func (_ Unimplemented) UpdateUser(w http.ResponseWriter, r *http.Request, projec
 // Get user devices
 // (GET /api/admin/projects/{projectID}/subjects/users/{userID}/devices)
 func (_ Unimplemented) GetUserDevices(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Create or update user device
+// (POST /api/admin/projects/{projectID}/subjects/users/{userID}/devices)
+func (_ Unimplemented) CreateUserDevice(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -28966,6 +29610,117 @@ func (siw *ServerInterfaceWrapper) UpdateProvider(w http.ResponseWriter, r *http
 	handler.ServeHTTP(w, r)
 }
 
+// ListProjectPushProviders operation middleware
+func (siw *ServerInterfaceWrapper) ListProjectPushProviders(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListProjectPushProviders(w, r, projectID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteProjectPushProvider operation middleware
+func (siw *ServerInterfaceWrapper) DeleteProjectPushProvider(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "platform" -------------
+	var platform ProjectPushProviderPlatform
+
+	err = runtime.BindStyledParameterWithOptions("simple", "platform", chi.URLParam(r, "platform"), &platform, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "platform", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteProjectPushProvider(w, r, projectID, platform)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpsertProjectPushProvider operation middleware
+func (siw *ServerInterfaceWrapper) UpsertProjectPushProvider(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "platform" -------------
+	var platform ProjectPushProviderPlatform
+
+	err = runtime.BindStyledParameterWithOptions("simple", "platform", chi.URLParam(r, "platform"), &platform, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "platform", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpsertProjectPushProvider(w, r, projectID, platform)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListSenderIdentities operation middleware
 func (siw *ServerInterfaceWrapper) ListSenderIdentities(w http.ResponseWriter, r *http.Request) {
 
@@ -30470,6 +31225,46 @@ func (siw *ServerInterfaceWrapper) GetUserDevices(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetUserDevices(w, r, projectID, userID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateUserDevice operation middleware
+func (siw *ServerInterfaceWrapper) CreateUserDevice(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "userID" -------------
+	var userID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userID", chi.URLParam(r, "userID"), &userID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "userID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateUserDevice(w, r, projectID, userID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -32091,6 +32886,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Patch(options.BaseURL+"/api/admin/projects/{projectID}/providers/{type}/{providerID}", wrapper.UpdateProvider)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/push-providers", wrapper.ListProjectPushProviders)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/admin/projects/{projectID}/push-providers/{platform}", wrapper.DeleteProjectPushProvider)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/api/admin/projects/{projectID}/push-providers/{platform}", wrapper.UpsertProjectPushProvider)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/sender-identities", wrapper.ListSenderIdentities)
 	})
 	r.Group(func(r chi.Router) {
@@ -32197,6 +33001,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/subjects/users/{userID}/devices", wrapper.GetUserDevices)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/subjects/users/{userID}/devices", wrapper.CreateUserDevice)
 	})
 	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/api/admin/projects/{projectID}/subjects/users/{userID}/devices/{deviceID}", wrapper.DeleteUserDevice)

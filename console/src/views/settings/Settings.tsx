@@ -1,7 +1,7 @@
 import { Outlet, useLocation } from "react-router"
 import { useTranslation } from "react-i18next"
 import { useContext } from "react"
-import { Settings as SettingsLucideIcon, Globe, Key, Bell, Zap, Mail } from "lucide-react"
+import { Settings as SettingsLucideIcon, Globe, Key, Bell, Zap, Mail, Smartphone } from "lucide-react"
 import { ProjectContext } from "../../contexts"
 import { ProjectRoleRequired } from "../project/ProjectRoleRequired"
 import { SettingsIcon } from "@/components/icons"
@@ -27,6 +27,12 @@ export default function Settings() {
             to: "event-schemas",
             label: t("schemas", "Schemas"),
             icon: Zap,
+        },
+        {
+            key: "push-providers",
+            to: "push-providers",
+            label: t("push_providers", "Push"),
+            icon: Smartphone,
         },
         ...(isEnterprise
             ? [

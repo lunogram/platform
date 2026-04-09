@@ -78,7 +78,10 @@ export default function MemberConditionEdit({
                     value={rule?.type}
                     onValueChange={(type) => setRule({ ...rule, type: type as typeof rule.type })}
                 >
-                    <SelectTrigger className="h-8 w-auto min-w-[90px] rounded-r-none text-xs shadow-none">
+                    <SelectTrigger
+                        elevation="flat"
+                        className="h-8 w-auto min-w-[90px] rounded-r-none text-xs"
+                    >
                         <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -122,7 +125,10 @@ export default function MemberConditionEdit({
                         setRule({ ...rule, operator: operator as typeof rule.operator })
                     }
                 >
-                    <SelectTrigger className="h-8 w-auto min-w-[100px] rounded-none border-l-0 text-xs shadow-none">
+                    <SelectTrigger
+                        elevation="flat"
+                        className="h-8 w-auto min-w-[100px] rounded-none border-l-0 text-xs"
+                    >
                         <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -144,7 +150,10 @@ export default function MemberConditionEdit({
                         }
                         onValueChange={(value) => setRule({ ...rule, value })}
                     >
-                        <SelectTrigger className="h-8 w-auto min-w-[80px] rounded-none border-l-0 text-xs shadow-none">
+                        <SelectTrigger
+                            elevation="flat"
+                            className="h-8 w-auto min-w-[80px] rounded-none border-l-0 text-xs"
+                        >
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>

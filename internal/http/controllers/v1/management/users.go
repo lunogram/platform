@@ -7,8 +7,10 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jmoiron/sqlx"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/http/json"
@@ -250,11 +252,99 @@ func (srv *UsersController) GetUserDevices(w http.ResponseWriter, r *http.Reques
 
 	logger.Info("user devices listed", zap.Int("count", len(devices)))
 
+	results := devices.OAPI()
+	for i := range results {
+		results[i].Token = nil
+	}
+
 	response := oapi.UserDeviceList{
-		Results: devices.OAPI(),
+		Results: results,
 	}
 
 	json.Write(w, http.StatusOK, response)
+}
+
+func (srv *UsersController) CreateUserDevice(w http.ResponseWriter, r *http.Request, projectID, userID uuid.UUID) {
+	ctx := r.Context()
+	err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("users", projectID))
+	if err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	_, err = srv.users.GetUser(ctx, projectID, userID)
+	if errors.Is(err, sql.ErrNoRows) {
+		srv.logger.Info("user not found")
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
+		return
+	}
+
+	if err != nil {
+		srv.logger.Error("failed to get user", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	var body oapi.CreateUserDevice
+	err = json.Decode(r.Body, &body)
+	if err != nil {
+		srv.logger.Error("failed to decode request body", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid request body")))
+		return
+	}
+
+	deviceID := strings.TrimSpace(body.DeviceId)
+	token := strings.TrimSpace(body.Token)
+
+	if deviceID == "" {
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("device_id is required")))
+		return
+	}
+
+	if token == "" {
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("token is required")))
+		return
+	}
+
+	os := strings.TrimSpace(string(body.Os))
+	if os == "" {
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("os is required")))
+		return
+	}
+
+	logger := srv.logger.With(
+		zap.String("project_id", projectID.String()),
+		zap.String("user_id", userID.String()),
+		zap.String("device_id", deviceID),
+	)
+
+	logger.Info("upserting user device")
+
+	_, err = srv.users.UpsertDevice(ctx, subjects.Device{
+		ProjectID:  projectID,
+		UserID:     userID,
+		DeviceID:   deviceID,
+		Token:      &token,
+		OS:         &os,
+		OSVersion:  body.OsVersion,
+		Model:      body.Model,
+		AppBuild:   body.AppBuild,
+		AppVersion: body.AppVersion,
+	})
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			oapi.WriteProblem(w, problem.ErrConflict(problem.Describe("token already registered for another device")))
+			return
+		}
+
+		logger.Error("failed to upsert user device", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	logger.Info("user device upserted")
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (srv *UsersController) DeleteUserDevice(w http.ResponseWriter, r *http.Request, projectID, userID, deviceID uuid.UUID) {

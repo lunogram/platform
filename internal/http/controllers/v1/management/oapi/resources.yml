@@ -2160,6 +2160,41 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
+    post:
+      summary: Create or update user device
+      description: Creates a user device, or updates the existing one if the device_id already exists for the project
+      operationId: createUserDevice
+      tags:
+        - Users
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The user ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserDevice"
+      responses:
+        "204":
+          description: Device created or updated successfully
+        default:
+          $ref: "#/components/responses/Error"
+
   /api/admin/projects/{projectID}/subjects/users/{userID}/devices/{deviceID}:
     delete:
       summary: Delete user device
@@ -3433,6 +3468,107 @@ paths:
       responses:
         "204":
           description: Sender identity deleted successfully
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/push-providers:
+    get:
+      summary: List push providers
+      description: Lists the default push notification providers configured for each platform (iOS, Android, Web) in a project
+      operationId: listProjectPushProviders
+      tags:
+        - PushProviders
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+      responses:
+        "200":
+          description: Push providers retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - results
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ProjectPushProvider"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/push-providers/{platform}:
+    put:
+      summary: Set push provider for platform
+      description: Sets or updates the default push notification provider for a specific platform (ios, android, web) in a project
+      operationId: upsertProjectPushProvider
+      tags:
+        - PushProviders
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: platform
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/ProjectPushProviderPlatform"
+          description: The target platform (ios, android, web)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertProjectPushProvider"
+      responses:
+        "200":
+          description: Push provider set successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectPushProvider"
+        default:
+          $ref: "#/components/responses/Error"
+
+    delete:
+      summary: Remove push provider for platform
+      description: Removes the default push notification provider for a specific platform in a project
+      operationId: deleteProjectPushProvider
+      tags:
+        - PushProviders
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: platform
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/ProjectPushProviderPlatform"
+          description: The target platform (ios, android, web)
+      responses:
+        "204":
+          description: Push provider removed successfully
         default:
           $ref: "#/components/responses/Error"
 
@@ -6135,10 +6271,6 @@ components:
           example: "Welcome Campaign"
         channel:
           $ref: "#/components/schemas/Channel"
-        provider_id:
-          type: string
-          format: uuid
-          example: "5143f27c-cca9-4dc4-9059-e1dbb08144ad"
         subscription_id:
           type: string
           format: uuid
@@ -6149,10 +6281,6 @@ components:
         name:
           type: string
           example: "epic hopper"
-        provider_id:
-          type: string
-          format: uuid
-          example: "5143f27c-cca9-4dc4-9059-e1dbb08144ad"
         variables:
           type: array
           items:
@@ -6257,8 +6385,6 @@ components:
         subscription_id:
           type: string
           format: uuid
-        provider:
-          $ref: "#/components/schemas/Provider"
         templates:
           type: array
           items:
@@ -6588,6 +6714,11 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Channel"
+        platforms:
+          type: array
+          description: Push notification platforms supported by this provider module (only present for push providers)
+          items:
+            $ref: "#/components/schemas/ProjectPushProviderPlatform"
         schema:
           type: object
           additionalProperties: true
@@ -7253,6 +7384,40 @@ components:
               items:
                 $ref: "#/components/schemas/UserEvent"
 
+    CreateUserDevice:
+      type: object
+      required:
+        - device_id
+        - token
+        - os
+      properties:
+        device_id:
+          type: string
+          example: "AB12CD34-EF56-GH78-IJ90"
+        token:
+          type: string
+          example: "fcm_token_abc123"
+        os:
+          type: string
+          enum: [ios, android, web]
+          example: "ios"
+        os_version:
+          type: string
+          nullable: true
+          example: "17.2"
+        model:
+          type: string
+          nullable: true
+          example: "iPhone 15 Pro"
+        app_build:
+          type: string
+          nullable: true
+          example: "142"
+        app_version:
+          type: string
+          nullable: true
+          example: "2.1.0"
+
     UserDevice:
       type: object
       required:
@@ -7765,6 +7930,51 @@ components:
           additionalProperties: true
           description: Channel-specific metadata including address and optional display name (e.g. {"address":"hello@example.com","name":"Acme Support"})
           example: { "address": "hello@example.com", "name": "Acme Support" }
+
+    ProjectPushProviderPlatform:
+      type: string
+      enum: [ios, android, web]
+      description: Target platform for push notifications
+      example: ios
+
+    ProjectPushProvider:
+      type: object
+      required:
+        - id
+        - project_id
+        - provider_id
+        - platform
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        provider_id:
+          type: string
+          format: uuid
+          description: The push provider integration to use for this platform
+        platform:
+          $ref: "#/components/schemas/ProjectPushProviderPlatform"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    UpsertProjectPushProvider:
+      type: object
+      required:
+        - provider_id
+      properties:
+        provider_id:
+          type: string
+          format: uuid
+          description: The push provider integration to assign to this platform
 
     Document:
       type: object

@@ -5,10 +5,8 @@ import (
 
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
-	"github.com/lunogram/platform/internal/ratelimit"
 	"github.com/lunogram/platform/internal/render"
 	"github.com/lunogram/platform/internal/store/journey"
-	providers "github.com/lunogram/platform/pkg/modules/providers"
 )
 
 func HandleCampaign(ctx HandlerContext, step journey.JourneyVersionStep, state journey.JourneyUserState) (journey.JourneyUserState, journey.JourneyVersionStepChildren, error) {
@@ -32,35 +30,14 @@ func HandleCampaign(ctx HandlerContext, step journey.JourneyVersionStep, state j
 		}
 	}
 
-	// Resolve the provider rate limit so the consumer doesn't need to look
-	// up the manifest or DB record.
-	var rl ratelimit.Limit
-	campaign, err := ctx.Management.GetCampaign(ctx, ctx.ProjectID, config.CampaignId)
-	if err != nil {
-		return state, nil, fmt.Errorf("failed to get campaign: %w", err)
-	}
-
-	if campaign.Provider != nil {
-		var manifest *providers.RateLimit
-		if ctx.ProviderRegistry != nil {
-			if p, ok := ctx.ProviderRegistry.Get(campaign.Provider.Module); ok {
-				manifest = p.Manifest().Spec.RateLimit
-			}
-		}
-		rl = providers.ResolveLimit(
-			ratelimit.ProviderKey(campaign.Provider.ID),
-			manifest,
-			campaign.Provider.RateLimit,
-			campaign.Provider.RateInterval,
-		)
-	}
-
+	// Rate limiting is now resolved by the consumer at send time since the
+	// provider is derived from the template's sender identity, not from
+	// the campaign itself.
 	msg := schemas.SendCampaign{
 		ProjectID:  ctx.ProjectID,
 		UserID:     ctx.UserID,
 		CampaignID: config.CampaignId,
 		Data:       data,
-		RateLimit:  rl,
 	}
 
 	err = ctx.Publisher.Publish(ctx, schemas.Subject(schemas.CampaignsSend(ctx.ProjectID, config.CampaignId)), msg)
