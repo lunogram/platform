@@ -4,19 +4,21 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"time"
 
 	"github.com/SherClockHolmes/webpush-go"
+	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/store"
 )
 
 const DefaultVapidKeyName = "default"
 
 type VapidKey struct {
-	ID         string `db:"id"`
-	Name       string `db:"name"`
-	PublicKey  string `db:"public_key"`
-	PrivateKey string `db:"private_key"`
-	CreatedAt  string `db:"created_at"`
+	ID         uuid.UUID `db:"id"`
+	Name       string    `db:"name"`
+	PublicKey  string    `db:"public_key"`
+	PrivateKey string    `db:"private_key"`
+	CreatedAt  time.Time `db:"created_at"`
 }
 
 func NewVapidKeysStore(db store.DB) *VapidKeysStore {

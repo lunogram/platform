@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql/driver"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -33,10 +34,21 @@ type PushConfig struct {
 }
 
 func (p *PushConfig) Scan(src any) error {
-	b, ok := src.([]byte)
-	if !ok {
+	if src == nil {
+		*p = PushConfig{}
 		return nil
 	}
+
+	var b []byte
+	switch v := src.(type) {
+	case []byte:
+		b = v
+	case string:
+		b = []byte(v)
+	default:
+		return fmt.Errorf("cannot scan %T into PushConfig", src)
+	}
+
 	return json.Unmarshal(b, p)
 }
 

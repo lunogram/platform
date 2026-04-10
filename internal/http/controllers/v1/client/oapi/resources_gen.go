@@ -438,9 +438,6 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 
 // The interface specification for the client above.
 type ClientInterface interface {
-	// GetVapidPublicKey request
-	GetVapidPublicKey(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// DeleteOrganizationClientWithBody request with any body
 	DeleteOrganizationClientWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -475,6 +472,9 @@ type ClientInterface interface {
 	AddOrganizationUserClientWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	AddOrganizationUserClient(ctx context.Context, body AddOrganizationUserClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetVapidPublicKey request
+	GetVapidPublicKey(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteUserClientWithBody request with any body
 	DeleteUserClientWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -516,18 +516,6 @@ type ClientInterface interface {
 
 	// EmailUnsubscribe request
 	EmailUnsubscribe(ctx context.Context, params *EmailUnsubscribeParams, reqEditors ...RequestEditorFn) (*http.Response, error)
-}
-
-func (c *Client) GetVapidPublicKey(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetVapidPublicKeyRequest(c.Server)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
 }
 
 func (c *Client) DeleteOrganizationClientWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -688,6 +676,18 @@ func (c *Client) AddOrganizationUserClientWithBody(ctx context.Context, contentT
 
 func (c *Client) AddOrganizationUserClient(ctx context.Context, body AddOrganizationUserClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewAddOrganizationUserClientRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetVapidPublicKey(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetVapidPublicKeyRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -888,33 +888,6 @@ func (c *Client) EmailUnsubscribe(ctx context.Context, params *EmailUnsubscribeP
 		return nil, err
 	}
 	return c.Client.Do(req)
-}
-
-// NewGetVapidPublicKeyRequest generates requests for GetVapidPublicKey
-func NewGetVapidPublicKeyRequest(server string) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/admin/push/vapid")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
 }
 
 // NewDeleteOrganizationClientRequest calls the generic DeleteOrganizationClient builder with application/json body
@@ -1193,6 +1166,33 @@ func NewAddOrganizationUserClientRequestWithBody(server string, contentType stri
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetVapidPublicKeyRequest generates requests for GetVapidPublicKey
+func NewGetVapidPublicKeyRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/client/push/vapid")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -1620,9 +1620,6 @@ func WithBaseURL(baseURL string) ClientOption {
 
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
-	// GetVapidPublicKeyWithResponse request
-	GetVapidPublicKeyWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetVapidPublicKeyResponse, error)
-
 	// DeleteOrganizationClientWithBodyWithResponse request with any body
 	DeleteOrganizationClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteOrganizationClientResponse, error)
 
@@ -1657,6 +1654,9 @@ type ClientWithResponsesInterface interface {
 	AddOrganizationUserClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AddOrganizationUserClientResponse, error)
 
 	AddOrganizationUserClientWithResponse(ctx context.Context, body AddOrganizationUserClientJSONRequestBody, reqEditors ...RequestEditorFn) (*AddOrganizationUserClientResponse, error)
+
+	// GetVapidPublicKeyWithResponse request
+	GetVapidPublicKeyWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetVapidPublicKeyResponse, error)
 
 	// DeleteUserClientWithBodyWithResponse request with any body
 	DeleteUserClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteUserClientResponse, error)
@@ -1698,29 +1698,6 @@ type ClientWithResponsesInterface interface {
 
 	// EmailUnsubscribeWithResponse request
 	EmailUnsubscribeWithResponse(ctx context.Context, params *EmailUnsubscribeParams, reqEditors ...RequestEditorFn) (*EmailUnsubscribeResponse, error)
-}
-
-type GetVapidPublicKeyResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *VapidPublicKey
-	JSONDefault  *Error
-}
-
-// Status returns HTTPResponse.Status
-func (r GetVapidPublicKeyResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r GetVapidPublicKeyResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
 }
 
 type DeleteOrganizationClientResponse struct {
@@ -1873,6 +1850,29 @@ func (r AddOrganizationUserClientResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r AddOrganizationUserClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetVapidPublicKeyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *VapidPublicKey
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetVapidPublicKeyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetVapidPublicKeyResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -2076,15 +2076,6 @@ func (r EmailUnsubscribeResponse) StatusCode() int {
 	return 0
 }
 
-// GetVapidPublicKeyWithResponse request returning *GetVapidPublicKeyResponse
-func (c *ClientWithResponses) GetVapidPublicKeyWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetVapidPublicKeyResponse, error) {
-	rsp, err := c.GetVapidPublicKey(ctx, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseGetVapidPublicKeyResponse(rsp)
-}
-
 // DeleteOrganizationClientWithBodyWithResponse request with arbitrary body returning *DeleteOrganizationClientResponse
 func (c *ClientWithResponses) DeleteOrganizationClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteOrganizationClientResponse, error) {
 	rsp, err := c.DeleteOrganizationClientWithBody(ctx, contentType, body, reqEditors...)
@@ -2202,6 +2193,15 @@ func (c *ClientWithResponses) AddOrganizationUserClientWithResponse(ctx context.
 		return nil, err
 	}
 	return ParseAddOrganizationUserClientResponse(rsp)
+}
+
+// GetVapidPublicKeyWithResponse request returning *GetVapidPublicKeyResponse
+func (c *ClientWithResponses) GetVapidPublicKeyWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetVapidPublicKeyResponse, error) {
+	rsp, err := c.GetVapidPublicKey(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetVapidPublicKeyResponse(rsp)
 }
 
 // DeleteUserClientWithBodyWithResponse request with arbitrary body returning *DeleteUserClientResponse
@@ -2339,39 +2339,6 @@ func (c *ClientWithResponses) EmailUnsubscribeWithResponse(ctx context.Context, 
 		return nil, err
 	}
 	return ParseEmailUnsubscribeResponse(rsp)
-}
-
-// ParseGetVapidPublicKeyResponse parses an HTTP response from a GetVapidPublicKeyWithResponse call
-func ParseGetVapidPublicKeyResponse(rsp *http.Response) (*GetVapidPublicKeyResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &GetVapidPublicKeyResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest VapidPublicKey
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSONDefault = &dest
-
-	}
-
-	return response, nil
 }
 
 // ParseDeleteOrganizationClientResponse parses an HTTP response from a DeleteOrganizationClientWithResponse call
@@ -2558,6 +2525,39 @@ func ParseAddOrganizationUserClientResponse(rsp *http.Response) (*AddOrganizatio
 	}
 
 	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetVapidPublicKeyResponse parses an HTTP response from a GetVapidPublicKeyWithResponse call
+func ParseGetVapidPublicKeyResponse(rsp *http.Response) (*GetVapidPublicKeyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetVapidPublicKeyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest VapidPublicKey
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -2790,9 +2790,6 @@ func ParseEmailUnsubscribeResponse(rsp *http.Response) (*EmailUnsubscribeRespons
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
-	// Get VAPID public key
-	// (GET /api/admin/push/vapid)
-	GetVapidPublicKey(w http.ResponseWriter, r *http.Request)
 	// Delete organization
 	// (DELETE /api/client/organizations)
 	DeleteOrganizationClient(w http.ResponseWriter, r *http.Request)
@@ -2814,6 +2811,9 @@ type ServerInterface interface {
 	// Add user to organization
 	// (POST /api/client/organizations/users)
 	AddOrganizationUserClient(w http.ResponseWriter, r *http.Request)
+	// Get VAPID public key
+	// (GET /api/client/push/vapid)
+	GetVapidPublicKey(w http.ResponseWriter, r *http.Request)
 	// Delete user
 	// (DELETE /api/client/users)
 	DeleteUserClient(w http.ResponseWriter, r *http.Request)
@@ -2846,12 +2846,6 @@ type ServerInterface interface {
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
 
 type Unimplemented struct{}
-
-// Get VAPID public key
-// (GET /api/admin/push/vapid)
-func (_ Unimplemented) GetVapidPublicKey(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
 
 // Delete organization
 // (DELETE /api/client/organizations)
@@ -2892,6 +2886,12 @@ func (_ Unimplemented) RemoveOrganizationUserClient(w http.ResponseWriter, r *ht
 // Add user to organization
 // (POST /api/client/organizations/users)
 func (_ Unimplemented) AddOrganizationUserClient(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Get VAPID public key
+// (GET /api/client/push/vapid)
+func (_ Unimplemented) GetVapidPublicKey(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -2957,26 +2957,6 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
-
-// GetVapidPublicKey operation middleware
-func (siw *ServerInterfaceWrapper) GetVapidPublicKey(w http.ResponseWriter, r *http.Request) {
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
-
-	r = r.WithContext(ctx)
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetVapidPublicKey(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
 
 // DeleteOrganizationClient operation middleware
 func (siw *ServerInterfaceWrapper) DeleteOrganizationClient(w http.ResponseWriter, r *http.Request) {
@@ -3109,6 +3089,26 @@ func (siw *ServerInterfaceWrapper) AddOrganizationUserClient(w http.ResponseWrit
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.AddOrganizationUserClient(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetVapidPublicKey operation middleware
+func (siw *ServerInterfaceWrapper) GetVapidPublicKey(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetVapidPublicKey(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -3454,9 +3454,6 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	}
 
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/api/admin/push/vapid", wrapper.GetVapidPublicKey)
-	})
-	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/api/client/organizations", wrapper.DeleteOrganizationClient)
 	})
 	r.Group(func(r chi.Router) {
@@ -3476,6 +3473,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/client/organizations/users", wrapper.AddOrganizationUserClient)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/client/push/vapid", wrapper.GetVapidPublicKey)
 	})
 	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/api/client/users", wrapper.DeleteUserClient)

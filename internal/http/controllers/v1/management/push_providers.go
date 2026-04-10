@@ -3,32 +3,38 @@ package v1
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"net/http"
+	"slices"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/http/problem"
+	internalProviders "github.com/lunogram/platform/internal/providers"
 	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/store/management"
+	"github.com/lunogram/platform/pkg/modules/providers"
 	"go.uber.org/zap"
 )
 
-func NewPushProvidersController(logger *zap.Logger, db *sqlx.DB, engine *rbac.Engine) *PushProvidersController {
+func NewPushProvidersController(logger *zap.Logger, db *sqlx.DB, registry *internalProviders.Registry, engine *rbac.Engine) *PushProvidersController {
 	return &PushProvidersController{
-		logger: logger,
-		db:     db,
-		store:  management.NewState(db),
-		engine: engine,
+		logger:   logger,
+		db:       db,
+		store:    management.NewState(db),
+		registry: registry,
+		engine:   engine,
 	}
 }
 
 type PushProvidersController struct {
-	logger *zap.Logger
-	db     *sqlx.DB
-	store  *management.State
-	engine *rbac.Engine
+	logger   *zap.Logger
+	db       *sqlx.DB
+	store    *management.State
+	registry *internalProviders.Registry
+	engine   *rbac.Engine
 }
 
 var validPlatforms = map[oapi.ProjectPushProviderPlatform]bool{
@@ -117,6 +123,30 @@ func (srv *PushProvidersController) UpsertProjectPushProvider(w http.ResponseWri
 		return
 	}
 
+	provider, err := srv.store.ProvidersStore.GetProviderByProject(ctx, projectID, body.ProviderId)
+	if errors.Is(err, sql.ErrNoRows) {
+		logger.Info("provider not found")
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("provider not found")))
+		return
+	}
+	if err != nil {
+		logger.Error("failed to get provider", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	if !slices.Contains(provider.Channels, string(oapi.ChannelPush)) {
+		logger.Info("provider does not support push", zap.String("module", provider.Module))
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("provider must support push channel")))
+		return
+	}
+
+	if err := srv.validatePushPlatformSupport(provider.Module, platform); err != nil {
+		logger.Info("provider does not support platform", zap.String("module", provider.Module), zap.String("platform", string(platform)))
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe(err.Error())))
+		return
+	}
+
 	pp, err := srv.store.ProjectPushProvidersStore.UpsertProjectPushProvider(ctx, management.ProjectPushProvider{
 		ProjectID:  projectID,
 		ProviderID: body.ProviderId,
@@ -175,4 +205,23 @@ func (srv *PushProvidersController) DeleteProjectPushProvider(w http.ResponseWri
 
 	logger.Info("push provider deleted")
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (srv *PushProvidersController) validatePushPlatformSupport(module string, platform oapi.ProjectPushProviderPlatform) error {
+	providerModule, exists := srv.registry.Get(module)
+	if !exists {
+		return fmt.Errorf("provider module %q not found", module)
+	}
+
+	manifestPlatforms := providerModule.Manifest().Spec.Platforms
+	if len(manifestPlatforms) == 0 {
+		return nil
+	}
+
+	target := providers.Platform(platform)
+	if slices.Contains(manifestPlatforms, target) {
+		return nil
+	}
+
+	return fmt.Errorf("provider %q does not support platform %q", module, platform)
 }

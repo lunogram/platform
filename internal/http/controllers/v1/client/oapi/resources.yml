@@ -425,7 +425,7 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
-  /api/admin/push/vapid:
+  /api/client/push/vapid:
     get:
       summary: Get VAPID public key
       description: Retrieves the VAPID public key for push notifications
