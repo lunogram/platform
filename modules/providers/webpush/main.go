@@ -5,9 +5,7 @@ import (
 	"crypto/cipher"
 	"crypto/ecdsa"
 	"crypto/elliptic"
-	"crypto/hmac"
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -17,6 +15,7 @@ import (
 	pdk "github.com/extism/go-pdk"
 	"github.com/lunogram/platform/pkg/modules"
 	"github.com/lunogram/platform/pkg/modules/providers"
+	"github.com/lunogram/platform/pkg/modules/wasmcrypto"
 )
 
 const (
@@ -272,14 +271,12 @@ func buildVAPIDJWT(endpoint, vapidPrivateKeyB64, email string) (string, error) {
 	}
 
 	signingInput := header + "." + claims
-	digest := sha256.Sum256([]byte(signingInput))
+	digest := wasmcrypto.Sum256([]byte(signingInput))
 
-	r, s, err := ecdsa.Sign(rand.Reader, privKey, digest[:])
+	sig, err := wasmcrypto.SignES256P256(privKey, digest)
 	if err != nil {
 		return "", fmt.Errorf("ECDSA sign failed: %w", err)
 	}
-
-	sig := append(zeroPad(r.Bytes(), 32), zeroPad(s.Bytes(), 32)...)
 	return signingInput + "." + base64.RawURLEncoding.EncodeToString(sig), nil
 }
 
@@ -373,9 +370,7 @@ func statusForCounts(ok, fail int) string {
 }
 
 func hmacSHA256(key, data []byte) []byte {
-	mac := hmac.New(sha256.New, key)
-	mac.Write(data)
-	return mac.Sum(nil)
+	return wasmcrypto.HMACSHA256(key, data)
 }
 
 func hkdfExpand(prk, info []byte, length int) []byte {

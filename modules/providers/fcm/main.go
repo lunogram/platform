@@ -1,10 +1,7 @@
 package main
 
 import (
-	gocrypto "crypto"
-	"crypto/rand"
 	"crypto/rsa"
-	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
@@ -15,6 +12,7 @@ import (
 	pdk "github.com/extism/go-pdk"
 	"github.com/lunogram/platform/pkg/modules"
 	"github.com/lunogram/platform/pkg/modules/providers"
+	"github.com/lunogram/platform/pkg/modules/wasmcrypto"
 )
 
 const (
@@ -145,18 +143,29 @@ type fcmAPS struct {
 }
 
 //go:export send
-func Send() int32 {
+func Send() (code int32) {
+	stage := "init"
+	defer func() {
+		if r := recover(); r != nil {
+			pdk.SetError(fmt.Errorf("panic in send at stage %s: %v", stage, r))
+			code = ExitTransient
+		}
+	}()
+
+	stage = "read_input"
 	var req providers.SendRequest[Config]
 	if err := pdk.InputJSON(&req); err != nil {
 		pdk.SetError(fmt.Errorf("failed to parse request: %w", err))
 		return ExitPermanent
 	}
 
+	stage = "validate_channel"
 	if req.Channel != providers.ChannelPush {
 		pdk.SetError(fmt.Errorf("unsupported channel: %s", req.Channel))
 		return ExitPermanent
 	}
 
+	stage = "validate_config"
 	if req.Config.ProjectID == "" {
 		pdk.SetError(fmt.Errorf("fcmProjectId is required"))
 		return ExitPermanent
@@ -166,6 +175,7 @@ func Send() int32 {
 		return ExitPermanent
 	}
 
+	stage = "parse_push_payload"
 	push, err := req.GetPushPayload()
 	if err != nil {
 		pdk.SetError(fmt.Errorf("failed to parse push payload: %w", err))
@@ -177,20 +187,24 @@ func Send() int32 {
 		return ExitPermanent
 	}
 
+	stage = "fetch_access_token"
 	accessToken, err := fetchFCMAccessToken(req.Config.ServiceAccountB64)
 	if err != nil {
 		pdk.SetError(fmt.Errorf("failed to get FCM access token: %w", err))
 		return ExitPermanent
 	}
 
+	stage = "send_notifications"
 	ok, fail, errs := sendAllFCM(accessToken, req.Config.ProjectID, push)
 	response := buildSendResponse("fcm", ok, fail, len(push.Tokens), errs)
 
+	stage = "write_output"
 	if err := pdk.OutputJSON(response); err != nil {
 		pdk.SetError(err)
 		return ExitTransient
 	}
 
+	stage = "done"
 	return ExitSuccess
 }
 
@@ -257,8 +271,8 @@ func buildServiceAccountJWT(sa serviceAccount) (string, error) {
 		return "", fmt.Errorf("service account key is not RSA")
 	}
 
-	digest := sha256.Sum256([]byte(signingInput))
-	sig, err := rsa.SignPKCS1v15(rand.Reader, rsaKey, gocrypto.SHA256, digest[:])
+	digest := wasmcrypto.Sum256([]byte(signingInput))
+	sig, err := signRSAPKCS1v15SHA256(rsaKey, digest)
 	if err != nil {
 		return "", fmt.Errorf("RSA sign failed: %w", err)
 	}
@@ -408,6 +422,10 @@ func decodeBase64Lenient(s string) ([]byte, error) {
 		return b, nil
 	}
 	return base64.RawURLEncoding.DecodeString(s)
+}
+
+func signRSAPKCS1v15SHA256(priv *rsa.PrivateKey, digest [32]byte) ([]byte, error) {
+	return wasmcrypto.SignRS256PKCS1v15(priv, digest)
 }
 
 func main() {}

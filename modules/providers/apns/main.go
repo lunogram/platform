@@ -2,8 +2,6 @@ package main
 
 import (
 	"crypto/ecdsa"
-	"crypto/rand"
-	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
@@ -14,6 +12,7 @@ import (
 	pdk "github.com/extism/go-pdk"
 	"github.com/lunogram/platform/pkg/modules"
 	"github.com/lunogram/platform/pkg/modules/providers"
+	"github.com/lunogram/platform/pkg/modules/wasmcrypto"
 )
 
 const (
@@ -353,14 +352,12 @@ func buildAPNsJWT(teamID, keyID, privateKeyB64 string) (string, error) {
 	}
 
 	signingInput := header + "." + claims
-	digest := sha256.Sum256([]byte(signingInput))
+	digest := wasmcrypto.Sum256([]byte(signingInput))
 
-	r, s, err := ecdsa.Sign(rand.Reader, ecdsaKey, digest[:])
+	sig, err := wasmcrypto.SignES256P256(ecdsaKey, digest)
 	if err != nil {
 		return "", fmt.Errorf("ECDSA sign failed: %w", err)
 	}
-
-	sig := append(zeroPad(r.Bytes(), 32), zeroPad(s.Bytes(), 32)...)
 	return signingInput + "." + base64.RawURLEncoding.EncodeToString(sig), nil
 }
 
@@ -396,15 +393,6 @@ func jsonBase64URL(v any) (string, error) {
 		return "", err
 	}
 	return base64.RawURLEncoding.EncodeToString(b), nil
-}
-
-func zeroPad(b []byte, size int) []byte {
-	if len(b) >= size {
-		return b
-	}
-	padded := make([]byte, size)
-	copy(padded[size-len(b):], b)
-	return padded
 }
 
 func decodeBase64Lenient(s string) ([]byte, error) {
