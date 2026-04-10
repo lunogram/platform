@@ -15,13 +15,25 @@ import (
 	"time"
 
 	pdk "github.com/extism/go-pdk"
-	"github.com/lunogram/platform/modules/providers/webpush/types"
+	"github.com/lunogram/platform/pkg/modules"
+	"github.com/lunogram/platform/pkg/modules/providers"
+)
+
+const (
+	ExitSuccess   int32 = 0
+	ExitTransient int32 = -1
+	ExitPermanent int32 = -2
+
+	sendStatusSent    = "sent"
+	sendStatusFailed  = "failed"
+	sendStatusPartial = "partial"
+	ttlSeconds        = "86400"
 )
 
 //go:export manifest
 func Manifest() int32 {
-	manifest := types.ProviderManifest{
-		Metadata: types.Metadata{
+	manifest := providers.ProviderManifest{
+		Metadata: modules.Metadata{
 			ID:          "webpush",
 			Title:       "Web Push",
 			Description: "Send push notifications to browsers via the Web Push Protocol (VAPID)",
@@ -32,24 +44,27 @@ func Manifest() int32 {
 		Website: "https://developer.mozilla.org/en-US/docs/Web/API/Push_API",
 		Version: "2.0.0",
 		License: "MIT",
-		Author: types.Author{
+		Author: modules.Author{
 			Name:  "Lunogram",
 			Email: "dev@lunogram.io",
 			URL:   "https://lunogram.com",
 		},
-		Spec: types.ProviderSpec{
-			Channels: []types.Channel{types.ChannelPush},
-			Config: &types.JSONSchema{
+		Spec: providers.ProviderSpec{
+			Channels: []providers.Channel{providers.ChannelPush},
+			Platforms: []providers.Platform{
+				providers.PlatformWeb,
+			},
+			Config: &modules.JSONSchema{
 				Type: "object",
-				Properties: []types.JSONSchemaProperty{
+				Properties: []modules.JSONSchemaProperty{
 					{
 						Name: "data",
-						Schema: &types.JSONSchema{
+						Schema: &modules.JSONSchema{
 							Type: "object",
-							Properties: []types.JSONSchemaProperty{
+							Properties: []modules.JSONSchemaProperty{
 								{
 									Name: "vapidPublicKey",
-									Schema: &types.JSONSchema{
+									Schema: &modules.JSONSchema{
 										Type:   "string",
 										Hidden: true,
 									},
@@ -57,7 +72,7 @@ func Manifest() int32 {
 								},
 								{
 									Name: "vapidPrivateKey",
-									Schema: &types.JSONSchema{
+									Schema: &modules.JSONSchema{
 										Type:   "string",
 										Hidden: true,
 									},
@@ -65,7 +80,7 @@ func Manifest() int32 {
 								},
 								{
 									Name: "vapidEmail",
-									Schema: &types.JSONSchema{
+									Schema: &modules.JSONSchema{
 										Type:        "string",
 										Title:       "VAPID Email",
 										Description: "Contact email for VAPID (e.g. mailto:admin@example.com). Required for Web Push.",
@@ -82,14 +97,11 @@ func Manifest() int32 {
 
 	if err := pdk.OutputJSON(manifest); err != nil {
 		pdk.SetError(err)
-		return -1
+		return ExitTransient
 	}
-	return 0
-}
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
+	return ExitSuccess
+}
 
 type Config struct {
 	VapidPublicKey  string `json:"vapidPublicKey"`
@@ -97,83 +109,53 @@ type Config struct {
 	VapidEmail      string `json:"vapidEmail"`
 }
 
-// ---------------------------------------------------------------------------
-// Entry point
-// ---------------------------------------------------------------------------
-
 //go:export send
 func Send() int32 {
-	pdk.Log(pdk.LogInfo, "WebPush Send() called")
-
-	var req types.SendRequest[Config]
+	var req providers.SendRequest[Config]
 	if err := pdk.InputJSON(&req); err != nil {
 		pdk.SetError(fmt.Errorf("failed to parse request: %w", err))
-		return -1
+		return ExitPermanent
 	}
 
-	if req.Channel != types.ChannelPush {
+	if req.Channel != providers.ChannelPush {
 		pdk.SetError(fmt.Errorf("unsupported channel: %s", req.Channel))
-		return -1
+		return ExitPermanent
 	}
 
 	if req.Config.VapidPublicKey == "" || req.Config.VapidPrivateKey == "" || req.Config.VapidEmail == "" {
 		pdk.SetError(fmt.Errorf("VAPID config incomplete: vapidPublicKey, vapidPrivateKey, and vapidEmail are required"))
-		return -1
+		return ExitPermanent
 	}
 
 	push, err := req.GetPushPayload()
 	if err != nil {
 		pdk.SetError(fmt.Errorf("failed to parse push payload: %w", err))
-		return -1
+		return ExitPermanent
 	}
 
 	if len(push.WebPushTargets) == 0 {
 		pdk.SetError(fmt.Errorf("no WebPushTargets in payload"))
-		return -1
+		return ExitPermanent
 	}
 
 	wpPayload, err := buildWebPushPayload(push)
 	if err != nil {
 		pdk.SetError(fmt.Errorf("failed to build Web Push payload: %w", err))
-		return -1
+		return ExitPermanent
 	}
 
 	ok, fail, errs := sendAllWebPush(req.Config, push.WebPushTargets, wpPayload)
-	pdk.Log(pdk.LogInfo, fmt.Sprintf("Web Push: %d ok, %d failed", ok, fail))
-
-	meta := map[string]any{
-		"success_count": ok,
-		"failure_count": fail,
-		"total_targets": len(push.WebPushTargets),
-	}
-	if len(errs) > 0 {
-		meta["errors"] = errs
-	}
-
-	status := "sent"
-	if ok == 0 {
-		status = "failed"
-	} else if fail > 0 {
-		status = "partial"
-	}
-
-	response := types.SendResponse{
-		Status:   status,
-		Metadata: map[string]any{"webpush": meta},
-	}
+	response := buildSendResponse("webpush", ok, fail, len(push.WebPushTargets), errs)
 
 	if err := pdk.OutputJSON(response); err != nil {
 		pdk.SetError(err)
-		return -1
+		return ExitTransient
 	}
-	return 0
+
+	return ExitSuccess
 }
 
-// ---------------------------------------------------------------------------
-// Web Push — manual VAPID + AES-128-GCM encryption, pdk.HTTPRequest
-// ---------------------------------------------------------------------------
-
-func buildWebPushPayload(push types.PushPayload) ([]byte, error) {
+func buildWebPushPayload(push providers.PushPayload) ([]byte, error) {
 	n := map[string]any{"title": push.Title, "body": push.Body}
 	if len(push.Data) > 0 {
 		n["data"] = push.Data
@@ -190,7 +172,7 @@ func buildWebPushPayload(push types.PushPayload) ([]byte, error) {
 	return json.Marshal(n)
 }
 
-func sendAllWebPush(config Config, targets []types.WebPushTarget, payload []byte) (ok, fail int, errs []string) {
+func sendAllWebPush(config Config, targets []providers.WebPushTarget, payload []byte) (ok, fail int, errs []string) {
 	for i, target := range targets {
 		if err := sendWebPushNotification(config, target, payload); err != nil {
 			fail++
@@ -204,7 +186,7 @@ func sendAllWebPush(config Config, targets []types.WebPushTarget, payload []byte
 	return
 }
 
-func sendWebPushNotification(config Config, target types.WebPushTarget, payload []byte) error {
+func sendWebPushNotification(config Config, target providers.WebPushTarget, payload []byte) error {
 	if target.Endpoint == "" {
 		return fmt.Errorf("missing endpoint")
 	}
@@ -235,7 +217,7 @@ func sendWebPushNotification(config Config, target types.WebPushTarget, payload 
 		SetHeader("Authorization", authHeader).
 		SetHeader("Content-Type", "application/octet-stream").
 		SetHeader("Content-Encoding", "aes128gcm").
-		SetHeader("TTL", "86400").
+		SetHeader("TTL", ttlSeconds).
 		SetBody(encrypted).
 		Send()
 
@@ -364,9 +346,31 @@ func encryptWebPushPayload(payload []byte, p256dhB64, authB64 string) ([]byte, [
 	return append(header, ciphertext...), senderPubKey, salt, nil
 }
 
-// ---------------------------------------------------------------------------
-// Util
-// ---------------------------------------------------------------------------
+func buildSendResponse(providerName string, ok, fail, total int, errs []string) providers.SendResponse {
+	meta := map[string]any{
+		"success_count": ok,
+		"failure_count": fail,
+		"total_targets": total,
+	}
+	if len(errs) > 0 {
+		meta["errors"] = errs
+	}
+
+	return providers.SendResponse{
+		Status:   statusForCounts(ok, fail),
+		Metadata: map[string]any{providerName: meta},
+	}
+}
+
+func statusForCounts(ok, fail int) string {
+	if ok == 0 {
+		return sendStatusFailed
+	}
+	if fail > 0 {
+		return sendStatusPartial
+	}
+	return sendStatusSent
+}
 
 func hmacSHA256(key, data []byte) []byte {
 	mac := hmac.New(sha256.New, key)

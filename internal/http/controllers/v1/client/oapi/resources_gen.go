@@ -30,13 +30,6 @@ const (
 	Web     DeviceRegistrationOs = "web"
 )
 
-// Defines values for DeviceRegistrationPushConfigType.
-const (
-	Apns    DeviceRegistrationPushConfigType = "apns"
-	Fcm     DeviceRegistrationPushConfigType = "fcm"
-	Webpush DeviceRegistrationPushConfigType = "webpush"
-)
-
 // DeleteOrganizationRequest defines model for DeleteOrganizationRequest.
 type DeleteOrganizationRequest struct {
 	// Identifier One or more external identifiers to identify the organization
@@ -70,14 +63,7 @@ type DeleteUserScheduledRequest struct {
 // DeviceRegistration defines model for DeviceRegistration.
 type DeviceRegistration struct {
 	AppVersion *string `json:"app_version,omitempty"`
-	DeviceId   string  `json:"device_id"`
-
-	// Identifier One or more external identifiers to identify the user
-	Identifier UserIdentifier        `json:"identifier"`
-	Model      *string               `json:"model,omitempty"`
-	Os         *DeviceRegistrationOs `json:"os,omitempty"`
-	OsVersion  *string               `json:"os_version,omitempty"`
-	PushConfig struct {
+	Config     struct {
 		// Endpoint Web Push subscription endpoint URL
 		Endpoint       *string    `json:"endpoint,omitempty"`
 		ExpirationTime *time.Time `json:"expiration_time,omitempty"`
@@ -87,16 +73,20 @@ type DeviceRegistration struct {
 		} `json:"keys,omitempty"`
 
 		// Token Device token for FCM or APNs
-		Token *string                          `json:"token,omitempty"`
-		Type  DeviceRegistrationPushConfigType `json:"type"`
-	} `json:"push_config"`
+		Token *string `json:"token,omitempty"`
+	} `json:"config"`
+	Data     *json.RawMessage `json:"data"`
+	DeviceId string           `json:"device_id"`
+
+	// Identifier One or more external identifiers to identify the user
+	Identifier UserIdentifier        `json:"identifier"`
+	Model      *string               `json:"model,omitempty"`
+	Os         *DeviceRegistrationOs `json:"os,omitempty"`
+	OsVersion  *string               `json:"os_version,omitempty"`
 }
 
 // DeviceRegistrationOs defines model for DeviceRegistration.Os.
 type DeviceRegistrationOs string
-
-// DeviceRegistrationPushConfigType defines model for DeviceRegistration.PushConfig.Type.
-type DeviceRegistrationPushConfigType string
 
 // Event defines model for Event.
 type Event struct {

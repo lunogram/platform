@@ -3,7 +3,6 @@ import type { FieldPath, FieldValues, UseFormReturn } from "react-hook-form"
 import type { Node } from "reactflow"
 import type { UUID } from "@/types/common"
 
-
 export type Class<T> = new () => T
 
 export interface ControlledProps<T> {
@@ -438,8 +437,9 @@ export type SubjectOrganizationMemberParams = Pick<SubjectOrganizationMember, "d
 }
 
 export interface Device {
+    id: UUID
     device_id: string
-    token?: string
+    data: Record<string, unknown>
     os: string
     model: string
     app_build: string
@@ -664,9 +664,7 @@ export interface BroadcastUser {
     phone?: string
 }
 
-export type CampaignUpdateParams = Partial<
-    Pick<Campaign, "name" | "subscription_id" | "variables">
->
+export type CampaignUpdateParams = Partial<Pick<Campaign, "name" | "subscription_id" | "variables">>
 export type CampaignCreateParams = Pick<Campaign, "name" | "channel">
 export type CampaignUser = User & { state: CampaignSendState; send_at: string }
 

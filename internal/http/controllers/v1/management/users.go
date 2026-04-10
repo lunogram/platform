@@ -252,13 +252,8 @@ func (srv *UsersController) GetUserDevices(w http.ResponseWriter, r *http.Reques
 
 	logger.Info("user devices listed", zap.Int("count", len(devices)))
 
-	results := devices.OAPI()
-	for i := range results {
-		results[i].Token = nil
-	}
-
 	response := oapi.UserDeviceList{
-		Results: results,
+		Results: devices.OAPI(),
 	}
 
 	json.Write(w, http.StatusOK, response)
@@ -294,15 +289,9 @@ func (srv *UsersController) CreateUserDevice(w http.ResponseWriter, r *http.Requ
 	}
 
 	deviceID := strings.TrimSpace(body.DeviceId)
-	token := strings.TrimSpace(body.Token)
 
 	if deviceID == "" {
 		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("device_id is required")))
-		return
-	}
-
-	if token == "" {
-		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("token is required")))
 		return
 	}
 
@@ -320,11 +309,58 @@ func (srv *UsersController) CreateUserDevice(w http.ResponseWriter, r *http.Requ
 
 	logger.Info("upserting user device")
 
-	_, err = srv.users.UpsertDevice(ctx, subjects.Device{
+	pushType, ok := pushConfigTypeFromManagementOS(body.Os)
+	if !ok {
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("os must be ios, android, or web")))
+		return
+	}
+
+	config := subjects.PushConfig{Type: pushType}
+	switch pushType {
+	case subjects.PushConfigTypeFCM, subjects.PushConfigTypeAPNs:
+		if body.Config.Token == nil || strings.TrimSpace(*body.Config.Token) == "" {
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("config.token is required for ios/android")))
+			return
+		}
+		config.Token = strings.TrimSpace(*body.Config.Token)
+	case subjects.PushConfigTypeWebPush:
+		if body.Config.Endpoint == nil || strings.TrimSpace(*body.Config.Endpoint) == "" {
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("config.endpoint is required for web")))
+			return
+		}
+		if body.Config.Keys == nil || strings.TrimSpace(body.Config.Keys.Auth) == "" || strings.TrimSpace(body.Config.Keys.P256dh) == "" {
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("config.keys.auth and config.keys.p256dh are required for web")))
+			return
+		}
+
+		config.Endpoint = strings.TrimSpace(*body.Config.Endpoint)
+		config.ExpirationTime = body.Config.ExpirationTime
+		config.Keys = &subjects.PushConfigKeys{
+			Auth:   strings.TrimSpace(body.Config.Keys.Auth),
+			P256dh: strings.TrimSpace(body.Config.Keys.P256dh),
+		}
+	}
+
+	var data json.RawMessage
+	if body.Data != nil {
+		var dataMap map[string]any
+		if err := json.Unmarshal(*body.Data, &dataMap); err != nil {
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("data must be a JSON object")))
+			return
+		}
+		if dataMap == nil {
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("data must be a JSON object")))
+			return
+		}
+		data = *body.Data
+	}
+
+	err = srv.users.UpsertDevice(ctx, subjects.Device{
 		ProjectID:  projectID,
 		UserID:     userID,
 		DeviceID:   deviceID,
-		Token:      &token,
+		Config:     &config,
+		Data:       data,
 		OS:         &os,
 		OSVersion:  body.OsVersion,
 		Model:      body.Model,
@@ -345,6 +381,19 @@ func (srv *UsersController) CreateUserDevice(w http.ResponseWriter, r *http.Requ
 
 	logger.Info("user device upserted")
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func pushConfigTypeFromManagementOS(os oapi.CreateUserDeviceOs) (subjects.PushConfigType, bool) {
+	switch os {
+	case oapi.CreateUserDeviceOsAndroid:
+		return subjects.PushConfigTypeFCM, true
+	case oapi.CreateUserDeviceOsIos:
+		return subjects.PushConfigTypeAPNs, true
+	case oapi.CreateUserDeviceOsWeb:
+		return subjects.PushConfigTypeWebPush, true
+	default:
+		return "", false
+	}
 }
 
 func (srv *UsersController) DeleteUserDevice(w http.ResponseWriter, r *http.Request, projectID, userID, deviceID uuid.UUID) {

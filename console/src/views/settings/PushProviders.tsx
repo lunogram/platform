@@ -96,21 +96,16 @@ export default function PushProviders() {
 
     const [providers] = useResolver(
         useCallback(async () => {
-            const { data } = await oapiClient.GET(
-                "/api/admin/projects/{projectID}/providers",
-                { params: { path: { projectID: project.id } } },
-            )
-            return (data?.results ?? []).filter((p: Provider) =>
-                p.channels?.includes("push"),
-            )
+            const { data } = await oapiClient.GET("/api/admin/projects/{projectID}/providers", {
+                params: { path: { projectID: project.id } },
+            })
+            return (data?.results ?? []).filter((p: Provider) => p.channels?.includes("push"))
         }, [project.id]),
     )
 
     const loading = !pushProviders || !providers
     const configuredCount =
-        pushProviders?.filter(
-            (pp: ProjectPushProvider) => pp.provider_id,
-        ).length ?? 0
+        pushProviders?.filter((pp: ProjectPushProvider) => pp.provider_id).length ?? 0
 
     return (
         <div className="space-y-6">
@@ -141,10 +136,7 @@ export default function PushProviders() {
             <div className="grid gap-4 sm:grid-cols-3">
                 {loading
                     ? Array.from({ length: 3 }).map((_, i) => (
-                          <div
-                              key={i}
-                              className="rounded-lg border bg-card p-4 space-y-3"
-                          >
+                          <div key={i} className="rounded-lg border bg-card p-4 space-y-3">
                               <div className="flex items-center gap-3">
                                   <Skeleton className="h-9 w-9 rounded-lg" />
                                   <div className="space-y-1.5">
@@ -162,8 +154,7 @@ export default function PushProviders() {
                               projectId={project.id}
                               providers={providers ?? []}
                               pushProvider={pushProviders?.find(
-                                  (pp: ProjectPushProvider) =>
-                                      pp.platform === platform.key,
+                                  (pp: ProjectPushProvider) => pp.platform === platform.key,
                               )}
                               onChanged={reloadPushProviders}
                           />
@@ -197,20 +188,15 @@ function PlatformCard({
     const handleSelect = async (providerId: string) => {
         setSaving(true)
         try {
-            await oapiClient.PUT(
-                "/api/admin/projects/{projectID}/push-providers/{platform}",
-                {
-                    params: {
-                        path: { projectID: projectId, platform: platform.key },
-                    },
-                    body: { provider_id: providerId },
+            await oapiClient.PUT("/api/admin/projects/{projectID}/push-providers/{platform}", {
+                params: {
+                    path: { projectID: projectId, platform: platform.key },
                 },
-            )
+                body: { provider_id: providerId },
+            })
             onChanged()
         } catch {
-            toast.error(
-                t("push_provider_save_failed", "Failed to save push provider"),
-            )
+            toast.error(t("push_provider_save_failed", "Failed to save push provider"))
         } finally {
             setSaving(false)
         }
@@ -219,22 +205,14 @@ function PlatformCard({
     const handleRemove = async () => {
         setSaving(true)
         try {
-            await oapiClient.DELETE(
-                "/api/admin/projects/{projectID}/push-providers/{platform}",
-                {
-                    params: {
-                        path: { projectID: projectId, platform: platform.key },
-                    },
+            await oapiClient.DELETE("/api/admin/projects/{projectID}/push-providers/{platform}", {
+                params: {
+                    path: { projectID: projectId, platform: platform.key },
                 },
-            )
+            })
             onChanged()
         } catch {
-            toast.error(
-                t(
-                    "push_provider_remove_failed",
-                    "Failed to remove push provider",
-                ),
-            )
+            toast.error(t("push_provider_remove_failed", "Failed to remove push provider"))
         } finally {
             setSaving(false)
         }
@@ -249,17 +227,11 @@ function PlatformCard({
                     <div
                         className={`flex h-9 w-9 items-center justify-center rounded-lg ${platform.iconBg}`}
                     >
-                        <Icon
-                            className={`h-4 w-4 ${platform.iconColor}`}
-                        />
+                        <Icon className={`h-4 w-4 ${platform.iconColor}`} />
                     </div>
                     <div>
-                        <h4 className="text-sm font-semibold tracking-tight">
-                            {platform.label}
-                        </h4>
-                        <p className="text-xs text-muted-foreground">
-                            {platform.description}
-                        </p>
+                        <h4 className="text-sm font-semibold tracking-tight">{platform.label}</h4>
+                        <p className="text-xs text-muted-foreground">{platform.description}</p>
                     </div>
                 </div>
 
@@ -281,9 +253,7 @@ function PlatformCard({
                             <SelectTrigger
                                 elevation="flat"
                                 className={`w-full ${
-                                    isConfigured
-                                        ? "rounded-r-none border-r-0"
-                                        : ""
+                                    isConfigured ? "rounded-r-none border-r-0" : ""
                                 }`}
                             >
                                 {saving ? (
@@ -301,9 +271,7 @@ function PlatformCard({
                                 {providers.map((p) => (
                                     <SelectItem key={p.id} value={p.id}>
                                         <span>{p.name}</span>
-                                        <span className="ml-2 text-muted-foreground">
-                                            {p.type}
-                                        </span>
+                                        <span className="ml-2 text-muted-foreground">{p.type}</span>
                                     </SelectItem>
                                 ))}
                             </SelectContent>

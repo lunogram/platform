@@ -16,6 +16,7 @@ import (
 	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/render"
 	"github.com/lunogram/platform/internal/store/management"
+	"github.com/lunogram/platform/internal/store/subjects"
 	moduleProviders "github.com/lunogram/platform/pkg/modules/providers"
 
 	"go.uber.org/zap"
@@ -61,11 +62,12 @@ func (t templateDataEnvelope) MarshalJSON() ([]byte, error) {
 	return json.Marshal(merged)
 }
 
-func NewTemplatesController(logger *zap.Logger, db *sqlx.DB, renderer *pubsub.EmailRenderer, registry *providers.Registry, engine *rbac.Engine, linkKey []byte, trackingURL string) *TemplatesController {
+func NewTemplatesController(logger *zap.Logger, db *sqlx.DB, subjectsDB *sqlx.DB, renderer *pubsub.EmailRenderer, registry *providers.Registry, engine *rbac.Engine, linkKey []byte, trackingURL string) *TemplatesController {
 	return &TemplatesController{
 		logger:      logger,
 		db:          db,
 		store:       management.NewState(db),
+		subjects:    subjects.NewState(subjectsDB, logger),
 		renderer:    renderer,
 		registry:    registry,
 		engine:      engine,
@@ -83,6 +85,7 @@ type TemplatesController struct {
 	engine      *rbac.Engine
 	linkKey     []byte
 	trackingURL string
+	subjects    *subjects.State
 }
 
 func (srv *TemplatesController) GetTemplate(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, campaignID uuid.UUID, templateID uuid.UUID) {
@@ -369,25 +372,131 @@ func (srv *TemplatesController) SendTest(w http.ResponseWriter, r *http.Request,
 	}
 
 	// Push channel: resolve provider from project push providers and compose
-	// a push request using the "to" field as a device token.
+	// a push request. For backward compatibility, "to" can still be a raw
+	// token. Prefer passing a registered device_id so we can resolve the full
+	// push config (including Web Push endpoint/keys).
 	if campaign.Channel == "push" {
-		pushProviders, err := srv.store.ProjectPushProvidersStore.ListProjectPushProviders(ctx, projectID)
-		if err != nil {
-			logger.Error("failed to list push providers", zap.Error(err))
-			oapi.WriteProblem(w, err)
-			return
-		}
-		if len(pushProviders) == 0 {
-			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("project has no push providers configured")))
+		if body.To == "" && (body.Push == nil || body.Push.DeviceId == "") {
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("to is required")))
 			return
 		}
 
-		// Use the first configured push provider for test sends.
-		provider, err := srv.store.ProvidersStore.GetProvider(ctx, pushProviders[0].ProviderID)
-		if err != nil {
-			logger.Error("failed to get push provider", zap.Error(err))
-			oapi.WriteProblem(w, err)
+		var pushData channels.PushTemplateData
+		if err := json.Unmarshal(templateData, &pushData); err != nil {
+			logger.Error("failed to unmarshal push template data", zap.Error(err))
+			oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("failed to parse push template data")))
 			return
+		}
+
+		custom := pushData.Data
+		if custom == nil {
+			custom = make(map[string]any)
+		}
+
+		payload := moduleProviders.PushPayload{
+			Title: pushData.Title,
+			Body:  pushData.Body,
+			Data:  custom,
+		}
+
+		providerPlatform := ""
+
+		targetDeviceID := body.To
+		if body.Push != nil && body.Push.DeviceId != "" {
+			targetDeviceID = body.Push.DeviceId
+		}
+
+		device, err := srv.subjects.GetDeviceByProjectAndDeviceID(ctx, projectID, targetDeviceID)
+		switch {
+		case err == nil:
+			if device.Config == nil {
+				oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("selected device has no push configuration")))
+				return
+			}
+
+			switch device.Config.Type {
+			case subjects.PushConfigTypeFCM:
+				if device.Config.Token == "" {
+					oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("selected device has no push token")))
+					return
+				}
+				payload.Tokens = []string{device.Config.Token}
+				providerPlatform = management.PlatformAndroid
+			case subjects.PushConfigTypeAPNs:
+				if device.Config.Token == "" {
+					oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("selected device has no push token")))
+					return
+				}
+				payload.APNsTokens = []string{device.Config.Token}
+				providerPlatform = management.PlatformIOS
+			case subjects.PushConfigTypeWebPush:
+				if device.Config.Endpoint == "" || device.Config.Keys == nil || device.Config.Keys.Auth == "" || device.Config.Keys.P256dh == "" {
+					oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("selected web push device has incomplete subscription data")))
+					return
+				}
+
+				target := moduleProviders.WebPushTarget{Endpoint: device.Config.Endpoint}
+				if device.Config.ExpirationTime != nil {
+					exp := device.Config.ExpirationTime.Unix()
+					target.ExpirationTime = &exp
+				}
+				target.Keys.Auth = device.Config.Keys.Auth
+				target.Keys.P256dh = device.Config.Keys.P256dh
+				payload.WebPushTargets = []moduleProviders.WebPushTarget{target}
+				providerPlatform = management.PlatformWeb
+			default:
+				oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("unsupported device push configuration type")))
+				return
+			}
+		case errors.Is(err, sql.ErrNoRows) && (body.Push == nil || body.Push.DeviceId == ""):
+			// Backward compatibility: treat "to" as a direct push token.
+			payload.Tokens = []string{body.To}
+		case errors.Is(err, sql.ErrNoRows):
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("selected device not found")))
+			return
+		case err != nil:
+			logger.Error("failed to resolve device for push test", zap.Error(err))
+			oapi.WriteProblem(w, problem.ErrInternal())
+			return
+		}
+
+		var provider *management.Provider
+		if providerPlatform != "" {
+			pp, err := srv.store.ProjectPushProvidersStore.GetProjectPushProvider(ctx, projectID, providerPlatform)
+			if errors.Is(err, sql.ErrNoRows) {
+				oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("no push provider configured for selected device platform")))
+				return
+			}
+			if err != nil {
+				logger.Error("failed to get project push provider", zap.Error(err), zap.String("platform", providerPlatform))
+				oapi.WriteProblem(w, err)
+				return
+			}
+
+			provider, err = srv.store.ProvidersStore.GetProvider(ctx, pp.ProviderID)
+			if err != nil {
+				logger.Error("failed to get push provider", zap.Error(err))
+				oapi.WriteProblem(w, err)
+				return
+			}
+		} else {
+			pushProviders, err := srv.store.ProjectPushProvidersStore.ListProjectPushProviders(ctx, projectID)
+			if err != nil {
+				logger.Error("failed to list push providers", zap.Error(err))
+				oapi.WriteProblem(w, err)
+				return
+			}
+			if len(pushProviders) == 0 {
+				oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("project has no push providers configured")))
+				return
+			}
+
+			provider, err = srv.store.ProvidersStore.GetProvider(ctx, pushProviders[0].ProviderID)
+			if err != nil {
+				logger.Error("failed to get push provider", zap.Error(err))
+				oapi.WriteProblem(w, err)
+				return
+			}
 		}
 
 		module, ok := srv.registry.Get(provider.Module)
@@ -404,24 +513,7 @@ func (srv *TemplatesController) SendTest(w http.ResponseWriter, r *http.Request,
 			return
 		}
 
-		var pushData channels.PushTemplateData
-		if err := json.Unmarshal(templateData, &pushData); err != nil {
-			logger.Error("failed to unmarshal push template data", zap.Error(err))
-			oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("failed to parse push template data")))
-			return
-		}
-
-		custom := pushData.Data
-		if custom == nil {
-			custom = make(map[string]any)
-		}
-
-		request, err := moduleProviders.NewPushRequest(config, moduleProviders.PushPayload{
-			Tokens: []string{string(body.To)},
-			Title:  pushData.Title,
-			Body:   pushData.Body,
-			Data:   custom,
-		})
+		request, err := moduleProviders.NewPushRequest(config, payload)
 		if err != nil {
 			logger.Error("failed to compose push request", zap.Error(err))
 			oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("failed to compose push request")))

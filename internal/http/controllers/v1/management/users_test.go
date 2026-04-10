@@ -771,13 +771,14 @@ func TestCreateUserDevice(t *testing.T) {
 
 	body := oapi.CreateUserDevice{
 		DeviceId:   "device-1",
-		Token:      "token-1",
+		Data:       ptr(json.RawMessage(`{"app_channel":"beta"}`)),
 		Os:         oapi.CreateUserDeviceOsIos,
 		OsVersion:  ptr("18.1"),
 		Model:      ptr("iPhone 15"),
 		AppBuild:   ptr("101"),
 		AppVersion: ptr("1.0.1"),
 	}
+	body.Config.Token = ptr("token-1")
 
 	bodyBytes, err := json.Marshal(body)
 	require.NoError(t, err)
@@ -791,12 +792,14 @@ func TestCreateUserDevice(t *testing.T) {
 
 	require.Equal(t, 204, res.Code)
 
-	devices, err := controller.users.ListDevicesByUser(ctx, projectID, userID)
+	devices, err := controller.users.ListDevicesByUserWithConfig(ctx, projectID, userID)
 	require.NoError(t, err)
 	require.Len(t, devices, 1)
 	require.Equal(t, "device-1", devices[0].DeviceID)
-	require.NotNil(t, devices[0].Token)
-	require.Equal(t, "token-1", *devices[0].Token)
+	require.NotNil(t, devices[0].Config)
+	require.Equal(t, subjects.PushConfigTypeAPNs, devices[0].Config.Type)
+	require.Equal(t, "token-1", devices[0].Config.Token)
+	require.JSONEq(t, `{"app_channel":"beta"}`, string(devices[0].Data))
 	require.NotNil(t, devices[0].OS)
 	require.Equal(t, "ios", *devices[0].OS)
 }
@@ -809,9 +812,9 @@ func TestCreateUserDeviceUserNotFound(t *testing.T) {
 
 	body := oapi.CreateUserDevice{
 		DeviceId: "device-404",
-		Token:    "token-404",
 		Os:       oapi.CreateUserDeviceOsAndroid,
 	}
+	body.Config.Token = ptr("token-404")
 
 	bodyBytes, err := json.Marshal(body)
 	require.NoError(t, err)
@@ -843,17 +846,20 @@ func TestCreateUserDeviceTokenConflict(t *testing.T) {
 		ProjectID: projectID,
 		UserID:    user1ID,
 		DeviceID:  "existing-device",
-		Token:     ptr("shared-token"),
-		OS:        ptr("ios"),
-		Model:     ptr("iPhone"),
+		Config: &subjects.PushConfig{
+			Type:  subjects.PushConfigTypeAPNs,
+			Token: "shared-token",
+		},
+		OS:    ptr("ios"),
+		Model: ptr("iPhone"),
 	})
 	require.NoError(t, err)
 
 	body := oapi.CreateUserDevice{
 		DeviceId: "new-device",
-		Token:    "shared-token",
 		Os:       oapi.CreateUserDeviceOsAndroid,
 	}
+	body.Config.Token = ptr("shared-token")
 
 	bodyBytes, err := json.Marshal(body)
 	require.NoError(t, err)
@@ -883,9 +889,12 @@ func TestGetUserDevicesDoesNotExposeToken(t *testing.T) {
 		ProjectID: projectID,
 		UserID:    userID,
 		DeviceID:  "device-no-token",
-		Token:     &token,
-		OS:        ptr("ios"),
-		Model:     ptr("iPhone"),
+		Config: &subjects.PushConfig{
+			Type:  subjects.PushConfigTypeAPNs,
+			Token: token,
+		},
+		OS:    ptr("ios"),
+		Model: ptr("iPhone"),
 	})
 	require.NoError(t, err)
 
@@ -901,7 +910,6 @@ func TestGetUserDevicesDoesNotExposeToken(t *testing.T) {
 	err = json.Unmarshal(res.Body.Bytes(), &response)
 	require.NoError(t, err)
 	require.Len(t, response.Results, 1)
-	require.Nil(t, response.Results[0].Token, "token should be omitted from response")
 }
 
 func TestImportUsers(t *testing.T) {

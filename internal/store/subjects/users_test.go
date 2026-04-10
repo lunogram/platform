@@ -541,7 +541,7 @@ func TestGetUserWithDevices(t *testing.T) {
 		ProjectID: projectID,
 		UserID:    userID,
 		DeviceID:  "device_ios",
-		PushConfig: &PushConfig{
+		Config: &PushConfig{
 			Type:  PushConfigTypeAPNs,
 			Token: token,
 		},
@@ -584,7 +584,7 @@ func TestListUsersWithDevices(t *testing.T) {
 		ProjectID: projectID,
 		UserID:    user1ID,
 		DeviceID:  "device1",
-		PushConfig: &PushConfig{
+		Config: &PushConfig{
 			Type:  PushConfigTypeFCM,
 			Token: token,
 		},

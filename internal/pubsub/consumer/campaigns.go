@@ -163,20 +163,14 @@ func CampaignsSendHandler(logger *zap.Logger, mgmt *management.State, usrs *subj
 		var (
 			activeProvider *management.Provider
 			templateSender *management.SenderIdentity
+			devices        subjects.Devices
 		)
-		if providers.Channel(campaign.Channel) == providers.ChannelPush {
-			activeProvider, opts.Devices, err = resolvePushProvider(ctx, mgmt, event.ProjectID, event.UserID, usrs)
-			if err != nil {
-				logger.Error("failed to resolve push provider", zap.Error(err))
-				return err
-			}
-		} else {
-			activeProvider, templateSender, err = resolveMessageProvider(ctx, mgmt, event.ProjectID, template)
-			if err != nil {
-				logger.Error("failed to resolve message provider", zap.Error(err))
-				return err
-			}
+		activeProvider, templateSender, devices, err = resolveProvider(ctx, providers.Channel(campaign.Channel), mgmt, usrs, event.ProjectID, event.UserID, template)
+		if err != nil {
+			logger.Error("failed to resolve provider", zap.Error(err))
+			return err
 		}
+		opts.Devices = devices
 
 		provider, exists := registry.Get(activeProvider.Module)
 		if !exists {
@@ -309,6 +303,18 @@ func CampaignsSendHandler(logger *zap.Logger, mgmt *management.State, usrs *subj
 	}
 }
 
+// resolveProvider dispatches to the appropriate channel-specific resolver
+// (push vs message) and returns a unified set of results.
+func resolveProvider(ctx context.Context, channel providers.Channel, mgmt *management.State, usrs *subjects.State, projectID, userID uuid.UUID, template management.Template) (provider *management.Provider, sender *management.SenderIdentity, devices subjects.Devices, err error) {
+	if channel == providers.ChannelPush {
+		provider, devices, err = resolvePushProvider(ctx, mgmt, projectID, userID, usrs)
+		return provider, nil, devices, err
+	}
+
+	provider, sender, err = resolveMessageProvider(ctx, mgmt, projectID, template)
+	return provider, sender, nil, err
+}
+
 // resolveMessageProvider resolves the provider for email/SMS channels by
 // looking up the template's sender identity. It returns both the provider and
 // the sender identity so the caller can reuse it for composing the message.
@@ -333,7 +339,7 @@ func resolveMessageProvider(ctx context.Context, mgmt *management.State, project
 // resolvePushProvider selects the project-level push provider to use for a
 // user, based on configured platform mappings and the user's devices.
 func resolvePushProvider(ctx context.Context, mgmt *management.State, projectID, userID uuid.UUID, usrs *subjects.State) (*management.Provider, subjects.Devices, error) {
-	devices, err := usrs.ListDevicesByUserWithPushConfig(ctx, projectID, userID)
+	devices, err := usrs.ListDevicesByUserWithConfig(ctx, projectID, userID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("list user devices: %w", err)
 	}
@@ -387,11 +393,11 @@ func platformForDevice(device subjects.Device) string {
 		}
 	}
 
-	if device.PushConfig == nil {
+	if device.Config == nil {
 		return ""
 	}
 
-	switch device.PushConfig.Type {
+	switch device.Config.Type {
 	case subjects.PushConfigTypeAPNs:
 		return management.PlatformIOS
 	case subjects.PushConfigTypeFCM:

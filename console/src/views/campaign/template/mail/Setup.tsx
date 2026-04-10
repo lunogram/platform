@@ -82,7 +82,11 @@ interface EmailFormControlProps {
     disabled?: boolean
 }
 
-export function EmailFormControl({ campaign, form, disabled = false }: EmailFormControlProps) {
+export function EmailFormControl({
+    campaign: _campaign,
+    form,
+    disabled = false,
+}: EmailFormControlProps) {
     const { t } = useTranslation()
     const [project] = useContext(ProjectContext)
     const { variableGroups } = useCampaignVariableContext()
@@ -189,7 +193,7 @@ export interface EmailSetupProps {
     edit?: boolean
 }
 
-export function EmailPreview({ campaign, form }: EmailSetupProps) {
+export function EmailPreview({ campaign: _campaign, form }: EmailSetupProps) {
     const [project] = useContext(ProjectContext)
     const [template] = useContext(TemplateContext)
     const { t } = useTranslation()
@@ -442,9 +446,7 @@ export function EmailContentPreview({ campaign, form, edit = false }: EmailSetup
 
                     <div className="flex items-start gap-3">
                         <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-medium flex-shrink-0">
-                            {displayFromName
-                                ? displayFromName.charAt(0).toUpperCase()
-                                : "?"}
+                            {displayFromName ? displayFromName.charAt(0).toUpperCase() : "?"}
                         </div>
 
                         <div className="flex-1 min-w-0">

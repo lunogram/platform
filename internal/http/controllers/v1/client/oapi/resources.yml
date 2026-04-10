@@ -611,7 +611,7 @@ components:
       required:
         - identifier
         - device_id
-        - push_config
+        - config
       properties:
         identifier:
           $ref: "#/components/schemas/UserIdentifier"
@@ -626,14 +626,17 @@ components:
           type: string
         app_version:
           type: string
-        push_config:
+        data:
           type: object
-          required:
-            - type
+          additionalProperties: true
+          nullable: true
+          x-go-type: json.RawMessage
+          example:
+            app_channel: "beta"
+            locale: "en-US"
+        config:
+          type: object
           properties:
-            type:
-              type: string
-              enum: [fcm, apns, webpush]
             token:
               type: string
               description: Device token for FCM or APNs

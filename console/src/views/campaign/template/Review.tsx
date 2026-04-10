@@ -94,10 +94,7 @@ export default function TemplateReview() {
 
                     {isEnterprise && (
                         <div className="pt-4">
-                            <Button
-                                variant="outline"
-                                onClick={() => setIsBroadcastOpen(true)}
-                            >
+                            <Button variant="outline" onClick={() => setIsBroadcastOpen(true)}>
                                 <Radio className="mr-2 h-3.5 w-3.5" />
                                 {t("send_broadcast", "Send Broadcast")}
                             </Button>

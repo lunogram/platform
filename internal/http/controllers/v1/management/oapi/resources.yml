@@ -6344,7 +6344,16 @@ components:
         to:
           type: string
           example: "test@example.com"
-          description: The recipient address or phone number to send the test to
+          description: Recipient for test send. For email/sms provide destination address/number; for push provide either a push token or a registered device_id.
+        push:
+          type: object
+          description: Optional push target metadata. When provided for push channel, device_id is resolved server-side to its full push configuration.
+          required:
+            - device_id
+          properties:
+            device_id:
+              type: string
+              description: Registered device identifier to use for push test sends.
         props:
           type: object
           additionalProperties: true
@@ -7388,15 +7397,32 @@ components:
       type: object
       required:
         - device_id
-        - token
+        - config
         - os
       properties:
         device_id:
           type: string
           example: "AB12CD34-EF56-GH78-IJ90"
-        token:
-          type: string
-          example: "fcm_token_abc123"
+        config:
+          type: object
+          properties:
+            token:
+              type: string
+              description: Device token for FCM or APNs
+            endpoint:
+              type: string
+              description: Web Push subscription endpoint URL
+            expiration_time:
+              type: string
+              format: date-time
+            keys:
+              type: object
+              required: [p256dh, auth]
+              properties:
+                p256dh:
+                  type: string
+                auth:
+                  type: string
         os:
           type: string
           enum: [ios, android, web]
@@ -7417,12 +7443,21 @@ components:
           type: string
           nullable: true
           example: "2.1.0"
+        data:
+          type: object
+          additionalProperties: true
+          nullable: true
+          x-go-type: json.RawMessage
+          example:
+            app_channel: "beta"
+            locale: "en-US"
 
     UserDevice:
       type: object
       required:
         - id
         - device_id
+        - data
         - created_at
         - updated_at
       properties:
@@ -7433,6 +7468,13 @@ components:
         device_id:
           type: string
           example: "AB12CD34-EF56-GH78-IJ90"
+        data:
+          type: object
+          additionalProperties: true
+          x-go-type: json.RawMessage
+          example:
+            app_channel: "beta"
+            locale: "en-US"
         os:
           type: string
           nullable: true

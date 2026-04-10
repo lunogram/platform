@@ -584,13 +584,25 @@ type CreateTemplate struct {
 
 // CreateUserDevice defines model for CreateUserDevice.
 type CreateUserDevice struct {
-	AppBuild   *string            `json:"app_build"`
-	AppVersion *string            `json:"app_version"`
-	DeviceId   string             `json:"device_id"`
-	Model      *string            `json:"model"`
-	Os         CreateUserDeviceOs `json:"os"`
-	OsVersion  *string            `json:"os_version"`
-	Token      string             `json:"token"`
+	AppBuild   *string `json:"app_build"`
+	AppVersion *string `json:"app_version"`
+	Config     struct {
+		// Endpoint Web Push subscription endpoint URL
+		Endpoint       *string    `json:"endpoint,omitempty"`
+		ExpirationTime *time.Time `json:"expiration_time,omitempty"`
+		Keys           *struct {
+			Auth   string `json:"auth"`
+			P256dh string `json:"p256dh"`
+		} `json:"keys,omitempty"`
+
+		// Token Device token for FCM or APNs
+		Token *string `json:"token,omitempty"`
+	} `json:"config"`
+	Data      *json.RawMessage   `json:"data"`
+	DeviceId  string             `json:"device_id"`
+	Model     *string            `json:"model"`
+	Os        CreateUserDeviceOs `json:"os"`
+	OsVersion *string            `json:"os_version"`
 }
 
 // CreateUserDeviceOs defines model for CreateUserDevice.Os.
@@ -1210,7 +1222,13 @@ type SendTest struct {
 	// Props Optional template variables/props for rendering
 	Props *map[string]interface{} `json:"props,omitempty"`
 
-	// To The recipient address or phone number to send the test to
+	// Push Optional push target metadata. When provided for push channel, device_id is resolved server-side to its full push configuration.
+	Push *struct {
+		// DeviceId Registered device identifier to use for push test sends.
+		DeviceId string `json:"device_id"`
+	} `json:"push,omitempty"`
+
+	// To Recipient for test send. For email/sms provide destination address/number; for push provide either a push token or a registered device_id.
 	To string `json:"to"`
 }
 
@@ -1563,6 +1581,7 @@ type UserDevice struct {
 	AppBuild   *string            `json:"app_build"`
 	AppVersion *string            `json:"app_version"`
 	CreatedAt  time.Time          `json:"created_at"`
+	Data       json.RawMessage    `json:"data"`
 	DeviceId   string             `json:"device_id"`
 	Id         openapi_types.UUID `json:"id"`
 	Model      *string            `json:"model"`

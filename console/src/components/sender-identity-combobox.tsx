@@ -126,14 +126,11 @@ export function SenderIdentityCombobox({
     const fetchProviders = React.useCallback(async () => {
         setProvidersLoading(true)
         try {
-            const { data } = await oapiClient.GET(
-                "/api/admin/projects/{projectID}/providers",
-                {
-                    params: {
-                        path: { projectID: projectId },
-                    },
+            const { data } = await oapiClient.GET("/api/admin/projects/{projectID}/providers", {
+                params: {
+                    path: { projectID: projectId },
                 },
-            )
+            })
             const allProviders = data?.results ?? []
             const filtered = allProviders.filter((p) => p.channels?.includes(channel))
             setProviders(filtered)
@@ -532,10 +529,7 @@ function CreateView({
                         <Select value={providerId} onValueChange={onProviderChange}>
                             <SelectTrigger className="h-8 w-full">
                                 <SelectValue
-                                    placeholder={t(
-                                        "select_integration",
-                                        "Select integration...",
-                                    )}
+                                    placeholder={t("select_integration", "Select integration...")}
                                 />
                             </SelectTrigger>
                             <SelectContent>

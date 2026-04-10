@@ -210,12 +210,18 @@ export function PushPreview({ campaign, form, edit = false }: PushSetupProps) {
                             }}
                         >
                             <SelectTrigger className="w-[180px]">
-                                <SelectValue placeholder={t("send_test_push.select_device", "Select device...")} />
+                                <SelectValue
+                                    placeholder={t(
+                                        "send_test_push.select_device",
+                                        "Select device...",
+                                    )}
+                                />
                             </SelectTrigger>
                             <SelectContent>
                                 {devices.map((d) => (
                                     <SelectItem key={d.device_id} value={d.device_id}>
-                                        {d.model || d.device_id}{d.os ? ` (${d.os})` : ""}
+                                        {d.model || d.device_id}
+                                        {d.os ? ` (${d.os})` : ""}
                                     </SelectItem>
                                 ))}
                             </SelectContent>
@@ -235,7 +241,7 @@ export function PushPreview({ campaign, form, edit = false }: PushSetupProps) {
                                             handleSendTest(selectedDevice, selectedUser)
                                         }
                                     }}
-                                    disabled={sending || !selectedDevice?.token}
+                                    disabled={sending || !selectedDevice}
                                 >
                                     <Rocket className="h-3.5 w-3.5" />
                                     {t("send_test_push.button", "Send test")}
@@ -247,14 +253,6 @@ export function PushPreview({ campaign, form, edit = false }: PushSetupProps) {
                                 {t(
                                     "send_test_push.no_devices",
                                     "This user has no registered devices",
-                                )}
-                            </TooltipContent>
-                        )}
-                        {selectedUser && devices.length > 0 && !selectedDevice?.token && (
-                            <TooltipContent>
-                                {t(
-                                    "send_test_push.no_token",
-                                    "Selected device has no push token",
                                 )}
                             </TooltipContent>
                         )}

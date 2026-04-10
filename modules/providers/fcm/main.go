@@ -13,13 +13,24 @@ import (
 	"time"
 
 	pdk "github.com/extism/go-pdk"
-	"github.com/lunogram/platform/modules/providers/fcm/types"
+	"github.com/lunogram/platform/pkg/modules"
+	"github.com/lunogram/platform/pkg/modules/providers"
+)
+
+const (
+	ExitSuccess   int32 = 0
+	ExitTransient int32 = -1
+	ExitPermanent int32 = -2
+
+	sendStatusSent    = "sent"
+	sendStatusFailed  = "failed"
+	sendStatusPartial = "partial"
 )
 
 //go:export manifest
 func Manifest() int32 {
-	manifest := types.ProviderManifest{
-		Metadata: types.Metadata{
+	manifest := providers.ProviderManifest{
+		Metadata: modules.Metadata{
 			ID:          "fcm",
 			Title:       "FCM (Firebase Cloud Messaging)",
 			Description: "Send push notifications to Android devices via Firebase Cloud Messaging (FCM v1 API)",
@@ -30,24 +41,27 @@ func Manifest() int32 {
 		Website: "https://firebase.google.com/docs/cloud-messaging",
 		Version: "1.0.0",
 		License: "MIT",
-		Author: types.Author{
+		Author: modules.Author{
 			Name:  "Lunogram",
 			Email: "dev@lunogram.io",
 			URL:   "https://lunogram.com",
 		},
-		Spec: types.ProviderSpec{
-			Channels: []types.Channel{types.ChannelPush},
-			Config: &types.JSONSchema{
+		Spec: providers.ProviderSpec{
+			Channels: []providers.Channel{providers.ChannelPush},
+			Platforms: []providers.Platform{
+				providers.PlatformAndroid,
+			},
+			Config: &modules.JSONSchema{
 				Type: "object",
-				Properties: []types.JSONSchemaProperty{
+				Properties: []modules.JSONSchemaProperty{
 					{
 						Name: "data",
-						Schema: &types.JSONSchema{
+						Schema: &modules.JSONSchema{
 							Type: "object",
-							Properties: []types.JSONSchemaProperty{
+							Properties: []modules.JSONSchemaProperty{
 								{
 									Name: "fcmProjectId",
-									Schema: &types.JSONSchema{
+									Schema: &modules.JSONSchema{
 										Type:        "string",
 										Title:       "Project ID",
 										Description: "Firebase project ID.",
@@ -55,14 +69,13 @@ func Manifest() int32 {
 								},
 								{
 									Name: "fcmServiceAccountJSON",
-									Schema: &types.JSONSchema{
-										Type:          "string",
-										Title:         "Service Account JSON",
-										Description:   "Firebase service account JSON. Upload the file or paste and encode.",
-										Format:        "password",
-										FileUpload:    true,
-										FileAccept:    ".json",
-										RequireBase64: true,
+									Schema: &modules.JSONSchema{
+										Type:        "string",
+										Title:       "Service Account JSON",
+										Description: "Firebase service account JSON. Upload the file or paste and encode.",
+										Format:      "password",
+										FileUpload:  true,
+										FileAccept:  ".json",
 									},
 								},
 							},
@@ -76,14 +89,11 @@ func Manifest() int32 {
 
 	if err := pdk.OutputJSON(manifest); err != nil {
 		pdk.SetError(err)
-		return -1
+		return ExitTransient
 	}
-	return 0
-}
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
+	return ExitSuccess
+}
 
 type Config struct {
 	ProjectID         string `json:"fcmProjectId"`
@@ -134,85 +144,55 @@ type fcmAPS struct {
 	Sound string `json:"sound,omitempty"`
 }
 
-// ---------------------------------------------------------------------------
-// Entry point
-// ---------------------------------------------------------------------------
-
 //go:export send
 func Send() int32 {
-	pdk.Log(pdk.LogInfo, "FCM Send() called")
-
-	var req types.SendRequest[Config]
+	var req providers.SendRequest[Config]
 	if err := pdk.InputJSON(&req); err != nil {
 		pdk.SetError(fmt.Errorf("failed to parse request: %w", err))
-		return -1
+		return ExitPermanent
 	}
 
-	if req.Channel != types.ChannelPush {
+	if req.Channel != providers.ChannelPush {
 		pdk.SetError(fmt.Errorf("unsupported channel: %s", req.Channel))
-		return -1
+		return ExitPermanent
 	}
 
 	if req.Config.ProjectID == "" {
 		pdk.SetError(fmt.Errorf("fcmProjectId is required"))
-		return -1
+		return ExitPermanent
 	}
 	if req.Config.ServiceAccountB64 == "" {
 		pdk.SetError(fmt.Errorf("fcmServiceAccountJSON is required"))
-		return -1
+		return ExitPermanent
 	}
 
 	push, err := req.GetPushPayload()
 	if err != nil {
 		pdk.SetError(fmt.Errorf("failed to parse push payload: %w", err))
-		return -1
+		return ExitPermanent
 	}
 
 	if len(push.Tokens) == 0 {
 		pdk.SetError(fmt.Errorf("no FCM tokens in payload"))
-		return -1
+		return ExitPermanent
 	}
 
 	accessToken, err := fetchFCMAccessToken(req.Config.ServiceAccountB64)
 	if err != nil {
 		pdk.SetError(fmt.Errorf("failed to get FCM access token: %w", err))
-		return -1
+		return ExitPermanent
 	}
 
 	ok, fail, errs := sendAllFCM(accessToken, req.Config.ProjectID, push)
-	pdk.Log(pdk.LogInfo, fmt.Sprintf("FCM: %d ok, %d failed", ok, fail))
-
-	meta := map[string]any{
-		"success_count": ok,
-		"failure_count": fail,
-		"total_targets": len(push.Tokens),
-	}
-	if len(errs) > 0 {
-		meta["errors"] = errs
-	}
-
-	status := "sent"
-	if ok == 0 {
-		status = "failed"
-	} else if fail > 0 {
-		status = "partial"
-	}
-
-	response := types.SendResponse{
-		Status:   status,
-		Metadata: map[string]any{"fcm": meta},
-	}
+	response := buildSendResponse("fcm", ok, fail, len(push.Tokens), errs)
 
 	if err := pdk.OutputJSON(response); err != nil {
 		pdk.SetError(err)
-		return -1
+		return ExitTransient
 	}
-	return 0
-}
 
-// ---------------------------------------------------------------------------
-// FCM HTTP v1 — pdk.HTTPRequest, manual JWT, no net/http or oauth2
-// ---------------------------------------------------------------------------
+	return ExitSuccess
+}
 
 func fetchFCMAccessToken(serviceAccountB64 string) (string, error) {
 	saJSON, err := decodeBase64Lenient(serviceAccountB64)
@@ -307,14 +287,15 @@ func exchangeJWTForToken(tokenURI, jwt string) (string, error) {
 	if result.AccessToken == "" {
 		return "", fmt.Errorf("empty access_token in response")
 	}
+
 	return result.AccessToken, nil
 }
 
-func sendAllFCM(accessToken, projectID string, push types.PushPayload) (ok, fail int, errs []string) {
+func sendAllFCM(accessToken, projectID string, push providers.PushPayload) (ok, fail int, errs []string) {
 	for i, token := range push.Tokens {
 		if err := sendFCMNotification(accessToken, projectID, token, push); err != nil {
 			fail++
-			msg := fmt.Sprintf("token %d failed: %v", i+1, err)
+			msg := fmt.Sprintf("FCM token %d failed: %v", i+1, err)
 			errs = append(errs, msg)
 			pdk.Log(pdk.LogWarn, msg)
 		} else {
@@ -324,7 +305,7 @@ func sendAllFCM(accessToken, projectID string, push types.PushPayload) (ok, fail
 	return
 }
 
-func sendFCMNotification(accessToken, projectID, token string, push types.PushPayload) error {
+func sendFCMNotification(accessToken, projectID, token string, push providers.PushPayload) error {
 	if token == "" {
 		return fmt.Errorf("empty FCM token")
 	}
@@ -382,9 +363,31 @@ func sendFCMNotification(accessToken, projectID, token string, push types.PushPa
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Util
-// ---------------------------------------------------------------------------
+func buildSendResponse(providerName string, ok, fail, total int, errs []string) providers.SendResponse {
+	meta := map[string]any{
+		"success_count": ok,
+		"failure_count": fail,
+		"total_targets": total,
+	}
+	if len(errs) > 0 {
+		meta["errors"] = errs
+	}
+
+	return providers.SendResponse{
+		Status:   statusForCounts(ok, fail),
+		Metadata: map[string]any{providerName: meta},
+	}
+}
+
+func statusForCounts(ok, fail int) string {
+	if ok == 0 {
+		return sendStatusFailed
+	}
+	if fail > 0 {
+		return sendStatusPartial
+	}
+	return sendStatusSent
+}
 
 func jsonBase64URL(v any) (string, error) {
 	b, err := json.Marshal(v)

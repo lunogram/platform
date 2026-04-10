@@ -62,9 +62,7 @@ export function CreateCampaign({ open = false, onBeforeCreate, trigger }: Create
             data: {},
         })
 
-        await navigate(
-            `/projects/${project.id}/campaigns/${campaign.id}/templates/${template.id}`,
-        )
+        await navigate(`/projects/${project.id}/campaigns/${campaign.id}/templates/${template.id}`)
     }
 
     const channels: Array<Channel> = [

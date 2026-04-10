@@ -117,7 +117,7 @@ export function BroadcastMessagePreview({ campaignId, defaultUser }: BroadcastMe
 // ---------------------------------------------------------------------------
 
 function EmailBroadcastPreview({
-    campaign,
+    campaign: _campaign,
     template,
     user,
 }: {
@@ -187,9 +187,7 @@ function EmailBroadcastPreview({
 
                 <div className="flex items-start gap-3">
                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-medium flex-shrink-0">
-                        {displayFromName
-                            ? displayFromName.charAt(0).toUpperCase()
-                            : "?"}
+                        {displayFromName ? displayFromName.charAt(0).toUpperCase() : "?"}
                     </div>
                     <div className="flex-1 min-w-0">
                         <div className="flex items-baseline gap-2 mb-1">

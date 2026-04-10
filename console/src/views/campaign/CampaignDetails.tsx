@@ -14,7 +14,7 @@ import { CampaignVariables } from "./CampaignVariables"
 
 import { CampaignVariableProvider } from "./CampaignVariableContext"
 import { Tabs, TabsContent } from "@/components/ui/tabs"
-import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
+import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { CreateBroadcastDialog } from "@/views/broadcast/CreateBroadcastDialog"

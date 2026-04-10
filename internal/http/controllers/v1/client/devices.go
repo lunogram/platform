@@ -15,6 +15,8 @@ import (
 	"go.uber.org/zap"
 )
 
+const validDeviceOSMessage = "os must be ios, android, or web"
+
 type DevicesController struct {
 	*ClientController
 }
@@ -107,18 +109,7 @@ func (srv *DevicesController) RegisterDevice(w http.ResponseWriter, r *http.Requ
 	inferredType, ok := pushConfigTypeFromOS(*req.Os)
 	if !ok {
 		logger.Error("invalid os", zap.String("os", string(*req.Os)))
-		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("os must be web, ios, or android")))
-		return
-	}
-
-	if subjects.PushConfigType(req.PushConfig.Type) != inferredType {
-		logger.Error(
-			"push_config.type does not match os",
-			zap.String("os", string(*req.Os)),
-			zap.String("push_config_type", string(req.PushConfig.Type)),
-			zap.String("expected_type", string(inferredType)),
-		)
-		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("push_config.type does not match os")))
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe(validDeviceOSMessage)))
 		return
 	}
 
@@ -132,38 +123,47 @@ func (srv *DevicesController) RegisterDevice(w http.ResponseWriter, r *http.Requ
 		AppVersion: req.AppVersion,
 	}
 
-	pc := subjects.PushConfig{Type: inferredType}
-	switch pc.Type {
-	case subjects.PushConfigTypeFCM, subjects.PushConfigTypeAPNs:
-		if req.PushConfig.Token == nil || *req.PushConfig.Token == "" {
-			logger.Error("push_config.token is required for fcm/apns")
-			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("push_config.token is required for fcm/apns")))
+	if req.Data != nil {
+		var dataMap map[string]any
+		if err := json.Unmarshal(*req.Data, &dataMap); err != nil {
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("data must be a JSON object")))
 			return
 		}
-		pc.Token = *req.PushConfig.Token
-	case subjects.PushConfigTypeWebPush:
-		if req.PushConfig.Endpoint == nil || *req.PushConfig.Endpoint == "" {
-			logger.Error("push_config.endpoint is required for webpush")
-			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("push_config.endpoint is required for webpush")))
+		if dataMap == nil {
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("data must be a JSON object")))
 			return
 		}
-		if req.PushConfig.Keys == nil || req.PushConfig.Keys.Auth == "" || req.PushConfig.Keys.P256dh == "" {
-			logger.Error("push_config.keys.auth and push_config.keys.p256dh are required for webpush")
-			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("push_config.keys.auth and push_config.keys.p256dh are required for webpush")))
-			return
-		}
-		pc.Endpoint = *req.PushConfig.Endpoint
-		pc.ExpirationTime = req.PushConfig.ExpirationTime
-		pc.Keys = &subjects.PushConfigKeys{
-			Auth:   req.PushConfig.Keys.Auth,
-			P256dh: req.PushConfig.Keys.P256dh,
-		}
-	default:
-		logger.Error("invalid push_config.type", zap.String("type", string(req.PushConfig.Type)))
-		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("push_config.type must be fcm, apns, or webpush")))
-		return
+		device.Data = *req.Data
 	}
-	device.PushConfig = &pc
+
+	pc := subjects.PushConfig{Type: inferredType}
+	switch inferredType {
+	case subjects.PushConfigTypeFCM, subjects.PushConfigTypeAPNs:
+		if req.Config.Token == nil || *req.Config.Token == "" {
+			logger.Error("config.token is required for fcm/apns")
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("config.token is required for fcm/apns")))
+			return
+		}
+		pc.Token = *req.Config.Token
+	case subjects.PushConfigTypeWebPush:
+		if req.Config.Endpoint == nil || *req.Config.Endpoint == "" {
+			logger.Error("config.endpoint is required for web")
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("config.endpoint is required for web")))
+			return
+		}
+		if req.Config.Keys == nil || req.Config.Keys.Auth == "" || req.Config.Keys.P256dh == "" {
+			logger.Error("config.keys.auth and config.keys.p256dh are required for web")
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("config.keys.auth and config.keys.p256dh are required for web")))
+			return
+		}
+		pc.Endpoint = *req.Config.Endpoint
+		pc.ExpirationTime = req.Config.ExpirationTime
+		pc.Keys = &subjects.PushConfigKeys{
+			Auth:   req.Config.Keys.Auth,
+			P256dh: req.Config.Keys.P256dh,
+		}
+	}
+	device.Config = &pc
 
 	if err := srv.users.UpsertDevice(ctx, device); err != nil {
 		logger.Error("failed to upsert device", zap.Error(err))

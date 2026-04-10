@@ -50,7 +50,11 @@ interface TextFormControlProps {
     disabled?: boolean
 }
 
-export function TextFormControl({ campaign, form, disabled = false }: TextFormControlProps) {
+export function TextFormControl({
+    campaign: _campaign,
+    form,
+    disabled = false,
+}: TextFormControlProps) {
     const { t } = useTranslation()
     const [project] = useContext(ProjectContext)
     const { variableGroups } = useCampaignVariableContext()

@@ -32,11 +32,6 @@ export function useSendTestPush({
 
     const handleSendTest = useCallback(
         async (device: Device, user?: User | null) => {
-            if (!device.token) {
-                toast.error("Selected device has no push token registered.")
-                return
-            }
-
             setSending(true)
             try {
                 // Persist the current editor state so the backend has up-to-date
@@ -58,7 +53,8 @@ export function useSendTestPush({
                             },
                         },
                         body: {
-                            to: device.token,
+                            to: device.device_id,
+                            push: { device_id: device.device_id },
                             ...(user ? { props: { user } } : {}),
                         },
                     },
@@ -73,9 +69,7 @@ export function useSendTestPush({
                     return
                 }
 
-                toast.success(
-                    `Test push notification sent to ${device.model || device.device_id}`,
-                )
+                toast.success(`Test push notification sent to ${device.model || device.device_id}`)
             } catch {
                 toast.error("Failed to send test push notification")
             } finally {

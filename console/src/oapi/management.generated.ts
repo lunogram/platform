@@ -2700,10 +2700,15 @@ export interface components {
         };
         SendTest: {
             /**
-             * @description The recipient address or phone number to send the test to
+             * @description Recipient for test send. For email/sms provide destination address/number; for push provide either a push token or a registered device_id.
              * @example test@example.com
              */
             to: string;
+            /** @description Optional push target metadata. When provided for push channel, device_id is resolved server-side to its full push configuration. */
+            push?: {
+                /** @description Registered device identifier to use for push test sends. */
+                device_id: string;
+            };
             /** @description Optional template variables/props for rendering */
             props?: {
                 [key: string]: unknown;
@@ -3464,8 +3469,18 @@ export interface components {
         CreateUserDevice: {
             /** @example AB12CD34-EF56-GH78-IJ90 */
             device_id: string;
-            /** @example fcm_token_abc123 */
-            token: string;
+            config: {
+                /** @description Device token for FCM or APNs */
+                token?: string;
+                /** @description Web Push subscription endpoint URL */
+                endpoint?: string;
+                /** Format: date-time */
+                expiration_time?: string;
+                keys?: {
+                    p256dh: string;
+                    auth: string;
+                };
+            };
             /**
              * @example ios
              * @enum {string}
@@ -3479,6 +3494,15 @@ export interface components {
             app_build?: string | null;
             /** @example 2.1.0 */
             app_version?: string | null;
+            /**
+             * @example {
+             *       "app_channel": "beta",
+             *       "locale": "en-US"
+             *     }
+             */
+            data?: {
+                [key: string]: unknown;
+            } | null;
         };
         UserDevice: {
             /**
@@ -3488,6 +3512,15 @@ export interface components {
             id: string;
             /** @example AB12CD34-EF56-GH78-IJ90 */
             device_id: string;
+            /**
+             * @example {
+             *       "app_channel": "beta",
+             *       "locale": "en-US"
+             *     }
+             */
+            data: {
+                [key: string]: unknown;
+            };
             /** @example iOS */
             os?: string | null;
             /** @example 17.2 */
