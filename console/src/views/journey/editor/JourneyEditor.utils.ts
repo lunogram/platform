@@ -49,11 +49,26 @@ export function stepsToNodes(
         id,
         { x, y, type, data, name, data_key, children, stats, stats_at, id: stepId },
     ] of Object.entries(stepMap)) {
+        const { width, height, ...restData } = (data as Record<string, unknown>) ?? {}
+        const sizeStyle =
+            typeof width === "number" && typeof height === "number" ? { width, height } : undefined
         nodes.push({
             id,
             position: { x, y },
+            style: sizeStyle,
             type: "step",
-            data: { type, name, data_key, data, stats, stats_at, stepId: stepId ?? id, ...actions },
+            data: {
+                type,
+                name,
+                data_key,
+                data: restData,
+                stats,
+                stats_at,
+                stepId: stepId ?? id,
+                width: typeof width === "number" ? width : undefined,
+                height: typeof height === "number" ? height : undefined,
+                ...actions,
+            },
         })
         children?.forEach(({ external_id, path, data }) =>
             edges.push(createEdge({ sourceId: id, targetId: external_id, data, path })),
@@ -64,10 +79,22 @@ export function stepsToNodes(
 
 export function nodesToSteps(nodes: Node<JourneyNodeData>[], edges: Edge[]) {
     return nodes.reduce<JourneyStepMap>(
-        (a, { id, data: { type, name = "", data_key, data = {} }, position: { x, y } }) => {
+        (
+            a,
+            {
+                id,
+                data: { type, name = "", data_key, data = {}, width, height },
+                position: { x, y },
+            },
+        ) => {
             a[id] = {
                 type,
-                data,
+                data: {
+                    ...data,
+                    ...(typeof width === "number" && typeof height === "number"
+                        ? { width, height }
+                        : {}),
+                },
                 name,
                 data_key,
                 x,
