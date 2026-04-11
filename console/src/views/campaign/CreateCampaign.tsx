@@ -100,9 +100,11 @@ export function CreateCampaign({ open = false, onBeforeCreate, trigger }: Create
                 <ItemGroup className="gap-2">
                     {channels.map((channel) => (
                         <Item key={channel.key} variant="outline" className="items-center" asChild>
-                            <a
-                                className="no-underline cursor-pointer"
+                            <button
+                                type="button"
+                                className="cursor-pointer text-left"
                                 onClick={() => create(channel.key)}
+                                aria-label={`Create ${channel.title} campaign`}
                             >
                                 <ItemMedia variant="icon" className={channel.color}>
                                     {channel.icon}
@@ -114,7 +116,7 @@ export function CreateCampaign({ open = false, onBeforeCreate, trigger }: Create
                                 <ItemActions>
                                     <ArrowRight strokeWidth={1} />
                                 </ItemActions>
-                            </a>
+                            </button>
                         </Item>
                     ))}
                 </ItemGroup>

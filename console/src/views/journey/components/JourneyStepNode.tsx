@@ -102,6 +102,7 @@ export const JourneyStepNode = memo(
                 )}
 
                 <div
+                    data-step-type={typeName}
                     className={cn(
                         "rounded-lg bg-background shadow-sm transition-all duration-300 min-w-[200px]",
                         // Info steps get a distinct look

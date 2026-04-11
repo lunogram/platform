@@ -115,6 +115,8 @@ export default function FilterRuleEdit({
                         }}
                         options={pathSuggestions}
                         placeholder="Path"
+                        ariaLabel="Rule path"
+                        inputAriaLabel="Rule path"
                         required
                         inputClassName="rounded-none border-l-0"
                         buttonClassName="rounded-none"
@@ -177,6 +179,7 @@ export default function FilterRuleEdit({
                         <Input
                             type="text"
                             placeholder="Value"
+                            aria-label="Rule value"
                             className="h-8 min-w-[100px] w-auto rounded-l-none border-l-0 text-xs shadow-none"
                             value={rule?.value?.toString() ?? ""}
                             onChange={(e) => setRule({ ...rule, value: e.target.value })}

@@ -174,6 +174,8 @@ export function TextPreview({ campaign, form, edit = false }: TextSetupProps) {
                             projectId={project?.id}
                             value={selectedUser}
                             onChange={setSelectedUser}
+                            ariaLabel="Send test recipient"
+                            searchInputAriaLabel="Search send test recipients"
                         />
                         <Button
                             variant="default"

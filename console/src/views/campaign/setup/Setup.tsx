@@ -116,6 +116,7 @@ export default function CampaignSetup() {
                                         value={field.value}
                                         onChange={field.onChange}
                                         channel={campaign.channel}
+                                        triggerId="campaign-provider"
                                     />
                                     <FieldDescription className="whitespace-pre-line">
                                         {t("campaign.setup.form.provider.description")}

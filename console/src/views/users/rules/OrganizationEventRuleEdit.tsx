@@ -141,6 +141,7 @@ export default function OrganizationEventRuleEdit({
                     <Input
                         type="text"
                         placeholder="Count"
+                        aria-label="Organization event frequency count"
                         className="h-8 w-16 rounded-none border-l-0 text-xs shadow-none"
                         value={frequency.count?.toString() ?? ""}
                         onChange={(e) => {
@@ -167,6 +168,7 @@ export default function OrganizationEventRuleEdit({
                         <Input
                             type="text"
                             placeholder="Value"
+                            aria-label="Organization event frequency value"
                             className="h-8 w-16 rounded-none border-l-0 text-xs shadow-none"
                             value={frequency.period.value.toString()}
                             onChange={(e) => {
@@ -215,7 +217,11 @@ export default function OrganizationEventRuleEdit({
             </div>
 
             {/* User matching section */}
-            <div className="ml-5 p-3 bg-muted/50 rounded-lg border">
+            <div
+                className="ml-5 p-3 bg-muted/50 rounded-lg border"
+                role="group"
+                aria-label={t("organization_event_user_match", "Organization event user match")}
+            >
                 <div className="flex items-center gap-1.5 text-sm">
                     {t("rule_include_org_members")}
                     <Select

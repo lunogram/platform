@@ -101,6 +101,7 @@ export default function MemberConditionsBuilder({ rule, setRule }: MemberConditi
                     variant="outline"
                     onClick={handleAddCondition}
                     className="shadow-none"
+                    aria-label="Add member condition"
                 >
                     <Plus className="h-3.5 w-3.5 mr-1" />
                     {t("rule_add_member_condition")}

@@ -126,6 +126,7 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
                                                 value={field.value}
                                                 onChange={field.onChange}
                                                 channel={campaign.channel}
+                                                triggerId="provider"
                                             />
                                             <FieldDescription className="whitespace-pre-line">
                                                 {t("campaign.setup.form.provider.description")}
