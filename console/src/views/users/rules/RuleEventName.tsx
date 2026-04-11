@@ -48,6 +48,8 @@ export default function RuleEventName<T extends Rule>({
             }}
             options={eventOptions}
             placeholder="Event name"
+            ariaLabel="Event name"
+            inputAriaLabel="Event name"
             required
             renderOption={(option, search) => (
                 <span

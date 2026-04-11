@@ -108,6 +108,7 @@ export default function EventRuleEdit({
                     <Input
                         type="text"
                         placeholder="Count"
+                        aria-label="Event frequency count"
                         className="h-8 w-16 rounded-none border-l-0 text-xs shadow-none"
                         value={frequency.count?.toString() ?? ""}
                         onChange={(e) => {
@@ -174,6 +175,7 @@ export default function EventRuleEdit({
                         <Input
                             type="text"
                             placeholder="Value"
+                            aria-label="Event frequency value"
                             className={`h-8 w-16 rounded-none ${journeyContext ? "rounded-l-md" : "border-l-0"} text-xs shadow-none`}
                             value={frequency.period.value.toString()}
                             onChange={(e) => {

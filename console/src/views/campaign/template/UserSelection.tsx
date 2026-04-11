@@ -23,6 +23,10 @@ interface UserSelectionProps {
     onChange?: (user: User) => void
     /** Render a compact trigger button (h-7, text-xs). Defaults to "default". */
     size?: "default" | "sm"
+    /** Accessible label for the trigger button (combobox). */
+    ariaLabel?: string
+    /** Accessible label for the search input inside the popover. */
+    searchInputAriaLabel?: string
 }
 
 export function UserSelection({
@@ -30,6 +34,8 @@ export function UserSelection({
     value,
     onChange,
     size = "default",
+    ariaLabel = "Select user",
+    searchInputAriaLabel = "Search users",
 }: UserSelectionProps) {
     const [open, setOpen] = useState(false)
     const [search, setSearch] = useState("")
@@ -59,6 +65,7 @@ export function UserSelection({
                     variant="outline"
                     role="combobox"
                     aria-expanded={open}
+                    aria-label={ariaLabel}
                     className={cn(
                         "max-w-sm justify-between min-w-0",
                         size === "sm" && "h-8 text-xs px-2.5 [&_svg]:size-3.5",
@@ -73,6 +80,7 @@ export function UserSelection({
                 <Command>
                     <CommandInput
                         placeholder="Search user..."
+                        aria-label={searchInputAriaLabel}
                         className="h-9"
                         value={search}
                         onValueChange={setSearch}

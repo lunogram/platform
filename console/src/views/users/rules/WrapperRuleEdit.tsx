@@ -192,6 +192,13 @@ export default function WrapperRuleEdit({
                         size="sm"
                         variant="outline"
                         className="shadow-none"
+                        aria-label={
+                            rule?.group === "event"
+                                ? "Add event property condition"
+                                : rule?.group === "organization_event"
+                                  ? "Add organization event property condition"
+                                  : "Add condition"
+                        }
                         onClick={() => {
                             setRule({
                                 ...rule,
@@ -264,6 +271,7 @@ export default function WrapperRuleEdit({
                                 size="sm"
                                 variant="outline"
                                 className="shadow-none"
+                                aria-label="Add event condition"
                                 onClick={() => handleAddEventWrapper()}
                             >
                                 <Plus className="h-3.5 w-3.5 mr-1" />
@@ -275,6 +283,7 @@ export default function WrapperRuleEdit({
                                         size="sm"
                                         variant="outline"
                                         className="shadow-none"
+                                        aria-label="Add organization event condition"
                                         onClick={() => handleAddOrganizationEventWrapper()}
                                     >
                                         <Plus className="h-3.5 w-3.5 mr-1" />
@@ -284,6 +293,7 @@ export default function WrapperRuleEdit({
                                         size="sm"
                                         variant="outline"
                                         className="shadow-none"
+                                        aria-label="Add organization condition"
                                         onClick={() => handleAddOrganizationWrapper()}
                                     >
                                         <Plus className="h-3.5 w-3.5 mr-1" />

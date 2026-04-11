@@ -310,7 +310,11 @@ export default function OrganizationDetailMembers() {
                         />
                     </div>
                 </form>
-                <Button onClick={() => setIsAddMemberOpen(true)} className="flex-1 sm:flex-initial">
+                <Button
+                    onClick={() => setIsAddMemberOpen(true)}
+                    className="flex-1 sm:flex-initial"
+                    aria-label={t("add_member_from_header", "Add member from header")}
+                >
                     <Plus className="mr-2 h-4 w-4" />
                     {t("add_member")}
                 </Button>
@@ -368,6 +372,7 @@ export default function OrganizationDetailMembers() {
                                                 size="sm"
                                                 onClick={() => setIsAddMemberOpen(true)}
                                                 className="mt-4"
+                                                aria-label={t("add_member_from_empty_state", "Add member from empty state")}
                                             >
                                                 <Plus className="mr-2 h-4 w-4" />
                                                 {t("add_member")}

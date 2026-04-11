@@ -108,6 +108,8 @@ export default function MemberConditionEdit({
                     }}
                     options={pathOptions}
                     placeholder="Member property path"
+                    ariaLabel="Member condition path"
+                    inputAriaLabel="Member condition path"
                     required
                     inputClassName="rounded-none border-l-0"
                     buttonClassName="rounded-none"
@@ -166,6 +168,8 @@ export default function MemberConditionEdit({
                         <Input
                             type="text"
                             placeholder="Value"
+                            id="member-condition-value"
+                            aria-label="Member condition value"
                             className="h-8 min-w-[100px] w-auto rounded-none border-l-0 text-xs shadow-none"
                             value={rule?.value?.toString() ?? ""}
                             onChange={(e) => setRule({ ...rule, value: e.target.value })}

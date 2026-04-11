@@ -611,6 +611,8 @@ function CodeEditorInner() {
                             value={selectedUser}
                             onChange={handleUserSelect}
                             size="sm"
+                            ariaLabel="Send test recipient"
+                            searchInputAriaLabel="Search send test recipients"
                         />
                         <Button
                             variant="default"
