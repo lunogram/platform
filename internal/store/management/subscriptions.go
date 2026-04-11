@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -81,18 +80,18 @@ type SubscriptionsStore struct {
 }
 
 func (s *SubscriptionsStore) GetUserSubscriptions(ctx context.Context, projectID, userID uuid.UUID, pagination store.Pagination) (UserSubscriptions, int, error) {
-	query := fmt.Sprintf(`
+	query := `
 	SELECT
 		s.id AS subscription_id,
 		s.name,
 		s.channel,
-		CASE WHEN us.state = %d THEN 'unsubscribed' ELSE 'subscribed' END AS state,
+		CASE WHEN us.state = $5 THEN 'unsubscribed' ELSE 'subscribed' END AS state,
 		COUNT(*) OVER () AS total_count
 	FROM subscriptions s
 	LEFT JOIN user_subscription us ON us.subscription_id = s.id AND us.user_id = $2
 	WHERE s.project_id = $1 AND s.is_public = true
 	ORDER BY s.name
-	LIMIT $3 OFFSET $4`, subscriptionStateUnsubscribed)
+	LIMIT $3 OFFSET $4`
 
 	type result struct {
 		SubscriptionID uuid.UUID `db:"subscription_id"`
@@ -103,7 +102,7 @@ func (s *SubscriptionsStore) GetUserSubscriptions(ctx context.Context, projectID
 	}
 
 	var results []result
-	err := s.db.SelectContext(ctx, &results, query, projectID, userID, pagination.Limit, pagination.Offset)
+	err := s.db.SelectContext(ctx, &results, query, projectID, userID, pagination.Limit, pagination.Offset, subscriptionStateUnsubscribed)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -127,19 +126,19 @@ func (s *SubscriptionsStore) GetUserSubscriptions(ctx context.Context, projectID
 }
 
 func (s *SubscriptionsStore) GetAllUserSubscriptions(ctx context.Context, projectID, userID uuid.UUID) (UserSubscriptions, error) {
-	query := fmt.Sprintf(`
+	query := `
 	SELECT
 		s.id AS subscription_id,
 		s.name,
 		s.channel,
-		CASE WHEN us.state = %d THEN 'unsubscribed' ELSE 'subscribed' END AS state
+		CASE WHEN us.state = $3 THEN 'unsubscribed' ELSE 'subscribed' END AS state
 	FROM subscriptions s
 	LEFT JOIN user_subscription us ON us.subscription_id = s.id AND us.user_id = $2
 	WHERE s.project_id = $1 AND s.is_public = true
-	ORDER BY s.name`, subscriptionStateUnsubscribed)
+	ORDER BY s.name`
 
 	var subscriptions []UserSubscription
-	err := s.db.SelectContext(ctx, &subscriptions, query, projectID, userID)
+	err := s.db.SelectContext(ctx, &subscriptions, query, projectID, userID, subscriptionStateUnsubscribed)
 	if err != nil {
 		return nil, err
 	}
@@ -201,9 +200,9 @@ func (s *SubscriptionsStore) Unsubscribe(ctx context.Context, userID, subscripti
 	}
 
 	// Insert unsubscribe record
-	_, err = s.db.ExecContext(ctx, fmt.Sprintf(`
+	_, err = s.db.ExecContext(ctx, `
 		INSERT INTO user_subscription (user_id, subscription_id, state, created_at, updated_at)
-		VALUES ($1, $2, %d, NOW(), NOW())`, subscriptionStateUnsubscribed), userID, subscriptionID)
+		VALUES ($1, $2, $3, NOW(), NOW())`, userID, subscriptionID, subscriptionStateUnsubscribed)
 	return err
 }
 

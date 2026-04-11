@@ -155,9 +155,6 @@ func CampaignsSendHandler(logger *zap.Logger, mgmt *management.State, usrs *subj
 			if unsubscribed {
 				logger.Info("skipping send, user has unsubscribed from subscription",
 					zap.String("subscription_id", campaign.SubscriptionID.String()))
-				if err := recordSkippedBroadcastSend(ctx, logger, mgmt, usrs, event, "unsubscribed"); err != nil {
-					return err
-				}
 				return nil
 			}
 		}
@@ -569,37 +566,6 @@ func platformForDevice(device subjects.Device) string {
 	default:
 		return ""
 	}
-}
-
-func recordSkippedBroadcastSend(ctx context.Context, logger *zap.Logger, mgmt *management.State, usrs *subjects.State, event schemas.SendCampaign, reason string) error {
-	if event.BroadcastID == nil {
-		return nil
-	}
-
-	now := time.Now()
-	state := subjects.CampaignSendStateBounced
-	referenceType := "skipped_" + reason
-
-	sendRecord := subjects.CampaignSend{
-		CampaignID:    event.CampaignID,
-		UserID:        event.UserID,
-		BroadcastID:   event.BroadcastID,
-		State:         &state,
-		SentAt:        &now,
-		ReferenceType: &referenceType,
-		ReferenceID:   event.UserID.String(),
-	}
-
-	if err := usrs.CampaignSendsStore.InsertCampaignSend(ctx, sendRecord); err != nil {
-		logger.Error("failed to insert skipped campaign send record", zap.Error(err))
-		return fmt.Errorf("failed to insert skipped campaign send record: %w", err)
-	}
-
-	if err := checkBroadcastCompletion(ctx, logger, mgmt, usrs, event.ProjectID, *event.BroadcastID); err != nil {
-		logger.Error("broadcast completion check failed after skipped send", zap.Error(err))
-	}
-
-	return nil
 }
 
 // checkBroadcastCompletion determines whether all sends for a broadcast have
