@@ -2,17 +2,19 @@ package main
 
 import (
 	"crypto/ecdsa"
+	"crypto/rand"
+	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"strings"
 	"time"
 
 	pdk "github.com/extism/go-pdk"
 	"github.com/lunogram/platform/pkg/modules"
 	"github.com/lunogram/platform/pkg/modules/providers"
-	"github.com/lunogram/platform/pkg/modules/wasmcrypto"
 )
 
 const (
@@ -25,7 +27,7 @@ const (
 	sendStatusPartial = "partial"
 )
 
-//go:export manifest
+//go:wasmexport manifest
 func Manifest() int32 {
 	manifest := providers.ProviderManifest{
 		Metadata: modules.Metadata{
@@ -141,7 +143,7 @@ type apnsAlert struct {
 	Body  string `json:"body,omitempty"`
 }
 
-//go:export send
+//go:wasmexport send
 func Send() int32 {
 	var req providers.SendRequest[Config]
 	if err := pdk.InputJSON(&req); err != nil {
@@ -352,13 +354,32 @@ func buildAPNsJWT(teamID, keyID, privateKeyB64 string) (string, error) {
 	}
 
 	signingInput := header + "." + claims
-	digest := wasmcrypto.Sum256([]byte(signingInput))
+	digest := sha256.Sum256([]byte(signingInput))
 
-	sig, err := wasmcrypto.SignES256P256(ecdsaKey, digest)
+	sig, err := signES256P256(ecdsaKey, digest[:])
 	if err != nil {
 		return "", fmt.Errorf("ECDSA sign failed: %w", err)
 	}
 	return signingInput + "." + base64.RawURLEncoding.EncodeToString(sig), nil
+}
+
+func signES256P256(priv *ecdsa.PrivateKey, digest []byte) ([]byte, error) {
+	r, s, err := ecdsa.Sign(rand.Reader, priv, digest)
+	if err != nil {
+		return nil, err
+	}
+	params := priv.Params()
+	if params != nil && params.N != nil {
+		halfOrder := new(big.Int).Rsh(new(big.Int).Set(params.N), 1)
+		if s.Cmp(halfOrder) > 0 {
+			s.Sub(params.N, s)
+		}
+	}
+
+	sig := make([]byte, 64)
+	r.FillBytes(sig[:32])
+	s.FillBytes(sig[32:])
+	return sig, nil
 }
 
 func buildSendResponse(providerName string, ok, fail, total int, errs []string) providers.SendResponse {

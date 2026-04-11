@@ -1,7 +1,10 @@
 package main
 
 import (
+	"crypto"
+	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
@@ -12,7 +15,6 @@ import (
 	pdk "github.com/extism/go-pdk"
 	"github.com/lunogram/platform/pkg/modules"
 	"github.com/lunogram/platform/pkg/modules/providers"
-	"github.com/lunogram/platform/pkg/modules/wasmcrypto"
 )
 
 const (
@@ -25,7 +27,7 @@ const (
 	sendStatusPartial = "partial"
 )
 
-//go:export manifest
+//go:wasmexport manifest
 func Manifest() int32 {
 	manifest := providers.ProviderManifest{
 		Metadata: modules.Metadata{
@@ -142,7 +144,7 @@ type fcmAPS struct {
 	Sound string `json:"sound,omitempty"`
 }
 
-//go:export send
+//go:wasmexport send
 func Send() (code int32) {
 	stage := "init"
 	defer func() {
@@ -271,8 +273,8 @@ func buildServiceAccountJWT(sa serviceAccount) (string, error) {
 		return "", fmt.Errorf("service account key is not RSA")
 	}
 
-	digest := wasmcrypto.Sum256([]byte(signingInput))
-	sig, err := signRSAPKCS1v15SHA256(rsaKey, digest)
+	digest := sha256.Sum256([]byte(signingInput))
+	sig, err := rsa.SignPKCS1v15(rand.Reader, rsaKey, crypto.SHA256, digest[:])
 	if err != nil {
 		return "", fmt.Errorf("RSA sign failed: %w", err)
 	}
@@ -422,10 +424,6 @@ func decodeBase64Lenient(s string) ([]byte, error) {
 		return b, nil
 	}
 	return base64.RawURLEncoding.DecodeString(s)
-}
-
-func signRSAPKCS1v15SHA256(priv *rsa.PrivateKey, digest [32]byte) ([]byte, error) {
-	return wasmcrypto.SignRS256PKCS1v15(priv, digest)
 }
 
 func main() {}
