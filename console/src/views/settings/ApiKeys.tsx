@@ -91,6 +91,7 @@ export default function ProjectApiKeys() {
                 <Button
                     onClick={() => setEditing({ role: "support" })}
                     className="flex-1 sm:flex-initial"
+                    aria-label={t("create_key_from_header", "Create Key from header")}
                 >
                     <Plus className="mr-2 h-4 w-4" />
                     {t("create_key")}
@@ -148,6 +149,10 @@ export default function ProjectApiKeys() {
                                                 size="sm"
                                                 onClick={() => setEditing({ role: "support" })}
                                                 className="mt-2"
+                                                aria-label={t(
+                                                    "create_key_from_empty",
+                                                    "Create Key from empty state",
+                                                )}
                                             >
                                                 <Plus className="mr-2 h-4 w-4" />
                                                 {t("create_key")}

@@ -153,7 +153,11 @@ export default function Organizations() {
                         className="pl-9"
                     />
                 </div>
-                <Button onClick={() => setIsCreateOpen(true)} className="flex-1 sm:flex-initial">
+                <Button
+                    onClick={() => setIsCreateOpen(true)}
+                    className="flex-1 sm:flex-initial"
+                    aria-label={t("create_organization_from_header", "Create Organization from header")}
+                >
                     <Plus className="mr-2 h-4 w-4" />
                     {t("create_organization")}
                 </Button>
@@ -211,6 +215,10 @@ export default function Organizations() {
                                                 size="sm"
                                                 onClick={() => setIsCreateOpen(true)}
                                                 className="mt-2"
+                                                aria-label={t(
+                                                    "create_organization_from_empty",
+                                                    "Create Organization from empty state",
+                                                )}
                                             >
                                                 <Plus className="mr-2 h-4 w-4" />
                                                 {t("create_organization")}

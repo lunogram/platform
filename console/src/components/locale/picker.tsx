@@ -105,6 +105,7 @@ export function LocalePicker({
                                 <CommandItem
                                     key={locale.key}
                                     value={locale.key}
+                                    aria-label={`Locale ${locale.key}`}
                                     onSelect={() => handleSelect(locale.key)}
                                     className="cursor-pointer"
                                 >

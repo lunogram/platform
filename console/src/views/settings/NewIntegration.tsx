@@ -141,6 +141,7 @@ export default function NewIntegration() {
                                 <Card
                                     key={key}
                                     role="button"
+                                    aria-label={`Select integration ${option.type}`}
                                     className="group flex items-center gap-4 p-4 cursor-pointer transition-colors hover:border-primary hover:bg-accent/50"
                                     onClick={() =>
                                         navigate(

@@ -152,6 +152,7 @@ export default function Integrations() {
                     <Button
                         onClick={() => navigate(`/projects/${project.id}/integrations/new`)}
                         className="flex-1 sm:flex-initial"
+                        aria-label={t("add_integration_from_header", "Add Integration from header")}
                     >
                         <Plus className="mr-2 h-4 w-4" />
                         {t("add_integration")}
@@ -212,6 +213,10 @@ export default function Integrations() {
                                                         )
                                                     }
                                                     className="mt-2"
+                                                    aria-label={t(
+                                                        "add_integration_from_empty",
+                                                        "Add Integration from empty state",
+                                                    )}
                                                 >
                                                     <Plus className="mr-2 h-4 w-4" />
                                                     {t("add_integration")}

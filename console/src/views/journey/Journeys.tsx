@@ -173,7 +173,11 @@ export default function Journeys() {
                         className="pl-9"
                     />
                 </div>
-                <Button onClick={() => setIsCreateOpen(true)} className="flex-1 sm:flex-initial">
+                <Button
+                    onClick={() => setIsCreateOpen(true)}
+                    className="flex-1 sm:flex-initial"
+                    aria-label={t("create_journey_from_header", "Create Journey from header")}
+                >
                     <Plus className="mr-2 h-4 w-4" />
                     {t("create_journey")}
                 </Button>
@@ -238,6 +242,10 @@ export default function Journeys() {
                                                 size="sm"
                                                 onClick={() => setIsCreateOpen(true)}
                                                 className="mt-2"
+                                                aria-label={t(
+                                                    "create_journey_from_empty",
+                                                    "Create Journey from empty state",
+                                                )}
                                             >
                                                 <Plus className="mr-2 h-4 w-4" />
                                                 {t("create_journey")}

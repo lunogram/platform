@@ -97,7 +97,11 @@ export default function Locales() {
                         className="pl-9"
                     />
                 </div>
-                <Button onClick={() => setOpen(true)} className="flex-1 sm:flex-initial">
+                <Button
+                    onClick={() => setOpen(true)}
+                    className="flex-1 sm:flex-initial"
+                    aria-label={t("create_locale_from_header", "Create Locale from header")}
+                >
                     <Plus className="mr-2 h-4 w-4" />
                     {t("create_locale")}
                 </Button>
@@ -144,6 +148,10 @@ export default function Locales() {
                                                 size="sm"
                                                 onClick={() => setOpen(true)}
                                                 className="mt-2"
+                                                aria-label={t(
+                                                    "create_locale_from_empty",
+                                                    "Create Locale from empty state",
+                                                )}
                                             >
                                                 <Plus className="mr-2 h-4 w-4" />
                                                 {t("create_locale")}
