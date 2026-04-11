@@ -27,7 +27,7 @@ func NewController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB
 	controller := &Controller{
 		ProjectsController:         NewProjectsController(logger, managementDB, usersDB, journeyDB, webhookCaller, pub, engine),
 		CampaignsController:        NewCampaignsController(logger, managementDB, usersDB, engine),
-		TemplatesController:        NewTemplatesController(logger, managementDB, pubsub.NewEmailRenderer(req), registry, engine, cfg.Link.SecretBytes(), cfg.Link.TrackingBaseURL()),
+		TemplatesController:        NewTemplatesController(logger, managementDB, usersDB, pubsub.NewEmailRenderer(req), registry, engine, cfg.Link.SecretBytes(), cfg.Link.TrackingBaseURL()),
 		ActionsController:          NewActionsController(logger, managementDB, pubsub.NewActionCaller(req), usersDB, actionRegistry, engine),
 		AdminsController:           NewAdminsController(logger, managementDB, engine),
 		UsersController:            NewUsersController(logger, pub, usersDB, journeyDB, mgmt, cfg.Storage.MaxUploadSize, engine),
@@ -44,6 +44,7 @@ func NewController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB
 		ApiKeysController:          NewApiKeysController(logger, managementDB, engine),
 		EmailTemplatesController:   NewEmailTemplatesController(logger, webhookCaller, engine),
 		SenderIdentitiesController: NewSenderIdentitiesController(logger, managementDB, engine),
+		PushProvidersController:    NewPushProvidersController(logger, managementDB, registry, engine),
 		BroadcastsController:       NewBroadcastsController(logger, managementDB, usersDB, pub, jet, engine, consumer.Namespace(cfg.Nats.Namespace)),
 	}
 
@@ -76,5 +77,6 @@ type Controller struct {
 	*ActionsController
 	*EmailTemplatesController
 	*SenderIdentitiesController
+	*PushProvidersController
 	*BroadcastsController
 }

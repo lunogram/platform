@@ -82,7 +82,6 @@ func (srv *CampaignsController) CreateCampaign(w http.ResponseWriter, r *http.Re
 		ProjectID:      project.ID,
 		Name:           body.Name,
 		Channel:        string(body.Channel),
-		ProviderID:     body.ProviderId,
 		SubscriptionID: body.SubscriptionId,
 	})
 	if err != nil {
@@ -209,8 +208,7 @@ func (srv *CampaignsController) UpdateCampaign(w http.ResponseWriter, r *http.Re
 	}
 
 	updated := management.CampaignUpdate{
-		Name:       body.Name,
-		ProviderID: body.ProviderId,
+		Name: body.Name,
 	}
 
 	if body.Variables != nil {
@@ -317,7 +315,6 @@ func (srv *CampaignsController) DuplicateCampaign(w http.ResponseWriter, r *http
 		ProjectID:      campaign.ProjectID,
 		Name:           "Copy of " + campaign.Name,
 		Channel:        campaign.Channel,
-		ProviderID:     campaign.ProviderID,
 		SubscriptionID: campaign.SubscriptionID,
 	})
 	if err != nil {

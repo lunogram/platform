@@ -27,6 +27,7 @@ func setupSubscriptionsController(t *testing.T) (*SubscriptionsController, uuid.
 
 	mgmt := management.NewState(mgmtDB)
 	usrs := subjects.NewState(usrsDB, zap.NewNop())
+	client := NewClientController(logger, usrsDB, mgmtDB, usrs, nil, nil)
 
 	// Create project
 	projectsStore := management.NewProjectsStore(mgmtDB)
@@ -42,7 +43,7 @@ func setupSubscriptionsController(t *testing.T) (*SubscriptionsController, uuid.
 	userID, err := usrs.CreateUser(ctx, projectID, &email, nil, json.RawMessage("{}"), nil, nil, nil)
 	require.NoError(t, err)
 
-	controller, err := NewSubscriptionsController(logger, mgmtDB, mgmt, usrs)
+	controller, err := NewSubscriptionsController(client, mgmtDB, mgmt)
 	require.NoError(t, err)
 
 	return controller, projectID, userID
@@ -135,6 +136,7 @@ func TestEmailUnsubscribe(t *testing.T) {
 
 	mgmt := management.NewState(mgmtDB)
 	usrs := subjects.NewState(usrsDB, zap.NewNop())
+	client := NewClientController(logger, usrsDB, mgmtDB, usrs, nil, nil)
 
 	// Create project
 	projectsStore := management.NewProjectsStore(mgmtDB)
@@ -169,7 +171,7 @@ func TestEmailUnsubscribe(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	controller, err := NewSubscriptionsController(logger, mgmtDB, mgmt, usrs)
+	controller, err := NewSubscriptionsController(client, mgmtDB, mgmt)
 	require.NoError(t, err)
 
 	type test struct {

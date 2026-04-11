@@ -24,7 +24,7 @@ import (
 )
 
 type testClientController struct {
-	*ClientController
+	*Controller
 	mgmt *management.State
 }
 
@@ -45,7 +45,7 @@ func (tc *testClientController) actorContext(t *testing.T, orgID, projectID uuid
 	actor := rbac.NewActor(rbac.ActorAPIKey, uuid.New().String(), opts...)
 
 	engine, _ := rbac.TestSetup(t, t.Context(), actor, "member", "client")
-	tc.ClientController.engine = engine
+	tc.UsersController.engine = engine
 
 	return actor
 }
@@ -72,10 +72,12 @@ func setupClientController(t *testing.T) *testClientController {
 	usersState := subjects.NewState(usrs, zap.NewNop())
 
 	// Start with a bare engine; tests that need permissions call actorContext.
-	controller := NewClientController(logger, usrs, usersState, pub, rbac.NewTestEngine(t))
+	controller, err := NewController(logger, mgmt, usrs, management.NewState(mgmt), usersState, pub, rbac.NewTestEngine(t))
+	require.NoError(t, err)
+
 	return &testClientController{
-		ClientController: controller,
-		mgmt:             management.NewState(mgmt),
+		Controller: controller,
+		mgmt:       management.NewState(mgmt),
 	}
 }
 

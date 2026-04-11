@@ -479,10 +479,10 @@ func (s *ListsStore) SelectListUsers(ctx context.Context, projectID, listID uuid
 	SELECT
 		u.id, u.project_id, u.email, u.phone, u.data, u.timezone, u.locale, u.version, u.created_at, u.updated_at,
 		EXISTS(
-			SELECT 1 FROM devices d
+			SELECT 1 FROM user_devices d
 			WHERE d.user_id = u.id
-			AND d.token IS NOT NULL
-			AND d.token != ''
+			AND d.config IS NOT NULL
+			AND d.deleted_at IS NULL
 		) as has_push_device,
 		COALESCE(ueia.external_ids, '[]'::jsonb) AS external_ids,
 		COUNT(*) OVER () AS total_count
@@ -547,10 +547,10 @@ func (s *ListsStore) PreviewListUsers(ctx context.Context, projectID uuid.UUID, 
 	SELECT
 		u.id, u.project_id, u.email, u.phone, u.data, u.timezone, u.locale, u.version, u.created_at, u.updated_at,
 		EXISTS(
-			SELECT 1 FROM devices d
+			SELECT 1 FROM user_devices d
 			WHERE d.user_id = u.id
-			AND d.token IS NOT NULL
-			AND d.token != ''
+			AND d.config IS NOT NULL
+			AND d.deleted_at IS NULL
 		) as has_push_device,
 		COALESCE(ueia.external_ids, '[]'::jsonb) AS external_ids,
 		COUNT(*) OVER () AS total_count

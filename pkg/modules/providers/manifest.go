@@ -55,6 +55,7 @@ func (r RateLimit) ParseInterval() time.Duration {
 // ProviderSpec defines the specification for a provider module.
 type ProviderSpec struct {
 	Channels  []Channel           `json:"channels"`
+	Platforms []Platform          `json:"platforms,omitempty"` // push notification platforms supported by this provider (e.g. ios, android, web)
 	Config    *modules.JSONSchema `json:"config,omitempty"`
 	Locked    bool                `json:"locked,omitempty"`
 	Webhook   bool                `json:"webhook,omitempty"` // true if the module exports a webhook() function

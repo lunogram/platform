@@ -37,7 +37,7 @@ export default function EventRuleEdit({
                             setRule({ ...rule, operator: operator as typeof rule.operator })
                         }
                     >
-                        <SelectTrigger className="h-8 w-auto min-w-[70px] text-xs shadow-none">
+                        <SelectTrigger elevation="flat" className="h-8 w-auto min-w-[70px] text-xs">
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -91,7 +91,10 @@ export default function EventRuleEdit({
                             })
                         }
                     >
-                        <SelectTrigger className="h-8 w-auto min-w-[80px] rounded-r-none text-xs shadow-none">
+                        <SelectTrigger
+                            elevation="flat"
+                            className="h-8 w-auto min-w-[80px] rounded-r-none text-xs"
+                        >
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -150,7 +153,10 @@ export default function EventRuleEdit({
                             }
                         }}
                     >
-                        <SelectTrigger className="h-8 w-auto min-w-[160px] text-xs shadow-none">
+                        <SelectTrigger
+                            elevation="flat"
+                            className="h-8 w-auto min-w-[160px] text-xs"
+                        >
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -202,7 +208,10 @@ export default function EventRuleEdit({
                                 })
                             }}
                         >
-                            <SelectTrigger className="h-8 w-auto min-w-[80px] rounded-l-none border-l-0 text-xs shadow-none">
+                            <SelectTrigger
+                                elevation="flat"
+                                className="h-8 w-auto min-w-[80px] rounded-l-none border-l-0 text-xs"
+                            >
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -225,7 +234,7 @@ export default function EventRuleEdit({
                             setRule({ ...rule, operator: operator as typeof rule.operator })
                         }
                     >
-                        <SelectTrigger className="h-8 w-auto min-w-[70px] text-xs shadow-none">
+                        <SelectTrigger elevation="flat" className="h-8 w-auto min-w-[70px] text-xs">
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>

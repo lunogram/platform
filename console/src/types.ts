@@ -2,7 +2,6 @@ import type { ComponentType, Dispatch, Key, ReactNode, SetStateAction } from "re
 import type { FieldPath, FieldValues, UseFormReturn } from "react-hook-form"
 import type { Node } from "reactflow"
 import type { UUID } from "@/types/common"
-import type { Provider as OAPIProvider } from "@/oapi/client"
 
 export type Class<T> = new () => T
 
@@ -364,6 +363,7 @@ export interface Project {
     has_provider?: boolean
     campaigns_count?: number
     journeys_count?: number
+    integrations_count?: number
     users_count?: number
     lists_count?: number
 }
@@ -437,8 +437,9 @@ export type SubjectOrganizationMemberParams = Pick<SubjectOrganizationMember, "d
 }
 
 export interface Device {
+    id: UUID
     device_id: string
-    token?: string
+    data: Record<string, unknown>
     os: string
     model: string
     app_build: string
@@ -616,8 +617,6 @@ export interface Campaign {
     name: string
     channel: ChannelType
     delivery: CampaignDelivery
-    provider_id?: UUID
-    provider?: OAPIProvider
     subscription_id?: UUID
     subscription?: Subscription
     templates: Template[]
@@ -665,9 +664,7 @@ export interface BroadcastUser {
     phone?: string
 }
 
-export type CampaignUpdateParams = Partial<
-    Pick<Campaign, "name" | "provider_id" | "subscription_id" | "variables">
->
+export type CampaignUpdateParams = Partial<Pick<Campaign, "name" | "subscription_id" | "variables">>
 export type CampaignCreateParams = Pick<Campaign, "name" | "channel">
 export type CampaignUser = User & { state: CampaignSendState; send_at: string }
 

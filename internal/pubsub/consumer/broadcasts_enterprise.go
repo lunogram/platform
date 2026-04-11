@@ -10,10 +10,8 @@ import (
 	internalProviders "github.com/lunogram/platform/internal/providers"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
-	"github.com/lunogram/platform/internal/ratelimit"
 	"github.com/lunogram/platform/internal/store/management"
 	"github.com/lunogram/platform/internal/store/subjects"
-	providers "github.com/lunogram/platform/pkg/modules/providers"
 	"github.com/nats-io/nats.go/jetstream"
 	"go.uber.org/zap"
 )
@@ -51,37 +49,12 @@ func BroadcastProcessHandler(logger *zap.Logger, mgmt *management.State, usrs *s
 			return Permanent(fmt.Errorf("broadcast %s is in state %s, expected sending", broadcast.ID, broadcast.State))
 		}
 
-		campaign, err := mgmt.CampaignsStore.GetCampaign(ctx, event.ProjectID, broadcast.CampaignID)
-		if err != nil {
-			logger.Error("failed to get campaign", zap.Error(err))
-			return Permanent(err)
-		}
-
-		if campaign.Provider == nil {
-			logger.Error("campaign has no provider configured", zap.String("campaign_id", campaign.ID.String()))
-			return Permanent(fmt.Errorf("campaign %s has no provider configured", campaign.ID))
-		}
-
-		// Resolve the provider rate limit once and embed it in the batch
-		// chain so each SendCampaign message carries the limit without
-		// requiring the consumer to look up the manifest or DB record.
-		var rl ratelimit.Limit
-		if provider, exists := registry.Get(campaign.Provider.Module); exists {
-			rl = providers.ResolveLimit(
-				ratelimit.ProviderKey(campaign.Provider.ID),
-				provider.Manifest().Spec.RateLimit,
-				campaign.Provider.RateLimit,
-				campaign.Provider.RateInterval,
-			)
-		}
-
 		batchEvent := schemas.ProcessBroadcastBatch{
 			ProjectID:   event.ProjectID,
 			BroadcastID: event.BroadcastID,
 			Offset:      0,
 			BatchSize:   DefaultBroadcastBatchSize,
 			Processed:   0,
-			RateLimit:   rl,
 		}
 
 		if err := pub.Publish(ctx, schemas.BroadcastsBatch(event.ProjectID, event.BroadcastID), batchEvent); err != nil {
@@ -138,7 +111,6 @@ func BroadcastBatchHandler(logger *zap.Logger, mgmt *management.State, usrs *sub
 				UserID:      userID,
 				CampaignID:  broadcast.CampaignID,
 				BroadcastID: &event.BroadcastID,
-				RateLimit:   event.RateLimit,
 			}
 
 			// Deterministic message ID so that if NATS redelivers this batch
@@ -174,7 +146,6 @@ func BroadcastBatchHandler(logger *zap.Logger, mgmt *management.State, usrs *sub
 				Offset:      event.Offset + event.BatchSize,
 				BatchSize:   event.BatchSize,
 				Processed:   totalProcessed,
-				RateLimit:   event.RateLimit,
 			}
 
 			if err := pub.Publish(ctx, schemas.BroadcastsBatch(event.ProjectID, event.BroadcastID), nextBatch); err != nil {

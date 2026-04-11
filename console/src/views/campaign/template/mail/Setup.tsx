@@ -58,9 +58,7 @@ function randomSubject() {
 
 export function EmailForm(campaign: Campaign, template?: Template) {
     const formSchema = emailSetupFormSchema.extend({
-        sender_identity_id: campaign?.provider?.data.default_from
-            ? z.string().optional()
-            : z.string("From address is required").min(1),
+        sender_identity_id: z.string("From address is required").min(1),
     })
 
     const form = useForm({
@@ -84,7 +82,11 @@ interface EmailFormControlProps {
     disabled?: boolean
 }
 
-export function EmailFormControl({ campaign, form, disabled = false }: EmailFormControlProps) {
+export function EmailFormControl({
+    campaign: _campaign,
+    form,
+    disabled = false,
+}: EmailFormControlProps) {
     const { t } = useTranslation()
     const [project] = useContext(ProjectContext)
     const { variableGroups } = useCampaignVariableContext()
@@ -115,7 +117,6 @@ export function EmailFormControl({ campaign, form, disabled = false }: EmailForm
                 name="sender_identity_id"
                 control={form.control}
                 render={({ field, fieldState }) => {
-                    const defaultFrom = campaign?.provider?.data.default_from
                     const handleIdentitySelect = (identity: SenderIdentity) => {
                         const currentName = form.getValues("from.name")
                         if (!currentName && typeof identity.traits?.name === "string") {
@@ -130,25 +131,12 @@ export function EmailFormControl({ campaign, form, disabled = false }: EmailForm
                             <SenderIdentityCombobox
                                 projectId={project.id}
                                 channel="email"
-                                providerId={campaign.provider?.id}
                                 value={field.value ?? ""}
                                 onChange={field.onChange}
                                 onIdentitySelect={handleIdentitySelect}
-                                placeholder={
-                                    defaultFrom ||
-                                    t("select_from_address", "Select from address...")
-                                }
+                                placeholder={t("select_from_address", "Select from address...")}
                                 disabled={disabled}
                             />
-                            {!field.value && defaultFrom && (
-                                <p className="text-xs text-muted-foreground mt-1">
-                                    {t(
-                                        "sender_fallback_hint",
-                                        "Falls back to integration default: {{address}}",
-                                        { address: defaultFrom },
-                                    )}
-                                </p>
-                            )}
                             {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
                         </Field>
                     )
@@ -205,7 +193,7 @@ export interface EmailSetupProps {
     edit?: boolean
 }
 
-export function EmailPreview({ campaign, form }: EmailSetupProps) {
+export function EmailPreview({ campaign: _campaign, form }: EmailSetupProps) {
     const [project] = useContext(ProjectContext)
     const [template] = useContext(TemplateContext)
     const { t } = useTranslation()
@@ -216,8 +204,6 @@ export function EmailPreview({ campaign, form }: EmailSetupProps) {
     let previewSubject = subject
 
     let displayFromName = from?.name || template?.data?.from?.name || ""
-
-    const displayFromEmail = campaign?.provider?.data?.default_from || ""
 
     if (selectedUser) {
         previewSubject = Render(subject, {
@@ -252,11 +238,6 @@ export function EmailPreview({ campaign, form }: EmailSetupProps) {
                         {displayFromName && (
                             <span className="font-semibold text-gray-900 whitespace-nowrap">
                                 {displayFromName}
-                            </span>
-                        )}
-                        {displayFromEmail && (
-                            <span className="text-gray-400 whitespace-nowrap truncate">
-                                &lt;{displayFromEmail}&gt;
                             </span>
                         )}
                     </div>
@@ -386,7 +367,6 @@ export function EmailContentPreview({ campaign, form, edit = false }: EmailSetup
     const { subject, from, replyTo } = form.watch()
 
     const rawFromName = from.name || template.data.from?.name || ""
-    const displayFromEmail = campaign?.provider?.data.default_from || ""
     const displayReplyTo = replyTo || template.data.replyTo || ""
 
     const displaySubject = selectedUser ? Render(subject, { user: selectedUser }) : subject
@@ -466,17 +446,13 @@ export function EmailContentPreview({ campaign, form, edit = false }: EmailSetup
 
                     <div className="flex items-start gap-3">
                         <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-medium flex-shrink-0">
-                            {displayFromName
-                                ? displayFromName.charAt(0).toUpperCase()
-                                : displayFromEmail
-                                  ? displayFromEmail.charAt(0).toUpperCase()
-                                  : "?"}
+                            {displayFromName ? displayFromName.charAt(0).toUpperCase() : "?"}
                         </div>
 
                         <div className="flex-1 min-w-0">
                             <div className="flex items-baseline gap-2 mb-1">
                                 <span className="font-medium text-gray-900 text-sm">
-                                    {displayFromName || displayFromEmail || (
+                                    {displayFromName || (
                                         <span className="text-gray-400 italic">Unknown sender</span>
                                     )}
                                 </span>
@@ -493,11 +469,6 @@ export function EmailContentPreview({ campaign, form, edit = false }: EmailSetup
                                     <ChevronDownIcon />
                                 </button>
                             </div>
-                            {displayFromEmail && displayFromName && (
-                                <div className="text-xs text-gray-500 mt-1">
-                                    &lt;{displayFromEmail}&gt;
-                                </div>
-                            )}
                             {displayReplyTo && (
                                 <div className="text-xs text-gray-500 mt-1">
                                     Reply-To: {displayReplyTo}

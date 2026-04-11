@@ -55,7 +55,14 @@ export function CreateCampaign({ open = false, onBeforeCreate, trigger }: Create
             name: generateProjectName(),
             channel: channel,
         })
-        await navigate(`/projects/${project.id}/campaigns/${campaign.id}/setup`)
+
+        // Create a default template and navigate directly to the template editor
+        const template = await api.campaigns.templates.create(project.id, campaign.id, {
+            locale: project.locale,
+            data: {},
+        })
+
+        await navigate(`/projects/${project.id}/campaigns/${campaign.id}/templates/${template.id}`)
     }
 
     const channels: Array<Channel> = [

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	extism "github.com/extism/go-sdk"
+	"github.com/tetratelabs/wazero"
 	"go.uber.org/zap"
 
 	"github.com/lunogram/platform/internal/config"
@@ -64,7 +65,8 @@ func NewPlugin(ctx context.Context, wasm []byte, logger *zap.Logger) (*extism.Pl
 	}
 
 	cfg := extism.PluginConfig{
-		EnableWasi: true,
+		EnableWasi:   true,
+		ModuleConfig: wazero.NewModuleConfig().WithSysWalltime(),
 	}
 
 	plugin, err := extism.NewPlugin(ctx, manifest, cfg, nil)

@@ -117,7 +117,7 @@ export function BroadcastMessagePreview({ campaignId, defaultUser }: BroadcastMe
 // ---------------------------------------------------------------------------
 
 function EmailBroadcastPreview({
-    campaign,
+    campaign: _campaign,
     template,
     user,
 }: {
@@ -167,7 +167,6 @@ function EmailBroadcastPreview({
 
     const rawSubject = template.data.subject ?? ""
     const rawFromName = template.data.from?.name ?? ""
-    const displayFromEmail = campaign.provider?.data?.default_from ?? ""
 
     const displaySubject = user ? Render(rawSubject, { user }) : rawSubject
     const displayFromName = user ? Render(rawFromName, { user }) : rawFromName
@@ -188,16 +187,12 @@ function EmailBroadcastPreview({
 
                 <div className="flex items-start gap-3">
                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-medium flex-shrink-0">
-                        {displayFromName
-                            ? displayFromName.charAt(0).toUpperCase()
-                            : displayFromEmail
-                              ? displayFromEmail.charAt(0).toUpperCase()
-                              : "?"}
+                        {displayFromName ? displayFromName.charAt(0).toUpperCase() : "?"}
                     </div>
                     <div className="flex-1 min-w-0">
                         <div className="flex items-baseline gap-2 mb-1">
                             <span className="font-medium text-gray-900 text-sm">
-                                {displayFromName || displayFromEmail || (
+                                {displayFromName || (
                                     <span className="text-gray-400 italic">
                                         {t("unknown_sender", "Unknown sender")}
                                     </span>
@@ -211,11 +206,6 @@ function EmailBroadcastPreview({
                             </span>
                         </div>
                         <div className="text-xs text-gray-600">to me</div>
-                        {displayFromEmail && displayFromName && (
-                            <div className="text-xs text-gray-500 mt-1">
-                                &lt;{displayFromEmail}&gt;
-                            </div>
-                        )}
                     </div>
                 </div>
             </div>
