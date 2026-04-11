@@ -14,8 +14,7 @@ import {
     Copy,
     Archive,
 } from "lucide-react"
-
-import api from "../../api"
+import { oapiClient } from "@/oapi/client"
 import { useResolver } from "../../hooks"
 import { formatDate, snakeToTitle } from "../../utils"
 import { getRandomColor } from "@/lib/colors"
@@ -26,7 +25,7 @@ import { CampaignsIcon } from "@/components/icons"
 
 import { CreateCampaign } from "./CreateCampaign"
 
-import type { Campaign, CampaignDelivery, ChannelType } from "@/types"
+import type { CampaignDelivery, ChannelType } from "@/types"
 import type { UUID } from "@/types/common"
 
 import { Button } from "@/components/ui/button"
@@ -49,7 +48,7 @@ import {
 
 const channelIcons: Record<ChannelType, typeof Mail> = {
     email: Mail,
-    text: Smartphone,
+    sms: Smartphone,
     push: MessageSquareDot,
 }
 
@@ -65,6 +64,7 @@ interface CampaignsProps {
 }
 
 export default function Campaigns({ create = false }: CampaignsProps) {
+    const pageSize = 25
     const [preferences] = useContext(PreferencesContext)
     const [project] = useContext(ProjectContext)
     const navigate = useNavigate()
@@ -72,16 +72,12 @@ export default function Campaigns({ create = false }: CampaignsProps) {
 
     const [searchQuery, setSearchQuery] = useState("")
     const [debouncedQuery, setDebouncedQuery] = useState("")
-    const [cursor, setCursor] = useState<string | undefined>()
-    const [pageDirection, setPageDirection] = useState<"next" | "prev" | undefined>()
-    const [cursorHistory, setCursorHistory] = useState<string[]>([])
-    const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>()
+    const [offset, setOffset] = useState(0)
+    const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
     const handleSearch = useCallback((value: string) => {
         setSearchQuery(value)
-        setCursor(undefined)
-        setPageDirection(undefined)
-        setCursorHistory([])
+        setOffset(0)
         clearTimeout(searchTimeoutRef.current)
         searchTimeoutRef.current = setTimeout(() => {
             setDebouncedQuery(value)
@@ -90,51 +86,79 @@ export default function Campaigns({ create = false }: CampaignsProps) {
 
     const [result, , reload] = useResolver(
         useCallback(async () => {
-            return await api.campaigns.search(project.id, {
-                limit: 15,
-                cursor,
-                page: pageDirection,
-                search: debouncedQuery || undefined,
+            const response = await oapiClient.GET("/api/admin/projects/{projectID}/campaigns", {
+                params: {
+                    path: {
+                        projectID: project.id,
+                    },
+                    query: {
+                        limit: pageSize,
+                        offset,
+                        search: debouncedQuery,
+                    },
+                },
             })
-        }, [project.id, debouncedQuery, cursor, pageDirection]),
+
+            return (
+                response.data ?? {
+                    results: [],
+                    total: 0,
+                    limit: pageSize,
+                    offset,
+                }
+            )
+        }, [project.id, debouncedQuery, offset]),
     )
 
     const campaigns = result?.results
-    const totalCount = result?.total ?? 0
-    const hasNextPage = !!result?.nextCursor
-    const hasPrevPage = cursorHistory.length > 0
+    const hasNextPage = !!result && offset + pageSize < result.total
+    const hasPrevPage = offset > 0
 
     const handleNextPage = () => {
-        if (result?.nextCursor) {
-            setCursorHistory((prev) => [...prev, cursor ?? ""])
-            setCursor(result.nextCursor)
-            setPageDirection("next")
+        if (hasNextPage) {
+            setOffset((prev) => prev + pageSize)
         }
     }
 
     const handlePrevPage = () => {
-        if (cursorHistory.length > 0) {
-            const prev = [...cursorHistory]
-            const prevCursor = prev.pop()
-            setCursorHistory(prev)
-            setCursor(prevCursor || undefined)
-            setPageDirection(prevCursor ? "next" : undefined)
+        if (hasPrevPage) {
+            setOffset((prev) => Math.max(0, prev - pageSize))
         }
     }
 
     const handleDuplicateCampaign = async (e: React.MouseEvent, id: UUID) => {
         e.stopPropagation()
-        const campaign = await api.campaigns.duplicate(project.id, id)
-        await navigate(`/projects/${project.id}/campaigns/${campaign.id.toString()}`)
+        const response = await oapiClient.POST(
+            "/api/admin/projects/{projectID}/campaigns/{campaignID}/duplicate",
+            {
+                params: {
+                    path: {
+                        projectID: project.id,
+                        campaignID: id,
+                    },
+                },
+            },
+        )
+
+        if (response.data?.id) {
+            navigate(`/projects/${project.id}/campaigns/${response.data.id}`)
+        }
     }
 
     const handleArchiveCampaign = async (e: React.MouseEvent, id: UUID) => {
         e.stopPropagation()
-        await api.campaigns.delete(project.id, id)
+        await oapiClient.DELETE("/api/admin/projects/{projectID}/campaigns/{campaignID}", {
+            params: {
+                path: {
+                    projectID: project.id,
+                    campaignID: id,
+                },
+            },
+        })
         await reload()
     }
 
-    const handleRowClick = (campaign: Campaign) => {
+    const handleRowClick = (campaign: { id: UUID } & unknown) => {
         navigate(`/projects/${project.id}/campaigns/${campaign.id.toString()}`)
     }
 
@@ -324,7 +348,7 @@ export default function Campaigns({ create = false }: CampaignsProps) {
                 {campaigns && campaigns.length > 0 && (
                     <div className="flex items-center justify-between border-t px-4 py-3">
                         <p className="text-sm text-muted-foreground">
-                            {totalCount} {t("campaign.plural").toLowerCase()}
+                            {result?.total ?? campaigns.length} {t("campaign.plural").toLowerCase()}
                         </p>
                         {(hasPrevPage || hasNextPage) && (
                             <div className="flex items-center gap-2">

@@ -391,6 +391,7 @@ type Campaign struct {
 	ProjectId      openapi_types.UUID  `json:"project_id"`
 	SubscriptionId *openapi_types.UUID `json:"subscription_id,omitempty"`
 	Templates      []Template          `json:"templates"`
+	Transactional  bool                `json:"transactional"`
 	UpdatedAt      time.Time           `json:"updated_at"`
 	Variables      *[]CampaignVariable `json:"variables,omitempty"`
 }
@@ -471,6 +472,7 @@ type CreateCampaign struct {
 	Channel        Channel             `json:"channel"`
 	Name           string              `json:"name"`
 	SubscriptionId *openapi_types.UUID `json:"subscription_id,omitempty"`
+	Transactional  *bool               `json:"transactional,omitempty"`
 }
 
 // CreateJourney defines model for CreateJourney.
@@ -1373,8 +1375,10 @@ type UpdateBroadcast struct {
 
 // UpdateCampaign defines model for UpdateCampaign.
 type UpdateCampaign struct {
-	Name      *string             `json:"name,omitempty"`
-	Variables *[]CampaignVariable `json:"variables,omitempty"`
+	Name           *string             `json:"name,omitempty"`
+	SubscriptionId *openapi_types.UUID `json:"subscription_id,omitempty"`
+	Transactional  *bool               `json:"transactional,omitempty"`
+	Variables      *[]CampaignVariable `json:"variables,omitempty"`
 }
 
 // UpdateJourney defines model for UpdateJourney.

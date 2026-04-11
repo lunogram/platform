@@ -6274,6 +6274,9 @@ components:
         subscription_id:
           type: string
           format: uuid
+        transactional:
+          type: boolean
+          example: false
 
     UpdateCampaign:
       type: object
@@ -6281,6 +6284,12 @@ components:
         name:
           type: string
           example: "epic hopper"
+        subscription_id:
+          type: string
+          format: uuid
+        transactional:
+          type: boolean
+          example: false
         variables:
           type: array
           items:
@@ -6368,6 +6377,7 @@ components:
         - channel
         - templates
         - delivery
+        - transactional
         - created_at
         - updated_at
       properties:
@@ -6394,6 +6404,9 @@ components:
         subscription_id:
           type: string
           format: uuid
+        transactional:
+          type: boolean
+          example: false
         templates:
           type: array
           items:

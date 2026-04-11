@@ -1,6 +1,6 @@
-import { useContext, useState, useEffect } from "react"
+import { useCallback, useContext, useMemo, useState, useEffect } from "react"
 import { CampaignContext, ProjectContext, TemplateContext } from "@/contexts"
-import type { Campaign, Template, User } from "@/types"
+import type { Campaign, Template, Subscription } from "@/types"
 import { useTranslation } from "react-i18next"
 import { Controller, useForm } from "react-hook-form"
 import { z } from "zod"
@@ -8,6 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import api from "@/api"
 import { Radio } from "lucide-react"
 import { isEnterprise } from "@/config/enterprise"
+import { useResolver } from "@/hooks"
 
 import { channels } from "./template/channels"
 import { CampaignVariables } from "./CampaignVariables"
@@ -17,6 +18,15 @@ import { Tabs, TabsContent } from "@/components/ui/tabs"
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import { Switch } from "@/components/ui/switch"
+import { Label } from "@/components/ui/label"
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select"
 import { CreateBroadcastDialog } from "@/views/broadcast/CreateBroadcastDialog"
 
 const campaignVariableSchema = z.object({
@@ -38,6 +48,21 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
     const templateState = useState<Template>(template)
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [isBroadcastOpen, setIsBroadcastOpen] = useState(false)
+    const [isTransactional, setTransactional] = useState(campaign.transactional ?? false)
+    const [subscriptionId, setSubscriptionId] = useState<string>(campaign.subscription_id ?? "")
+
+    const [subscriptions] = useResolver(
+        useCallback(async (): Promise<Subscription[]> => {
+            if (!project?.id) return []
+            const result = await api.subscriptions.search(project.id, { limit: 100 })
+            return result.results ?? []
+        }, [project?.id]),
+    )
+
+    const filteredSubscriptions = useMemo(() => {
+        if (!subscriptions) return []
+        return subscriptions.filter((s) => s.channel === campaign.channel)
+    }, [subscriptions, campaign.channel])
 
     const form = useForm<CampaignReviewFormData>({
         resolver: zodResolver(campaignSchema),
@@ -62,6 +87,8 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
         try {
             const updatedCampaign = await api.campaigns.update(project.id, campaign.id, {
                 name: data.name,
+                transactional: isTransactional,
+                subscription_id: isTransactional ? undefined : subscriptionId || undefined,
                 variables: data.variables.filter((v) => v.name),
             })
 
@@ -132,19 +159,72 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
                                 />
                             </FieldGroup>
 
+                            <div className="flex items-center justify-between rounded-md border p-3">
+                                <div className="space-y-1">
+                                    <Label htmlFor="transactional-toggle">
+                                        {t("campaign.transactional", "Transactional")}
+                                    </Label>
+                                    <p className="text-sm text-muted-foreground">
+                                        {t(
+                                            "campaign.transactional.help",
+                                            "When enabled, subscription preference is ignored.",
+                                        )}
+                                    </p>
+                                </div>
+                                <Switch
+                                    id="transactional-toggle"
+                                    checked={isTransactional}
+                                    onCheckedChange={(checked) => {
+                                        setTransactional(checked)
+                                        if (checked) setSubscriptionId("")
+                                    }}
+                                />
+                            </div>
+
+                            {!isTransactional && (
+                                <FieldGroup>
+                                    <Field className="gap-2">
+                                        <FieldLabel htmlFor="subscription-select">
+                                            {t("campaign.subscription", "Subscription")}
+                                        </FieldLabel>
+                                        <Select value={subscriptionId} onValueChange={setSubscriptionId}>
+                                            <SelectTrigger id="subscription-select">
+                                                <SelectValue
+                                                    placeholder={t(
+                                                        "campaign.subscription.placeholder",
+                                                        "Select subscription",
+                                                    )}
+                                                />
+                                            </SelectTrigger>
+                                            <SelectContent className="z-[1100]">
+                                                {filteredSubscriptions.length === 0 && (
+                                                    <SelectItem value="__empty" disabled>
+                                                        {t(
+                                                            "campaign.subscription.empty",
+                                                            "No subscriptions for this channel",
+                                                        )}
+                                                    </SelectItem>
+                                                )}
+                                                {filteredSubscriptions.map((subscription) => (
+                                                    <SelectItem
+                                                        key={subscription.id}
+                                                        value={subscription.id}
+                                                    >
+                                                        {subscription.name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </Field>
+                                </FieldGroup>
+                            )}
+
                             <div className="flex items-center gap-2">
-                                <Button
-                                    type="submit"
-                                    disabled={isSubmitting}
-                                    isLoading={isSubmitting}
-                                >
+                                <Button type="submit" disabled={isSubmitting} isLoading={isSubmitting}>
                                     {t("actions.save")}
                                 </Button>
                                 {isEnterprise && (
-                                    <Button
-                                        variant="outline"
-                                        onClick={() => setIsBroadcastOpen(true)}
-                                    >
+                                    <Button variant="outline" onClick={() => setIsBroadcastOpen(true)}>
                                         <Radio className="mr-2 h-3.5 w-3.5" />
                                         {t("send_broadcast", "Send Broadcast")}
                                     </Button>
@@ -160,11 +240,6 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
 
                     <div className="w-3/5 bg-background p-8 pb-0 border-l">
                         <Tabs defaultValue="preview" className="h-full flex flex-col">
-                            {/* <div>
-                            <TabsList className="mb-2">
-                                <TabsTrigger value="preview">Preview</TabsTrigger>
-                            </TabsList>
-                        </div> */}
                             <TabsContent value="preview" className="flex-1">
                                 <ContentPreview campaign={campaign} form={channelForm} edit />
                             </TabsContent>
@@ -179,18 +254,7 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
 export default function CampaignDetails() {
     const [campaign] = useContext(CampaignContext)
     const [project] = useContext(ProjectContext)
-    const [selectedUser, setSelectedUser] = useState<User | null>(null)
     const [template, setTemplate] = useState<Template | null>(null)
-
-    useEffect(() => {
-        if (!selectedUser && project?.id) {
-            api.users.search(project.id, { limit: 1 }).then((result) => {
-                if (result.results && result.results.length > 0) {
-                    setSelectedUser(result.results[0])
-                }
-            })
-        }
-    }, [project?.id, selectedUser])
 
     useEffect(() => {
         if (!campaign || campaign.templates.length === 0) {

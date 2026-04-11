@@ -5,7 +5,7 @@ import type { Campaign, Template, User, Locale } from "@/types"
 import { useTranslation } from "react-i18next"
 import { ProjectContext, TemplateContext } from "@/contexts"
 import { useNavigate } from "react-router"
-import api from "@/api"
+import oapiClient from "@/oapi/client"
 import * as z from "zod"
 import { Render } from "@/renderTemplates"
 import { compileEmail } from "./editor/codeEditor/compileEmail"
@@ -318,8 +318,13 @@ export function EmailContentPreview({ campaign, form, edit = false }: EmailSetup
     useEffect(() => {
         const fetchLocales = async () => {
             if (project?.id) {
-                const result = await api.locales.search(project.id, { limit: 100 })
-                setLocales(result.results)
+                const { data } = await oapiClient.GET("/api/admin/projects/{projectID}/locales", {
+                    params: {
+                        path: { projectID: project.id },
+                        query: { limit: 100 },
+                    },
+                })
+                setLocales(data?.results ?? [])
             }
         }
         fetchLocales()

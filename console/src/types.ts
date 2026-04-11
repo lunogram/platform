@@ -619,6 +619,7 @@ export interface Campaign {
     delivery: CampaignDelivery
     subscription_id?: UUID
     subscription?: Subscription
+    transactional?: boolean
     templates: Template[]
     variables: CampaignVariable[]
     created_at: string
@@ -664,8 +665,13 @@ export interface BroadcastUser {
     phone?: string
 }
 
-export type CampaignUpdateParams = Partial<Pick<Campaign, "name" | "subscription_id" | "variables">>
-export type CampaignCreateParams = Pick<Campaign, "name" | "channel">
+export type CampaignUpdateParams = Partial<
+    Pick<Campaign, "name" | "subscription_id" | "transactional" | "variables">
+>
+export type CampaignCreateParams = Pick<
+    Campaign,
+    "name" | "channel" | "subscription_id" | "transactional"
+>
 export type CampaignUser = User & { state: CampaignSendState; send_at: string }
 
 interface NamedEmail {

@@ -2653,10 +2653,16 @@ export interface components {
             channel: components["schemas"]["Channel"];
             /** Format: uuid */
             subscription_id?: string;
+            /** @example false */
+            transactional?: boolean;
         };
         UpdateCampaign: {
             /** @example epic hopper */
             name?: string;
+            /** Format: uuid */
+            subscription_id?: string;
+            /** @example false */
+            transactional?: boolean;
             variables?: components["schemas"]["CampaignVariable"][];
         };
         CampaignVariable: {
@@ -2737,6 +2743,8 @@ export interface components {
             channel: components["schemas"]["Channel"];
             /** Format: uuid */
             subscription_id?: string;
+            /** @example false */
+            transactional: boolean;
             templates: components["schemas"]["Template"][];
             variables?: components["schemas"]["CampaignVariable"][];
             delivery: components["schemas"]["Delivery"];
