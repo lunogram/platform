@@ -58,7 +58,7 @@ export function useJourneyFlowHandlers(
                 }
             }
 
-            const isSticky = name === "sticky"
+            const isSticky = payload.type === "sticky"
             const newNode: JourneyNode = {
                 id: createUuid(),
                 position: { x, y },
@@ -67,8 +67,9 @@ export function useJourneyFlowHandlers(
                     type: payload.type,
                     name,
                     data,
+                    ...(isSticky ? { width: 275, height: 150 } : {}),
                 },
-                ...(isSticky ? { width: 275, height: 150 } : {}),
+                ...(isSticky ? { style: { width: 275, height: 150 } } : {}),
             }
 
             setHasUnsavedChanges(true)

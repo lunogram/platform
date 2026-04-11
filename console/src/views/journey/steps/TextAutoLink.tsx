@@ -1,7 +1,6 @@
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import remarkBreaks from "remark-breaks"
-import rehypeRaw from "rehype-raw"
 import type { Components } from "react-markdown"
 
 const styles = {
@@ -50,12 +49,18 @@ const components: Components = {
     ol: ({ children }) => <ol style={styles.ol}>{children}</ol>,
     a: ({ href, children }) => {
         if (!href) return <span>{children}</span>
+
+        const safeHref = getSafeHref(href)
+        if (!safeHref) return <span>{children}</span>
+
+        const external = safeHref.startsWith("http://") || safeHref.startsWith("https://")
+
         return (
             <a
                 style={styles.a}
-                href={href.startsWith("http") ? href : `https://${href}`}
-                target="_blank"
-                rel="noreferrer"
+                href={safeHref}
+                target={external ? "_blank" : undefined}
+                rel={external ? "noreferrer" : undefined}
             >
                 {children}
             </a>
@@ -76,10 +81,23 @@ const components: Components = {
 
 const PLAIN_DOMAIN_REGEX =
     /(?<![.\w@/])(\b[a-zA-Z0-9][a-zA-Z0-9-]*\.[a-zA-Z]{2,}(?:\/[^\s]*)?)(?![-@])/g
+const FULL_DOMAIN_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9-]*\.[a-zA-Z]{2,}(?:\/[^\s]*)?$/
 
-const remarkNoSetextHeadings = () => {}
-remarkNoSetextHeadings.data = {
-    micromarkExtensions: [{ disable: { null: ["setextUnderline"] } }],
+const remarkNoSetextHeadings = Object.assign(() => {}, {
+    data: {
+        micromarkExtensions: [{ disable: { null: ["setextUnderline"] } }],
+    },
+})
+
+const getSafeHref = (href: string): string | undefined => {
+    if (href.startsWith("#") || href.startsWith("/")) return href
+
+    try {
+        const parsed = new URL(href)
+        return ["http:", "https:", "mailto:", "tel:"].includes(parsed.protocol) ? href : undefined
+    } catch {
+        return FULL_DOMAIN_REGEX.test(href) ? `https://${href}` : undefined
+    }
 }
 
 const preprocessText = (text: string): string => {
@@ -147,7 +165,6 @@ const TextAutoLink = ({ text }: { text: string }) => (
     <>
         <ReactMarkdown
             remarkPlugins={[remarkGfm, remarkBreaks, remarkNoSetextHeadings]}
-            rehypePlugins={[rehypeRaw]}
             components={components}
         >
             {preprocessText(text)}

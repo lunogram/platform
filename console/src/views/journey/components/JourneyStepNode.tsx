@@ -71,6 +71,8 @@ export const JourneyStepNode = memo(
             [type, getNode, getEdges],
         )
 
+        const isInfoStep = type?.category === "info"
+
         const onResize = useCallback(
             (_: unknown, { width, height }: { width: number; height: number }) => {
                 setNodes((nds) =>
@@ -96,18 +98,33 @@ export const JourneyStepNode = memo(
             const contentEl = contentRef.current
 
             const updateHeight = () => {
-                const contentHeight = contentEl.scrollHeight
-                const headerHeight = 45
-                const neededHeight = contentHeight + headerHeight
+                const nodeEl = contentEl.closest(".react-flow__node") as HTMLElement | null
+                const chromeHeight = nodeEl
+                    ? Math.max(nodeEl.offsetHeight - contentEl.clientHeight, 0)
+                    : 0
+                const neededHeight = contentEl.scrollHeight + chromeHeight
 
                 setNodes((nds) =>
                     nds.map((n) =>
                         n.id === id
-                            ? {
-                                  ...n,
-                                  style: { ...n.style, height: neededHeight },
-                                  data: { ...n.data, height: neededHeight },
-                              }
+                            ? (() => {
+                                  const styleHeight =
+                                      typeof n.style?.height === "number"
+                                          ? n.style.height
+                                          : typeof n.style?.height === "string"
+                                            ? Number.parseFloat(n.style.height)
+                                            : undefined
+                                  const currentHeight =
+                                      styleHeight ?? n.data?.height ?? nodeEl?.offsetHeight ?? 0
+
+                                  if (neededHeight <= currentHeight) return n
+
+                                  return {
+                                      ...n,
+                                      style: { ...n.style, height: neededHeight },
+                                      data: { ...n.data, height: neededHeight },
+                                  }
+                              })()
                             : n,
                     ),
                 )
@@ -121,7 +138,7 @@ export const JourneyStepNode = memo(
             updateHeight()
 
             return () => resizeObserver.disconnect()
-        }, [id, setNodes, data])
+        }, [id, isInfoStep, setNodes, data])
 
         const zoom = useStore((s) => s.transform[2])
         const handleSize = Math.min(24, Math.max(8, 10 / zoom))
@@ -137,7 +154,6 @@ export const JourneyStepNode = memo(
         const categoryColorClass = stepCategoryColors[category] ?? ""
         const categoryBorderClass = stepCategoryBorderColors[category] ?? ""
         const isValid = isExit ? true : type.validate ? type.validate(data) : true
-        const isInfoStep = category === "info"
 
         return (
             <>
@@ -146,7 +162,6 @@ export const JourneyStepNode = memo(
                         minWidth={200}
                         minHeight={100}
                         isVisible={selected}
-                        lineStyle={{ display: "none" }}
                         handleStyle={{
                             opacity: 0,
                             width: handleSize,
