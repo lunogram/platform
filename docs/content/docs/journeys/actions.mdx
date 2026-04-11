@@ -1,0 +1,73 @@
+---
+title: Actions
+description: Extend journeys with pluggable integrations to connect with external services
+---
+
+Actions are pluggable integrations that let your journeys interact with the outside world. Each action is a reusable configuration that can be called from journey steps to send data to external services, fetch information from APIs, or trigger operations in third-party tools.
+
+## How Actions Work
+
+Actions follow a two-step model:
+
+1. **Create an Action** in the **Actions** tab. This is where you configure the integration, such as setting up credentials or defining an endpoint.
+2. **Use it in a Journey** by adding an **Action** step. Select the action, choose which function to execute, and configure the input parameters.
+
+When a user reaches an action step, the platform executes the selected function, passes the configured input, and stores the response so subsequent steps can use it.
+
+## Creating an Action
+
+Navigate to the **Actions** tab and click **Create Action**. You'll be prompted to select the type of action to create.
+
+| Field         | Description                                                             |
+| ------------- | ----------------------------------------------------------------------- |
+| Name          | A descriptive name for the action                                       |
+| Type          | The action module to use                                                |
+| Configuration | Module-level settings such as credentials or base URLs (varies by type) |
+
+After creating an action, you can verify the configuration from the action detail page using the **Test** button.
+
+## Using Actions in Journeys
+
+Add an **Action** step to your journey and configure it:
+
+| Parameter | Description                                                                         |
+| --------- | ----------------------------------------------------------------------------------- |
+| Name      | Display name for the step                                                           |
+| Data Key  | Unique key to reference the result in later steps ([learn more](data))              |
+| Action    | The action to execute (created in the Actions tab)                                  |
+| Function  | Which function to call on the action                                                |
+| Input     | Parameters for the function (fields are generated from the function's input schema) |
+
+### Accessing Action Results
+
+Action responses are stored under the step's data key and can be referenced in subsequent steps using Liquid template expressions:
+
+```handlebars
+{{journey.my_action.body}}
+```
+
+This works in campaign templates, gate conditions, user updates, and any other step that supports template expressions.
+
+## Testing Actions
+
+Actions can be tested at two levels:
+
+- **Module test**: From the action detail page, click **Test** to validate the module-level configuration.
+- **Function test**: From the journey editor, click **Test** on an action step to execute the function with the configured input and inspect the response.
+
+<Callout type="info">
+  Test executions run against the actual endpoint. Use test or staging URLs when
+  validating actions to avoid unintended side effects.
+</Callout>
+
+## Combining Actions with Other Steps
+
+Actions are most useful when combined with other journey step types:
+
+| Pattern         | Description                                              |
+| --------------- | -------------------------------------------------------- |
+| Action → Gate   | Call an API, then branch based on the response           |
+| Action → Update | Fetch external data and save it to the user profile      |
+| Action → Send   | Retrieve personalized content, then send it in a message |
+| Gate → Action   | Only call the API when certain conditions are met        |
+| Delay → Action  | Wait for the right moment before making an API call      |

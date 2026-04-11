@@ -1,5 +1,5 @@
 import type { RouteObject } from "react-router"
-import { createBrowserRouter, Outlet, redirect, useNavigate, useParams } from "react-router"
+import { createBrowserRouter, Outlet, redirect } from "react-router"
 import api from "../api"
 import oapiClient from "../oapi/client"
 
@@ -22,15 +22,16 @@ import ListDetail from "./users/ListDetail"
 import Users from "./users/Users"
 import Subscriptions from "./settings/Subscriptions"
 import EventSchemas from "./settings/EventSchemas"
+import PushProviders from "./settings/PushProviders"
 import UserDetail from "./users/UserDetail"
 import { createStatefulRoute } from "./createStatefulRoute"
 import UserDetailAttrs from "./users/UserDetailAttrs"
 import UserDetailEvents from "./users/UserDetailEvents"
+import UserDetailScheduled from "./users/UserDetailScheduled"
 import UserDetailSubscriptions from "./users/UserDetailSubscriptions"
 import Campaigns from "./campaign/Campaigns"
 import Campaign from "./campaign/Campaign"
 import CampaignDetails from "./campaign/CampaignDetails"
-import CampaignSetup from "./campaign/setup/Setup"
 import Template from "./campaign/template/Template"
 import TemplateContent from "./campaign/template/Content"
 import TemplateReview from "./campaign/template/Review"
@@ -59,7 +60,9 @@ import {
     SettingsIcon,
     UsersIcon,
 } from "@/components/icons"
-import { Zap } from "lucide-react"
+import { Radio, Zap } from "lucide-react"
+import Broadcasts from "./broadcast/Broadcasts"
+import { BroadcastDetailRoute } from "./broadcast/BroadcastDetail"
 import { Projects } from "./project/Projects"
 import { completedGettingStarted } from "../utils"
 import Settings from "./settings/Settings"
@@ -82,25 +85,11 @@ import OrganizationDetail from "./organizations/OrganizationDetail"
 import OrganizationDetailAttrs from "./organizations/OrganizationDetailAttrs"
 import OrganizationDetailEvents from "./organizations/OrganizationDetailEvents"
 import OrganizationDetailMembers from "./organizations/OrganizationDetailMembers"
+import OrganizationDetailScheduled from "./organizations/OrganizationDetailScheduled"
 import { Translation } from "react-i18next"
 import type { UUID } from "@/types/common"
 import type { Project } from "../types"
 import type { SidebarLink } from "@/types/sidebar"
-
-export const useRoute = (includeProject = true) => {
-    const { projectId = "" } = useParams()
-    const navigate = useNavigate()
-    const parts: string[] = []
-    if (includeProject) {
-        parts.push("projects", projectId)
-    }
-    return (path: string) => {
-        const newParts = [...parts, path]
-        navigate("/" + newParts.join("/"))?.catch((e) => {
-            console.error("Failed to navigate to:", e)
-        })
-    }
-}
 
 export interface RouterProps {
     routes?: (routes: RouteObject[]) => RouteObject[]
@@ -252,6 +241,23 @@ export const createRouter = ({
                                                 icon: <CampaignsIcon />,
                                                 minRole: "editor",
                                             },
+                                            ...(isEnterprise
+                                                ? [
+                                                      {
+                                                          key: "broadcasts",
+                                                          to: "broadcasts",
+                                                          children: (
+                                                              <Translation>
+                                                                  {(t) =>
+                                                                      t("broadcasts", "Broadcasts")
+                                                                  }
+                                                              </Translation>
+                                                          ),
+                                                          icon: <Radio className="h-4 w-4" />,
+                                                          minRole: "editor" as const,
+                                                      },
+                                                  ]
+                                                : []),
                                             {
                                                 key: "journeys",
                                                 to: "journeys",
@@ -375,10 +381,6 @@ export const createRouter = ({
                                                         element: <CampaignDetails />,
                                                     },
                                                     {
-                                                        path: "setup",
-                                                        element: <CampaignSetup />,
-                                                    },
-                                                    {
                                                         path: "templates/:templateId",
                                                         loader: async ({ params }) => {
                                                             const projectId = params.projectId as
@@ -436,6 +438,18 @@ export const createRouter = ({
                                             }),
                                         ],
                                     },
+                                    ...(isEnterprise
+                                        ? [
+                                              {
+                                                  path: "broadcasts",
+                                                  element: <Broadcasts />,
+                                              },
+                                              {
+                                                  path: "broadcasts/:broadcastId",
+                                                  element: <BroadcastDetailRoute />,
+                                              },
+                                          ]
+                                        : []),
                                     createStatefulRoute({
                                         path: "journeys",
                                         apiPath: api.journeys,
@@ -497,6 +511,10 @@ export const createRouter = ({
                                             {
                                                 path: "events",
                                                 element: <UserDetailEvents />,
+                                            },
+                                            {
+                                                path: "scheduled",
+                                                element: <UserDetailScheduled />,
                                             },
                                             {
                                                 path: "subscriptions",
@@ -565,6 +583,10 @@ export const createRouter = ({
                                                 path: "members",
                                                 element: <OrganizationDetailMembers />,
                                             },
+                                            {
+                                                path: "scheduled",
+                                                element: <OrganizationDetailScheduled />,
+                                            },
                                         ],
                                     },
                                     {
@@ -616,6 +638,10 @@ export const createRouter = ({
                                             {
                                                 path: "event-schemas",
                                                 element: <EventSchemas />,
+                                            },
+                                            {
+                                                path: "push-providers",
+                                                element: <PushProviders />,
                                             },
                                             ...(isEnterprise
                                                 ? [

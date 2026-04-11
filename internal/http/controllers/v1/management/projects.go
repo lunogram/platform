@@ -33,7 +33,7 @@ func NewProjectsController(logger *zap.Logger, managementDB, usersDB, journeyDB 
 		managementDB: managementDB,
 		store:        management.NewState(managementDB),
 		journey:      journey.NewState(journeyDB),
-		users:        subjects.NewState(usersDB),
+		users:        subjects.NewState(usersDB, logger),
 		webhook:      webhookCaller,
 		pub:          pub,
 		engine:       engine,

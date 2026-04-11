@@ -17,10 +17,12 @@ import {
     Languages,
     Pencil,
     Check,
+    CalendarClock,
 } from "lucide-react"
 import { ProjectContext, UserContext } from "../../contexts"
 import { PreferencesContext } from "@/contexts/PreferencesContext"
 import { getRandomColor } from "@/lib/colors"
+import { getUserDisplayName, getUserInitials, getPrimaryExternalId } from "@/lib/name"
 import { formatDate, cn } from "../../utils"
 import api from "../../api"
 import {
@@ -120,21 +122,13 @@ export default function UserDetail() {
         }
     }
 
-    const userColor = getRandomColor(user.email ?? user.external_id ?? user.id)
+    const userColor = getRandomColor(
+        user.email ?? getPrimaryExternalId(user as unknown as Record<string, unknown>) ?? user.id,
+    )
 
-    const displayName =
-        user.full_name ??
-        ((user.data as Record<string, unknown>)?.full_name as string) ??
-        user.email ??
-        "No name"
+    const displayName = getUserDisplayName(user, "No name")
 
-    const initials = (() => {
-        const parts = displayName.split(/[\s@.]+/)
-        if (parts.length >= 2) {
-            return (parts[0][0] + parts[1][0]).toUpperCase()
-        }
-        return displayName.substring(0, 2).toUpperCase()
-    })()
+    const initials = getUserInitials(user)
 
     // Determine active tab
     const basePath = `/projects/${project.id}/users/${user.id}`
@@ -154,6 +148,12 @@ export default function UserDetail() {
     const tabs = [
         { key: "details", to: "", label: t("details"), icon: FileText },
         { key: "events", to: "events", label: t("events"), icon: Activity },
+        {
+            key: "scheduled",
+            to: "scheduled",
+            label: t("scheduled", "Scheduled"),
+            icon: CalendarClock,
+        },
         { key: "subscriptions", to: "subscriptions", label: t("subscriptions"), icon: Bell },
         { key: "journeys", to: "journeys", label: t("journeys"), icon: Route },
         { key: "organizations", to: "organizations", label: t("organizations"), icon: Building2 },
@@ -620,15 +620,7 @@ export default function UserDetail() {
                                             <span className="mx-2">·</span>
                                         </>
                                     )}
-                                    {/* 4. External ID */}
-                                    {user.external_id && (
-                                        <>
-                                            <code className="text-xs bg-muted px-1.5 py-0.5 rounded">
-                                                {user.external_id}
-                                            </code>
-                                            <span className="mx-2">·</span>
-                                        </>
-                                    )}
+
                                     {/* 5. Timezone */}
                                     {user.timezone
                                         ? (() => {
@@ -829,7 +821,10 @@ export default function UserDetail() {
                             <div>
                                 <p className="font-medium">{displayName}</p>
                                 <p className="text-sm text-muted-foreground">
-                                    {user.email || user.external_id}
+                                    {user.email ||
+                                        getPrimaryExternalId(
+                                            user as unknown as Record<string, unknown>,
+                                        )}
                                 </p>
                             </div>
                         </div>

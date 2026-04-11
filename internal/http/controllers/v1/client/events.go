@@ -1,0 +1,192 @@
+package v1
+
+import (
+	"errors"
+	"net/http"
+
+	"github.com/google/uuid"
+	"github.com/lunogram/platform/internal/http/controllers/v1/client/oapi"
+	"github.com/lunogram/platform/internal/http/json"
+	"github.com/lunogram/platform/internal/http/problem"
+	"github.com/lunogram/platform/internal/pubsub/schemas"
+	"github.com/lunogram/platform/internal/rbac"
+	"github.com/lunogram/platform/internal/store/subjects"
+	"go.uber.org/zap"
+)
+
+type EventsController struct {
+	*ClientController
+}
+
+func NewEventsController(client *ClientController) *EventsController {
+	return &EventsController{ClientController: client}
+}
+
+func (srv *EventsController) PostUserEvents(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	actor := rbac.FromContext(ctx)
+	if actor == nil {
+		oapi.WriteProblem(w, problem.ErrUnauthorized())
+		return
+	}
+
+	projectID := actor.ProjectID
+	if projectID == uuid.Nil {
+		srv.logger.Warn("project_id is required")
+		oapi.WriteProblem(w, problem.ErrUnauthorized())
+		return
+	}
+
+	err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("events", projectID))
+	if err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	var events oapi.PostEventsRequest
+	err = json.Decode(r.Body, &events)
+	if err != nil {
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid request body")))
+		return
+	}
+
+	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Int("events", len(events)))
+	logger.Info("posting events")
+
+	for _, event := range events {
+		if event.Match != nil && event.Identifier != nil {
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("match and identifier are mutually exclusive")))
+			return
+		}
+		if event.Match == nil && event.Identifier == nil {
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("one of match or identifier is required")))
+			return
+		}
+
+		switch {
+		case event.Match != nil:
+			msg := schemas.MatchUserEvent{
+				ProjectID: projectID,
+				Name:      event.Name,
+				Match:     *event.Match,
+				Data:      event.Data,
+			}
+			err = srv.pubsub.Publish(ctx, schemas.UserEventsMatch(projectID), msg)
+
+		default:
+			msg := schemas.UserEvent{
+				ProjectID: projectID,
+				Name:      event.Name,
+				Data:      event.Data,
+			}
+			if event.Identifier != nil {
+				msg.Identifiers = oapi.ToParams(*event.Identifier)
+			}
+			err = srv.pubsub.Publish(ctx, schemas.Subject(schemas.UserEventsProcess(projectID)), msg)
+		}
+
+		if err != nil {
+			logger.Error("failed to publish event", zap.Error(err))
+			oapi.WriteProblem(w, problem.ErrInternal())
+			return
+		}
+	}
+
+	logger.Info("events processed successfully")
+	w.WriteHeader(http.StatusAccepted)
+}
+
+func (srv *EventsController) PostOrganizationEventsClient(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	actor := rbac.FromContext(ctx)
+	if actor == nil {
+		oapi.WriteProblem(w, problem.ErrUnauthorized())
+		return
+	}
+
+	projectID := actor.ProjectID
+	if projectID == uuid.Nil {
+		srv.logger.Warn("project_id is required")
+		oapi.WriteProblem(w, problem.ErrUnauthorized())
+		return
+	}
+
+	err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("events", projectID))
+	if err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	var events oapi.PostOrganizationEventsRequest
+	err = json.Decode(r.Body, &events)
+	if err != nil {
+		srv.logger.Error("failed to decode request body", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid request body")))
+		return
+	}
+
+	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Int("events", len(events)))
+	logger.Info("posting organization events")
+
+	for _, event := range events {
+		if event.Match != nil && event.Identifier != nil {
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("match and identifier are mutually exclusive")))
+			return
+		}
+		if event.Match == nil && event.Identifier == nil {
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("one of match or identifier is required")))
+			return
+		}
+
+		var data map[string]any
+		if event.Data != nil {
+			data = *event.Data
+		}
+
+		switch {
+		case event.Match != nil:
+			msg := schemas.MatchOrganizationEvent{
+				ProjectID: projectID,
+				Name:      event.Name,
+				Match:     *event.Match,
+				Data:      data,
+			}
+			err = srv.pubsub.Publish(ctx, schemas.OrganizationEventsMatch(projectID), msg)
+
+		case event.Identifier != nil:
+			orgIdentifiers := oapi.ToParams(*event.Identifier)
+			var orgID uuid.UUID
+			orgID, err = srv.users.LookupOrganizationID(ctx, projectID, orgIdentifiers)
+			if errors.Is(err, subjects.ErrOrgNotFound) {
+				logger.Warn("organization not found, skipping event",
+					zap.Int("org_identifiers", len(*event.Identifier)),
+					zap.String("event_name", event.Name))
+				continue
+			}
+			if err != nil {
+				logger.Error("failed to lookup organization", zap.Error(err))
+				oapi.WriteProblem(w, problem.ErrInternal())
+				return
+			}
+
+			msg := schemas.OrganizationEvent{
+				Name:                    event.Name,
+				ProjectID:               projectID,
+				OrganizationID:          orgID,
+				OrganizationIdentifiers: orgIdentifiers,
+				Data:                    data,
+			}
+
+			err = srv.pubsub.Publish(ctx, schemas.OrganizationEventsProcess(projectID), msg)
+		}
+
+		if err != nil {
+			logger.Error("failed to publish organization event", zap.Error(err))
+			oapi.WriteProblem(w, problem.ErrInternal())
+			return
+		}
+	}
+
+	logger.Info("organization events processed successfully")
+	w.WriteHeader(http.StatusAccepted)
+}

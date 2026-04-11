@@ -72,7 +72,7 @@ export default function OrganizationEventRuleEdit({
                             setRule({ ...rule, operator: operator as typeof rule.operator })
                         }
                     >
-                        <SelectTrigger className="h-8 w-auto min-w-[70px] text-xs shadow-none">
+                        <SelectTrigger elevation="flat" className="h-8 w-auto min-w-[70px] text-xs">
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -127,7 +127,10 @@ export default function OrganizationEventRuleEdit({
                             })
                         }
                     >
-                        <SelectTrigger className="h-8 w-auto min-w-[80px] rounded-r-none text-xs shadow-none">
+                        <SelectTrigger
+                            elevation="flat"
+                            className="h-8 w-auto min-w-[80px] rounded-r-none text-xs"
+                        >
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -141,6 +144,7 @@ export default function OrganizationEventRuleEdit({
                     <Input
                         type="text"
                         placeholder="Count"
+                        aria-label="Organization event frequency count"
                         className="h-8 w-16 rounded-none border-l-0 text-xs shadow-none"
                         value={frequency.count?.toString() ?? ""}
                         onChange={(e) => {
@@ -167,6 +171,7 @@ export default function OrganizationEventRuleEdit({
                         <Input
                             type="text"
                             placeholder="Value"
+                            aria-label="Organization event frequency value"
                             className="h-8 w-16 rounded-none border-l-0 text-xs shadow-none"
                             value={frequency.period.value.toString()}
                             onChange={(e) => {
@@ -199,7 +204,10 @@ export default function OrganizationEventRuleEdit({
                                 })
                             }}
                         >
-                            <SelectTrigger className="h-8 w-auto min-w-[80px] rounded-l-none border-l-0 text-xs shadow-none">
+                            <SelectTrigger
+                                elevation="flat"
+                                className="h-8 w-auto min-w-[80px] rounded-l-none border-l-0 text-xs"
+                            >
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -215,7 +223,11 @@ export default function OrganizationEventRuleEdit({
             </div>
 
             {/* User matching section */}
-            <div className="ml-5 p-3 bg-muted/50 rounded-lg border">
+            <div
+                className="ml-5 p-3 bg-muted/50 rounded-lg border"
+                role="group"
+                aria-label={t("organization_event_user_match", "Organization event user match")}
+            >
                 <div className="flex items-center gap-1.5 text-sm">
                     {t("rule_include_org_members")}
                     <Select
@@ -224,7 +236,11 @@ export default function OrganizationEventRuleEdit({
                             handleUserMatchTypeChange(value as OrganizationUserMatch["type"])
                         }
                     >
-                        <SelectTrigger className="h-8 w-auto min-w-[180px] text-xs shadow-none">
+                        <SelectTrigger
+                            elevation="flat"
+                            className="h-8 w-auto min-w-[180px] text-xs"
+                            aria-label={t("organization_event_member_scope", "Organization event member scope")}
+                        >
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -266,7 +282,7 @@ export default function OrganizationEventRuleEdit({
                             setRule({ ...rule, operator: operator as typeof rule.operator })
                         }
                     >
-                        <SelectTrigger className="h-8 w-auto min-w-[70px] text-xs shadow-none">
+                        <SelectTrigger elevation="flat" className="h-8 w-auto min-w-[70px] text-xs">
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>

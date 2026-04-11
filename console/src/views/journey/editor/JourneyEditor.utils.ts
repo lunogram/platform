@@ -98,6 +98,10 @@ export interface UpstreamDataKey {
     data_key: string
     /** The event_name from the step's data (if it captures an event, e.g. entrance) */
     event_name?: string
+    /** The scheduled_name from the step's data (if trigger is "scheduled") */
+    scheduled_name?: string
+    /** The schedule_offset_id from the step's data (if it captures a scheduled event) */
+    schedule_offset_id?: string
 }
 
 export function getUpstreamDataKeys(
@@ -131,6 +135,8 @@ export function getUpstreamDataKeys(
                 type: node.data.type,
                 data_key: node.data.data_key,
                 event_name: (stepData?.event_name as string) ?? undefined,
+                scheduled_name: (stepData?.scheduled_name as string) ?? undefined,
+                schedule_offset_id: (stepData?.schedule_offset_id as string) ?? undefined,
             })
         }
         for (const parent of parentMap.get(current) ?? []) {

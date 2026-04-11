@@ -72,10 +72,9 @@ func TestPublisherPublish(t *testing.T) {
 		"publish with nil data": {
 			subject: "events.process.456",
 			data: schemas.UserEvent{
-				ID:          uuid.New(),
-				Name:        "another_event",
-				ProjectID:   uuid.New(),
-				AnonymousId: nil,
+				ID:        uuid.New(),
+				Name:      "another_event",
+				ProjectID: uuid.New(),
 			},
 		},
 		"publish with event data": {

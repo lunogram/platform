@@ -348,7 +348,7 @@ export default function Campaigns({ create = false }: CampaignsProps) {
                 {campaigns && campaigns.length > 0 && (
                     <div className="flex items-center justify-between border-t px-4 py-3">
                         <p className="text-sm text-muted-foreground">
-                            {campaigns.length} {t("campaign.plural").toLowerCase()}
+                            {result?.total ?? campaigns.length} {t("campaign.plural").toLowerCase()}
                         </p>
                         {(hasPrevPage || hasNextPage) && (
                             <div className="flex items-center gap-2">

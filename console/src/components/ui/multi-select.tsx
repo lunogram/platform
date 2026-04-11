@@ -17,6 +17,8 @@ export interface MultiSelectOption<T = string> {
     label: string
 }
 
+type MultiSelectElevation = "default" | "flat"
+
 interface MultiSelectProps<T = string> {
     options: MultiSelectOption<T>[]
     value?: T[]
@@ -25,6 +27,7 @@ interface MultiSelectProps<T = string> {
     disabled?: boolean
     className?: string
     maxDisplay?: number
+    elevation?: MultiSelectElevation
 }
 
 export function MultiSelect<T = string>({
@@ -35,6 +38,7 @@ export function MultiSelect<T = string>({
     disabled = false,
     className,
     maxDisplay = 3,
+    elevation = "default",
 }: MultiSelectProps<T>) {
     const [open, setOpen] = React.useState(false)
 
@@ -62,7 +66,8 @@ export function MultiSelect<T = string>({
                     aria-expanded={open}
                     disabled={disabled}
                     className={cn(
-                        "cursor-pointer flex h-9 w-full items-center justify-between whitespace-nowrap rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm ring-offset-background focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
+                        "cursor-pointer flex h-9 w-full items-center justify-between whitespace-nowrap rounded-md border border-input bg-transparent px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
+                        elevation === "default" ? "shadow-sm" : "shadow-none",
                         "select-button",
                         open && "border-blue-500 ring-1 ring-blue-500",
                         className,

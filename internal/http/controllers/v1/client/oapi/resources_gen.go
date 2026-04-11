@@ -23,48 +23,117 @@ const (
 	HttpBearerAuthScopes = "HttpBearerAuth.Scopes"
 )
 
+// Defines values for DeviceRegistrationOs.
+const (
+	Android DeviceRegistrationOs = "android"
+	Ios     DeviceRegistrationOs = "ios"
+	Web     DeviceRegistrationOs = "web"
+)
+
 // DeleteOrganizationRequest defines model for DeleteOrganizationRequest.
 type DeleteOrganizationRequest struct {
-	// ExternalId External identifier for the organization
-	ExternalId string `json:"external_id"`
+	// Identifier One or more external identifiers to identify the organization
+	Identifier OrganizationIdentifier `json:"identifier"`
+}
+
+// DeleteOrganizationScheduledRequest defines model for DeleteOrganizationScheduledRequest.
+type DeleteOrganizationScheduledRequest struct {
+	// Identifier One or more external identifiers to identify the organization
+	Identifier OrganizationIdentifier `json:"identifier"`
+
+	// Name The name of the scheduled resource to delete
+	Name string `json:"name"`
 }
 
 // DeleteUserRequest defines model for DeleteUserRequest.
 type DeleteUserRequest struct {
-	// AnonymousId Anonymous identifier for the user
-	AnonymousId *string `json:"anonymous_id"`
-
-	// ExternalId External identifier for the user
-	ExternalId *string `json:"external_id"`
+	// Identifier One or more external identifiers to identify the user
+	Identifier UserIdentifier `json:"identifier"`
 }
+
+// DeleteUserScheduledRequest defines model for DeleteUserScheduledRequest.
+type DeleteUserScheduledRequest struct {
+	// Identifier One or more external identifiers to identify the user
+	Identifier *UserIdentifier `json:"identifier,omitempty"`
+
+	// Name The name of the scheduled resource to delete
+	Name string `json:"name"`
+}
+
+// DeviceRegistration defines model for DeviceRegistration.
+type DeviceRegistration struct {
+	AppVersion *string `json:"app_version,omitempty"`
+	Config     struct {
+		// Endpoint Web Push subscription endpoint URL
+		Endpoint       *string    `json:"endpoint,omitempty"`
+		ExpirationTime *time.Time `json:"expiration_time,omitempty"`
+		Keys           *struct {
+			Auth   string `json:"auth"`
+			P256dh string `json:"p256dh"`
+		} `json:"keys,omitempty"`
+
+		// Token Device token for FCM or APNs
+		Token *string `json:"token,omitempty"`
+	} `json:"config"`
+	Data     *json.RawMessage `json:"data"`
+	DeviceId string           `json:"device_id"`
+
+	// Identifier One or more external identifiers to identify the user
+	Identifier UserIdentifier        `json:"identifier"`
+	Model      *string               `json:"model,omitempty"`
+	Os         *DeviceRegistrationOs `json:"os,omitempty"`
+	OsVersion  *string               `json:"os_version,omitempty"`
+}
+
+// DeviceRegistrationOs defines model for DeviceRegistration.Os.
+type DeviceRegistrationOs string
 
 // Event defines model for Event.
 type Event struct {
-	// AnonymousId Anonymous identifier for the user
-	AnonymousId *string `json:"anonymous_id"`
-
 	// Data Event-specific data
 	Data map[string]any `json:"data"`
 
-	// ExternalId External identifier for the user from your system
-	ExternalId *string `json:"external_id"`
+	// Identifier One or more external identifiers to identify the user
+	Identifier *UserIdentifier `json:"identifier,omitempty"`
+
+	// Match JSONB containment filter to match users by their data attributes. Mutually exclusive with identifier. When set, the event is delivered to every user whose data column contains the given key/value pairs.
+	Match *map[string]any `json:"match"`
 
 	// Name The name of the event
 	Name string `json:"name"`
 }
 
+// ExternalID An external identifier with source and optional metadata
+type ExternalID struct {
+	// ExternalId The external identifier value
+	ExternalId string `json:"external_id"`
+
+	// Metadata Optional metadata associated with this identifier
+	Metadata *map[string]any `json:"metadata"`
+
+	// Source Source of the identifier (e.g. "default", "anonymous", or a custom source). Defaults to "default" if not provided.
+	Source *string `json:"source,omitempty"`
+}
+
+// ExternalIDResponse An external identifier as returned in responses, including database ID and timestamps
+type ExternalIDResponse struct {
+	CreatedAt  time.Time          `json:"created_at"`
+	ExternalId string             `json:"external_id"`
+	Id         openapi_types.UUID `json:"id"`
+	Metadata   *map[string]any    `json:"metadata"`
+	Source     string             `json:"source"`
+	UpdatedAt  time.Time          `json:"updated_at"`
+}
+
 // IdentifyRequest defines model for IdentifyRequest.
 type IdentifyRequest struct {
-	// AnonymousId Anonymous identifier for the user
-	AnonymousId *string `json:"anonymous_id"`
-
 	// Data User-specific attributes
 	Data  *map[string]any `json:"data"`
 	Email *string         `json:"email"`
 
-	// ExternalId External identifier for the user from your system
-	ExternalId *string `json:"external_id"`
-	Locale     *string `json:"locale"`
+	// Identifier One or more external identifiers to identify the user
+	Identifier UserIdentifier `json:"identifier"`
+	Locale     *string        `json:"locale"`
 
 	// Phone E.164 formatted phone number
 	Phone    *string `json:"phone"`
@@ -73,16 +142,16 @@ type IdentifyRequest struct {
 
 // Organization defines model for Organization.
 type Organization struct {
-	CreatedAt time.Time      `json:"created_at"`
-	Data      map[string]any `json:"data"`
+	CreatedAt time.Time          `json:"created_at"`
+	Data      map[string]any     `json:"data"`
+	Id        openapi_types.UUID `json:"id"`
 
-	// ExternalId External identifier for the organization from your system
-	ExternalId string             `json:"external_id"`
-	Id         openapi_types.UUID `json:"id"`
-	Name       *string            `json:"name,omitempty"`
-	ProjectId  openapi_types.UUID `json:"project_id"`
-	UpdatedAt  time.Time          `json:"updated_at"`
-	Version    int32              `json:"version"`
+	// Identifier External identifiers associated with this organization
+	Identifier []ExternalIDResponse `json:"identifier"`
+	Name       *string              `json:"name,omitempty"`
+	ProjectId  openapi_types.UUID   `json:"project_id"`
+	UpdatedAt  time.Time            `json:"updated_at"`
+	Version    int32                `json:"version"`
 }
 
 // OrganizationEvent defines model for OrganizationEvent.
@@ -90,32 +159,40 @@ type OrganizationEvent struct {
 	// Data Event-specific data
 	Data *map[string]any `json:"data"`
 
+	// Identifier One or more external identifiers to identify the organization
+	Identifier *OrganizationIdentifier `json:"identifier,omitempty"`
+
+	// Match JSONB containment filter to match organizations by their data attributes. Mutually exclusive with identifier. When set, the event is delivered to every organization whose data column contains the given key/value pairs.
+	Match *map[string]any `json:"match"`
+
 	// Name The name of the event
 	Name string `json:"name"`
-
-	// OrganizationExternalId External identifier for the organization
-	OrganizationExternalId string `json:"organization_external_id"`
 }
+
+// OrganizationIdentifier One or more external identifiers to identify the organization
+type OrganizationIdentifier = []ExternalID
 
 // OrganizationRequest defines model for OrganizationRequest.
 type OrganizationRequest struct {
 	Data *map[string]any `json:"data"`
 
-	// ExternalId External identifier for the organization from your system
-	ExternalId string  `json:"external_id"`
-	Name       *string `json:"name"`
+	// Identifier One or more external identifiers to identify the organization
+	Identifier OrganizationIdentifier `json:"identifier"`
+	Name       *string                `json:"name"`
 }
 
 // OrganizationUserRequest defines model for OrganizationUserRequest.
 type OrganizationUserRequest struct {
 	// Data Organization-specific data for this user
-	Data *map[string]any `json:"data"`
-
-	// OrganizationExternalId External identifier for the organization
-	OrganizationExternalId string `json:"organization_external_id"`
-
-	// UserExternalId External identifier for the user
-	UserExternalId string `json:"user_external_id"`
+	Data         *map[string]any `json:"data"`
+	Organization struct {
+		// Identifier One or more external identifiers to identify the organization
+		Identifier OrganizationIdentifier `json:"identifier"`
+	} `json:"organization"`
+	User struct {
+		// Identifier One or more external identifiers to identify the user
+		Identifier UserIdentifier `json:"identifier"`
+	} `json:"user"`
 }
 
 // PostEventsRequest defines model for PostEventsRequest.
@@ -135,23 +212,84 @@ type Problem struct {
 
 // RemoveOrganizationUserRequest defines model for RemoveOrganizationUserRequest.
 type RemoveOrganizationUserRequest struct {
-	// OrganizationExternalId External identifier for the organization
-	OrganizationExternalId string `json:"organization_external_id"`
+	Organization struct {
+		// Identifier One or more external identifiers to identify the organization
+		Identifier OrganizationIdentifier `json:"identifier"`
+	} `json:"organization"`
+	User struct {
+		// Identifier One or more external identifiers to identify the user
+		Identifier UserIdentifier `json:"identifier"`
+	} `json:"user"`
+}
 
-	// UserExternalId External identifier for the user
-	UserExternalId string `json:"user_external_id"`
+// ScheduledAccepted defines model for ScheduledAccepted.
+type ScheduledAccepted struct {
+	// Data Scheduled resource data
+	Data *map[string]any `json:"data"`
+
+	// Id The unique identifier for the scheduled instance
+	Id openapi_types.UUID `json:"id"`
+
+	// Name The name of the scheduled resource
+	Name string `json:"name"`
+
+	// ScheduledAt The time at which the scheduled resource is set to trigger
+	ScheduledAt time.Time `json:"scheduled_at"`
+}
+
+// UpsertOrganizationScheduledRequest defines model for UpsertOrganizationScheduledRequest.
+type UpsertOrganizationScheduledRequest struct {
+	// Data Scheduled resource data
+	Data *map[string]any `json:"data"`
+
+	// Identifier One or more external identifiers to identify the organization
+	Identifier OrganizationIdentifier `json:"identifier"`
+
+	// Interval Interval for recurring schedules. When set, the schedule type is automatically set to recurring.
+	Interval *string `json:"interval"`
+
+	// Name The name of the scheduled resource
+	Name string `json:"name"`
+
+	// ScheduledAt The time at which the scheduled resource is set to trigger. Required for single schedules.
+	ScheduledAt *time.Time `json:"scheduled_at"`
+
+	// StartAt Start time for recurring schedules. If omitted for recurring schedules, defaults to now.
+	StartAt *time.Time `json:"start_at"`
+}
+
+// UpsertUserScheduledRequest defines model for UpsertUserScheduledRequest.
+type UpsertUserScheduledRequest struct {
+	// Data Scheduled resource data
+	Data *map[string]any `json:"data"`
+
+	// Identifier One or more external identifiers to identify the user
+	Identifier *UserIdentifier `json:"identifier,omitempty"`
+
+	// Interval Interval for recurring schedules. When set, the schedule type is automatically set to recurring.
+	Interval *string `json:"interval"`
+
+	// Name The name of the scheduled resource
+	Name string `json:"name"`
+
+	// ScheduledAt The time at which the scheduled resource is set to trigger. Required for single schedules.
+	ScheduledAt *time.Time `json:"scheduled_at"`
+
+	// StartAt Start time for recurring schedules. If omitted for recurring schedules, defaults to now.
+	StartAt *time.Time `json:"start_at"`
 }
 
 // User defines model for User.
 type User struct {
-	AnonymousId   string             `json:"anonymous_id"`
 	CreatedAt     time.Time          `json:"created_at"`
 	Data          map[string]any     `json:"data"`
 	Email         *string            `json:"email,omitempty"`
-	ExternalId    *string            `json:"external_id,omitempty"`
 	HasPushDevice bool               `json:"has_push_device"`
 	Id            openapi_types.UUID `json:"id"`
-	Locale        *string            `json:"locale,omitempty"`
+
+	// Identifier External identifiers associated with this user
+	Identifier []ExternalIDResponse `json:"identifier"`
+	Locale     *string              `json:"locale,omitempty"`
 
 	// Phone E.164 formatted phone number
 	Phone     *string            `json:"phone,omitempty"`
@@ -159,6 +297,15 @@ type User struct {
 	Timezone  *string            `json:"timezone,omitempty"`
 	UpdatedAt time.Time          `json:"updated_at"`
 	Version   int32              `json:"version"`
+}
+
+// UserIdentifier One or more external identifiers to identify the user
+type UserIdentifier = []ExternalID
+
+// VapidPublicKey defines model for VapidPublicKey.
+type VapidPublicKey struct {
+	// PublicKey The VAPID public key
+	PublicKey string `json:"public_key"`
 }
 
 // Error defines model for Error.
@@ -185,6 +332,12 @@ type UpsertOrganizationClientJSONRequestBody = OrganizationRequest
 // PostOrganizationEventsClientJSONRequestBody defines body for PostOrganizationEventsClient for application/json ContentType.
 type PostOrganizationEventsClientJSONRequestBody = PostOrganizationEventsRequest
 
+// DeleteOrganizationScheduledClientJSONRequestBody defines body for DeleteOrganizationScheduledClient for application/json ContentType.
+type DeleteOrganizationScheduledClientJSONRequestBody = DeleteOrganizationScheduledRequest
+
+// UpsertOrganizationScheduledClientJSONRequestBody defines body for UpsertOrganizationScheduledClient for application/json ContentType.
+type UpsertOrganizationScheduledClientJSONRequestBody = UpsertOrganizationScheduledRequest
+
 // RemoveOrganizationUserClientJSONRequestBody defines body for RemoveOrganizationUserClient for application/json ContentType.
 type RemoveOrganizationUserClientJSONRequestBody = RemoveOrganizationUserRequest
 
@@ -197,8 +350,17 @@ type DeleteUserClientJSONRequestBody = DeleteUserRequest
 // UpsertUserClientJSONRequestBody defines body for UpsertUserClient for application/json ContentType.
 type UpsertUserClientJSONRequestBody = IdentifyRequest
 
+// RegisterDeviceJSONRequestBody defines body for RegisterDevice for application/json ContentType.
+type RegisterDeviceJSONRequestBody = DeviceRegistration
+
 // PostUserEventsJSONRequestBody defines body for PostUserEvents for application/json ContentType.
 type PostUserEventsJSONRequestBody = PostEventsRequest
+
+// DeleteUserScheduledClientJSONRequestBody defines body for DeleteUserScheduledClient for application/json ContentType.
+type DeleteUserScheduledClientJSONRequestBody = DeleteUserScheduledRequest
+
+// UpsertUserScheduledClientJSONRequestBody defines body for UpsertUserScheduledClient for application/json ContentType.
+type UpsertUserScheduledClientJSONRequestBody = UpsertUserScheduledRequest
 
 // UpdatePreferencesFormdataRequestBody defines body for UpdatePreferences for application/x-www-form-urlencoded ContentType.
 type UpdatePreferencesFormdataRequestBody UpdatePreferencesFormdataBody
@@ -291,6 +453,16 @@ type ClientInterface interface {
 
 	PostOrganizationEventsClient(ctx context.Context, body PostOrganizationEventsClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// DeleteOrganizationScheduledClientWithBody request with any body
+	DeleteOrganizationScheduledClientWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	DeleteOrganizationScheduledClient(ctx context.Context, body DeleteOrganizationScheduledClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpsertOrganizationScheduledClientWithBody request with any body
+	UpsertOrganizationScheduledClientWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpsertOrganizationScheduledClient(ctx context.Context, body UpsertOrganizationScheduledClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// RemoveOrganizationUserClientWithBody request with any body
 	RemoveOrganizationUserClientWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -300,6 +472,9 @@ type ClientInterface interface {
 	AddOrganizationUserClientWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	AddOrganizationUserClient(ctx context.Context, body AddOrganizationUserClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetVapidPublicKey request
+	GetVapidPublicKey(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteUserClientWithBody request with any body
 	DeleteUserClientWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -311,10 +486,25 @@ type ClientInterface interface {
 
 	UpsertUserClient(ctx context.Context, body UpsertUserClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// RegisterDeviceWithBody request with any body
+	RegisterDeviceWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	RegisterDevice(ctx context.Context, body RegisterDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// PostUserEventsWithBody request with any body
 	PostUserEventsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	PostUserEvents(ctx context.Context, body PostUserEventsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteUserScheduledClientWithBody request with any body
+	DeleteUserScheduledClientWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	DeleteUserScheduledClient(ctx context.Context, body DeleteUserScheduledClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpsertUserScheduledClientWithBody request with any body
+	UpsertUserScheduledClientWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpsertUserScheduledClient(ctx context.Context, body UpsertUserScheduledClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetPreferencesPage request
 	GetPreferencesPage(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -400,6 +590,54 @@ func (c *Client) PostOrganizationEventsClient(ctx context.Context, body PostOrga
 	return c.Client.Do(req)
 }
 
+func (c *Client) DeleteOrganizationScheduledClientWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteOrganizationScheduledClientRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteOrganizationScheduledClient(ctx context.Context, body DeleteOrganizationScheduledClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteOrganizationScheduledClientRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpsertOrganizationScheduledClientWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpsertOrganizationScheduledClientRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpsertOrganizationScheduledClient(ctx context.Context, body UpsertOrganizationScheduledClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpsertOrganizationScheduledClientRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) RemoveOrganizationUserClientWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewRemoveOrganizationUserClientRequestWithBody(c.Server, contentType, body)
 	if err != nil {
@@ -438,6 +676,18 @@ func (c *Client) AddOrganizationUserClientWithBody(ctx context.Context, contentT
 
 func (c *Client) AddOrganizationUserClient(ctx context.Context, body AddOrganizationUserClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewAddOrganizationUserClientRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetVapidPublicKey(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetVapidPublicKeyRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -496,6 +746,30 @@ func (c *Client) UpsertUserClient(ctx context.Context, body UpsertUserClientJSON
 	return c.Client.Do(req)
 }
 
+func (c *Client) RegisterDeviceWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRegisterDeviceRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RegisterDevice(ctx context.Context, body RegisterDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRegisterDeviceRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) PostUserEventsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPostUserEventsRequestWithBody(c.Server, contentType, body)
 	if err != nil {
@@ -510,6 +784,54 @@ func (c *Client) PostUserEventsWithBody(ctx context.Context, contentType string,
 
 func (c *Client) PostUserEvents(ctx context.Context, body PostUserEventsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPostUserEventsRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteUserScheduledClientWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteUserScheduledClientRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteUserScheduledClient(ctx context.Context, body DeleteUserScheduledClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteUserScheduledClientRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpsertUserScheduledClientWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpsertUserScheduledClientRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpsertUserScheduledClient(ctx context.Context, body UpsertUserScheduledClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpsertUserScheduledClientRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -688,6 +1010,86 @@ func NewPostOrganizationEventsClientRequestWithBody(server string, contentType s
 	return req, nil
 }
 
+// NewDeleteOrganizationScheduledClientRequest calls the generic DeleteOrganizationScheduledClient builder with application/json body
+func NewDeleteOrganizationScheduledClientRequest(server string, body DeleteOrganizationScheduledClientJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewDeleteOrganizationScheduledClientRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewDeleteOrganizationScheduledClientRequestWithBody generates requests for DeleteOrganizationScheduledClient with any type of body
+func NewDeleteOrganizationScheduledClientRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/client/organizations/scheduled")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewUpsertOrganizationScheduledClientRequest calls the generic UpsertOrganizationScheduledClient builder with application/json body
+func NewUpsertOrganizationScheduledClientRequest(server string, body UpsertOrganizationScheduledClientJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpsertOrganizationScheduledClientRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewUpsertOrganizationScheduledClientRequestWithBody generates requests for UpsertOrganizationScheduledClient with any type of body
+func NewUpsertOrganizationScheduledClientRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/client/organizations/scheduled")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewRemoveOrganizationUserClientRequest calls the generic RemoveOrganizationUserClient builder with application/json body
 func NewRemoveOrganizationUserClientRequest(server string, body RemoveOrganizationUserClientJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -764,6 +1166,33 @@ func NewAddOrganizationUserClientRequestWithBody(server string, contentType stri
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetVapidPublicKeyRequest generates requests for GetVapidPublicKey
+func NewGetVapidPublicKeyRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/client/push/vapid")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -848,6 +1277,46 @@ func NewUpsertUserClientRequestWithBody(server string, contentType string, body 
 	return req, nil
 }
 
+// NewRegisterDeviceRequest calls the generic RegisterDevice builder with application/json body
+func NewRegisterDeviceRequest(server string, body RegisterDeviceJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewRegisterDeviceRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewRegisterDeviceRequestWithBody generates requests for RegisterDevice with any type of body
+func NewRegisterDeviceRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/client/users/devices")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewPostUserEventsRequest calls the generic PostUserEvents builder with application/json body
 func NewPostUserEventsRequest(server string, body PostUserEventsJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -869,6 +1338,86 @@ func NewPostUserEventsRequestWithBody(server string, contentType string, body io
 	}
 
 	operationPath := fmt.Sprintf("/api/client/users/events")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteUserScheduledClientRequest calls the generic DeleteUserScheduledClient builder with application/json body
+func NewDeleteUserScheduledClientRequest(server string, body DeleteUserScheduledClientJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewDeleteUserScheduledClientRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewDeleteUserScheduledClientRequestWithBody generates requests for DeleteUserScheduledClient with any type of body
+func NewDeleteUserScheduledClientRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/client/users/scheduled")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewUpsertUserScheduledClientRequest calls the generic UpsertUserScheduledClient builder with application/json body
+func NewUpsertUserScheduledClientRequest(server string, body UpsertUserScheduledClientJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpsertUserScheduledClientRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewUpsertUserScheduledClientRequestWithBody generates requests for UpsertUserScheduledClient with any type of body
+func NewUpsertUserScheduledClientRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/client/users/scheduled")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -1086,6 +1635,16 @@ type ClientWithResponsesInterface interface {
 
 	PostOrganizationEventsClientWithResponse(ctx context.Context, body PostOrganizationEventsClientJSONRequestBody, reqEditors ...RequestEditorFn) (*PostOrganizationEventsClientResponse, error)
 
+	// DeleteOrganizationScheduledClientWithBodyWithResponse request with any body
+	DeleteOrganizationScheduledClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteOrganizationScheduledClientResponse, error)
+
+	DeleteOrganizationScheduledClientWithResponse(ctx context.Context, body DeleteOrganizationScheduledClientJSONRequestBody, reqEditors ...RequestEditorFn) (*DeleteOrganizationScheduledClientResponse, error)
+
+	// UpsertOrganizationScheduledClientWithBodyWithResponse request with any body
+	UpsertOrganizationScheduledClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpsertOrganizationScheduledClientResponse, error)
+
+	UpsertOrganizationScheduledClientWithResponse(ctx context.Context, body UpsertOrganizationScheduledClientJSONRequestBody, reqEditors ...RequestEditorFn) (*UpsertOrganizationScheduledClientResponse, error)
+
 	// RemoveOrganizationUserClientWithBodyWithResponse request with any body
 	RemoveOrganizationUserClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RemoveOrganizationUserClientResponse, error)
 
@@ -1095,6 +1654,9 @@ type ClientWithResponsesInterface interface {
 	AddOrganizationUserClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AddOrganizationUserClientResponse, error)
 
 	AddOrganizationUserClientWithResponse(ctx context.Context, body AddOrganizationUserClientJSONRequestBody, reqEditors ...RequestEditorFn) (*AddOrganizationUserClientResponse, error)
+
+	// GetVapidPublicKeyWithResponse request
+	GetVapidPublicKeyWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetVapidPublicKeyResponse, error)
 
 	// DeleteUserClientWithBodyWithResponse request with any body
 	DeleteUserClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteUserClientResponse, error)
@@ -1106,10 +1668,25 @@ type ClientWithResponsesInterface interface {
 
 	UpsertUserClientWithResponse(ctx context.Context, body UpsertUserClientJSONRequestBody, reqEditors ...RequestEditorFn) (*UpsertUserClientResponse, error)
 
+	// RegisterDeviceWithBodyWithResponse request with any body
+	RegisterDeviceWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RegisterDeviceResponse, error)
+
+	RegisterDeviceWithResponse(ctx context.Context, body RegisterDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*RegisterDeviceResponse, error)
+
 	// PostUserEventsWithBodyWithResponse request with any body
 	PostUserEventsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostUserEventsResponse, error)
 
 	PostUserEventsWithResponse(ctx context.Context, body PostUserEventsJSONRequestBody, reqEditors ...RequestEditorFn) (*PostUserEventsResponse, error)
+
+	// DeleteUserScheduledClientWithBodyWithResponse request with any body
+	DeleteUserScheduledClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteUserScheduledClientResponse, error)
+
+	DeleteUserScheduledClientWithResponse(ctx context.Context, body DeleteUserScheduledClientJSONRequestBody, reqEditors ...RequestEditorFn) (*DeleteUserScheduledClientResponse, error)
+
+	// UpsertUserScheduledClientWithBodyWithResponse request with any body
+	UpsertUserScheduledClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpsertUserScheduledClientResponse, error)
+
+	UpsertUserScheduledClientWithResponse(ctx context.Context, body UpsertUserScheduledClientJSONRequestBody, reqEditors ...RequestEditorFn) (*UpsertUserScheduledClientResponse, error)
 
 	// GetPreferencesPageWithResponse request
 	GetPreferencesPageWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetPreferencesPageResponse, error)
@@ -1190,6 +1767,51 @@ func (r PostOrganizationEventsClientResponse) StatusCode() int {
 	return 0
 }
 
+type DeleteOrganizationScheduledClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteOrganizationScheduledClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteOrganizationScheduledClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpsertOrganizationScheduledClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON202      *ScheduledAccepted
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r UpsertOrganizationScheduledClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpsertOrganizationScheduledClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type RemoveOrganizationUserClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -1228,6 +1850,29 @@ func (r AddOrganizationUserClientResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r AddOrganizationUserClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetVapidPublicKeyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *VapidPublicKey
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetVapidPublicKeyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetVapidPublicKeyResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -1279,6 +1924,28 @@ func (r UpsertUserClientResponse) StatusCode() int {
 	return 0
 }
 
+type RegisterDeviceResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r RegisterDeviceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RegisterDeviceResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type PostUserEventsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -1295,6 +1962,51 @@ func (r PostUserEventsResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r PostUserEventsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteUserScheduledClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteUserScheduledClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteUserScheduledClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpsertUserScheduledClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON202      *ScheduledAccepted
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r UpsertUserScheduledClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpsertUserScheduledClientResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -1415,6 +2127,40 @@ func (c *ClientWithResponses) PostOrganizationEventsClientWithResponse(ctx conte
 	return ParsePostOrganizationEventsClientResponse(rsp)
 }
 
+// DeleteOrganizationScheduledClientWithBodyWithResponse request with arbitrary body returning *DeleteOrganizationScheduledClientResponse
+func (c *ClientWithResponses) DeleteOrganizationScheduledClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteOrganizationScheduledClientResponse, error) {
+	rsp, err := c.DeleteOrganizationScheduledClientWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteOrganizationScheduledClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) DeleteOrganizationScheduledClientWithResponse(ctx context.Context, body DeleteOrganizationScheduledClientJSONRequestBody, reqEditors ...RequestEditorFn) (*DeleteOrganizationScheduledClientResponse, error) {
+	rsp, err := c.DeleteOrganizationScheduledClient(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteOrganizationScheduledClientResponse(rsp)
+}
+
+// UpsertOrganizationScheduledClientWithBodyWithResponse request with arbitrary body returning *UpsertOrganizationScheduledClientResponse
+func (c *ClientWithResponses) UpsertOrganizationScheduledClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpsertOrganizationScheduledClientResponse, error) {
+	rsp, err := c.UpsertOrganizationScheduledClientWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpsertOrganizationScheduledClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpsertOrganizationScheduledClientWithResponse(ctx context.Context, body UpsertOrganizationScheduledClientJSONRequestBody, reqEditors ...RequestEditorFn) (*UpsertOrganizationScheduledClientResponse, error) {
+	rsp, err := c.UpsertOrganizationScheduledClient(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpsertOrganizationScheduledClientResponse(rsp)
+}
+
 // RemoveOrganizationUserClientWithBodyWithResponse request with arbitrary body returning *RemoveOrganizationUserClientResponse
 func (c *ClientWithResponses) RemoveOrganizationUserClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RemoveOrganizationUserClientResponse, error) {
 	rsp, err := c.RemoveOrganizationUserClientWithBody(ctx, contentType, body, reqEditors...)
@@ -1447,6 +2193,15 @@ func (c *ClientWithResponses) AddOrganizationUserClientWithResponse(ctx context.
 		return nil, err
 	}
 	return ParseAddOrganizationUserClientResponse(rsp)
+}
+
+// GetVapidPublicKeyWithResponse request returning *GetVapidPublicKeyResponse
+func (c *ClientWithResponses) GetVapidPublicKeyWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetVapidPublicKeyResponse, error) {
+	rsp, err := c.GetVapidPublicKey(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetVapidPublicKeyResponse(rsp)
 }
 
 // DeleteUserClientWithBodyWithResponse request with arbitrary body returning *DeleteUserClientResponse
@@ -1483,6 +2238,23 @@ func (c *ClientWithResponses) UpsertUserClientWithResponse(ctx context.Context, 
 	return ParseUpsertUserClientResponse(rsp)
 }
 
+// RegisterDeviceWithBodyWithResponse request with arbitrary body returning *RegisterDeviceResponse
+func (c *ClientWithResponses) RegisterDeviceWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RegisterDeviceResponse, error) {
+	rsp, err := c.RegisterDeviceWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRegisterDeviceResponse(rsp)
+}
+
+func (c *ClientWithResponses) RegisterDeviceWithResponse(ctx context.Context, body RegisterDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*RegisterDeviceResponse, error) {
+	rsp, err := c.RegisterDevice(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRegisterDeviceResponse(rsp)
+}
+
 // PostUserEventsWithBodyWithResponse request with arbitrary body returning *PostUserEventsResponse
 func (c *ClientWithResponses) PostUserEventsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostUserEventsResponse, error) {
 	rsp, err := c.PostUserEventsWithBody(ctx, contentType, body, reqEditors...)
@@ -1498,6 +2270,40 @@ func (c *ClientWithResponses) PostUserEventsWithResponse(ctx context.Context, bo
 		return nil, err
 	}
 	return ParsePostUserEventsResponse(rsp)
+}
+
+// DeleteUserScheduledClientWithBodyWithResponse request with arbitrary body returning *DeleteUserScheduledClientResponse
+func (c *ClientWithResponses) DeleteUserScheduledClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteUserScheduledClientResponse, error) {
+	rsp, err := c.DeleteUserScheduledClientWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteUserScheduledClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) DeleteUserScheduledClientWithResponse(ctx context.Context, body DeleteUserScheduledClientJSONRequestBody, reqEditors ...RequestEditorFn) (*DeleteUserScheduledClientResponse, error) {
+	rsp, err := c.DeleteUserScheduledClient(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteUserScheduledClientResponse(rsp)
+}
+
+// UpsertUserScheduledClientWithBodyWithResponse request with arbitrary body returning *UpsertUserScheduledClientResponse
+func (c *ClientWithResponses) UpsertUserScheduledClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpsertUserScheduledClientResponse, error) {
+	rsp, err := c.UpsertUserScheduledClientWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpsertUserScheduledClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpsertUserScheduledClientWithResponse(ctx context.Context, body UpsertUserScheduledClientJSONRequestBody, reqEditors ...RequestEditorFn) (*UpsertUserScheduledClientResponse, error) {
+	rsp, err := c.UpsertUserScheduledClient(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpsertUserScheduledClientResponse(rsp)
 }
 
 // GetPreferencesPageWithResponse request returning *GetPreferencesPageResponse
@@ -1620,6 +2426,65 @@ func ParsePostOrganizationEventsClientResponse(rsp *http.Response) (*PostOrganiz
 	return response, nil
 }
 
+// ParseDeleteOrganizationScheduledClientResponse parses an HTTP response from a DeleteOrganizationScheduledClientWithResponse call
+func ParseDeleteOrganizationScheduledClientResponse(rsp *http.Response) (*DeleteOrganizationScheduledClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteOrganizationScheduledClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpsertOrganizationScheduledClientResponse parses an HTTP response from a UpsertOrganizationScheduledClientWithResponse call
+func ParseUpsertOrganizationScheduledClientResponse(rsp *http.Response) (*UpsertOrganizationScheduledClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpsertOrganizationScheduledClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest ScheduledAccepted
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseRemoveOrganizationUserClientResponse parses an HTTP response from a RemoveOrganizationUserClientWithResponse call
 func ParseRemoveOrganizationUserClientResponse(rsp *http.Response) (*RemoveOrganizationUserClientResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -1660,6 +2525,39 @@ func ParseAddOrganizationUserClientResponse(rsp *http.Response) (*AddOrganizatio
 	}
 
 	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetVapidPublicKeyResponse parses an HTTP response from a GetVapidPublicKeyWithResponse call
+func ParseGetVapidPublicKeyResponse(rsp *http.Response) (*GetVapidPublicKeyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetVapidPublicKeyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest VapidPublicKey
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -1731,6 +2629,32 @@ func ParseUpsertUserClientResponse(rsp *http.Response) (*UpsertUserClientRespons
 	return response, nil
 }
 
+// ParseRegisterDeviceResponse parses an HTTP response from a RegisterDeviceWithResponse call
+func ParseRegisterDeviceResponse(rsp *http.Response) (*RegisterDeviceResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RegisterDeviceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParsePostUserEventsResponse parses an HTTP response from a PostUserEventsWithResponse call
 func ParsePostUserEventsResponse(rsp *http.Response) (*PostUserEventsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -1745,6 +2669,65 @@ func ParsePostUserEventsResponse(rsp *http.Response) (*PostUserEventsResponse, e
 	}
 
 	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteUserScheduledClientResponse parses an HTTP response from a DeleteUserScheduledClientWithResponse call
+func ParseDeleteUserScheduledClientResponse(rsp *http.Response) (*DeleteUserScheduledClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteUserScheduledClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpsertUserScheduledClientResponse parses an HTTP response from a UpsertUserScheduledClientWithResponse call
+func ParseUpsertUserScheduledClientResponse(rsp *http.Response) (*UpsertUserScheduledClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpsertUserScheduledClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest ScheduledAccepted
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -1816,21 +2799,39 @@ type ServerInterface interface {
 	// Post organization events
 	// (POST /api/client/organizations/events)
 	PostOrganizationEventsClient(w http.ResponseWriter, r *http.Request)
+	// Delete organization scheduled
+	// (DELETE /api/client/organizations/scheduled)
+	DeleteOrganizationScheduledClient(w http.ResponseWriter, r *http.Request)
+	// Upsert organization scheduled
+	// (POST /api/client/organizations/scheduled)
+	UpsertOrganizationScheduledClient(w http.ResponseWriter, r *http.Request)
 	// Remove user from organization
 	// (DELETE /api/client/organizations/users)
 	RemoveOrganizationUserClient(w http.ResponseWriter, r *http.Request)
 	// Add user to organization
 	// (POST /api/client/organizations/users)
 	AddOrganizationUserClient(w http.ResponseWriter, r *http.Request)
+	// Get VAPID public key
+	// (GET /api/client/push/vapid)
+	GetVapidPublicKey(w http.ResponseWriter, r *http.Request)
 	// Delete user
 	// (DELETE /api/client/users)
 	DeleteUserClient(w http.ResponseWriter, r *http.Request)
 	// Upsert user
 	// (POST /api/client/users)
 	UpsertUserClient(w http.ResponseWriter, r *http.Request)
+	// Register device
+	// (POST /api/client/users/devices)
+	RegisterDevice(w http.ResponseWriter, r *http.Request)
 	// Post user events
 	// (POST /api/client/users/events)
 	PostUserEvents(w http.ResponseWriter, r *http.Request)
+	// Delete user scheduled
+	// (DELETE /api/client/users/scheduled)
+	DeleteUserScheduledClient(w http.ResponseWriter, r *http.Request)
+	// Upsert user scheduled
+	// (POST /api/client/users/scheduled)
+	UpsertUserScheduledClient(w http.ResponseWriter, r *http.Request)
 	// Subscription preferences page
 	// (GET /preferences/{projectID}/{userID})
 	GetPreferencesPage(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID)
@@ -1864,6 +2865,18 @@ func (_ Unimplemented) PostOrganizationEventsClient(w http.ResponseWriter, r *ht
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// Delete organization scheduled
+// (DELETE /api/client/organizations/scheduled)
+func (_ Unimplemented) DeleteOrganizationScheduledClient(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Upsert organization scheduled
+// (POST /api/client/organizations/scheduled)
+func (_ Unimplemented) UpsertOrganizationScheduledClient(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // Remove user from organization
 // (DELETE /api/client/organizations/users)
 func (_ Unimplemented) RemoveOrganizationUserClient(w http.ResponseWriter, r *http.Request) {
@@ -1873,6 +2886,12 @@ func (_ Unimplemented) RemoveOrganizationUserClient(w http.ResponseWriter, r *ht
 // Add user to organization
 // (POST /api/client/organizations/users)
 func (_ Unimplemented) AddOrganizationUserClient(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Get VAPID public key
+// (GET /api/client/push/vapid)
+func (_ Unimplemented) GetVapidPublicKey(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1888,9 +2907,27 @@ func (_ Unimplemented) UpsertUserClient(w http.ResponseWriter, r *http.Request) 
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// Register device
+// (POST /api/client/users/devices)
+func (_ Unimplemented) RegisterDevice(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // Post user events
 // (POST /api/client/users/events)
 func (_ Unimplemented) PostUserEvents(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Delete user scheduled
+// (DELETE /api/client/users/scheduled)
+func (_ Unimplemented) DeleteUserScheduledClient(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Upsert user scheduled
+// (POST /api/client/users/scheduled)
+func (_ Unimplemented) UpsertUserScheduledClient(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1981,6 +3018,46 @@ func (siw *ServerInterfaceWrapper) PostOrganizationEventsClient(w http.ResponseW
 	handler.ServeHTTP(w, r)
 }
 
+// DeleteOrganizationScheduledClient operation middleware
+func (siw *ServerInterfaceWrapper) DeleteOrganizationScheduledClient(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteOrganizationScheduledClient(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpsertOrganizationScheduledClient operation middleware
+func (siw *ServerInterfaceWrapper) UpsertOrganizationScheduledClient(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpsertOrganizationScheduledClient(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // RemoveOrganizationUserClient operation middleware
 func (siw *ServerInterfaceWrapper) RemoveOrganizationUserClient(w http.ResponseWriter, r *http.Request) {
 
@@ -2012,6 +3089,26 @@ func (siw *ServerInterfaceWrapper) AddOrganizationUserClient(w http.ResponseWrit
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.AddOrganizationUserClient(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetVapidPublicKey operation middleware
+func (siw *ServerInterfaceWrapper) GetVapidPublicKey(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetVapidPublicKey(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2061,6 +3158,26 @@ func (siw *ServerInterfaceWrapper) UpsertUserClient(w http.ResponseWriter, r *ht
 	handler.ServeHTTP(w, r)
 }
 
+// RegisterDevice operation middleware
+func (siw *ServerInterfaceWrapper) RegisterDevice(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RegisterDevice(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // PostUserEvents operation middleware
 func (siw *ServerInterfaceWrapper) PostUserEvents(w http.ResponseWriter, r *http.Request) {
 
@@ -2072,6 +3189,46 @@ func (siw *ServerInterfaceWrapper) PostUserEvents(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PostUserEvents(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteUserScheduledClient operation middleware
+func (siw *ServerInterfaceWrapper) DeleteUserScheduledClient(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteUserScheduledClient(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpsertUserScheduledClient operation middleware
+func (siw *ServerInterfaceWrapper) UpsertUserScheduledClient(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpsertUserScheduledClient(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2306,10 +3463,19 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/api/client/organizations/events", wrapper.PostOrganizationEventsClient)
 	})
 	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/client/organizations/scheduled", wrapper.DeleteOrganizationScheduledClient)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/client/organizations/scheduled", wrapper.UpsertOrganizationScheduledClient)
+	})
+	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/api/client/organizations/users", wrapper.RemoveOrganizationUserClient)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/client/organizations/users", wrapper.AddOrganizationUserClient)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/client/push/vapid", wrapper.GetVapidPublicKey)
 	})
 	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/api/client/users", wrapper.DeleteUserClient)
@@ -2318,7 +3484,16 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/api/client/users", wrapper.UpsertUserClient)
 	})
 	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/client/users/devices", wrapper.RegisterDevice)
+	})
+	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/client/users/events", wrapper.PostUserEvents)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/client/users/scheduled", wrapper.DeleteUserScheduledClient)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/client/users/scheduled", wrapper.UpsertUserScheduledClient)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/preferences/{projectID}/{userID}", wrapper.GetPreferencesPage)

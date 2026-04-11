@@ -28,7 +28,7 @@ func NewListsController(logger *zap.Logger, usersDB *sqlx.DB, projects *manageme
 	return &ListsController{
 		logger:        logger,
 		usersDB:       usersDB,
-		store:         subjects.NewState(usersDB),
+		store:         subjects.NewState(usersDB, logger),
 		projects:      projects,
 		maxUploadSize: maxUploadSize,
 		pub:           pub,
@@ -569,7 +569,7 @@ func (srv *ListsController) processUserImport(ctx context.Context, logger *zap.L
 	}
 
 	defer tx.Rollback() //nolint:errcheck
-	stores := subjects.NewState(tx)
+	stores := subjects.NewState(tx, logger)
 
 	for {
 		record, err := reader.Read()

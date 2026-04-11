@@ -1,5 +1,6 @@
 import type { Variable, VariableGroup } from "@/views/journey/JourneyVariableContext"
 import type { User } from "@/types"
+import { getPrimaryExternalId } from "@/lib/name"
 
 // Builds a preview props object from variable groups for use in the frontend
 // email editor. Props are passed directly to the React component, so preview
@@ -156,8 +157,11 @@ export function mergeUserIntoProps(
         id: user.id ?? "",
         email: user.email ?? "",
         phone: user.phone ?? "",
-        external_id: user.external_id ?? "",
-        anonymous_id: user.anonymous_id ?? "",
+        external_id: getPrimaryExternalId(user as unknown as Record<string, unknown>) ?? "",
+        anonymous_id:
+            (user.identifier as Array<{ source: string; external_id: string }> | undefined)?.find(
+                (id) => id.source === "anonymous",
+            )?.external_id ?? "",
         timezone: user.timezone ?? "",
         locale: user.locale ?? "",
         created_at: user.created_at ? String(user.created_at) : "",

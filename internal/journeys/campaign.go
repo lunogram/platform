@@ -30,6 +30,9 @@ func HandleCampaign(ctx HandlerContext, step journey.JourneyVersionStep, state j
 		}
 	}
 
+	// Rate limiting is now resolved by the consumer at send time since the
+	// provider is derived from the template's sender identity, not from
+	// the campaign itself.
 	msg := schemas.SendCampaign{
 		ProjectID:  ctx.ProjectID,
 		UserID:     ctx.UserID,

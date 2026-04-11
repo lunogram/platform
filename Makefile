@@ -89,7 +89,7 @@ lint: | $(EMBEDDED) $(GOLANGCI_LINT) $(BUF) ; $(info $(M) running linters…) @ 
 
 .PHONY: test
 test: | $(EMBEDDED) ; $(info $(M) running tests) @ ## Run all tests
-	$Q $(GO) test $(PKGS) -timeout 300s -race -p 8
+	$Q $(GO) test $(PKGS) -timeout 600s -race -p 8
 
 .PHONY: test-short
 test-short: | $(EMBEDDED) ; $(info $(M) running short tests) @ ## Run all short tests

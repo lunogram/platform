@@ -32,6 +32,8 @@ interface InlineEditProps {
     pencilSize?: string
     /** Custom children to render as the trigger label instead of the default icon + value */
     children?: ReactNode
+    /** Accessible label for the trigger button */
+    "aria-label"?: string
 }
 
 export function InlineEdit({
@@ -47,6 +49,7 @@ export function InlineEdit({
     textClassName,
     pencilSize = "h-2.5 w-2.5",
     children,
+    "aria-label": ariaLabel,
 }: InlineEditProps) {
     const { t } = useTranslation()
     const [isOpen, setIsOpen] = useState(false)
@@ -81,6 +84,7 @@ export function InlineEdit({
             <PopoverTrigger asChild>
                 <button
                     type="button"
+                    aria-label={ariaLabel ?? t("edit_value", "Edit value")}
                     className={cn(
                         "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 -mx-1.5 -my-0.5 hover:bg-muted transition-colors group",
                         isEmpty && "text-muted-foreground/60 hover:text-muted-foreground",

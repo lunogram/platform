@@ -91,11 +91,7 @@ func TestListUsers(t *testing.T) {
 
 	usersStore := controller.users.UsersStore
 	for i := 0; i < 5; i++ {
-		_, err := usersStore.CreateUser(ctx, subjects.User{
-			ProjectID:   projectID,
-			AnonymousID: ptr(uuid.New().String()),
-			Data:        json.RawMessage(`{}`),
-		})
+		_, err := usersStore.CreateUser(ctx, projectID, nil, nil, json.RawMessage(`{}`), nil, nil, []subjects.ExternalIDParam{{Source: "anonymous", ExternalID: uuid.New().String()}})
 		require.NoError(t, err)
 	}
 
@@ -120,7 +116,7 @@ func TestIdentifyUser(t *testing.T) {
 	controller, projectID, actorCtx := TNewUsersController(t)
 
 	body := oapi.IdentifyUser{
-		ExternalId: ptr("user_new_123"),
+		Identifier: []oapi.ExternalID{{Source: ptr("default"), ExternalId: "user_new_123"}},
 		Email:      ptr("new@example.com"),
 	}
 
@@ -139,7 +135,9 @@ func TestIdentifyUser(t *testing.T) {
 	var user oapi.User
 	err = json.Unmarshal(res.Body.Bytes(), &user)
 	require.NoError(t, err)
-	require.Equal(t, "user_new_123", *user.ExternalId)
+	require.Len(t, user.Identifier, 1)
+	require.Equal(t, "default", user.Identifier[0].Source)
+	require.Equal(t, "user_new_123", user.Identifier[0].ExternalId)
 	require.Equal(t, "new@example.com", string(*user.Email))
 }
 
@@ -150,12 +148,7 @@ func TestGetUser(t *testing.T) {
 	ctx := context.Background()
 
 	usersStore := controller.users.UsersStore
-	userID, err := usersStore.CreateUser(ctx, subjects.User{
-		ProjectID:   projectID,
-		AnonymousID: ptr("anon_get"),
-		Email:       ptr("get@example.com"),
-		Data:        json.RawMessage(`{}`),
-	})
+	userID, err := usersStore.CreateUser(ctx, projectID, ptr("get@example.com"), nil, json.RawMessage(`{}`), nil, nil, []subjects.ExternalIDParam{{Source: "anonymous", ExternalID: "anon_get"}})
 	require.NoError(t, err)
 
 	res := httptest.NewRecorder()
@@ -170,7 +163,14 @@ func TestGetUser(t *testing.T) {
 	err = json.Unmarshal(res.Body.Bytes(), &user)
 	require.NoError(t, err)
 	require.Equal(t, userID, user.Id)
-	require.Equal(t, "anon_get", user.AnonymousId)
+	// Verify anonymous identifier is present
+	var foundAnon bool
+	for _, id := range user.Identifier {
+		if id.Source == "anonymous" && id.ExternalId == "anon_get" {
+			foundAnon = true
+		}
+	}
+	require.True(t, foundAnon, "should have anonymous identifier")
 }
 
 func TestUpdateUser(t *testing.T) {
@@ -180,12 +180,7 @@ func TestUpdateUser(t *testing.T) {
 	ctx := context.Background()
 
 	usersStore := controller.users.UsersStore
-	userID, err := usersStore.CreateUser(ctx, subjects.User{
-		ProjectID:   projectID,
-		AnonymousID: ptr("anon_update"),
-		Email:       ptr("old@example.com"),
-		Data:        json.RawMessage(`{"old":"value"}`),
-	})
+	userID, err := usersStore.CreateUser(ctx, projectID, ptr("old@example.com"), nil, json.RawMessage(`{"old":"value"}`), nil, nil, []subjects.ExternalIDParam{{Source: "anonymous", ExternalID: "anon_update"}})
 	require.NoError(t, err)
 
 	updateBody := oapi.UpdateUser{
@@ -224,11 +219,7 @@ func TestDeleteUser(t *testing.T) {
 	ctx := context.Background()
 
 	usersStore := controller.users.UsersStore
-	userID, err := usersStore.CreateUser(ctx, subjects.User{
-		ProjectID:   projectID,
-		AnonymousID: ptr("anon_delete"),
-		Data:        json.RawMessage(`{}`),
-	})
+	userID, err := usersStore.CreateUser(ctx, projectID, nil, nil, json.RawMessage(`{}`), nil, nil, []subjects.ExternalIDParam{{Source: "anonymous", ExternalID: "anon_delete"}})
 	require.NoError(t, err)
 
 	res := httptest.NewRecorder()
@@ -250,11 +241,7 @@ func TestVersionIncrementsOnUpdate(t *testing.T) {
 	ctx := context.Background()
 
 	usersStore := controller.users.UsersStore
-	userID, err := usersStore.CreateUser(ctx, subjects.User{
-		ProjectID:   projectID,
-		AnonymousID: ptr("anon_version"),
-		Data:        json.RawMessage(`{}`),
-	})
+	userID, err := usersStore.CreateUser(ctx, projectID, nil, nil, json.RawMessage(`{}`), nil, nil, []subjects.ExternalIDParam{{Source: "anonymous", ExternalID: "anon_version"}})
 	require.NoError(t, err)
 
 	user, err := usersStore.GetUser(ctx, projectID, userID)
@@ -287,11 +274,7 @@ func TestGetUserEvents(t *testing.T) {
 	ctx := context.Background()
 
 	usersStore := controller.users.UsersStore
-	userID, err := usersStore.CreateUser(ctx, subjects.User{
-		ProjectID:   projectID,
-		AnonymousID: ptr("anon_events"),
-		Data:        json.RawMessage(`{}`),
-	})
+	userID, err := usersStore.CreateUser(ctx, projectID, nil, nil, json.RawMessage(`{}`), nil, nil, []subjects.ExternalIDParam{{Source: "anonymous", ExternalID: "anon_events"}})
 	require.NoError(t, err)
 
 	for i := 0; i < 3; i++ {
@@ -343,11 +326,7 @@ func TestGetUserSubscriptions(t *testing.T) {
 	ctx := context.Background()
 
 	usersStore := controller.users.UsersStore
-	userID, err := usersStore.CreateUser(ctx, subjects.User{
-		ProjectID:   projectID,
-		AnonymousID: ptr("anon_subscriptions"),
-		Data:        json.RawMessage(`{}`),
-	})
+	userID, err := usersStore.CreateUser(ctx, projectID, nil, nil, json.RawMessage(`{}`), nil, nil, []subjects.ExternalIDParam{{Source: "anonymous", ExternalID: "anon_subscriptions"}})
 	require.NoError(t, err)
 
 	subscriptionsStore := controller.mgmt.SubscriptionsStore
@@ -400,11 +379,7 @@ func TestUpdateUserSubscriptions(t *testing.T) {
 	ctx := context.Background()
 
 	usersStore := controller.users.UsersStore
-	userID, err := usersStore.CreateUser(ctx, subjects.User{
-		ProjectID:   projectID,
-		AnonymousID: ptr("anon_update_subs"),
-		Data:        json.RawMessage(`{}`),
-	})
+	userID, err := usersStore.CreateUser(ctx, projectID, nil, nil, json.RawMessage(`{}`), nil, nil, []subjects.ExternalIDParam{{Source: "anonymous", ExternalID: "anon_update_subs"}})
 	require.NoError(t, err)
 
 	subscriptionsStore := controller.mgmt.SubscriptionsStore
@@ -449,11 +424,7 @@ func TestUpdateUserSubscriptionsNotFound(t *testing.T) {
 	ctx := context.Background()
 
 	usersStore := controller.users.UsersStore
-	userID, err := usersStore.CreateUser(ctx, subjects.User{
-		ProjectID:   projectID,
-		AnonymousID: ptr("anon_sub_not_found"),
-		Data:        json.RawMessage(`{}`),
-	})
+	userID, err := usersStore.CreateUser(ctx, projectID, nil, nil, json.RawMessage(`{}`), nil, nil, []subjects.ExternalIDParam{{Source: "anonymous", ExternalID: "anon_sub_not_found"}})
 	require.NoError(t, err)
 
 	nonExistentSubID := uuid.New()
@@ -484,11 +455,7 @@ func TestGetUserJourneys(t *testing.T) {
 	ctx := context.Background()
 
 	usersStore := controller.users.UsersStore
-	userID, err := usersStore.CreateUser(ctx, subjects.User{
-		ProjectID:   projectID,
-		AnonymousID: ptr("anon_journeys"),
-		Data:        json.RawMessage(`{}`),
-	})
+	userID, err := usersStore.CreateUser(ctx, projectID, nil, nil, json.RawMessage(`{}`), nil, nil, []subjects.ExternalIDParam{{Source: "anonymous", ExternalID: "anon_journeys"}})
 	require.NoError(t, err)
 
 	journeysStore := controller.journey.JourneysStore
@@ -550,11 +517,7 @@ func TestGetUserJourneysPagination(t *testing.T) {
 	ctx := context.Background()
 
 	usersStore := controller.users.UsersStore
-	userID, err := usersStore.CreateUser(ctx, subjects.User{
-		ProjectID:   projectID,
-		AnonymousID: ptr("anon_journeys_page"),
-		Data:        json.RawMessage(`{}`),
-	})
+	userID, err := usersStore.CreateUser(ctx, projectID, nil, nil, json.RawMessage(`{}`), nil, nil, []subjects.ExternalIDParam{{Source: "anonymous", ExternalID: "anon_journeys_page"}})
 	require.NoError(t, err)
 
 	journeysStore := controller.journey.JourneysStore
@@ -647,8 +610,8 @@ func TestListUserSchemas(t *testing.T) {
 	err = json.Unmarshal(res.Body.Bytes(), &response)
 	require.NoError(t, err)
 
-	// 7 well-known direct columns + 5 discovered data properties
-	require.Len(t, response.Results, 12)
+	// 5 well-known direct columns + 5 discovered data properties
+	require.Len(t, response.Results, 10)
 
 	pathMap := make(map[string][]string)
 	for _, schema := range response.Results {
@@ -664,10 +627,6 @@ func TestListUserSchemas(t *testing.T) {
 	require.Contains(t, pathMap[".locale"], "string")
 	require.Contains(t, pathMap, ".timezone")
 	require.Contains(t, pathMap[".timezone"], "string")
-	require.Contains(t, pathMap, ".external_id")
-	require.Contains(t, pathMap[".external_id"], "string")
-	require.Contains(t, pathMap, ".anonymous_id")
-	require.Contains(t, pathMap[".anonymous_id"], "string")
 	require.Contains(t, pathMap, ".created_at")
 	require.Contains(t, pathMap[".created_at"], "date")
 
@@ -699,7 +658,7 @@ func TestListUserSchemasEmpty(t *testing.T) {
 	require.NoError(t, err)
 
 	// Even with no discovered schemas, well-known direct columns should be present
-	require.Len(t, response.Results, 7)
+	require.Len(t, response.Results, 5)
 
 	pathMap := make(map[string][]string)
 	for _, schema := range response.Results {
@@ -710,8 +669,6 @@ func TestListUserSchemasEmpty(t *testing.T) {
 	require.Contains(t, pathMap, ".phone")
 	require.Contains(t, pathMap, ".locale")
 	require.Contains(t, pathMap, ".timezone")
-	require.Contains(t, pathMap, ".external_id")
-	require.Contains(t, pathMap, ".anonymous_id")
 	require.Contains(t, pathMap, ".created_at")
 }
 
@@ -765,8 +722,8 @@ func TestListUserSchemasWithMultipleTypes(t *testing.T) {
 	err = json.Unmarshal(res.Body.Bytes(), &response)
 	require.NoError(t, err)
 
-	// 7 well-known direct columns + 5 discovered data properties
-	require.Len(t, response.Results, 12)
+	// 5 well-known direct columns + 5 discovered data properties
+	require.Len(t, response.Results, 10)
 
 	pathMap := make(map[string][]string)
 	for _, schema := range response.Results {
@@ -800,6 +757,159 @@ func TestListUserSchemasWithMultipleTypes(t *testing.T) {
 	require.Contains(t, pathMap, ".data.name")
 	require.Len(t, pathMap[".data.name"], 1)
 	require.Contains(t, pathMap[".data.name"], "string")
+}
+
+func TestCreateUserDevice(t *testing.T) {
+	t.Parallel()
+
+	controller, projectID, actorCtx := TNewUsersController(t)
+	ctx := context.Background()
+
+	usersStore := controller.users.UsersStore
+	userID, err := usersStore.CreateUser(ctx, projectID, nil, nil, json.RawMessage(`{}`), nil, nil, []subjects.ExternalIDParam{{Source: "anonymous", ExternalID: "anon_create_device"}})
+	require.NoError(t, err)
+
+	body := oapi.CreateUserDevice{
+		DeviceId:   "device-1",
+		Data:       ptr(json.RawMessage(`{"app_channel":"beta"}`)),
+		Os:         oapi.CreateUserDeviceOsIos,
+		OsVersion:  ptr("18.1"),
+		Model:      ptr("iPhone 15"),
+		AppBuild:   ptr("101"),
+		AppVersion: ptr("1.0.1"),
+	}
+	body.Config.Token = ptr("token-1")
+
+	bodyBytes, err := json.Marshal(body)
+	require.NoError(t, err)
+
+	res := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/admin/projects/"+projectID.String()+"/users/"+userID.String()+"/devices", bytes.NewReader(bodyBytes))
+	req.Header.Set("Content-Type", "application/json")
+	req = req.WithContext(actorCtx)
+
+	controller.CreateUserDevice(res, req, projectID, userID)
+
+	require.Equal(t, 204, res.Code)
+
+	devices, err := controller.users.ListDevicesByUserWithConfig(ctx, projectID, userID)
+	require.NoError(t, err)
+	require.Len(t, devices, 1)
+	require.Equal(t, "device-1", devices[0].DeviceID)
+	require.NotNil(t, devices[0].Config)
+	require.Equal(t, subjects.PushConfigTypeAPNs, devices[0].Config.Type)
+	require.Equal(t, "token-1", devices[0].Config.Token)
+	require.JSONEq(t, `{"app_channel":"beta"}`, string(devices[0].Data))
+	require.NotNil(t, devices[0].OS)
+	require.Equal(t, "ios", *devices[0].OS)
+}
+
+func TestCreateUserDeviceUserNotFound(t *testing.T) {
+	t.Parallel()
+
+	controller, projectID, actorCtx := TNewUsersController(t)
+	nonExistentUserID := uuid.New()
+
+	body := oapi.CreateUserDevice{
+		DeviceId: "device-404",
+		Os:       oapi.CreateUserDeviceOsAndroid,
+	}
+	body.Config.Token = ptr("token-404")
+
+	bodyBytes, err := json.Marshal(body)
+	require.NoError(t, err)
+
+	res := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/admin/projects/"+projectID.String()+"/users/"+nonExistentUserID.String()+"/devices", bytes.NewReader(bodyBytes))
+	req.Header.Set("Content-Type", "application/json")
+	req = req.WithContext(actorCtx)
+
+	controller.CreateUserDevice(res, req, projectID, nonExistentUserID)
+
+	require.Equal(t, 404, res.Code)
+}
+
+func TestCreateUserDeviceTokenConflict(t *testing.T) {
+	t.Parallel()
+
+	controller, projectID, actorCtx := TNewUsersController(t)
+	ctx := context.Background()
+
+	usersStore := controller.users.UsersStore
+	user1ID, err := usersStore.CreateUser(ctx, projectID, nil, nil, json.RawMessage(`{}`), nil, nil, []subjects.ExternalIDParam{{Source: "anonymous", ExternalID: "anon_device_conflict_1"}})
+	require.NoError(t, err)
+
+	user2ID, err := usersStore.CreateUser(ctx, projectID, nil, nil, json.RawMessage(`{}`), nil, nil, []subjects.ExternalIDParam{{Source: "anonymous", ExternalID: "anon_device_conflict_2"}})
+	require.NoError(t, err)
+
+	_, err = controller.users.CreateDevice(ctx, subjects.Device{
+		ProjectID: projectID,
+		UserID:    user1ID,
+		DeviceID:  "existing-device",
+		Config: &subjects.PushConfig{
+			Type:  subjects.PushConfigTypeAPNs,
+			Token: "shared-token",
+		},
+		OS:    ptr("ios"),
+		Model: ptr("iPhone"),
+	})
+	require.NoError(t, err)
+
+	body := oapi.CreateUserDevice{
+		DeviceId: "new-device",
+		Os:       oapi.CreateUserDeviceOsAndroid,
+	}
+	body.Config.Token = ptr("shared-token")
+
+	bodyBytes, err := json.Marshal(body)
+	require.NoError(t, err)
+
+	res := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/admin/projects/"+projectID.String()+"/users/"+user2ID.String()+"/devices", bytes.NewReader(bodyBytes))
+	req.Header.Set("Content-Type", "application/json")
+	req = req.WithContext(actorCtx)
+
+	controller.CreateUserDevice(res, req, projectID, user2ID)
+
+	require.Equal(t, 409, res.Code)
+}
+
+func TestGetUserDevicesDoesNotExposeToken(t *testing.T) {
+	t.Parallel()
+
+	controller, projectID, actorCtx := TNewUsersController(t)
+	ctx := context.Background()
+
+	usersStore := controller.users.UsersStore
+	userID, err := usersStore.CreateUser(ctx, projectID, nil, nil, json.RawMessage(`{}`), nil, nil, []subjects.ExternalIDParam{{Source: "anonymous", ExternalID: "anon_devices_no_token"}})
+	require.NoError(t, err)
+
+	token := "super-secret-token"
+	_, err = controller.users.CreateDevice(ctx, subjects.Device{
+		ProjectID: projectID,
+		UserID:    userID,
+		DeviceID:  "device-no-token",
+		Config: &subjects.PushConfig{
+			Type:  subjects.PushConfigTypeAPNs,
+			Token: token,
+		},
+		OS:    ptr("ios"),
+		Model: ptr("iPhone"),
+	})
+	require.NoError(t, err)
+
+	res := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/users/"+userID.String()+"/devices", nil)
+	req = req.WithContext(actorCtx)
+
+	controller.GetUserDevices(res, req, projectID, userID)
+
+	require.Equal(t, 200, res.Code)
+
+	var response oapi.UserDeviceList
+	err = json.Unmarshal(res.Body.Bytes(), &response)
+	require.NoError(t, err)
+	require.Len(t, response.Results, 1)
 }
 
 func TestImportUsers(t *testing.T) {

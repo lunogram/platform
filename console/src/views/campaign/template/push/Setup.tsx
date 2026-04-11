@@ -1,12 +1,13 @@
 import { Controller, useForm, type UseFormReturn } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import type { Campaign, Template, User, Locale } from "@/types"
-import { Bell } from "lucide-react"
+import type { Campaign, Template, User, Device, Locale } from "@/types"
+import { Bell, Rocket } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { useContext, useState, useEffect } from "react"
 import { ProjectContext, TemplateContext } from "@/contexts"
 import { useNavigate } from "react-router"
 import { Button } from "@/components/ui/button"
+import { oapiClient } from "@/oapi/client"
 import api from "@/api"
 import * as z from "zod"
 
@@ -21,6 +22,8 @@ import {
 } from "@/components/ui/select"
 import { UserSelection } from "../UserSelection"
 import { useCampaignVariableContext } from "../../CampaignVariableContext"
+import { useSendTestPush } from "./useSendTestPush"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
 const pushSetupFormSchema = z.object({
     title: z.string("Title is required").min(1, "Title is required"),
@@ -128,7 +131,15 @@ export function PushPreview({ campaign, form, edit = false }: PushSetupProps) {
     const [selectedUser, setSelectedUser] = useState<User | null>(null)
     const [selectedLocale, setSelectedLocale] = useState(template.locale)
     const [locales, setLocales] = useState<Locale[]>([])
+    const [devices, setDevices] = useState<Device[]>([])
+    const [selectedDevice, setSelectedDevice] = useState<Device | null>(null)
     const navigate = useNavigate()
+
+    const { sending, handleSendTest } = useSendTestPush({
+        projectId: project.id,
+        campaignId: campaign.id,
+        templateId: template.id,
+    })
 
     useEffect(() => {
         const fetchLocales = async () => {
@@ -139,6 +150,28 @@ export function PushPreview({ campaign, form, edit = false }: PushSetupProps) {
         }
         fetchLocales()
     }, [project?.id])
+
+    useEffect(() => {
+        const fetchDevices = async () => {
+            if (!project?.id || !selectedUser?.id) {
+                setDevices([])
+                setSelectedDevice(null)
+                return
+            }
+            const { data } = await oapiClient.GET(
+                "/api/admin/projects/{projectID}/subjects/users/{userID}/devices",
+                {
+                    params: {
+                        path: { projectID: project.id, userID: selectedUser.id },
+                    },
+                },
+            )
+            const results = data?.results ?? []
+            setDevices(results as Device[])
+            setSelectedDevice(results.length > 0 ? (results[0] as Device) : null)
+        }
+        fetchDevices()
+    }, [project?.id, selectedUser?.id])
 
     const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
 
@@ -162,13 +195,77 @@ export function PushPreview({ campaign, form, edit = false }: PushSetupProps) {
     return (
         <>
             <div className="mb-4 flex items-center justify-between gap-4">
-                <div className="flex-1">
+                <div className="flex items-center gap-2">
                     <UserSelection
                         projectId={project?.id}
                         value={selectedUser}
                         onChange={setSelectedUser}
                     />
+                    {devices.length > 1 && (
+                        <Select
+                            value={selectedDevice?.device_id ?? ""}
+                            onValueChange={(deviceId) => {
+                                const device = devices.find((d) => d.device_id === deviceId)
+                                if (device) setSelectedDevice(device)
+                            }}
+                        >
+                            <SelectTrigger className="w-[180px]">
+                                <SelectValue
+                                    placeholder={t(
+                                        "send_test_push.select_device",
+                                        "Select device...",
+                                    )}
+                                />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {devices.map((d) => (
+                                    <SelectItem key={d.device_id} value={d.device_id}>
+                                        {d.model || d.device_id}
+                                        {d.os ? ` (${d.os})` : ""}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    )}
                 </div>
+                {!edit && (
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <div>
+                                <Button
+                                    variant="default"
+                                    size="sm"
+                                    className="h-9 gap-1.5 shrink-0"
+                                    onClick={() => {
+                                        if (selectedDevice) {
+                                            handleSendTest(selectedDevice, selectedUser)
+                                        }
+                                    }}
+                                    disabled={sending || !selectedDevice}
+                                >
+                                    <Rocket className="h-3.5 w-3.5" />
+                                    {t("send_test_push.button", "Send test")}
+                                </Button>
+                            </div>
+                        </TooltipTrigger>
+                        {selectedUser && devices.length === 0 && (
+                            <TooltipContent>
+                                {t(
+                                    "send_test_push.no_devices",
+                                    "This user has no registered devices",
+                                )}
+                            </TooltipContent>
+                        )}
+                        {!selectedUser && (
+                            <TooltipContent>
+                                {t(
+                                    "send_test_push.no_user",
+                                    "Select a user to send a test push notification",
+                                )}
+                            </TooltipContent>
+                        )}
+                    </Tooltip>
+                )}
                 {edit && (
                     <div className="flex items-center gap-2">
                         <Select value={selectedLocale} onValueChange={handleLocaleChange}>

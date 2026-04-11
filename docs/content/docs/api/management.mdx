@@ -1,0 +1,51 @@
+---
+title: Management API
+description: Programmatic access to manage projects, campaigns, journeys, lists, users, and more.
+---
+
+The Management API provides full programmatic access to manage all aspects of your Lunogram project. This includes campaigns, journeys, lists, users, event schemas, and more.
+
+For the full endpoint reference, see the [interactive API documentation](https://console.lunogram.com/api#management).
+
+## Authentication
+
+Management endpoints authenticate via Bearer token using an API key. The level of access depends on the key's role. See [API Keys](/settings/api-keys) for a full breakdown of available roles and their permissions.
+
+```
+Authorization: Bearer YOUR_API_KEY
+```
+
+You can [create and manage API keys](/settings/api-keys) in your project settings.
+
+<Callout type="warn">
+  Keys with elevated roles (editor, admin) can modify or delete project data.
+  Keep them server-side and never expose them in client-side code or public
+  repositories.
+</Callout>
+
+## Available Resources
+
+The Management API covers the following resources:
+
+| Resource | Description |
+| -------- | ----------- |
+| Campaigns | Create, update, launch, and manage campaigns |
+| Journeys | Build and configure automated journey workflows |
+| Lists | Define and manage user segments |
+| Users | Read and manage user profiles and attributes |
+| Organizations | Read and manage organizations |
+| Events | Query event schemas and event data |
+| Schedules | Create and manage schedule definitions |
+| Integrations | Configure messaging providers |
+| Subscription Groups | Manage subscription preferences |
+
+## Error Handling
+
+All endpoints return errors in RFC 7807 Problem Details format:
+
+```json
+{
+  "title": "Validation Error",
+  "detail": "The 'name' field is required"
+}
+```

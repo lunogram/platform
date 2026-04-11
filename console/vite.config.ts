@@ -269,6 +269,14 @@ export default defineConfig(({ mode }) => {
                     changeOrigin: true,
                     rewrite: (path) => path.replace(/^\/unsubscribe/, "/api/unsubscribe"),
                 },
+                "/preferences": {
+                    target: env.VITE_PROXY_URL,
+                    changeOrigin: true,
+                },
+                "/static": {
+                    target: env.VITE_PROXY_URL,
+                    changeOrigin: true,
+                },
             },
         },
         test: {

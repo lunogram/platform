@@ -9,10 +9,12 @@ import (
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/lunogram/platform/internal/actions"
+	internalProviders "github.com/lunogram/platform/internal/providers"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
 	"github.com/lunogram/platform/internal/store/journey"
 	"github.com/lunogram/platform/internal/store/management"
+	"go.uber.org/zap"
 )
 
 const (
@@ -24,37 +26,42 @@ const (
 	ExitStepType       = "exit"
 	ExperimentStepType = "experiment"
 	GateStepType       = "gate"
+	ScheduleStepType   = "schedule"
 	UpdateStepType     = "update"
 )
 
 // Publisher publishes messages to NATS JetStream.
 type Publisher interface {
-	Publish(ctx context.Context, subject schemas.Subject, v any) error
+	Publish(ctx context.Context, subject schemas.Subject, v any, opts ...pubsub.PublishOption) error
 }
 
 type HandlerContext struct {
 	context.Context
-	DB             *sqlx.DB
-	Publisher      Publisher
-	ProjectID      uuid.UUID
-	UserID         uuid.UUID
-	Step           journey.JourneyVersionStep
-	Data           map[string]any
-	Management     *management.State
-	ActionRegistry *actions.Registry
+	logger           *zap.Logger
+	DB               *sqlx.DB
+	Publisher        Publisher
+	ProjectID        uuid.UUID
+	UserID           uuid.UUID
+	Step             journey.JourneyVersionStep
+	Data             map[string]any
+	Management       *management.State
+	ActionRegistry   *actions.Registry
+	ProviderRegistry *internalProviders.Registry
 }
 
-func Handle(parent context.Context, db *sqlx.DB, pub pubsub.Publisher, projectID, userID uuid.UUID, step journey.JourneyVersionStep, state *journey.JourneyUserState, data map[string]any, mgmt *management.State, actionRegistry *actions.Registry) (journey.JourneyUserState, journey.JourneyVersionStepChildren, error) {
+func Handle(parent context.Context, logger *zap.Logger, db *sqlx.DB, pub pubsub.Publisher, projectID, userID uuid.UUID, step journey.JourneyVersionStep, state *journey.JourneyUserState, data map[string]any, mgmt *management.State, actionRegistry *actions.Registry, registry *internalProviders.Registry) (journey.JourneyUserState, journey.JourneyVersionStepChildren, error) {
 	ctx := HandlerContext{
-		Context:        parent,
-		DB:             db,
-		Publisher:      pub,
-		ProjectID:      projectID,
-		UserID:         userID,
-		Step:           step,
-		Data:           data,
-		Management:     mgmt,
-		ActionRegistry: actionRegistry,
+		Context:          parent,
+		logger:           logger,
+		DB:               db,
+		Publisher:        pub,
+		ProjectID:        projectID,
+		UserID:           userID,
+		Step:             step,
+		Data:             data,
+		Management:       mgmt,
+		ActionRegistry:   actionRegistry,
+		ProviderRegistry: registry,
 	}
 
 	var s journey.JourneyUserState
@@ -79,6 +86,8 @@ func Handle(parent context.Context, db *sqlx.DB, pub pubsub.Publisher, projectID
 		return HandleExperiment(ctx, step, s)
 	case GateStepType:
 		return HandleGate(ctx, step, s)
+	case ScheduleStepType:
+		return HandleSchedule(ctx, step, s)
 	case UpdateStepType:
 		return HandleUpdate(ctx, step, s)
 	}

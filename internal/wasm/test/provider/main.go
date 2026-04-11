@@ -32,6 +32,11 @@ func Manifest() int32 {
 				providers.ChannelSMS,
 				providers.ChannelPush,
 			},
+			Platforms: []providers.Platform{
+				providers.PlatformIOS,
+				providers.PlatformAndroid,
+				providers.PlatformWeb,
+			},
 			Config: &modules.JSONSchema{
 				Type: "object",
 				Properties: []modules.JSONSchemaProperty{

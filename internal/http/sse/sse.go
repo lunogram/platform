@@ -3,10 +3,13 @@ package sse
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"sync"
+	"time"
 )
 
 func NewDecoder(res *http.Response) *Decoder {
@@ -97,30 +100,73 @@ func (s *Decoder) Err() error {
 	return s.err
 }
 
-func NewEncoder(w http.ResponseWriter) *Encoder {
+func NewEncoder(ctx context.Context, w http.ResponseWriter) *Encoder {
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 	w.WriteHeader(http.StatusOK)
 
-	return &Encoder{
+	enc := &Encoder{
 		ResponseWriter: w,
 		flusher:        w.(http.Flusher),
 	}
+
+	go func() {
+		ticker := time.NewTicker(15 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if err := enc.WriteComment("keepalive"); err != nil {
+					return
+				}
+			}
+		}
+	}()
+
+	return enc
 }
 
 type Encoder struct {
+	mu sync.Mutex
 	http.ResponseWriter
 	flusher http.Flusher
 }
 
-func (encoder *Encoder) WriteEvent(event string, data any) {
+func (encoder *Encoder) WriteEvent(event string, data any) error {
 	jsonBytes, _ := json.Marshal(data)
-	fmt.Fprintf(encoder, "event: %s\n", event)
-	fmt.Fprintf(encoder, "data: %s\n\n", jsonBytes)
+
+	encoder.mu.Lock()
+	defer encoder.mu.Unlock()
+
+	_, err := fmt.Fprintf(encoder.ResponseWriter, "event: %s\n", event)
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintf(encoder.ResponseWriter, "data: %s\n\n", jsonBytes)
+	if err != nil {
+		return err
+	}
 	encoder.flusher.Flush()
+	return nil
+}
+
+func (encoder *Encoder) WriteComment(text string) error {
+	encoder.mu.Lock()
+	defer encoder.mu.Unlock()
+
+	_, err := fmt.Fprintf(encoder.ResponseWriter, ": %s\n\n", text)
+	if err != nil {
+		return err
+	}
+	encoder.flusher.Flush()
+	return nil
 }
 
 func (encoder *Encoder) Write(p []byte) (int, error) {
+	encoder.mu.Lock()
+	defer encoder.mu.Unlock()
 	return encoder.ResponseWriter.Write(p)
 }

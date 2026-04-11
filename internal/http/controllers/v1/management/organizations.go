@@ -22,7 +22,7 @@ func NewOrganizationsController(logger *zap.Logger, db *sqlx.DB, pub pubsub.Publ
 	return &OrganizationsController{
 		logger: logger,
 		db:     db,
-		orgs:   subjects.NewState(db),
+		orgs:   subjects.NewState(db, logger),
 		events: subjects.NewEventsStore(db),
 		pubsub: pub,
 		engine: engine,
@@ -91,9 +91,14 @@ func (srv *OrganizationsController) UpsertOrganization(w http.ResponseWriter, r 
 		return
 	}
 
+	if len(body.Identifier) == 0 {
+		srv.logger.Error("at least one identifier is required")
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("at least one identifier is required")))
+		return
+	}
+
 	logger := srv.logger.With(
 		zap.String("project_id", projectID.String()),
-		zap.String("external_id", body.ExternalId),
 	)
 
 	logger.Info("upserting subject organization")
@@ -114,33 +119,43 @@ func (srv *OrganizationsController) UpsertOrganization(w http.ResponseWriter, r 
 	orgsStore := subjects.NewOrganizationsStore(tx)
 
 	params := subjects.UpsertOrganizationParams{
-		ExternalID: body.ExternalId,
-		Name:       body.Name,
-		Data:       data,
+		Identifiers: oapi.ToParams(body.Identifier),
+		Name:        body.Name,
+		Data:        data,
 	}
 
 	orgID, err := orgsStore.UpsertOrganization(ctx, projectID, params)
+	if errors.Is(err, subjects.ErrOrgIdentifierBelongsToOther) {
+		logger.Info("identifier belongs to another organization", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrConflict(problem.Describe("one or more identifiers already belong to a different organization")))
+		return
+	}
+	if errors.Is(err, subjects.ErrOrgConflictingIdentifiers) {
+		logger.Info("conflicting identifiers", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrConflict(problem.Describe("identifiers resolve to different existing organizations")))
+		return
+	}
 	if err != nil {
 		logger.Error("failed to upsert organization", zap.Error(err))
-		oapi.WriteProblem(w, err)
+		oapi.WriteProblem(w, problem.ErrInternal())
 		return
 	}
 
 	org, err := orgsStore.GetOrganization(ctx, projectID, orgID)
 	if err != nil {
 		logger.Error("failed to get organization after upsert", zap.Error(err))
-		oapi.WriteProblem(w, err)
+		oapi.WriteProblem(w, problem.ErrInternal())
 		return
 	}
 
 	// Publish to pubsub for schema extraction
 	msg := schemas.Organization{
-		ID:         org.ID,
-		ProjectID:  projectID,
-		ExternalID: org.ExternalID,
-		Name:       org.Name,
-		Data:       data,
-		Version:    org.Version,
+		ID:          org.ID,
+		ProjectID:   projectID,
+		Identifiers: org.ExternalIDs.Params(),
+		Name:        org.Name,
+		Data:        data,
+		Version:     org.Version,
 	}
 
 	err = srv.pubsub.Publish(ctx, schemas.OrganizationsProcess(projectID), msg)
@@ -269,12 +284,12 @@ func (srv *OrganizationsController) UpdateOrganization(w http.ResponseWriter, r 
 
 	// Publish to pubsub for recomputation and schema extraction
 	msg := schemas.Organization{
-		ID:         updatedOrg.ID,
-		ProjectID:  projectID,
-		ExternalID: updatedOrg.ExternalID,
-		Name:       updatedOrg.Name,
-		Data:       data,
-		Version:    updatedOrg.Version,
+		ID:          updatedOrg.ID,
+		ProjectID:   projectID,
+		Identifiers: updatedOrg.ExternalIDs.Params(),
+		Name:        updatedOrg.Name,
+		Data:        data,
+		Version:     updatedOrg.Version,
 	}
 
 	err = srv.pubsub.Publish(ctx, schemas.OrganizationsProcess(projectID), msg)
@@ -463,12 +478,12 @@ func (srv *OrganizationsController) AddOrganizationMember(w http.ResponseWriter,
 	// Version 0 means new membership (will fire organization.user.added)
 	// Version > 0 means existing membership (will fire organization.user.updated)
 	msg := schemas.OrganizationUser{
-		OrganizationID:         organizationID,
-		OrganizationExternalID: org.ExternalID,
-		UserID:                 body.UserId,
-		ProjectID:              projectID,
-		Data:                   data,
-		Version:                orgUser.Version,
+		OrganizationID:          organizationID,
+		OrganizationIdentifiers: org.ExternalIDs.Params(),
+		UserID:                  body.UserId,
+		ProjectID:               projectID,
+		Data:                    data,
+		Version:                 orgUser.Version,
 	}
 
 	err = srv.pubsub.Publish(ctx, schemas.OrganizationUsersProcess(projectID), msg)
@@ -555,6 +570,7 @@ func (srv *OrganizationsController) GetOrganizationEvents(w http.ResponseWriter,
 		zap.String("organization_id", organizationID.String()),
 	)
 
+	search := params.Search.ToString()
 	pagination := store.Pagination{
 		Limit:  params.Limit.ToInt(),
 		Offset: params.Offset.ToInt(),
@@ -562,7 +578,7 @@ func (srv *OrganizationsController) GetOrganizationEvents(w http.ResponseWriter,
 
 	logger.Info("listing organization events", zap.Int("limit", pagination.Limit), zap.Int("offset", pagination.Offset))
 
-	events, total, err := srv.orgs.ListOrganizationEvents(ctx, projectID, organizationID, pagination)
+	events, total, err := srv.orgs.ListOrganizationEvents(ctx, projectID, organizationID, pagination, search)
 	if err != nil {
 		logger.Error("failed to list organization events", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -579,6 +595,59 @@ func (srv *OrganizationsController) GetOrganizationEvents(w http.ResponseWriter,
 	}
 
 	json.Write(w, http.StatusOK, response)
+}
+
+func (srv *OrganizationsController) CreateOrganizationEvent(w http.ResponseWriter, r *http.Request, projectID, organizationID uuid.UUID) {
+	ctx := r.Context()
+	err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("events", projectID))
+	if err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	_, err = srv.orgs.GetOrganization(ctx, projectID, organizationID)
+	if errors.Is(err, sql.ErrNoRows) {
+		srv.logger.Info("organization not found")
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("organization not found")))
+		return
+	}
+
+	if err != nil {
+		srv.logger.Error("failed to get organization", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	var body oapi.CreateOrganizationEventJSONRequestBody
+	err = json.Decode(r.Body, &body)
+	if err != nil {
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid request body")))
+		return
+	}
+
+	if body.Name == "" {
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("event name is required")))
+		return
+	}
+
+	msg := schemas.OrganizationEvent{
+		ProjectID:      projectID,
+		OrganizationID: organizationID,
+		Name:           body.Name,
+		Data:           nil,
+	}
+	if body.Data != nil {
+		msg.Data = *body.Data
+	}
+
+	err = srv.pubsub.Publish(ctx, schemas.OrganizationEventsProcess(projectID), msg)
+	if err != nil {
+		srv.logger.Error("failed to publish organization event", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal())
+		return
+	}
+
+	w.WriteHeader(http.StatusAccepted)
 }
 
 func (srv *OrganizationsController) ListOrganizationSchemas(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
@@ -726,5 +795,55 @@ func (srv *OrganizationsController) DeleteOrganizationEventSchema(w http.Respons
 	}
 
 	logger.Info("organization event schema deleted")
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (srv *OrganizationsController) DeleteOrganizationExternalID(w http.ResponseWriter, r *http.Request, projectID, organizationID, identifierID uuid.UUID) {
+	ctx := r.Context()
+	err := srv.engine.Allowed(ctx, rbac.Delete, rbac.ProjectResourceScope("organizations", projectID))
+	if err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	logger := srv.logger.With(
+		zap.String("project_id", projectID.String()),
+		zap.String("organization_id", organizationID.String()),
+		zap.String("identifier_id", identifierID.String()),
+	)
+
+	// Verify the organization exists in this project.
+	_, err = srv.orgs.GetOrganization(ctx, projectID, organizationID)
+	if errors.Is(err, sql.ErrNoRows) {
+		logger.Info("organization not found")
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("organization not found")))
+		return
+	}
+	if err != nil {
+		logger.Error("failed to get organization", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal())
+		return
+	}
+
+	logger.Info("deleting organization external identifier")
+
+	err = srv.orgs.DeleteOrgExternalIDByID(ctx, organizationID, identifierID)
+	if errors.Is(err, subjects.ErrOrgLastIdentifier) {
+		logger.Info("cannot delete last identifier")
+		oapi.WriteProblem(w, problem.ErrConflict(problem.Describe("cannot delete the last remaining identifier")))
+		return
+	}
+	if errors.Is(err, sql.ErrNoRows) {
+		logger.Info("identifier not found")
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("identifier not found")))
+		return
+	}
+	if err != nil {
+		logger.Error("failed to delete organization external identifier", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal())
+		return
+	}
+
+	logger.Info("organization external identifier deleted")
 	w.WriteHeader(http.StatusNoContent)
 }

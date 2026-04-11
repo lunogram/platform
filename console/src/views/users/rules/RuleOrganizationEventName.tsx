@@ -38,6 +38,8 @@ export default function RuleOrganizationEventName({
             }}
             options={eventOptions}
             placeholder="Organization event name"
+            ariaLabel="Organization event name"
+            inputAriaLabel="Organization event name"
             required
             renderOption={(option, search) => (
                 <span

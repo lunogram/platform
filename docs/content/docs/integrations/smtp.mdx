@@ -1,0 +1,42 @@
+---
+title: SMTP
+description: Configure any SMTP email provider for sending emails
+---
+
+<Callout type="warn">
+  SMTP provider support is coming soon. This documentation describes the planned
+  functionality.
+</Callout>
+
+The SMTP provider allows you to send emails through any SMTP-compatible email service.
+
+## Planned Features
+
+- Standard SMTP protocol support
+- TLS/SSL encryption
+- Authentication (PLAIN, LOGIN, CRAM-MD5)
+
+## Common SMTP Providers
+
+| Provider | Host                  | Port |
+| -------- | --------------------- | ---- |
+| Gmail    | smtp.gmail.com        | 587  |
+| Outlook  | smtp-mail.outlook.com | 587  |
+| Yahoo    | smtp.mail.yahoo.com   | 587  |
+| Fastmail | smtp.fastmail.com     | 587  |
+
+<Callout type="info">
+  Most personal email providers have low daily send limits (100-500 emails/day).
+  For production use, consider dedicated providers like
+  [Resend](/integrations/resend) or the upcoming SES/SendGrid integrations.
+</Callout>
+
+## Setup (Coming Soon)
+
+1. Obtain SMTP credentials from your email provider
+2. Configure the integration in Lunogram:
+   - Host
+   - Port
+   - Username
+   - Password
+   - Encryption (TLS/SSL)

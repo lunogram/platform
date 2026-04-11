@@ -1,9 +1,11 @@
 package v1
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -38,6 +40,8 @@ type ProvidersController struct {
 	engine   *rbac.Engine
 	baseURL  string
 }
+
+const providerTypeWebPush = "webpush"
 
 func (srv *ProvidersController) ListProviders(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, params oapi.ListProvidersParams) {
 	ctx := r.Context()
@@ -127,6 +131,27 @@ func (srv *ProvidersController) ListProviderMeta(w http.ResponseWriter, r *http.
 			pm.Locked = &locked
 		}
 
+		if len(manifest.Spec.Platforms) > 0 {
+			platforms := make([]oapi.ProjectPushProviderPlatform, len(manifest.Spec.Platforms))
+			for i, p := range manifest.Spec.Platforms {
+				platforms[i] = oapi.ProjectPushProviderPlatform(p)
+			}
+			pm.Platforms = &platforms
+		}
+
+		if rl := manifest.Spec.RateLimit; rl != nil {
+			pm.RateLimit = &oapi.ProviderRateLimit{
+				Limit:    rl.Limit,
+				Interval: rl.Interval,
+				Override: rl.Override,
+			}
+			if pm.RateLimit.Interval == "" {
+				pm.RateLimit.Interval = "1s"
+			}
+			maxRL := providers.ProjectMaxRateLimit.Requests
+			pm.MaxRateLimit = &maxRL
+		}
+
 		meta = append(meta, pm)
 	}
 
@@ -165,6 +190,14 @@ func (srv *ProvidersController) CreateProvider(w http.ResponseWriter, r *http.Re
 
 	// Derive channels from the module manifest.
 	manifest := module.Manifest()
+
+	overrideAllowed := manifest.Spec.RateLimit != nil && manifest.Spec.RateLimit.Override
+	if err := validateRateLimit(body.RateLimit, overrideAllowed); err != nil {
+		logger.Warn("rate limit validation failed", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	channels := make(management.Channels, len(manifest.Spec.Channels))
 	for i, ch := range manifest.Spec.Channels {
 		channels[i] = string(ch)
@@ -173,6 +206,13 @@ func (srv *ProvidersController) CreateProvider(w http.ResponseWriter, r *http.Re
 	var data json.RawMessage
 	if body.Data != nil {
 		data = *body.Data
+	}
+
+	data, err = srv.injectVapidKeys(ctx, providerType, data)
+	if err != nil {
+		logger.Error("failed to inject VAPID keys", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("failed to inject VAPID keys")))
+		return
 	}
 
 	// Validate the provider configuration before persisting.
@@ -193,16 +233,23 @@ func (srv *ProvidersController) CreateProvider(w http.ResponseWriter, r *http.Re
 	}
 
 	provider := management.Provider{
-		ProjectID: projectID,
-		Module:    providerType,
-		Channels:  channels,
-		Name:      body.Name,
-		Data:      data,
-		LinkWrap:  true,
+		ProjectID:    projectID,
+		Module:       providerType,
+		Channels:     channels,
+		Name:         body.Name,
+		Data:         data,
+		LinkWrap:     true,
+		RateLimit:    0,
+		RateInterval: "1s",
 	}
 
 	if body.LinkWrap != nil {
 		provider.LinkWrap = *body.LinkWrap
+	}
+
+	if body.RateLimit != nil {
+		provider.RateLimit = body.RateLimit.Limit
+		provider.RateInterval = body.RateLimit.Interval
 	}
 
 	providerID, err := srv.store.ProvidersStore.CreateProvider(ctx, provider)
@@ -238,6 +285,8 @@ func (srv *ProvidersController) CreateProvider(w http.ResponseWriter, r *http.Re
 			logger.Error("failed to persist init config patch", zap.Error(err))
 		}
 	}
+
+	srv.autoAssignPushProvider(ctx, logger, projectID, providerID, manifest)
 
 	created, err := srv.store.ProvidersStore.GetProviderByProject(ctx, projectID, providerID)
 	if err != nil {
@@ -313,10 +362,36 @@ func (srv *ProvidersController) UpdateProvider(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	overrideAllowed := true // default: allow overrides when the module is not in the registry
+	if module, exists := srv.registry.Get(providerType); exists {
+		rl := module.Manifest().Spec.RateLimit
+		overrideAllowed = rl != nil && rl.Override
+	}
+	if err := validateRateLimit(body.RateLimit, overrideAllowed); err != nil {
+		logger.Warn("rate limit validation failed", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	if body.Data != nil {
+		injected, err := srv.injectVapidKeys(ctx, providerType, *body.Data)
+		if err != nil {
+			logger.Error("failed to inject VAPID keys", zap.Error(err))
+			oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("failed to inject VAPID keys")))
+			return
+		}
+		body.Data = &injected
+	}
+
 	update := management.ProviderUpdate{
 		Name:     body.Name,
 		Data:     body.Data,
 		LinkWrap: body.LinkWrap,
+	}
+
+	if body.RateLimit != nil {
+		update.RateLimit = &body.RateLimit.Limit
+		update.RateInterval = &body.RateLimit.Interval
 	}
 
 	err = srv.store.ProvidersStore.UpdateProvider(ctx, projectID, providerID, update)
@@ -395,6 +470,84 @@ func (srv *ProvidersController) DeleteProvider(w http.ResponseWriter, r *http.Re
 
 	logger.Info("provider deleted")
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// injectVapidKeys merges the project's VAPID key pair into the provider config
+// for webpush providers. For all other provider types it returns data unchanged.
+func (srv *ProvidersController) injectVapidKeys(ctx context.Context, providerType string, data json.RawMessage) (json.RawMessage, error) {
+	if providerType != providerTypeWebPush {
+		return data, nil
+	}
+
+	vapidKey, err := srv.store.VapidKeysStore.GetVapidKeyByName(ctx, management.DefaultVapidKeyName)
+	if err != nil {
+		return nil, fmt.Errorf("fetch VAPID keys: %w", err)
+	}
+
+	patch, err := json.Marshal(map[string]string{
+		"vapidPublicKey":  vapidKey.PublicKey,
+		"vapidPrivateKey": vapidKey.PrivateKey,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("marshal VAPID patch: %w", err)
+	}
+
+	return mergeJSON(data, patch)
+}
+
+// validateRateLimit checks that the given rate limit configuration is valid.
+// overrideAllowed indicates whether the provider module permits user-defined rate limits.
+func validateRateLimit(rl *oapi.RateLimit, overrideAllowed bool) error {
+	if rl == nil {
+		return nil
+	}
+	if rl.Limit > 0 && !overrideAllowed {
+		return problem.ErrBadRequest(problem.Describe("this provider does not allow rate limit overrides"))
+	}
+	if rl.Limit < 0 {
+		return problem.ErrBadRequest(problem.Describe("rate_limit.limit must not be negative"))
+	}
+	if _, err := time.ParseDuration(rl.Interval); err != nil {
+		return problem.ErrBadRequest(problem.Describe("rate_limit.interval must be a valid Go duration (e.g. \"1s\", \"1m\")"))
+	}
+	return nil
+}
+
+// autoAssignPushProvider assigns the newly created provider as the default push
+// provider for any platforms it supports that don't already have one configured.
+func (srv *ProvidersController) autoAssignPushProvider(ctx context.Context, logger *zap.Logger, projectID, providerID uuid.UUID, manifest providers.ProviderManifest) {
+	if len(manifest.Spec.Platforms) == 0 {
+		return
+	}
+
+	existing, err := srv.store.ProjectPushProvidersStore.ListProjectPushProviders(ctx, projectID)
+	if err != nil {
+		logger.Error("failed to list push providers for auto-default", zap.Error(err))
+		return
+	}
+
+	configured := make(map[string]bool, len(existing))
+	for _, pp := range existing {
+		configured[pp.Platform] = true
+	}
+
+	for _, platform := range manifest.Spec.Platforms {
+		if configured[platform.String()] {
+			continue
+		}
+
+		_, err := srv.store.ProjectPushProvidersStore.UpsertProjectPushProvider(ctx, management.ProjectPushProvider{
+			ProjectID:  projectID,
+			ProviderID: providerID,
+			Platform:   platform.String(),
+		})
+		if err != nil {
+			logger.Error("failed to auto-assign default push provider", zap.String("platform", platform.String()), zap.Stringer("provider_id", providerID), zap.Error(err))
+			continue
+		}
+
+		logger.Info("auto-assigned default push provider", zap.String("platform", platform.String()), zap.Stringer("provider_id", providerID))
+	}
 }
 
 // mergeJSON performs a JSON merge-patch: it merges patch fields into base,

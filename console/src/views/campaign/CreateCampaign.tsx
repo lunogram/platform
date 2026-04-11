@@ -131,7 +131,12 @@ export function CreateCampaign({ open = false, onBeforeCreate, trigger }: Create
         })
 
         if (campaign.data?.id) {
-            navigate(`/projects/${project.id}/campaigns/${campaign.data.id}/setup`)
+            const template = await api.campaigns.templates.create(project.id, campaign.data.id, {
+                locale: project.locale,
+                data: {},
+            })
+
+            navigate(`/projects/${project.id}/campaigns/${campaign.data.id}/templates/${template.id}`)
         }
     }
 
@@ -177,8 +182,9 @@ export function CreateCampaign({ open = false, onBeforeCreate, trigger }: Create
                 <ItemGroup className="gap-2">
                     {channels.map((channel) => (
                         <Item key={channel.key} variant="outline" className="items-center" asChild>
-                            <a
-                                className="no-underline cursor-pointer"
+                            <button
+                                type="button"
+                                className="cursor-pointer text-left"
                                 onClick={() => {
                                     setSelectedChannel(channel.key)
                                     setSubscriptionId("")
@@ -194,7 +200,7 @@ export function CreateCampaign({ open = false, onBeforeCreate, trigger }: Create
                                 <ItemActions>
                                     <ArrowRight strokeWidth={1} />
                                 </ItemActions>
-                            </a>
+                            </button>
                         </Item>
                     ))}
                 </ItemGroup>

@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
+	"github.com/lunogram/platform/internal/pubsub/consumer"
 	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/store/journey"
 	"github.com/lunogram/platform/internal/store/management"
@@ -35,7 +36,7 @@ func TestCreateJourney(t *testing.T) {
 	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
 
 	mgmtState := management.NewState(mgmt)
-	journeys := NewJourneysController(logger, jrny, usrs, mgmtState, nil, nil, engine)
+	journeys := NewJourneysController(logger, jrny, usrs, mgmtState, nil, nil, engine, consumer.Namespace(""))
 
 	type test struct {
 		body oapi.CreateJourneyJSONRequestBody
@@ -115,7 +116,7 @@ func TestListJourneys(t *testing.T) {
 	}
 
 	mgmtState := management.NewState(mgmt)
-	journeys := NewJourneysController(logger, jrny, usrs, mgmtState, nil, nil, engine)
+	journeys := NewJourneysController(logger, jrny, usrs, mgmtState, nil, nil, engine, consumer.Namespace(""))
 
 	type test struct {
 		limit  int
@@ -205,7 +206,7 @@ func TestGetJourney(t *testing.T) {
 	require.NoError(t, err)
 
 	mgmtState := management.NewState(mgmt)
-	journeys := NewJourneysController(logger, jrny, usrs, mgmtState, nil, nil, engine)
+	journeys := NewJourneysController(logger, jrny, usrs, mgmtState, nil, nil, engine, consumer.Namespace(""))
 
 	type test struct {
 		journeyID uuid.UUID
@@ -270,7 +271,7 @@ func TestUpdateJourney(t *testing.T) {
 	require.NoError(t, err)
 
 	mgmtState := management.NewState(mgmt)
-	journeys := NewJourneysController(logger, jrny, usrs, mgmtState, nil, nil, engine)
+	journeys := NewJourneysController(logger, jrny, usrs, mgmtState, nil, nil, engine, consumer.Namespace(""))
 
 	type test struct {
 		body oapi.UpdateJourneyJSONRequestBody
@@ -357,7 +358,7 @@ func TestDeleteJourney(t *testing.T) {
 	require.NoError(t, err)
 
 	mgmtState := management.NewState(mgmt)
-	journeys := NewJourneysController(logger, jrny, usrs, mgmtState, nil, nil, engine)
+	journeys := NewJourneysController(logger, jrny, usrs, mgmtState, nil, nil, engine, consumer.Namespace(""))
 
 	type test struct {
 		journeyID uuid.UUID
@@ -386,8 +387,9 @@ func TestDeleteJourney(t *testing.T) {
 
 			if test.code == 204 {
 				journey, err := journeysStore.GetJourney(ctx, projectID, test.journeyID)
-				require.Error(t, err)
-				require.Nil(t, journey)
+				require.NoError(t, err)
+				require.NotNil(t, journey)
+				require.NotNil(t, journey.DeletedAt)
 			}
 		})
 	}

@@ -2,7 +2,6 @@ import type { ComponentType, Dispatch, Key, ReactNode, SetStateAction } from "re
 import type { FieldPath, FieldValues, UseFormReturn } from "react-hook-form"
 import type { Node } from "reactflow"
 import type { UUID } from "@/types/common"
-import type { Provider as OAPIProvider } from "@/oapi/client"
 
 export type Class<T> = new () => T
 
@@ -82,6 +81,7 @@ export type RuleGroup =
     | "organization"
     | "organization_user"
     | "organization_event"
+    | "journey"
 
 export type AnyJson = boolean | number | string | null | JsonArray | JsonMap
 export interface JsonMap {
@@ -209,7 +209,7 @@ export type OrganizationRule = {
 export interface RulePath {
     id: UUID
     path: string
-    type: "user" | "event"
+    type: "user" | "event" | "scheduled"
     name: string
     data_type: "string" | "number" | "boolean" | "date" | "array"
     visibility: "public" | "hidden" | "classified"
@@ -241,9 +241,39 @@ export interface OrganizationSchemaPath {
     types: string[]
 }
 
+export interface ScheduleOffset {
+    id: UUID
+    schedule_id: UUID
+    offset: string
+    direction: "before" | "after"
+    created_at: string
+    updated_at: string
+}
+
+export interface ScheduledSchema {
+    id: UUID
+    name: string
+    schema: EventSchemaPath[]
+    offsets?: ScheduleOffset[]
+}
+
+export interface ScheduledInstance {
+    id: UUID
+    user_id: UUID
+    scheduled_id: UUID
+    scheduled_at: string
+    start_at: string | null
+    interval: string | null
+    data: Record<string, unknown> | null
+    paused_at: string | null
+    created_at: string
+    updated_at: string
+}
+
 export interface VariableSuggestions {
     userPaths: UserSchemaPath[]
     eventPaths: EventSchema[]
+    scheduledPaths?: ScheduledSchema[]
     organizationEventPaths?: EventSchema[]
     organizationUserPaths?: OrganizationUserSchemaPath[]
     organizationPaths?: OrganizationSchemaPath[]
@@ -333,6 +363,7 @@ export interface Project {
     has_provider?: boolean
     campaigns_count?: number
     journeys_count?: number
+    integrations_count?: number
     users_count?: number
     lists_count?: number
 }
@@ -352,10 +383,18 @@ export interface ProjectApiKey {
 
 export type ProjectApiKeyParams = Pick<ProjectApiKey, "name" | "description" | "scope" | "role">
 
+export interface ExternalIDResponse {
+    id: UUID
+    source: string
+    external_id: string
+    metadata?: Record<string, unknown> | null
+    created_at: string
+    updated_at: string
+}
+
 export interface User {
     id: UUID
-    anonymous_id?: string
-    external_id?: string
+    identifier: ExternalIDResponse[]
     full_name?: string
     email?: string
     phone?: string
@@ -369,7 +408,7 @@ export interface User {
 export interface SubjectOrganization {
     id: UUID
     project_id: UUID
-    external_id: string
+    identifier: ExternalIDResponse[]
     name?: string
     data: Record<string, unknown>
     version: number
@@ -377,10 +416,11 @@ export interface SubjectOrganization {
     updated_at: string
 }
 
-export type SubjectOrganizationCreateParams = Pick<
-    SubjectOrganization,
-    "external_id" | "name" | "data"
->
+export type SubjectOrganizationCreateParams = {
+    identifier: { source: string; external_id: string; metadata?: Record<string, unknown> | null }[]
+    name?: string
+    data: Record<string, unknown>
+}
 export type SubjectOrganizationUpdateParams = Pick<SubjectOrganization, "name" | "data">
 
 export interface SubjectOrganizationMember {
@@ -397,8 +437,9 @@ export type SubjectOrganizationMemberParams = Pick<SubjectOrganizationMember, "d
 }
 
 export interface Device {
+    id: UUID
     device_id: string
-    token?: string
+    data: Record<string, unknown>
     os: string
     model: string
     app_build: string
@@ -576,8 +617,6 @@ export interface Campaign {
     name: string
     channel: ChannelType
     delivery: CampaignDelivery
-    provider_id?: UUID
-    provider?: OAPIProvider
     subscription_id?: UUID
     subscription?: Subscription
     transactional?: boolean
@@ -589,8 +628,45 @@ export interface Campaign {
 
 export type CampaignSendState = "pending" | "sent" | "throttled" | "failed" | "bounced" | "aborted"
 
+export type BroadcastState =
+    | "scheduled"
+    | "pending"
+    | "sending"
+    | "completed"
+    | "failed"
+    | "cancelled"
+
+export interface Broadcast {
+    id: UUID
+    project_id: UUID
+    campaign_id: UUID
+    list_id: UUID
+    list_name: string
+    list_type: ListType
+    state: BroadcastState
+    total: number
+    sent: number
+    error?: string
+    created_at: string
+    updated_at: string
+    started_at?: string
+    completed_at?: string
+    scheduled_at?: string
+    campaign?: Pick<Campaign, "id" | "name" | "channel">
+}
+
+export interface BroadcastUser {
+    id: UUID
+    user_id: UUID
+    state: string
+    sent_at?: string
+    full_name?: string
+    email?: string
+    phone?: string
+}
+
 export type CampaignUpdateParams = Partial<
-    Pick<Campaign, "name" | "provider_id" | "subscription_id" | "transactional" | "variables">
+    Pick<Campaign, "name" | "subscription_id" | "transactional" | "variables">
 >
 export type CampaignCreateParams = Pick<
     Campaign,

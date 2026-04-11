@@ -85,6 +85,11 @@ func (srv *CampaignsController) CreateCampaign(w http.ResponseWriter, r *http.Re
 		}
 	}
 
+	transactional := false
+	if body.Transactional != nil {
+		transactional = *body.Transactional
+	}
+
 	tx, err := srv.mgmtDB.BeginTxx(ctx, nil)
 	if err != nil {
 		logger.Error("unexpected error while attempting to start a transaction", zap.Error(err))
@@ -101,8 +106,8 @@ func (srv *CampaignsController) CreateCampaign(w http.ResponseWriter, r *http.Re
 		ProjectID:      project.ID,
 		Name:           body.Name,
 		Channel:        string(body.Channel),
-		ProviderID:     body.ProviderId,
 		SubscriptionID: body.SubscriptionId,
+		Transactional:  transactional,
 	})
 	if err != nil {
 		logger.Error("failed to create campaign", zap.Error(err))
@@ -229,7 +234,6 @@ func (srv *CampaignsController) UpdateCampaign(w http.ResponseWriter, r *http.Re
 
 	updated := management.CampaignUpdate{
 		Name:           body.Name,
-		ProviderID:     body.ProviderId,
 		SubscriptionID: body.SubscriptionId,
 		Transactional:  body.Transactional,
 	}
@@ -362,7 +366,6 @@ func (srv *CampaignsController) DuplicateCampaign(w http.ResponseWriter, r *http
 		ProjectID:      campaign.ProjectID,
 		Name:           "Copy of " + campaign.Name,
 		Channel:        campaign.Channel,
-		ProviderID:     campaign.ProviderID,
 		SubscriptionID: campaign.SubscriptionID,
 		Transactional:  campaign.Transactional,
 	})
@@ -372,7 +375,6 @@ func (srv *CampaignsController) DuplicateCampaign(w http.ResponseWriter, r *http
 		return
 	}
 
-	// Get all templates from the original campaign
 	for _, template := range campaign.Templates {
 		err = templates.DuplicateTemplate(ctx, projectID, template.ID, newCampaignID)
 		if err != nil {

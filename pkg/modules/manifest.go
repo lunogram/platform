@@ -44,4 +44,7 @@ type JSONSchema struct {
 	MinLength   *int                 `json:"minLength,omitempty"`
 	MaxLength   *int                 `json:"maxLength,omitempty"`
 	Preview     string               `json:"preview,omitempty"`
+	FileUpload  bool                 `json:"fileUpload,omitempty"`
+	FileAccept  string               `json:"fileAccept,omitempty"`
+	Hidden      bool                 `json:"hidden,omitempty"`
 }

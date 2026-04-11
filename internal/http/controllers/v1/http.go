@@ -41,7 +41,7 @@ var staticFiles embed.FS
 // use API Key only authentication.
 func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *store.Connections, storageDriver storage.Storage, jet jetstream.JetStream, pub pubsub.Publisher, req pubsub.Caller, registry *providers.Registry, actionRegistry *actions.Registry, rbacEngine *rbac.Engine) (*http.Server, error) {
 	mgmtStores := management.NewState(db.Management)
-	usersStore := subjects.NewState(db.Subjects)
+	usersStore := subjects.NewState(db.Subjects, logger)
 
 	// Load OpenAPI specs
 	mgmtSpec, err := mgmtoapi.Spec()
@@ -132,7 +132,9 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *st
 	MountProxyRoutes(logger, router, cfg.Enterprise)
 
 	// Serve console (admin UI) as fallback
-	consoleHandler, err := console.Handler()
+	consoleHandler, err := console.Handler(console.Config{
+		ClerkPublishableKey: cfg.Console.ClerkPublishableKey,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create console handler: %w", err)
 	}

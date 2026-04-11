@@ -5,7 +5,9 @@ import { useTranslation } from "react-i18next"
 import { Controller, useForm } from "react-hook-form"
 import { z } from "zod"
 import { zodResolver } from "@hookform/resolvers/zod"
-import oapiClient from "@/oapi/client"
+import api from "@/api"
+import { Radio } from "lucide-react"
+import { isEnterprise } from "@/config/enterprise"
 import { useResolver } from "@/hooks"
 
 import { channels } from "./template/channels"
@@ -13,10 +15,9 @@ import { CampaignVariables } from "./CampaignVariables"
 
 import { CampaignVariableProvider } from "./CampaignVariableContext"
 import { Tabs, TabsContent } from "@/components/ui/tabs"
-import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
+import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { ProviderSelect } from "@/components/provider/select"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import {
@@ -26,6 +27,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select"
+import { CreateBroadcastDialog } from "@/views/broadcast/CreateBroadcastDialog"
 
 const campaignVariableSchema = z.object({
     name: z.string(),
@@ -34,7 +36,6 @@ const campaignVariableSchema = z.object({
 
 const campaignSchema = z.object({
     name: z.string().min(1, "Name is required"),
-    provider_id: z.string().optional(),
     variables: z.array(campaignVariableSchema),
 })
 
@@ -46,34 +47,27 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
     const [, setCampaign] = useContext(CampaignContext)
     const templateState = useState<Template>(template)
     const [isSubmitting, setIsSubmitting] = useState(false)
+    const [isBroadcastOpen, setIsBroadcastOpen] = useState(false)
     const [isTransactional, setTransactional] = useState(campaign.transactional ?? false)
     const [subscriptionId, setSubscriptionId] = useState<string>(campaign.subscription_id ?? "")
 
     const [subscriptions] = useResolver(
         useCallback(async (): Promise<Subscription[]> => {
             if (!project?.id) return []
-            const { data } = await oapiClient.GET("/api/admin/projects/{projectID}/subscriptions", {
-                params: {
-                    path: { projectID: project.id },
-                    query: { limit: 100 },
-                },
-            })
-            return data?.results ?? []
+            const result = await api.subscriptions.search(project.id, { limit: 100 })
+            return result.results ?? []
         }, [project?.id]),
     )
 
     const filteredSubscriptions = useMemo(() => {
         if (!subscriptions) return []
-        return subscriptions.filter((s) => {
-            return s.channel === campaign.channel
-        })
+        return subscriptions.filter((s) => s.channel === campaign.channel)
     }, [subscriptions, campaign.channel])
 
     const form = useForm<CampaignReviewFormData>({
         resolver: zodResolver(campaignSchema),
         defaultValues: {
             name: campaign.name || "",
-            provider_id: campaign.provider?.id,
             variables: campaign.variables ?? [],
         },
     })
@@ -91,44 +85,14 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
 
         setIsSubmitting(true)
         try {
-            const { data: updatedCampaign } = await oapiClient.PATCH(
-                "/api/admin/projects/{projectID}/campaigns/{campaignID}",
-                {
-                    params: {
-                        path: { projectID: project.id, campaignID: campaign.id },
-                    },
-                    body: {
-                        name: data.name,
-                        ...(data.provider_id ? { provider_id: data.provider_id } : {}),
-                        transactional: isTransactional,
-                        subscription_id: isTransactional ? undefined : subscriptionId || undefined,
-                        variables: data.variables.filter((v) => v.name),
-                    },
-                },
-            )
+            const updatedCampaign = await api.campaigns.update(project.id, campaign.id, {
+                name: data.name,
+                transactional: isTransactional,
+                subscription_id: isTransactional ? undefined : subscriptionId || undefined,
+                variables: data.variables.filter((v) => v.name),
+            })
 
-            if (updatedCampaign) {
-                setCampaign((prevCampaign) => ({
-                    ...prevCampaign,
-                    name: updatedCampaign.name,
-                    updated_at: updatedCampaign.updated_at,
-                    delivery: updatedCampaign.delivery,
-                    subscription_id: updatedCampaign.subscription_id,
-                    transactional: updatedCampaign.transactional,
-                    provider: updatedCampaign.provider
-                        ? {
-                              ...prevCampaign.provider,
-                              ...updatedCampaign.provider,
-                              data:
-                                  updatedCampaign.provider.data ??
-                                  prevCampaign.provider?.data ??
-                                  {},
-                              setup: prevCampaign.provider?.setup ?? [],
-                          }
-                        : undefined,
-                    variables: updatedCampaign.variables ?? [],
-                }))
-            }
+            setCampaign(updatedCampaign)
         } finally {
             setIsSubmitting(false)
         }
@@ -173,24 +137,23 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
 
                             <FieldGroup>
                                 <Controller
-                                    name="provider_id"
+                                    name="variables"
                                     control={form.control}
-                                    render={({ field, fieldState }) => (
-                                        <Field data-invalid={fieldState.invalid} className="gap-2">
-                                            <FieldLabel htmlFor="provider">
-                                                {t("campaign.setup.form.provider.label")}
+                                    render={({ field }) => (
+                                        <Field className="gap-2">
+                                            <FieldLabel>
+                                                {t("campaign.variables.label", "Variables")}
                                             </FieldLabel>
-                                            <ProviderSelect
-                                                value={field.value}
-                                                onChange={field.onChange}
-                                                channel={campaign.channel}
-                                            />
-                                            <FieldDescription className="whitespace-pre-line">
-                                                {t("campaign.setup.form.provider.description")}
+                                            <FieldDescription>
+                                                {t(
+                                                    "campaign.variables.description",
+                                                    "Define template variables that can be populated from journeys or the API.",
+                                                )}
                                             </FieldDescription>
-                                            {fieldState.invalid && (
-                                                <FieldError errors={[fieldState.error]} />
-                                            )}
+                                            <CampaignVariables
+                                                variables={field.value}
+                                                onChange={field.onChange}
+                                            />
                                         </Field>
                                     )}
                                 />
@@ -224,10 +187,7 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
                                         <FieldLabel htmlFor="subscription-select">
                                             {t("campaign.subscription", "Subscription")}
                                         </FieldLabel>
-                                        <Select
-                                            value={subscriptionId}
-                                            onValueChange={setSubscriptionId}
-                                        >
+                                        <Select value={subscriptionId} onValueChange={setSubscriptionId}>
                                             <SelectTrigger id="subscription-select">
                                                 <SelectValue
                                                     placeholder={t(
@@ -259,49 +219,27 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
                                 </FieldGroup>
                             )}
 
-                            <FieldGroup>
-                                <Controller
-                                    name="variables"
-                                    control={form.control}
-                                    render={({ field }) => (
-                                        <Field className="gap-2">
-                                            <FieldLabel>
-                                                {t("campaign.variables.label", "Variables")}
-                                            </FieldLabel>
-                                            <FieldDescription>
-                                                {t(
-                                                    "campaign.variables.description",
-                                                    "Define template variables that can be populated from journeys or the API.",
-                                                )}
-                                            </FieldDescription>
-                                            <CampaignVariables
-                                                variables={field.value}
-                                                onChange={field.onChange}
-                                            />
-                                        </Field>
-                                    )}
-                                />
-                            </FieldGroup>
-
-                            <div>
-                                <Button
-                                    type="submit"
-                                    disabled={isSubmitting}
-                                    isLoading={isSubmitting}
-                                >
+                            <div className="flex items-center gap-2">
+                                <Button type="submit" disabled={isSubmitting} isLoading={isSubmitting}>
                                     {t("actions.save")}
                                 </Button>
+                                {isEnterprise && (
+                                    <Button variant="outline" onClick={() => setIsBroadcastOpen(true)}>
+                                        <Radio className="mr-2 h-3.5 w-3.5" />
+                                        {t("send_broadcast", "Send Broadcast")}
+                                    </Button>
+                                )}
                             </div>
+                            <CreateBroadcastDialog
+                                open={isBroadcastOpen}
+                                onOpenChange={setIsBroadcastOpen}
+                                campaignId={campaign.id}
+                            />
                         </form>
                     </div>
 
                     <div className="w-3/5 bg-background p-8 pb-0 border-l">
                         <Tabs defaultValue="preview" className="h-full flex flex-col">
-                            {/* <div>
-                            <TabsList className="mb-2">
-                                <TabsTrigger value="preview">Preview</TabsTrigger>
-                            </TabsList>
-                        </div> */}
                             <TabsContent value="preview" className="flex-1">
                                 <ContentPreview campaign={campaign} form={channelForm} edit />
                             </TabsContent>

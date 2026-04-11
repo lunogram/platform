@@ -22,6 +22,8 @@ interface ComboboxBaseProps<T> {
     onValueChange: (value: string) => void
     placeholder?: string
     emptyText?: string
+    ariaLabel?: string
+    inputAriaLabel?: string
     className?: string
     inputClassName?: string
     buttonClassName?: string
@@ -53,6 +55,8 @@ export function Combobox<T extends PathOption>({
     onValueChange,
     placeholder = "Select option...",
     emptyText = "No results found.",
+    ariaLabel,
+    inputAriaLabel,
     className,
     inputClassName,
     buttonClassName,
@@ -144,136 +148,135 @@ export function Combobox<T extends PathOption>({
         const triggerLabel = displayValue || placeholder
 
         return (
-            <div className={cn("relative flex", className)}>
-                <Popover open={open} onOpenChange={setOpen}>
-                    <PopoverTrigger asChild>
-                        <Button
-                            variant="outline"
-                            role="combobox"
-                            aria-expanded={open}
-                            type="button"
-                            disabled={disabled}
-                            className={cn(
-                                "h-8 w-full justify-between shadow-none font-normal",
-                                !displayValue && "text-muted-foreground",
-                                buttonClassName,
-                            )}
-                        >
-                            <span className="truncate">{triggerLabel}</span>
-                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                        </Button>
-                    </PopoverTrigger>
-                    <PopoverContent
-                        className={cn("p-0", contentClassName)}
-                        align="start"
-                        onOpenAutoFocus={(e) => e.preventDefault()}
-                    >
-                        <Command shouldFilter={false}>
-                            <CommandInput
-                                placeholder={placeholder}
-                                value={searchQuery}
-                                onValueChange={setSearchQuery}
-                            />
-                            <CommandList>
-                                {loading ? (
-                                    <div className="flex items-center justify-center py-6">
-                                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                                    </div>
-                                ) : (
-                                    <>
-                                        <CommandEmpty>{emptyText}</CommandEmpty>
-                                        <CommandGroup>
-                                            {searchResults.map((option) => (
-                                                <CommandItem
-                                                    key={option.path}
-                                                    value={option.path}
-                                                    onSelect={handleSelect}
-                                                    className="cursor-pointer"
-                                                >
-                                                    <Check
-                                                        className={cn(
-                                                            "mr-2 h-4 w-4",
-                                                            value === option.path
-                                                                ? "opacity-100"
-                                                                : "opacity-0",
-                                                        )}
-                                                    />
-                                                    {renderOption
-                                                        ? renderOption(option, searchQuery)
-                                                        : option.path}
-                                                </CommandItem>
-                                            ))}
-                                        </CommandGroup>
-                                    </>
-                                )}
-                            </CommandList>
-                        </Command>
-                    </PopoverContent>
-                </Popover>
-            </div>
-        )
-    }
-
-    return (
-        <div className={cn("relative flex", className)}>
             <Popover open={open} onOpenChange={setOpen}>
                 <PopoverTrigger asChild>
-                    <div className="flex">
-                        <Input
-                            ref={inputRef}
-                            type="text"
-                            value={inputValue}
-                            onChange={handleInputChange}
-                            onBlur={handleInputBlur}
-                            required={required}
-                            disabled={disabled}
-                            placeholder={placeholder}
-                            className={cn(
-                                "h-8 rounded-l-md rounded-r-none shadow-none",
-                                inputClassName,
-                            )}
-                        />
-                        <Button
-                            variant="outline"
-                            role="combobox"
-                            aria-expanded={open}
-                            type="button"
-                            disabled={disabled}
-                            className={cn(
-                                "h-8 w-9 rounded-r-md rounded-l-none border-l-0 px-0 shadow-none",
-                                buttonClassName,
-                            )}
-                        >
-                            <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
-                        </Button>
-                    </div>
+                    <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={open}
+                        aria-label={ariaLabel}
+                        type="button"
+                        disabled={disabled}
+                        className={cn(
+                            "h-9 w-full justify-between shadow-none font-normal",
+                            !displayValue && "text-muted-foreground",
+                            className,
+                            buttonClassName,
+                        )}
+                    >
+                        <span className="truncate">{triggerLabel}</span>
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
                 </PopoverTrigger>
                 <PopoverContent
                     className={cn("p-0", contentClassName)}
                     align="start"
                     onOpenAutoFocus={(e) => e.preventDefault()}
                 >
-                    <Command>
+                    <Command shouldFilter={false}>
+                        <CommandInput
+                            placeholder={placeholder}
+                            aria-label={inputAriaLabel}
+                            value={searchQuery}
+                            onValueChange={setSearchQuery}
+                        />
                         <CommandList>
-                            <CommandEmpty>{emptyText}</CommandEmpty>
-                            <CommandGroup>
-                                {filteredOptions.map((option) => (
-                                    <CommandItem
-                                        key={option.path}
-                                        value={option.path}
-                                        onSelect={handleSelect}
-                                        className="cursor-pointer"
-                                    >
-                                        {renderOption
-                                            ? renderOption(option, inputValue)
-                                            : option.path}
-                                    </CommandItem>
-                                ))}
-                            </CommandGroup>
+                            {loading ? (
+                                <div className="flex items-center justify-center py-6">
+                                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                                </div>
+                            ) : (
+                                <>
+                                    <CommandEmpty>{emptyText}</CommandEmpty>
+                                    <CommandGroup>
+                                        {searchResults.map((option) => (
+                                            <CommandItem
+                                                key={option.path}
+                                                value={option.path}
+                                                onSelect={handleSelect}
+                                                className="cursor-pointer"
+                                            >
+                                                <Check
+                                                    className={cn(
+                                                        "mr-2 h-4 w-4",
+                                                        value === option.path
+                                                            ? "opacity-100"
+                                                            : "opacity-0",
+                                                    )}
+                                                />
+                                                {renderOption
+                                                    ? renderOption(option, searchQuery)
+                                                    : option.path}
+                                            </CommandItem>
+                                        ))}
+                                    </CommandGroup>
+                                </>
+                            )}
                         </CommandList>
                     </Command>
                 </PopoverContent>
             </Popover>
-        </div>
+        )
+    }
+
+    return (
+        <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+                <div className={cn("relative flex w-full h-9", className)}>
+                    <Input
+                        ref={inputRef}
+                        type="text"
+                        value={inputValue}
+                        onChange={handleInputChange}
+                        onBlur={handleInputBlur}
+                        required={required}
+                        disabled={disabled}
+                        placeholder={placeholder}
+                        aria-label={inputAriaLabel}
+                        className={cn(
+                            "h-9 rounded-l-md rounded-r-none shadow-none",
+                            inputClassName,
+                        )}
+                    />
+                    <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={open}
+                        aria-label={ariaLabel}
+                        type="button"
+                        disabled={disabled}
+                        className={cn(
+                            "h-9 w-9 rounded-r-md rounded-l-none border-l-0 px-0 shadow-none",
+                            buttonClassName,
+                        )}
+                    >
+                        <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                </div>
+            </PopoverTrigger>
+            <PopoverContent
+                className={cn("p-0", contentClassName)}
+                align="start"
+                onOpenAutoFocus={(e) => e.preventDefault()}
+            >
+                <Command>
+                    <CommandList>
+                        <CommandEmpty>{emptyText}</CommandEmpty>
+                        <CommandGroup>
+                            {filteredOptions.map((option) => (
+                                <CommandItem
+                                    key={option.path}
+                                    value={option.path}
+                                    onSelect={handleSelect}
+                                    className="cursor-pointer"
+                                >
+                                    {renderOption ? renderOption(option, inputValue) : option.path}
+                                </CommandItem>
+                            ))}
+                        </CommandGroup>
+                    </CommandList>
+                </Command>
+            </PopoverContent>
+        </Popover>
     )
 }

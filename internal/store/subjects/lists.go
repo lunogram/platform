@@ -477,24 +477,30 @@ func (s *ListsStore) DuplicateList(ctx context.Context, projectID, listID uuid.U
 func (s *ListsStore) SelectListUsers(ctx context.Context, projectID, listID uuid.UUID, pagination store.Pagination, search string) (Users, int, error) {
 	query := `
 	SELECT
-		u.id, u.project_id, u.anonymous_id, u.external_id, u.email, u.phone, u.data, u.timezone, u.locale, u.version, u.created_at, u.updated_at,
+		u.id, u.project_id, u.email, u.phone, u.data, u.timezone, u.locale, u.version, u.created_at, u.updated_at,
 		EXISTS(
-			SELECT 1 FROM devices d
+			SELECT 1 FROM user_devices d
 			WHERE d.user_id = u.id
-			AND d.token IS NOT NULL
-			AND d.token != ''
+			AND d.config IS NOT NULL
+			AND d.deleted_at IS NULL
 		) as has_push_device,
+		COALESCE(ueia.external_ids, '[]'::jsonb) AS external_ids,
 		COUNT(*) OVER () AS total_count
 	FROM users u
 	INNER JOIN list_users ul ON u.id = ul.user_id
 	INNER JOIN lists l ON ul.list_id = l.id
+	LEFT JOIN user_external_ids_agg ueia ON ueia.user_id = u.id
 	WHERE l.project_id = $1
 	AND l.id = $2
 	AND (
 		$3 = '' OR
-		u.external_id ILIKE '%' || $3 || '%' OR
 		u.email ILIKE '%' || $3 || '%' OR
-		u.phone ILIKE '%' || $3 || '%'
+		u.phone ILIKE '%' || $3 || '%' OR
+		EXISTS(
+			SELECT 1 FROM user_external_ids uei
+			WHERE uei.user_id = u.id
+			AND uei.external_id ILIKE '%' || $3 || '%'
+		)
 	)
 	ORDER BY ul.created_at DESC
 	LIMIT $4 OFFSET $5`
@@ -539,16 +545,18 @@ func (s *ListsStore) PreviewListUsers(ctx context.Context, projectID uuid.UUID, 
 		%s
 	)
 	SELECT
-		u.id, u.project_id, u.anonymous_id, u.external_id, u.email, u.phone, u.data, u.timezone, u.locale, u.version, u.created_at, u.updated_at,
+		u.id, u.project_id, u.email, u.phone, u.data, u.timezone, u.locale, u.version, u.created_at, u.updated_at,
 		EXISTS(
-			SELECT 1 FROM devices d
+			SELECT 1 FROM user_devices d
 			WHERE d.user_id = u.id
-			AND d.token IS NOT NULL
-			AND d.token != ''
+			AND d.config IS NOT NULL
+			AND d.deleted_at IS NULL
 		) as has_push_device,
+		COALESCE(ueia.external_ids, '[]'::jsonb) AS external_ids,
 		COUNT(*) OVER () AS total_count
 	FROM users u
 	INNER JOIN matched m ON u.id = m.id
+	LEFT JOIN user_external_ids_agg ueia ON ueia.user_id = u.id
 	ORDER BY u.created_at DESC
 	LIMIT %d`, query.SQL, limit)
 
@@ -710,7 +718,64 @@ func (s *ListsStore) RecomputeList(ctx context.Context, projectID, listID uuid.U
 		return results, err
 	}
 
+	// Record the recomputation timestamp so the scheduler can determine when
+	// time-dependent lists are next due for reconciliation.
+	_, err = s.db.ExecContext(ctx, `UPDATE lists SET last_recomputed_at = NOW() WHERE id = $1`, listID)
+	if err != nil {
+		return results, err
+	}
+
 	return results, nil
+}
+
+// ScanListUsers iterates over user IDs in a list and calls fn for each user ID.
+// Rows are read via a cursor so large result sets do not need to be held
+// entirely in memory.
+func (s *ListsStore) ScanListUsers(ctx context.Context, listID uuid.UUID, fn func(uuid.UUID) error) (int, error) {
+	q := `
+	SELECT user_id
+	FROM list_users
+	WHERE list_id = $1
+	ORDER BY user_id`
+
+	rows, err := s.db.QueryxContext(ctx, q, listID)
+	if err != nil {
+		return 0, err
+	}
+	defer rows.Close()
+
+	var n int
+	for rows.Next() {
+		var userID uuid.UUID
+		if err := rows.Scan(&userID); err != nil {
+			return n, err
+		}
+		if err := fn(userID); err != nil {
+			return n, err
+		}
+		n++
+	}
+
+	return n, rows.Err()
+}
+
+// ListUsersBatch returns up to limit user IDs from the list starting at the
+// given offset, ordered by user_id. It is used for paginated broadcast fan-out
+// so that large lists are processed in manageable chunks.
+func (s *ListsStore) ListUsersBatch(ctx context.Context, listID uuid.UUID, limit, offset int) ([]uuid.UUID, error) {
+	q := `
+	SELECT user_id
+	FROM list_users
+	WHERE list_id = $1
+	ORDER BY user_id
+	LIMIT $2 OFFSET $3`
+
+	var userIDs []uuid.UUID
+	if err := s.db.SelectContext(ctx, &userIDs, q, listID, limit, offset); err != nil {
+		return nil, err
+	}
+
+	return userIDs, nil
 }
 
 // GetPublishedRule returns the published rule for a list by looking up the
@@ -731,4 +796,39 @@ func (s *ListsStore) GetPublishedRule(ctx context.Context, listID uuid.UUID) (*r
 		return nil, err
 	}
 	return &ruleset.Data, nil
+}
+
+// ListDueForReconciliation identifies a list that needs time-based
+// recomputation (its recompute interval has elapsed since the last recompute).
+type ListDueForReconciliation struct {
+	ID        uuid.UUID `db:"id"`
+	ProjectID uuid.UUID `db:"project_id"`
+}
+
+// SelectListsDueForTimeReconciliation returns dynamic lists whose rules depend
+// on rolling time periods and whose recompute interval has elapsed since the
+// last recomputation. Lists that have never been recomputed (last_recomputed_at
+// IS NULL) are always included.
+func (s *ListsStore) SelectListsDueForTimeReconciliation(ctx context.Context) ([]ListDueForReconciliation, error) {
+	query := `
+	SELECT l.id, l.project_id
+	FROM lists l
+	JOIN list_versions lv ON lv.id = l.version_id AND lv.status = 'published'
+	JOIN rules r ON r.id = lv.rule_id
+	WHERE l.type = 'dynamic'
+		AND l.deleted_at IS NULL
+		AND r.depends_on_time = TRUE
+		AND r.recompute_interval IS NOT NULL
+		AND (
+			l.last_recomputed_at IS NULL
+			OR l.last_recomputed_at + r.recompute_interval <= NOW()
+		)`
+
+	var results []ListDueForReconciliation
+	err := s.db.SelectContext(ctx, &results, query)
+	if err != nil {
+		return nil, err
+	}
+
+	return results, nil
 }

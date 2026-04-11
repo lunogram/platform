@@ -1,5 +1,6 @@
 import Axios from "axios"
 import { env } from "./config/env"
+import { oapiClient } from "./oapi/client"
 import type {
     Action,
     ActionCreateParams,
@@ -259,9 +260,28 @@ const api = {
                 console.debug("Failed to fetch organization schemas:", error)
             }
 
+            // Fetch scheduled schemas (with fallback to empty array)
+            let scheduledSuggestions: VariableSuggestions["scheduledPaths"] = []
+            try {
+                const { data } = await oapiClient.GET(
+                    "/api/admin/projects/{projectID}/subjects/user/scheduled/schema",
+                    { params: { path: { projectID: projectId } } },
+                )
+                const scheduled = data?.results ?? []
+
+                scheduledSuggestions = scheduled.map((s) => ({
+                    ...s,
+                    schema: s.schema ?? [],
+                })) as VariableSuggestions["scheduledPaths"]
+            } catch (error) {
+                // Scheduled schema endpoint may not exist yet, fallback to empty
+                console.debug("Failed to fetch scheduled schemas:", error)
+            }
+
             return {
                 eventPaths: eventSuggestions,
                 userPaths: userSuggestions,
+                scheduledPaths: scheduledSuggestions,
                 organizationEventPaths: organizationEventSuggestions,
                 organizationUserPaths: organizationUserSuggestions,
                 organizationPaths: organizationSuggestions,
@@ -412,14 +432,16 @@ const api = {
                     .then((r) => r.data),
         },
         users: {
-            getState: async (projectId: UUID, journeyId: UUID, userId: UUID) => {
+            getState: async (projectId: UUID, journeyId: UUID, userId: UUID, entranceId?: UUID) => {
                 const response = await client.get<
                     Array<{
                         external_step_id: string
                         step_type: string
                         is_completed: boolean
                     }>
-                >(`${projectUrl(projectId)}/journeys/${journeyId}/users/${userId}/state`)
+                >(`${projectUrl(projectId)}/journeys/${journeyId}/users/${userId}/state`, {
+                    params: entranceId ? { entrance_id: entranceId } : undefined,
+                })
                 return response.data
             },
             skipDelay: async (projectId: UUID, journeyId: UUID, userId: UUID, stepId: UUID) =>

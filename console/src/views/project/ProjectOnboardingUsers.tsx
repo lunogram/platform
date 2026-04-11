@@ -12,6 +12,7 @@ import {
 import { UserImportForm } from "@/components/ui/user-import-dialog"
 import api from "../../api"
 import type { UUID } from "@/types/common"
+import type { User } from "../../types"
 import { useContext, useState } from "react"
 import { NIL } from "uuid"
 import { ProjectContext } from "@/contexts"
@@ -35,7 +36,9 @@ export default function ProjectOnboardingUsers() {
         }
 
         await api.users.create(projectId, {
-            anonymous_id: crypto.randomUUID(),
+            identifier: [
+                { source: "anonymous", external_id: crypto.randomUUID() },
+            ] as unknown as User["identifier"],
             data: {
                 full_name: fullName,
                 admin: true,

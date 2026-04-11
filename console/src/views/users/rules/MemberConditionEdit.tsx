@@ -78,7 +78,10 @@ export default function MemberConditionEdit({
                     value={rule?.type}
                     onValueChange={(type) => setRule({ ...rule, type: type as typeof rule.type })}
                 >
-                    <SelectTrigger className="h-8 w-auto min-w-[90px] rounded-r-none text-xs shadow-none">
+                    <SelectTrigger
+                        elevation="flat"
+                        className="h-8 w-auto min-w-[90px] rounded-r-none text-xs"
+                    >
                         <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -105,6 +108,8 @@ export default function MemberConditionEdit({
                     }}
                     options={pathOptions}
                     placeholder="Member property path"
+                    ariaLabel="Member condition path"
+                    inputAriaLabel="Member condition path"
                     required
                     inputClassName="rounded-none border-l-0"
                     buttonClassName="rounded-none"
@@ -122,7 +127,10 @@ export default function MemberConditionEdit({
                         setRule({ ...rule, operator: operator as typeof rule.operator })
                     }
                 >
-                    <SelectTrigger className="h-8 w-auto min-w-[100px] rounded-none border-l-0 text-xs shadow-none">
+                    <SelectTrigger
+                        elevation="flat"
+                        className="h-8 w-auto min-w-[100px] rounded-none border-l-0 text-xs"
+                    >
                         <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -144,7 +152,10 @@ export default function MemberConditionEdit({
                         }
                         onValueChange={(value) => setRule({ ...rule, value })}
                     >
-                        <SelectTrigger className="h-8 w-auto min-w-[80px] rounded-none border-l-0 text-xs shadow-none">
+                        <SelectTrigger
+                            elevation="flat"
+                            className="h-8 w-auto min-w-[80px] rounded-none border-l-0 text-xs"
+                        >
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -157,6 +168,8 @@ export default function MemberConditionEdit({
                         <Input
                             type="text"
                             placeholder="Value"
+                            id="member-condition-value"
+                            aria-label="Member condition value"
                             className="h-8 min-w-[100px] w-auto rounded-none border-l-0 text-xs shadow-none"
                             value={rule?.value?.toString() ?? ""}
                             onChange={(e) => setRule({ ...rule, value: e.target.value })}
