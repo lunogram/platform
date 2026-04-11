@@ -81,7 +81,7 @@ func (s *SubscriptionsStore) GetUserSubscriptions(ctx context.Context, projectID
 		s.id AS subscription_id,
 		s.name,
 		s.channel,
-		CASE WHEN us.state = 1 THEN 'unsubscribed' ELSE 'subscribed' END AS state,
+		CASE WHEN us.state = 'unsubscribed' THEN 'unsubscribed' ELSE 'subscribed' END AS state,
 		COUNT(*) OVER () AS total_count
 	FROM subscriptions s
 	LEFT JOIN user_subscription us ON us.subscription_id = s.id AND us.user_id = $2
@@ -127,7 +127,7 @@ func (s *SubscriptionsStore) GetAllUserSubscriptions(ctx context.Context, projec
 		s.id AS subscription_id,
 		s.name,
 		s.channel,
-		CASE WHEN us.state = 1 THEN 'unsubscribed' ELSE 'subscribed' END AS state
+		CASE WHEN us.state = 'unsubscribed' THEN 'unsubscribed' ELSE 'subscribed' END AS state
 	FROM subscriptions s
 	LEFT JOIN user_subscription us ON us.subscription_id = s.id AND us.user_id = $2
 	WHERE s.project_id = $1 AND s.is_public = true
@@ -198,7 +198,7 @@ func (s *SubscriptionsStore) Unsubscribe(ctx context.Context, userID, subscripti
 	// Insert unsubscribe record
 	_, err = s.db.ExecContext(ctx, `
 		INSERT INTO user_subscription (user_id, subscription_id, state, created_at, updated_at)
-		VALUES ($1, $2, 1, NOW(), NOW())`, userID, subscriptionID)
+		VALUES ($1, $2, 'unsubscribed', NOW(), NOW())`, userID, subscriptionID)
 	return err
 }
 
@@ -207,6 +207,23 @@ func (s *SubscriptionsStore) SetSubscriptionState(ctx context.Context, userID, s
 		return s.Subscribe(ctx, userID, subscriptionID)
 	}
 	return s.Unsubscribe(ctx, userID, subscriptionID)
+}
+
+func (s *SubscriptionsStore) IsUserUnsubscribed(ctx context.Context, userID, subscriptionID uuid.UUID) (bool, error) {
+	var unsubscribed bool
+	err := s.db.GetContext(ctx, &unsubscribed,
+		`SELECT EXISTS(
+			SELECT 1
+			FROM user_subscription
+			WHERE user_id = $1
+			AND subscription_id = $2
+			AND state = 'unsubscribed'
+		)`,
+		userID, subscriptionID)
+	if err != nil {
+		return false, err
+	}
+	return unsubscribed, nil
 }
 
 func (s *SubscriptionsStore) ListSubscriptions(ctx context.Context, projectID uuid.UUID, pagination store.Pagination) (Subscriptions, int, error) {
