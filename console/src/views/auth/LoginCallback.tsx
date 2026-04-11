@@ -3,6 +3,7 @@ import { useEffect, useState } from "react"
 import { useClerk } from "@clerk/clerk-react"
 import api from "../../api"
 import { AUTH_DRIVERS } from "../../types"
+import { validateRedirect } from "@/lib/validate-redirect"
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"
 import { useTranslation } from "react-i18next"
 
@@ -14,7 +15,7 @@ export default function LoginCallback() {
     const { driver } = useParams() as { driver: string }
     const [searchParams] = useSearchParams()
     const [error, setError] = useState<string>()
-    const redirect = searchParams.get("r") ?? "/"
+    const redirect = validateRedirect(searchParams.get("r"))
 
     useEffect(() => {
         const handleAuth = async () => {

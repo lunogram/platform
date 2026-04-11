@@ -7,6 +7,7 @@ import { useForm } from "react-hook-form"
 
 import api from "../../api"
 import { type AuthDriver, AUTH_DRIVERS } from "../../types"
+import { validateRedirect } from "@/lib/validate-redirect"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -35,7 +36,7 @@ export default function Login() {
     const [selectedDriver, setSelectedDriver] = useState<AuthDriver>()
     const [error, setError] = useState<string>()
     const [isSubmitting, setIsSubmitting] = useState(false)
-    const redirect = searchParams.get("r") ?? "/"
+    const redirect = validateRedirect(searchParams.get("r"))
 
     const form = useForm<LoginFormValues>({
         defaultValues: {
