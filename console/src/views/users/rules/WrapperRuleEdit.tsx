@@ -189,7 +189,13 @@ export default function WrapperRuleEdit({
                         size="sm"
                         variant="outline"
                         className="shadow-none"
-                        aria-label="Add condition"
+                        aria-label={
+                            rule?.group === "event"
+                                ? "Add event property condition"
+                                : rule?.group === "organization_event"
+                                  ? "Add organization event property condition"
+                                  : "Add condition"
+                        }
                         onClick={() => {
                             setRule({
                                 ...rule,

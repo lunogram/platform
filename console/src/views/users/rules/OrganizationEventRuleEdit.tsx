@@ -230,7 +230,10 @@ export default function OrganizationEventRuleEdit({
                             handleUserMatchTypeChange(value as OrganizationUserMatch["type"])
                         }
                     >
-                        <SelectTrigger className="h-8 w-auto min-w-[180px] text-xs shadow-none">
+                        <SelectTrigger
+                            className="h-8 w-auto min-w-[180px] text-xs shadow-none"
+                            aria-label={t("organization_event_member_scope", "Organization event member scope")}
+                        >
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>

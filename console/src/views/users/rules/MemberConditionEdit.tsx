@@ -159,6 +159,7 @@ export default function MemberConditionEdit({
                         <Input
                             type="text"
                             placeholder="Value"
+                            id="member-condition-value"
                             aria-label="Member condition value"
                             className="h-8 min-w-[100px] w-auto rounded-none border-l-0 text-xs shadow-none"
                             value={rule?.value?.toString() ?? ""}

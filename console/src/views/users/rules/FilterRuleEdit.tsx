@@ -169,6 +169,7 @@ export default function FilterRuleEdit({
                     ) : journeyContext && journeyVariables?.length ? (
                         <TemplateInput
                             placeholder="Value"
+                            id="rule-value"
                             className="h-8 min-w-[100px] w-auto rounded-l-none border-l-0 text-xs shadow-none"
                             value={rule?.value?.toString() ?? ""}
                             onChange={(val) => setRule({ ...rule, value: val })}
@@ -179,6 +180,7 @@ export default function FilterRuleEdit({
                         <Input
                             type="text"
                             placeholder="Value"
+                            id="rule-value"
                             aria-label="Rule value"
                             className="h-8 min-w-[100px] w-auto rounded-l-none border-l-0 text-xs shadow-none"
                             value={rule?.value?.toString() ?? ""}
