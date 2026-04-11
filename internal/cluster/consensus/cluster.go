@@ -144,15 +144,36 @@ func (cluster *Cluster) ReleaseNode(ctx context.Context, id string) error {
 func (cluster *Cluster) WatchNodes(ctx context.Context) <-chan map[string]string {
 	pubsub := cluster.redis.Subscribe(ctx, cluster.key(ClusterRegisterNodeChannel), cluster.key(ClusterReleaseNodeChannel))
 	sink := make(chan map[string]string, 1)
+	updates := pubsub.Channel()
 
 	go func() {
-		for range pubsub.Channel() {
-			nodes, err := cluster.GetNodes(ctx)
-			if err != nil {
-				continue
-			}
+		defer close(sink)
+		defer pubsub.Close() // nolint:errcheck
 
-			sink <- nodes
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case _, ok := <-updates:
+				if !ok {
+					return
+				}
+
+				nodes, err := cluster.GetNodes(ctx)
+				if err != nil {
+					if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+						return
+					}
+
+					continue
+				}
+
+				select {
+				case sink <- nodes:
+				case <-ctx.Done():
+					return
+				}
+			}
 		}
 	}()
 
