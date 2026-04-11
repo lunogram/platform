@@ -2,16 +2,12 @@ package management
 
 import (
 	"context"
-	"database/sql"
-	"errors"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/store"
 )
-
-const subscriptionStateUnsubscribed = 1
 
 type Subscriptions []Subscription
 
@@ -85,7 +81,7 @@ func (s *SubscriptionsStore) GetUserSubscriptions(ctx context.Context, projectID
 		s.id AS subscription_id,
 		s.name,
 		s.channel,
-		CASE WHEN us.state = $5 THEN 'unsubscribed' ELSE 'subscribed' END AS state,
+		CASE WHEN us.state = 'unsubscribed' THEN 'unsubscribed' ELSE 'subscribed' END AS state,
 		COUNT(*) OVER () AS total_count
 	FROM subscriptions s
 	LEFT JOIN user_subscription us ON us.subscription_id = s.id AND us.user_id = $2
@@ -102,7 +98,7 @@ func (s *SubscriptionsStore) GetUserSubscriptions(ctx context.Context, projectID
 	}
 
 	var results []result
-	err := s.db.SelectContext(ctx, &results, query, projectID, userID, pagination.Limit, pagination.Offset, subscriptionStateUnsubscribed)
+	err := s.db.SelectContext(ctx, &results, query, projectID, userID, pagination.Limit, pagination.Offset)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -131,14 +127,14 @@ func (s *SubscriptionsStore) GetAllUserSubscriptions(ctx context.Context, projec
 		s.id AS subscription_id,
 		s.name,
 		s.channel,
-		CASE WHEN us.state = $3 THEN 'unsubscribed' ELSE 'subscribed' END AS state
+		CASE WHEN us.state = 'unsubscribed' THEN 'unsubscribed' ELSE 'subscribed' END AS state
 	FROM subscriptions s
 	LEFT JOIN user_subscription us ON us.subscription_id = s.id AND us.user_id = $2
 	WHERE s.project_id = $1 AND s.is_public = true
 	ORDER BY s.name`
 
 	var subscriptions []UserSubscription
-	err := s.db.SelectContext(ctx, &subscriptions, query, projectID, userID, subscriptionStateUnsubscribed)
+	err := s.db.SelectContext(ctx, &subscriptions, query, projectID, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -202,7 +198,7 @@ func (s *SubscriptionsStore) Unsubscribe(ctx context.Context, userID, subscripti
 	// Insert unsubscribe record
 	_, err = s.db.ExecContext(ctx, `
 		INSERT INTO user_subscription (user_id, subscription_id, state, created_at, updated_at)
-		VALUES ($1, $2, $3, NOW(), NOW())`, userID, subscriptionID, subscriptionStateUnsubscribed)
+		VALUES ($1, $2, 'unsubscribed', NOW(), NOW())`, userID, subscriptionID)
 	return err
 }
 
@@ -214,17 +210,20 @@ func (s *SubscriptionsStore) SetSubscriptionState(ctx context.Context, userID, s
 }
 
 func (s *SubscriptionsStore) IsUserUnsubscribed(ctx context.Context, userID, subscriptionID uuid.UUID) (bool, error) {
-	var state *int
-	err := s.db.GetContext(ctx, &state,
-		`SELECT state FROM user_subscription WHERE user_id = $1 AND subscription_id = $2`,
+	var unsubscribed bool
+	err := s.db.GetContext(ctx, &unsubscribed,
+		`SELECT EXISTS(
+			SELECT 1
+			FROM user_subscription
+			WHERE user_id = $1
+			AND subscription_id = $2
+			AND state = 'unsubscribed'
+		)`,
 		userID, subscriptionID)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return false, nil
-		}
 		return false, err
 	}
-	return state != nil && *state == subscriptionStateUnsubscribed, nil
+	return unsubscribed, nil
 }
 
 func (s *SubscriptionsStore) ListSubscriptions(ctx context.Context, projectID uuid.UUID, pagination store.Pagination) (Subscriptions, int, error) {
