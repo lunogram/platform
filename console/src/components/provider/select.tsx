@@ -19,9 +19,10 @@ interface ProviderSelectProps {
     value?: string
     onChange?: (value: string) => void
     channel: ProviderGroup
+    triggerId?: string
 }
 
-export function ProviderSelect({ value, onChange, channel }: ProviderSelectProps) {
+export function ProviderSelect({ value, onChange, channel, triggerId }: ProviderSelectProps) {
     const { t } = useTranslation()
     const [project] = useContext(ProjectContext)
     const [providers, setProviders] = useState<Provider[]>([])
@@ -58,7 +59,7 @@ export function ProviderSelect({ value, onChange, channel }: ProviderSelectProps
 
     return (
         <Select value={value} onValueChange={onChange}>
-            <SelectTrigger className="w-full">
+            <SelectTrigger id={triggerId} className="w-full">
                 <SelectValue placeholder={t("provider.select.placeholder")} />
             </SelectTrigger>
             <SelectContent>

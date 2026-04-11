@@ -22,6 +22,8 @@ interface ComboboxBaseProps<T> {
     onValueChange: (value: string) => void
     placeholder?: string
     emptyText?: string
+    ariaLabel?: string
+    inputAriaLabel?: string
     className?: string
     inputClassName?: string
     buttonClassName?: string
@@ -53,6 +55,8 @@ export function Combobox<T extends PathOption>({
     onValueChange,
     placeholder = "Select option...",
     emptyText = "No results found.",
+    ariaLabel,
+    inputAriaLabel,
     className,
     inputClassName,
     buttonClassName,
@@ -150,6 +154,7 @@ export function Combobox<T extends PathOption>({
                         variant="outline"
                         role="combobox"
                         aria-expanded={open}
+                        aria-label={ariaLabel}
                         type="button"
                         disabled={disabled}
                         className={cn(
@@ -171,6 +176,7 @@ export function Combobox<T extends PathOption>({
                     <Command shouldFilter={false}>
                         <CommandInput
                             placeholder={placeholder}
+                            aria-label={inputAriaLabel}
                             value={searchQuery}
                             onValueChange={setSearchQuery}
                         />
@@ -226,6 +232,7 @@ export function Combobox<T extends PathOption>({
                         required={required}
                         disabled={disabled}
                         placeholder={placeholder}
+                        aria-label={inputAriaLabel}
                         className={cn(
                             "h-9 rounded-l-md rounded-r-none shadow-none",
                             inputClassName,
@@ -235,6 +242,7 @@ export function Combobox<T extends PathOption>({
                         variant="outline"
                         role="combobox"
                         aria-expanded={open}
+                        aria-label={ariaLabel}
                         type="button"
                         disabled={disabled}
                         className={cn(

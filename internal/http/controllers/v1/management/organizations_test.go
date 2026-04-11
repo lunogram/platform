@@ -90,8 +90,8 @@ func TestListOrganizations(t *testing.T) {
 
 	for i := 0; i < 5; i++ {
 		_, err := tc.usersDB.OrganizationsStore.UpsertOrganization(ctx, tc.projectID, subjects.UpsertOrganizationParams{
-			ExternalID: "org_" + uuid.New().String(),
-			Name:       ptr("Test Org"),
+			Identifiers: []subjects.ExternalIDParam{{Source: "default", ExternalID: "org_" + uuid.New().String()}},
+			Name:        ptr("Test Org"),
 		})
 		require.NoError(t, err)
 	}
@@ -119,8 +119,8 @@ func TestListOrganizationsPagination(t *testing.T) {
 
 	for i := 0; i < 10; i++ {
 		_, err := tc.usersDB.OrganizationsStore.UpsertOrganization(ctx, tc.projectID, subjects.UpsertOrganizationParams{
-			ExternalID: "org_" + uuid.New().String(),
-			Name:       ptr("Test Org"),
+			Identifiers: []subjects.ExternalIDParam{{Source: "default", ExternalID: "org_" + uuid.New().String()}},
+			Name:        ptr("Test Org"),
 		})
 		require.NoError(t, err)
 	}
@@ -172,7 +172,7 @@ func TestUpsertOrganization(t *testing.T) {
 	tests := map[string]test{
 		"create with all fields": {
 			body: oapi.UpsertOrganization{
-				ExternalId: "org_123",
+				Identifier: []oapi.ExternalID{{Source: ptr("default"), ExternalId: "org_123"}},
 				Name:       ptr("Acme Corp"),
 				Data: &map[string]any{
 					"industry": "technology",
@@ -183,13 +183,13 @@ func TestUpsertOrganization(t *testing.T) {
 		},
 		"create with minimal data": {
 			body: oapi.UpsertOrganization{
-				ExternalId: "org_456",
+				Identifier: []oapi.ExternalID{{Source: ptr("default"), ExternalId: "org_456"}},
 			},
 			statusCode: 200,
 		},
 		"create with name only": {
 			body: oapi.UpsertOrganization{
-				ExternalId: "org_789",
+				Identifier: []oapi.ExternalID{{Source: ptr("default"), ExternalId: "org_789"}},
 				Name:       ptr("Simple Corp"),
 			},
 			statusCode: 200,
@@ -219,7 +219,8 @@ func TestUpsertOrganization(t *testing.T) {
 				err = json.Unmarshal(res.Body.Bytes(), &response)
 				require.NoError(t, err)
 				require.NotEmpty(t, response.Id)
-				require.Equal(t, tt.body.ExternalId, response.ExternalId)
+				require.Len(t, response.Identifier, 1)
+				require.Equal(t, tt.body.Identifier[0].ExternalId, response.Identifier[0].ExternalId)
 			}
 		})
 	}
@@ -232,7 +233,7 @@ func TestUpsertOrganizationUpdate(t *testing.T) {
 
 	// First upsert - create
 	body1 := oapi.UpsertOrganization{
-		ExternalId: "org_123",
+		Identifier: []oapi.ExternalID{{Source: ptr("default"), ExternalId: "org_123"}},
 		Name:       ptr("Original Name"),
 		Data: &map[string]any{
 			"plan": "basic",
@@ -257,7 +258,7 @@ func TestUpsertOrganizationUpdate(t *testing.T) {
 
 	// Second upsert - update
 	body2 := oapi.UpsertOrganization{
-		ExternalId: "org_123",
+		Identifier: []oapi.ExternalID{{Source: ptr("default"), ExternalId: "org_123"}},
 		Name:       ptr("Updated Name"),
 		Data: &map[string]any{
 			"plan": "enterprise",
@@ -289,7 +290,7 @@ func TestUpsertOrganizationUnauthorized(t *testing.T) {
 	tc := setupOrganizationsController(t)
 
 	body := oapi.UpsertOrganization{
-		ExternalId: "org_123",
+		Identifier: []oapi.ExternalID{{Source: ptr("default"), ExternalId: "org_123"}},
 		Name:       ptr("Test Org"),
 	}
 
@@ -327,8 +328,8 @@ func TestGetOrganization(t *testing.T) {
 	ctx := context.Background()
 
 	orgID, err := tc.usersDB.OrganizationsStore.UpsertOrganization(ctx, tc.projectID, subjects.UpsertOrganizationParams{
-		ExternalID: "org_123",
-		Name:       ptr("Test Org"),
+		Identifiers: []subjects.ExternalIDParam{{Source: "default", ExternalID: "org_123"}},
+		Name:        ptr("Test Org"),
 		Data: map[string]any{
 			"industry": "technology",
 		},
@@ -347,7 +348,8 @@ func TestGetOrganization(t *testing.T) {
 	err = json.Unmarshal(res.Body.Bytes(), &response)
 	require.NoError(t, err)
 	require.Equal(t, orgID, response.Id)
-	require.Equal(t, "org_123", response.ExternalId)
+	require.Len(t, response.Identifier, 1)
+	require.Equal(t, "org_123", response.Identifier[0].ExternalId)
 	require.Equal(t, "Test Org", *response.Name)
 }
 
@@ -373,8 +375,8 @@ func TestGetOrganizationUnauthorized(t *testing.T) {
 	ctx := context.Background()
 
 	orgID, err := tc.usersDB.OrganizationsStore.UpsertOrganization(ctx, tc.projectID, subjects.UpsertOrganizationParams{
-		ExternalID: "org_123",
-		Name:       ptr("Test Org"),
+		Identifiers: []subjects.ExternalIDParam{{Source: "default", ExternalID: "org_123"}},
+		Name:        ptr("Test Org"),
 	})
 	require.NoError(t, err)
 
@@ -393,8 +395,8 @@ func TestUpdateOrganization(t *testing.T) {
 	ctx := context.Background()
 
 	orgID, err := tc.usersDB.OrganizationsStore.UpsertOrganization(ctx, tc.projectID, subjects.UpsertOrganizationParams{
-		ExternalID: "org_123",
-		Name:       ptr("Original Name"),
+		Identifiers: []subjects.ExternalIDParam{{Source: "default", ExternalID: "org_123"}},
+		Name:        ptr("Original Name"),
 	})
 	require.NoError(t, err)
 
@@ -453,8 +455,8 @@ func TestUpdateOrganizationUnauthorized(t *testing.T) {
 	ctx := context.Background()
 
 	orgID, err := tc.usersDB.OrganizationsStore.UpsertOrganization(ctx, tc.projectID, subjects.UpsertOrganizationParams{
-		ExternalID: "org_123",
-		Name:       ptr("Original Name"),
+		Identifiers: []subjects.ExternalIDParam{{Source: "default", ExternalID: "org_123"}},
+		Name:        ptr("Original Name"),
 	})
 	require.NoError(t, err)
 
@@ -481,8 +483,8 @@ func TestDeleteOrganization(t *testing.T) {
 	ctx := context.Background()
 
 	orgID, err := tc.usersDB.OrganizationsStore.UpsertOrganization(ctx, tc.projectID, subjects.UpsertOrganizationParams{
-		ExternalID: "org_123",
-		Name:       ptr("Test Org"),
+		Identifiers: []subjects.ExternalIDParam{{Source: "default", ExternalID: "org_123"}},
+		Name:        ptr("Test Org"),
 	})
 	require.NoError(t, err)
 
@@ -525,8 +527,8 @@ func TestDeleteOrganizationUnauthorized(t *testing.T) {
 	ctx := context.Background()
 
 	orgID, err := tc.usersDB.OrganizationsStore.UpsertOrganization(ctx, tc.projectID, subjects.UpsertOrganizationParams{
-		ExternalID: "org_123",
-		Name:       ptr("Test Org"),
+		Identifiers: []subjects.ExternalIDParam{{Source: "default", ExternalID: "org_123"}},
+		Name:        ptr("Test Org"),
 	})
 	require.NoError(t, err)
 
@@ -545,18 +547,14 @@ func TestListOrganizationMembers(t *testing.T) {
 	ctx := context.Background()
 
 	orgID, err := tc.usersDB.OrganizationsStore.UpsertOrganization(ctx, tc.projectID, subjects.UpsertOrganizationParams{
-		ExternalID: "org_123",
-		Name:       ptr("Test Org"),
+		Identifiers: []subjects.ExternalIDParam{{Source: "default", ExternalID: "org_123"}},
+		Name:        ptr("Test Org"),
 	})
 	require.NoError(t, err)
 
 	// Create users and add them to the organization
 	for i := 0; i < 3; i++ {
-		userID, err := tc.usersDB.UsersStore.CreateUser(ctx, subjects.User{
-			ProjectID:   tc.projectID,
-			AnonymousID: ptr(uuid.New().String()),
-			Data:        json.RawMessage(`{}`),
-		})
+		userID, err := tc.usersDB.UsersStore.CreateUser(ctx, tc.projectID, nil, nil, json.RawMessage(`{}`), nil, nil, []subjects.ExternalIDParam{{Source: "anonymous", ExternalID: uuid.New().String()}})
 		require.NoError(t, err)
 
 		_, err = tc.usersDB.OrganizationsStore.UpsertAndGetOrganizationMember(ctx, orgID, userID, map[string]any{"role": "member"})
@@ -600,8 +598,8 @@ func TestListOrganizationMembersUnauthorized(t *testing.T) {
 	ctx := context.Background()
 
 	orgID, err := tc.usersDB.OrganizationsStore.UpsertOrganization(ctx, tc.projectID, subjects.UpsertOrganizationParams{
-		ExternalID: "org_123",
-		Name:       ptr("Test Org"),
+		Identifiers: []subjects.ExternalIDParam{{Source: "default", ExternalID: "org_123"}},
+		Name:        ptr("Test Org"),
 	})
 	require.NoError(t, err)
 
@@ -620,16 +618,12 @@ func TestAddOrganizationMember(t *testing.T) {
 	ctx := context.Background()
 
 	orgID, err := tc.usersDB.OrganizationsStore.UpsertOrganization(ctx, tc.projectID, subjects.UpsertOrganizationParams{
-		ExternalID: "org_123",
-		Name:       ptr("Test Org"),
+		Identifiers: []subjects.ExternalIDParam{{Source: "default", ExternalID: "org_123"}},
+		Name:        ptr("Test Org"),
 	})
 	require.NoError(t, err)
 
-	userID, err := tc.usersDB.UsersStore.CreateUser(ctx, subjects.User{
-		ProjectID:   tc.projectID,
-		AnonymousID: ptr(uuid.New().String()),
-		Data:        json.RawMessage(`{}`),
-	})
+	userID, err := tc.usersDB.UsersStore.CreateUser(ctx, tc.projectID, nil, nil, json.RawMessage(`{}`), nil, nil, []subjects.ExternalIDParam{{Source: "anonymous", ExternalID: uuid.New().String()}})
 	require.NoError(t, err)
 
 	body := oapi.AddOrganizationMember{
@@ -672,11 +666,7 @@ func TestAddOrganizationMemberOrganizationNotFound(t *testing.T) {
 	tc := setupOrganizationsController(t)
 	ctx := context.Background()
 
-	userID, err := tc.usersDB.UsersStore.CreateUser(ctx, subjects.User{
-		ProjectID:   tc.projectID,
-		AnonymousID: ptr(uuid.New().String()),
-		Data:        json.RawMessage(`{}`),
-	})
+	userID, err := tc.usersDB.UsersStore.CreateUser(ctx, tc.projectID, nil, nil, json.RawMessage(`{}`), nil, nil, []subjects.ExternalIDParam{{Source: "anonymous", ExternalID: uuid.New().String()}})
 	require.NoError(t, err)
 
 	nonExistentOrgID := uuid.New()
@@ -705,8 +695,8 @@ func TestAddOrganizationMemberUserNotFound(t *testing.T) {
 	ctx := context.Background()
 
 	orgID, err := tc.usersDB.OrganizationsStore.UpsertOrganization(ctx, tc.projectID, subjects.UpsertOrganizationParams{
-		ExternalID: "org_123",
-		Name:       ptr("Test Org"),
+		Identifiers: []subjects.ExternalIDParam{{Source: "default", ExternalID: "org_123"}},
+		Name:        ptr("Test Org"),
 	})
 	require.NoError(t, err)
 
@@ -736,8 +726,8 @@ func TestAddOrganizationMemberUnauthorized(t *testing.T) {
 	ctx := context.Background()
 
 	orgID, err := tc.usersDB.OrganizationsStore.UpsertOrganization(ctx, tc.projectID, subjects.UpsertOrganizationParams{
-		ExternalID: "org_123",
-		Name:       ptr("Test Org"),
+		Identifiers: []subjects.ExternalIDParam{{Source: "default", ExternalID: "org_123"}},
+		Name:        ptr("Test Org"),
 	})
 	require.NoError(t, err)
 
@@ -764,16 +754,12 @@ func TestRemoveOrganizationMember(t *testing.T) {
 	ctx := context.Background()
 
 	orgID, err := tc.usersDB.OrganizationsStore.UpsertOrganization(ctx, tc.projectID, subjects.UpsertOrganizationParams{
-		ExternalID: "org_123",
-		Name:       ptr("Test Org"),
+		Identifiers: []subjects.ExternalIDParam{{Source: "default", ExternalID: "org_123"}},
+		Name:        ptr("Test Org"),
 	})
 	require.NoError(t, err)
 
-	userID, err := tc.usersDB.UsersStore.CreateUser(ctx, subjects.User{
-		ProjectID:   tc.projectID,
-		AnonymousID: ptr(uuid.New().String()),
-		Data:        json.RawMessage(`{}`),
-	})
+	userID, err := tc.usersDB.UsersStore.CreateUser(ctx, tc.projectID, nil, nil, json.RawMessage(`{}`), nil, nil, []subjects.ExternalIDParam{{Source: "anonymous", ExternalID: uuid.New().String()}})
 	require.NoError(t, err)
 
 	_, err = tc.usersDB.OrganizationsStore.UpsertAndGetOrganizationMember(ctx, orgID, userID, nil)
@@ -824,8 +810,8 @@ func TestRemoveOrganizationMemberUnauthorized(t *testing.T) {
 	ctx := context.Background()
 
 	orgID, err := tc.usersDB.OrganizationsStore.UpsertOrganization(ctx, tc.projectID, subjects.UpsertOrganizationParams{
-		ExternalID: "org_123",
-		Name:       ptr("Test Org"),
+		Identifiers: []subjects.ExternalIDParam{{Source: "default", ExternalID: "org_123"}},
+		Name:        ptr("Test Org"),
 	})
 	require.NoError(t, err)
 

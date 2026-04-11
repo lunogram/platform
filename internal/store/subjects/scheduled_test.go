@@ -382,11 +382,7 @@ func TestListSchedulesWithSchemas(t *testing.T) {
 func createTestUserForSchedules(t *testing.T, db *State, ctx context.Context, projectID uuid.UUID) uuid.UUID {
 	t.Helper()
 	anonID := uuid.New().String()
-	userID, err := db.CreateUser(ctx, User{
-		ProjectID:   projectID,
-		AnonymousID: &anonID,
-		Data:        json.RawMessage(`{}`),
-	})
+	userID, err := db.CreateUser(ctx, projectID, nil, nil, json.RawMessage(`{}`), nil, nil, []ExternalIDParam{{Source: "anonymous", ExternalID: anonID}})
 	require.NoError(t, err)
 	return userID
 }
@@ -394,8 +390,8 @@ func createTestUserForSchedules(t *testing.T, db *State, ctx context.Context, pr
 func createTestOrgForSchedules(t *testing.T, db *State, ctx context.Context, projectID uuid.UUID) uuid.UUID {
 	t.Helper()
 	orgID, err := db.UpsertOrganization(ctx, projectID, UpsertOrganizationParams{
-		ExternalID: uuid.New().String(),
-		Name:       ptr("Test Org"),
+		Identifiers: []ExternalIDParam{{Source: "default", ExternalID: uuid.New().String()}},
+		Name:        ptr("Test Org"),
 	})
 	require.NoError(t, err)
 	return orgID
@@ -769,7 +765,7 @@ func TestScanDueScheduledEvents(t *testing.T) {
 	require.NoError(t, err)
 
 	var scanned []DueScheduledEvent
-	err = db.ScanDueScheduledEvents(ctx, func(e DueScheduledEvent) error {
+	_, err = db.ScanDueScheduledEvents(ctx, func(e DueScheduledEvent) error {
 		scanned = append(scanned, e)
 		return nil
 	})
@@ -883,7 +879,7 @@ func TestScanRecurringUserSchedulesWithoutPendingEvents(t *testing.T) {
 	require.NoError(t, err)
 
 	var found []UserSchedule
-	err = db.ScanRecurringUserSchedulesWithoutPendingEvents(ctx, func(us UserSchedule) error {
+	_, err = db.ScanRecurringUserSchedulesWithoutPendingEvents(ctx, func(us UserSchedule) error {
 		found = append(found, us)
 		return nil
 	})
@@ -1267,7 +1263,7 @@ func TestScanDueOrgScheduledEvents(t *testing.T) {
 	require.NoError(t, err)
 
 	var scanned []DueOrgScheduledEvent
-	err = db.ScanDueOrgScheduledEvents(ctx, func(e DueOrgScheduledEvent) error {
+	_, err = db.ScanDueOrgScheduledEvents(ctx, func(e DueOrgScheduledEvent) error {
 		scanned = append(scanned, e)
 		return nil
 	})
@@ -1376,7 +1372,7 @@ func TestScanRecurringOrgSchedulesWithoutPendingEvents(t *testing.T) {
 	require.NoError(t, err)
 
 	var found []OrganizationSchedule
-	err = db.ScanRecurringOrgSchedulesWithoutPendingEvents(ctx, func(os OrganizationSchedule) error {
+	_, err = db.ScanRecurringOrgSchedulesWithoutPendingEvents(ctx, func(os OrganizationSchedule) error {
 		found = append(found, os)
 		return nil
 	})

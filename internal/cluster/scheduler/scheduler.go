@@ -11,26 +11,31 @@ import (
 	"github.com/lunogram/platform/internal/node/metrics"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/store/journey"
+	"github.com/lunogram/platform/internal/store/management"
 	"github.com/lunogram/platform/internal/store/subjects"
 	"go.uber.org/zap"
 )
 
-func NewController(ctx graceful.Context, logger *zap.Logger, config config.Node, jrny *journey.State, usrs *subjects.State, pub pubsub.Publisher) *Controller {
+func NewController(ctx graceful.Context, logger *zap.Logger, config config.Node, jrny *journey.State, usrs *subjects.State, mgmt *management.State, pub pubsub.Publisher) *Controller {
 	return &Controller{
-		logger:    logger,
-		config:    config,
-		journeys:  jrny.JourneysStore,
-		scheduled: usrs.ScheduledStore,
-		pub:       pub,
+		logger:     logger,
+		config:     config,
+		journeys:   jrny.JourneysStore,
+		scheduled:  usrs.ScheduledStore,
+		lists:      usrs.ListsStore,
+		broadcasts: mgmt.BroadcastsStore,
+		pub:        pub,
 	}
 }
 
 type Controller struct {
-	logger    *zap.Logger
-	config    config.Node
-	journeys  *journey.JourneysStore
-	scheduled *subjects.ScheduledStore
-	pub       pubsub.Publisher
+	logger     *zap.Logger
+	config     config.Node
+	journeys   *journey.JourneysStore
+	scheduled  *subjects.ScheduledStore
+	lists      *subjects.ListsStore
+	broadcasts *management.BroadcastsStore
+	pub        pubsub.Publisher
 }
 
 func (controller *Controller) Schedule(ctx context.Context) {
@@ -55,6 +60,8 @@ func (controller *Controller) Schedule(ctx context.Context) {
 			wg.Go(controller.ReconcileOrganizationSchedules(ctx))
 			wg.Go(controller.ReconcileUserScheduledEvents(ctx))
 			wg.Go(controller.ReconcileOrganizationScheduledEvents(ctx))
+			wg.Go(controller.ReconcileScheduledBroadcasts(ctx))
+			wg.Go(controller.ReconcileListRecomputation(ctx))
 			wg.Wait() // nolint:errcheck
 			logger.Debug("reconciliation complete")
 		}

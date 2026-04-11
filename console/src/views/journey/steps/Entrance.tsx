@@ -61,7 +61,7 @@ const codeExample = (journeyId: UUID, entranceId: UUID) => `curl --request POST 
 --data '{
     "entrance_id": ${entranceId},
     "user": {
-        "external_id": "example-user-id",
+        "identifier": [{ "source": "default", "external_id": "example-user-id" }],
         "extra_user_property": true
     },
     "event": {

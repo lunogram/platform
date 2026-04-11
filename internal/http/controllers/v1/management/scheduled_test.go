@@ -69,11 +69,7 @@ func setupScheduledController(t *testing.T) *testScheduledController {
 func (tc *testScheduledController) createUser(t *testing.T) uuid.UUID {
 	t.Helper()
 	anonID := uuid.New().String()
-	userID, err := tc.store.CreateUser(context.Background(), subjects.User{
-		ProjectID:   tc.projectID,
-		AnonymousID: &anonID,
-		Data:        json.RawMessage(`{}`),
-	})
+	userID, err := tc.store.CreateUser(context.Background(), tc.projectID, nil, nil, json.RawMessage(`{}`), nil, nil, []subjects.ExternalIDParam{{Source: "anonymous", ExternalID: anonID}})
 	require.NoError(t, err)
 	return userID
 }
@@ -81,8 +77,8 @@ func (tc *testScheduledController) createUser(t *testing.T) uuid.UUID {
 func (tc *testScheduledController) createOrg(t *testing.T) uuid.UUID {
 	t.Helper()
 	orgID, err := tc.store.UpsertOrganization(context.Background(), tc.projectID, subjects.UpsertOrganizationParams{
-		ExternalID: uuid.New().String(),
-		Name:       ptr("Test Org"),
+		Identifiers: []subjects.ExternalIDParam{{Source: "default", ExternalID: uuid.New().String()}},
+		Name:        ptr("Test Org"),
 	})
 	require.NoError(t, err)
 	return orgID
@@ -522,6 +518,42 @@ func TestUpsertUserScheduledRecurring(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, userID, result.UserId)
 	require.NotNil(t, result.Interval)
+	require.True(t, result.ScheduledAt.After(time.Now()), "recurring scheduled_at should be in the future")
+}
+
+func TestUpsertUserScheduledRecurringWithoutStartAt(t *testing.T) {
+	t.Parallel()
+
+	tc := setupScheduledController(t)
+
+	userID := tc.createUser(t)
+	sid := tc.createSchedule(t, "user_recurring_no_start", "recurring")
+
+	interval := "7 days"
+	data := json.RawMessage(`{}`)
+	body, _ := json.Marshal(oapi.UpsertUserScheduledRequest{
+		ScheduledId: &sid,
+		Interval:    &interval,
+		Data:        &data,
+		// No StartAt, no ScheduledAt — start_at should default to now
+	})
+
+	res := httptest.NewRecorder()
+	req := httptest.NewRequest("PUT", "/", bytes.NewReader(body))
+	req = req.WithContext(tc.actorCtx)
+
+	tc.controller.UpsertUserScheduled(res, req, tc.projectID, userID)
+
+	require.Equal(t, 200, res.Code)
+
+	var result oapi.UserScheduled
+	err := json.Unmarshal(res.Body.Bytes(), &result)
+	require.NoError(t, err)
+	require.Equal(t, userID, result.UserId)
+	require.NotNil(t, result.Interval)
+	require.NotNil(t, result.StartAt, "start_at should be defaulted when not provided")
+	require.WithinDuration(t, time.Now(), *result.StartAt, 5*time.Second, "start_at should default to approximately now")
+	require.False(t, result.ScheduledAt.IsZero(), "scheduled_at should not be zero time")
 	require.True(t, result.ScheduledAt.After(time.Now()), "recurring scheduled_at should be in the future")
 }
 

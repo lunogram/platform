@@ -73,7 +73,7 @@ paths:
           description: Webhook processed successfully
         default:
           $ref: "#/components/responses/Error"
-
+  
   /api/admin/projects/{projectID}/campaigns:
     get:
       summary: List campaigns
@@ -1739,7 +1739,7 @@ paths:
 
     post:
       summary: Identify user
-      description: Creates or updates a user by anonymous_id or external_id
+      description: Creates or updates a user by external identifiers
       operationId: identifyUser
       tags:
         - Users
@@ -1798,7 +1798,7 @@ paths:
                 file:
                   type: string
                   format: binary
-                  description: CSV file with user data (must include external_id column)
+                  description: CSV file with user data (must include source and external_id columns)
       responses:
         "204":
           description: Users imported successfully
@@ -1904,6 +1904,43 @@ paths:
       responses:
         "204":
           description: User deleted successfully
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/subjects/users/{userID}/identifiers/{identifierID}:
+    delete:
+      summary: Delete user external identifier
+      description: Removes an external identifier from a user. Cannot remove the last remaining identifier.
+      operationId: deleteUserExternalID
+      tags:
+        - Users
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The user ID
+        - name: identifierID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The external identifier ID to delete
+      responses:
+        "204":
+          description: External identifier deleted successfully
         default:
           $ref: "#/components/responses/Error"
 
@@ -2123,6 +2160,41 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
+    post:
+      summary: Create or update user device
+      description: Creates a user device, or updates the existing one if the device_id already exists for the project
+      operationId: createUserDevice
+      tags:
+        - Users
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The user ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserDevice"
+      responses:
+        "204":
+          description: Device created or updated successfully
+        default:
+          $ref: "#/components/responses/Error"
+
   /api/admin/projects/{projectID}/subjects/users/{userID}/devices/{deviceID}:
     delete:
       summary: Delete user device
@@ -2279,7 +2351,7 @@ paths:
 
     post:
       summary: Create or update subject organization
-      description: Creates or updates an organization (subject) by external_id
+      description: Creates or updates an organization (subject) by external identifiers
       operationId: upsertOrganization
       tags:
         - Organizations
@@ -2408,6 +2480,43 @@ paths:
       responses:
         "204":
           description: Organization deleted successfully
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/subjects/organizations/{organizationID}/identifiers/{identifierID}:
+    delete:
+      summary: Delete organization external identifier
+      description: Removes an external identifier from an organization. Cannot remove the last remaining identifier.
+      operationId: deleteOrganizationExternalID
+      tags:
+        - Organizations
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: organizationID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The organization ID
+        - name: identifierID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The external identifier ID to delete
+      responses:
+        "204":
+          description: External identifier deleted successfully
         default:
           $ref: "#/components/responses/Error"
 
@@ -2545,6 +2654,7 @@ paths:
           description: The organization ID
         - $ref: "#/components/parameters/Limit"
         - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Search"
       responses:
         "200":
           description: Organization events retrieved successfully
@@ -3358,6 +3468,107 @@ paths:
       responses:
         "204":
           description: Sender identity deleted successfully
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/push-providers:
+    get:
+      summary: List push providers
+      description: Lists the default push notification providers configured for each platform (iOS, Android, Web) in a project
+      operationId: listProjectPushProviders
+      tags:
+        - PushProviders
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+      responses:
+        "200":
+          description: Push providers retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - results
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ProjectPushProvider"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/push-providers/{platform}:
+    put:
+      summary: Set push provider for platform
+      description: Sets or updates the default push notification provider for a specific platform (ios, android, web) in a project
+      operationId: upsertProjectPushProvider
+      tags:
+        - PushProviders
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: platform
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/ProjectPushProviderPlatform"
+          description: The target platform (ios, android, web)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertProjectPushProvider"
+      responses:
+        "200":
+          description: Push provider set successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectPushProvider"
+        default:
+          $ref: "#/components/responses/Error"
+
+    delete:
+      summary: Remove push provider for platform
+      description: Removes the default push notification provider for a specific platform in a project
+      operationId: deleteProjectPushProvider
+      tags:
+        - PushProviders
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: platform
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/ProjectPushProviderPlatform"
+          description: The target platform (ios, android, web)
+      responses:
+        "204":
+          description: Push provider removed successfully
         default:
           $ref: "#/components/responses/Error"
 
@@ -4785,6 +4996,330 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
+  /api/admin/projects/{projectID}/broadcasts:
+    post:
+      summary: Create broadcast
+      description: Creates a new broadcast for a campaign and list
+      operationId: createBroadcast
+      tags:
+        - Broadcasts
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBroadcast"
+      responses:
+        "201":
+          description: Broadcast created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Broadcast"
+        default:
+          $ref: "#/components/responses/Error"
+    get:
+      summary: List broadcasts
+      description: Retrieves a list of broadcasts with optional filtering
+      operationId: listBroadcasts
+      tags:
+        - Broadcasts
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Search"
+        - name: campaign_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: Filter by campaign ID
+        - name: list_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: Filter by list ID
+        - name: state
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/BroadcastState"
+          description: Filter by broadcast state
+      responses:
+        "200":
+          $ref: "#/components/responses/BroadcastListResponse"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/broadcasts/{broadcastID}:
+    get:
+      summary: Get broadcast
+      description: Retrieves a single broadcast by ID
+      operationId: getBroadcast
+      tags:
+        - Broadcasts
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: broadcastID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The broadcast ID
+      responses:
+        "200":
+          description: Broadcast retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Broadcast"
+        default:
+          $ref: "#/components/responses/Error"
+    patch:
+      summary: Update broadcast
+      description: Updates a broadcast. Only allowed when the broadcast is in 'pending' or 'scheduled' state.
+      operationId: updateBroadcast
+      tags:
+        - Broadcasts
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: broadcastID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The broadcast ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateBroadcast"
+      responses:
+        "200":
+          description: Broadcast updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Broadcast"
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      summary: Cancel broadcast
+      description: Cancels a broadcast. Only allowed when the broadcast is in 'pending' or 'scheduled' state.
+      operationId: cancelBroadcast
+      tags:
+        - Broadcasts
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: broadcastID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The broadcast ID
+      responses:
+        "200":
+          description: Broadcast cancelled successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Broadcast"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/broadcasts/{broadcastID}/users:
+    get:
+      summary: Get broadcast users
+      description: Retrieves the users that were sent to as part of a broadcast
+      operationId: getBroadcastUsers
+      tags:
+        - Broadcasts
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: broadcastID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The broadcast ID
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Search"
+      responses:
+        "200":
+          description: Broadcast users retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - results
+                  - total
+                  - limit
+                  - offset
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                        user_id:
+                          type: string
+                          format: uuid
+                        state:
+                          type: string
+                        sent_at:
+                          type: string
+                          format: date-time
+                        full_name:
+                          type: string
+                        email:
+                          type: string
+                        phone:
+                          type: string
+                  total:
+                    type: integer
+                    minimum: 0
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/broadcasts/{broadcastID}/progress:
+    get:
+      summary: Stream broadcast progress
+      description: Streams real-time broadcast sending progress using Server-Sent Events (SSE). Events include individual send completions and terminal state changes (completed, failed, cancelled).
+      operationId: streamBroadcastProgress
+      tags:
+        - Broadcasts
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: broadcastID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The broadcast ID
+      responses:
+        "200":
+          description: Server-Sent Event stream of broadcast progress updates
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: |
+                  Server-Sent Events stream. Events include "connected" on connection
+                  and "progress" events whose data field is a JSON-encoded BroadcastProgressEvent.
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/broadcasts/{broadcastID}/send:
+    post:
+      summary: Send broadcast
+      description: Triggers sending of a pending broadcast
+      operationId: sendBroadcast
+      tags:
+        - Broadcasts
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: broadcastID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The broadcast ID
+      responses:
+        "200":
+          description: Broadcast send triggered successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Broadcast"
+        default:
+          $ref: "#/components/responses/Error"
+
 components:
   parameters:
     Limit:
@@ -5015,6 +5550,22 @@ components:
                     items:
                       $ref: "#/components/schemas/Action"
 
+    BroadcastListResponse:
+      description: Broadcasts retrieved successfully
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: "#/components/schemas/PaginatedResponse"
+              - type: object
+                required:
+                  - results
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Broadcast"
+
   schemas:
     Channel:
       type: string
@@ -5223,6 +5774,7 @@ components:
         - balancer
         - update
         - event
+        - schedule
       description: Journey step type
       example: entrance
 
@@ -5244,12 +5796,10 @@ components:
           type: object
           description: Rule for filtering events
           additionalProperties: true
-          x-go-type: rules.RuleSet
         user_rule:
           type: object
           description: Rule for filtering users (used with organization events)
           additionalProperties: true
-          x-go-type: rules.RuleSet
         multiple:
           type: boolean
           description: Allow multiple entries
@@ -5345,7 +5895,6 @@ components:
           type: object
           description: Rule set for conditional evaluation
           additionalProperties: true
-          x-go-type: rules.RuleSet
 
     ExperimentStepData:
       type: object
@@ -5403,6 +5952,33 @@ components:
           type: string
           description: JSON template string for event data
           example: '{"milestone": "completed_step_1"}'
+
+    ScheduleStepData:
+      type: object
+      description: Data for schedule step - assign user to a schedule
+      required:
+        - schedule_name
+      properties:
+        schedule_name:
+          type: string
+          description: Name of the schedule to assign the user to
+          example: "onboarding_reminders"
+        scheduled_at:
+          type: string
+          description: Optional RFC3339 date-time for when the schedule should fire. Supports Liquid templates.
+          example: "2024-01-15T09:00:00Z"
+        interval:
+          type: string
+          description: Optional PostgreSQL interval string (e.g. '1 day', '2 hours'). Supports Liquid templates.
+          example: "1 day"
+        start_at:
+          type: string
+          description: Optional RFC3339 date-time for when the schedule interval should start. Supports Liquid templates.
+          example: "2024-01-15T09:00:00Z"
+        template:
+          type: string
+          description: JSON template string for schedule data
+          example: '{"source": "journey"}'
 
     ExperimentChildData:
       type: object
@@ -5479,6 +6055,62 @@ components:
           type: integer
           description: Number of items skipped
           example: 0
+
+    ExternalID:
+      type: object
+      description: An external identifier with source and optional metadata
+      required:
+        - external_id
+      properties:
+        source:
+          type: string
+          default: "default"
+          example: "default"
+          description: Source of the identifier (e.g. "default", "anonymous", or a custom source). Defaults to "default" if not provided.
+        external_id:
+          type: string
+          example: "user_12345"
+          description: The external identifier value
+        metadata:
+          type: object
+          additionalProperties: true
+          nullable: true
+          x-go-type: map[string]any
+          description: Optional metadata associated with this identifier
+
+    ExternalIDResponse:
+      type: object
+      description: An external identifier as returned in responses, including database ID and timestamps
+      required:
+        - id
+        - source
+        - external_id
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+        source:
+          type: string
+          example: "default"
+        external_id:
+          type: string
+          example: "user_12345"
+        metadata:
+          type: object
+          additionalProperties: true
+          nullable: true
+          x-go-type: map[string]any
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-11-19T14:18:42.960Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2025-11-23T17:20:00.021Z"
 
     UserList:
       allOf:
@@ -5639,13 +6271,12 @@ components:
           example: "Welcome Campaign"
         channel:
           $ref: "#/components/schemas/Channel"
-        provider_id:
-          type: string
-          format: uuid
-          example: "5143f27c-cca9-4dc4-9059-e1dbb08144ad"
         subscription_id:
           type: string
           format: uuid
+        transactional:
+          type: boolean
+          example: false
 
     UpdateCampaign:
       type: object
@@ -5653,10 +6284,12 @@ components:
         name:
           type: string
           example: "epic hopper"
-        provider_id:
+        subscription_id:
           type: string
           format: uuid
-          example: "5143f27c-cca9-4dc4-9059-e1dbb08144ad"
+        transactional:
+          type: boolean
+          example: false
         variables:
           type: array
           items:
@@ -5720,7 +6353,16 @@ components:
         to:
           type: string
           example: "test@example.com"
-          description: The recipient address or phone number to send the test to
+          description: Recipient for test send. For email/sms provide destination address/number; for push provide either a push token or a registered device_id.
+        push:
+          type: object
+          description: Optional push target metadata. When provided for push channel, device_id is resolved server-side to its full push configuration.
+          required:
+            - device_id
+          properties:
+            device_id:
+              type: string
+              description: Registered device identifier to use for push test sends.
         props:
           type: object
           additionalProperties: true
@@ -5735,6 +6377,7 @@ components:
         - channel
         - templates
         - delivery
+        - transactional
         - created_at
         - updated_at
       properties:
@@ -5761,8 +6404,9 @@ components:
         subscription_id:
           type: string
           format: uuid
-        provider:
-          $ref: "#/components/schemas/Provider"
+        transactional:
+          type: boolean
+          example: false
         templates:
           type: array
           items:
@@ -5850,7 +6494,6 @@ components:
         rule:
           type: object
           additionalProperties: true
-          x-go-type: rules.RuleSet
         tags:
           type: array
           items:
@@ -5867,7 +6510,6 @@ components:
         rule:
           type: object
           additionalProperties: true
-          x-go-type: rules.RuleSet
         tags:
           type: array
           items:
@@ -5912,12 +6554,10 @@ components:
         rule:
           type: object
           additionalProperties: true
-          x-go-type: rules.RuleSet
           description: "Published rule definition (from the published version)"
         draft_rule:
           type: object
           additionalProperties: true
-          x-go-type: rules.RuleSet
           description: "Draft rule definition (from the draft version, if one exists)"
         version_number:
           type: integer
@@ -5953,6 +6593,7 @@ components:
         - name
         - project_id
         - channels
+        - rate_limit
         - created_at
         - updated_at
       properties:
@@ -5991,6 +6632,8 @@ components:
         link_wrap:
           type: boolean
           example: false
+        rate_limit:
+          $ref: "#/components/schemas/RateLimit"
 
     CreateProvider:
       type: object
@@ -6007,6 +6650,8 @@ components:
         link_wrap:
           type: boolean
           example: false
+        rate_limit:
+          $ref: "#/components/schemas/RateLimit"
 
     UpdateProvider:
       type: object
@@ -6020,6 +6665,46 @@ components:
           x-go-type: json.RawMessage
         link_wrap:
           type: boolean
+        rate_limit:
+          $ref: "#/components/schemas/RateLimit"
+
+    RateLimit:
+      type: object
+      description: "Rate limit configuration for a provider instance."
+      required:
+        - limit
+        - interval
+      properties:
+        limit:
+          type: integer
+          description: "Max number of messages per interval. 0 means use the module default."
+          default: 0
+          example: 10
+        interval:
+          type: string
+          description: "Time window as a Go duration string (e.g. '1s', '1m', '1h', '24h')."
+          default: "1s"
+          example: "1s"
+
+    ProviderRateLimit:
+      type: object
+      required:
+        - limit
+        - interval
+        - override
+      properties:
+        limit:
+          type: integer
+          description: Maximum number of requests allowed per interval
+          example: 5
+        interval:
+          type: string
+          description: "Time window as a Go duration string (e.g. '1s', '1m', '1h'). Defaults to '1s'."
+          example: "1s"
+        override:
+          type: boolean
+          description: "Whether users may override this rate limit at the provider level. When false, the module value is authoritative."
+          example: true
 
     ProviderMeta:
       type: object
@@ -6051,6 +6736,11 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Channel"
+        platforms:
+          type: array
+          description: Push notification platforms supported by this provider module (only present for push providers)
+          items:
+            $ref: "#/components/schemas/ProjectPushProviderPlatform"
         schema:
           type: object
           additionalProperties: true
@@ -6061,6 +6751,12 @@ components:
         locked:
           type: boolean
           description: Whether providers of this module type are locked and cannot be deleted
+        rate_limit:
+          $ref: "#/components/schemas/ProviderRateLimit"
+        max_rate_limit:
+          type: integer
+          description: "Absolute project-wide maximum rate limit (requests per minute). User overrides are clamped to this ceiling."
+          example: 250
 
     Template:
       type: object
@@ -6285,7 +6981,7 @@ components:
       required:
         - id
         - project_id
-        - anonymous_id
+        - identifier
         - data
         - has_push_device
         - version
@@ -6300,12 +6996,11 @@ components:
           type: string
           format: uuid
           example: "4c9d3163-7b64-4f9e-9068-d2e4b96be56b"
-        anonymous_id:
-          type: string
-          example: "anon_abc123xyz"
-        external_id:
-          type: string
-          example: "user_123"
+        identifier:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExternalIDResponse"
+          description: External identifiers associated with this user
         email:
           type: string
           format: email
@@ -6348,18 +7043,15 @@ components:
 
     IdentifyUser:
       type: object
-      oneOf:
-        - required:
-            - anonymous_id
-        - required:
-            - external_id
+      required:
+        - identifier
       properties:
-        anonymous_id:
-          type: string
-          example: "anon_abc123xyz"
-        external_id:
-          type: string
-          example: "user_123"
+        identifier:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/ExternalID"
+          description: One or more external identifiers to identify the user
         email:
           type: string
           format: email
@@ -6418,7 +7110,7 @@ components:
       required:
         - id
         - project_id
-        - external_id
+        - identifier
         - data
         - version
         - created_at
@@ -6432,10 +7124,11 @@ components:
           type: string
           format: uuid
           example: "4c9d3163-7b64-4f9e-9068-d2e4b96be56b"
-        external_id:
-          type: string
-          example: "org_123"
-          description: External identifier for the organization from your system
+        identifier:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExternalIDResponse"
+          description: External identifiers associated with this organization
         name:
           type: string
           example: "Acme Corp"
@@ -6522,12 +7215,14 @@ components:
     UpsertOrganization:
       type: object
       required:
-        - external_id
+        - identifier
       properties:
-        external_id:
-          type: string
-          example: "org_123"
-          description: External identifier for the organization from your system
+        identifier:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/ExternalID"
+          description: One or more external identifiers to identify the organization
         name:
           type: string
           example: "Acme Corp"
@@ -6558,7 +7253,7 @@ components:
       required:
         - id
         - project_id
-        - anonymous_id
+        - identifier
         - data
         - has_push_device
         - version
@@ -6574,12 +7269,11 @@ components:
           type: string
           format: uuid
           example: "4c9d3163-7b64-4f9e-9068-d2e4b96be56b"
-        anonymous_id:
-          type: string
-          example: "anon_abc123xyz"
-        external_id:
-          type: string
-          example: "user_123"
+        identifier:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExternalIDResponse"
+          description: External identifiers associated with this user
         email:
           type: string
           format: email
@@ -6712,11 +7406,71 @@ components:
               items:
                 $ref: "#/components/schemas/UserEvent"
 
+    CreateUserDevice:
+      type: object
+      required:
+        - device_id
+        - config
+        - os
+      properties:
+        device_id:
+          type: string
+          example: "AB12CD34-EF56-GH78-IJ90"
+        config:
+          type: object
+          properties:
+            token:
+              type: string
+              description: Device token for FCM or APNs
+            endpoint:
+              type: string
+              description: Web Push subscription endpoint URL
+            expiration_time:
+              type: string
+              format: date-time
+            keys:
+              type: object
+              required: [p256dh, auth]
+              properties:
+                p256dh:
+                  type: string
+                auth:
+                  type: string
+        os:
+          type: string
+          enum: [ios, android, web]
+          example: "ios"
+        os_version:
+          type: string
+          nullable: true
+          example: "17.2"
+        model:
+          type: string
+          nullable: true
+          example: "iPhone 15 Pro"
+        app_build:
+          type: string
+          nullable: true
+          example: "142"
+        app_version:
+          type: string
+          nullable: true
+          example: "2.1.0"
+        data:
+          type: object
+          additionalProperties: true
+          nullable: true
+          x-go-type: json.RawMessage
+          example:
+            app_channel: "beta"
+            locale: "en-US"
+
     UserDevice:
       type: object
       required:
         - id
         - device_id
+        - data
         - created_at
         - updated_at
       properties:
@@ -6727,10 +7481,13 @@ components:
         device_id:
           type: string
           example: "AB12CD34-EF56-GH78-IJ90"
-        token:
-          type: string
-          nullable: true
-          example: "fcm_token_abc123"
+        data:
+          type: object
+          additionalProperties: true
+          x-go-type: json.RawMessage
+          example:
+            app_channel: "beta"
+            locale: "en-US"
         os:
           type: string
           nullable: true
@@ -7228,6 +7985,51 @@ components:
           additionalProperties: true
           description: Channel-specific metadata including address and optional display name (e.g. {"address":"hello@example.com","name":"Acme Support"})
           example: { "address": "hello@example.com", "name": "Acme Support" }
+
+    ProjectPushProviderPlatform:
+      type: string
+      enum: [ios, android, web]
+      description: Target platform for push notifications
+      example: ios
+
+    ProjectPushProvider:
+      type: object
+      required:
+        - id
+        - project_id
+        - provider_id
+        - platform
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        provider_id:
+          type: string
+          format: uuid
+          description: The push provider integration to use for this platform
+        platform:
+          $ref: "#/components/schemas/ProjectPushProviderPlatform"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    UpsertProjectPushProvider:
+      type: object
+      required:
+        - provider_id
+      properties:
+        provider_id:
+          type: string
+          format: uuid
+          description: The push provider integration to assign to this platform
 
     Document:
       type: object
@@ -7947,6 +8749,153 @@ components:
           type: object
           additionalProperties: true
           description: Event data payload
+
+    BroadcastState:
+      type: string
+      enum: [scheduled, pending, sending, completed, failed, cancelled]
+      description: Current state of the broadcast
+      example: pending
+
+    BroadcastProgressEvent:
+      type: object
+      description: Real-time progress event published during broadcast processing. Sent via SSE to connected clients.
+      required:
+        - broadcast_id
+        - state
+        - total_sent
+        - terminal
+      properties:
+        broadcast_id:
+          type: string
+          format: uuid
+          description: The broadcast this event belongs to
+        user_id:
+          type: string
+          format: uuid
+          description: The user this send was for. Only present on non-terminal per-send events.
+        state:
+          type: string
+          description: "Current state: sent (per-user), completed, failed, or cancelled (terminal)"
+          example: sent
+        total_sent:
+          type: integer
+          description: Running count of successfully sent messages
+          example: 42
+        terminal:
+          type: boolean
+          description: True when the broadcast has reached a final state and no more events will follow
+          example: false
+        full_name:
+          type: string
+          description: Full name of the recipient user (non-terminal events only)
+        email:
+          type: string
+          description: Email of the recipient user (non-terminal events only)
+        phone:
+          type: string
+          description: Phone number of the recipient user (non-terminal events only)
+
+    CreateBroadcast:
+      type: object
+      required:
+        - campaign_id
+        - list_id
+      properties:
+        campaign_id:
+          type: string
+          format: uuid
+          description: The campaign to broadcast
+        list_id:
+          type: string
+          format: uuid
+          description: The list of users to send the broadcast to
+        scheduled_at:
+          type: string
+          format: date-time
+          description: Optional scheduled send time. If provided, the broadcast is created in 'scheduled' state.
+
+    UpdateBroadcast:
+      type: object
+      properties:
+        scheduled_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Set or update the scheduled send time. Pass null to remove the schedule and revert to pending. Only allowed when the broadcast is in 'pending' or 'scheduled' state.
+
+    Broadcast:
+      type: object
+      required:
+        - id
+        - project_id
+        - campaign_id
+        - list_id
+        - list_name
+        - list_type
+        - state
+        - total
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        campaign_id:
+          type: string
+          format: uuid
+        list_id:
+          type: string
+          format: uuid
+        list_name:
+          type: string
+          description: Snapshot of the list name at broadcast creation time
+        list_type:
+          type: string
+          description: Snapshot of the list type at broadcast creation time
+        state:
+          $ref: "#/components/schemas/BroadcastState"
+        total:
+          type: integer
+          description: Total number of users in the audience at send time
+          example: 0
+        sent:
+          type: integer
+          description: Number of messages actually delivered so far
+          example: 0
+        error:
+          type: string
+          description: Error message if the broadcast failed
+        scheduled_at:
+          type: string
+          format: date-time
+          description: When the broadcast is scheduled to be sent
+        started_at:
+          type: string
+          format: date-time
+          description: When the broadcast started sending
+        completed_at:
+          type: string
+          format: date-time
+          description: When the broadcast completed or failed
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        campaign:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            name:
+              type: string
+            channel:
+              type: string
 
   securitySchemes:
     HttpBearerAuth:

@@ -23,69 +23,117 @@ const (
 	HttpBearerAuthScopes = "HttpBearerAuth.Scopes"
 )
 
+// Defines values for DeviceRegistrationOs.
+const (
+	Android DeviceRegistrationOs = "android"
+	Ios     DeviceRegistrationOs = "ios"
+	Web     DeviceRegistrationOs = "web"
+)
+
 // DeleteOrganizationRequest defines model for DeleteOrganizationRequest.
 type DeleteOrganizationRequest struct {
-	// ExternalId External identifier for the organization
-	ExternalId string `json:"external_id"`
+	// Identifier One or more external identifiers to identify the organization
+	Identifier OrganizationIdentifier `json:"identifier"`
 }
 
 // DeleteOrganizationScheduledRequest defines model for DeleteOrganizationScheduledRequest.
 type DeleteOrganizationScheduledRequest struct {
+	// Identifier One or more external identifiers to identify the organization
+	Identifier OrganizationIdentifier `json:"identifier"`
+
 	// Name The name of the scheduled resource to delete
 	Name string `json:"name"`
-
-	// OrganizationExternalId External identifier for the organization from your system
-	OrganizationExternalId string `json:"organization_external_id"`
 }
 
 // DeleteUserRequest defines model for DeleteUserRequest.
 type DeleteUserRequest struct {
-	// AnonymousId Anonymous identifier for the user
-	AnonymousId *string `json:"anonymous_id"`
-
-	// ExternalId External identifier for the user
-	ExternalId *string `json:"external_id"`
+	// Identifier One or more external identifiers to identify the user
+	Identifier UserIdentifier `json:"identifier"`
 }
 
 // DeleteUserScheduledRequest defines model for DeleteUserScheduledRequest.
 type DeleteUserScheduledRequest struct {
-	// AnonymousId Anonymous identifier for the user
-	AnonymousId *string `json:"anonymous_id"`
-
-	// ExternalId External identifier for the user from your system
-	ExternalId *string `json:"external_id"`
+	// Identifier One or more external identifiers to identify the user
+	Identifier *UserIdentifier `json:"identifier,omitempty"`
 
 	// Name The name of the scheduled resource to delete
 	Name string `json:"name"`
 }
 
+// DeviceRegistration defines model for DeviceRegistration.
+type DeviceRegistration struct {
+	AppVersion *string `json:"app_version,omitempty"`
+	Config     struct {
+		// Endpoint Web Push subscription endpoint URL
+		Endpoint       *string    `json:"endpoint,omitempty"`
+		ExpirationTime *time.Time `json:"expiration_time,omitempty"`
+		Keys           *struct {
+			Auth   string `json:"auth"`
+			P256dh string `json:"p256dh"`
+		} `json:"keys,omitempty"`
+
+		// Token Device token for FCM or APNs
+		Token *string `json:"token,omitempty"`
+	} `json:"config"`
+	Data     *json.RawMessage `json:"data"`
+	DeviceId string           `json:"device_id"`
+
+	// Identifier One or more external identifiers to identify the user
+	Identifier UserIdentifier        `json:"identifier"`
+	Model      *string               `json:"model,omitempty"`
+	Os         *DeviceRegistrationOs `json:"os,omitempty"`
+	OsVersion  *string               `json:"os_version,omitempty"`
+}
+
+// DeviceRegistrationOs defines model for DeviceRegistration.Os.
+type DeviceRegistrationOs string
+
 // Event defines model for Event.
 type Event struct {
-	// AnonymousId Anonymous identifier for the user
-	AnonymousId *string `json:"anonymous_id"`
-
 	// Data Event-specific data
 	Data map[string]any `json:"data"`
 
-	// ExternalId External identifier for the user from your system
-	ExternalId *string `json:"external_id"`
+	// Identifier One or more external identifiers to identify the user
+	Identifier *UserIdentifier `json:"identifier,omitempty"`
+
+	// Match JSONB containment filter to match users by their data attributes. Mutually exclusive with identifier. When set, the event is delivered to every user whose data column contains the given key/value pairs.
+	Match *map[string]any `json:"match"`
 
 	// Name The name of the event
 	Name string `json:"name"`
 }
 
+// ExternalID An external identifier with source and optional metadata
+type ExternalID struct {
+	// ExternalId The external identifier value
+	ExternalId string `json:"external_id"`
+
+	// Metadata Optional metadata associated with this identifier
+	Metadata *map[string]any `json:"metadata"`
+
+	// Source Source of the identifier (e.g. "default", "anonymous", or a custom source). Defaults to "default" if not provided.
+	Source *string `json:"source,omitempty"`
+}
+
+// ExternalIDResponse An external identifier as returned in responses, including database ID and timestamps
+type ExternalIDResponse struct {
+	CreatedAt  time.Time          `json:"created_at"`
+	ExternalId string             `json:"external_id"`
+	Id         openapi_types.UUID `json:"id"`
+	Metadata   *map[string]any    `json:"metadata"`
+	Source     string             `json:"source"`
+	UpdatedAt  time.Time          `json:"updated_at"`
+}
+
 // IdentifyRequest defines model for IdentifyRequest.
 type IdentifyRequest struct {
-	// AnonymousId Anonymous identifier for the user
-	AnonymousId *string `json:"anonymous_id"`
-
 	// Data User-specific attributes
 	Data  *map[string]any `json:"data"`
 	Email *string         `json:"email"`
 
-	// ExternalId External identifier for the user from your system
-	ExternalId *string `json:"external_id"`
-	Locale     *string `json:"locale"`
+	// Identifier One or more external identifiers to identify the user
+	Identifier UserIdentifier `json:"identifier"`
+	Locale     *string        `json:"locale"`
 
 	// Phone E.164 formatted phone number
 	Phone    *string `json:"phone"`
@@ -94,16 +142,16 @@ type IdentifyRequest struct {
 
 // Organization defines model for Organization.
 type Organization struct {
-	CreatedAt time.Time      `json:"created_at"`
-	Data      map[string]any `json:"data"`
+	CreatedAt time.Time          `json:"created_at"`
+	Data      map[string]any     `json:"data"`
+	Id        openapi_types.UUID `json:"id"`
 
-	// ExternalId External identifier for the organization from your system
-	ExternalId string             `json:"external_id"`
-	Id         openapi_types.UUID `json:"id"`
-	Name       *string            `json:"name,omitempty"`
-	ProjectId  openapi_types.UUID `json:"project_id"`
-	UpdatedAt  time.Time          `json:"updated_at"`
-	Version    int32              `json:"version"`
+	// Identifier External identifiers associated with this organization
+	Identifier []ExternalIDResponse `json:"identifier"`
+	Name       *string              `json:"name,omitempty"`
+	ProjectId  openapi_types.UUID   `json:"project_id"`
+	UpdatedAt  time.Time            `json:"updated_at"`
+	Version    int32                `json:"version"`
 }
 
 // OrganizationEvent defines model for OrganizationEvent.
@@ -111,32 +159,40 @@ type OrganizationEvent struct {
 	// Data Event-specific data
 	Data *map[string]any `json:"data"`
 
+	// Identifier One or more external identifiers to identify the organization
+	Identifier *OrganizationIdentifier `json:"identifier,omitempty"`
+
+	// Match JSONB containment filter to match organizations by their data attributes. Mutually exclusive with identifier. When set, the event is delivered to every organization whose data column contains the given key/value pairs.
+	Match *map[string]any `json:"match"`
+
 	// Name The name of the event
 	Name string `json:"name"`
-
-	// OrganizationExternalId External identifier for the organization
-	OrganizationExternalId string `json:"organization_external_id"`
 }
+
+// OrganizationIdentifier One or more external identifiers to identify the organization
+type OrganizationIdentifier = []ExternalID
 
 // OrganizationRequest defines model for OrganizationRequest.
 type OrganizationRequest struct {
 	Data *map[string]any `json:"data"`
 
-	// ExternalId External identifier for the organization from your system
-	ExternalId string  `json:"external_id"`
-	Name       *string `json:"name"`
+	// Identifier One or more external identifiers to identify the organization
+	Identifier OrganizationIdentifier `json:"identifier"`
+	Name       *string                `json:"name"`
 }
 
 // OrganizationUserRequest defines model for OrganizationUserRequest.
 type OrganizationUserRequest struct {
 	// Data Organization-specific data for this user
-	Data *map[string]any `json:"data"`
-
-	// OrganizationExternalId External identifier for the organization
-	OrganizationExternalId string `json:"organization_external_id"`
-
-	// UserExternalId External identifier for the user
-	UserExternalId string `json:"user_external_id"`
+	Data         *map[string]any `json:"data"`
+	Organization struct {
+		// Identifier One or more external identifiers to identify the organization
+		Identifier OrganizationIdentifier `json:"identifier"`
+	} `json:"organization"`
+	User struct {
+		// Identifier One or more external identifiers to identify the user
+		Identifier UserIdentifier `json:"identifier"`
+	} `json:"user"`
 }
 
 // PostEventsRequest defines model for PostEventsRequest.
@@ -156,11 +212,14 @@ type Problem struct {
 
 // RemoveOrganizationUserRequest defines model for RemoveOrganizationUserRequest.
 type RemoveOrganizationUserRequest struct {
-	// OrganizationExternalId External identifier for the organization
-	OrganizationExternalId string `json:"organization_external_id"`
-
-	// UserExternalId External identifier for the user
-	UserExternalId string `json:"user_external_id"`
+	Organization struct {
+		// Identifier One or more external identifiers to identify the organization
+		Identifier OrganizationIdentifier `json:"identifier"`
+	} `json:"organization"`
+	User struct {
+		// Identifier One or more external identifiers to identify the user
+		Identifier UserIdentifier `json:"identifier"`
+	} `json:"user"`
 }
 
 // ScheduledAccepted defines model for ScheduledAccepted.
@@ -183,14 +242,14 @@ type UpsertOrganizationScheduledRequest struct {
 	// Data Scheduled resource data
 	Data *map[string]any `json:"data"`
 
+	// Identifier One or more external identifiers to identify the organization
+	Identifier OrganizationIdentifier `json:"identifier"`
+
 	// Interval Interval for recurring schedules. When set, the schedule type is automatically set to recurring.
 	Interval *string `json:"interval"`
 
 	// Name The name of the scheduled resource
 	Name string `json:"name"`
-
-	// OrganizationExternalId External identifier for the organization from your system
-	OrganizationExternalId string `json:"organization_external_id"`
 
 	// ScheduledAt The time at which the scheduled resource is set to trigger. Required for single schedules.
 	ScheduledAt *time.Time `json:"scheduled_at"`
@@ -201,14 +260,11 @@ type UpsertOrganizationScheduledRequest struct {
 
 // UpsertUserScheduledRequest defines model for UpsertUserScheduledRequest.
 type UpsertUserScheduledRequest struct {
-	// AnonymousId Anonymous identifier for the user
-	AnonymousId *string `json:"anonymous_id"`
-
 	// Data Scheduled resource data
 	Data *map[string]any `json:"data"`
 
-	// ExternalId External identifier for the user from your system
-	ExternalId *string `json:"external_id"`
+	// Identifier One or more external identifiers to identify the user
+	Identifier *UserIdentifier `json:"identifier,omitempty"`
 
 	// Interval Interval for recurring schedules. When set, the schedule type is automatically set to recurring.
 	Interval *string `json:"interval"`
@@ -225,14 +281,15 @@ type UpsertUserScheduledRequest struct {
 
 // User defines model for User.
 type User struct {
-	AnonymousId   string             `json:"anonymous_id"`
 	CreatedAt     time.Time          `json:"created_at"`
 	Data          map[string]any     `json:"data"`
 	Email         *string            `json:"email,omitempty"`
-	ExternalId    *string            `json:"external_id,omitempty"`
 	HasPushDevice bool               `json:"has_push_device"`
 	Id            openapi_types.UUID `json:"id"`
-	Locale        *string            `json:"locale,omitempty"`
+
+	// Identifier External identifiers associated with this user
+	Identifier []ExternalIDResponse `json:"identifier"`
+	Locale     *string              `json:"locale,omitempty"`
 
 	// Phone E.164 formatted phone number
 	Phone     *string            `json:"phone,omitempty"`
@@ -240,6 +297,15 @@ type User struct {
 	Timezone  *string            `json:"timezone,omitempty"`
 	UpdatedAt time.Time          `json:"updated_at"`
 	Version   int32              `json:"version"`
+}
+
+// UserIdentifier One or more external identifiers to identify the user
+type UserIdentifier = []ExternalID
+
+// VapidPublicKey defines model for VapidPublicKey.
+type VapidPublicKey struct {
+	// PublicKey The VAPID public key
+	PublicKey string `json:"public_key"`
 }
 
 // Error defines model for Error.
@@ -283,6 +349,9 @@ type DeleteUserClientJSONRequestBody = DeleteUserRequest
 
 // UpsertUserClientJSONRequestBody defines body for UpsertUserClient for application/json ContentType.
 type UpsertUserClientJSONRequestBody = IdentifyRequest
+
+// RegisterDeviceJSONRequestBody defines body for RegisterDevice for application/json ContentType.
+type RegisterDeviceJSONRequestBody = DeviceRegistration
 
 // PostUserEventsJSONRequestBody defines body for PostUserEvents for application/json ContentType.
 type PostUserEventsJSONRequestBody = PostEventsRequest
@@ -404,6 +473,9 @@ type ClientInterface interface {
 
 	AddOrganizationUserClient(ctx context.Context, body AddOrganizationUserClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetVapidPublicKey request
+	GetVapidPublicKey(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// DeleteUserClientWithBody request with any body
 	DeleteUserClientWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -413,6 +485,11 @@ type ClientInterface interface {
 	UpsertUserClientWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	UpsertUserClient(ctx context.Context, body UpsertUserClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RegisterDeviceWithBody request with any body
+	RegisterDeviceWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	RegisterDevice(ctx context.Context, body RegisterDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PostUserEventsWithBody request with any body
 	PostUserEventsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -609,6 +686,18 @@ func (c *Client) AddOrganizationUserClient(ctx context.Context, body AddOrganiza
 	return c.Client.Do(req)
 }
 
+func (c *Client) GetVapidPublicKey(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetVapidPublicKeyRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) DeleteUserClientWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDeleteUserClientRequestWithBody(c.Server, contentType, body)
 	if err != nil {
@@ -647,6 +736,30 @@ func (c *Client) UpsertUserClientWithBody(ctx context.Context, contentType strin
 
 func (c *Client) UpsertUserClient(ctx context.Context, body UpsertUserClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpsertUserClientRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RegisterDeviceWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRegisterDeviceRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RegisterDevice(ctx context.Context, body RegisterDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRegisterDeviceRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1057,6 +1170,33 @@ func NewAddOrganizationUserClientRequestWithBody(server string, contentType stri
 	return req, nil
 }
 
+// NewGetVapidPublicKeyRequest generates requests for GetVapidPublicKey
+func NewGetVapidPublicKeyRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/client/push/vapid")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewDeleteUserClientRequest calls the generic DeleteUserClient builder with application/json body
 func NewDeleteUserClientRequest(server string, body DeleteUserClientJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -1118,6 +1258,46 @@ func NewUpsertUserClientRequestWithBody(server string, contentType string, body 
 	}
 
 	operationPath := fmt.Sprintf("/api/client/users")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewRegisterDeviceRequest calls the generic RegisterDevice builder with application/json body
+func NewRegisterDeviceRequest(server string, body RegisterDeviceJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewRegisterDeviceRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewRegisterDeviceRequestWithBody generates requests for RegisterDevice with any type of body
+func NewRegisterDeviceRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/client/users/devices")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -1475,6 +1655,9 @@ type ClientWithResponsesInterface interface {
 
 	AddOrganizationUserClientWithResponse(ctx context.Context, body AddOrganizationUserClientJSONRequestBody, reqEditors ...RequestEditorFn) (*AddOrganizationUserClientResponse, error)
 
+	// GetVapidPublicKeyWithResponse request
+	GetVapidPublicKeyWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetVapidPublicKeyResponse, error)
+
 	// DeleteUserClientWithBodyWithResponse request with any body
 	DeleteUserClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteUserClientResponse, error)
 
@@ -1484,6 +1667,11 @@ type ClientWithResponsesInterface interface {
 	UpsertUserClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpsertUserClientResponse, error)
 
 	UpsertUserClientWithResponse(ctx context.Context, body UpsertUserClientJSONRequestBody, reqEditors ...RequestEditorFn) (*UpsertUserClientResponse, error)
+
+	// RegisterDeviceWithBodyWithResponse request with any body
+	RegisterDeviceWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RegisterDeviceResponse, error)
+
+	RegisterDeviceWithResponse(ctx context.Context, body RegisterDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*RegisterDeviceResponse, error)
 
 	// PostUserEventsWithBodyWithResponse request with any body
 	PostUserEventsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostUserEventsResponse, error)
@@ -1668,6 +1856,29 @@ func (r AddOrganizationUserClientResponse) StatusCode() int {
 	return 0
 }
 
+type GetVapidPublicKeyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *VapidPublicKey
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetVapidPublicKeyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetVapidPublicKeyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type DeleteUserClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -1707,6 +1918,28 @@ func (r UpsertUserClientResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r UpsertUserClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type RegisterDeviceResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r RegisterDeviceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RegisterDeviceResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -1962,6 +2195,15 @@ func (c *ClientWithResponses) AddOrganizationUserClientWithResponse(ctx context.
 	return ParseAddOrganizationUserClientResponse(rsp)
 }
 
+// GetVapidPublicKeyWithResponse request returning *GetVapidPublicKeyResponse
+func (c *ClientWithResponses) GetVapidPublicKeyWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetVapidPublicKeyResponse, error) {
+	rsp, err := c.GetVapidPublicKey(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetVapidPublicKeyResponse(rsp)
+}
+
 // DeleteUserClientWithBodyWithResponse request with arbitrary body returning *DeleteUserClientResponse
 func (c *ClientWithResponses) DeleteUserClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteUserClientResponse, error) {
 	rsp, err := c.DeleteUserClientWithBody(ctx, contentType, body, reqEditors...)
@@ -1994,6 +2236,23 @@ func (c *ClientWithResponses) UpsertUserClientWithResponse(ctx context.Context, 
 		return nil, err
 	}
 	return ParseUpsertUserClientResponse(rsp)
+}
+
+// RegisterDeviceWithBodyWithResponse request with arbitrary body returning *RegisterDeviceResponse
+func (c *ClientWithResponses) RegisterDeviceWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RegisterDeviceResponse, error) {
+	rsp, err := c.RegisterDeviceWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRegisterDeviceResponse(rsp)
+}
+
+func (c *ClientWithResponses) RegisterDeviceWithResponse(ctx context.Context, body RegisterDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*RegisterDeviceResponse, error) {
+	rsp, err := c.RegisterDevice(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRegisterDeviceResponse(rsp)
 }
 
 // PostUserEventsWithBodyWithResponse request with arbitrary body returning *PostUserEventsResponse
@@ -2278,6 +2537,39 @@ func ParseAddOrganizationUserClientResponse(rsp *http.Response) (*AddOrganizatio
 	return response, nil
 }
 
+// ParseGetVapidPublicKeyResponse parses an HTTP response from a GetVapidPublicKeyWithResponse call
+func ParseGetVapidPublicKeyResponse(rsp *http.Response) (*GetVapidPublicKeyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetVapidPublicKeyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest VapidPublicKey
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseDeleteUserClientResponse parses an HTTP response from a DeleteUserClientWithResponse call
 func ParseDeleteUserClientResponse(rsp *http.Response) (*DeleteUserClientResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -2325,6 +2617,32 @@ func ParseUpsertUserClientResponse(rsp *http.Response) (*UpsertUserClientRespons
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRegisterDeviceResponse parses an HTTP response from a RegisterDeviceWithResponse call
+func ParseRegisterDeviceResponse(rsp *http.Response) (*RegisterDeviceResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RegisterDeviceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -2493,12 +2811,18 @@ type ServerInterface interface {
 	// Add user to organization
 	// (POST /api/client/organizations/users)
 	AddOrganizationUserClient(w http.ResponseWriter, r *http.Request)
+	// Get VAPID public key
+	// (GET /api/client/push/vapid)
+	GetVapidPublicKey(w http.ResponseWriter, r *http.Request)
 	// Delete user
 	// (DELETE /api/client/users)
 	DeleteUserClient(w http.ResponseWriter, r *http.Request)
 	// Upsert user
 	// (POST /api/client/users)
 	UpsertUserClient(w http.ResponseWriter, r *http.Request)
+	// Register device
+	// (POST /api/client/users/devices)
+	RegisterDevice(w http.ResponseWriter, r *http.Request)
 	// Post user events
 	// (POST /api/client/users/events)
 	PostUserEvents(w http.ResponseWriter, r *http.Request)
@@ -2565,6 +2889,12 @@ func (_ Unimplemented) AddOrganizationUserClient(w http.ResponseWriter, r *http.
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// Get VAPID public key
+// (GET /api/client/push/vapid)
+func (_ Unimplemented) GetVapidPublicKey(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // Delete user
 // (DELETE /api/client/users)
 func (_ Unimplemented) DeleteUserClient(w http.ResponseWriter, r *http.Request) {
@@ -2574,6 +2904,12 @@ func (_ Unimplemented) DeleteUserClient(w http.ResponseWriter, r *http.Request) 
 // Upsert user
 // (POST /api/client/users)
 func (_ Unimplemented) UpsertUserClient(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Register device
+// (POST /api/client/users/devices)
+func (_ Unimplemented) RegisterDevice(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -2762,6 +3098,26 @@ func (siw *ServerInterfaceWrapper) AddOrganizationUserClient(w http.ResponseWrit
 	handler.ServeHTTP(w, r)
 }
 
+// GetVapidPublicKey operation middleware
+func (siw *ServerInterfaceWrapper) GetVapidPublicKey(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetVapidPublicKey(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // DeleteUserClient operation middleware
 func (siw *ServerInterfaceWrapper) DeleteUserClient(w http.ResponseWriter, r *http.Request) {
 
@@ -2793,6 +3149,26 @@ func (siw *ServerInterfaceWrapper) UpsertUserClient(w http.ResponseWriter, r *ht
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UpsertUserClient(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RegisterDevice operation middleware
+func (siw *ServerInterfaceWrapper) RegisterDevice(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RegisterDevice(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -3099,10 +3475,16 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/api/client/organizations/users", wrapper.AddOrganizationUserClient)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/client/push/vapid", wrapper.GetVapidPublicKey)
+	})
+	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/api/client/users", wrapper.DeleteUserClient)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/client/users", wrapper.UpsertUserClient)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/client/users/devices", wrapper.RegisterDevice)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/client/users/events", wrapper.PostUserEvents)

@@ -1,12 +1,13 @@
 import { useContext, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { Save } from "lucide-react"
+import { Save, Braces } from "lucide-react"
 import { toast } from "sonner"
 import { ProjectContext, OrganizationContext } from "../../contexts"
 import oapiClient from "../../oapi/client"
 
 import { Button } from "@/components/ui/button"
 import { AttributeEditor } from "@/components/ui/attribute-editor"
+import OrganizationDetailIdentifiers from "./OrganizationDetailIdentifiers"
 
 export default function OrganizationDetailAttrs() {
     const { t } = useTranslation()
@@ -55,11 +56,15 @@ export default function OrganizationDetailAttrs() {
     }
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-8">
+            {/* Identifiers Section */}
+            <OrganizationDetailIdentifiers />
+
             {/* Section Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                     <h2 className="text-base font-medium">
+                        <Braces className="inline h-4 w-4 mr-1.5 -mt-0.5" />
                         {t("custom_attributes", "Custom attributes")}
                     </h2>
                     <p className="text-sm text-muted-foreground mt-0.5">

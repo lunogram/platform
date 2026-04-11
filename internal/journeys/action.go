@@ -48,6 +48,12 @@ func HandleAction(ctx HandlerContext, step journey.JourneyVersionStep, state jou
 	}
 
 	if result.Metadata != nil {
+		stateData, err := EncodeStateData(result.Metadata)
+		if err != nil {
+			return state, nil, fmt.Errorf("failed to encode action result: %w", err)
+		}
+		state.Data = stateData
+
 		schema := schemas.ActionSchema{
 			ProjectID:  ctx.ProjectID,
 			ActionID:   config.ActionId,

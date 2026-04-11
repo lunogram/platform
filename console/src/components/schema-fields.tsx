@@ -35,6 +35,24 @@ export interface Schema {
     format?: string
     order?: number
     preview?: string
+    fileUpload?: boolean
+    fileAccept?: string
+}
+
+function fileToBase64(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => {
+            if (typeof reader.result !== "string") {
+                reject(new Error("failed to read file as base64"))
+                return
+            }
+            const comma = reader.result.indexOf(",")
+            resolve(comma >= 0 ? reader.result.slice(comma + 1) : reader.result)
+        }
+        reader.onerror = () => reject(reader.error ?? new Error("failed to read file"))
+        reader.readAsDataURL(file)
+    })
 }
 
 /**
@@ -108,6 +126,37 @@ export function SchemaFields({
             {sorted.map(([key, item]) => {
                 const required = schema.required?.includes(key)
                 const fieldTitle = item.title ?? snakeToTitle(key)
+
+                if (item.type === "string" && item.fileUpload) {
+                    return (
+                        <div key={key} className="grid gap-1.5">
+                            <Label className="inline-flex items-center gap-1 text-sm font-medium">
+                                {fieldTitle}
+                                {required && <span className="text-destructive">*</span>}
+                            </Label>
+                            {item.description && (
+                                <p className="text-sm text-muted-foreground">{item.description}</p>
+                            )}
+                            <Input
+                                type="file"
+                                accept={item.fileAccept}
+                                onChange={async (e) => {
+                                    const file = e.target.files?.[0]
+                                    if (!file) return
+                                    try {
+                                        const base64 = await fileToBase64(file)
+                                        set(key, base64)
+                                    } catch (error) {
+                                        console.error(error)
+                                    }
+                                }}
+                            />
+                            {value[key] && (
+                                <p className="text-xs text-muted-foreground">File configured</p>
+                            )}
+                        </div>
+                    )
+                }
 
                 // format: "code"
                 if (item.format === "code") {

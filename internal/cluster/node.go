@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"math/rand"
 	"os"
 	"sync"
@@ -49,6 +50,10 @@ func NewNode(ctx graceful.Context, logger *zap.Logger, conf config.Node, cluster
 	go node.watchCluster(ctx)
 
 	ctx.Closer(func() {
+		node.cleanupClusterState()
+	})
+
+	ctx.Closer(func() {
 		node.wg.Wait()
 	})
 
@@ -79,14 +84,6 @@ func (node *Node) IsLeader() bool {
 // go-campaign! starts campaigning for leadership in the cluster.
 func (node *Node) campaign(ctx graceful.Context) {
 	defer node.wg.Done()
-	defer func() {
-		if node.IsLeader() {
-			ctx, cancel := context.WithTimeout(context.Background(), CleanupTimeout)
-			defer cancel()
-
-			node.cluster.ReleaseLeader(ctx)
-		}
-	}()
 
 	var err error
 	leaderCtx, cancel := context.WithCancel(ctx)
@@ -153,13 +150,12 @@ func (node *Node) campaign(ctx graceful.Context) {
 				node.logger.Error("unexpected error in leader routine", zap.Error(err))
 			}
 
-			node.mu.Lock()
-			node.logger.Info("releasing leader lock", zap.String("node", node.id))
-			ctx, cancel := context.WithTimeout(context.Background(), CleanupTimeout)
-			defer cancel()
+			if ctx.Err() != nil {
+				return
+			}
 
-			node.leaderUntil = node.cluster.ReleaseLeader(ctx)
-			node.mu.Unlock()
+			node.logger.Info("releasing leader lock", zap.String("node", node.id))
+			node.releaseLeaderWithTimeout(node.logger)
 		}()
 
 		time.Sleep(node.config.Cluster.LeaderCampaignInterval)
@@ -178,6 +174,10 @@ func (node *Node) watchCluster(ctx graceful.Context) {
 
 	err := node.cluster.MarkLeaderReconciled(ctx)
 	if err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return
+		}
+
 		node.logger.Error("failed to mark leader as reconciled", zap.Error(err))
 		go ctx.Shutdown()
 		return
@@ -192,6 +192,10 @@ func (node *Node) watchCluster(ctx graceful.Context) {
 		case <-reconciliation.C:
 			nodes, err = node.cluster.GetNodes(ctx)
 			if err != nil {
+				if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+					return
+				}
+
 				node.logger.Error("failed to fetch nodes", zap.Error(err))
 				go ctx.Shutdown()
 				return
@@ -205,22 +209,6 @@ func (node *Node) watchCluster(ctx graceful.Context) {
 
 func (node *Node) heartbeat(ctx graceful.Context) {
 	defer node.wg.Done()
-	defer func() {
-		node.mu.Lock()
-		defer node.mu.Unlock()
-
-		logger := node.logger.With(zap.String("id", node.ID()))
-		logger.Info("received close signal, releasing node resources")
-
-		ctx, cancel := context.WithTimeout(context.Background(), CleanupTimeout)
-		defer cancel()
-		err := node.cluster.ReleaseNode(ctx, node.ID())
-		if err != nil {
-			logger.Error("failed to release node", zap.Error(err))
-		}
-
-		logger.Info("node resources released")
-	}()
 
 	heartbeat := time.NewTicker(node.config.Cluster.HeartbeatInterval)
 	defer heartbeat.Stop()
@@ -243,4 +231,44 @@ func (node *Node) heartbeat(ctx graceful.Context) {
 // between 1 and 3 seconds.
 func nodeCampaignInterval() time.Duration {
 	return time.Duration(1000+rand.Intn(2000)) * time.Millisecond
+}
+
+func (node *Node) cleanupClusterState() {
+	logger := node.logger.With(zap.String("id", node.ID()))
+	logger.Info("received close signal, releasing node resources")
+
+	if node.IsLeader() {
+		node.releaseLeaderWithTimeout(logger)
+	}
+
+	node.releaseNodeWithTimeout(logger)
+	logger.Info("node resources released")
+}
+
+func (node *Node) releaseLeaderWithTimeout(logger *zap.Logger) {
+	ctx, cancel := context.WithTimeout(context.Background(), CleanupTimeout)
+	defer cancel()
+
+	until := node.cluster.ReleaseLeader(ctx)
+	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		logger.Warn("leader release exceeded cleanup timeout", zap.Duration("timeout", CleanupTimeout), zap.String("node", node.id))
+	}
+
+	node.mu.Lock()
+	node.leaderUntil = until
+	node.mu.Unlock()
+}
+
+func (node *Node) releaseNodeWithTimeout(logger *zap.Logger) {
+	ctx, cancel := context.WithTimeout(context.Background(), CleanupTimeout)
+	defer cancel()
+
+	err := node.cluster.ReleaseNode(ctx, node.ID())
+	if err != nil {
+		logger.Error("failed to release node", zap.Error(err), zap.String("node", node.id))
+	}
+
+	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		logger.Warn("node release exceeded cleanup timeout", zap.Duration("timeout", CleanupTimeout), zap.String("node", node.id))
+	}
 }

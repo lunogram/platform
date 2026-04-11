@@ -2,9 +2,11 @@ package rules
 
 import (
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRuleEvents(t *testing.T) {
@@ -462,6 +464,14 @@ func TestRuleDependsOnUsers(t *testing.T) {
 		"empty rule": {
 			rule:     Rule{},
 			expected: false,
+		},
+		"parent wrapper with no children matches all users": {
+			rule: Rule{
+				Type:     RuleTypeWrapper,
+				Group:    RuleGroupParent,
+				Operator: OperatorAnd,
+			},
+			expected: true,
 		},
 	}
 
@@ -1031,4 +1041,322 @@ func TestPeriodUnitSQL(t *testing.T) {
 			assert.Equal(t, test.expected, result)
 		})
 	}
+}
+
+func TestPeriodUnitRecomputeInterval(t *testing.T) {
+	t.Parallel()
+
+	type test struct {
+		unit     PeriodUnit
+		expected time.Duration
+	}
+
+	tests := map[string]test{
+		"minute": {
+			unit:     PeriodUnitMinute,
+			expected: time.Minute,
+		},
+		"hour": {
+			unit:     PeriodUnitHour,
+			expected: 5 * time.Minute,
+		},
+		"day": {
+			unit:     PeriodUnitDay,
+			expected: time.Hour,
+		},
+		"week": {
+			unit:     PeriodUnitWeek,
+			expected: 6 * time.Hour,
+		},
+		"month": {
+			unit:     PeriodUnitMonth,
+			expected: 24 * time.Hour,
+		},
+		"year": {
+			unit:     PeriodUnitYear,
+			expected: 7 * 24 * time.Hour,
+		},
+		"unknown (default)": {
+			unit:     PeriodUnit("unknown"),
+			expected: time.Hour,
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			result := test.unit.RecomputeInterval()
+			assert.Equal(t, test.expected, result)
+		})
+	}
+}
+
+func TestRuleDependsOnTime(t *testing.T) {
+	t.Parallel()
+
+	type test struct {
+		rule     Rule
+		expected bool
+	}
+
+	tests := map[string]test{
+		"event rule with rolling frequency": {
+			rule: Rule{
+				Type:  RuleTypeWrapper,
+				Group: RuleGroupEvent,
+				Value: "purchase",
+				Frequency: &Frequency{
+					Count:    1,
+					Operator: OperatorGreaterEqual,
+					Period: Period{
+						Type:  PeriodTypeRolling,
+						Unit:  PeriodUnitDay,
+						Value: 30,
+					},
+				},
+			},
+			expected: true,
+		},
+		"event rule without frequency": {
+			rule: Rule{
+				Type:  RuleTypeWrapper,
+				Group: RuleGroupEvent,
+				Value: "purchase",
+			},
+			expected: false,
+		},
+		"event rule with since_entered period": {
+			rule: Rule{
+				Type:  RuleTypeWrapper,
+				Group: RuleGroupEvent,
+				Value: "purchase",
+				Frequency: &Frequency{
+					Count:    1,
+					Operator: OperatorGreaterEqual,
+					Period: Period{
+						Type:  PeriodTypeSinceEntered,
+						Unit:  PeriodUnitDay,
+						Value: 7,
+					},
+				},
+			},
+			expected: false,
+		},
+		"nested rolling frequency": {
+			rule: Rule{
+				Type:     RuleTypeWrapper,
+				Group:    RuleGroupParent,
+				Operator: OperatorAnd,
+				Children: []Rule{
+					{
+						Type:     RuleTypeString,
+						Group:    RuleGroupUser,
+						Path:     "email",
+						Operator: OperatorContains,
+						Value:    "@example.com",
+					},
+					{
+						Type:  RuleTypeWrapper,
+						Group: RuleGroupEvent,
+						Value: "page.viewed",
+						Frequency: &Frequency{
+							Count:    5,
+							Operator: OperatorGreaterEqual,
+							Period: Period{
+								Type:  PeriodTypeRolling,
+								Unit:  PeriodUnitHour,
+								Value: 24,
+							},
+						},
+					},
+				},
+			},
+			expected: true,
+		},
+		"user-only rule": {
+			rule: Rule{
+				Type:     RuleTypeString,
+				Group:    RuleGroupUser,
+				Path:     "email",
+				Operator: OperatorContains,
+				Value:    "@example.com",
+			},
+			expected: false,
+		},
+		"organization event with rolling frequency": {
+			rule: Rule{
+				Type:  RuleTypeWrapper,
+				Group: RuleGroupOrganizationEvent,
+				Value: "subscription.renewed",
+				Frequency: &Frequency{
+					Count:    1,
+					Operator: OperatorGreaterEqual,
+					Period: Period{
+						Type:  PeriodTypeRolling,
+						Unit:  PeriodUnitMonth,
+						Value: 1,
+					},
+				},
+			},
+			expected: true,
+		},
+		"empty rule": {
+			rule:     Rule{},
+			expected: false,
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			result := test.rule.DependsOnTime()
+			assert.Equal(t, test.expected, result)
+		})
+	}
+}
+
+func TestRuleSetRecomputeInterval(t *testing.T) {
+	t.Parallel()
+
+	t.Run("no rolling periods returns nil", func(t *testing.T) {
+		rs := RuleSet{
+			Rule: Rule{
+				Type:     RuleTypeWrapper,
+				Group:    RuleGroupParent,
+				Operator: OperatorAnd,
+				Children: []Rule{
+					{
+						Type:     RuleTypeString,
+						Group:    RuleGroupUser,
+						Path:     "email",
+						Operator: OperatorContains,
+						Value:    "@example.com",
+					},
+				},
+			},
+		}
+		assert.Nil(t, rs.RecomputeInterval())
+	})
+
+	t.Run("single rolling period returns tier interval", func(t *testing.T) {
+		rs := RuleSet{
+			Rule: Rule{
+				Type:     RuleTypeWrapper,
+				Group:    RuleGroupParent,
+				Operator: OperatorAnd,
+				Children: []Rule{
+					{
+						Type:  RuleTypeWrapper,
+						Group: RuleGroupEvent,
+						Value: "purchase",
+						Frequency: &Frequency{
+							Count:    1,
+							Operator: OperatorGreaterEqual,
+							Period: Period{
+								Type:  PeriodTypeRolling,
+								Unit:  PeriodUnitDay,
+								Value: 30,
+							},
+						},
+					},
+				},
+			},
+		}
+		interval := rs.RecomputeInterval()
+		require.NotNil(t, interval)
+		assert.Equal(t, time.Hour, *interval)
+	})
+
+	t.Run("multiple rolling periods returns smallest interval", func(t *testing.T) {
+		rs := RuleSet{
+			Rule: Rule{
+				Type:     RuleTypeWrapper,
+				Group:    RuleGroupParent,
+				Operator: OperatorAnd,
+				Children: []Rule{
+					{
+						Type:  RuleTypeWrapper,
+						Group: RuleGroupEvent,
+						Value: "purchase",
+						Frequency: &Frequency{
+							Count:    1,
+							Operator: OperatorGreaterEqual,
+							Period: Period{
+								Type:  PeriodTypeRolling,
+								Unit:  PeriodUnitMonth,
+								Value: 1,
+							},
+						},
+					},
+					{
+						Type:  RuleTypeWrapper,
+						Group: RuleGroupEvent,
+						Value: "page.viewed",
+						Frequency: &Frequency{
+							Count:    5,
+							Operator: OperatorGreaterEqual,
+							Period: Period{
+								Type:  PeriodTypeRolling,
+								Unit:  PeriodUnitHour,
+								Value: 2,
+							},
+						},
+					},
+				},
+			},
+		}
+		interval := rs.RecomputeInterval()
+		require.NotNil(t, interval)
+		// hour tier (5 min) < month tier (24 hours), so hour wins
+		assert.Equal(t, 5*time.Minute, *interval)
+	})
+
+	t.Run("mixed rolling and non-rolling", func(t *testing.T) {
+		rs := RuleSet{
+			Rule: Rule{
+				Type:     RuleTypeWrapper,
+				Group:    RuleGroupParent,
+				Operator: OperatorAnd,
+				Children: []Rule{
+					{
+						Type:     RuleTypeString,
+						Group:    RuleGroupUser,
+						Path:     "email",
+						Operator: OperatorContains,
+						Value:    "@example.com",
+					},
+					{
+						Type:  RuleTypeWrapper,
+						Group: RuleGroupEvent,
+						Value: "login",
+						Frequency: &Frequency{
+							Count:    1,
+							Operator: OperatorGreaterEqual,
+							Period: Period{
+								Type:  PeriodTypeRolling,
+								Unit:  PeriodUnitWeek,
+								Value: 1,
+							},
+						},
+					},
+					{
+						Type:  RuleTypeWrapper,
+						Group: RuleGroupEvent,
+						Value: "session.started",
+						Frequency: &Frequency{
+							Count:    1,
+							Operator: OperatorGreaterEqual,
+							Period: Period{
+								Type:  PeriodTypeSinceEntered,
+								Unit:  PeriodUnitDay,
+								Value: 7,
+							},
+						},
+					},
+				},
+			},
+		}
+		interval := rs.RecomputeInterval()
+		require.NotNil(t, interval)
+		// Only the week rolling period counts; since_entered is not rolling
+		assert.Equal(t, 6*time.Hour, *interval)
+	})
 }

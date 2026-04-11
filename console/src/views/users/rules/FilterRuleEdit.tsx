@@ -88,7 +88,10 @@ export default function FilterRuleEdit({
                             setRule({ ...rule, type: type as typeof rule.type })
                         }
                     >
-                        <SelectTrigger className="h-8 w-auto min-w-[90px] rounded-r-none text-xs shadow-none">
+                        <SelectTrigger
+                            elevation="flat"
+                            className="h-8 w-auto min-w-[90px] rounded-r-none text-xs"
+                        >
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -115,6 +118,8 @@ export default function FilterRuleEdit({
                         }}
                         options={pathSuggestions}
                         placeholder="Path"
+                        ariaLabel="Rule path"
+                        inputAriaLabel="Rule path"
                         required
                         inputClassName="rounded-none border-l-0"
                         buttonClassName="rounded-none"
@@ -134,7 +139,10 @@ export default function FilterRuleEdit({
                             setRule({ ...rule, operator: operator as typeof rule.operator })
                         }
                     >
-                        <SelectTrigger className="h-8 w-auto min-w-[100px] rounded-r-none text-xs shadow-none">
+                        <SelectTrigger
+                            elevation="flat"
+                            className="h-8 w-auto min-w-[100px] rounded-r-none text-xs"
+                        >
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -156,7 +164,10 @@ export default function FilterRuleEdit({
                             }
                             onValueChange={(value) => setRule({ ...rule, value })}
                         >
-                            <SelectTrigger className="h-8 w-auto min-w-[80px] rounded-l-none border-l-0 text-xs shadow-none">
+                            <SelectTrigger
+                                elevation="flat"
+                                className="h-8 w-auto min-w-[80px] rounded-l-none border-l-0 text-xs"
+                            >
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -167,6 +178,7 @@ export default function FilterRuleEdit({
                     ) : journeyContext && journeyVariables?.length ? (
                         <TemplateInput
                             placeholder="Value"
+                            id="rule-value"
                             className="h-8 min-w-[100px] w-auto rounded-l-none border-l-0 text-xs shadow-none"
                             value={rule?.value?.toString() ?? ""}
                             onChange={(val) => setRule({ ...rule, value: val })}
@@ -177,6 +189,8 @@ export default function FilterRuleEdit({
                         <Input
                             type="text"
                             placeholder="Value"
+                            id="rule-value"
+                            aria-label="Rule value"
                             className="h-8 min-w-[100px] w-auto rounded-l-none border-l-0 text-xs shadow-none"
                             value={rule?.value?.toString() ?? ""}
                             onChange={(e) => setRule({ ...rule, value: e.target.value })}

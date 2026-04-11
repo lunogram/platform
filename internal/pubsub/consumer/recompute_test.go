@@ -123,7 +123,7 @@ func TestRecomputeListHandlerSuccess(t *testing.T) {
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet, string(ns))
-	handler := RecomputeListHandler(logger, st, pub)
+	handler := RecomputeListHandler(logger, st, pub, nil)
 
 	recompute := RecomputeList{
 		ID:        listID,
@@ -171,7 +171,7 @@ func TestRecomputeListHandlerNoRule(t *testing.T) {
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet, string(ns))
-	handler := RecomputeListHandler(logger, st, pub)
+	handler := RecomputeListHandler(logger, st, pub, nil)
 
 	recompute := RecomputeList{
 		ID:        listID,
@@ -245,7 +245,7 @@ func TestRecomputeListHandlerWithUserAddedEvent(t *testing.T) {
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet, string(ns))
-	handler := RecomputeListHandler(logger, st, pub)
+	handler := RecomputeListHandler(logger, st, pub, nil)
 
 	recompute := RecomputeList{
 		ID:        listID,

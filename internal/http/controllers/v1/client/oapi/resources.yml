@@ -404,6 +404,46 @@ paths:
               schema:
                 type: string
 
+  /api/client/users/devices:
+    post:
+      summary: Register device
+      description: Register or update a device's push subscription. The project is determined from the API key.
+      operationId: registerDevice
+      tags:
+        - Client
+      security:
+        - HttpBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeviceRegistration"
+      responses:
+        "201":
+          description: Device registered successfully
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/client/push/vapid:
+    get:
+      summary: Get VAPID public key
+      description: Retrieves the VAPID public key for push notifications
+      operationId: getVapidPublicKey
+      tags:
+        - Client
+      security:
+        - HttpBearerAuth: []
+      responses:
+        "200":
+          description: VAPID public key retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VapidPublicKey"
+        default:
+          $ref: "#/components/responses/Error"
+
 components:
   responses:
     Error:
@@ -431,12 +471,68 @@ components:
             A human readable explanation specific to this occurrence of the problem that is helpful to locate the problem and give advice on how to proceed. Written in English and readable for engineers, usually not suited for non technical stakeholders and not localized.
           example: some description for the error situation
 
+    ExternalID:
+      type: object
+      description: An external identifier with source and optional metadata
+      required:
+        - external_id
+      properties:
+        source:
+          type: string
+          default: "default"
+          example: "default"
+          description: Source of the identifier (e.g. "default", "anonymous", or a custom source). Defaults to "default" if not provided.
+        external_id:
+          type: string
+          example: "user_12345"
+          description: The external identifier value
+        metadata:
+          type: object
+          additionalProperties: true
+          nullable: true
+          x-go-type: map[string]any
+          description: Optional metadata associated with this identifier
+
+    ExternalIDResponse:
+      type: object
+      description: An external identifier as returned in responses, including database ID and timestamps
+      required:
+        - id
+        - source
+        - external_id
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+        source:
+          type: string
+          example: "default"
+        external_id:
+          type: string
+          example: "user_12345"
+        metadata:
+          type: object
+          additionalProperties: true
+          nullable: true
+          x-go-type: map[string]any
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-11-19T14:18:42.960Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2025-11-23T17:20:00.021Z"
+
     User:
       type: object
       required:
         - id
         - project_id
-        - anonymous_id
+        - identifier
         - data
         - has_push_device
         - version
@@ -451,12 +547,11 @@ components:
           type: string
           format: uuid
           example: "4c9d3163-7b64-4f9e-9068-d2e4b96be56b"
-        anonymous_id:
-          type: string
-          example: "anon_abc123xyz"
-        external_id:
-          type: string
-          example: "user_123"
+        identifier:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExternalIDResponse"
+          description: External identifiers associated with this user
         email:
           type: string
           format: email
@@ -497,19 +592,85 @@ components:
           format: date-time
           example: "2025-11-23T17:20:00.021Z"
 
+    UserIdentifier:
+      type: array
+      description: One or more external identifiers to identify the user
+      minItems: 1
+      items:
+        $ref: "#/components/schemas/ExternalID"
+
+    OrganizationIdentifier:
+      type: array
+      description: One or more external identifiers to identify the organization
+      minItems: 1
+      items:
+        $ref: "#/components/schemas/ExternalID"
+
+    DeviceRegistration:
+      type: object
+      required:
+        - identifier
+        - device_id
+        - config
+      properties:
+        identifier:
+          $ref: "#/components/schemas/UserIdentifier"
+        device_id:
+          type: string
+        os:
+          type: string
+          enum: [web, ios, android]
+        os_version:
+          type: string
+        model:
+          type: string
+        app_version:
+          type: string
+        data:
+          type: object
+          additionalProperties: true
+          nullable: true
+          x-go-type: json.RawMessage
+          example:
+            app_channel: "beta"
+            locale: "en-US"
+        config:
+          type: object
+          properties:
+            token:
+              type: string
+              description: Device token for FCM or APNs
+            endpoint:
+              type: string
+              description: Web Push subscription endpoint URL
+            expiration_time:
+              type: string
+              format: date-time
+            keys:
+              type: object
+              required: [p256dh, auth]
+              properties:
+                p256dh:
+                  type: string
+                auth:
+                  type: string
+
+    VapidPublicKey:
+      type: object
+      required:
+        - public_key
+      properties:
+        public_key:
+          type: string
+          description: The VAPID public key
+
     IdentifyRequest:
       type: object
+      required:
+        - identifier
       properties:
-        external_id:
-          type: string
-          nullable: true
-          example: "user_12345"
-          description: External identifier for the user from your system
-        anonymous_id:
-          type: string
-          nullable: true
-          example: "anon_abc123"
-          description: Anonymous identifier for the user
+        identifier:
+          $ref: "#/components/schemas/UserIdentifier"
         email:
           type: string
           nullable: true
@@ -558,16 +719,19 @@ components:
           type: string
           example: "purchase_completed"
           description: The name of the event
-        anonymous_id:
-          type: string
+        identifier:
+          $ref: "#/components/schemas/UserIdentifier"
+        match:
+          type: object
+          additionalProperties: true
           nullable: true
-          example: "anon_abc123"
-          description: Anonymous identifier for the user
-        external_id:
-          type: string
-          nullable: true
-          example: "user_12345"
-          description: External identifier for the user from your system
+          x-go-type: map[string]any
+          description: >-
+            JSONB containment filter to match users by their data attributes.
+            Mutually exclusive with identifier. When set, the event is delivered
+            to every user whose data column contains the given key/value pairs.
+          example:
+            plan: "enterprise"
         data:
           type: object
           additionalProperties: true
@@ -582,7 +746,7 @@ components:
       required:
         - id
         - project_id
-        - external_id
+        - identifier
         - data
         - version
         - created_at
@@ -596,10 +760,11 @@ components:
           type: string
           format: uuid
           example: "4c9d3163-7b64-4f9e-9068-d2e4b96be56b"
-        external_id:
-          type: string
-          example: "org_123"
-          description: External identifier for the organization from your system
+        identifier:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExternalIDResponse"
+          description: External identifiers associated with this organization
         name:
           type: string
           example: "Acme Corp"
@@ -626,12 +791,10 @@ components:
     OrganizationRequest:
       type: object
       required:
-        - external_id
+        - identifier
       properties:
-        external_id:
-          type: string
-          example: "org_123"
-          description: External identifier for the organization from your system
+        identifier:
+          $ref: "#/components/schemas/OrganizationIdentifier"
         name:
           type: string
           nullable: true
@@ -648,17 +811,23 @@ components:
     OrganizationUserRequest:
       type: object
       required:
-        - organization_external_id
-        - user_external_id
+        - organization
+        - user
       properties:
-        organization_external_id:
-          type: string
-          example: "org_123"
-          description: External identifier for the organization
-        user_external_id:
-          type: string
-          example: "user_456"
-          description: External identifier for the user
+        organization:
+          type: object
+          required:
+            - identifier
+          properties:
+            identifier:
+              $ref: "#/components/schemas/OrganizationIdentifier"
+        user:
+          type: object
+          required:
+            - identifier
+          properties:
+            identifier:
+              $ref: "#/components/schemas/UserIdentifier"
         data:
           type: object
           additionalProperties: true
@@ -671,42 +840,40 @@ components:
 
     DeleteUserRequest:
       type: object
+      required:
+        - identifier
       properties:
-        external_id:
-          type: string
-          nullable: true
-          example: "user_456"
-          description: External identifier for the user
-        anonymous_id:
-          type: string
-          nullable: true
-          example: "anon_789"
-          description: Anonymous identifier for the user
+        identifier:
+          $ref: "#/components/schemas/UserIdentifier"
 
     DeleteOrganizationRequest:
       type: object
       required:
-        - external_id
+        - identifier
       properties:
-        external_id:
-          type: string
-          example: "org_123"
-          description: External identifier for the organization
+        identifier:
+          $ref: "#/components/schemas/OrganizationIdentifier"
 
     RemoveOrganizationUserRequest:
       type: object
       required:
-        - organization_external_id
-        - user_external_id
+        - organization
+        - user
       properties:
-        organization_external_id:
-          type: string
-          example: "org_123"
-          description: External identifier for the organization
-        user_external_id:
-          type: string
-          example: "user_456"
-          description: External identifier for the user
+        organization:
+          type: object
+          required:
+            - identifier
+          properties:
+            identifier:
+              $ref: "#/components/schemas/OrganizationIdentifier"
+        user:
+          type: object
+          required:
+            - identifier
+          properties:
+            identifier:
+              $ref: "#/components/schemas/UserIdentifier"
 
     PostOrganizationEventsRequest:
       type: array
@@ -717,13 +884,21 @@ components:
     OrganizationEvent:
       type: object
       required:
-        - organization_external_id
         - name
       properties:
-        organization_external_id:
-          type: string
-          example: "org_123"
-          description: External identifier for the organization
+        identifier:
+          $ref: "#/components/schemas/OrganizationIdentifier"
+        match:
+          type: object
+          additionalProperties: true
+          nullable: true
+          x-go-type: map[string]any
+          description: >-
+            JSONB containment filter to match organizations by their data attributes.
+            Mutually exclusive with identifier. When set, the event is delivered
+            to every organization whose data column contains the given key/value pairs.
+          example:
+            plan: "enterprise"
         name:
           type: string
           example: "subscription_upgraded"
@@ -747,16 +922,8 @@ components:
           type: string
           example: "renewal_date"
           description: The name of the scheduled resource
-        external_id:
-          type: string
-          nullable: true
-          example: "user_12345"
-          description: External identifier for the user from your system
-        anonymous_id:
-          type: string
-          nullable: true
-          example: "anon_abc123"
-          description: Anonymous identifier for the user
+        identifier:
+          $ref: "#/components/schemas/UserIdentifier"
         scheduled_at:
           type: string
           format: date-time
@@ -788,16 +955,14 @@ components:
       type: object
       required:
         - name
-        - organization_external_id
+        - identifier
       properties:
         name:
           type: string
           example: "contract_renewal"
           description: The name of the scheduled resource
-        organization_external_id:
-          type: string
-          example: "org_123"
-          description: External identifier for the organization from your system
+        identifier:
+          $ref: "#/components/schemas/OrganizationIdentifier"
         scheduled_at:
           type: string
           format: date-time
@@ -834,16 +999,8 @@ components:
           type: string
           example: "renewal_date"
           description: The name of the scheduled resource to delete
-        external_id:
-          type: string
-          nullable: true
-          example: "user_12345"
-          description: External identifier for the user from your system
-        anonymous_id:
-          type: string
-          nullable: true
-          example: "anon_abc123"
-          description: Anonymous identifier for the user
+        identifier:
+          $ref: "#/components/schemas/UserIdentifier"
 
     ScheduledAccepted:
       type: object
@@ -877,16 +1034,14 @@ components:
       type: object
       required:
         - name
-        - organization_external_id
+        - identifier
       properties:
         name:
           type: string
           example: "contract_renewal"
           description: The name of the scheduled resource to delete
-        organization_external_id:
-          type: string
-          example: "org_123"
-          description: External identifier for the organization from your system
+        identifier:
+          $ref: "#/components/schemas/OrganizationIdentifier"
 
   securitySchemes:
     HttpBearerAuth:

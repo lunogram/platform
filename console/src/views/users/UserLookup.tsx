@@ -1,6 +1,6 @@
 import { useCallback, useContext, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { Search, User, Mail, Hash } from "lucide-react"
+import { Search, User, Mail } from "lucide-react"
 import type { User as UserType } from "../../types"
 import { getUserDisplayName, getUserInitials } from "@/lib/name"
 import { ProjectContext } from "../../contexts"
@@ -100,6 +100,7 @@ export const UserLookup = ({ open, onClose, onSelected }: UserLookupProps) => {
                         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                         <Input
                             placeholder={t("enter_email")}
+                            aria-label={t("search_users", "Search users")}
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             className="pl-9"
@@ -118,7 +119,6 @@ export const UserLookup = ({ open, onClose, onSelected }: UserLookupProps) => {
                             <TableRow>
                                 <TableHead>{t("name")}</TableHead>
                                 <TableHead>{t("email")}</TableHead>
-                                <TableHead>{t("external_id")}</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -135,14 +135,11 @@ export const UserLookup = ({ open, onClose, onSelected }: UserLookupProps) => {
                                         <TableCell>
                                             <Skeleton className="h-4 w-36" />
                                         </TableCell>
-                                        <TableCell>
-                                            <Skeleton className="h-4 w-20" />
-                                        </TableCell>
                                     </TableRow>
                                 ))
                             ) : users.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={3} className="h-32 text-center">
+                                    <TableCell colSpan={2} className="h-32 text-center">
                                         <div className="flex flex-col items-center gap-2 text-muted-foreground">
                                             <User className="h-8 w-8" />
                                             <p>{t("no_users_found")}</p>
@@ -171,20 +168,6 @@ export const UserLookup = ({ open, onClose, onSelected }: UserLookupProps) => {
                                                 <div className="flex items-center gap-2 text-muted-foreground">
                                                     <Mail className="h-3 w-3" />
                                                     <span className="text-sm">{user.email}</span>
-                                                </div>
-                                            ) : (
-                                                <span className="text-sm text-muted-foreground">
-                                                    —
-                                                </span>
-                                            )}
-                                        </TableCell>
-                                        <TableCell>
-                                            {user.external_id ? (
-                                                <div className="flex items-center gap-2 text-muted-foreground">
-                                                    <Hash className="h-3 w-3" />
-                                                    <code className="text-sm">
-                                                        {user.external_id}
-                                                    </code>
                                                 </div>
                                             ) : (
                                                 <span className="text-sm text-muted-foreground">

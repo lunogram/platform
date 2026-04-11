@@ -9,6 +9,7 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
 	"github.com/lunogram/platform/internal/store/journey"
 	"github.com/stretchr/testify/assert"
@@ -24,7 +25,7 @@ type mockEvent struct {
 	data    any
 }
 
-func (m *mockPublisher) Publish(ctx context.Context, subject schemas.Subject, v any) error {
+func (m *mockPublisher) Publish(ctx context.Context, subject schemas.Subject, v any, _ ...pubsub.PublishOption) error {
 	m.publishedEvents = append(m.publishedEvents, mockEvent{
 		subject: subject,
 		data:    v,
@@ -168,11 +169,13 @@ func TestHandleEvent(t *testing.T) {
 				// Expect GetUser query
 				now := time.Now()
 				rows := sqlmock.NewRows([]string{
-					"id", "project_id", "external_id", "email", "phone",
-					"anonymous_id", "timezone", "locale", "data", "created_at", "updated_at",
+					"id", "project_id", "email", "phone", "data",
+					"timezone", "locale", "version", "created_at", "updated_at",
+					"has_push_device", "external_ids",
 				}).AddRow(
-					userID, projectID, "test-user", nil, nil,
-					"anon-123", nil, nil, []byte("{}"), now, now,
+					userID, projectID, nil, nil, []byte("{}"),
+					nil, nil, int32(0), now, now,
+					false, []byte("[]"),
 				)
 				mock.ExpectQuery(`SELECT (.+) FROM users`).
 					WithArgs(userID, projectID).
@@ -318,11 +321,13 @@ func TestHandleEventTemplateRendering(t *testing.T) {
 			// Expect GetUser query
 			now := time.Now()
 			rows := sqlmock.NewRows([]string{
-				"id", "project_id", "external_id", "email", "phone",
-				"anonymous_id", "timezone", "locale", "data", "created_at", "updated_at",
+				"id", "project_id", "email", "phone", "data",
+				"timezone", "locale", "version", "created_at", "updated_at",
+				"has_push_device", "external_ids",
 			}).AddRow(
-				userID, projectID, "test-user", nil, nil,
-				"anon-123", nil, nil, []byte("{}"), now, now,
+				userID, projectID, nil, nil, []byte("{}"),
+				nil, nil, int32(0), now, now,
+				false, []byte("[]"),
 			)
 			mock.ExpectQuery(`SELECT (.+) FROM users`).
 				WithArgs(userID, projectID).

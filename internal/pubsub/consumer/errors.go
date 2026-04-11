@@ -3,6 +3,7 @@ package consumer
 import (
 	"errors"
 	"fmt"
+	"time"
 )
 
 // PermanentError wraps an error to indicate that it is a permanent failure
@@ -42,4 +43,29 @@ func (e *PermanentError) Unwrap() error {
 func IsPermanent(err error) bool {
 	var pe *PermanentError
 	return errors.As(err, &pe)
+}
+
+// RateLimitedError indicates that a message was rate-limited and has been
+// re-published as a scheduled message. The router should Ack the original
+// to avoid wasting MaxDeliver budget on expected back-pressure.
+type RateLimitedError struct {
+	RetryAfter time.Duration
+}
+
+// RateLimited creates a new RateLimitedError with the given retry-after duration.
+func RateLimited(retryAfter time.Duration) error {
+	return &RateLimitedError{RetryAfter: retryAfter}
+}
+
+func (e *RateLimitedError) Error() string {
+	return fmt.Sprintf("rate limited, retry after %s", e.RetryAfter)
+}
+
+// IsRateLimited reports whether err is (or wraps) a RateLimitedError.
+func IsRateLimited(err error) (*RateLimitedError, bool) {
+	var e *RateLimitedError
+	if errors.As(err, &e) {
+		return e, true
+	}
+	return nil, false
 }

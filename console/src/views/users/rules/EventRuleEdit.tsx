@@ -37,7 +37,7 @@ export default function EventRuleEdit({
                             setRule({ ...rule, operator: operator as typeof rule.operator })
                         }
                     >
-                        <SelectTrigger className="h-8 w-auto min-w-[70px] text-xs shadow-none">
+                        <SelectTrigger elevation="flat" className="h-8 w-auto min-w-[70px] text-xs">
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -91,7 +91,10 @@ export default function EventRuleEdit({
                             })
                         }
                     >
-                        <SelectTrigger className="h-8 w-auto min-w-[80px] rounded-r-none text-xs shadow-none">
+                        <SelectTrigger
+                            elevation="flat"
+                            className="h-8 w-auto min-w-[80px] rounded-r-none text-xs"
+                        >
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -105,6 +108,7 @@ export default function EventRuleEdit({
                     <Input
                         type="text"
                         placeholder="Count"
+                        aria-label="Event frequency count"
                         className="h-8 w-16 rounded-none border-l-0 text-xs shadow-none"
                         value={frequency.count?.toString() ?? ""}
                         onChange={(e) => {
@@ -149,7 +153,10 @@ export default function EventRuleEdit({
                             }
                         }}
                     >
-                        <SelectTrigger className="h-8 w-auto min-w-[160px] text-xs shadow-none">
+                        <SelectTrigger
+                            elevation="flat"
+                            className="h-8 w-auto min-w-[160px] text-xs"
+                        >
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -168,6 +175,7 @@ export default function EventRuleEdit({
                         <Input
                             type="text"
                             placeholder="Value"
+                            aria-label="Event frequency value"
                             className={`h-8 w-16 rounded-none ${journeyContext ? "rounded-l-md" : "border-l-0"} text-xs shadow-none`}
                             value={frequency.period.value.toString()}
                             onChange={(e) => {
@@ -200,7 +208,10 @@ export default function EventRuleEdit({
                                 })
                             }}
                         >
-                            <SelectTrigger className="h-8 w-auto min-w-[80px] rounded-l-none border-l-0 text-xs shadow-none">
+                            <SelectTrigger
+                                elevation="flat"
+                                className="h-8 w-auto min-w-[80px] rounded-l-none border-l-0 text-xs"
+                            >
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -223,7 +234,7 @@ export default function EventRuleEdit({
                             setRule({ ...rule, operator: operator as typeof rule.operator })
                         }
                     >
-                        <SelectTrigger className="h-8 w-auto min-w-[70px] text-xs shadow-none">
+                        <SelectTrigger elevation="flat" className="h-8 w-auto min-w-[70px] text-xs">
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>

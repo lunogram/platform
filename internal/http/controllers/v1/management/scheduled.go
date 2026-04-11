@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
@@ -356,6 +357,13 @@ func (srv *ScheduledController) UpsertUserScheduled(w http.ResponseWriter, r *ht
 		return
 	}
 
+	// For recurring schedules, default start_at to now if not provided.
+	// This ensures the scheduler has a valid anchor for computing occurrences.
+	if body.Interval != nil && body.StartAt == nil {
+		now := time.Now().UTC()
+		body.StartAt = &now
+	}
+
 	upserted, err := srv.store.UpsertUserSchedule(ctx, userID, scheduleID, body.ScheduledAt, body.StartAt, body.Interval, data)
 	if err != nil {
 		logger.Error("failed to upsert user schedule", zap.Error(err))
@@ -626,6 +634,13 @@ func (srv *ScheduledController) UpsertOrganizationScheduled(w http.ResponseWrite
 		srv.logger.Error("scheduled_at is required for single schedules")
 		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("scheduled_at is required for single schedules")))
 		return
+	}
+
+	// For recurring schedules, default start_at to now if not provided.
+	// This ensures the scheduler has a valid anchor for computing occurrences.
+	if body.Interval != nil && body.StartAt == nil {
+		now := time.Now().UTC()
+		body.StartAt = &now
 	}
 
 	upserted, err := srv.store.UpsertOrganizationSchedule(ctx, organizationID, scheduleID, body.ScheduledAt, body.StartAt, body.Interval, data)

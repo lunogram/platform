@@ -22,10 +22,9 @@ func (controller *Controller) ReconcileUserScheduledEvents(ctx context.Context) 
 	return func() {
 		defer controller.recover("user_scheduled_events")
 		start := time.Now()
-		var processed, published, failed int
+		var published, failed int
 
 		scanner := func(event subjects.DueScheduledEvent) error {
-			processed++
 			eventName := fmt.Sprintf("scheduled.%s", event.ScheduleName)
 
 			data := make(map[string]any)
@@ -95,7 +94,7 @@ func (controller *Controller) ReconcileUserScheduledEvents(ctx context.Context) 
 			return nil
 		}
 
-		err := controller.scheduled.ScanDueScheduledEvents(ctx, scanner)
+		processed, err := controller.scheduled.ScanDueScheduledEvents(ctx, scanner)
 		if err != nil {
 			controller.logger.Error("failed to scan due scheduled events", zap.Error(err))
 		}
@@ -122,11 +121,9 @@ func (controller *Controller) ReconcileUserSchedules(ctx context.Context) func()
 	return func() {
 		defer controller.recover("user_schedules")
 		start := time.Now()
-		var processed, advanced, failed int
+		var advanced, failed int
 
 		scanner := func(us subjects.UserSchedule) error {
-			processed++
-
 			err := controller.scheduled.AdvanceAndGenerateUserScheduleEvents(ctx, us)
 			if err != nil {
 				failed++
@@ -151,7 +148,7 @@ func (controller *Controller) ReconcileUserSchedules(ctx context.Context) func()
 			return nil
 		}
 
-		err := controller.scheduled.ScanRecurringUserSchedulesWithoutPendingEvents(ctx, scanner)
+		processed, err := controller.scheduled.ScanRecurringUserSchedulesWithoutPendingEvents(ctx, scanner)
 		if err != nil {
 			controller.logger.Error("failed to scan recurring user schedules", zap.Error(err))
 		}

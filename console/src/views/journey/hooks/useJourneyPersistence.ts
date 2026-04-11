@@ -6,6 +6,13 @@ import { stepsToNodes, nodesToSteps } from "../editor/JourneyEditor.utils"
 import type { JourneyNode } from "../editor/JourneyEditor.types"
 import type { Edge } from "reactflow"
 import type { Journey, Project } from "@/types"
+import type { UUID } from "@/types/common"
+
+type Actions = {
+    setViewUsersStep?: (step: { stepId: UUID; stepType: string }) => void
+    skipDelay?: (stepId: string) => Promise<void>
+    openUserModal?: (nodeId: string) => void
+}
 
 export function useJourneyPersistence(
     project: Project,
@@ -20,22 +27,22 @@ export function useJourneyPersistence(
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
 
     const saveDraft = useCallback(
-        async (nodes: JourneyNode[], edges: Edge[]) => {
+        async (nodes: JourneyNode[], edges: Edge[], actions: Actions) => {
             const stepMap = await api.journeys.steps.set(
                 project.id,
                 journey.id,
                 nodesToSteps(nodes, edges),
             )
-            return stepsToNodes(stepMap, {})
+            return stepsToNodes(stepMap, actions)
         },
         [project.id, journey.id],
     )
 
     const saveSteps = useCallback(
-        async (nodes: JourneyNode[], edges: Edge[]) => {
+        async (nodes: JourneyNode[], edges: Edge[], actions: Actions) => {
             setSaving(true)
             try {
-                const refreshed = await saveDraft(nodes, edges)
+                const refreshed = await saveDraft(nodes, edges, actions)
                 setNodes(refreshed.nodes)
                 setEdges(refreshed.edges)
                 setHasUnsavedChanges(false)
@@ -55,9 +62,9 @@ export function useJourneyPersistence(
     )
 
     const publishJourney = useCallback(
-        async (nodes: JourneyNode[], edges: Edge[]) => {
+        async (nodes: JourneyNode[], edges: Edge[], actions: Actions) => {
             if (!confirm(t("journey_publish_confirmation"))) return
-            if (hasUnsavedChanges) await saveDraft(nodes, edges)
+            if (hasUnsavedChanges) await saveDraft(nodes, edges, actions)
             setPublishing(true)
             try {
                 await api.journeys.publish(project.id, journey.id)

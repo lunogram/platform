@@ -48,7 +48,7 @@ func TestGetTemplate(t *testing.T) {
 	)
 	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
 
-	controller := NewTemplatesController(logger, mgmt, pubsub.NewEmailRenderer(pubsub.NewNoopCaller()), nil, engine, nil, "")
+	controller := NewTemplatesController(logger, mgmt, mgmt, pubsub.NewEmailRenderer(pubsub.NewNoopCaller()), nil, engine, nil, "")
 
 	type test struct {
 		id   uuid.UUID
@@ -103,7 +103,7 @@ func TestCreateTemplate(t *testing.T) {
 	)
 	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
 
-	controller := NewTemplatesController(logger, mgmt, pubsub.NewEmailRenderer(pubsub.NewNoopCaller()), nil, engine, nil, "")
+	controller := NewTemplatesController(logger, mgmt, mgmt, pubsub.NewEmailRenderer(pubsub.NewNoopCaller()), nil, engine, nil, "")
 
 	type test struct {
 		body any
@@ -176,7 +176,7 @@ func TestUpdateTemplate(t *testing.T) {
 	)
 	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
 
-	controller := NewTemplatesController(logger, mgmt, pubsub.NewEmailRenderer(pubsub.NewNoopCaller()), nil, engine, nil, "")
+	controller := NewTemplatesController(logger, mgmt, mgmt, pubsub.NewEmailRenderer(pubsub.NewNoopCaller()), nil, engine, nil, "")
 
 	type test struct {
 		id   uuid.UUID
@@ -246,7 +246,7 @@ func TestDeleteTemplate(t *testing.T) {
 	)
 	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
 
-	controller := NewTemplatesController(logger, mgmt, pubsub.NewEmailRenderer(pubsub.NewNoopCaller()), nil, engine, nil, "")
+	controller := NewTemplatesController(logger, mgmt, mgmt, pubsub.NewEmailRenderer(pubsub.NewNoopCaller()), nil, engine, nil, "")
 
 	type test struct {
 		id   uuid.UUID

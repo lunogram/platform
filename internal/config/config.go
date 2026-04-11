@@ -26,6 +26,7 @@ type Node struct {
 	Link       Link        `envPrefix:"LINK_"`
 	RBAC       rbac.Config `envPrefix:"RBAC_"`
 	Enterprise Enterprise
+	Console    Console `envPrefix:"CONSOLE_"`
 	HTTP       http.Config
 	Store      store.Config
 	Storage    storage.Config
@@ -62,8 +63,9 @@ type Redis struct {
 }
 
 type Nats struct {
-	URL       string `env:"URL" envDefault:"nats://127.0.0.1:4222"`
-	Namespace string `env:"NAMESPACE" envDefault:""`
+	URL               string `env:"URL" envDefault:"nats://127.0.0.1:4222"`
+	Namespace         string `env:"NAMESPACE" envDefault:""`
+	ManagedExternally bool   `env:"MANAGED_EXTERNALLY" envDefault:"false"`
 }
 
 type Cluster struct {
@@ -123,4 +125,12 @@ func (l Link) SecretBytes() []byte {
 // with any trailing slash removed.
 func (l Link) TrackingBaseURL() string {
 	return strings.TrimRight(l.TrackingURL, "/")
+}
+
+type Console struct {
+	// ClerkPublishableKey is the Clerk publishable key injected into the
+	// console frontend at runtime via /config.js. This allows different
+	// environments (stg, prd) to use different Clerk instances without
+	// rebuilding the Docker image.
+	ClerkPublishableKey string `env:"CLERK_PUBLISHABLE_KEY"`
 }

@@ -66,6 +66,30 @@ func (srv *CampaignsController) CreateCampaign(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	if body.SubscriptionId != nil {
+		subscription, err := srv.mgmt.SubscriptionsStore.GetSubscription(ctx, projectID, *body.SubscriptionId)
+		if errors.Is(err, sql.ErrNoRows) {
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("subscription not found")))
+			return
+		}
+
+		if err != nil {
+			logger.Error("failed to get subscription", zap.Error(err))
+			oapi.WriteProblem(w, err)
+			return
+		}
+
+		if subscription.Channel != string(body.Channel) {
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("subscription channel does not match campaign channel")))
+			return
+		}
+	}
+
+	transactional := false
+	if body.Transactional != nil {
+		transactional = *body.Transactional
+	}
+
 	tx, err := srv.mgmtDB.BeginTxx(ctx, nil)
 	if err != nil {
 		logger.Error("unexpected error while attempting to start a transaction", zap.Error(err))
@@ -82,8 +106,8 @@ func (srv *CampaignsController) CreateCampaign(w http.ResponseWriter, r *http.Re
 		ProjectID:      project.ID,
 		Name:           body.Name,
 		Channel:        string(body.Channel),
-		ProviderID:     body.ProviderId,
 		SubscriptionID: body.SubscriptionId,
+		Transactional:  transactional,
 	})
 	if err != nil {
 		logger.Error("failed to create campaign", zap.Error(err))
@@ -195,7 +219,7 @@ func (srv *CampaignsController) UpdateCampaign(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	_, err = srv.mgmt.GetCampaign(ctx, projectID, campaignID)
+	campaign, err := srv.mgmt.GetCampaign(ctx, projectID, campaignID)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("campaign not found", zap.Stringer("campaign_id", campaignID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("campaign not found")))
@@ -209,8 +233,9 @@ func (srv *CampaignsController) UpdateCampaign(w http.ResponseWriter, r *http.Re
 	}
 
 	updated := management.CampaignUpdate{
-		Name:       body.Name,
-		ProviderID: body.ProviderId,
+		Name:           body.Name,
+		SubscriptionID: body.SubscriptionId,
+		Transactional:  body.Transactional,
 	}
 
 	if body.Variables != nil {
@@ -224,6 +249,30 @@ func (srv *CampaignsController) UpdateCampaign(w http.ResponseWriter, r *http.Re
 		updated.Variables = &store.JSONB[management.CampaignVariables]{Data: vars}
 	}
 
+	if body.SubscriptionId != nil {
+		subscription, err := srv.mgmt.SubscriptionsStore.GetSubscription(ctx, projectID, *body.SubscriptionId)
+		if errors.Is(err, sql.ErrNoRows) {
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("subscription not found")))
+			return
+		}
+
+		if err != nil {
+			logger.Error("failed to get subscription", zap.Error(err))
+			oapi.WriteProblem(w, err)
+			return
+		}
+
+		if subscription.ProjectID != projectID {
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("subscription does not belong to this project")))
+			return
+		}
+
+		if subscription.Channel != campaign.Channel {
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("subscription channel does not match campaign channel")))
+			return
+		}
+	}
+
 	err = srv.mgmt.UpdateCampaign(ctx, projectID, campaignID, updated)
 	if err != nil {
 		logger.Error("failed to update campaign", zap.Error(err))
@@ -231,7 +280,7 @@ func (srv *CampaignsController) UpdateCampaign(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	campaign, err := srv.mgmt.GetCampaign(ctx, projectID, campaignID)
+	campaign, err = srv.mgmt.GetCampaign(ctx, projectID, campaignID)
 	if err != nil {
 		logger.Error("failed to fetch updated campaign", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -317,8 +366,8 @@ func (srv *CampaignsController) DuplicateCampaign(w http.ResponseWriter, r *http
 		ProjectID:      campaign.ProjectID,
 		Name:           "Copy of " + campaign.Name,
 		Channel:        campaign.Channel,
-		ProviderID:     campaign.ProviderID,
 		SubscriptionID: campaign.SubscriptionID,
+		Transactional:  campaign.Transactional,
 	})
 	if err != nil {
 		logger.Error("failed to create duplicated campaign", zap.Error(err))
@@ -326,7 +375,6 @@ func (srv *CampaignsController) DuplicateCampaign(w http.ResponseWriter, r *http
 		return
 	}
 
-	// Get all templates from the original campaign
 	for _, template := range campaign.Templates {
 		err = templates.DuplicateTemplate(ctx, projectID, template.ID, newCampaignID)
 		if err != nil {

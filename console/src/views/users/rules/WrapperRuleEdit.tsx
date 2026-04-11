@@ -101,7 +101,10 @@ export default function WrapperRuleEdit({
                                 setRule({ ...rule, operator: operator as typeof rule.operator })
                             }
                         >
-                            <SelectTrigger className="h-8 w-auto min-w-[70px] text-xs shadow-none">
+                            <SelectTrigger
+                                elevation="flat"
+                                className="h-8 w-auto min-w-[70px] text-xs"
+                            >
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -189,6 +192,13 @@ export default function WrapperRuleEdit({
                         size="sm"
                         variant="outline"
                         className="shadow-none"
+                        aria-label={
+                            rule?.group === "event"
+                                ? "Add event property condition"
+                                : rule?.group === "organization_event"
+                                  ? "Add organization event property condition"
+                                  : "Add condition"
+                        }
                         onClick={() => {
                             setRule({
                                 ...rule,
@@ -226,7 +236,8 @@ export default function WrapperRuleEdit({
                                 | "user"
                                 | "event"
                                 | "organization_event"
-                                | "organization" = "user"
+                                | "organization"
+                                | "journey" = "user"
                             if (rule?.group === "event" || rule?.group === "organization_event") {
                                 childGroup = rule.group
                             }
@@ -260,6 +271,7 @@ export default function WrapperRuleEdit({
                                 size="sm"
                                 variant="outline"
                                 className="shadow-none"
+                                aria-label="Add event condition"
                                 onClick={() => handleAddEventWrapper()}
                             >
                                 <Plus className="h-3.5 w-3.5 mr-1" />
@@ -271,6 +283,7 @@ export default function WrapperRuleEdit({
                                         size="sm"
                                         variant="outline"
                                         className="shadow-none"
+                                        aria-label="Add organization event condition"
                                         onClick={() => handleAddOrganizationEventWrapper()}
                                     >
                                         <Plus className="h-3.5 w-3.5 mr-1" />
@@ -280,12 +293,41 @@ export default function WrapperRuleEdit({
                                         size="sm"
                                         variant="outline"
                                         className="shadow-none"
+                                        aria-label="Add organization condition"
                                         onClick={() => handleAddOrganizationWrapper()}
                                     >
                                         <Plus className="h-3.5 w-3.5 mr-1" />
                                         {t("rule_add_org_condition")}
                                     </Button>
                                 </>
+                            )}
+                            {journeyContext && journeyVariables && journeyVariables.length > 0 && (
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="shadow-none"
+                                    onClick={() => {
+                                        setRule({
+                                            ...rule,
+                                            children: [
+                                                ...(rule?.children ?? []),
+                                                {
+                                                    uuid: createUuid(),
+                                                    root_uuid: root?.uuid,
+                                                    parent_uuid: rule?.uuid,
+                                                    path: "",
+                                                    type: "string",
+                                                    group: "journey" as const,
+                                                    value: "",
+                                                    operator: "=",
+                                                },
+                                            ],
+                                        })
+                                    }}
+                                >
+                                    <Plus className="h-3.5 w-3.5 mr-1" />
+                                    {t("rule_add_journey_condition")}
+                                </Button>
                             )}
                         </>
                     )}

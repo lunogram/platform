@@ -8,6 +8,7 @@ import (
 	"github.com/lunogram/platform/internal/actions"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
+	iredis "github.com/lunogram/platform/internal/redis"
 	"github.com/lunogram/platform/internal/rules"
 	"github.com/lunogram/platform/internal/store/subjects"
 	actiontypes "github.com/lunogram/platform/pkg/modules/actions"
@@ -43,7 +44,7 @@ func ActionSchemasHandler(logger *zap.Logger, usrs *subjects.State) HandlerFunc 
 // ActionExecuteHandler creates a handler that processes action execution requests
 // using NATS core request/reply. JetStream consumers cannot reply to NATS core
 // requests, so this handler is used with a plain NATS subscription.
-func ActionExecuteHandler(logger *zap.Logger, actionRegistry *actions.Registry, pub pubsub.Publisher) CallerHandlerFunc {
+func ActionExecuteHandler(logger *zap.Logger, actionRegistry *actions.Registry, pub pubsub.Publisher, schemaCache *iredis.SchemaCache) CallerHandlerFunc {
 	return func(ctx context.Context, msg *nats.Msg) {
 		logger.Info("received action execution request")
 
@@ -112,15 +113,17 @@ func ActionExecuteHandler(logger *zap.Logger, actionRegistry *actions.Registry, 
 
 		// Publish metadata to NATS for schema extraction if present and action is saved
 		if result.Metadata != nil && req.ActionID != uuid.Nil {
-			schemaMsg := schemas.ActionSchema{
-				ProjectID:  req.ProjectID,
-				ActionID:   req.ActionID,
-				FunctionID: req.FunctionID,
-				Metadata:   result.Metadata,
-			}
-			if pubErr := pub.Publish(ctx, schemas.ActionsSchema(req.ProjectID), schemaMsg); pubErr != nil {
-				// Non-fatal: schema extraction failure should not block the response
-				log.Warn("failed to publish action schema", zap.Error(pubErr))
+			if !schemaCache.Seen(ctx, iredis.Action, req.ProjectID, result.Metadata) {
+				schemaMsg := schemas.ActionSchema{
+					ProjectID:  req.ProjectID,
+					ActionID:   req.ActionID,
+					FunctionID: req.FunctionID,
+					Metadata:   result.Metadata,
+				}
+				if pubErr := pub.Publish(ctx, schemas.ActionsSchema(req.ProjectID), schemaMsg); pubErr != nil {
+					// Non-fatal: schema extraction failure should not block the response
+					log.Warn("failed to publish action schema", zap.Error(pubErr))
+				}
 			}
 		}
 

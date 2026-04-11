@@ -84,22 +84,22 @@ func TestUserEvent(t *testing.T) {
 
 	projectID := uuid.New()
 	userID := uuid.New()
-	anonID := "anon123"
-	externalID := "ext456"
 	email := "test@example.com"
 	phone := "+1234567890"
 	timezone := "America/New_York"
 	locale := "en"
 
 	user := schemas.User{
-		ID:          userID,
-		ProjectID:   projectID,
-		AnonymousID: &anonID,
-		ExternalID:  &externalID,
-		Email:       &email,
-		Phone:       &phone,
-		Timezone:    &timezone,
-		Locale:      &locale,
+		ID:        userID,
+		ProjectID: projectID,
+		Identifiers: []schemas.ExternalID{
+			{Source: "default", ExternalID: "ext456"},
+			{Source: "anonymous", ExternalID: "anon123"},
+		},
+		Email:    &email,
+		Phone:    &phone,
+		Timezone: &timezone,
+		Locale:   &locale,
 		Data: map[string]any{
 			"key": "value",
 		},
@@ -110,8 +110,11 @@ func TestUserEvent(t *testing.T) {
 
 	assert.Equal(t, "test_event", event.Name)
 	assert.Equal(t, projectID, event.ProjectID)
-	assert.Equal(t, &anonID, event.AnonymousId)
-	assert.Equal(t, &externalID, event.ExternalId)
+	require.Len(t, event.Identifiers, 2)
+	assert.Equal(t, "default", event.Identifiers[0].Source)
+	assert.Equal(t, "ext456", event.Identifiers[0].ExternalID)
+	assert.Equal(t, "anonymous", event.Identifiers[1].Source)
+	assert.Equal(t, "anon123", event.Identifiers[1].ExternalID)
 	require.NotNil(t, event.Data)
 
 	assert.Equal(t, userID, event.Data["id"])
@@ -133,7 +136,7 @@ func TestUsersHandlerSuccess(t *testing.T) {
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet, string(ns))
-	handler := UsersHandler(logger, usersState, pub)
+	handler := UsersHandler(logger, usersState, pub, nil)
 
 	email := "test@example.com"
 	user := schemas.User{
@@ -173,7 +176,7 @@ func TestUsersHandlerPublishesUserCreatedEvent(t *testing.T) {
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet, string(ns))
-	handler := UsersHandler(logger, usersState, pub)
+	handler := UsersHandler(logger, usersState, pub, nil)
 
 	email := "new@example.com"
 	user := schemas.User{
@@ -222,7 +225,7 @@ func TestUsersHandlerPublishesUserUpdatedEvent(t *testing.T) {
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet, string(ns))
-	handler := UsersHandler(logger, usersState, pub)
+	handler := UsersHandler(logger, usersState, pub, nil)
 
 	email := "existing@example.com"
 	user := schemas.User{
@@ -304,7 +307,7 @@ func TestUsersHandlerWithListDependencies(t *testing.T) {
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet, string(ns))
-	handler := UsersHandler(logger, usersState, pub)
+	handler := UsersHandler(logger, usersState, pub, nil)
 
 	email := "test@example.com"
 	user := schemas.User{
@@ -352,7 +355,7 @@ func TestUsersHandlerWithUserData(t *testing.T) {
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet, string(ns))
-	handler := UsersHandler(logger, usersState, pub)
+	handler := UsersHandler(logger, usersState, pub, nil)
 
 	email := "test@example.com"
 	user := schemas.User{
@@ -402,7 +405,7 @@ func TestUsersHandlerWithoutData(t *testing.T) {
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet, string(ns))
-	handler := UsersHandler(logger, usersState, pub)
+	handler := UsersHandler(logger, usersState, pub, nil)
 
 	email := "test@example.com"
 	user := schemas.User{
@@ -547,6 +550,12 @@ func TestPublishUserEventsUserCreated(t *testing.T) {
 	_, err := jet.CreateStream(ctx, jetstream.StreamConfig{
 		Name:     ns.Stream(StreamUserEvents),
 		Subjects: []string{ns.Subject("users.events.>")},
+	})
+	require.NoError(t, err)
+
+	_, err = jet.CreateStream(ctx, jetstream.StreamConfig{
+		Name:     ns.Stream(StreamScheduled),
+		Subjects: []string{ns.Subject("scheduled.process.>"), ns.Subject("scheduled.schema.>"), ns.Subject("scheduled.backfill.>")},
 	})
 	require.NoError(t, err)
 

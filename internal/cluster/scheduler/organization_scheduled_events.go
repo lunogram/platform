@@ -22,10 +22,9 @@ func (controller *Controller) ReconcileOrganizationScheduledEvents(ctx context.C
 	return func() {
 		defer controller.recover("organization_scheduled_events")
 		start := time.Now()
-		var processed, published, failed int
+		var published, failed int
 
 		scanner := func(event subjects.DueOrgScheduledEvent) error {
-			processed++
 			eventName := fmt.Sprintf("scheduled.%s", event.ScheduleName)
 
 			data := make(map[string]any)
@@ -47,12 +46,11 @@ func (controller *Controller) ReconcileOrganizationScheduledEvents(ctx context.C
 			data["schedule_id"] = event.ScheduleID.String()
 
 			orgEvent := schemas.OrganizationEvent{
-				ID:                     uuid.New(),
-				Name:                   eventName,
-				ProjectID:              event.ProjectID,
-				OrganizationID:         event.OrganizationID,
-				OrganizationExternalID: "",
-				Data:                   data,
+				ID:             uuid.New(),
+				Name:           eventName,
+				ProjectID:      event.ProjectID,
+				OrganizationID: event.OrganizationID,
+				Data:           data,
 			}
 
 			// NOTE: There is an intentional gap between Publish and MarkOrgScheduledEventFired.
@@ -92,7 +90,7 @@ func (controller *Controller) ReconcileOrganizationScheduledEvents(ctx context.C
 			return nil
 		}
 
-		err := controller.scheduled.ScanDueOrgScheduledEvents(ctx, scanner)
+		processed, err := controller.scheduled.ScanDueOrgScheduledEvents(ctx, scanner)
 		if err != nil {
 			controller.logger.Error("failed to scan due org scheduled events", zap.Error(err))
 		}
@@ -119,11 +117,9 @@ func (controller *Controller) ReconcileOrganizationSchedules(ctx context.Context
 	return func() {
 		defer controller.recover("organization_schedules")
 		start := time.Now()
-		var processed, advanced, failed int
+		var advanced, failed int
 
 		scanner := func(os subjects.OrganizationSchedule) error {
-			processed++
-
 			err := controller.scheduled.AdvanceAndGenerateOrgScheduleEvents(ctx, os)
 			if err != nil {
 				failed++
@@ -146,7 +142,7 @@ func (controller *Controller) ReconcileOrganizationSchedules(ctx context.Context
 			return nil
 		}
 
-		err := controller.scheduled.ScanRecurringOrgSchedulesWithoutPendingEvents(ctx, scanner)
+		processed, err := controller.scheduled.ScanRecurringOrgSchedulesWithoutPendingEvents(ctx, scanner)
 		if err != nil {
 			controller.logger.Error("failed to scan recurring organization schedules", zap.Error(err))
 		}

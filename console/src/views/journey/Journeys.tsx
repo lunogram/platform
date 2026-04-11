@@ -97,7 +97,7 @@ export default function Journeys() {
     const [result, , reload] = useResolver(
         useCallback(async () => {
             return await api.journeys.search(project.id, {
-                limit: 25,
+                limit: 15,
                 cursor,
                 page: pageDirection,
                 search: debouncedQuery || undefined,
@@ -106,6 +106,7 @@ export default function Journeys() {
     )
 
     const journeys = result?.results
+    const total = result?.total ?? 0
     const hasNextPage = !!result?.nextCursor
     const hasPrevPage = cursorHistory.length > 0
 
@@ -336,7 +337,7 @@ export default function Journeys() {
                 {journeys && journeys.length > 0 && (
                     <div className="flex items-center justify-between border-t px-4 py-3">
                         <p className="text-sm text-muted-foreground">
-                            {journeys.length} {t("journeys").toLowerCase()}
+                            {total} {t("journeys").toLowerCase()}
                         </p>
                         {(hasPrevPage || hasNextPage) && (
                             <div className="flex items-center gap-2">

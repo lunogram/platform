@@ -29,7 +29,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { StaggeredMosaic } from "@/components/icon-mosaic"
 
-const PAGE_SIZE = 25
+const PAGE_SIZE = 15
 
 export default function Actions() {
     const [preferences] = useContext(PreferencesContext)

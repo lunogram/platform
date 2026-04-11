@@ -11,6 +11,7 @@ import (
 	"github.com/lunogram/platform/internal/node/metrics"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
+	iredis "github.com/lunogram/platform/internal/redis"
 	"github.com/lunogram/platform/internal/rules"
 	"github.com/lunogram/platform/internal/store/subjects"
 	"github.com/nats-io/nats.go/jetstream"
@@ -18,19 +19,20 @@ import (
 )
 
 // resolveUserID ensures scheduled.UserID is populated, looking it up by
-// external/anonymous ID when necessary.
+// identifiers when necessary.
 func resolveUserID(ctx context.Context, logger *zap.Logger, txState *subjects.State, scheduled *schemas.ScheduledMsg) error {
 	if scheduled.UserID != uuid.Nil {
 		return nil
 	}
 
-	logger.Info("looking up user ID",
-		zap.Stringp("external_id", scheduled.ExternalId),
-		zap.Stringp("anonymous_id", scheduled.AnonymousId),
-	)
+	if len(scheduled.Identifiers) == 0 {
+		return fmt.Errorf("user_id or identifiers are required for user scheduled")
+	}
+
+	logger.Info("looking up user ID from identifiers")
 
 	var err error
-	scheduled.UserID, err = txState.LookupUserID(ctx, scheduled.ProjectID, scheduled.ExternalId, scheduled.AnonymousId)
+	scheduled.UserID, err = txState.LookupUserID(ctx, scheduled.ProjectID, scheduled.Identifiers)
 	if err != nil {
 		logger.Error("failed to lookup user ID", zap.Error(err))
 		return err
@@ -39,18 +41,18 @@ func resolveUserID(ctx context.Context, logger *zap.Logger, txState *subjects.St
 }
 
 // resolveOrganizationID ensures scheduled.OrganizationID is populated, looking
-// it up by external ID when necessary.
+// it up by identifiers when necessary.
 func resolveOrganizationID(ctx context.Context, logger *zap.Logger, txState *subjects.State, scheduled *schemas.ScheduledMsg) error {
 	if scheduled.OrganizationID != uuid.Nil {
 		return nil
 	}
 
-	if scheduled.ExternalId == nil || *scheduled.ExternalId == "" {
-		return fmt.Errorf("organization_id or external_id is required for organization scheduled")
+	if len(scheduled.Identifiers) == 0 {
+		return fmt.Errorf("organization_id or identifiers are required for organization scheduled")
 	}
 
 	var err error
-	scheduled.OrganizationID, err = txState.LookupOrganizationID(ctx, scheduled.ProjectID, *scheduled.ExternalId)
+	scheduled.OrganizationID, err = txState.LookupOrganizationID(ctx, scheduled.ProjectID, scheduled.Identifiers)
 	if err != nil {
 		logger.Error("failed to lookup organization ID", zap.Error(err))
 		return err
@@ -65,12 +67,12 @@ func resolveOrganizationID(ctx context.Context, logger *zap.Logger, txState *sub
 // All database mutations (UpsertSchedule + UpsertUserSchedule or
 // UpsertOrganizationSchedule) are wrapped in a single transaction so they
 // either all succeed or all roll back.
-func ScheduledHandler(logger *zap.Logger, db *sqlx.DB, usrs *subjects.State, pub pubsub.Publisher) HandlerFunc {
+func ScheduledHandler(logger *zap.Logger, db *sqlx.DB, usrs *subjects.State, pub pubsub.Publisher, schemaCache *iredis.SchemaCache) HandlerFunc {
 	return func(ctx context.Context, msg jetstream.Msg) error {
 		var scheduled schemas.ScheduledMsg
 		if err := json.Unmarshal(msg.Data(), &scheduled); err != nil {
 			logger.Error("failed to unmarshal scheduled message", zap.Error(err))
-			return err
+			return Permanent(err)
 		}
 
 		logger := logger.With(
@@ -146,7 +148,7 @@ func ScheduledHandler(logger *zap.Logger, db *sqlx.DB, usrs *subjects.State, pub
 
 		metrics.ScheduledEventsIngestedTotal.WithLabelValues(scheduled.SubjectType, scheduleType).Inc()
 
-		if err := PublishScheduledSchema(ctx, logger, pub, scheduled); err != nil {
+		if err := PublishScheduledSchema(ctx, logger, pub, scheduled, schemaCache); err != nil {
 			logger.Error("failed to publish scheduled schema", zap.Error(err))
 			return err
 		}
@@ -158,9 +160,14 @@ func ScheduledHandler(logger *zap.Logger, db *sqlx.DB, usrs *subjects.State, pub
 }
 
 // PublishScheduledSchema publishes the scheduled schema to the schema
-// subject if the scheduled entity contains data properties.
-func PublishScheduledSchema(ctx context.Context, logger *zap.Logger, pub pubsub.Publisher, scheduled schemas.ScheduledMsg) error {
+// subject if the scheduled entity contains data properties and the data
+// shape has not been seen before.
+func PublishScheduledSchema(ctx context.Context, logger *zap.Logger, pub pubsub.Publisher, scheduled schemas.ScheduledMsg, schemaCache *iredis.SchemaCache) error {
 	if scheduled.Data != nil {
+		if schemaCache.Seen(ctx, iredis.Scheduler, scheduled.ScheduledID, scheduled.Data) {
+			return nil
+		}
+
 		err := pub.Publish(ctx, schemas.ScheduledSchema(scheduled.ProjectID), scheduled)
 		if err != nil {
 			logger.Error("failed to publish scheduled to schema subject", zap.Error(err))
@@ -178,7 +185,7 @@ func ScheduledSchemasHandler(logger *zap.Logger, usrs *subjects.State) HandlerFu
 		err := json.Unmarshal(msg.Data(), &scheduled)
 		if err != nil {
 			logger.Error("failed to unmarshal scheduled message", zap.Error(err))
-			return err
+			return Permanent(err)
 		}
 
 		logger.Info("incoming scheduled schema",

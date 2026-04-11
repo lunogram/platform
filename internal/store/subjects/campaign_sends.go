@@ -5,22 +5,33 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 	"github.com/lunogram/platform/internal/store"
+)
+
+// CampaignSendState represents the lifecycle state of a campaign send.
+type CampaignSendState string
+
+const (
+	CampaignSendStateSent      CampaignSendState = "sent"
+	CampaignSendStateDelivered CampaignSendState = "delivered"
+	CampaignSendStateBounced   CampaignSendState = "bounced"
 )
 
 // CampaignSend represents a row in the campaign_sends table.
 type CampaignSend struct {
-	ID            uuid.UUID  `db:"id"`
-	CampaignID    uuid.UUID  `db:"campaign_id"`
-	UserID        uuid.UUID  `db:"user_id"`
-	State         *string    `db:"state"`
-	SentAt        *time.Time `db:"sent_at"`
-	OpenedAt      *time.Time `db:"opened_at"`
-	Clicks        int        `db:"clicks"`
-	ReferenceType *string    `db:"reference_type"`
-	ReferenceID   string     `db:"reference_id"`
-	CreatedAt     time.Time  `db:"created_at"`
-	UpdatedAt     time.Time  `db:"updated_at"`
+	ID            uuid.UUID          `db:"id"`
+	CampaignID    uuid.UUID          `db:"campaign_id"`
+	UserID        uuid.UUID          `db:"user_id"`
+	BroadcastID   *uuid.UUID         `db:"broadcast_id"`
+	State         *CampaignSendState `db:"state"`
+	SentAt        *time.Time         `db:"sent_at"`
+	OpenedAt      *time.Time         `db:"opened_at"`
+	Clicks        int                `db:"clicks"`
+	ReferenceType *string            `db:"reference_type"`
+	ReferenceID   string             `db:"reference_id"`
+	CreatedAt     time.Time          `db:"created_at"`
+	UpdatedAt     time.Time          `db:"updated_at"`
 }
 
 func NewCampaignSendsStore(db store.DB) *CampaignSendsStore {
@@ -53,26 +64,81 @@ func (s *CampaignSendsStore) LookupCampaignSendByReference(ctx context.Context, 
 	return &send, nil
 }
 
-// UpdateCampaignSendDelivered sets the state to "delivered" and records the delivery timestamp.
-func (s *CampaignSendsStore) UpdateCampaignSendDelivered(ctx context.Context, referenceType, referenceID string) error {
+// UpdateCampaignSendState sets the campaign send state for a given reference.
+func (s *CampaignSendsStore) UpdateCampaignSendState(ctx context.Context, referenceType, referenceID string, state CampaignSendState) error {
 	stmt := `
 	UPDATE campaign_sends
-	SET state = 'delivered'
+	SET state = $3
 	WHERE reference_type = $1
 	  AND reference_id = $2`
 
-	_, err := s.db.ExecContext(ctx, stmt, referenceType, referenceID)
+	_, err := s.db.ExecContext(ctx, stmt, referenceType, referenceID, state)
 	return err
 }
 
-// UpdateCampaignSendBounced sets the state to "bounced".
-func (s *CampaignSendsStore) UpdateCampaignSendBounced(ctx context.Context, referenceType, referenceID string) error {
-	stmt := `
-	UPDATE campaign_sends
-	SET state = 'bounced'
-	WHERE reference_type = $1
-	  AND reference_id = $2`
+// CountSendsByBroadcastIDs returns the number of campaign_sends rows for each
+// of the provided broadcast IDs. Rows with an empty state are excluded so the
+// result reflects messages that were actually processed by the provider.
+func (s *CampaignSendsStore) CountSendsByBroadcastIDs(ctx context.Context, broadcastIDs []uuid.UUID) (map[uuid.UUID]int, error) {
+	if len(broadcastIDs) == 0 {
+		return map[uuid.UUID]int{}, nil
+	}
 
-	_, err := s.db.ExecContext(ctx, stmt, referenceType, referenceID)
+	query := `
+	SELECT broadcast_id, COUNT(*) AS cnt
+	FROM campaign_sends
+	WHERE broadcast_id = ANY($1)
+	AND state != ''
+	GROUP BY broadcast_id`
+
+	var rows []struct {
+		BroadcastID uuid.UUID `db:"broadcast_id"`
+		Count       int       `db:"cnt"`
+	}
+	err := s.db.SelectContext(ctx, &rows, query, pq.Array(broadcastIDs))
+	if err != nil {
+		return nil, err
+	}
+
+	result := make(map[uuid.UUID]int, len(rows))
+	for _, r := range rows {
+		result[r.BroadcastID] = r.Count
+	}
+
+	return result, nil
+}
+
+// CountSendsByBroadcastID returns the number of campaign_sends rows for a
+// single broadcast. Rows with an empty state are excluded.
+func (s *CampaignSendsStore) CountSendsByBroadcastID(ctx context.Context, broadcastID uuid.UUID) (int, error) {
+	query := `
+	SELECT COUNT(*)
+	FROM campaign_sends
+	WHERE broadcast_id = $1
+	AND state != ''`
+
+	var count int
+	err := s.db.GetContext(ctx, &count, query, broadcastID)
+	return count, err
+}
+
+// InsertCampaignSend creates a new campaign_sends row. The composite primary
+// key is (campaign_id, user_id, broadcast_id, reference_id) so that the same
+// user can appear in multiple broadcasts for the same campaign.
+func (s *CampaignSendsStore) InsertCampaignSend(ctx context.Context, send CampaignSend) error {
+	stmt := `
+	INSERT INTO campaign_sends (campaign_id, user_id, broadcast_id, state, sent_at, reference_type, reference_id)
+	VALUES ($1, $2, $3, $4, $5, $6, $7)
+	ON CONFLICT (campaign_id, user_id, broadcast_id, reference_id) DO NOTHING`
+
+	// broadcast_id is part of the composite PK and NOT NULL in the schema.
+	// Non-broadcast sends (e.g. journey triggers) pass a nil BroadcastID;
+	// coalesce to the zero UUID so every row has a deterministic value.
+	broadcastID := uuid.Nil
+	if send.BroadcastID != nil {
+		broadcastID = *send.BroadcastID
+	}
+
+	_, err := s.db.ExecContext(ctx, stmt, send.CampaignID, send.UserID, broadcastID, send.State, send.SentAt, send.ReferenceType, send.ReferenceID)
 	return err
 }

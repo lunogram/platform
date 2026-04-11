@@ -10,11 +10,13 @@ import (
 var ErrMissingExternalID = errors.New("external_id column is required")
 
 var UserFieldMap = map[string]func(*subjects.UpsertUserParams, string){
-	"external_id": func(u *subjects.UpsertUserParams, v string) { u.ExternalID = &v },
-	"email":       func(u *subjects.UpsertUserParams, v string) { u.Email = &v },
-	"phone":       func(u *subjects.UpsertUserParams, v string) { u.Phone = &v },
-	"timezone":    func(u *subjects.UpsertUserParams, v string) { u.Timezone = &v },
-	"locale":      func(u *subjects.UpsertUserParams, v string) { u.Locale = &v },
+	"external_id": func(u *subjects.UpsertUserParams, v string) {
+		u.Identifiers = append(u.Identifiers, subjects.ExternalIDParam{Source: "default", ExternalID: v})
+	},
+	"email":    func(u *subjects.UpsertUserParams, v string) { u.Email = &v },
+	"phone":    func(u *subjects.UpsertUserParams, v string) { u.Phone = &v },
+	"timezone": func(u *subjects.UpsertUserParams, v string) { u.Timezone = &v },
+	"locale":   func(u *subjects.UpsertUserParams, v string) { u.Locale = &v },
 }
 
 func NewUsers(headers []string) (*UserMapper, error) {
