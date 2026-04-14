@@ -1,18 +1,15 @@
 package providers
 
 import (
-	"embed"
 	"fmt"
 
 	"go.uber.org/zap"
 
 	"github.com/cloudproud/graceful"
 	"github.com/lunogram/platform/internal/config"
+	integrationloader "github.com/lunogram/platform/internal/integrations"
 	"github.com/lunogram/platform/internal/wasm/providers"
 )
-
-//go:embed modules/*
-var modulesFS embed.FS
 
 // Registry is a type alias for the provider registry.
 type Registry = providers.Registry
@@ -24,7 +21,7 @@ type Provider = providers.Provider
 func NewRegistry(ctx graceful.Context, cfg config.WASM, logger *zap.Logger) (*Registry, error) {
 	registry := providers.NewRegistry(cfg, logger)
 
-	err := registry.LoadFromFS(ctx, modulesFS, "modules")
+	err := integrationloader.LoadModules(ctx, registry)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize provider registry: %w", err)
 	}

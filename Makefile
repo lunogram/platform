@@ -59,10 +59,20 @@ lunogram: ; $(info $(M) building lunogram…)
 	$Q CGO_ENABLED=0 $(GO) build -ldflags='$(LDFLAGS)' -o $(BIN)/lunogram ./cmd/lunogram
 
 .PHONY: modules
-modules: providers actions ## Build all WASM modules
+modules: ; $(info $(M) building unified WASM modules…) @ ## Build all WASM modules
+	$Q mkdir -p internal/integrations/modules
+	$Q for module in $(PROVIDER_MODULES); do \
+		echo "$(M) building $$module provider…"; \
+		$(MAKE) -C modules/providers/$$module wasm TINYGO=$(TINYGO) NODE=$(NODE); \
+	done
+	$Q for module in $(ACTION_MODULES); do \
+		echo "$(M) building $$module action…"; \
+		$(MAKE) -C modules/actions/$$module all TINYGO=$(TINYGO) NODE=$(NODE); \
+	done
 
 .PHONY: providers
 providers: ; $(info $(M) building provider modules…) @ ## Build all provider modules
+	$Q mkdir -p internal/integrations/modules
 	$Q for module in $(PROVIDER_MODULES); do \
 		echo "$(M) building $$module provider…"; \
 		$(MAKE) -C modules/providers/$$module wasm TINYGO=$(TINYGO) NODE=$(NODE); \
@@ -70,6 +80,7 @@ providers: ; $(info $(M) building provider modules…) @ ## Build all provider m
 
 .PHONY: actions
 actions: ; $(info $(M) building action modules…) @ ## Build all action modules
+	$Q mkdir -p internal/integrations/modules
 	$Q for module in $(ACTION_MODULES); do \
 		echo "$(M) building $$module action…"; \
 		$(MAKE) -C modules/actions/$$module all TINYGO=$(TINYGO) NODE=$(NODE); \

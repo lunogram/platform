@@ -1,5 +1,5 @@
 MODULE  := webhook
-OUT     := ../../../internal/actions/modules/$(MODULE).wasm
+OUT     := ../../../internal/integrations/modules/$(MODULE).wasm
 TINYGO  ?= $(shell which tinygo)
 NODE    ?= $(shell which node)
 NPM     := $(dir $(NODE))npm

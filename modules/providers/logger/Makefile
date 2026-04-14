@@ -1,5 +1,5 @@
 MODULE  := logger
-OUT     := ../../../internal/providers/modules/$(MODULE).wasm
+OUT     := ../../../internal/integrations/modules/$(MODULE).wasm
 TINYGO  ?= $(shell which tinygo)
 
 .PHONY: wasm clean

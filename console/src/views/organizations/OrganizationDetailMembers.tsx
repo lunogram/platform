@@ -372,7 +372,10 @@ export default function OrganizationDetailMembers() {
                                                 size="sm"
                                                 onClick={() => setIsAddMemberOpen(true)}
                                                 className="mt-4"
-                                                aria-label={t("add_member_from_empty_state", "Add member from empty state")}
+                                                aria-label={t(
+                                                    "add_member_from_empty_state",
+                                                    "Add member from empty state",
+                                                )}
                                             >
                                                 <Plus className="mr-2 h-4 w-4" />
                                                 {t("add_member")}

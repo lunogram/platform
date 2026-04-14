@@ -1,121 +1,143 @@
-// Package actions implements a WASM-based action system for workflow steps.
-//
-// It builds on the generic wasm package to provide action-specific functionality
-// including execute and preview interfaces for automation actions.
+// Package actions provides action-oriented wrappers over unified WASM integrations.
 package actions
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/fs"
 
 	"go.uber.org/zap"
 
 	"github.com/lunogram/platform/internal/config"
-	"github.com/lunogram/platform/internal/wasm"
+	"github.com/lunogram/platform/internal/wasm/integrations"
+	"github.com/lunogram/platform/pkg/modules"
 	actiontypes "github.com/lunogram/platform/pkg/modules/actions"
 )
 
-// Action wraps a WASM module with action-specific functionality.
+// Action wraps a unified integration with action-specific helpers.
 type Action struct {
-	*wasm.Module[actiontypes.ActionManifest]
+	*integrations.Integration
+	functionID string
 }
 
-// Execute invokes the named function within the action's WASM module.
+// Manifest returns the compatibility action manifest view derived from integration capabilities.
+func (a *Action) Manifest() actiontypes.ActionManifest {
+	im := a.Integration.Manifest()
+	compat := actiontypes.ActionManifest{
+		Metadata: im.Metadata,
+		Version:  im.Version,
+		License:  im.License,
+		Author:   im.Author,
+		Config:   im.Config,
+	}
+
+	if spec, ok := a.Integration.ActionsSpec(); ok {
+		compat.Functions = make([]actiontypes.ActionFunction, len(spec.Functions))
+		for i, fn := range spec.Functions {
+			compat.Functions[i] = actiontypes.ActionFunction{
+				ID:          fn.ID,
+				Title:       fn.Title,
+				Description: fn.Description,
+				Input:       fn.Input,
+			}
+		}
+	}
+
+	return compat
+}
+
+// Execute invokes the action function.
 func (a *Action) Execute(ctx context.Context, functionName string, req *actiontypes.ExecuteRequest[json.RawMessage]) (*actiontypes.ExecuteResponse, error) {
-	payload, err := json.Marshal(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal execute request: %w", err)
+	fn := functionName
+	if fn == "" {
+		fn = a.functionID
 	}
 
-	code, res, err := a.Call(ctx, functionName, payload)
-	if err != nil {
-		return nil, fmt.Errorf("failed to call action function %q: %w", functionName, err)
+	if fn == "" {
+		return nil, fmt.Errorf("action function id is required")
 	}
 
-	if code != 0 {
-		return nil, fmt.Errorf("action function %q returned code %d: %s", functionName, code, string(res))
-	}
-
-	var response actiontypes.ExecuteResponse
-	if err := json.Unmarshal(res, &response); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal execute response for function %q: %w", functionName, err)
-	}
-
-	return &response, nil
+	return a.Integration.Execute(ctx, fn, req)
 }
 
-// Validate invokes the action's validate function to check the configuration.
+// Validate invokes action/module validation.
 func (a *Action) Validate(ctx context.Context, req *actiontypes.ValidateRequest[json.RawMessage]) (*actiontypes.ValidateResponse, error) {
-	payload, err := json.Marshal(req)
+	res, err := a.Integration.Validate(ctx, toUnifiedValidateRequest(req))
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal validate request: %w", err)
+		return nil, err
 	}
 
-	code, res, err := a.Call(ctx, "validate", payload)
-	if err != nil {
-		return nil, fmt.Errorf("failed to call action validate: %w", err)
+	status := 200
+	if !res.Valid {
+		status = 400
 	}
 
-	if code != 0 {
-		return nil, fmt.Errorf("action validate returned code %d: %s", code, string(res))
-	}
-
-	var response actiontypes.ValidateResponse
-	if err := json.Unmarshal(res, &response); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal validate response: %w", err)
-	}
-
-	return &response, nil
+	return &actiontypes.ValidateResponse{
+		StatusCode: status,
+		Message:    res.Message,
+	}, nil
 }
 
-// Preview invokes the action's preview function and returns raw HTML bytes.
+// Preview invokes action preview.
 func (a *Action) Preview(ctx context.Context) ([]byte, error) {
-	code, res, err := a.Call(ctx, "preview", nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to call action preview: %w", err)
+	fn := a.functionID
+	if fn == "" {
+		if spec, ok := a.Integration.ActionsSpec(); ok && len(spec.Functions) == 1 {
+			fn = spec.Functions[0].ID
+		}
 	}
 
-	if code != 0 {
-		return nil, fmt.Errorf("action preview returned code %d: %s", code, string(res))
-	}
-
-	return res, nil
+	return a.Integration.Preview(ctx, fn)
 }
 
-// Registry is an action-specific registry that wraps the generic WASM module registry.
+func toUnifiedValidateRequest(req *actiontypes.ValidateRequest[json.RawMessage]) modules.ValidateRequest {
+	if req == nil {
+		return modules.ValidateRequest{}
+	}
+
+	return modules.ValidateRequest{Config: req.Config}
+}
+
+// Registry is an action-specific registry facade over unified integrations.
 type Registry struct {
-	*wasm.Registry[actiontypes.ActionManifest]
+	*integrations.Registry
 }
 
-// NewRegistry creates a new action registry with the given configuration.
-func NewRegistry(config config.WASM, logger *zap.Logger) *Registry {
-	return &Registry{
-		Registry: wasm.NewRegistry[actiontypes.ActionManifest](config, logger),
-	}
+// NewRegistry creates a new action registry facade.
+func NewRegistry(cfg config.WASM, logger *zap.Logger) *Registry {
+	return &Registry{Registry: integrations.NewRegistry(cfg, logger)}
 }
 
-// LoadFromFS loads all action modules from an embedded filesystem.
-func (r *Registry) LoadFromFS(ctx context.Context, fsys fs.FS, dir string) error {
-	return r.Registry.LoadFromFS(ctx, fsys, dir)
-}
-
-// Get retrieves an action by ID.
+// Get retrieves an action by module ID.
 func (r *Registry) Get(id string) (*Action, bool) {
-	module, exists := r.Registry.Get(id)
-	if !exists {
+	integration, exists := r.Registry.Get(id)
+	if !exists || !integration.HasActions() {
 		return nil, false
 	}
-	return &Action{Module: module}, true
+
+	return &Action{Integration: integration}, true
 }
 
-// All returns all registered actions.
-func (r *Registry) All() []*Action {
-	modules := r.Registry.All()
-	result := make([]*Action, len(modules))
-	for i, module := range modules {
-		result[i] = &Action{Module: module}
+// GetFunction retrieves an action bound to a specific function ID.
+func (r *Registry) GetFunction(id, functionID string) (*Action, bool) {
+	action, ok := r.Get(id)
+	if !ok {
+		return nil, false
 	}
+
+	action.functionID = functionID
+	return action, true
+}
+
+// All returns all action-capable modules.
+func (r *Registry) All() []*Action {
+	integrations := r.Registry.All()
+	result := make([]*Action, 0, len(integrations))
+	for _, integration := range integrations {
+		if integration.HasActions() {
+			result = append(result, &Action{Integration: integration})
+		}
+	}
+
 	return result
 }

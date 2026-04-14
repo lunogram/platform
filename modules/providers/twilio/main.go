@@ -11,9 +11,27 @@ import (
 	"github.com/lunogram/platform/pkg/modules/providers"
 )
 
+func providerCapabilitySpec() json.RawMessage {
+	spec, err := json.Marshal(modules.ProviderSpec{
+		Channels: []modules.Channel{modules.ChannelSMS},
+		Webhook:  true,
+		RateLimit: &modules.RateLimit{
+			Limit:    1,
+			Interval: "1s",
+			Override: false,
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	return spec
+}
+
 //go:export manifest
 func Manifest() int32 {
-	manifest := providers.ProviderManifest{
+	manifest := modules.IntegrationManifest{
+		APIVersion: "v1",
 		Metadata: modules.Metadata{
 			ID:          "twilio",
 			Title:       "Twilio SMS",
@@ -30,41 +48,38 @@ func Manifest() int32 {
 			Email: "dev@lunogram.io",
 			URL:   "https://lunogram.com",
 		},
-		Spec: providers.ProviderSpec{
-			Webhook:  true,
-			Channels: []providers.Channel{providers.ChannelSMS},
-			RateLimit: &providers.RateLimit{
-				Limit:    1,
-				Interval: "1s",
-				Override: false,
-			},
-			Config: &modules.JSONSchema{
-				Type: "object",
-				Properties: []modules.JSONSchemaProperty{
-					{
-						Name: "data",
-						Schema: &modules.JSONSchema{
-							Type: "object",
-							Properties: []modules.JSONSchemaProperty{
-								{
-									Name:   "accountSid",
-									Schema: &modules.JSONSchema{Type: "string", Title: "Account SID"},
-								},
-								{
-									Name:   "authToken",
-									Schema: &modules.JSONSchema{Type: "string", Title: "Auth Token", Format: "password"},
-								},
-
-								{
-									Name:   "webhookUrl",
-									Schema: &modules.JSONSchema{Type: "string", Title: "Webhook URL", Description: "Platform webhook callback URL (auto-configured)"},
-									Hidden: true,
-								},
+		Config: &modules.JSONSchema{
+			Type: "object",
+			Properties: []modules.JSONSchemaProperty{
+				{
+					Name: "data",
+					Schema: &modules.JSONSchema{
+						Type: "object",
+						Properties: []modules.JSONSchemaProperty{
+							{
+								Name:   "accountSid",
+								Schema: &modules.JSONSchema{Type: "string", Title: "Account SID"},
 							},
-							Required: []string{"accountSid", "authToken"},
+							{
+								Name:   "authToken",
+								Schema: &modules.JSONSchema{Type: "string", Title: "Auth Token", Format: "password"},
+							},
+							{
+								Name:   "webhookUrl",
+								Schema: &modules.JSONSchema{Type: "string", Title: "Webhook URL", Description: "Platform webhook callback URL (auto-configured)"},
+								Hidden: true,
+							},
 						},
+						Required: []string{"accountSid", "authToken"},
 					},
 				},
+			},
+		},
+		Capabilities: []modules.Capability{
+			{
+				Type:    "provider",
+				Version: "v1",
+				Spec:    providerCapabilitySpec(),
 			},
 		},
 	}
@@ -76,7 +91,7 @@ func Manifest() int32 {
 	return ExitSuccess
 }
 
-//go:export send
+//go:export provider_send
 func Send() int32 {
 	var req providers.SendRequest[Config]
 	if err := pdk.InputJSON(&req); err != nil {
@@ -162,7 +177,7 @@ func Send() int32 {
 	return ExitSuccess
 }
 
-//go:export webhook
+//go:export provider_webhook
 func WebhookHandler() int32 {
 	var req providers.WebhookRequest
 	if err := pdk.InputJSON(&req); err != nil {
@@ -239,7 +254,7 @@ func WebhookHandler() int32 {
 
 //go:export validate
 func Validate() int32 {
-	var req providers.ValidateRequest
+	var req modules.ValidateRequest
 	if err := pdk.InputJSON(&req); err != nil {
 		pdk.SetError(err)
 		return ExitPermanent
@@ -254,7 +269,7 @@ func Validate() int32 {
 	errs := provider.ValidateConfig(config)
 
 	if len(errs) > 0 {
-		if err := pdk.OutputJSON(providers.ValidateResponse{
+		if err := pdk.OutputJSON(modules.ValidateResponse{
 			Valid:   false,
 			Errors:  errs,
 			Message: "invalid provider configuration",
@@ -265,16 +280,16 @@ func Validate() int32 {
 		return ExitSuccess
 	}
 
-	if err := pdk.OutputJSON(providers.ValidateResponse{Valid: true}); err != nil {
+	if err := pdk.OutputJSON(modules.ValidateResponse{Valid: true}); err != nil {
 		pdk.SetError(err)
 		return ExitPermanent
 	}
 	return ExitSuccess
 }
 
-//go:export init
+//go:export install
 func Init() int32 {
-	var req providers.InitRequest
+	var req modules.InstallRequest
 	if err := pdk.InputJSON(&req); err != nil {
 		pdk.SetError(err)
 		return ExitPermanent
@@ -291,18 +306,18 @@ func Init() int32 {
 		return ExitPermanent
 	}
 
-	patch, err := json.Marshal(map[string]string{
+	state, err := json.Marshal(map[string]string{
 		"webhookUrl": req.WebhookURL,
 	})
 	if err != nil {
-		pdk.SetError(fmt.Errorf("failed to marshal config patch: %w", err))
+		pdk.SetError(fmt.Errorf("failed to marshal state: %w", err))
 		return ExitTransient
 	}
 
-	pdk.Log(pdk.LogInfo, fmt.Sprintf("twilio init: storing webhook URL %s", req.WebhookURL))
+	pdk.Log(pdk.LogInfo, fmt.Sprintf("twilio install: storing webhook URL %s", req.WebhookURL))
 
-	err = pdk.OutputJSON(providers.InitResponse{
-		ConfigPatch: patch,
+	err = pdk.OutputJSON(modules.InstallResponse{
+		State: state,
 	})
 	if err != nil {
 		pdk.SetError(err)
@@ -311,15 +326,15 @@ func Init() int32 {
 	return ExitSuccess
 }
 
-//go:export destroy
+//go:export uninstall
 func Destroy() int32 {
-	var req providers.DestroyRequest
+	var req modules.UninstallRequest
 	if err := pdk.InputJSON(&req); err != nil {
 		pdk.SetError(err)
 		return ExitPermanent
 	}
 
-	if err := pdk.OutputJSON(providers.DestroyResponse{}); err != nil {
+	if err := pdk.OutputJSON(modules.UninstallResponse{}); err != nil {
 		pdk.SetError(err)
 		return ExitTransient
 	}

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/extism/go-pdk"
@@ -8,9 +9,35 @@ import (
 	"github.com/lunogram/platform/pkg/modules/providers"
 )
 
+func providerCapabilitySpec() json.RawMessage {
+	spec, err := json.Marshal(modules.ProviderSpec{
+		Channels: []modules.Channel{
+			modules.ChannelEmail,
+			modules.ChannelSMS,
+			modules.ChannelPush,
+		},
+		Platforms: []modules.Platform{
+			modules.PlatformIOS,
+			modules.PlatformAndroid,
+			modules.PlatformWeb,
+		},
+		RateLimit: &modules.RateLimit{
+			Limit:    1,
+			Interval: "1s",
+			Override: false,
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	return spec
+}
+
 //go:export manifest
 func Manifest() int32 {
-	manifest := providers.ProviderManifest{
+	manifest := modules.IntegrationManifest{
+		APIVersion: "v1",
 		Metadata: modules.Metadata{
 			ID:          "logger",
 			Title:       "Logger",
@@ -26,33 +53,23 @@ func Manifest() int32 {
 			Email: "dev@lunogram.io",
 			URL:   "https://lunogram.com",
 		},
-		Spec: providers.ProviderSpec{
-			RateLimit: &providers.RateLimit{
-				Limit:    1,
-				Interval: "1s",
-				Override: false,
-			},
-			Channels: []providers.Channel{
-				providers.ChannelEmail,
-				providers.ChannelSMS,
-				providers.ChannelPush,
-			},
-			Platforms: []providers.Platform{
-				providers.PlatformIOS,
-				providers.PlatformAndroid,
-				providers.PlatformWeb,
-			},
-			Config: &modules.JSONSchema{
-				Type: "object",
-				Properties: []modules.JSONSchemaProperty{
-					{
-						Name: "data",
-						Schema: &modules.JSONSchema{
-							Type:       "object",
-							Properties: []modules.JSONSchemaProperty{},
-						},
+		Config: &modules.JSONSchema{
+			Type: "object",
+			Properties: []modules.JSONSchemaProperty{
+				{
+					Name: "data",
+					Schema: &modules.JSONSchema{
+						Type:       "object",
+						Properties: []modules.JSONSchemaProperty{},
 					},
 				},
+			},
+		},
+		Capabilities: []modules.Capability{
+			{
+				Type:    "provider",
+				Version: "v1",
+				Spec:    providerCapabilitySpec(),
 			},
 		},
 	}
@@ -68,7 +85,7 @@ func Manifest() int32 {
 
 type Config struct{}
 
-//go:export send
+//go:export provider_send
 func Send() int32 {
 	var req providers.SendRequest[Config]
 	err := pdk.InputJSON(&req)

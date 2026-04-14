@@ -136,7 +136,9 @@ export function CreateCampaign({ open = false, onBeforeCreate, trigger }: Create
                 data: {},
             })
 
-            navigate(`/projects/${project.id}/campaigns/${campaign.data.id}/templates/${template.id}`)
+            navigate(
+                `/projects/${project.id}/campaigns/${campaign.data.id}/templates/${template.id}`,
+            )
         }
     }
 

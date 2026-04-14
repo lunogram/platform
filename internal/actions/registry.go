@@ -1,18 +1,15 @@
 package actions
 
 import (
-	"embed"
 	"fmt"
 
 	"go.uber.org/zap"
 
 	"github.com/cloudproud/graceful"
 	"github.com/lunogram/platform/internal/config"
+	integrationloader "github.com/lunogram/platform/internal/integrations"
 	"github.com/lunogram/platform/internal/wasm/actions"
 )
-
-//go:embed modules/*
-var modulesFS embed.FS
 
 // Registry is a type alias for the action registry.
 type Registry = actions.Registry
@@ -24,7 +21,7 @@ type Action = actions.Action
 func NewRegistry(ctx graceful.Context, cfg config.WASM, logger *zap.Logger) (*Registry, error) {
 	registry := actions.NewRegistry(cfg, logger)
 
-	err := registry.LoadFromFS(ctx, modulesFS, "modules")
+	err := integrationloader.LoadModules(ctx, registry)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize action registry: %w", err)
 	}

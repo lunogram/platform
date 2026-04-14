@@ -13,6 +13,23 @@ import (
 	"github.com/resend/resend-go/v3"
 )
 
+func providerCapabilitySpec() json.RawMessage {
+	spec, err := json.Marshal(modules.ProviderSpec{
+		Channels: []modules.Channel{modules.ChannelEmail},
+		Webhook:  true,
+		RateLimit: &modules.RateLimit{
+			Limit:    5,
+			Interval: "1s",
+			Override: true,
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	return spec
+}
+
 // NewResendClient creates a Resend SDK client that routes HTTP through the
 // Extism PDK transport so it works inside WASM.
 func NewResendClient(apiKey string) *resend.Client {
@@ -42,7 +59,8 @@ func (t *safeTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 
 //go:export manifest
 func Manifest() int32 {
-	manifest := providers.ProviderManifest{
+	manifest := modules.IntegrationManifest{
+		APIVersion: "v1",
 		Metadata: modules.Metadata{
 			ID:          "resend",
 			Title:       "Resend Email",
@@ -59,40 +77,38 @@ func Manifest() int32 {
 			Email: "dev@lunogram.io",
 			URL:   "https://lunogram.com",
 		},
-		Spec: providers.ProviderSpec{
-			Webhook:  true,
-			Channels: []providers.Channel{providers.ChannelEmail},
-			RateLimit: &providers.RateLimit{
-				Limit:    5,
-				Interval: "1s",
-				Override: true,
-			},
-			Config: &modules.JSONSchema{
-				Type: "object",
-				Properties: []modules.JSONSchemaProperty{
-					{
-						Name: "data",
-						Schema: &modules.JSONSchema{
-							Type: "object",
-							Properties: []modules.JSONSchemaProperty{
-								{
-									Name:   "apiKey",
-									Schema: &modules.JSONSchema{Type: "string", Title: "Resend API Key", Format: "password"},
-								},
-								{
-									Name:   "webhookSecret",
-									Schema: &modules.JSONSchema{Type: "string", Title: "Webhook Signing Secret", Format: "password", Description: "Svix webhook signing secret for verifying webhook signatures"},
-								},
-								{
-									Name:   "webhookId",
-									Schema: &modules.JSONSchema{Type: "string", Title: "Webhook ID", Description: "Resend webhook ID (auto-configured)"},
-									Hidden: true,
-								},
+		Config: &modules.JSONSchema{
+			Type: "object",
+			Properties: []modules.JSONSchemaProperty{
+				{
+					Name: "data",
+					Schema: &modules.JSONSchema{
+						Type: "object",
+						Properties: []modules.JSONSchemaProperty{
+							{
+								Name:   "apiKey",
+								Schema: &modules.JSONSchema{Type: "string", Title: "Resend API Key", Format: "password"},
 							},
-							Required: []string{"apiKey"},
+							{
+								Name:   "webhookSecret",
+								Schema: &modules.JSONSchema{Type: "string", Title: "Webhook Signing Secret", Format: "password", Description: "Svix webhook signing secret for verifying webhook signatures"},
+							},
+							{
+								Name:   "webhookId",
+								Schema: &modules.JSONSchema{Type: "string", Title: "Webhook ID", Description: "Resend webhook ID (auto-configured)"},
+								Hidden: true,
+							},
 						},
+						Required: []string{"apiKey"},
 					},
 				},
+			},
+		},
+		Capabilities: []modules.Capability{
+			{
+				Type:    "provider",
+				Version: "v1",
+				Spec:    providerCapabilitySpec(),
 			},
 		},
 	}
@@ -104,7 +120,7 @@ func Manifest() int32 {
 	return ExitSuccess
 }
 
-//go:export send
+//go:export provider_send
 func Send() int32 {
 	var req providers.SendRequest[Config]
 	if err := pdk.InputJSON(&req); err != nil {
@@ -172,7 +188,7 @@ func Send() int32 {
 	return ExitSuccess
 }
 
-//go:export webhook
+//go:export provider_webhook
 func WebhookHandler() int32 {
 	var req providers.WebhookRequest
 	if err := pdk.InputJSON(&req); err != nil {
@@ -249,7 +265,7 @@ func WebhookHandler() int32 {
 
 //go:export validate
 func Validate() int32 {
-	var req providers.ValidateRequest
+	var req modules.ValidateRequest
 	if err := pdk.InputJSON(&req); err != nil {
 		pdk.SetError(err)
 		return ExitPermanent
@@ -267,7 +283,7 @@ func Validate() int32 {
 	}
 
 	if len(errs) > 0 {
-		if err := pdk.OutputJSON(providers.ValidateResponse{
+		if err := pdk.OutputJSON(modules.ValidateResponse{
 			Valid:   false,
 			Errors:  errs,
 			Message: "invalid provider configuration",
@@ -278,16 +294,16 @@ func Validate() int32 {
 		return ExitSuccess
 	}
 
-	if err := pdk.OutputJSON(providers.ValidateResponse{Valid: true}); err != nil {
+	if err := pdk.OutputJSON(modules.ValidateResponse{Valid: true}); err != nil {
 		pdk.SetError(err)
 		return ExitPermanent
 	}
 	return ExitSuccess
 }
 
-//go:export init
+//go:export install
 func Init() int32 {
-	var req providers.InitRequest
+	var req modules.InstallRequest
 	if err := pdk.InputJSON(&req); err != nil {
 		pdk.SetError(err)
 		return ExitPermanent
@@ -314,18 +330,17 @@ func Init() int32 {
 		return ExitTransient
 	}
 
-	// Return a config patch so the platform persists the webhook ID and signing secret.
-	patch, err := json.Marshal(map[string]string{
+	state, err := json.Marshal(map[string]string{
 		"webhookSecret": res.SigningSecret,
 		"webhookId":     res.Id,
 	})
 	if err != nil {
-		pdk.SetError(fmt.Errorf("failed to marshal config patch: %w", err))
+		pdk.SetError(fmt.Errorf("failed to marshal state: %w", err))
 		return ExitTransient
 	}
 
-	err = pdk.OutputJSON(providers.InitResponse{
-		ConfigPatch: patch,
+	err = pdk.OutputJSON(modules.InstallResponse{
+		State: state,
 	})
 	if err != nil {
 		pdk.SetError(err)
@@ -334,9 +349,9 @@ func Init() int32 {
 	return ExitSuccess
 }
 
-//go:export destroy
+//go:export uninstall
 func Destroy() int32 {
-	var req providers.DestroyRequest
+	var req modules.UninstallRequest
 	if err := pdk.InputJSON(&req); err != nil {
 		pdk.SetError(err)
 		return ExitPermanent
@@ -350,7 +365,7 @@ func Destroy() int32 {
 
 	// Nothing to clean up if no webhook was registered.
 	if config.WebhookID == "" {
-		if err := pdk.OutputJSON(providers.DestroyResponse{}); err != nil {
+		if err := pdk.OutputJSON(modules.UninstallResponse{}); err != nil {
 			pdk.SetError(err)
 			return ExitTransient
 		}
@@ -367,7 +382,7 @@ func Destroy() int32 {
 		}
 	}
 
-	err = pdk.OutputJSON(providers.DestroyResponse{})
+	err = pdk.OutputJSON(modules.UninstallResponse{})
 	if err != nil {
 		pdk.SetError(err)
 		return ExitTransient
