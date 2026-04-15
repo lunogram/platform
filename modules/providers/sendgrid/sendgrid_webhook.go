@@ -166,6 +166,35 @@ func verifySendGridWebhookSignature(publicKeyPEM string, payload []byte, signatu
 	if signatureHeader == "" || timestampHeader == "" {
 		return fmt.Errorf("missing SendGrid signature headers")
 	}
-	if err := validateSendGridWebhookTimestamp(timestampHeader, time.Now()); err != nil {
-		return err
+	
+	block, _ := pem.Decode([]byte(publicKeyPEM))
+	if block == nil {
+		return fmt.Errorf("invalid SendGrid webhook verification key format")
 	}
+
+	publicKey, err := x509.ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
+		return fmt.Errorf("failed to parse SendGrid webhook verification key: %w", err)
+	}
+
+	ecdsaKey, ok := publicKey.(*ecdsa.PublicKey)
+	if !ok {
+		return fmt.Errorf("SendGrid webhook verification key must be an ECDSA public key")
+	}
+
+	signature, err := base64.StdEncoding.DecodeString(signatureHeader)
+	if err != nil {
+		return fmt.Errorf("failed to decode SendGrid webhook signature: %w", err)
+	}
+
+	signedPayload := make([]byte, 0, len(timestampHeader)+len(payload))
+	signedPayload = append(signedPayload, timestampHeader...)
+	signedPayload = append(signedPayload, payload...)
+	digest := sha256.Sum256(signedPayload)
+
+	if !ecdsa.VerifyASN1(ecdsaKey, digest[:], signature) {
+		return fmt.Errorf("invalid SendGrid webhook signature")
+	}
+
+	return nil
+}
