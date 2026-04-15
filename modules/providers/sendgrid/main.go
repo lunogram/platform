@@ -80,7 +80,6 @@ func Manifest() int32 {
 							},
 							Required: []string{"apiKey"},
 						},
-						Hidden: true,
 					},
 				},
 			},
