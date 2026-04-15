@@ -8,6 +8,7 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/pem"
+	"strconv"
 	"testing"
 	"time"
 
@@ -141,7 +142,7 @@ func TestVerifySendGridWebhookSignature(t *testing.T) {
 	publicKeyPEM := pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: publicKeyDER})
 
 	payload := []byte(`[{"event":"delivered","sg_message_id":"msg-1"}]`)
-	timestamp := "1710000000"
+	timestamp := strconv.FormatInt(time.Now().UTC().Unix(), 10)
 
 	signedPayload := make([]byte, 0, len(timestamp)+len(payload))
 	signedPayload = append(signedPayload, timestamp...)
@@ -156,7 +157,8 @@ func TestVerifySendGridWebhookSignature(t *testing.T) {
 	err = verifySendGridWebhookSignature(string(publicKeyPEM), payload, signatureHeader, timestamp)
 	assert.NoError(t, err)
 
-	err = verifySendGridWebhookSignature(string(publicKeyPEM), payload, signatureHeader, "1710000001")
+	invalidTimestamp := strconv.FormatInt(time.Now().UTC().Unix()+1, 10)
+	err = verifySendGridWebhookSignature(string(publicKeyPEM), payload, signatureHeader, invalidTimestamp)
 	assert.Error(t, err)
 
 	err = verifySendGridWebhookSignature(string(publicKeyPEM), payload, "", timestamp)

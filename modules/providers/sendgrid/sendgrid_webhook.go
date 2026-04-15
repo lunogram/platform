@@ -166,6 +166,10 @@ func verifySendGridWebhookSignature(publicKeyPEM string, payload []byte, signatu
 	if signatureHeader == "" || timestampHeader == "" {
 		return fmt.Errorf("missing SendGrid signature headers")
 	}
+
+	if err := validateSendGridWebhookTimestamp(timestampHeader, time.Now()); err != nil {
+		return fmt.Errorf("invalid SendGrid webhook timestamp: %w", err)
+	}
 	
 	block, _ := pem.Decode([]byte(publicKeyPEM))
 	if block == nil {
