@@ -262,7 +262,7 @@ export function SchemaFields({
                                 />
                             ) : (
                                 <Input
-                                    type={item.type === "number" ? "number" : "text"}
+                                    type={item.type === "number" ? "number" : item.format === "password" ? "password" : "text"}
                                     value={(value[key] as string | number) ?? ""}
                                     onChange={(e) =>
                                         set(

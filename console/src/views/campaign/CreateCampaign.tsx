@@ -4,7 +4,7 @@ import { ProjectContext } from "@/contexts"
 import { useCallback, useContext, useMemo, useState } from "react"
 import type { ReactNode } from "react"
 import { useResolver } from "@/hooks"
-
+import api from "@/api"
 import { Button } from "@/components/ui/button"
 import { ArrowRight, Mail, MessageSquareDot, PlusIcon, Smartphone } from "lucide-react"
 import type { ChannelType } from "@/types"

@@ -94,7 +94,7 @@ export default function Campaigns({ create = false }: CampaignsProps) {
                     query: {
                         limit: pageSize,
                         offset,
-                        search: debouncedQuery,
+                        search: debouncedQuery || undefined,
                     },
                 },
             })

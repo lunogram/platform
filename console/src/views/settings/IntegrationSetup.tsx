@@ -34,8 +34,11 @@ type ProviderWithExtras = Provider & {
     external_id?: string
 }
 
-type ProviderFormValues = CreateProvider & {
+type ProviderFormValues = {
+    name: string
+    data: Record<string, unknown>
     module: string
+    link_wrap?: boolean
     rate_limit?: number | null
     rate_interval?: string | null
 }
@@ -163,11 +166,11 @@ export default function IntegrationSetup() {
         values: provider
             ? {
                   name: provider.name,
-                  data: provider.data,
+                  data: (provider.data as Record<string, unknown>) ?? {},
                   module: effectiveModule ?? "",
                   link_wrap: provider?.link_wrap ?? false,
-                  rate_limit: provider?.rate_limit ?? null,
-                  rate_interval: provider?.rate_interval ?? "1s",
+                  rate_limit: provider?.rate_limit?.limit ?? null,
+                  rate_interval: provider?.rate_limit?.interval ?? "1s",
               }
             : {
                   name: "",
@@ -189,8 +192,23 @@ export default function IntegrationSetup() {
 
             // Only send rate limit fields when the manifest allows overrides
             if (rateLimitOverride) {
-                body.rate_limit = rate_limit && rate_limit > 0 ? rate_limit : null
-                body.rate_interval = rate_limit && rate_limit > 0 ? (rate_interval ?? "1s") : null
+                const hasCustomRateLimit =
+                    typeof rate_limit === "number" &&
+                    Number.isFinite(rate_limit) &&
+                    rate_limit > 0
+
+                if (hasCustomRateLimit) {
+                    body.rate_limit = {
+                        limit: rate_limit,
+                        interval: rate_interval ?? "1s",
+                    }
+                } else if (isEdit) {
+                    // For edits, allow clearing an override back to module defaults.
+                    body.rate_limit = {
+                        limit: 0,
+                        interval: manifestRateLimit?.interval ?? "1s",
+                    }
+                }
             }
 
             if (isEdit && provider?.id) {
