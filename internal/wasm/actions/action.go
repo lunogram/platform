@@ -111,7 +111,11 @@ func NewRegistry(cfg config.WASM, logger *zap.Logger) *Registry {
 // Get retrieves an action by module ID.
 func (r *Registry) Get(id string) (*Action, bool) {
 	integration, exists := r.Registry.Get(id)
-	if !exists || !integration.HasActions() {
+	if !exists {
+		return nil, false
+	}
+
+	if _, ok := integration.ActionsSpec(); !ok {
 		return nil, false
 	}
 
@@ -134,7 +138,7 @@ func (r *Registry) All() []*Action {
 	integrations := r.Registry.All()
 	result := make([]*Action, 0, len(integrations))
 	for _, integration := range integrations {
-		if integration.HasActions() {
+		if _, ok := integration.ActionsSpec(); ok {
 			result = append(result, &Action{Integration: integration})
 		}
 	}

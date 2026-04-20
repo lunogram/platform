@@ -33,22 +33,22 @@ func TestRegistryLoadCompatProviderAndAction(t *testing.T) {
 
 	providerIntegration, ok := reg.Get("testprovider")
 	require.True(t, ok)
-	assert.True(t, providerIntegration.HasProvider())
-	assert.False(t, providerIntegration.HasActions())
-
 	providerSpec, ok := providerIntegration.ProviderSpec()
 	require.True(t, ok)
 	assert.NotEmpty(t, providerSpec.Channels)
 
+	_, hasActions := providerIntegration.ActionsSpec()
+	assert.False(t, hasActions)
+
 	actionIntegration, ok := reg.Get("test")
 	require.True(t, ok)
-	assert.True(t, actionIntegration.HasActions())
-	assert.False(t, actionIntegration.HasProvider())
-
 	actionsSpec, ok := actionIntegration.ActionsSpec()
 	require.True(t, ok)
 	require.Len(t, actionsSpec.Functions, 1)
 	assert.Equal(t, "run", actionsSpec.Functions[0].ID)
+
+	_, hasProvider := actionIntegration.ProviderSpec()
+	assert.False(t, hasProvider)
 }
 
 func TestRegistryRegisterCompatProviderModule(t *testing.T) {
@@ -67,7 +67,8 @@ func TestRegistryRegisterCompatProviderModule(t *testing.T) {
 
 	integration, ok := reg.Get("compat-provider")
 	require.True(t, ok)
-	assert.True(t, integration.HasProvider())
+	_, hasProvider := integration.ProviderSpec()
+	assert.True(t, hasProvider)
 }
 
 func TestRegistryRegisterCompatActionModule(t *testing.T) {
@@ -86,5 +87,6 @@ func TestRegistryRegisterCompatActionModule(t *testing.T) {
 
 	integration, ok := reg.Get("compat-action")
 	require.True(t, ok)
-	assert.True(t, integration.HasActions())
+	_, hasActions := integration.ActionsSpec()
+	assert.True(t, hasActions)
 }

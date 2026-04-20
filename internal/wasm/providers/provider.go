@@ -153,7 +153,11 @@ func (r *Registry) LoadFromFS(ctx context.Context, fsys fs.FS, dir string) error
 // Get retrieves a provider by ID.
 func (r *Registry) Get(id string) (*Provider, bool) {
 	integration, exists := r.Registry.Get(id)
-	if !exists || !integration.HasProvider() {
+	if !exists {
+		return nil, false
+	}
+
+	if _, ok := integration.ProviderSpec(); !ok {
 		return nil, false
 	}
 
@@ -165,7 +169,7 @@ func (r *Registry) All() []*Provider {
 	integrations := r.Registry.All()
 	result := make([]*Provider, 0, len(integrations))
 	for _, integration := range integrations {
-		if integration.HasProvider() {
+		if _, ok := integration.ProviderSpec(); ok {
 			result = append(result, &Provider{Integration: integration})
 		}
 	}

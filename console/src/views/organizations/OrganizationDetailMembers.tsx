@@ -313,7 +313,7 @@ export default function OrganizationDetailMembers() {
                 <Button
                     onClick={() => setIsAddMemberOpen(true)}
                     className="flex-1 sm:flex-initial"
-                    aria-label={t("add_member_from_header", "Add member from header")}
+                    aria-label={t("add_member")}
                 >
                     <Plus className="mr-2 h-4 w-4" />
                     {t("add_member")}
@@ -372,10 +372,7 @@ export default function OrganizationDetailMembers() {
                                                 size="sm"
                                                 onClick={() => setIsAddMemberOpen(true)}
                                                 className="mt-4"
-                                                aria-label={t(
-                                                    "add_member_from_empty_state",
-                                                    "Add member from empty state",
-                                                )}
+                                                aria-label={t("add_member")}
                                             >
                                                 <Plus className="mr-2 h-4 w-4" />
                                                 {t("add_member")}

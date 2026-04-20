@@ -55,26 +55,6 @@ func (i *Integration) callAny(ctx context.Context, exports []string, input []byt
 	return "", 0, nil, fmt.Errorf("no compatible export found (tried: %s)", strings.Join(exports, ", "))
 }
 
-// HasCapability checks if any capability in the manifest has the given type.
-func (i *Integration) HasCapability(capType string) bool {
-	for _, cap := range i.Manifest().Capabilities {
-		if cap.Type == capType {
-			return true
-		}
-	}
-	return false
-}
-
-// HasProvider reports whether this integration declares a provider capability.
-func (i *Integration) HasProvider() bool {
-	return i.HasCapability("provider")
-}
-
-// HasActions reports whether this integration declares an actions capability.
-func (i *Integration) HasActions() bool {
-	return i.HasCapability("actions")
-}
-
 // ProviderSpec finds and decodes the provider capability spec.
 func (i *Integration) ProviderSpec() (*modules.ProviderSpec, bool) {
 	for _, cap := range i.Manifest().Capabilities {

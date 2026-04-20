@@ -556,7 +556,6 @@
     "add_member_attributes_description": "Add custom attributes specific to this member's role in the organization",
     "add_member": "Add Member",
     "search_members": "Search members...",
-    "remove_member_confirmation": "Are you sure you want to remove this member from the organization?",
     "no_members_yet": "No members yet",
     "no_members_found": "No members found",
     "remove_member": "Remove Member",
