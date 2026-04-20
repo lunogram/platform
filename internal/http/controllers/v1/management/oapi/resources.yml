@@ -1706,6 +1706,39 @@ paths:
                 $ref: "#/components/schemas/Admin"
         default:
           $ref: "#/components/responses/Error"
+  
+  /api/admin/projects/{projectID}/invites:
+    post:
+      summary: Create a project invite
+      description: Creates a new project invite for an email address
+      operationId: CreateProjectInvite
+      tags:
+        - Admins
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProjectInvite"
+      responses:
+        "201":
+          description: Project invite created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectInvite"
+        default:
+          $ref: "#/components/responses/Error"
 
   /api/admin/projects/{projectID}/subjects/users:
     get:
@@ -8896,6 +8929,67 @@ components:
               type: string
             channel:
               type: string
+    
+    CreateProjectInvite:
+      type: object
+      required:
+        - email
+        - role
+      properties:
+        email:
+          type: string
+          format: email
+          example: "user@example.com"
+        role:
+          type: string
+          enum: [owner, admin, editor, viewer]
+          example: admin
+        expires_in:
+          type: string
+          description: Duration until the invite expires (e.g. "24h", "7d"). Optional, defaults to 24 hours.
+          example: "24h"
+
+    ProjectInvite:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d"
+        project_id:
+          type: string
+          format: uuid
+          example: "4c9d3163-7b64-4f9e-9068-d2e4b96be56b"
+        inviter_admin_id:
+          type: string
+          format: uuid
+          example: "5143f27c-cca9-4dc4-9059-e1dbb08144ad"
+        invitee_email:
+          type: string
+          format: email
+          example: "user@example.com"
+        role:
+          type: string
+          enum: [owner, admin, editor, viewer]
+          example: admin
+        token:
+          type: string
+          example: "a1b2c3d4e5f6a1b2c3d4"
+          description: Unique token for the invite link
+        expires_at:
+          type: string
+          format: date-time
+          example: "2025-12-31T23:59:59Z"
+        accepted_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: null
+        revoked_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: null
 
   securitySchemes:
     HttpBearerAuth:

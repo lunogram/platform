@@ -63,6 +63,14 @@ const (
 	CreateListTypeStatic  CreateListType = "static"
 )
 
+// Defines values for CreateProjectInviteRole.
+const (
+	CreateProjectInviteRoleAdmin  CreateProjectInviteRole = "admin"
+	CreateProjectInviteRoleEditor CreateProjectInviteRole = "editor"
+	CreateProjectInviteRoleOwner  CreateProjectInviteRole = "owner"
+	CreateProjectInviteRoleViewer CreateProjectInviteRole = "viewer"
+)
+
 // Defines values for CreateScheduleOffsetRequestDirection.
 const (
 	CreateScheduleOffsetRequestDirectionAfter  CreateScheduleOffsetRequestDirection = "after"
@@ -123,6 +131,14 @@ const (
 	OrganizationRoleAdmin  OrganizationRole = "admin"
 	OrganizationRoleMember OrganizationRole = "member"
 	OrganizationRoleOwner  OrganizationRole = "owner"
+)
+
+// Defines values for ProjectInviteRole.
+const (
+	ProjectInviteRoleAdmin  ProjectInviteRole = "admin"
+	ProjectInviteRoleEditor ProjectInviteRole = "editor"
+	ProjectInviteRoleOwner  ProjectInviteRole = "owner"
+	ProjectInviteRoleViewer ProjectInviteRole = "viewer"
 )
 
 // Defines values for ProjectPushProviderPlatform.
@@ -519,6 +535,18 @@ type CreateProject struct {
 	TextOptOutMessage *string `json:"text_opt_out_message,omitempty"`
 	Timezone          string  `json:"timezone"`
 }
+
+// CreateProjectInvite defines model for CreateProjectInvite.
+type CreateProjectInvite struct {
+	Email openapi_types.Email `json:"email"`
+
+	// ExpiresIn Duration until the invite expires (e.g. "24h", "7d"). Optional, defaults to 24 hours.
+	ExpiresIn *string                 `json:"expires_in,omitempty"`
+	Role      CreateProjectInviteRole `json:"role"`
+}
+
+// CreateProjectInviteRole defines model for CreateProjectInvite.Role.
+type CreateProjectInviteRole string
 
 // CreateProvider defines model for CreateProvider.
 type CreateProvider struct {
@@ -1073,6 +1101,24 @@ type ProjectAdminList struct {
 	// Total Total number of items matching the filters
 	Total int `json:"total"`
 }
+
+// ProjectInvite defines model for ProjectInvite.
+type ProjectInvite struct {
+	AcceptedAt     *time.Time           `json:"accepted_at"`
+	ExpiresAt      *time.Time           `json:"expires_at,omitempty"`
+	Id             *openapi_types.UUID  `json:"id,omitempty"`
+	InviteeEmail   *openapi_types.Email `json:"invitee_email,omitempty"`
+	InviterAdminId *openapi_types.UUID  `json:"inviter_admin_id,omitempty"`
+	ProjectId      *openapi_types.UUID  `json:"project_id,omitempty"`
+	RevokedAt      *time.Time           `json:"revoked_at"`
+	Role           *ProjectInviteRole   `json:"role,omitempty"`
+
+	// Token Unique token for the invite link
+	Token *string `json:"token,omitempty"`
+}
+
+// ProjectInviteRole defines model for ProjectInvite.Role.
+type ProjectInviteRole string
 
 // ProjectList defines model for ProjectList.
 type ProjectList struct {
@@ -2309,6 +2355,9 @@ type SendTestJSONRequestBody = SendTest
 // UploadDocumentsMultipartRequestBody defines body for UploadDocuments for multipart/form-data ContentType.
 type UploadDocumentsMultipartRequestBody UploadDocumentsMultipartBody
 
+// CreateProjectInviteJSONRequestBody defines body for CreateProjectInvite for application/json ContentType.
+type CreateProjectInviteJSONRequestBody = CreateProjectInvite
+
 // CreateJourneyJSONRequestBody defines body for CreateJourney for application/json ContentType.
 type CreateJourneyJSONRequestBody = CreateJourney
 
@@ -2658,6 +2707,11 @@ type ClientInterface interface {
 
 	// ListEmailTemplates request
 	ListEmailTemplates(ctx context.Context, projectID openapi_types.UUID, params *ListEmailTemplatesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateProjectInviteWithBody request with any body
+	CreateProjectInviteWithBody(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateProjectInvite(ctx context.Context, projectID openapi_types.UUID, body CreateProjectInviteJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListJourneys request
 	ListJourneys(ctx context.Context, projectID openapi_types.UUID, params *ListJourneysParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -3767,6 +3821,30 @@ func (c *Client) GetDocumentMetadata(ctx context.Context, projectID openapi_type
 
 func (c *Client) ListEmailTemplates(ctx context.Context, projectID openapi_types.UUID, params *ListEmailTemplatesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListEmailTemplatesRequest(c.Server, projectID, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateProjectInviteWithBody(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateProjectInviteRequestWithBody(c.Server, projectID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateProjectInvite(ctx context.Context, projectID openapi_types.UUID, body CreateProjectInviteJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateProjectInviteRequest(c.Server, projectID, body)
 	if err != nil {
 		return nil, err
 	}
@@ -7968,6 +8046,53 @@ func NewListEmailTemplatesRequest(server string, projectID openapi_types.UUID, p
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewCreateProjectInviteRequest calls the generic CreateProjectInvite builder with application/json body
+func NewCreateProjectInviteRequest(server string, projectID openapi_types.UUID, body CreateProjectInviteJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateProjectInviteRequestWithBody(server, projectID, "application/json", bodyReader)
+}
+
+// NewCreateProjectInviteRequestWithBody generates requests for CreateProjectInvite with any type of body
+func NewCreateProjectInviteRequestWithBody(server string, projectID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/invites", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -13923,6 +14048,11 @@ type ClientWithResponsesInterface interface {
 	// ListEmailTemplatesWithResponse request
 	ListEmailTemplatesWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListEmailTemplatesParams, reqEditors ...RequestEditorFn) (*ListEmailTemplatesResponse, error)
 
+	// CreateProjectInviteWithBodyWithResponse request with any body
+	CreateProjectInviteWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateProjectInviteResponse, error)
+
+	CreateProjectInviteWithResponse(ctx context.Context, projectID openapi_types.UUID, body CreateProjectInviteJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateProjectInviteResponse, error)
+
 	// ListJourneysWithResponse request
 	ListJourneysWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListJourneysParams, reqEditors ...RequestEditorFn) (*ListJourneysResponse, error)
 
@@ -15388,6 +15518,29 @@ func (r ListEmailTemplatesResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r ListEmailTemplatesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateProjectInviteResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *ProjectInvite
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateProjectInviteResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateProjectInviteResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -18432,6 +18585,23 @@ func (c *ClientWithResponses) ListEmailTemplatesWithResponse(ctx context.Context
 	return ParseListEmailTemplatesResponse(rsp)
 }
 
+// CreateProjectInviteWithBodyWithResponse request with arbitrary body returning *CreateProjectInviteResponse
+func (c *ClientWithResponses) CreateProjectInviteWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateProjectInviteResponse, error) {
+	rsp, err := c.CreateProjectInviteWithBody(ctx, projectID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateProjectInviteResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateProjectInviteWithResponse(ctx context.Context, projectID openapi_types.UUID, body CreateProjectInviteJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateProjectInviteResponse, error) {
+	rsp, err := c.CreateProjectInvite(ctx, projectID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateProjectInviteResponse(rsp)
+}
+
 // ListJourneysWithResponse request returning *ListJourneysResponse
 func (c *ClientWithResponses) ListJourneysWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListJourneysParams, reqEditors ...RequestEditorFn) (*ListJourneysResponse, error) {
 	rsp, err := c.ListJourneys(ctx, projectID, params, reqEditors...)
@@ -21153,6 +21323,39 @@ func ParseListEmailTemplatesResponse(rsp *http.Response) (*ListEmailTemplatesRes
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateProjectInviteResponse parses an HTTP response from a CreateProjectInviteWithResponse call
+func ParseCreateProjectInviteResponse(rsp *http.Response) (*CreateProjectInviteResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateProjectInviteResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest ProjectInvite
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest Error
@@ -24716,6 +24919,9 @@ type ServerInterface interface {
 	// List email starter templates
 	// (GET /api/admin/projects/{projectID}/email/templates)
 	ListEmailTemplates(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListEmailTemplatesParams)
+	// Create a project invite
+	// (POST /api/admin/projects/{projectID}/invites)
+	CreateProjectInvite(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID)
 	// List journeys
 	// (GET /api/admin/projects/{projectID}/journeys)
 	ListJourneys(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListJourneysParams)
@@ -25322,6 +25528,12 @@ func (_ Unimplemented) GetDocumentMetadata(w http.ResponseWriter, r *http.Reques
 // List email starter templates
 // (GET /api/admin/projects/{projectID}/email/templates)
 func (_ Unimplemented) ListEmailTemplates(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListEmailTemplatesParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Create a project invite
+// (POST /api/admin/projects/{projectID}/invites)
+func (_ Unimplemented) CreateProjectInvite(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -27931,6 +28143,37 @@ func (siw *ServerInterfaceWrapper) ListEmailTemplates(w http.ResponseWriter, r *
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListEmailTemplates(w, r, projectID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateProjectInvite operation middleware
+func (siw *ServerInterfaceWrapper) CreateProjectInvite(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateProjectInvite(w, r, projectID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -32790,6 +33033,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/email/templates", wrapper.ListEmailTemplates)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/invites", wrapper.CreateProjectInvite)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/journeys", wrapper.ListJourneys)

@@ -23,6 +23,7 @@ func NewState(db store.DB) *State {
 		BroadcastsStore:           NewBroadcastsStore(db),
 		ProjectPushProvidersStore: NewProjectPushProvidersStore(db),
 		VapidKeysStore:            NewVapidKeysStore(db),
+		InvitesStore:              NewInvitesStore(db),
 	}
 }
 
@@ -44,4 +45,5 @@ type State struct {
 	*BroadcastsStore
 	*ProjectPushProvidersStore
 	*VapidKeysStore
+	*InvitesStore
 }

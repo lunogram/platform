@@ -672,6 +672,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/projects/{projectID}/invites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create a project invite
+         * @description Creates a new project invite for an email address
+         */
+        post: operations["CreateProjectInvite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/subjects/users": {
         parameters: {
             query?: never;
@@ -4633,6 +4653,70 @@ export interface components {
                 channel?: string;
             };
         };
+        CreateProjectInvite: {
+            /**
+             * Format: email
+             * @example user@example.com
+             */
+            email: string;
+            /**
+             * @example admin
+             * @enum {string}
+             */
+            role: "owner" | "admin" | "editor" | "viewer";
+            /**
+             * @description Duration until the invite expires (e.g. "24h", "7d"). Optional, defaults to 24 hours.
+             * @example 24h
+             */
+            expires_in?: string;
+        };
+        ProjectInvite: {
+            /**
+             * Format: uuid
+             * @example 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
+             */
+            id?: string;
+            /**
+             * Format: uuid
+             * @example 4c9d3163-7b64-4f9e-9068-d2e4b96be56b
+             */
+            project_id?: string;
+            /**
+             * Format: uuid
+             * @example 5143f27c-cca9-4dc4-9059-e1dbb08144ad
+             */
+            inviter_admin_id?: string;
+            /**
+             * Format: email
+             * @example user@example.com
+             */
+            invitee_email?: string;
+            /**
+             * @example admin
+             * @enum {string}
+             */
+            role?: "owner" | "admin" | "editor" | "viewer";
+            /**
+             * @description Unique token for the invite link
+             * @example a1b2c3d4e5f6a1b2c3d4
+             */
+            token?: string;
+            /**
+             * Format: date-time
+             * @example 2025-12-31T23:59:59Z
+             */
+            expires_at?: string;
+            /**
+             * Format: date-time
+             * @example null
+             */
+            accepted_at?: string | null;
+            /**
+             * Format: date-time
+             * @example null
+             */
+            revoked_at?: string | null;
+        };
     };
     responses: {
         /** @description Error response */
@@ -6188,6 +6272,34 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Admin"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    CreateProjectInvite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateProjectInvite"];
+            };
+        };
+        responses: {
+            /** @description Project invite created successfully */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectInvite"];
                 };
             };
             default: components["responses"]["Error"];

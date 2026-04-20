@@ -8,7 +8,8 @@ CREATE TABLE project_invites (
     role VARCHAR(50) NOT NULL,
     CHECK (role IN ('support', 'client', 'editor', 'admin')),
     
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     expires_at TIMESTAMPTZ NOT NULL,
-    accepted_at TIMESTAMPTZ
+    accepted_at TIMESTAMPTZ,
+    revoked_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 )
