@@ -679,13 +679,77 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * List project invites
+         * @description Retrieves a list of active project invites
+         */
+        get: operations["ListProjectInvites"];
         put?: never;
         /**
          * Create a project invite
          * @description Creates a new project invite for an email address
          */
         post: operations["CreateProjectInvite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/invites/accept/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept a project invite
+         * @description Accepts a project invite using the invite token, associating the authenticated admin with the project
+         */
+        post: operations["AcceptProjectInvite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/project/{projectID}/invites/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke a project invite
+         * @description Revokes a project invite using the invite token, preventing it from being accepted
+         */
+        delete: operations["RevokeProjectInvite"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/invites/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get invite details
+         * @description Retrieves the details of a project invite using the invite token, without requiring authentication
+         */
+        get: operations["GetInviteDetails"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -4739,6 +4803,17 @@ export interface components {
                 };
             };
         };
+        /** @description Project invites retrieved successfully */
+        ProjectInviteListResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["PaginatedResponse"] & {
+                    results: components["schemas"]["ProjectInvite"][];
+                };
+            };
+        };
         /** @description Journeys retrieved successfully */
         JourneyListResponse: {
             headers: {
@@ -6277,6 +6352,27 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    ListProjectInvites: {
+        parameters: {
+            query?: {
+                /** @description Maximum number of items to return */
+                limit?: components["parameters"]["Limit"];
+                /** @description Number of items to skip */
+                offset?: components["parameters"]["Offset"];
+            };
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ProjectInviteListResponse"];
+            default: components["responses"]["Error"];
+        };
+    };
     CreateProjectInvite: {
         parameters: {
             query?: never;
@@ -6295,6 +6391,80 @@ export interface operations {
         responses: {
             /** @description Project invite created successfully */
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectInvite"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    AcceptProjectInvite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project invite token */
+                token: string;
+                /** @description The project ID */
+                projectID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Project invite accepted successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Project"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    RevokeProjectInvite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project invite token */
+                token: string;
+                /** @description The project ID */
+                projectID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Project invite revoked successfully */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    GetInviteDetails: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project invite token */
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Project invite details retrieved successfully */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

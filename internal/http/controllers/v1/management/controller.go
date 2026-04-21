@@ -46,6 +46,7 @@ func NewController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB
 		SenderIdentitiesController: NewSenderIdentitiesController(logger, managementDB, engine),
 		PushProvidersController:    NewPushProvidersController(logger, managementDB, registry, engine),
 		BroadcastsController:       NewBroadcastsController(logger, managementDB, usersDB, pub, jet, engine, consumer.Namespace(cfg.Nats.Namespace)),
+		InviteController:           NewInviteController(logger, mgmt, engine),
 	}
 
 	controller.AuthController, err = NewAuthController(logger, managementDB, cfg, engine)
@@ -79,4 +80,5 @@ type Controller struct {
 	*SenderIdentitiesController
 	*PushProvidersController
 	*BroadcastsController
+	*InviteController
 }

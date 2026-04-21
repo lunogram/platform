@@ -52,6 +52,12 @@ import type {
 } from "./types"
 import type { UUID } from "@/types/common"
 
+declare module "axios" {
+    export interface AxiosRequestConfig {
+        skipAuthRedirect?: boolean
+    }
+}
+
 function appendValue(params: URLSearchParams, name: string, value: unknown) {
     if (typeof value === "undefined" || value === null || typeof value === "function") return
     if (typeof value === "object") value = JSON.stringify(value)
@@ -79,7 +85,10 @@ client.interceptors.response.use(
     (response) => response,
     async (error) => {
         const isLoginPage = window.location.pathname.startsWith("/login")
-        if (error.response.status === 401 && !isLoginPage) {
+        const isUserNotAuthenticated = error.response?.status === 401
+        const skipRedirect = error.config?.skipAuthRedirect
+
+        if (isUserNotAuthenticated && !isLoginPage && !skipRedirect) {
             api.auth.login()
         }
         throw error
@@ -177,6 +186,18 @@ const api = {
         },
         login() {
             window.location.href = `/login?r=${encodeURIComponent(window.location.href)}`
+        },
+    },
+
+    invites: {
+        accept: async (token: string) => {
+            await client.post(
+                "/auth/invites/accept",
+                { token },
+                {
+                    skipAuthRedirect: true, // "I'm a big boy, I'll handle this myself"
+                },
+            )
         },
     },
 

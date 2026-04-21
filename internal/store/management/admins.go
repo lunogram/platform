@@ -369,3 +369,13 @@ func (s *AdminsStore) DeleteProjectAdmin(ctx context.Context, projectID, adminID
 	_, err := s.db.ExecContext(ctx, query, projectID, adminID)
 	return err
 }
+
+func (s *AdminsStore) HardDeleteProjectAdmin(ctx context.Context, projectID, adminID uuid.UUID) error {
+	query := `
+	DELETE FROM project_admins
+	WHERE project_id = $1
+	AND admin_id = $2`
+
+	_, err := s.db.ExecContext(ctx, query, projectID, adminID)
+	return err
+}

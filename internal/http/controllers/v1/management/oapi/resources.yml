@@ -1739,6 +1739,115 @@ paths:
                 $ref: "#/components/schemas/ProjectInvite"
         default:
           $ref: "#/components/responses/Error"
+    get:
+      summary: List project invites
+      description: Retrieves a list of active project invites
+      operationId: ListProjectInvites
+      tags:
+        - Admins
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          $ref: "#/components/responses/ProjectInviteListResponse"
+        default:
+          $ref: "#/components/responses/Error"
+  
+  /api/admin/projects/{projectID}/invites/accept/{token}:
+    post:
+      summary: Accept a project invite
+      description: Accepts a project invite using the invite token, associating the authenticated admin with the project
+      operationId: AcceptProjectInvite
+      tags:
+        - Admins
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The project invite token
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+      responses:
+        "200":
+          description: Project invite accepted successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/project/{projectID}/invites/{token}:
+    delete:
+      summary: Revoke a project invite
+      description: Revokes a project invite using the invite token, preventing it from being accepted
+      operationId: RevokeProjectInvite
+      tags:
+        - Admins
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The project invite token
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+      responses:
+        "204":
+          description: Project invite revoked successfully
+        default:
+          $ref: "#/components/responses/Error"
+    
+  /api/invites/{token}:
+    get:
+      summary: Get invite details
+      description: Retrieves the details of a project invite using the invite token, without requiring authentication
+      operationId: GetInviteDetails
+      tags:
+        - Admins
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The project invite token
+      responses:
+        "200":
+          description: Project invite details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectInvite"
+        default:
+          $ref: "#/components/responses/Error"
 
   /api/admin/projects/{projectID}/subjects/users:
     get:
@@ -5410,6 +5519,22 @@ components:
                     type: array
                     items:
                       $ref: "#/components/schemas/Campaign"
+
+    ProjectInviteListResponse:
+      description: Project invites retrieved successfully
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: "#/components/schemas/PaginatedResponse"
+              - type: object
+                required:
+                  - results
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ProjectInvite"
 
     JourneyListResponse:
       description: Journeys retrieved successfully

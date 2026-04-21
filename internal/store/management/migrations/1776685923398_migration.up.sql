@@ -3,7 +3,7 @@ CREATE TABLE project_invites (
     project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
     inviter_admin_id UUID NOT NULL REFERENCES admins(id) ON DELETE SET NULL,
     invitee_email VARCHAR(255) NOT NULL,
-    token VARCHAR(50) NOT NULL,
+    token VARCHAR(50) NOT NULL UNIQUE,
 
     role VARCHAR(50) NOT NULL,
     CHECK (role IN ('support', 'client', 'editor', 'admin')),

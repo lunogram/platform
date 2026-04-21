@@ -61,3 +61,74 @@ func (s *InvitesStore) CreateProjectInvite(ctx context.Context, projectID uuid.U
 	}
 	return &invite, nil
 }
+
+func (s *InvitesStore) GetInviteByToken(ctx context.Context, token string) (*Invite, error) {
+	stmt := `
+	SELECT id, project_id, inviter_admin_id, invitee_email, role, token, expires_at, created_at, revoked_at, accepted_at
+	FROM invites
+	WHERE token = $1 AND revoked_at IS NULL AND accepted_at IS NULL AND expires_at > NOW()`
+
+	var invite Invite
+	err := s.db.GetContext(ctx, &invite, stmt, token)
+	if err != nil {
+		return nil, err
+	}
+	return &invite, nil
+}
+
+func (s *InvitesStore) AcceptProjectInvite(ctx context.Context, token string) (*Invite, error) {
+	stmt := `
+	UPDATE invites
+	SET accepted_at = NOW()
+	WHERE token = $1 AND revoked_at IS NULL AND accepted_at IS NULL AND expires_at > NOW()
+	RETURNING id, project_id, inviter_admin_id, invitee_email, role, token, expires_at, created_at, revoked_at, accepted_at`
+
+	var invite Invite
+	err := s.db.GetContext(ctx, &invite, stmt, token)
+	if err != nil {
+		return nil, err
+	}
+	return &invite, nil
+}
+
+func (s *InvitesStore) RevokeProjectInvite(ctx context.Context, token string) (*Invite, error) {
+	stmt := `
+	UPDATE invites
+	SET revoked_at = NOW()
+	WHERE token = $1 AND revoked_at IS NULL AND accepted_at IS NULL AND expires_at > NOW()
+	RETURNING id, project_id, inviter_admin_id, invitee_email, role, token, expires_at, created_at, revoked_at, accepted_at`
+
+	var invite Invite
+	err := s.db.GetContext(ctx, &invite, stmt, token)
+	if err != nil {
+		return nil, err
+	}
+	return &invite, nil
+}
+
+func (s *InvitesStore) ListProjectInvites(ctx context.Context, projectID uuid.UUID, pagination store.Pagination) ([]Invite, int, error) {
+	countStmt := `
+	SELECT COUNT(*)
+	FROM invites
+	WHERE project_id = $1 AND revoked_at IS NULL AND accepted_at IS NULL`
+
+	var total int
+	err := s.db.GetContext(ctx, &total, countStmt, projectID)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	stmt := `
+	SELECT id, project_id, inviter_admin_id, invitee_email, role, token, expires_at, created_at, revoked_at, accepted_at
+	FROM invites
+	WHERE project_id = $1 AND revoked_at IS NULL AND accepted_at IS NULL
+	ORDER BY created_at DESC
+	LIMIT $2 OFFSET $3`
+
+	var invites []Invite
+	err = s.db.SelectContext(ctx, &invites, stmt, projectID, pagination.Limit, pagination.Offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	return invites, total, nil
+}
