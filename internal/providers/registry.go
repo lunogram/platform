@@ -8,23 +8,26 @@ import (
 	"github.com/cloudproud/graceful"
 	"github.com/lunogram/platform/internal/config"
 	integrationloader "github.com/lunogram/platform/internal/integrations"
-	"github.com/lunogram/platform/internal/wasm/providers"
+	wasmproviders "github.com/lunogram/platform/internal/wasm/providers"
 )
 
 // Registry is a type alias for the provider registry.
-type Registry = providers.Registry
+type Registry = wasmproviders.Registry
 
 // Provider is a type alias for the provider wrapper.
-type Provider = providers.Provider
+type Provider = wasmproviders.Provider
+
+// NewRegistryFromIntegrations creates a provider registry facade over a unified integration registry.
+func NewRegistryFromIntegrations(registry *integrationloader.Registry) *Registry {
+	return &wasmproviders.Registry{Registry: registry}
+}
 
 // NewRegistry creates a new registry and loads all embedded WASM provider modules.
 func NewRegistry(ctx graceful.Context, cfg config.WASM, logger *zap.Logger) (*Registry, error) {
-	registry := providers.NewRegistry(cfg, logger)
-
-	err := integrationloader.LoadModules(ctx, registry)
+	integrationRegistry, err := integrationloader.NewRegistry(ctx, cfg, logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize provider registry: %w", err)
 	}
 
-	return registry, nil
+	return NewRegistryFromIntegrations(integrationRegistry), nil
 }

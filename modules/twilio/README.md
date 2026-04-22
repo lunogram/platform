@@ -58,4 +58,4 @@ Twilio POSTs `x-www-form-urlencoded` status updates with an `X-Twilio-Signature`
 make wasm
 ```
 
-This produces a WASM module at `internal/providers/modules/twilio.wasm` using TinyGo.
+This produces a WASM module at `internal/integrations/modules/twilio.wasm` using TinyGo.

@@ -1,5 +1,5 @@
-MODULE  := twilio
-OUT     := ../../../internal/integrations/modules/$(MODULE).wasm
+MODULE  := resend
+OUT     := ../../internal/integrations/modules/$(MODULE).wasm
 TINYGO  ?= $(shell which tinygo)
 
 .PHONY: wasm clean

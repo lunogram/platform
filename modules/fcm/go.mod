@@ -1,4 +1,4 @@
-module github.com/lunogram/platform/modules/providers/fcm
+module github.com/lunogram/platform/modules/fcm
 
 go 1.25.1
 
@@ -9,4 +9,4 @@ require (
 
 require github.com/google/uuid v1.6.0 // indirect
 
-replace github.com/lunogram/platform => ../../../
+replace github.com/lunogram/platform => ../../

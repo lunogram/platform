@@ -1,5 +1,5 @@
-MODULE  := apns
-OUT     := ../../../internal/integrations/modules/$(MODULE).wasm
+MODULE  := logger
+OUT     := ../../internal/integrations/modules/$(MODULE).wasm
 TINYGO  ?= $(shell which tinygo)
 
 .PHONY: wasm clean

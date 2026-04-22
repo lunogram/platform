@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/extism/go-pdk"
-	"github.com/lunogram/platform/modules/providers/twilio/provider"
+	"github.com/lunogram/platform/modules/twilio/provider"
 	"github.com/lunogram/platform/pkg/modules"
 	"github.com/lunogram/platform/pkg/modules/providers"
 )

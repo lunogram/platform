@@ -16,7 +16,7 @@ import (
 	"time"
 
 	pdkhttp "github.com/extism/go-pdk/http"
-	"github.com/lunogram/platform/modules/providers/twilio/provider"
+	"github.com/lunogram/platform/modules/twilio/provider"
 )
 
 // Re-export exit codes from the provider package so the main module can use them directly.

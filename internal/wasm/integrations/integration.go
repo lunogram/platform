@@ -112,21 +112,39 @@ func (i *Integration) Validate(ctx context.Context, req modules.ValidateRequest)
 		return nil, fmt.Errorf("integration validate failed (code %d): %s", code, string(res))
 	}
 
-	var response modules.ValidateResponse
-	if err := json.Unmarshal(res, &response); err == nil {
-		if response.Valid || len(response.Errors) > 0 || response.Message != "" {
-			return &response, nil
-		}
+	return decodeValidateResponse(res)
+}
+
+func decodeValidateResponse(res []byte) (*modules.ValidateResponse, error) {
+	var envelope map[string]json.RawMessage
+	if err := json.Unmarshal(res, &envelope); err != nil {
+		return nil, fmt.Errorf("failed to decode validate response envelope: %w", err)
 	}
 
-	var actionResponse actiontypes.ValidateResponse
-	if err := json.Unmarshal(res, &actionResponse); err == nil {
-		if actionResponse.StatusCode != 0 || actionResponse.Message != "" {
-			return &modules.ValidateResponse{
-				Valid:   actionResponse.StatusCode < 400,
-				Message: actionResponse.Message,
-			}, nil
+	_, hasValid := envelope["valid"]
+	_, hasErrors := envelope["errors"]
+	_, hasStatusCode := envelope["status_code"]
+	_, hasMessage := envelope["message"]
+
+	if hasValid || hasErrors || (hasMessage && !hasStatusCode) {
+		var response modules.ValidateResponse
+		if err := json.Unmarshal(res, &response); err != nil {
+			return nil, fmt.Errorf("failed to decode integration validate response: %w", err)
 		}
+
+		return &response, nil
+	}
+
+	if hasStatusCode || hasMessage {
+		var actionResponse actiontypes.ValidateResponse
+		if err := json.Unmarshal(res, &actionResponse); err != nil {
+			return nil, fmt.Errorf("failed to decode compatibility validate response: %w", err)
+		}
+
+		return &modules.ValidateResponse{
+			Valid:   actionResponse.StatusCode < 400,
+			Message: actionResponse.Message,
+		}, nil
 	}
 
 	return nil, fmt.Errorf("failed to decode validate response")

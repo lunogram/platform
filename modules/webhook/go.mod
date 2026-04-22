@@ -1,4 +1,4 @@
-module github.com/lunogram/platform/modules/actions/webhook
+module github.com/lunogram/platform/modules/webhook
 
 go 1.25.1
 
@@ -7,4 +7,4 @@ require (
 	github.com/lunogram/platform v0.0.0-00010101000000-000000000000
 )
 
-replace github.com/lunogram/platform => ../../../
+replace github.com/lunogram/platform => ../../

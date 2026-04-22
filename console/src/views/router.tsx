@@ -577,6 +577,14 @@ export const createRouter = ({
                                         element: <IntegrationSetup />,
                                     },
                                     {
+                                        path: "integrations/new/:kind/:module",
+                                        element: <IntegrationSetup />,
+                                    },
+                                    {
+                                        path: "integrations/:kind/:id",
+                                        element: <IntegrationSetup />,
+                                    },
+                                    {
                                         path: "integrations/:id",
                                         element: <IntegrationSetup />,
                                     },
