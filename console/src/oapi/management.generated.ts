@@ -716,7 +716,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/admin/project/{projectID}/invites/{token}": {
+    "/api/admin/projects/{projectID}/invites/{token}": {
         parameters: {
             query?: never;
             header?: never;
@@ -6355,6 +6355,13 @@ export interface operations {
     ListProjectInvites: {
         parameters: {
             query?: {
+                /** @description Filter invites by status */
+                status?: "pending" | "accepted" | "revoked" | "expired";
+                role?: "support" | "client" | "editor" | "admin";
+                expires_after?: string;
+                expires_before?: string;
+                /** @description Search query string */
+                search?: components["parameters"]["Search"];
                 /** @description Maximum number of items to return */
                 limit?: components["parameters"]["Limit"];
                 /** @description Number of items to skip */
@@ -6406,7 +6413,10 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description The project invite token */
+                /**
+                 * @description The project invite token
+                 * @example abc123def456
+                 */
                 token: string;
                 /** @description The project ID */
                 projectID: string;
@@ -6432,10 +6442,13 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description The project invite token */
-                token: string;
                 /** @description The project ID */
                 projectID: string;
+                /**
+                 * @description The project invite token
+                 * @example abc123def456
+                 */
+                token: string;
             };
             cookie?: never;
         };
@@ -6456,7 +6469,10 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description The project invite token */
+                /**
+                 * @description The project invite token
+                 * @example abc123def456
+                 */
                 token: string;
             };
             cookie?: never;

@@ -1755,6 +1755,35 @@ paths:
             type: string
             format: uuid
           description: The project ID
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [pending, accepted, revoked, expired]
+          description: Filter invites by status
+        - name: role
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [support, client, editor, admin]
+            description: Filter invites by role
+        - name: expires_after
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+            description: Filter invites that expire after a certain date
+        - name: expires_before
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+            description: Filter invites that expire before a certain date
+        - $ref: "#/components/parameters/Search"
         - $ref: "#/components/parameters/Limit"
         - $ref: "#/components/parameters/Offset"
       responses:
@@ -1779,6 +1808,7 @@ paths:
           schema:
             type: string
           description: The project invite token
+          example: "abc123def456"
         - name: projectID
           in: path
           required: true
@@ -1796,7 +1826,7 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
-  /api/admin/project/{projectID}/invites/{token}:
+  /api/admin/projects/{projectID}/invites/{token}:
     delete:
       summary: Revoke a project invite
       description: Revokes a project invite using the invite token, preventing it from being accepted
@@ -1806,12 +1836,6 @@ paths:
       security:
         - HttpBearerAuth: []
       parameters:
-        - name: token
-          in: path
-          required: true
-          schema:
-            type: string
-          description: The project invite token
         - name: projectID
           in: path
           required: true
@@ -1819,6 +1843,13 @@ paths:
             type: string
             format: uuid
           description: The project ID
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The project invite token
+          example: "abc123def456"
       responses:
         "204":
           description: Project invite revoked successfully
@@ -1839,6 +1870,7 @@ paths:
           schema:
             type: string
           description: The project invite token
+          example: "abc123def456"
       responses:
         "200":
           description: Project invite details retrieved successfully

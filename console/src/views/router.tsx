@@ -17,6 +17,7 @@ import {
     ActionContext,
 } from "../contexts"
 import ApiKeys from "./settings/ApiKeys"
+import Invites from "./settings/Invites"
 import Lists from "./users/Lists"
 import ListDetail from "./users/ListDetail"
 import Users from "./users/Users"
@@ -630,6 +631,10 @@ export const createRouter = ({
                                             {
                                                 path: "api-keys",
                                                 element: <ApiKeys />,
+                                            },
+                                            {
+                                                path: "invites",
+                                                element: <Invites />,
                                             },
                                             {
                                                 path: "subscriptions",

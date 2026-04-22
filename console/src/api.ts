@@ -27,6 +27,8 @@ import type {
     ProjectAdminParams,
     ProjectApiKey,
     ProjectApiKeyParams,
+    ProjectInvite,
+    ProjectRole,
     Resource,
     RulePath,
     SearchParams,
@@ -199,6 +201,30 @@ const api = {
                 },
             )
         },
+        list: async (
+            projectId: UUID,
+            params?: {
+                limit?: number
+                offset?: number
+                search?: string
+                status?: string
+                role?: string
+                expires_after?: string
+                expires_before?: string
+            },
+        ) =>
+            await client
+                .get<SearchResult<ProjectInvite>>(`${projectUrl(projectId)}/invites`, { params })
+                .then((r) => r.data),
+        create: async (
+            projectId: UUID,
+            params: { email: string; role: ProjectRole; expires_in?: string },
+        ) =>
+            await client
+                .post<ProjectInvite>(`${projectUrl(projectId)}/invites`, params)
+                .then((r) => r.data),
+        revoke: async (projectId: UUID, token: string) =>
+            await client.delete(`${projectUrl(projectId)}/invites/${token}`).then((r) => r.data),
     },
 
     profile: {

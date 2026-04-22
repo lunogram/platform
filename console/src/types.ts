@@ -332,6 +332,18 @@ export interface Admin {
 
 export const projectRoles = ["support", "client", "editor", "admin"] as const
 
+export interface ProjectInvite {
+    id: UUID
+    project_id: UUID
+    inviter_admin_id: UUID
+    invitee_email: string
+    role: ProjectRole
+    token: string
+    expires_at: string
+    accepted_at: string | null
+    revoked_at: string | null
+}
+
 export type ProjectRole = (typeof projectRoles)[number]
 
 export interface ProjectAdmin extends Omit<Admin, "id" | "role"> {

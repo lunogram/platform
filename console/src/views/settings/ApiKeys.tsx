@@ -35,7 +35,7 @@ export default function ProjectApiKeys() {
 
     const [searchQuery, setSearchQuery] = useState("")
     const [debouncedQuery, setDebouncedQuery] = useState("")
-    const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>()
+    const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>(setTimeout(() => {}, 0))
     const [editing, setEditing] = useState<null | Partial<ProjectApiKey>>(null)
     const [isSaving, setIsSaving] = useState(false)
 

@@ -156,7 +156,10 @@ export default function Organizations() {
                 <Button
                     onClick={() => setIsCreateOpen(true)}
                     className="flex-1 sm:flex-initial"
-                    aria-label={t("create_organization_from_header", "Create Organization from header")}
+                    aria-label={t(
+                        "create_organization_from_header",
+                        "Create Organization from header",
+                    )}
                 >
                     <Plus className="mr-2 h-4 w-4" />
                     {t("create_organization")}

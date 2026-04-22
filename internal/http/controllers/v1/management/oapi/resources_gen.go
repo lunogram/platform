@@ -198,6 +198,22 @@ const (
 	UpdateUserScheduledRequestResumeImmediately    UpdateUserScheduledRequestResume = "immediately"
 )
 
+// Defines values for ListProjectInvitesParamsStatus.
+const (
+	Accepted ListProjectInvitesParamsStatus = "accepted"
+	Expired  ListProjectInvitesParamsStatus = "expired"
+	Pending  ListProjectInvitesParamsStatus = "pending"
+	Revoked  ListProjectInvitesParamsStatus = "revoked"
+)
+
+// Defines values for ListProjectInvitesParamsRole.
+const (
+	ListProjectInvitesParamsRoleAdmin   ListProjectInvitesParamsRole = "admin"
+	ListProjectInvitesParamsRoleClient  ListProjectInvitesParamsRole = "client"
+	ListProjectInvitesParamsRoleEditor  ListProjectInvitesParamsRole = "editor"
+	ListProjectInvitesParamsRoleSupport ListProjectInvitesParamsRole = "support"
+)
+
 // Defines values for ListSenderIdentitiesParamsChannel.
 const (
 	ListSenderIdentitiesParamsChannelEmail ListSenderIdentitiesParamsChannel = "email"
@@ -2061,12 +2077,27 @@ type ListEmailTemplatesParams struct {
 
 // ListProjectInvitesParams defines parameters for ListProjectInvites.
 type ListProjectInvitesParams struct {
+	// Status Filter invites by status
+	Status        *ListProjectInvitesParamsStatus `form:"status,omitempty" json:"status,omitempty"`
+	Role          *ListProjectInvitesParamsRole   `form:"role,omitempty" json:"role,omitempty"`
+	ExpiresAfter  *openapi_types.Date             `form:"expires_after,omitempty" json:"expires_after,omitempty"`
+	ExpiresBefore *openapi_types.Date             `form:"expires_before,omitempty" json:"expires_before,omitempty"`
+
+	// Search Search query string
+	Search *Search `form:"search,omitempty" json:"search,omitempty"`
+
 	// Limit Maximum number of items to return
 	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
 
 	// Offset Number of items to skip
 	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
 }
+
+// ListProjectInvitesParamsStatus defines parameters for ListProjectInvites.
+type ListProjectInvitesParamsStatus string
+
+// ListProjectInvitesParamsRole defines parameters for ListProjectInvites.
+type ListProjectInvitesParamsRole string
 
 // ListJourneysParams defines parameters for ListJourneys.
 type ListJourneysParams struct {
@@ -2567,9 +2598,6 @@ type ClientInterface interface {
 	// GetProfile request
 	GetProfile(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// RevokeProjectInvite request
-	RevokeProjectInvite(ctx context.Context, projectID openapi_types.UUID, token string, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// ListProjects request
 	ListProjects(ctx context.Context, params *ListProjectsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -2743,6 +2771,9 @@ type ClientInterface interface {
 
 	// AcceptProjectInvite request
 	AcceptProjectInvite(ctx context.Context, projectID openapi_types.UUID, token string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RevokeProjectInvite request
+	RevokeProjectInvite(ctx context.Context, projectID openapi_types.UUID, token string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListJourneys request
 	ListJourneys(ctx context.Context, projectID openapi_types.UUID, params *ListJourneysParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -3147,18 +3178,6 @@ type ClientInterface interface {
 
 func (c *Client) GetProfile(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetProfileRequest(c.Server)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) RevokeProjectInvite(ctx context.Context, projectID openapi_types.UUID, token string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewRevokeProjectInviteRequest(c.Server, projectID, token)
 	if err != nil {
 		return nil, err
 	}
@@ -3915,6 +3934,18 @@ func (c *Client) CreateProjectInvite(ctx context.Context, projectID openapi_type
 
 func (c *Client) AcceptProjectInvite(ctx context.Context, projectID openapi_types.UUID, token string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewAcceptProjectInviteRequest(c.Server, projectID, token)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RevokeProjectInvite(ctx context.Context, projectID openapi_types.UUID, token string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRevokeProjectInviteRequest(c.Server, projectID, token)
 	if err != nil {
 		return nil, err
 	}
@@ -5685,47 +5716,6 @@ func NewGetProfileRequest(server string) (*http.Request, error) {
 	}
 
 	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewRevokeProjectInviteRequest generates requests for RevokeProjectInvite
-func NewRevokeProjectInviteRequest(server string, projectID openapi_types.UUID, token string) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam1 string
-
-	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "token", runtime.ParamLocationPath, token)
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/admin/project/%s/invites/%s", pathParam0, pathParam1)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -8202,6 +8192,86 @@ func NewListProjectInvitesRequest(server string, projectID openapi_types.UUID, p
 	if params != nil {
 		queryValues := queryURL.Query()
 
+		if params.Status != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "status", runtime.ParamLocationQuery, *params.Status); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Role != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "role", runtime.ParamLocationQuery, *params.Role); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.ExpiresAfter != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "expires_after", runtime.ParamLocationQuery, *params.ExpiresAfter); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.ExpiresBefore != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "expires_before", runtime.ParamLocationQuery, *params.ExpiresBefore); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Search != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "search", runtime.ParamLocationQuery, *params.Search); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
 		if params.Limit != nil {
 
 			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
@@ -8326,6 +8396,47 @@ func NewAcceptProjectInviteRequest(server string, projectID openapi_types.UUID, 
 	}
 
 	req, err := http.NewRequest("POST", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewRevokeProjectInviteRequest generates requests for RevokeProjectInvite
+func NewRevokeProjectInviteRequest(server string, projectID openapi_types.UUID, token string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "token", runtime.ParamLocationPath, token)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/invites/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -14155,9 +14266,6 @@ type ClientWithResponsesInterface interface {
 	// GetProfileWithResponse request
 	GetProfileWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetProfileResponse, error)
 
-	// RevokeProjectInviteWithResponse request
-	RevokeProjectInviteWithResponse(ctx context.Context, projectID openapi_types.UUID, token string, reqEditors ...RequestEditorFn) (*RevokeProjectInviteResponse, error)
-
 	// ListProjectsWithResponse request
 	ListProjectsWithResponse(ctx context.Context, params *ListProjectsParams, reqEditors ...RequestEditorFn) (*ListProjectsResponse, error)
 
@@ -14331,6 +14439,9 @@ type ClientWithResponsesInterface interface {
 
 	// AcceptProjectInviteWithResponse request
 	AcceptProjectInviteWithResponse(ctx context.Context, projectID openapi_types.UUID, token string, reqEditors ...RequestEditorFn) (*AcceptProjectInviteResponse, error)
+
+	// RevokeProjectInviteWithResponse request
+	RevokeProjectInviteWithResponse(ctx context.Context, projectID openapi_types.UUID, token string, reqEditors ...RequestEditorFn) (*RevokeProjectInviteResponse, error)
 
 	// ListJourneysWithResponse request
 	ListJourneysWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListJourneysParams, reqEditors ...RequestEditorFn) (*ListJourneysResponse, error)
@@ -14750,28 +14861,6 @@ func (r GetProfileResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetProfileResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type RevokeProjectInviteResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSONDefault  *Error
-}
-
-// Status returns HTTPResponse.Status
-func (r RevokeProjectInviteResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r RevokeProjectInviteResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -15891,6 +15980,28 @@ func (r AcceptProjectInviteResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r AcceptProjectInviteResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type RevokeProjectInviteResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r RevokeProjectInviteResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RevokeProjectInviteResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -18441,15 +18552,6 @@ func (c *ClientWithResponses) GetProfileWithResponse(ctx context.Context, reqEdi
 	return ParseGetProfileResponse(rsp)
 }
 
-// RevokeProjectInviteWithResponse request returning *RevokeProjectInviteResponse
-func (c *ClientWithResponses) RevokeProjectInviteWithResponse(ctx context.Context, projectID openapi_types.UUID, token string, reqEditors ...RequestEditorFn) (*RevokeProjectInviteResponse, error) {
-	rsp, err := c.RevokeProjectInvite(ctx, projectID, token, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseRevokeProjectInviteResponse(rsp)
-}
-
 // ListProjectsWithResponse request returning *ListProjectsResponse
 func (c *ClientWithResponses) ListProjectsWithResponse(ctx context.Context, params *ListProjectsParams, reqEditors ...RequestEditorFn) (*ListProjectsResponse, error) {
 	rsp, err := c.ListProjects(ctx, params, reqEditors...)
@@ -19000,6 +19102,15 @@ func (c *ClientWithResponses) AcceptProjectInviteWithResponse(ctx context.Contex
 		return nil, err
 	}
 	return ParseAcceptProjectInviteResponse(rsp)
+}
+
+// RevokeProjectInviteWithResponse request returning *RevokeProjectInviteResponse
+func (c *ClientWithResponses) RevokeProjectInviteWithResponse(ctx context.Context, projectID openapi_types.UUID, token string, reqEditors ...RequestEditorFn) (*RevokeProjectInviteResponse, error) {
+	rsp, err := c.RevokeProjectInvite(ctx, projectID, token, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRevokeProjectInviteResponse(rsp)
 }
 
 // ListJourneysWithResponse request returning *ListJourneysResponse
@@ -20293,32 +20404,6 @@ func ParseGetProfileResponse(rsp *http.Response) (*GetProfileResponse, error) {
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseRevokeProjectInviteResponse parses an HTTP response from a RevokeProjectInviteWithResponse call
-func ParseRevokeProjectInviteResponse(rsp *http.Response) (*RevokeProjectInviteResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &RevokeProjectInviteResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -21858,6 +21943,32 @@ func ParseAcceptProjectInviteResponse(rsp *http.Response) (*AcceptProjectInviteR
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRevokeProjectInviteResponse parses an HTTP response from a RevokeProjectInviteWithResponse call
+func ParseRevokeProjectInviteResponse(rsp *http.Response) (*RevokeProjectInviteResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RevokeProjectInviteResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -25318,9 +25429,6 @@ type ServerInterface interface {
 	// Get current admin profile
 	// (GET /api/admin/profile)
 	GetProfile(w http.ResponseWriter, r *http.Request)
-	// Revoke a project invite
-	// (DELETE /api/admin/project/{projectID}/invites/{token})
-	RevokeProjectInvite(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, token string)
 	// List projects
 	// (GET /api/admin/projects)
 	ListProjects(w http.ResponseWriter, r *http.Request, params ListProjectsParams)
@@ -25465,6 +25573,9 @@ type ServerInterface interface {
 	// Accept a project invite
 	// (POST /api/admin/projects/{projectID}/invites/accept/{token})
 	AcceptProjectInvite(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, token string)
+	// Revoke a project invite
+	// (DELETE /api/admin/projects/{projectID}/invites/{token})
+	RevokeProjectInvite(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, token string)
 	// List journeys
 	// (GET /api/admin/projects/{projectID}/journeys)
 	ListJourneys(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListJourneysParams)
@@ -25807,12 +25918,6 @@ func (_ Unimplemented) GetProfile(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// Revoke a project invite
-// (DELETE /api/admin/project/{projectID}/invites/{token})
-func (_ Unimplemented) RevokeProjectInvite(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, token string) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
 // List projects
 // (GET /api/admin/projects)
 func (_ Unimplemented) ListProjects(w http.ResponseWriter, r *http.Request, params ListProjectsParams) {
@@ -26098,6 +26203,12 @@ func (_ Unimplemented) CreateProjectInvite(w http.ResponseWriter, r *http.Reques
 // Accept a project invite
 // (POST /api/admin/projects/{projectID}/invites/accept/{token})
 func (_ Unimplemented) AcceptProjectInvite(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, token string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Revoke a project invite
+// (DELETE /api/admin/projects/{projectID}/invites/{token})
+func (_ Unimplemented) RevokeProjectInvite(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, token string) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -26781,46 +26892,6 @@ func (siw *ServerInterfaceWrapper) GetProfile(w http.ResponseWriter, r *http.Req
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetProfile(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// RevokeProjectInvite operation middleware
-func (siw *ServerInterfaceWrapper) RevokeProjectInvite(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-
-	// ------------- Path parameter "projectID" -------------
-	var projectID openapi_types.UUID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
-		return
-	}
-
-	// ------------- Path parameter "token" -------------
-	var token string
-
-	err = runtime.BindStyledParameterWithOptions("simple", "token", chi.URLParam(r, "token"), &token, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "token", Err: err})
-		return
-	}
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
-
-	r = r.WithContext(ctx)
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.RevokeProjectInvite(w, r, projectID, token)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -28785,6 +28856,46 @@ func (siw *ServerInterfaceWrapper) ListProjectInvites(w http.ResponseWriter, r *
 	// Parameter object where we will unmarshal all parameters from the context
 	var params ListProjectInvitesParams
 
+	// ------------- Optional query parameter "status" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "status", r.URL.Query(), &params.Status)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "status", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "role" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "role", r.URL.Query(), &params.Role)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "role", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "expires_after" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "expires_after", r.URL.Query(), &params.ExpiresAfter)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "expires_after", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "expires_before" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "expires_before", r.URL.Query(), &params.ExpiresBefore)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "expires_before", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "search" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "search", r.URL.Query(), &params.Search)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "search", Err: err})
+		return
+	}
+
 	// ------------- Optional query parameter "limit" -------------
 
 	err = runtime.BindQueryParameter("form", true, false, "limit", r.URL.Query(), &params.Limit)
@@ -28874,6 +28985,46 @@ func (siw *ServerInterfaceWrapper) AcceptProjectInvite(w http.ResponseWriter, r 
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.AcceptProjectInvite(w, r, projectID, token)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RevokeProjectInvite operation middleware
+func (siw *ServerInterfaceWrapper) RevokeProjectInvite(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "token" -------------
+	var token string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "token", chi.URLParam(r, "token"), &token, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "token", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RevokeProjectInvite(w, r, projectID, token)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -33625,9 +33776,6 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/api/admin/profile", wrapper.GetProfile)
 	})
 	r.Group(func(r chi.Router) {
-		r.Delete(options.BaseURL+"/api/admin/project/{projectID}/invites/{token}", wrapper.RevokeProjectInvite)
-	})
-	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects", wrapper.ListProjects)
 	})
 	r.Group(func(r chi.Router) {
@@ -33770,6 +33918,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/invites/accept/{token}", wrapper.AcceptProjectInvite)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/admin/projects/{projectID}/invites/{token}", wrapper.RevokeProjectInvite)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/journeys", wrapper.ListJourneys)

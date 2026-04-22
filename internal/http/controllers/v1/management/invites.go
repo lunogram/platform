@@ -180,7 +180,10 @@ func (srv *InviteController) ListProjectInvites(w http.ResponseWriter, r *http.R
 		Offset: params.Offset.ToInt(),
 	}
 
-	invites, total, err := srv.mgmt.ListProjectInvites(ctx, projectID, pagination)
+	expiresBefore := params.ExpiresBefore.GoString()
+	expiresAfter := params.ExpiresAfter.GoString()
+
+	invites, total, err := srv.mgmt.ListProjectInvites(ctx, projectID, pagination, params.Search.ToString(), params.Role, params.Status, &expiresBefore, &expiresAfter)
 	if err != nil {
 		logger.Error("failed to list project invites", zap.Error(err))
 		oapi.WriteProblem(w, err)
