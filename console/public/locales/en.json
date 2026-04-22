@@ -468,6 +468,8 @@
     "onboarding_integration_description": "Connect a provider to start sending messages. You can always add more later.",
     "onboarding_users_title": "Connect your Users",
     "onboarding_users_description": "Bring your users into Lunogram. Install our SDK/plugin or upload a CSV to start syncing users.",
+    "onboarding_users_import_failed": "Failed to import users from CSV.",
+    "onboarding_users_default_user_create_failed": "Failed to create the default admin user.",
     "onboarding_users_api_key_title": "Your API key is ready",
     "onboarding_awaiting_users": "Waiting for users to sync… They’ll appear here automatically.",
     "journey": "Journey",
