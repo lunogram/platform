@@ -9121,6 +9121,10 @@ components:
           type: string
           format: uuid
           example: "5143f27c-cca9-4dc4-9059-e1dbb08144ad"
+        inviter_admin_email:
+          type: string
+          example: "admin@example.com"
+          nullable: true
         invitee_email:
           type: string
           format: email

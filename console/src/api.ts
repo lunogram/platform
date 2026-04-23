@@ -211,6 +211,7 @@ const api = {
                 role?: string
                 expires_after?: string
                 expires_before?: string
+                inviter_admin_id?: string
             },
         ) =>
             await client

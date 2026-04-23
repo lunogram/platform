@@ -4750,6 +4750,8 @@ export interface components {
              * @example 5143f27c-cca9-4dc4-9059-e1dbb08144ad
              */
             inviter_admin_id?: string;
+            /** @example admin@example.com */
+            inviter_admin_email?: string | null;
             /**
              * Format: email
              * @example user@example.com

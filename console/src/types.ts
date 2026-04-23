@@ -336,6 +336,7 @@ export interface ProjectInvite {
     id: UUID
     project_id: UUID
     inviter_admin_id: UUID
+    inviter_admin_email: string | null
     invitee_email: string
     role: ProjectRole
     token: string

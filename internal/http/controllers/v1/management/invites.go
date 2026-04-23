@@ -6,6 +6,7 @@ import (
 	"errors"
 	"math/rand"
 	"net/http"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
@@ -180,10 +181,17 @@ func (srv *InviteController) ListProjectInvites(w http.ResponseWriter, r *http.R
 		Offset: params.Offset.ToInt(),
 	}
 
-	expiresBefore := params.ExpiresBefore.GoString()
-	expiresAfter := params.ExpiresAfter.GoString()
+	var expiresBefore, expiresAfter *string
+	if params.ExpiresBefore != nil {
+		s := params.ExpiresBefore.Time.Format(time.RFC3339)
+		expiresBefore = &s
+	}
+	if params.ExpiresAfter != nil {
+		s := params.ExpiresAfter.Time.Format(time.RFC3339)
+		expiresAfter = &s
+	}
 
-	invites, total, err := srv.mgmt.ListProjectInvites(ctx, projectID, pagination, params.Search.ToString(), params.Role, params.Status, &expiresBefore, &expiresAfter)
+	invites, total, err := srv.mgmt.ListProjectInvites(ctx, projectID, pagination, params.Search.ToString(), params.Role, params.Status, expiresBefore, expiresAfter)
 	if err != nil {
 		logger.Error("failed to list project invites", zap.Error(err))
 		oapi.WriteProblem(w, err)

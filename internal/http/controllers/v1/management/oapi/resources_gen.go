@@ -1120,14 +1120,15 @@ type ProjectAdminList struct {
 
 // ProjectInvite defines model for ProjectInvite.
 type ProjectInvite struct {
-	AcceptedAt     *time.Time           `json:"accepted_at"`
-	ExpiresAt      *time.Time           `json:"expires_at,omitempty"`
-	Id             *openapi_types.UUID  `json:"id,omitempty"`
-	InviteeEmail   *openapi_types.Email `json:"invitee_email,omitempty"`
-	InviterAdminId *openapi_types.UUID  `json:"inviter_admin_id,omitempty"`
-	ProjectId      *openapi_types.UUID  `json:"project_id,omitempty"`
-	RevokedAt      *time.Time           `json:"revoked_at"`
-	Role           *ProjectInviteRole   `json:"role,omitempty"`
+	AcceptedAt        *time.Time           `json:"accepted_at"`
+	ExpiresAt         *time.Time           `json:"expires_at,omitempty"`
+	Id                *openapi_types.UUID  `json:"id,omitempty"`
+	InviteeEmail      *openapi_types.Email `json:"invitee_email,omitempty"`
+	InviterAdminEmail *string              `json:"inviter_admin_email"`
+	InviterAdminId    *openapi_types.UUID  `json:"inviter_admin_id,omitempty"`
+	ProjectId         *openapi_types.UUID  `json:"project_id,omitempty"`
+	RevokedAt         *time.Time           `json:"revoked_at"`
+	Role              *ProjectInviteRole   `json:"role,omitempty"`
 
 	// Token Unique token for the invite link
 	Token *string `json:"token,omitempty"`

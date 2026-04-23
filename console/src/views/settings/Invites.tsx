@@ -54,6 +54,7 @@ export default function Invites() {
     const [roleFilter, setRoleFilter] = useState<ProjectRole | undefined>(undefined)
     const [expiresAfter, setExpiresAfter] = useState("")
     const [expiresBefore, setExpiresBefore] = useState("")
+    const [inviterAdminFilter, setInviterAdminFilter] = useState<string | undefined>(undefined)
     const [page, setPage] = useState(1)
     const limit = 15
     const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>(setTimeout(() => {}, 0))
@@ -89,15 +90,27 @@ export default function Invites() {
         setPage(1)
     }, [])
 
+    const handleInviterAdminFilterChange = useCallback((id: string | undefined) => {
+        setInviterAdminFilter(id)
+        setPage(1)
+    }, [])
+
     const clearFilters = useCallback(() => {
         setStatusFilter(undefined)
         setRoleFilter(undefined)
         setExpiresAfter("")
         setExpiresBefore("")
+        setInviterAdminFilter(undefined)
         setPage(1)
     }, [])
 
-    const hasActiveFilters = statusFilter || roleFilter || expiresAfter || expiresBefore
+    const hasActiveFilters = statusFilter || roleFilter || expiresAfter || expiresBefore || inviterAdminFilter
+
+    const [adminsResult] = useResolver(
+        useCallback(async () => {
+            return await api.projectAdmins.search(project.id, { limit: 100 })
+        }, [project.id]),
+    )
 
     const [result, , reload] = useResolver(
         useCallback(async () => {
@@ -109,6 +122,7 @@ export default function Invites() {
                 role: roleFilter,
                 expires_after: expiresAfter || undefined,
                 expires_before: expiresBefore || undefined,
+                inviter_admin_id: inviterAdminFilter,
             })
         }, [
             project.id,
@@ -117,6 +131,7 @@ export default function Invites() {
             roleFilter,
             expiresAfter,
             expiresBefore,
+            inviterAdminFilter,
             page,
         ]),
     )
@@ -251,6 +266,40 @@ export default function Invites() {
                                     </div>
                                 </div>
                                 <div className="grid gap-2">
+                                    <Label className="text-xs font-medium">
+                                        {t("invited_by", "Invited by")}
+                                    </Label>
+                                    <div className="flex flex-wrap gap-1">
+                                        <Button
+                                            variant={!inviterAdminFilter ? "secondary" : "ghost"}
+                                            size="sm"
+                                            className="h-7 px-2 text-xs"
+                                            onClick={() =>
+                                                handleInviterAdminFilterChange(undefined)
+                                            }
+                                        >
+                                            {t("all", "All")}
+                                        </Button>
+                                        {adminsResult?.results.map((admin) => (
+                                            <Button
+                                                key={admin.admin_id}
+                                                variant={
+                                                    inviterAdminFilter === admin.admin_id
+                                                        ? "secondary"
+                                                        : "ghost"
+                                                }
+                                                size="sm"
+                                                className="h-7 px-2 text-xs"
+                                                onClick={() =>
+                                                    handleInviterAdminFilterChange(admin.admin_id)
+                                                }
+                                            >
+                                                {admin.email}
+                                            </Button>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="grid gap-2">
                                     <Label className="text-xs font-medium">{t("expires")}</Label>
                                     <div className="flex items-center gap-2">
                                         <Input
@@ -309,8 +358,11 @@ export default function Invites() {
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead>{t("email")}</TableHead>
+                            <TableHead>{t("invitee_email", "Invitee")}</TableHead>
                             <TableHead>{t("role")}</TableHead>
+                            <TableHead className="hidden lg:table-cell">
+                                {t("invited_by", "Invited by")}
+                            </TableHead>
                             <TableHead className="hidden md:table-cell">{t("expires")}</TableHead>
                             <TableHead className="hidden lg:table-cell">{t("status")}</TableHead>
                             <TableHead className="w-[70px]" />
@@ -326,6 +378,9 @@ export default function Invites() {
                                     <TableCell>
                                         <Skeleton className="h-4 w-16" />
                                     </TableCell>
+                                    <TableCell className="hidden lg:table-cell">
+                                        <Skeleton className="h-4 w-32" />
+                                    </TableCell>
                                     <TableCell className="hidden md:table-cell">
                                         <Skeleton className="h-4 w-28" />
                                     </TableCell>
@@ -339,7 +394,7 @@ export default function Invites() {
                             ))
                         ) : invites.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={5} className="h-32 text-center">
+                                <TableCell colSpan={6} className="h-32 text-center">
                                     <div className="flex flex-col items-center gap-2 text-muted-foreground">
                                         <UserPlus className="h-8 w-8" />
                                         <p>
@@ -384,6 +439,14 @@ export default function Invites() {
                                         </TableCell>
                                         <TableCell className="text-muted-foreground">
                                             {snakeToTitle(invite.role)}
+                                        </TableCell>
+                                        <TableCell className="hidden lg:table-cell">
+                                            <div className="flex items-center gap-2">
+                                                <UserPlus className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                                                <span className="text-sm text-muted-foreground truncate max-w-45">
+                                                    {invite.inviter_admin_email ?? "—"}
+                                                </span>
+                                            </div>
                                         </TableCell>
                                         <TableCell className="hidden md:table-cell text-muted-foreground">
                                             {formatDate(invite.expires_at)}

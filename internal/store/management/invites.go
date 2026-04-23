@@ -19,16 +19,17 @@ type InvitesStore struct {
 }
 
 type Invite struct {
-	ID             uuid.UUID  `db:"id"`
-	ProjectID      uuid.UUID  `db:"project_id"`
-	InviterAdminID uuid.UUID  `db:"inviter_admin_id"`
-	InviteeEmail   string     `db:"invitee_email"`
-	Token          string     `db:"token"`
-	Role           string     `db:"role"`
-	ExpiresAt      time.Time  `db:"expires_at"`
-	AcceptedAt     *time.Time `db:"accepted_at"`
-	RevokedAt      *time.Time `db:"revoked_at"`
-	CreatedAt      time.Time  `db:"created_at"`
+	ID                uuid.UUID  `db:"id"`
+	ProjectID         uuid.UUID  `db:"project_id"`
+	InviterAdminID    uuid.UUID  `db:"inviter_admin_id"`
+	InviterAdminEmail *string    `db:"inviter_admin_email"`
+	InviteeEmail      string     `db:"invitee_email"`
+	Token             string     `db:"token"`
+	Role              string     `db:"role"`
+	ExpiresAt         time.Time  `db:"expires_at"`
+	AcceptedAt        *time.Time `db:"accepted_at"`
+	RevokedAt         *time.Time `db:"revoked_at"`
+	CreatedAt         time.Time  `db:"created_at"`
 }
 
 func (invite *Invite) OAPI() oapi.ProjectInvite {
@@ -36,15 +37,16 @@ func (invite *Invite) OAPI() oapi.ProjectInvite {
 	inviteeEmail := types.Email(invite.InviteeEmail)
 
 	return oapi.ProjectInvite{
-		Id:             &invite.ID,
-		ProjectId:      &invite.ProjectID,
-		InviterAdminId: &invite.InviterAdminID,
-		InviteeEmail:   &inviteeEmail,
-		Token:          &invite.Token,
-		Role:           &role,
-		ExpiresAt:      &invite.ExpiresAt,
-		AcceptedAt:     invite.AcceptedAt,
-		RevokedAt:      invite.RevokedAt,
+		Id:                &invite.ID,
+		ProjectId:         &invite.ProjectID,
+		InviterAdminId:    &invite.InviterAdminID,
+		InviteeEmail:      &inviteeEmail,
+		InviterAdminEmail: invite.InviterAdminEmail,
+		Token:             &invite.Token,
+		Role:              &role,
+		ExpiresAt:         &invite.ExpiresAt,
+		AcceptedAt:        invite.AcceptedAt,
+		RevokedAt:         invite.RevokedAt,
 	}
 }
 
@@ -138,20 +140,21 @@ func (s *InvitesStore) ListProjectInvites(ctx context.Context, projectID uuid.UU
 	}
 
 	stmt := `
-	SELECT id, project_id, inviter_admin_id, invitee_email, role, token, expires_at, created_at, revoked_at, accepted_at
-	FROM project_invites
-	WHERE project_id = $1
-	AND ($2::text IS NULL OR $2::text = '' OR invitee_email ILIKE '%' || $2 || '%')
-	AND ($3::text IS NULL OR role = $3)
+	SELECT pi.id AS id, pi.project_id AS project_id, pi.inviter_admin_id AS inviter_admin_id, a.email AS inviter_admin_email, pi.invitee_email AS invitee_email, pi.role AS role, pi.token AS token, pi.expires_at AS expires_at, pi.created_at AS created_at, pi.revoked_at AS revoked_at, pi.accepted_at AS accepted_at
+	FROM project_invites as pi
+	INNER JOIN admins as a ON pi.inviter_admin_id = a.id
+	WHERE pi.project_id = $1
+	AND ($2::text IS NULL OR $2::text = '' OR pi.invitee_email ILIKE '%' || $2 || '%')
+	AND ($3::text IS NULL OR pi.role = $3)
 	AND ($4::text IS NULL OR (
-		$4 = 'pending'   AND revoked_at IS NULL AND accepted_at IS NULL AND expires_at > NOW() OR
-		$4 = 'accepted'  AND accepted_at IS NOT NULL OR
-		$4 = 'revoked'   AND revoked_at IS NOT NULL OR
-		$4 = 'expired'   AND expires_at <= NOW() AND accepted_at IS NULL AND revoked_at IS NULL
+		$4 = 'pending'   AND pi.revoked_at IS NULL AND pi.accepted_at IS NULL AND pi.expires_at > NOW() OR
+		$4 = 'accepted'  AND pi.accepted_at IS NOT NULL OR
+		$4 = 'revoked'   AND pi.revoked_at IS NOT NULL OR
+		$4 = 'expired'   AND pi.expires_at <= NOW() AND pi.accepted_at IS NULL AND pi.revoked_at IS NULL
 	))
-	AND ($5::date IS NULL OR expires_at >= $5::date)
-	AND ($6::date IS NULL OR expires_at <= $6::date)
-	ORDER BY created_at DESC
+	AND ($5::date IS NULL OR pi.expires_at >= $5::date)
+	AND ($6::date IS NULL OR pi.expires_at <= $6::date)
+	ORDER BY pi.created_at DESC
 	LIMIT $7 OFFSET $8`
 
 	var invites []Invite
