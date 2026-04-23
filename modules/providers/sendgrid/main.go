@@ -41,7 +41,7 @@ func Manifest() int32 {
 			ID:          "sendgrid",
 			Title:       "SendGrid Email",
 			Description: "SendGrid email service integration",
-			Icon:        "https://www.vectorlogo.zone/logos/sendgrid/sendgrid-icon.svg",
+			Icon:        "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCI+PHBhdGggZD0iTTAgMjEuMjVoMjEuMzc0djIxLjM3NEgweiIgZmlsbD0iI2ZmZiIvPjxwYXRoIGQ9Ik0wIDIxLjI1aDIxLjM3NHYyMS4zNzRIMHoiIGZpbGw9IiM5OWUxZjQiIGVuYWJsZS1iYWNrZ3JvdW5kPSJuZXcgIi8+PHBhdGggZD0iTTIxLjM3NCA0Mi42MjZoMjEuMjV2MjEuMjVoLTIxLjI1eiIgZmlsbD0iI2ZmZiIvPjxwYXRoIGQ9Ik0yMS4zNzQgNDIuNjI2aDIxLjI1djIxLjI1aC0yMS4yNXoiIGZpbGw9IiM5OWUxZjQiIGVuYWJsZS1iYWNrZ3JvdW5kPSJuZXcgIi8+PHBhdGggZD0iTTAgNjMuODc3aDIxLjM3NFY2NEgwem0wLTIxLjI1aDIxLjM3NHYyMS4yNUgweiIgZmlsbD0iIzFhODJlMiIvPjxwYXRoIGQ9Ik0yMS4zNzQgMGgyMS4yNXYyMS4yNWgtMjEuMjV6bTIxLjI1MiAyMS4zNzRINjR2MjEuMjVINDIuNjI2eiIgZmlsbD0iIzAwYjNlMyIvPjxwYXRoIGQ9Ik0yMS4zNzQgNDIuNjI2aDIxLjI1VjIxLjI1aC0yMS4yNXoiIGZpbGw9IiMwMDlkZDkiLz48ZyBmaWxsPSIjMWE4MmUyIj48cGF0aCBkPSJNNDIuNjI2IDBINjR2MjEuMjVINDIuNjI2eiIvPjxwYXRoIGQ9Ik00Mi42MjYgMjEuMjVINjR2LjEyM0g0Mi42MjZ6Ii8+PC9nPjwvc3ZnPg==",
 			Color:       "#0D74FF",
 			Tags:        []string{"email"},
 		},

@@ -187,7 +187,10 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
                                         <FieldLabel htmlFor="subscription-select">
                                             {t("campaign.subscription", "Subscription")}
                                         </FieldLabel>
-                                        <Select value={subscriptionId} onValueChange={setSubscriptionId}>
+                                        <Select
+                                            value={subscriptionId}
+                                            onValueChange={setSubscriptionId}
+                                        >
                                             <SelectTrigger id="subscription-select">
                                                 <SelectValue
                                                     placeholder={t(
@@ -220,11 +223,18 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
                             )}
 
                             <div className="flex items-center gap-2">
-                                <Button type="submit" disabled={isSubmitting} isLoading={isSubmitting}>
+                                <Button
+                                    type="submit"
+                                    disabled={isSubmitting}
+                                    isLoading={isSubmitting}
+                                >
                                     {t("actions.save")}
                                 </Button>
                                 {isEnterprise && (
-                                    <Button variant="outline" onClick={() => setIsBroadcastOpen(true)}>
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => setIsBroadcastOpen(true)}
+                                    >
                                         <Radio className="mr-2 h-3.5 w-3.5" />
                                         {t("send_broadcast", "Send Broadcast")}
                                     </Button>
