@@ -8417,10 +8417,6 @@ components:
           type: string
           description: Password (required for basic auth)
           example: "password123"
-        redirect:
-          type: string
-          description: URL to redirect after successful auth
-          example: "/"
 
     EmailTemplate:
       type: object
