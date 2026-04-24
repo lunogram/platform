@@ -9,7 +9,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	"github.com/lunogram/platform/internal/wasm"
 	"github.com/lunogram/platform/pkg/modules"
@@ -40,19 +39,6 @@ func (e *ProviderError) Error() string {
 // IsPermanent reports whether this provider error represents a permanent failure.
 func (e *ProviderError) IsPermanent() bool {
 	return e.Code == exitCodePermanent
-}
-
-func (i *Integration) callAny(ctx context.Context, exports []string, input []byte) (string, uint32, []byte, error) {
-	for _, name := range exports {
-		if !i.FunctionExists(name) {
-			continue
-		}
-
-		code, res, err := i.Call(ctx, name, input)
-		return name, code, res, err
-	}
-
-	return "", 0, nil, fmt.Errorf("no compatible export found (tried: %s)", strings.Join(exports, ", "))
 }
 
 // ProviderSpec finds and decodes the provider capability spec.
@@ -92,7 +78,6 @@ func (i *Integration) ActionsSpec() (*modules.ActionsSpec, bool) {
 }
 
 // Validate calls the module's validate export to check configuration.
-// Supports both integration and compatibility response formats.
 func (i *Integration) Validate(ctx context.Context, req modules.ValidateRequest) (*modules.ValidateResponse, error) {
 	if !i.FunctionExists("validate") {
 		return &modules.ValidateResponse{Valid: true}, nil
@@ -112,100 +97,40 @@ func (i *Integration) Validate(ctx context.Context, req modules.ValidateRequest)
 		return nil, fmt.Errorf("integration validate failed (code %d): %s", code, string(res))
 	}
 
-	return decodeValidateResponse(res)
-}
-
-func decodeValidateResponse(res []byte) (*modules.ValidateResponse, error) {
-	var envelope map[string]json.RawMessage
-	if err := json.Unmarshal(res, &envelope); err != nil {
-		return nil, fmt.Errorf("failed to decode validate response envelope: %w", err)
+	var response modules.ValidateResponse
+	if err := json.Unmarshal(res, &response); err != nil {
+		return nil, fmt.Errorf("failed to decode validate response: %w", err)
 	}
 
-	_, hasValid := envelope["valid"]
-	_, hasErrors := envelope["errors"]
-	_, hasStatusCode := envelope["status_code"]
-	_, hasMessage := envelope["message"]
-
-	if hasValid || hasErrors || (hasMessage && !hasStatusCode) {
-		var response modules.ValidateResponse
-		if err := json.Unmarshal(res, &response); err != nil {
-			return nil, fmt.Errorf("failed to decode integration validate response: %w", err)
-		}
-
-		return &response, nil
-	}
-
-	if hasStatusCode || hasMessage {
-		var actionResponse actiontypes.ValidateResponse
-		if err := json.Unmarshal(res, &actionResponse); err != nil {
-			return nil, fmt.Errorf("failed to decode compatibility validate response: %w", err)
-		}
-
-		return &modules.ValidateResponse{
-			Valid:   actionResponse.StatusCode < 400,
-			Message: actionResponse.Message,
-		}, nil
-	}
-
-	return nil, fmt.Errorf("failed to decode validate response")
+	return &response, nil
 }
 
 // Install calls the module's install export for first-time setup.
-// Falls back to provider init() when install() is unavailable.
 func (i *Integration) Install(ctx context.Context, req modules.InstallRequest) (*modules.InstallResponse, error) {
-	if i.FunctionExists("install") {
-		payload, err := json.Marshal(req)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal install request: %w", err)
-		}
-
-		code, res, err := i.Call(ctx, "install", payload)
-		if err != nil {
-			return nil, fmt.Errorf("failed to call integration install: %w", err)
-		}
-
-		if code != 0 {
-			return nil, fmt.Errorf("integration install failed (code %d): %s", code, string(res))
-		}
-
-		var response modules.InstallResponse
-		if err := json.Unmarshal(res, &response); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal install response: %w", err)
-		}
-
-		return &response, nil
-	}
-
-	if !i.FunctionExists("init") {
+	if !i.FunctionExists("install") {
 		return &modules.InstallResponse{}, nil
 	}
 
-	compatReq := providertypes.InitRequest{
-		Config:     req.Config,
-		WebhookURL: req.WebhookURL,
-		ProviderID: req.IntegrationID,
-		ProjectID:  req.ProjectID,
-	}
-	payload, err := json.Marshal(compatReq)
+	payload, err := json.Marshal(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal init request: %w", err)
+		return nil, fmt.Errorf("failed to marshal install request: %w", err)
 	}
 
-	code, res, err := i.Call(ctx, "init", payload)
+	code, res, err := i.Call(ctx, "install", payload)
 	if err != nil {
-		return nil, fmt.Errorf("failed to call init: %w", err)
+		return nil, fmt.Errorf("failed to call integration install: %w", err)
 	}
 
 	if code != 0 {
-		return nil, fmt.Errorf("init failed (code %d): %s", code, string(res))
+		return nil, fmt.Errorf("integration install failed (code %d): %s", code, string(res))
 	}
 
-	var response providertypes.InitResponse
+	var response modules.InstallResponse
 	if err := json.Unmarshal(res, &response); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal init response: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal install response: %w", err)
 	}
 
-	return &modules.InstallResponse{State: response.ConfigPatch}, nil
+	return &response, nil
 }
 
 // Upgrade calls the module's upgrade export when configuration changes.
@@ -248,65 +173,45 @@ func (i *Integration) Upgrade(ctx context.Context, req modules.UpgradeRequest) (
 }
 
 // Uninstall calls the module's uninstall export for cleanup.
-// Falls back to provider destroy() when uninstall() is unavailable.
 func (i *Integration) Uninstall(ctx context.Context, req modules.UninstallRequest) (*modules.UninstallResponse, error) {
-	if i.FunctionExists("uninstall") {
-		payload, err := json.Marshal(req)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal uninstall request: %w", err)
-		}
-
-		code, res, err := i.Call(ctx, "uninstall", payload)
-		if err != nil {
-			return nil, fmt.Errorf("failed to call integration uninstall: %w", err)
-		}
-
-		if code != 0 {
-			return nil, fmt.Errorf("integration uninstall failed (code %d): %s", code, string(res))
-		}
-
-		var response modules.UninstallResponse
-		if err := json.Unmarshal(res, &response); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal uninstall response: %w", err)
-		}
-
-		return &response, nil
-	}
-
-	if !i.FunctionExists("destroy") {
+	if !i.FunctionExists("uninstall") {
 		return &modules.UninstallResponse{}, nil
 	}
 
-	compatReq := providertypes.DestroyRequest{
-		Config:     req.Config,
-		ProviderID: req.IntegrationID,
-		ProjectID:  req.ProjectID,
-	}
-	payload, err := json.Marshal(compatReq)
+	payload, err := json.Marshal(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal destroy request: %w", err)
+		return nil, fmt.Errorf("failed to marshal uninstall request: %w", err)
 	}
 
-	code, res, err := i.Call(ctx, "destroy", payload)
+	code, res, err := i.Call(ctx, "uninstall", payload)
 	if err != nil {
-		return nil, fmt.Errorf("failed to call destroy: %w", err)
+		return nil, fmt.Errorf("failed to call integration uninstall: %w", err)
 	}
 
 	if code != 0 {
-		return nil, fmt.Errorf("destroy failed (code %d): %s", code, string(res))
+		return nil, fmt.Errorf("integration uninstall failed (code %d): %s", code, string(res))
 	}
 
-	return &modules.UninstallResponse{}, nil
+	var response modules.UninstallResponse
+	if err := json.Unmarshal(res, &response); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal uninstall response: %w", err)
+	}
+
+	return &response, nil
 }
 
-// Send invokes provider send using canonical or compatibility export names.
+// Send invokes provider send.
 func (i *Integration) Send(ctx context.Context, req providertypes.SendRequest[map[string]any]) (*providertypes.SendResponse, error) {
 	payload, err := json.Marshal(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal send request: %w", err)
 	}
 
-	_, code, res, err := i.callAny(ctx, []string{"provider_send", "send"}, payload)
+	if !i.FunctionExists("provider_send") {
+		return nil, fmt.Errorf("module does not export provider_send")
+	}
+
+	code, res, err := i.Call(ctx, "provider_send", payload)
 	if err != nil {
 		return nil, err
 	}
@@ -323,14 +228,18 @@ func (i *Integration) Send(ctx context.Context, req providertypes.SendRequest[ma
 	return &response, nil
 }
 
-// Webhook invokes provider webhook using canonical or compatibility export names.
+// Webhook invokes provider webhook.
 func (i *Integration) Webhook(ctx context.Context, req providertypes.WebhookRequest) (*providertypes.WebhookResponse, error) {
 	payload, err := json.Marshal(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal webhook request: %w", err)
 	}
 
-	_, code, res, err := i.callAny(ctx, []string{"provider_webhook", "webhook"}, payload)
+	if !i.FunctionExists("provider_webhook") {
+		return nil, fmt.Errorf("module does not export provider_webhook")
+	}
+
+	code, res, err := i.Call(ctx, "provider_webhook", payload)
 	if err != nil {
 		return nil, err
 	}
@@ -349,7 +258,7 @@ func (i *Integration) Webhook(ctx context.Context, req providertypes.WebhookRequ
 
 // HasWebhook reports whether the integration exports a webhook handler.
 func (i *Integration) HasWebhook() bool {
-	return i.FunctionExists("provider_webhook") || i.FunctionExists("webhook")
+	return i.FunctionExists("provider_webhook")
 }
 
 // Execute invokes an action function export.
@@ -363,18 +272,23 @@ func (i *Integration) Execute(ctx context.Context, functionID string, req *actio
 		return nil, fmt.Errorf("action function id is required")
 	}
 
-	name, code, res, err := i.callAny(ctx, []string{"action_" + functionID, functionID}, payload)
+	exportName := "action_" + functionID
+	if !i.FunctionExists(exportName) {
+		return nil, fmt.Errorf("module does not export %q", exportName)
+	}
+
+	code, res, err := i.Call(ctx, exportName, payload)
 	if err != nil {
 		return nil, err
 	}
 
 	if code != 0 {
-		return nil, fmt.Errorf("action function %q returned code %d: %s", name, code, string(res))
+		return nil, fmt.Errorf("action function %q returned code %d: %s", exportName, code, string(res))
 	}
 
 	var response actiontypes.ExecuteResponse
 	if err := json.Unmarshal(res, &response); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal execute response for %q: %w", name, err)
+		return nil, fmt.Errorf("failed to unmarshal execute response for %q: %w", exportName, err)
 	}
 
 	return &response, nil
@@ -382,22 +296,22 @@ func (i *Integration) Execute(ctx context.Context, functionID string, req *actio
 
 // Preview invokes an action preview export and returns raw HTML bytes.
 func (i *Integration) Preview(ctx context.Context, functionID string) ([]byte, error) {
-	var exports []string
+	exportName := "preview"
 	if functionID != "" {
-		exports = append(exports, "action_preview_"+functionID)
-	}
-	exports = append(exports, "preview")
-	if functionID != "" {
-		exports = append(exports, functionID+"_preview")
+		exportName = "action_preview_" + functionID
 	}
 
-	name, code, res, err := i.callAny(ctx, exports, nil)
+	if !i.FunctionExists(exportName) {
+		return nil, fmt.Errorf("module does not export %q", exportName)
+	}
+
+	code, res, err := i.Call(ctx, exportName, nil)
 	if err != nil {
 		return nil, err
 	}
 
 	if code != 0 {
-		return nil, fmt.Errorf("%q returned code %d: %s", name, code, string(res))
+		return nil, fmt.Errorf("%q returned code %d: %s", exportName, code, string(res))
 	}
 
 	return res, nil
@@ -407,6 +321,9 @@ func (i *Integration) Preview(ctx context.Context, functionID string) ([]byte, e
 func (i *Integration) HasPreview(functionID string) bool {
 	if functionID != "" && i.FunctionExists("action_preview_"+functionID) {
 		return true
+	}
+	if functionID != "" {
+		return false
 	}
 
 	return i.FunctionExists("preview")

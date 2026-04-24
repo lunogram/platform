@@ -14,7 +14,7 @@ import (
 	"go.uber.org/zap/zaptest"
 )
 
-func TestRegistryLoadCompatActionModule(t *testing.T) {
+func TestRegistryLoadActionModule(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}

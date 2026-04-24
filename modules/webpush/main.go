@@ -30,9 +30,10 @@ const (
 	ttlSeconds        = "86400"
 )
 
-//go:wasmexport manifest
+//go:export manifest
 func Manifest() int32 {
-	manifest := providers.ProviderManifest{
+	manifest := modules.IntegrationManifest{
+		APIVersion: "v1",
 		Metadata: modules.Metadata{
 			ID:          "webpush",
 			Title:       "Web Push",
@@ -49,48 +50,54 @@ func Manifest() int32 {
 			Email: "dev@lunogram.io",
 			URL:   "https://lunogram.com",
 		},
-		Spec: providers.ProviderSpec{
-			Channels: []providers.Channel{providers.ChannelPush},
-			Platforms: []providers.Platform{
-				providers.PlatformWeb,
-			},
-			Config: &modules.JSONSchema{
-				Type: "object",
-				Properties: []modules.JSONSchemaProperty{
-					{
-						Name: "data",
-						Schema: &modules.JSONSchema{
-							Type: "object",
-							Properties: []modules.JSONSchemaProperty{
-								{
-									Name: "vapidPublicKey",
-									Schema: &modules.JSONSchema{
-										Type:   "string",
-										Hidden: true,
-									},
+		Config: &modules.JSONSchema{
+			Type: "object",
+			Properties: []modules.JSONSchemaProperty{
+				{
+					Name: "data",
+					Schema: &modules.JSONSchema{
+						Type: "object",
+						Properties: []modules.JSONSchemaProperty{
+							{
+								Name: "vapidPublicKey",
+								Schema: &modules.JSONSchema{
+									Type:   "string",
 									Hidden: true,
 								},
-								{
-									Name: "vapidPrivateKey",
-									Schema: &modules.JSONSchema{
-										Type:   "string",
-										Hidden: true,
-									},
+								Hidden: true,
+							},
+							{
+								Name: "vapidPrivateKey",
+								Schema: &modules.JSONSchema{
+									Type:   "string",
 									Hidden: true,
 								},
-								{
-									Name: "vapidEmail",
-									Schema: &modules.JSONSchema{
-										Type:        "string",
-										Title:       "VAPID Email",
-										Description: "Contact email for VAPID (e.g. mailto:admin@example.com). Required for Web Push.",
-									},
+								Hidden: true,
+							},
+							{
+								Name: "vapidEmail",
+								Schema: &modules.JSONSchema{
+									Type:        "string",
+									Title:       "VAPID Email",
+									Description: "Contact email for VAPID (e.g. mailto:admin@example.com). Required for Web Push.",
 								},
 							},
-							Required: []string{"vapidPublicKey", "vapidPrivateKey", "vapidEmail"},
 						},
+						Required: []string{"vapidPublicKey", "vapidPrivateKey", "vapidEmail"},
 					},
 				},
+			},
+		},
+		Capabilities: []modules.Capability{
+			{
+				Type:    "provider",
+				Version: "v1",
+				Spec: mustMarshalJSON(modules.ProviderSpec{
+					Channels: []modules.Channel{modules.ChannelPush},
+					Platforms: []modules.Platform{
+						modules.PlatformWeb,
+					},
+				}),
 			},
 		},
 	}
@@ -109,7 +116,7 @@ type Config struct {
 	VapidEmail      string `json:"vapidEmail"`
 }
 
-//go:wasmexport send
+//go:export provider_send
 func Send() int32 {
 	var req providers.SendRequest[Config]
 	if err := pdk.InputJSON(&req); err != nil {
@@ -455,6 +462,15 @@ func decodeBase64Lenient(s string) ([]byte, error) {
 		return b, nil
 	}
 	return base64.RawURLEncoding.DecodeString(s)
+}
+
+func mustMarshalJSON(v any) json.RawMessage {
+	spec, err := json.Marshal(v)
+	if err != nil {
+		panic(err)
+	}
+
+	return spec
 }
 
 func main() {}

@@ -27,9 +27,10 @@ const (
 	sendStatusPartial = "partial"
 )
 
-//go:wasmexport manifest
+//go:export manifest
 func Manifest() int32 {
-	manifest := providers.ProviderManifest{
+	manifest := modules.IntegrationManifest{
+		APIVersion: "v1",
 		Metadata: modules.Metadata{
 			ID:          "apns",
 			Title:       "APNs (Apple Push Notification service)",
@@ -46,67 +47,71 @@ func Manifest() int32 {
 			Email: "dev@lunogram.io",
 			URL:   "https://lunogram.com",
 		},
-		Spec: providers.ProviderSpec{
-			Channels: []providers.Channel{providers.ChannelPush},
-			Platforms: []providers.Platform{
-				providers.PlatformIOS,
-			},
-			Config: &modules.JSONSchema{
-				Type: "object",
-				Properties: []modules.JSONSchemaProperty{
-					{
-						Name: "data",
-						Schema: &modules.JSONSchema{
-							Type: "object",
-							Properties: []modules.JSONSchemaProperty{
-								{
-									Name: "apnsTeamId",
-									Schema: &modules.JSONSchema{
-										Type:        "string",
-										Title:       "Team ID",
-										Description: "Apple Developer Team ID (10 characters).",
-									},
-								},
-								{
-									Name: "apnsKeyId",
-									Schema: &modules.JSONSchema{
-										Type:        "string",
-										Title:       "Key ID",
-										Description: "APNs authentication key ID (10 characters).",
-									},
-								},
-								{
-									Name: "apnsPrivateKey",
-									Schema: &modules.JSONSchema{
-										Type:        "string",
-										Title:       "Private Key (.p8)",
-										Description: ".p8 private key from Apple Developer. Upload the file or paste and encode.",
-										Format:      "password",
-										FileUpload:  true,
-										FileAccept:  ".p8",
-									},
-								},
-								{
-									Name: "apnsBundleId",
-									Schema: &modules.JSONSchema{
-										Type:        "string",
-										Title:       "Bundle ID",
-										Description: "iOS app bundle ID (e.g. com.yourcompany.app).",
-									},
-								},
-								{
-									Name: "apnsProduction",
-									Schema: &modules.JSONSchema{
-										Type:        "boolean",
-										Title:       "Production Mode",
-										Description: "Use production APNs server (uncheck for sandbox/development).",
-									},
+		Config: &modules.JSONSchema{
+			Type: "object",
+			Properties: []modules.JSONSchemaProperty{
+				{
+					Name: "data",
+					Schema: &modules.JSONSchema{
+						Type: "object",
+						Properties: []modules.JSONSchemaProperty{
+							{
+								Name: "apnsTeamId",
+								Schema: &modules.JSONSchema{
+									Type:        "string",
+									Title:       "Team ID",
+									Description: "Apple Developer Team ID (10 characters).",
 								},
 							},
-							Required: []string{"apnsTeamId", "apnsKeyId", "apnsPrivateKey", "apnsBundleId"},
+							{
+								Name: "apnsKeyId",
+								Schema: &modules.JSONSchema{
+									Type:        "string",
+									Title:       "Key ID",
+									Description: "APNs authentication key ID (10 characters).",
+								},
+							},
+							{
+								Name: "apnsPrivateKey",
+								Schema: &modules.JSONSchema{
+									Type:        "string",
+									Title:       "Private Key (.p8)",
+									Description: ".p8 private key from Apple Developer. Upload the file or paste and encode.",
+									Format:      "password",
+									FileUpload:  true,
+									FileAccept:  ".p8",
+								},
+							},
+							{
+								Name: "apnsBundleId",
+								Schema: &modules.JSONSchema{
+									Type:        "string",
+									Title:       "Bundle ID",
+									Description: "iOS app bundle ID (e.g. com.yourcompany.app).",
+								},
+							},
+							{
+								Name: "apnsProduction",
+								Schema: &modules.JSONSchema{
+									Type:        "boolean",
+									Title:       "Production Mode",
+									Description: "Use production APNs server (uncheck for sandbox/development).",
+								},
+							},
 						},
+						Required: []string{"apnsTeamId", "apnsKeyId", "apnsPrivateKey", "apnsBundleId"},
 					},
 				},
+			},
+		},
+		Capabilities: []modules.Capability{
+			{
+				Type:    "provider",
+				Version: "v1",
+				Spec: mustMarshalJSON(modules.ProviderSpec{
+					Channels:  []modules.Channel{modules.ChannelPush},
+					Platforms: []modules.Platform{modules.PlatformIOS},
+				}),
 			},
 		},
 	}
@@ -143,7 +148,7 @@ type apnsAlert struct {
 	Body  string `json:"body,omitempty"`
 }
 
-//go:wasmexport send
+//go:export provider_send
 func Send() int32 {
 	var req providers.SendRequest[Config]
 	if err := pdk.InputJSON(&req); err != nil {
@@ -427,6 +432,14 @@ func decodeBase64Lenient(s string) ([]byte, error) {
 		return b, nil
 	}
 	return base64.RawURLEncoding.DecodeString(s)
+}
+
+func mustMarshalJSON(v any) json.RawMessage {
+	b, err := json.Marshal(v)
+	if err != nil {
+		panic(err)
+	}
+	return b
 }
 
 func main() {}

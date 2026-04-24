@@ -27,9 +27,10 @@ const (
 	sendStatusPartial = "partial"
 )
 
-//go:wasmexport manifest
+//go:export manifest
 func Manifest() int32 {
-	manifest := providers.ProviderManifest{
+	manifest := modules.IntegrationManifest{
+		APIVersion: "v1",
 		Metadata: modules.Metadata{
 			ID:          "fcm",
 			Title:       "FCM (Firebase Cloud Messaging)",
@@ -46,43 +47,49 @@ func Manifest() int32 {
 			Email: "dev@lunogram.io",
 			URL:   "https://lunogram.com",
 		},
-		Spec: providers.ProviderSpec{
-			Channels: []providers.Channel{providers.ChannelPush},
-			Platforms: []providers.Platform{
-				providers.PlatformAndroid,
-			},
-			Config: &modules.JSONSchema{
-				Type: "object",
-				Properties: []modules.JSONSchemaProperty{
-					{
-						Name: "data",
-						Schema: &modules.JSONSchema{
-							Type: "object",
-							Properties: []modules.JSONSchemaProperty{
-								{
-									Name: "fcmProjectId",
-									Schema: &modules.JSONSchema{
-										Type:        "string",
-										Title:       "Project ID",
-										Description: "Firebase project ID.",
-									},
-								},
-								{
-									Name: "fcmServiceAccountJSON",
-									Schema: &modules.JSONSchema{
-										Type:        "string",
-										Title:       "Service Account JSON",
-										Description: "Firebase service account JSON. Upload the file or paste and encode.",
-										Format:      "password",
-										FileUpload:  true,
-										FileAccept:  ".json",
-									},
+		Config: &modules.JSONSchema{
+			Type: "object",
+			Properties: []modules.JSONSchemaProperty{
+				{
+					Name: "data",
+					Schema: &modules.JSONSchema{
+						Type: "object",
+						Properties: []modules.JSONSchemaProperty{
+							{
+								Name: "fcmProjectId",
+								Schema: &modules.JSONSchema{
+									Type:        "string",
+									Title:       "Project ID",
+									Description: "Firebase project ID.",
 								},
 							},
-							Required: []string{"fcmProjectId", "fcmServiceAccountJSON"},
+							{
+								Name: "fcmServiceAccountJSON",
+								Schema: &modules.JSONSchema{
+									Type:        "string",
+									Title:       "Service Account JSON",
+									Description: "Firebase service account JSON. Upload the file or paste and encode.",
+									Format:      "password",
+									FileUpload:  true,
+									FileAccept:  ".json",
+								},
+							},
 						},
+						Required: []string{"fcmProjectId", "fcmServiceAccountJSON"},
 					},
 				},
+			},
+		},
+		Capabilities: []modules.Capability{
+			{
+				Type:    "provider",
+				Version: "v1",
+				Spec: mustMarshalJSON(modules.ProviderSpec{
+					Channels: []modules.Channel{modules.ChannelPush},
+					Platforms: []modules.Platform{
+						modules.PlatformAndroid,
+					},
+				}),
 			},
 		},
 	}
@@ -144,7 +151,7 @@ type fcmAPS struct {
 	Sound string `json:"sound,omitempty"`
 }
 
-//go:wasmexport send
+//go:export provider_send
 func Send() (code int32) {
 	stage := "init"
 	defer func() {
@@ -424,6 +431,14 @@ func decodeBase64Lenient(s string) ([]byte, error) {
 		return b, nil
 	}
 	return base64.RawURLEncoding.DecodeString(s)
+}
+
+func mustMarshalJSON(v any) json.RawMessage {
+	b, err := json.Marshal(v)
+	if err != nil {
+		panic(err)
+	}
+	return b
 }
 
 func main() {}

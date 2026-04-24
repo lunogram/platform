@@ -11,10 +11,10 @@ import (
 	"github.com/extism/go-pdk"
 	pdkhttp "github.com/extism/go-pdk/http"
 	"github.com/lunogram/platform/pkg/modules"
-	"github.com/lunogram/platform/pkg/modules/actions"
+	actiontypes "github.com/lunogram/platform/pkg/modules/actions"
 )
 
-//go:embed preview/dist/index.html
+//go:embed preview/index.html
 var previewHTML []byte
 
 // WebhookConfig is currently empty — authentication is handled via headers in the payload.
@@ -30,7 +30,8 @@ type WebhookInput struct {
 
 //go:export manifest
 func Manifest() int32 {
-	manifest := actions.ActionManifest{
+	manifest := modules.IntegrationManifest{
+		APIVersion: "v1",
 		Metadata: modules.Metadata{
 			ID:          "webhook",
 			Title:       "Webhook",
@@ -46,53 +47,61 @@ func Manifest() int32 {
 			Email: "dev@lunogram.io",
 			URL:   "https://lunogram.com",
 		},
-		Functions: []actions.ActionFunction{
+		Capabilities: []modules.Capability{
 			{
-				ID:          "send_request",
-				Title:       "Send Request",
-				Description: "Send an HTTP request to an external endpoint",
-				Input: &modules.JSONSchema{
-					Type: "object",
-					Properties: []modules.JSONSchemaProperty{
+				Type:    "actions",
+				Version: "v1",
+				Spec: mustMarshalJSON(modules.ActionsSpec{
+					Functions: []modules.ActionFunction{
 						{
-							Name: "method",
-							Schema: &modules.JSONSchema{
-								Type:        "string",
-								Title:       "HTTP Method",
-								Description: "HTTP method for the request",
-								Enum:        []string{"GET", "POST", "PUT", "PATCH", "DELETE"},
-							},
-						},
-						{
-							Name: "endpoint",
-							Schema: &modules.JSONSchema{
-								Type:        "string",
-								Title:       "Endpoint URL",
-								Description: "URL to send the request to",
-								Preview:     "https://api.example.com/webhook",
-							},
-						},
-						{
-							Name: "headers",
-							Schema: &modules.JSONSchema{
-								Type:        "object",
-								Title:       "Headers",
-								Description: "HTTP headers to include in the request",
-								Format:      "key-value",
-							},
-						},
-						{
-							Name: "body",
-							Schema: &modules.JSONSchema{
-								Type:        "string",
-								Title:       "Request Body",
-								Description: "Body of the HTTP request (supports JSON, XML, or plain text)",
-								Format:      "code",
+							ID:          "send_request",
+							Title:       "Send Request",
+							Description: "Send an HTTP request to an external endpoint",
+							Input: &modules.JSONSchema{
+								Type: "object",
+								Properties: []modules.JSONSchemaProperty{
+									{
+										Name: "method",
+										Schema: &modules.JSONSchema{
+											Type:        "string",
+											Title:       "HTTP Method",
+											Description: "HTTP method for the request",
+											Enum:        []string{"GET", "POST", "PUT", "PATCH", "DELETE"},
+										},
+									},
+									{
+										Name: "endpoint",
+										Schema: &modules.JSONSchema{
+											Type:        "string",
+											Title:       "Endpoint URL",
+											Description: "URL to send the request to",
+											Preview:     "https://api.example.com/webhook",
+										},
+									},
+									{
+										Name: "headers",
+										Schema: &modules.JSONSchema{
+											Type:        "object",
+											Title:       "Headers",
+											Description: "HTTP headers to include in the request",
+											Format:      "key-value",
+										},
+									},
+									{
+										Name: "body",
+										Schema: &modules.JSONSchema{
+											Type:        "string",
+											Title:       "Request Body",
+											Description: "Body of the HTTP request (supports JSON, XML, or plain text)",
+											Format:      "code",
+										},
+									},
+								},
+								Required: []string{"method", "endpoint"},
 							},
 						},
 					},
-					Required: []string{"method", "endpoint"},
-				},
+				}),
 			},
 		},
 	}
@@ -108,7 +117,7 @@ func Manifest() int32 {
 
 //go:export validate
 func Validate() int32 {
-	var req actions.ValidateRequest[WebhookConfig]
+	var req modules.ValidateRequest
 	err := pdk.InputJSON(&req)
 	if err != nil {
 		pdk.SetError(fmt.Errorf("failed to parse validate request: %w", err))
@@ -117,9 +126,9 @@ func Validate() int32 {
 
 	// The webhook module has no module-level config to validate (authentication
 	// is handled via headers in the payload), so validation always succeeds.
-	response := actions.ValidateResponse{
-		StatusCode: 200,
-		Message:    "Webhook configuration is valid",
+	response := modules.ValidateResponse{
+		Valid:   true,
+		Message: "Webhook configuration is valid",
 	}
 
 	if err := pdk.OutputJSON(response); err != nil {
@@ -130,9 +139,9 @@ func Validate() int32 {
 	return 0
 }
 
-//go:export send_request
+//go:export action_send_request
 func SendRequest() int32 {
-	var req actions.ExecuteRequest[WebhookConfig]
+	var req actiontypes.ExecuteRequest[WebhookConfig]
 	err := pdk.InputJSON(&req)
 	if err != nil {
 		pdk.SetError(fmt.Errorf("failed to parse execute request: %w", err))
@@ -227,7 +236,7 @@ func SendRequest() int32 {
 		parsedBody = string(respBody)
 	}
 
-	response := actions.ExecuteResponse{
+	response := actiontypes.ExecuteResponse{
 		StatusCode: statusCode,
 		Metadata: map[string]any{
 			"method":   payload.Method,
@@ -245,10 +254,19 @@ func SendRequest() int32 {
 	return 0
 }
 
-//go:export preview
+//go:export action_preview_send_request
 func Preview() int32 {
 	pdk.Output(previewHTML)
 	return 0
+}
+
+func mustMarshalJSON(v any) json.RawMessage {
+	spec, err := json.Marshal(v)
+	if err != nil {
+		panic(err)
+	}
+
+	return spec
 }
 
 func main() {}

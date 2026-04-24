@@ -1,6 +1,7 @@
 package integrations
 
 import (
+	"encoding/json"
 	"testing"
 	"testing/fstest"
 	"time"
@@ -9,14 +10,12 @@ import (
 	"github.com/lunogram/platform/internal/wasm"
 	wasmtest "github.com/lunogram/platform/internal/wasm/test"
 	"github.com/lunogram/platform/pkg/modules"
-	actiontypes "github.com/lunogram/platform/pkg/modules/actions"
-	"github.com/lunogram/platform/pkg/modules/providers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
 
-func TestRegistryLoadCompatProviderAndAction(t *testing.T) {
+func TestRegistryLoadIntegrationProviderAndAction(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
@@ -51,41 +50,55 @@ func TestRegistryLoadCompatProviderAndAction(t *testing.T) {
 	assert.False(t, hasProvider)
 }
 
-func TestRegistryRegisterCompatProviderModule(t *testing.T) {
+func TestRegistryRegisterProviderModule(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	reg := NewRegistry(config.WASM{CallTimeout: 30 * time.Second}, logger)
 
-	compatProvider := wasm.NewTestModule(providers.ProviderManifest{
-		Metadata: modules.Metadata{ID: "compat-provider", Title: "Compat Provider"},
-		Version:  "1.0.0",
-		Spec: providers.ProviderSpec{
-			Channels: []providers.Channel{providers.ChannelEmail},
+	providerSpec, err := json.Marshal(modules.ProviderSpec{
+		Channels: []modules.Channel{modules.ChannelEmail},
+	})
+	require.NoError(t, err)
+
+	providerModule := wasm.NewTestModule(modules.IntegrationManifest{
+		APIVersion: "v1",
+		Metadata:   modules.Metadata{ID: "provider-module", Title: "Provider Module"},
+		Version:    "1.0.0",
+		Capabilities: []modules.Capability{
+			{Type: "provider", Version: "v1", Spec: providerSpec},
 		},
 	}, config.WASM{})
 
-	require.NoError(t, reg.Register(compatProvider))
+	require.NoError(t, reg.Register(providerModule))
 
-	integration, ok := reg.Get("compat-provider")
+	integration, ok := reg.Get("provider-module")
 	require.True(t, ok)
 	_, hasProvider := integration.ProviderSpec()
 	assert.True(t, hasProvider)
 }
 
-func TestRegistryRegisterCompatActionModule(t *testing.T) {
+func TestRegistryRegisterActionModule(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	reg := NewRegistry(config.WASM{CallTimeout: 30 * time.Second}, logger)
 
-	compatAction := wasm.NewTestModule(actiontypes.ActionManifest{
-		Metadata: modules.Metadata{ID: "compat-action", Title: "Compat Action"},
-		Version:  "1.0.0",
-		Functions: []actiontypes.ActionFunction{
+	actionsSpec, err := json.Marshal(modules.ActionsSpec{
+		Functions: []modules.ActionFunction{
 			{ID: "run", Title: "Run", Description: "Run action"},
+		},
+	})
+	require.NoError(t, err)
+
+	actionModule := wasm.NewTestModule(modules.IntegrationManifest{
+		APIVersion: "v1",
+		Metadata:   modules.Metadata{ID: "action-module", Title: "Action Module"},
+		Version:    "1.0.0",
+		Capabilities: []modules.Capability{
+			{Type: "actions", Version: "v1", Spec: actionsSpec},
 		},
 	}, config.WASM{})
 
-	require.NoError(t, reg.Register(compatAction))
+	require.NoError(t, reg.Register(actionModule))
 
-	integration, ok := reg.Get("compat-action")
+	integration, ok := reg.Get("action-module")
 	require.True(t, ok)
 	_, hasActions := integration.ActionsSpec()
 	assert.True(t, hasActions)
