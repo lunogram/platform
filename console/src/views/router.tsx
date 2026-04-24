@@ -149,6 +149,7 @@ export const createRouter = ({
                             const project = await api.projects.get(projectId)
                             return project
                         },
+                        shouldRevalidate: () => true,
                         element: (
                             <StatefulLoaderContextProvider context={ProjectContext}>
                                 <Outlet />
