@@ -140,3 +140,60 @@ func TestAuthWebhookWithInvalidDriver(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateRedirect(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		allowedHosts []string
+		redirect    string
+		want        bool
+	}{
+		"relative path allowed": {
+			allowedHosts: []string{"app.example.com"},
+			redirect:    "/dashboard",
+			want:        true,
+		},
+		"absolute URL in allowed list": {
+			allowedHosts: []string{"app.example.com", "staging.example.com"},
+			redirect:    "https://app.example.com/dashboard",
+			want:        true,
+		},
+		"absolute URL not in allowed list": {
+			allowedHosts: []string{"app.example.com"},
+			redirect:    "https://evil.com/redirect",
+			want:        false,
+		},
+		"protocol-relative rejected": {
+			allowedHosts: []string{"app.example.com"},
+			redirect:    "//evil.com/redirect",
+			want:        false,
+		},
+		"empty allowed hosts rejects absolute": {
+			allowedHosts: []string{},
+			redirect:   "https://app.example.com/dashboard",
+			want:       false,
+		},
+		"empty redirect allowed": {
+			allowedHosts: []string{"app.example.com"},
+			redirect:   "",
+			want:       true,
+		},
+		"multiple subdomain allowed": {
+			allowedHosts: []string{"app.example.com", "staging.example.com"},
+			redirect:    "https://staging.example.com/marketing",
+			want:        true,
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			controller := &AuthController{
+				allowedRedirectHosts: test.allowedHosts,
+			}
+
+			got := controller.validateRedirect(test.redirect)
+			require.Equal(t, test.want, got)
+		})
+	}
+}

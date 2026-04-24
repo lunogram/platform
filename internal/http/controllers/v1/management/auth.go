@@ -1,7 +1,10 @@
 package v1
 
 import (
+	"io"
 	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/lunogram/platform/internal/config"
@@ -23,14 +26,16 @@ func NewAuthController(logger *zap.Logger, db *sqlx.DB, cfg config.Node, engine 
 	}
 
 	return &AuthController{
-		logger:   logger,
-		provider: provider,
+		logger:                logger,
+		provider:             provider,
+		allowedRedirectHosts: cfg.Auth.AllowedRedirectHosts,
 	}, nil
 }
 
 type AuthController struct {
-	logger   *zap.Logger
-	provider providers.Provider
+	logger                *zap.Logger
+	provider             providers.Provider
+	allowedRedirectHosts []string
 }
 
 func (c *AuthController) GetAuthMethods(w http.ResponseWriter, r *http.Request) {
@@ -43,8 +48,32 @@ func (c *AuthController) AuthCallback(w http.ResponseWriter, r *http.Request, dr
 		return
 	}
 
+	body := r.Body
+	defer body.Close()
+
+	rawBody, err := io.ReadAll(body)
+	if err != nil {
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("failed to read request body")))
+		return
+	}
+
+	var callbackReq oapi.AuthCallbackJSONRequestBody
+	if len(rawBody) > 0 {
+		if err := json.Unmarshal(rawBody, &callbackReq); err != nil {
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid JSON body")))
+			return
+		}
+
+		if callbackReq.Redirect != nil && !c.validateRedirect(*callbackReq.Redirect) {
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("redirect URL is not allowed")))
+			return
+		}
+	}
+
+	r.Body = io.NopCloser(strings.NewReader(string(rawBody)))
+
 	ctx := r.Context()
-	_, err := c.provider.Authenticate(ctx, w, r)
+	_, err = c.provider.Authenticate(ctx, w, r)
 	if err != nil {
 		c.logger.Error("auth validation failed", zap.String("driver", string(driver)), zap.Error(err))
 		c.writeAuthError(w, err)
@@ -52,6 +81,34 @@ func (c *AuthController) AuthCallback(w http.ResponseWriter, r *http.Request, dr
 	}
 
 	w.WriteHeader(http.StatusOK)
+}
+
+func (c *AuthController) validateRedirect(redirect string) bool {
+	if redirect == "" {
+		return true
+	}
+
+	parsed, err := url.Parse(redirect)
+	if err != nil {
+		return false
+	}
+
+	if parsed.Scheme == "" && parsed.Host == "" {
+		return true
+	}
+
+	if parsed.Scheme == "" && parsed.Host != "" {
+		return false
+	}
+
+	host := parsed.Hostname()
+	for _, allowed := range c.allowedRedirectHosts {
+		if host == allowed {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (c *AuthController) AuthWebhook(w http.ResponseWriter, r *http.Request, driver oapi.AuthWebhookParamsDriver) {
