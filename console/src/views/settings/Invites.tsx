@@ -43,6 +43,14 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog"
 
 export default function Invites() {
     const { t } = useTranslation()
@@ -60,6 +68,7 @@ export default function Invites() {
     const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>(setTimeout(() => {}, 0))
     const [isCreating, setIsCreating] = useState(false)
     const [isSaving, setIsSaving] = useState(false)
+    const [createdInviteToken, setCreatedInviteToken] = useState<string | null>(null)
 
     const handleSearch = useCallback((value: string) => {
         setSearchQuery(value)
@@ -541,16 +550,64 @@ export default function Invites() {
                 )}
             </div>
 
+            <Dialog
+                open={!!createdInviteToken}
+                onOpenChange={(open) => {
+                    if (!open) setCreatedInviteToken(null)
+                }}
+            >
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>{t("invite_created", "Invite created")}</DialogTitle>
+                        <DialogDescription>
+                            {t(
+                                "invite_link_description",
+                                "Share this link with the person you're inviting.",
+                            )}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="flex items-center gap-2">
+                        <Input
+                            readOnly
+                            value={
+                                createdInviteToken
+                                    ? `${window.location.origin}/invites/${createdInviteToken}`
+                                    : ""
+                            }
+                            className="flex-1 text-sm"
+                            onClick={(e) => (e.target as HTMLInputElement).select()}
+                        />
+                        <Button
+                            type="button"
+                            size="icon"
+                            variant="outline"
+                            onClick={async () => {
+                                if (!createdInviteToken) return
+                                await handleCopyLink(createdInviteToken)
+                            }}
+                            aria-label={t("copy_link")}
+                        >
+                            <Copy className="h-4 w-4" />
+                        </Button>
+                    </div>
+                    <DialogFooter>
+                        <Button onClick={() => setCreatedInviteToken(null)}>
+                            {t("done", "Done")}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
             <InviteDialog
                 isOpen={isCreating}
                 onClose={() => setIsCreating(false)}
                 onSave={async (data) => {
                     setIsSaving(true)
                     try {
-                        await api.invites.create(project.id, data)
-                        toast.success(t("invite_created", "Invite created"))
+                        const invite = await api.invites.create(project.id, data)
                         await reload()
                         setIsCreating(false)
+                        setCreatedInviteToken(invite.token)
                     } finally {
                         setIsSaving(false)
                     }

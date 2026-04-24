@@ -117,7 +117,7 @@ func (s *InvitesStore) RevokeProjectInvite(ctx context.Context, token string) (*
 	return &invite, nil
 }
 
-func (s *InvitesStore) ListProjectInvites(ctx context.Context, projectID uuid.UUID, pagination store.Pagination, search string, role *oapi.ListProjectInvitesParamsRole, status *oapi.ListProjectInvitesParamsStatus, expiresBefore *string, expiresAfter *string) ([]Invite, int, error) {
+func (s *InvitesStore) ListProjectInvites(ctx context.Context, projectID uuid.UUID, pagination store.Pagination, search string, role *oapi.ListProjectInvitesParamsRole, status *oapi.ListProjectInvitesParamsStatus, expiresBefore *string, expiresAfter *string, inviterAdminID *uuid.UUID) ([]Invite, int, error) {
 	countStmt := `
 	SELECT COUNT(*)
 	FROM project_invites
@@ -131,10 +131,11 @@ func (s *InvitesStore) ListProjectInvites(ctx context.Context, projectID uuid.UU
 		$4 = 'expired'   AND expires_at <= NOW() AND accepted_at IS NULL AND revoked_at IS NULL
 	))
 	AND ($5::date IS NULL OR expires_at >= $5::date)
-	AND ($6::date IS NULL OR expires_at <= $6::date)`
+	AND ($6::date IS NULL OR expires_at <= $6::date)
+	AND ($7::uuid IS NULL OR inviter_admin_id = $7::uuid)`
 
 	var total int
-	err := s.db.GetContext(ctx, &total, countStmt, projectID, search, role, status, expiresBefore, expiresAfter)
+	err := s.db.GetContext(ctx, &total, countStmt, projectID, search, role, status, expiresBefore, expiresAfter, inviterAdminID)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -154,11 +155,12 @@ func (s *InvitesStore) ListProjectInvites(ctx context.Context, projectID uuid.UU
 	))
 	AND ($5::date IS NULL OR pi.expires_at >= $5::date)
 	AND ($6::date IS NULL OR pi.expires_at <= $6::date)
+	AND ($7::uuid IS NULL OR pi.inviter_admin_id = $7::uuid)
 	ORDER BY pi.created_at DESC
-	LIMIT $7 OFFSET $8`
+	LIMIT $8 OFFSET $9`
 
 	var invites []Invite
-	err = s.db.SelectContext(ctx, &invites, stmt, projectID, search, role, status, expiresBefore, expiresAfter, pagination.Limit, pagination.Offset)
+	err = s.db.SelectContext(ctx, &invites, stmt, projectID, search, role, status, expiresBefore, expiresAfter, inviterAdminID, pagination.Limit, pagination.Offset)
 	if err != nil {
 		return nil, 0, err
 	}

@@ -40,6 +40,25 @@ func HMAC(secret []byte) jwt.Keyfunc {
 	}
 }
 
+// multiKeyfunc returns a keyfunc that dispatches to jwks for RS256 tokens and
+// hmac for HS256 tokens, allowing both Clerk (RS256) and basic auth (HS256) to
+// coexist when both are configured.
+func multiKeyfunc(jwks, hmac jwt.Keyfunc) jwt.Keyfunc {
+	return func(token *jwt.Token) (any, error) {
+		switch token.Method.(type) {
+		case *jwt.SigningMethodRSA:
+			if jwks != nil {
+				return jwks(token)
+			}
+		case *jwt.SigningMethodHMAC:
+			if hmac != nil {
+				return hmac(token)
+			}
+		}
+		return nil, jwt.ErrTokenSignatureInvalid
+	}
+}
+
 type Handler func(ctx context.Context, token string) (context.Context, error)
 
 // Middleware is a middleware function that authenticates requests by verifying the
@@ -69,10 +88,11 @@ func Middleware(middleware ...Handler) openapi3filter.AuthenticationFunc {
 }
 
 func WithJWT(config config.Auth, mgmt *management.State) Handler {
-	keyFunc := config.JWKS.Unwrap()
+	var hmacFunc jwt.Keyfunc
 	if config.JWTSecret != "" {
-		keyFunc = HMAC([]byte(config.JWTSecret))
+		hmacFunc = HMAC([]byte(config.JWTSecret))
 	}
+	keyFunc := multiKeyfunc(config.JWKS.Unwrap(), hmacFunc)
 
 	return func(ctx context.Context, value string) (context.Context, error) {
 		claims := jwt.RegisteredClaims{}

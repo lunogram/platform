@@ -86,11 +86,13 @@ export const client = Axios.create({
 client.interceptors.response.use(
     (response) => response,
     async (error) => {
-        const isLoginPage = window.location.pathname.startsWith("/login")
+        const isPublicPage =
+            window.location.pathname.startsWith("/login") ||
+            window.location.pathname.startsWith("/invites/")
         const isUserNotAuthenticated = error.response?.status === 401
         const skipRedirect = error.config?.skipAuthRedirect
 
-        if (isUserNotAuthenticated && !isLoginPage && !skipRedirect) {
+        if (isUserNotAuthenticated && !isPublicPage && !skipRedirect) {
             api.auth.login()
         }
         throw error

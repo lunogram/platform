@@ -2084,6 +2084,9 @@ type ListProjectInvitesParams struct {
 	ExpiresAfter  *openapi_types.Date             `form:"expires_after,omitempty" json:"expires_after,omitempty"`
 	ExpiresBefore *openapi_types.Date             `form:"expires_before,omitempty" json:"expires_before,omitempty"`
 
+	// InviterAdminId Filter invites by the admin who created them
+	InviterAdminId *openapi_types.UUID `form:"inviter_admin_id,omitempty" json:"inviter_admin_id,omitempty"`
+
 	// Search Search query string
 	Search *Search `form:"search,omitempty" json:"search,omitempty"`
 
@@ -8244,6 +8247,22 @@ func NewListProjectInvitesRequest(server string, projectID openapi_types.UUID, p
 		if params.ExpiresBefore != nil {
 
 			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "expires_before", runtime.ParamLocationQuery, *params.ExpiresBefore); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.InviterAdminId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "inviter_admin_id", runtime.ParamLocationQuery, *params.InviterAdminId); err != nil {
 				return nil, err
 			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 				return nil, err
@@ -28886,6 +28905,14 @@ func (siw *ServerInterfaceWrapper) ListProjectInvites(w http.ResponseWriter, r *
 	err = runtime.BindQueryParameter("form", true, false, "expires_before", r.URL.Query(), &params.ExpiresBefore)
 	if err != nil {
 		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "expires_before", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "inviter_admin_id" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "inviter_admin_id", r.URL.Query(), &params.InviterAdminId)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "inviter_admin_id", Err: err})
 		return
 	}
 

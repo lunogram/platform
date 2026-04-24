@@ -1783,6 +1783,13 @@ paths:
             type: string
             format: date
             description: Filter invites that expire before a certain date
+        - name: inviter_admin_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: Filter invites by the admin who created them
         - $ref: "#/components/parameters/Search"
         - $ref: "#/components/parameters/Limit"
         - $ref: "#/components/parameters/Offset"

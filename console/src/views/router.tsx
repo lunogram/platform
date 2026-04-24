@@ -49,6 +49,8 @@ import NewIntegration from "./settings/NewIntegration"
 import IntegrationSetup from "./settings/IntegrationSetup"
 import Login from "./auth/Login"
 import LoginCallback from "./auth/LoginCallback"
+import Register from "./auth/Register"
+import AcceptInvite from "./invites/AcceptInvite"
 import Onboarding from "./auth/Onboarding"
 import OnboardingProject from "./auth/OnboardingProject"
 import {
@@ -110,6 +112,14 @@ export const createRouter = ({
             {
                 path: "/login/:driver/callback",
                 element: <LoginCallback />,
+            },
+            {
+                path: "/register",
+                element: <Register />,
+            },
+            {
+                path: "/invites/:token",
+                element: <AcceptInvite />,
             },
             {
                 path: "*",

@@ -6362,6 +6362,8 @@ export interface operations {
                 role?: "support" | "client" | "editor" | "admin";
                 expires_after?: string;
                 expires_before?: string;
+                /** @description Filter invites by the admin who created them */
+                inviter_admin_id?: string;
                 /** @description Search query string */
                 search?: components["parameters"]["Search"];
                 /** @description Maximum number of items to return */

@@ -9,10 +9,12 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/http/problem"
 	"github.com/lunogram/platform/internal/rbac"
+	"github.com/lunogram/platform/internal/rbac/access"
 	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/management"
 	"go.uber.org/zap"
@@ -22,13 +24,15 @@ type InviteController struct {
 	logger *zap.Logger
 	mgmt   *management.State
 	engine *rbac.Engine
+	db     *sqlx.DB
 }
 
-func NewInviteController(logger *zap.Logger, mgmt *management.State, engine *rbac.Engine) *InviteController {
+func NewInviteController(logger *zap.Logger, mgmt *management.State, engine *rbac.Engine, db *sqlx.DB) *InviteController {
 	return &InviteController{
 		logger: logger,
 		mgmt:   mgmt,
 		engine: engine,
+		db:     db,
 	}
 }
 
@@ -55,6 +59,19 @@ func (srv *InviteController) CreateProjectInvite(w http.ResponseWriter, r *http.
 
 	logger := srv.logger.With(zap.String("project_id", projectID.String()), zap.String("email", string(body.Email)))
 	logger.Info("creating project invite")
+
+	existingAdmin, err := srv.mgmt.GetAdminByEmail(ctx, string(body.Email))
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		logger.Error("failed to check for existing admin with email", zap.String("email", string(body.Email)), zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	if existingAdmin != nil {
+		logger.Debug("admin with email already exists, cannot create invite", zap.String("email", string(body.Email)))
+		oapi.WriteProblem(w, problem.ErrConflict(problem.Describe("an admin with that email already exists")))
+		return
+	}
 
 	actor := rbac.FromContext(ctx)
 	InviterAdminID := actor.ID
@@ -121,6 +138,27 @@ func (srv *InviteController) AcceptProjectInvite(w http.ResponseWriter, r *http.
 		return
 	}
 
+	admin, err := srv.mgmt.GetAdmin(ctx, adminId)
+	if err != nil {
+		srv.logger.Error("failed to get admin", zap.String("admin_id", adminId.String()), zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	if admin.Email != invite.InviteeEmail {
+		srv.logger.Debug("admin email does not match invitee email", zap.String("admin_email", admin.Email), zap.String("invitee_email", invite.InviteeEmail))
+		oapi.WriteProblem(w, problem.ErrForbidden(problem.Describe("you do not have permission to accept this invite")))
+		return
+	}
+
+	tx, err := srv.db.BeginTxx(ctx, nil)
+	if err != nil {
+		srv.logger.Error("failed to begin transaction", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+	defer tx.Rollback()
+
 	err = srv.mgmt.AddAdminToProject(ctx, projectID, adminId, invite.Role)
 	if err != nil {
 		srv.logger.Error("failed to add admin to project", zap.Error(err))
@@ -132,15 +170,35 @@ func (srv *InviteController) AcceptProjectInvite(w http.ResponseWriter, r *http.
 
 	invite, err = srv.mgmt.AcceptProjectInvite(ctx, token)
 	if err != nil {
-		err = srv.mgmt.HardDeleteProjectAdmin(ctx, projectID, adminId)
-		if err != nil {
-			srv.logger.Error("failed to rollback project admin addition after invite acceptance failure", zap.String("project_id", projectID.String()), zap.String("admin_id", adminId.String()), zap.Error(err))
-		}
-
 		srv.logger.Error("failed to accept project invite", zap.Error(err))
 		oapi.WriteProblem(w, err)
 		return
 	}
+
+	projectTouples := access.ProjectRoleTuples(adminId, projectID, "admin")
+	err = srv.engine.WriteTuples(ctx, projectTouples)
+	if err != nil {
+		srv.logger.Error("failed to write RBAC tuples for new project admin", zap.String("admin_id", adminId.String()), zap.String("project_id", invite.ProjectID.String()), zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("failed to assign project role")))
+		return
+	}
+
+	err = access.BackfillProjectTuples(ctx, srv.logger, srv.engine, srv.db)
+	if err != nil {
+		srv.logger.Error("failed to write RBAC tuples for new project admin", zap.String("admin_id", adminId.String()), zap.String("project_id", invite.ProjectID.String()), zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("failed to assign project role")))
+		return
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		srv.logger.Error("failed to commit transaction", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	logger := srv.logger.With(zap.String("project_id", projectID.String()), zap.String("admin_id", adminId.String()))
+	logger.Info("accepted project invite and added admin to project")
 
 	response := invite.OAPI()
 	json.Write(w, http.StatusOK, response)
@@ -191,7 +249,7 @@ func (srv *InviteController) ListProjectInvites(w http.ResponseWriter, r *http.R
 		expiresAfter = &s
 	}
 
-	invites, total, err := srv.mgmt.ListProjectInvites(ctx, projectID, pagination, params.Search.ToString(), params.Role, params.Status, expiresBefore, expiresAfter)
+	invites, total, err := srv.mgmt.ListProjectInvites(ctx, projectID, pagination, params.Search.ToString(), params.Role, params.Status, expiresBefore, expiresAfter, params.InviterAdminId)
 	if err != nil {
 		logger.Error("failed to list project invites", zap.Error(err))
 		oapi.WriteProblem(w, err)

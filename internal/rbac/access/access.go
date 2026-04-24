@@ -30,6 +30,18 @@ func OrganizationRoleTuples(adminID, organizationID uuid.UUID, role string) []rb
 	}
 }
 
+// ProjectRoleTuples returns the tuples needed to grant the given role to an
+// admin within a project.
+func ProjectRoleTuples(userID, projectID uuid.UUID, role string) []rbac.Tuple {
+	return []rbac.Tuple{
+		{
+			User:     "user:" + userID.String(),
+			Relation: role,
+			Object:   rbac.ProjectScope(projectID),
+		},
+	}
+}
+
 // ApiKeyRoleTuples returns the tuple that grants a project-level role to an
 // API key. The keyID is the API key's UUID (used as the RBAC user identity)
 // and role must be one of "support", "client", "editor", or "admin".
