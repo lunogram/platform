@@ -1,8 +1,62 @@
 package modules
 
+import "encoding/json"
+
 // Manifest is the interface all module manifests must implement.
 type Manifest interface {
 	GetMetadata() Metadata
+}
+
+// IntegrationManifest is the unified manifest for integration modules.
+type IntegrationManifest struct {
+	APIVersion   string       `json:"apiVersion"`
+	Metadata     Metadata     `json:"metadata"`
+	Version      string       `json:"version"`
+	License      string       `json:"license,omitempty"`
+	Author       Author       `json:"author"`
+	Website      string       `json:"website,omitempty"`
+	Config       *JSONSchema  `json:"config,omitempty"`
+	Capabilities []Capability `json:"capabilities"`
+}
+
+// GetMetadata implements Manifest.
+func (m IntegrationManifest) GetMetadata() Metadata { return m.Metadata }
+
+// Capability is a typed, versioned capability declaration.
+type Capability struct {
+	Type    string          `json:"type"`
+	Version string          `json:"version"`
+	Spec    json.RawMessage `json:"spec"`
+}
+
+// ProviderSpec is decoded when Capability.Type == "provider".
+type ProviderSpec struct {
+	Channels  []Channel  `json:"channels"`
+	Platforms []Platform `json:"platforms,omitempty"`
+	Webhook   bool       `json:"webhook,omitempty"`
+	Locked    bool       `json:"locked,omitempty"`
+	RateLimit *RateLimit `json:"rate_limit,omitempty"`
+}
+
+// RateLimit defines a rate limit as a number of allowed requests within a
+// time interval.
+type RateLimit struct {
+	Limit    int    `json:"limit"`
+	Interval string `json:"interval,omitempty"`
+	Override bool   `json:"override,omitempty"`
+}
+
+// ActionsSpec is decoded when Capability.Type == "actions".
+type ActionsSpec struct {
+	Functions []ActionFunction `json:"functions"`
+}
+
+// ActionFunction declares a single callable operation within an integration.
+type ActionFunction struct {
+	ID          string      `json:"id"`
+	Title       string      `json:"title"`
+	Description string      `json:"description"`
+	Input       *JSONSchema `json:"input,omitempty"`
 }
 
 // Metadata contains common metadata for all modules.

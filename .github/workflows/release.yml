@@ -53,8 +53,7 @@ jobs:
         with:
           name: wasm-modules
           path: |
-            internal/providers/modules/*.wasm
-            internal/actions/modules/*.wasm
+            internal/integrations/modules/*.wasm
           retention-days: 1
 
       - name: Upload console dist

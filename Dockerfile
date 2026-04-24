@@ -9,7 +9,7 @@ COPY Makefile ./
 COPY modules/ ./modules/
 COPY pkg/ ./pkg/
 
-RUN mkdir -p internal/providers/modules internal/actions/modules && make modules
+RUN mkdir -p internal/integrations/modules && make modules
 
 FROM node:24-alpine AS console
 
@@ -29,8 +29,7 @@ RUN apk add --no-cache git ca-certificates make bash
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-COPY --from=modules /src/internal/providers/modules/*.wasm ./internal/providers/modules/
-COPY --from=modules /src/internal/actions/modules/*.wasm ./internal/actions/modules/
+COPY --from=modules /src/internal/integrations/modules/*.wasm ./internal/integrations/modules/
 COPY --from=console /src/console/dist ./internal/http/console/dist/
 RUN VERSION=${VERSION} SHORT_COMMIT=${COMMIT} make lunogram
 
