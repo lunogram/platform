@@ -31,6 +31,7 @@ import UserDetailSubscriptions from "./users/UserDetailSubscriptions"
 import Campaigns from "./campaign/Campaigns"
 import Campaign from "./campaign/Campaign"
 import CampaignDetails from "./campaign/CampaignDetails"
+import NewCampaign from "./campaign/NewCampaign"
 import Template from "./campaign/template/Template"
 import TemplateContent from "./campaign/template/Content"
 import TemplateReview from "./campaign/template/Review"
@@ -355,6 +356,11 @@ export const createRouter = ({
                                                 apiPath: api.campaigns,
                                                 element: <Campaigns create={true} />,
                                             }),
+                                            {
+                                                path: "new/:channel",
+                                                element: <NewCampaign />,
+                                                errorElement: <ErrorPage />,
+                                            },
                                             createStatefulRoute({
                                                 path: ":entityId",
                                                 apiPath: api.campaigns,
