@@ -18,6 +18,7 @@ type Project struct {
 	TextOptOutMessage *string    `db:"text_opt_out_message"`
 	TextHelpMessage   *string    `db:"text_help_message"`
 	Locale            string     `db:"locale"`
+	Role              string     `db:"role"`
 	IntegrationsCount int        `db:"integrations_count"`
 	CampaignsCount    int        `db:"campaigns_count"`
 	JourneysCount     int        `db:"journeys_count"`
@@ -28,6 +29,10 @@ type Project struct {
 }
 
 func (p *Project) OAPI() oapi.Project {
+	if p.Role == "" {
+		p.Role = "viewer"
+	}
+
 	project := oapi.Project{
 		Id:                p.ID,
 		Name:              p.Name,
@@ -38,7 +43,7 @@ func (p *Project) OAPI() oapi.Project {
 		JourneysCount:     &p.JourneysCount,
 		UsersCount:        &p.UsersCount,
 		ListsCount:        &p.ListsCount,
-		Role:              "admin", // NOTE: we hardcode this for now; this has to be refactored later when we are addressing RBAC, the role is right now checked in the controller
+		Role:              p.Role,
 		CreatedAt:         p.CreatedAt,
 		UpdatedAt:         p.UpdatedAt,
 	}
@@ -85,11 +90,12 @@ func (s *ProjectsStore) CreateProject(ctx context.Context, project Project) (uui
 	return id, nil
 }
 
-func (s *ProjectsStore) GetProject(ctx context.Context, id uuid.UUID) (*Project, error) {
+func (s *ProjectsStore) GetProject(ctx context.Context, id uuid.UUID, adminID *uuid.UUID) (*Project, error) {
 	query := `
 	SELECT id, organization_id, name, description, timezone, text_opt_out_message, text_help_message, locale, created_at, updated_at,
 		COALESCE(pr.integrations_count, 0) AS integrations_count,
-		COALESCE(ca.campaigns_count, 0)    AS campaigns_count
+		COALESCE(ca.campaigns_count, 0)    AS campaigns_count,
+		pa.role AS role
 	FROM projects
 	LEFT JOIN (
 		SELECT project_id, COUNT(*) AS integrations_count
@@ -103,11 +109,16 @@ func (s *ProjectsStore) GetProject(ctx context.Context, id uuid.UUID) (*Project,
 		WHERE deleted_at IS NULL
 		GROUP BY project_id
 	) ca ON ca.project_id = projects.id
+	LEFT JOIN (
+		SELECT project_id, role
+		FROM project_admins
+		WHERE $2::uuid IS NOT NULL AND admin_id = $2 AND deleted_at IS NULL	
+	) pa ON pa.project_id = projects.id
 	WHERE id = $1
 	AND deleted_at IS NULL`
 
 	var project Project
-	err := s.db.GetContext(ctx, &project, query, id)
+	err := s.db.GetContext(ctx, &project, query, id, adminID)
 	if err != nil {
 		return nil, err
 	}
@@ -136,6 +147,43 @@ func (s *ProjectsStore) ListProjects(ctx context.Context, organizationID uuid.UU
 
 	var results []result
 	err := s.db.SelectContext(ctx, &results, query, organizationID, search, pagination.Limit, pagination.Offset)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	if len(results) == 0 {
+		return []Project{}, 0, nil
+	}
+
+	projects := make([]Project, len(results))
+	for i, r := range results {
+		projects[i] = r.Project
+	}
+
+	return projects, results[0].TotalCount, nil
+}
+
+func (s *ProjectsStore) ListProjectsForAdmin(ctx context.Context, adminID uuid.UUID, pagination store.Pagination, search string) ([]Project, int, error) {
+	// TODO: include counts as in GetProject
+	query := `
+	SELECT p.id, p.name, p.timezone, p.text_help_message, p.locale,
+	       p.created_at, p.updated_at,
+	       pa.role,
+	       COUNT(*) OVER() AS total_count
+	FROM projects p
+	JOIN project_admins pa ON pa.project_id = p.id AND pa.admin_id = $1 AND pa.deleted_at IS NULL
+	WHERE p.deleted_at IS NULL
+	AND ($2 = '' OR p.name ILIKE '%' || $2 || '%')
+	ORDER BY p.created_at DESC
+	LIMIT $3 OFFSET $4`
+
+	type result struct {
+		Project
+		TotalCount int `db:"total_count"`
+	}
+
+	var results []result
+	err := s.db.SelectContext(ctx, &results, query, adminID, search, pagination.Limit, pagination.Offset)
 	if err != nil {
 		return nil, 0, err
 	}

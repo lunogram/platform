@@ -159,7 +159,7 @@ func CampaignsSendHandler(logger *zap.Logger, mgmt *management.State, usrs *subj
 			}
 		}
 
-		project, err := mgmt.GetProject(ctx, event.ProjectID)
+		project, err := mgmt.GetProject(ctx, event.ProjectID, nil)
 		if err != nil {
 			logger.Error("failed to get project", zap.Error(err))
 			return err

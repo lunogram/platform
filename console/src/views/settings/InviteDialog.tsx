@@ -5,6 +5,22 @@ import { snakeToTitle } from "../../utils"
 import type { ProjectRole } from "../../types"
 import { projectRoles } from "../../types"
 
+const roleHierarchy: Record<string, number> = {
+    support: 1,
+    client: 1,
+    editor: 2,
+    admin: 3,
+    owner: 4,
+}
+
+function getAllowedRoles(userRole: ProjectRole): ProjectRole[] {
+    const userLevel = roleHierarchy[userRole] ?? 0
+    console.log("User role:", userRole, "User level:", userLevel)
+    return projectRoles.filter(
+        (role) => role !== "owner" && (roleHierarchy[role] ?? 0) <= userLevel,
+    )
+}
+
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -41,15 +57,6 @@ const roleConfig: Record<
             "Create & update users, events, and organizations",
             "No read access to any resource",
             "Designed for client-side SDKs and public integrations",
-        ],
-    },
-    viewer: {
-        icon: Eye,
-        description: "View-only access to project data.",
-        permissions: [
-            "View users, campaigns, journeys, templates",
-            "View events, lists, tags, and documents",
-            "No create, update, or delete access",
         ],
     },
     editor: {
@@ -93,18 +100,27 @@ export interface InviteDialogProps {
     onClose: () => void
     onSave: (data: InviteFormData) => Promise<void>
     isSaving: boolean
+    userRole?: ProjectRole
 }
 
-export default function InviteDialog({ isOpen, onClose, onSave, isSaving }: InviteDialogProps) {
+export default function InviteDialog({
+    isOpen,
+    onClose,
+    onSave,
+    isSaving,
+    userRole = "support",
+}: InviteDialogProps) {
     const { t } = useTranslation()
+    const allowedRoles = getAllowedRoles(userRole)
     const form = useForm<InviteFormData>({
         values: {
-            role: "admin",
+            role: allowedRoles.includes("admin") ? "admin" : allowedRoles[0] || "support",
+            email: "",
             expires_in: "24h",
         },
     })
 
-    const selectedRole = form.watch("role") ?? "admin"
+    const selectedRole = form.watch("role") ?? allowedRoles[0]
     const expiresIn = form.watch("expires_in") ?? "24h"
 
     const expiryOptions = [
@@ -115,7 +131,7 @@ export default function InviteDialog({ isOpen, onClose, onSave, isSaving }: Invi
         { value: "30d", label: "30 days" },
     ]
 
-    const validRoles = projectRoles.filter((role) => role !== "owner")
+    const validRoles = allowedRoles
 
     return (
         <Dialog
@@ -178,7 +194,7 @@ export default function InviteDialog({ isOpen, onClose, onSave, isSaving }: Invi
                                     <button
                                         key={role}
                                         type="button"
-                                        onClick={() => form.setValue("role", role as ProjectRole)}
+                                        onClick={() => form.setValue("role", role)}
                                         className={`relative flex flex-col gap-1.5 rounded-lg border p-3 text-left text-sm transition-colors hover:bg-accent/50 ${
                                             isSelected
                                                 ? "border-primary bg-primary/5 ring-1 ring-primary"
@@ -211,17 +227,15 @@ export default function InviteDialog({ isOpen, onClose, onSave, isSaving }: Invi
                                 {snakeToTitle(selectedRole)} {t("permissions", "permissions")}
                             </p>
                             <ul className="space-y-1">
-                                {roleConfig[selectedRole as ProjectRole]?.permissions.map(
-                                    (perm) => (
-                                        <li
-                                            key={perm}
-                                            className="flex items-start gap-2 text-xs text-muted-foreground"
-                                        >
-                                            <Check className="h-3 w-3 mt-0.5 shrink-0 text-primary" />
-                                            <span>{perm}</span>
-                                        </li>
-                                    ),
-                                )}
+                                {roleConfig[selectedRole]?.permissions.map((perm) => (
+                                    <li
+                                        key={perm}
+                                        className="flex items-start gap-2 text-xs text-muted-foreground"
+                                    >
+                                        <Check className="h-3 w-3 mt-0.5 shrink-0 text-primary" />
+                                        <span>{perm}</span>
+                                    </li>
+                                ))}
                             </ul>
                         </div>
                     </div>

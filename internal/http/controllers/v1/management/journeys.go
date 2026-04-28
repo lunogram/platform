@@ -121,7 +121,7 @@ func (srv *JourneysController) CreateJourney(w http.ResponseWriter, r *http.Requ
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.String("name", body.Name))
 	logger.Info("creating journey")
 
-	project, err := srv.mgmt.GetProject(ctx, projectID)
+	project, err := srv.mgmt.GetProject(ctx, projectID, nil)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("project not found", zap.Stringer("project_id", projectID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("project not found")))

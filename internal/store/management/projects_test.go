@@ -28,7 +28,7 @@ func TestProjectsStore(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotEqual(t, uuid.Nil, projectID)
 
-		project, err := db.GetProject(ctx, projectID)
+		project, err := db.GetProject(ctx, projectID, nil)
 		require.NoError(t, err)
 		assert.Equal(t, "Test Project", project.Name)
 		assert.Equal(t, "UTC", project.Timezone)
@@ -51,7 +51,7 @@ func TestProjectsStore(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		project, err := db.GetProject(ctx, projectID)
+		project, err := db.GetProject(ctx, projectID, nil)
 		require.NoError(t, err)
 		assert.Equal(t, "Updated Name", project.Name)
 		assert.Equal(t, "America/New_York", project.Timezone)

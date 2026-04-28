@@ -91,7 +91,14 @@ func (srv *ProjectsController) ListProjects(w http.ResponseWriter, r *http.Reque
 		search = string(*params.Search)
 	}
 
-	projects, total, err := srv.store.ListProjects(ctx, actor.OrganizationID, pagination, search)
+	actorID, err := uuid.Parse(actor.ID)
+	if err != nil {
+		logger.Error("failed to parse actor ID as UUID", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	projects, total, err := srv.store.ListProjectsForAdmin(ctx, actorID, pagination, search)
 	if err != nil {
 		logger.Error("failed to list projects", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -123,7 +130,14 @@ func (srv *ProjectsController) GetProject(w http.ResponseWriter, r *http.Request
 
 	logger := srv.logger.With(zap.Stringer("project_id", projectID))
 
-	project, err := srv.store.GetProject(ctx, projectID)
+	actorID, err := uuid.Parse(actor.ID)
+	if err != nil {
+		logger.Error("failed to parse actor ID as UUID", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	project, err := srv.store.GetProject(ctx, projectID, &actorID)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("project not found", zap.Stringer("project_id", projectID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("project not found")))
@@ -275,8 +289,15 @@ func (srv *ProjectsController) CreateProject(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	actorID, err := uuid.Parse(actor.ID)
+	if err != nil {
+		logger.Error("failed to parse actor ID as UUID", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	logger.Info("project created", zap.Stringer("project_id", projectID))
-	project, err := srv.store.GetProject(ctx, projectID)
+	project, err := srv.store.GetProject(ctx, projectID, &actorID)
 	if err != nil {
 		logger.Error("failed to fetch created project", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -337,7 +358,14 @@ func (srv *ProjectsController) UpdateProject(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	project, err := srv.store.GetProject(ctx, projectID)
+	actorID, err := uuid.Parse(actor.ID)
+	if err != nil {
+		logger.Error("failed to parse actor ID as UUID", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	project, err := srv.store.GetProject(ctx, projectID, &actorID)
 	if err != nil {
 		logger.Error("failed to fetch updated project", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -362,7 +390,7 @@ func (srv *ProjectsController) DeleteProject(w http.ResponseWriter, r *http.Requ
 	logger := srv.logger.With(zap.Stringer("project_id", projectID))
 	logger.Info("deleting project")
 
-	_, err = srv.store.GetProject(ctx, projectID)
+	_, err = srv.store.GetProject(ctx, projectID, nil)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("project not found", zap.Stringer("project_id", projectID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("project not found")))

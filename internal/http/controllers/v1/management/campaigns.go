@@ -53,7 +53,7 @@ func (srv *CampaignsController) CreateCampaign(w http.ResponseWriter, r *http.Re
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.String("channel", string(body.Channel)))
 	logger.Info("creating campaign")
 
-	project, err := srv.mgmt.ProjectsStore.GetProject(ctx, projectID)
+	project, err := srv.mgmt.ProjectsStore.GetProject(ctx, projectID, nil)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("project not found", zap.Stringer("project_id", projectID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("project not found")))

@@ -64,7 +64,7 @@ func (srv *ListsController) CreateList(w http.ResponseWriter, r *http.Request, p
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.String("name", body.Name))
 	logger.Info("creating list")
 
-	_, err = srv.projects.GetProject(ctx, projectID)
+	_, err = srv.projects.GetProject(ctx, projectID, nil)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("project not found", zap.Stringer("project_id", projectID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("project not found")))

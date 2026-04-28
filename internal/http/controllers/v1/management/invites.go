@@ -42,6 +42,18 @@ func randomString(n int) string {
 	return base64.URLEncoding.EncodeToString(b)[:n]
 }
 
+func isRoleHigher(role1, role2 string) bool {
+	roleHierarchy := map[string]int{
+		"support": 1,
+		"client":  1,
+		"editor":  2,
+		"admin":   3,
+		"owner":   4,
+	}
+
+	return roleHierarchy[role1] > roleHierarchy[role2]
+}
+
 func (srv *InviteController) CreateProjectInvite(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
 	ctx := r.Context()
 	err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("invites", projectID))
@@ -75,6 +87,26 @@ func (srv *InviteController) CreateProjectInvite(w http.ResponseWriter, r *http.
 
 	actor := rbac.FromContext(ctx)
 	InviterAdminID := actor.ID
+
+	actorAdmin, err := srv.mgmt.GetAdmin(ctx, uuid.MustParse(InviterAdminID))
+	if err != nil {
+		logger.Error("failed to get inviter admin details", zap.String("admin_id", InviterAdminID), zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	if actorAdmin.Email == string(body.Email) {
+		logger.Debug("inviter email matches invitee email, cannot create invite", zap.String("email", string(body.Email)))
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("you cannot invite yourself to a project")))
+		return
+	}
+
+	actorRole := actorAdmin.Role
+	if actorRole != "" && isRoleHigher(string(body.Role), actorRole) {
+		logger.Debug("invite role is higher than existing admin role, cannot create invite", zap.String("email", string(body.Email)), zap.String("invite_role", string(body.Role)), zap.String("existing_role", actorRole))
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("the role assigned by this invite must be equal to or lower than the existing global role of the admin with the same email")))
+		return
+	}
 
 	// at 1 billion invite tokens (~200GB of data), the probability of a collision
 	// is 10^-102%, a decimal point followed by 101 zeroes and a 1. if every atom

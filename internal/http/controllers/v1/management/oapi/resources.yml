@@ -9106,7 +9106,7 @@ components:
           example: "user@example.com"
         role:
           type: string
-          enum: [owner, admin, editor, viewer]
+          enum: [owner, admin, editor, support]
           example: admin
         expires_in:
           type: string
@@ -9138,7 +9138,7 @@ components:
           example: "user@example.com"
         role:
           type: string
-          enum: [owner, admin, editor, viewer]
+          enum: [owner, admin, editor, support]
           example: admin
         token:
           type: string

@@ -65,10 +65,10 @@ const (
 
 // Defines values for CreateProjectInviteRole.
 const (
-	CreateProjectInviteRoleAdmin  CreateProjectInviteRole = "admin"
-	CreateProjectInviteRoleEditor CreateProjectInviteRole = "editor"
-	CreateProjectInviteRoleOwner  CreateProjectInviteRole = "owner"
-	CreateProjectInviteRoleViewer CreateProjectInviteRole = "viewer"
+	CreateProjectInviteRoleAdmin   CreateProjectInviteRole = "admin"
+	CreateProjectInviteRoleEditor  CreateProjectInviteRole = "editor"
+	CreateProjectInviteRoleOwner   CreateProjectInviteRole = "owner"
+	CreateProjectInviteRoleSupport CreateProjectInviteRole = "support"
 )
 
 // Defines values for CreateScheduleOffsetRequestDirection.
@@ -135,10 +135,10 @@ const (
 
 // Defines values for ProjectInviteRole.
 const (
-	ProjectInviteRoleAdmin  ProjectInviteRole = "admin"
-	ProjectInviteRoleEditor ProjectInviteRole = "editor"
-	ProjectInviteRoleOwner  ProjectInviteRole = "owner"
-	ProjectInviteRoleViewer ProjectInviteRole = "viewer"
+	ProjectInviteRoleAdmin   ProjectInviteRole = "admin"
+	ProjectInviteRoleEditor  ProjectInviteRole = "editor"
+	ProjectInviteRoleOwner   ProjectInviteRole = "owner"
+	ProjectInviteRoleSupport ProjectInviteRole = "support"
 )
 
 // Defines values for ProjectPushProviderPlatform.

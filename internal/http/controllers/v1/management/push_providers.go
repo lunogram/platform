@@ -56,7 +56,7 @@ func (srv *PushProvidersController) ListProjectPushProviders(w http.ResponseWrit
 
 	logger.Info("listing project push providers")
 
-	_, err = srv.store.ProjectsStore.GetProject(ctx, projectID)
+	_, err = srv.store.ProjectsStore.GetProject(ctx, projectID, nil)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("project not found", zap.Stringer("project_id", projectID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("project not found")))
@@ -111,7 +111,7 @@ func (srv *PushProvidersController) UpsertProjectPushProvider(w http.ResponseWri
 	logger = logger.With(zap.Stringer("provider_id", body.ProviderId))
 	logger.Info("upserting project push provider")
 
-	_, err = srv.store.ProjectsStore.GetProject(ctx, projectID)
+	_, err = srv.store.ProjectsStore.GetProject(ctx, projectID, nil)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("project not found", zap.Stringer("project_id", projectID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("project not found")))
@@ -184,7 +184,7 @@ func (srv *PushProvidersController) DeleteProjectPushProvider(w http.ResponseWri
 
 	logger.Info("deleting project push provider")
 
-	_, err = srv.store.ProjectsStore.GetProject(ctx, projectID)
+	_, err = srv.store.ProjectsStore.GetProject(ctx, projectID, nil)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("project not found", zap.Stringer("project_id", projectID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("project not found")))

@@ -55,6 +55,7 @@ import {
 export default function Invites() {
     const { t } = useTranslation()
     const [project] = useContext(ProjectContext)
+    console.log(project)
 
     const [searchQuery, setSearchQuery] = useState("")
     const [debouncedQuery, setDebouncedQuery] = useState("")
@@ -113,7 +114,8 @@ export default function Invites() {
         setPage(1)
     }, [])
 
-    const hasActiveFilters = statusFilter || roleFilter || expiresAfter || expiresBefore || inviterAdminFilter
+    const hasActiveFilters =
+        statusFilter || roleFilter || expiresAfter || expiresBefore || inviterAdminFilter
 
     const [adminsResult] = useResolver(
         useCallback(async () => {
@@ -191,7 +193,7 @@ export default function Invites() {
         return { status: "pending", icon: Clock, className: "text-blue-500" }
     }
 
-    const canCreateInvite = project.role === "admin"
+    const canCreateInvite = ["editor", "admin", "owner"].includes(project.role ?? "")
 
     return (
         <div className="flex flex-col gap-6">
@@ -613,6 +615,7 @@ export default function Invites() {
                     }
                 }}
                 isSaving={isSaving}
+                userRole={project.role}
             />
         </div>
     )

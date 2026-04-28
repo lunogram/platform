@@ -4727,7 +4727,7 @@ export interface components {
              * @example admin
              * @enum {string}
              */
-            role: "owner" | "admin" | "editor" | "viewer";
+            role: "owner" | "admin" | "editor" | "support";
             /**
              * @description Duration until the invite expires (e.g. "24h", "7d"). Optional, defaults to 24 hours.
              * @example 24h
@@ -4761,7 +4761,7 @@ export interface components {
              * @example admin
              * @enum {string}
              */
-            role?: "owner" | "admin" | "editor" | "viewer";
+            role?: "owner" | "admin" | "editor" | "support";
             /**
              * @description Unique token for the invite link
              * @example a1b2c3d4e5f6a1b2c3d4
