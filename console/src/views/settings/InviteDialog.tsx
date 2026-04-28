@@ -15,9 +15,8 @@ const roleHierarchy: Record<string, number> = {
 
 function getAllowedRoles(userRole: ProjectRole): ProjectRole[] {
     const userLevel = roleHierarchy[userRole] ?? 0
-    console.log("User role:", userRole, "User level:", userLevel)
     return projectRoles.filter(
-        (role) => role !== "owner" && (roleHierarchy[role] ?? 0) <= userLevel,
+        (role) => projectRoles.includes(role) && (roleHierarchy[role] ?? 0) <= userLevel,
     )
 }
 
@@ -75,16 +74,6 @@ const roleConfig: Record<
             "Everything in Editor",
             "Manage providers and integrations",
             "Delete subscriptions, actions, and organizations",
-        ],
-    },
-    owner: {
-        icon: ShieldCheck,
-        description: "Full project ownership with billing and member management.",
-        permissions: [
-            "Everything in Admin",
-            "Manage billing and subscription",
-            "Invite and remove team members",
-            "Transfer project ownership",
         ],
     },
 }

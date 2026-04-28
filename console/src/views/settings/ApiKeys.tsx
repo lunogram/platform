@@ -89,7 +89,7 @@ export default function ProjectApiKeys() {
                     />
                 </div>
                 <Button
-                    onClick={() => setEditing({ role: "support" })}
+                    onClick={() => setEditing({ role: "client" })}
                     className="flex-1 sm:flex-initial"
                     aria-label={t("create_key_from_header", "Create Key from header")}
                 >
@@ -147,7 +147,7 @@ export default function ProjectApiKeys() {
                                             <Button
                                                 variant="outline"
                                                 size="sm"
-                                                onClick={() => setEditing({ role: "support" })}
+                                                onClick={() => setEditing({ role: "client" })}
                                                 className="mt-2"
                                                 aria-label={t(
                                                     "create_key_from_empty",
@@ -170,7 +170,7 @@ export default function ProjectApiKeys() {
                                 >
                                     <TableCell className="font-medium">{apiKey.name}</TableCell>
                                     <TableCell className="text-muted-foreground">
-                                        {snakeToTitle(apiKey.role ?? "support")}
+                                        {snakeToTitle(apiKey.role ?? "client")}
                                     </TableCell>
                                     <TableCell className="hidden md:table-cell">
                                         <div className="flex items-center gap-2">

@@ -78,7 +78,7 @@ export default function ApiKeyDialog({ editing, onClose, onSave, isSaving }: Api
     })
 
     // eslint-disable-next-line react-hooks/incompatible-library
-    const selectedRole = form.watch("role") ?? "support"
+    const selectedRole = form.watch("role") ?? "client"
     const isUpdate = !!editing?.id
 
     return (
@@ -134,12 +134,7 @@ export default function ApiKeyDialog({ editing, onClose, onSave, isSaving }: Api
                                     <button
                                         key={role}
                                         type="button"
-                                        onClick={() =>
-                                            form.setValue(
-                                                "role",
-                                                role as (typeof projectRoles)[number],
-                                            )
-                                        }
+                                        onClick={() => form.setValue("role", role)}
                                         className={`relative flex flex-col gap-1.5 rounded-lg border p-3 text-left text-sm transition-colors hover:bg-accent/50 ${
                                             isSelected
                                                 ? "border-primary bg-primary/5 ring-1 ring-primary"

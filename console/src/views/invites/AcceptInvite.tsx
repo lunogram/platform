@@ -6,7 +6,7 @@ import { Loader2, Mail, ShieldAlert } from "lucide-react"
 import api from "../../api"
 import oapiClient from "../../oapi/client"
 import { AUTH_DRIVERS } from "../../types"
-import type { ProjectInvite, AuthDriver } from "../../types"
+import type { ProjectInvite, AuthDriver, Admin } from "../../types"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -60,7 +60,13 @@ export default function AcceptInvite() {
                     navigate(`/projects/${invite.project_id}`)
                 }, 1200)
             } catch {
-                setState({ status: "error", message: t("invite_accept_failed", "Failed to accept the invite. Please try again.") })
+                setState({
+                    status: "error",
+                    message: t(
+                        "invite_accept_failed",
+                        "Failed to accept the invite. Please try again.",
+                    ),
+                })
             }
         },
         [token, navigate, t],
@@ -74,17 +80,26 @@ export default function AcceptInvite() {
             })
 
             if (error || !invite) {
-                setState({ status: "error", message: t("invite_not_found", "This invite link is invalid or has expired.") })
+                setState({
+                    status: "error",
+                    message: t("invite_not_found", "This invite link is invalid or has expired."),
+                })
                 return
             }
 
             if (invite.accepted_at) {
-                setState({ status: "error", message: t("invite_already_accepted", "This invite has already been accepted.") })
+                setState({
+                    status: "error",
+                    message: t("invite_already_accepted", "This invite has already been accepted."),
+                })
                 return
             }
 
             if (invite.revoked_at) {
-                setState({ status: "error", message: t("invite_revoked", "This invite has been revoked.") })
+                setState({
+                    status: "error",
+                    message: t("invite_revoked", "This invite has been revoked."),
+                })
                 return
             }
 
@@ -96,9 +111,7 @@ export default function AcceptInvite() {
 
             const profile = profileResult.status === "fulfilled" ? profileResult.value : null
             const drivers =
-                driversResult.status === "fulfilled"
-                    ? driversResult.value
-                    : [AUTH_DRIVERS.BASIC]
+                driversResult.status === "fulfilled" ? driversResult.value : [AUTH_DRIVERS.BASIC]
 
             if (!profile) {
                 // Not logged in
@@ -184,13 +197,18 @@ export default function AcceptInvite() {
             <div className="min-h-screen flex items-center justify-center bg-muted/40 p-4">
                 <Card className="w-full max-w-sm">
                     <CardHeader className="space-y-1 text-center">
-                        <CardTitle className="text-2xl font-bold">{t("invite_wrong_account_title", "Wrong account")}</CardTitle>
+                        <CardTitle className="text-2xl font-bold">
+                            {t("invite_wrong_account_title", "Wrong account")}
+                        </CardTitle>
                     </CardHeader>
                     <CardContent>
                         <Alert variant="destructive">
                             <ShieldAlert className="h-4 w-4" />
                             <AlertDescription>
-                                {t("invite_wrong_account", "This invite was not sent to your account. Please log out and sign in with the correct account.")}
+                                {t(
+                                    "invite_wrong_account",
+                                    "This invite was not sent to your account. Please log out and sign in with the correct account.",
+                                )}
                             </AlertDescription>
                         </Alert>
                     </CardContent>
@@ -211,7 +229,10 @@ export default function AcceptInvite() {
                             {t("invite_title", "You've been invited")}
                         </CardTitle>
                         <CardDescription>
-                            {t("invite_sign_in_prompt", "Sign in or create an account to accept this invite.")}
+                            {t(
+                                "invite_sign_in_prompt",
+                                "Sign in or create an account to accept this invite.",
+                            )}
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
@@ -222,7 +243,11 @@ export default function AcceptInvite() {
                                 {t("login")}
                             </Button>
                             {hasClerk && (
-                                <Button variant="outline" className="w-full" onClick={handleRegister}>
+                                <Button
+                                    variant="outline"
+                                    className="w-full"
+                                    onClick={handleRegister}
+                                >
                                     {t("invite_create_account", "Create account")}
                                 </Button>
                             )}

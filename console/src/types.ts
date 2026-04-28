@@ -330,7 +330,8 @@ export interface Admin {
     role: OrganizationRole
 }
 
-export const projectRoles = ["support", "client", "editor", "admin", "owner"] as const
+export const projectRolesIncludingOwner = ["support", "client", "editor", "admin", "owner"] as const
+export const projectRoles = ["support", "client", "editor", "admin"] as const
 
 export interface ProjectInvite {
     id: UUID
