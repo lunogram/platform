@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next"
 import { useForm } from "react-hook-form"
-import { Check, Eye, Smartphone, Pencil, Shield, ShieldCheck } from "lucide-react"
+import { Check, Eye, Smartphone, Pencil, Shield } from "lucide-react"
 import { snakeToTitle } from "../../utils"
 import type { ProjectRole } from "../../types"
 import { projectRoles } from "../../types"
@@ -109,6 +109,7 @@ export default function InviteDialog({
         },
     })
 
+    // eslint-disable-next-line react-hooks/incompatible-library
     const selectedRole = form.watch("role") ?? allowedRoles[0]
     const expiresIn = form.watch("expires_in") ?? "24h"
 
