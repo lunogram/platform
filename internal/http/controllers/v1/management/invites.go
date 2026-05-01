@@ -1,15 +1,19 @@
 package v1
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
 	"database/sql"
 	"encoding/base64"
 	"errors"
-	"math/rand"
+	"io"
 	"net/http"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/lunogram/platform/internal/config"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/http/problem"
@@ -25,21 +29,123 @@ type InviteController struct {
 	mgmt   *management.State
 	engine *rbac.Engine
 	db     *sqlx.DB
+	cfg    config.Invites
 }
 
-func NewInviteController(logger *zap.Logger, mgmt *management.State, engine *rbac.Engine, db *sqlx.DB) *InviteController {
+func NewInviteController(logger *zap.Logger, mgmt *management.State, engine *rbac.Engine, db *sqlx.DB, cfg config.Invites) *InviteController {
 	return &InviteController{
 		logger: logger,
 		mgmt:   mgmt,
 		engine: engine,
 		db:     db,
+		cfg:    cfg,
 	}
 }
 
 func randomString(n int) string {
 	b := make([]byte, n)
 	rand.Read(b)
-	return base64.URLEncoding.EncodeToString(b)[:n]
+	return base64.RawURLEncoding.EncodeToString(b)
+}
+
+func getAesGCM(secretKey []byte) (cipher.AEAD, error) {
+	block, err := aes.NewCipher(secretKey)
+	if err != nil {
+		return nil, err
+	}
+
+	aesgcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, err
+	}
+
+	return aesgcm, nil
+}
+
+// StdEncoding for the secret key (openssl rand -base64 32 speaks standard, not url).
+// RawURLEncoding for everything that touches a URL (because "/" in a nonce or token will make your
+// router throw a fit). mixing these up will ruin your day, as proven
+// by the developer who wrote this comment after 2 hours of "illegal base64 data at input byte 17".
+func encryptToken(token string, secretKey string, nonce *string, logger zap.Logger) (string, string, error) {
+	if secretKey == "none" {
+		logger.Warn("Invite token encryption is disabled. This should only be used for testing and development.")
+		return token, "", nil
+	}
+
+	keyBytes, err := base64.StdEncoding.DecodeString(secretKey)
+	if err != nil {
+		return "", "", err
+	}
+
+	aesgcm, err := getAesGCM(keyBytes)
+	if err != nil {
+		return "", "", err
+	}
+
+	var nonceBytes []byte
+	if nonce == nil {
+		nonceBytes = make([]byte, aesgcm.NonceSize())
+		if _, err = io.ReadFull(rand.Reader, nonceBytes); err != nil {
+			return "", "", err
+		}
+	} else {
+		nonceBytes, err = base64.RawURLEncoding.DecodeString(*nonce)
+		if err != nil {
+			return "", "", err
+		}
+	}
+
+	ciphertext := aesgcm.Seal(nil, nonceBytes, []byte(token), nil)
+	return base64.RawURLEncoding.EncodeToString(ciphertext), base64.RawURLEncoding.EncodeToString(nonceBytes), nil
+}
+
+func decryptToken(ciphertext string, nonce string, secretKey string, logger zap.Logger) (string, error) {
+	if secretKey == "none" {
+		logger.Warn("Invite token decryption is disabled. This should only be used for testing and development.")
+		return ciphertext, nil
+	}
+
+	keyBytes, err := base64.StdEncoding.DecodeString(secretKey)
+	if err != nil {
+		return "", err
+	}
+
+	aesgcm, err := getAesGCM(keyBytes)
+	if err != nil {
+		return "", err
+	}
+
+	ciphertextBytes, err := base64.RawURLEncoding.DecodeString(ciphertext)
+	if err != nil {
+		return "", err
+	}
+
+	nonceBytes, err := base64.RawURLEncoding.DecodeString(nonce)
+	if err != nil {
+		return "", err
+	}
+
+	plaintext, err := aesgcm.Open(nil, nonceBytes, ciphertextBytes, nil)
+	if err != nil {
+		return "", err
+	}
+
+	return string(plaintext), nil
+}
+
+func unpackToken(mashed string, secretKey string, logger *zap.Logger) (string, string, error) {
+	if secretKey == "none" {
+		logger.Warn("Invite token unpacking is disabled. This should only be used for testing and development.")
+		return mashed, "", nil
+	}
+
+	if len(mashed) < 16 {
+		return "", "", errors.New("mashed token too short")
+	}
+
+	nonce := mashed[:16]
+	ciphertext := mashed[16:]
+	return ciphertext, nonce, nil
 }
 
 func isRoleHigher(role1, role2 string) bool {
@@ -114,13 +220,19 @@ func (srv *InviteController) CreateProjectInvite(w http.ResponseWriter, r *http.
 	// ~10^-21%. At that point we're also storing 2^266 * 200 bytes of data, which is a number so
 	// large it doesn't have a name. if this ever fires, forget the bug, go buy a lottery ticket.
 	token := randomString(50)
+	encryptedToken, nonce, err := encryptToken(token, srv.cfg.SecretKey, nil, *logger)
+	if err != nil {
+		logger.Error("failed to encrypt invite token", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
 
 	expiresIn := "24h"
 	if body.ExpiresIn != nil {
 		expiresIn = *body.ExpiresIn
 	}
 
-	invite, err := srv.mgmt.CreateProjectInvite(ctx, projectID, InviterAdminID, string(body.Email), body.Role, token, expiresIn)
+	invite, err := srv.mgmt.CreateProjectInvite(ctx, projectID, InviterAdminID, string(body.Email), body.Role, encryptedToken, nonce, expiresIn)
 	if err != nil {
 		logger.Error("failed to create project invite", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -129,12 +241,27 @@ func (srv *InviteController) CreateProjectInvite(w http.ResponseWriter, r *http.
 
 	logger.Info("Created project invite", zap.String("invite_id", invite.ID.String()))
 
+	invite.Token = token
 	response := invite.OAPI()
 	json.Write(w, http.StatusOK, response)
 }
 
-func (srv *InviteController) GetInviteDetails(w http.ResponseWriter, r *http.Request, token string) {
+func (srv *InviteController) GetInviteDetails(w http.ResponseWriter, r *http.Request, encryptionPair string) {
 	ctx := r.Context()
+
+	encryptedToken, nonce, err := unpackToken(encryptionPair, srv.cfg.SecretKey, srv.logger)
+	if err != nil {
+		srv.logger.Error("failed to expand token and nonce", zap.String("token_nounce_pair", encryptionPair), zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid invite token")))
+		return
+	}
+
+	token, _, err := encryptToken(encryptedToken, srv.cfg.SecretKey, &nonce, *srv.logger)
+	if err != nil {
+		srv.logger.Error("failed to decrypt token", zap.String("encrypted_token", encryptedToken), zap.String("nonce", string(nonce)), zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid invite token")))
+		return
+	}
 
 	invite, err := srv.mgmt.GetInviteByToken(ctx, token)
 	if err != nil {
@@ -149,12 +276,34 @@ func (srv *InviteController) GetInviteDetails(w http.ResponseWriter, r *http.Req
 	}
 
 	response := invite.OAPI()
+	resToken, err := decryptToken(*response.Token, nonce, srv.cfg.SecretKey, *srv.logger)
+	if err != nil {
+		srv.logger.Error("failed to decrypt invite token", zap.String("encrypted_token", *response.Token), zap.String("nonce", string(nonce)), zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid invite token")))
+		return
+	}
+
+	response.Token = &resToken
 	json.Write(w, http.StatusOK, response)
 }
 
-func (srv *InviteController) AcceptProjectInvite(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, token string) {
+func (srv *InviteController) AcceptProjectInvite(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, tokenNouncePair string) {
 	ctx := r.Context()
 	actor := rbac.FromContext(ctx)
+
+	encryptedToken, nonce, err := unpackToken(tokenNouncePair, srv.cfg.SecretKey, srv.logger)
+	if err != nil {
+		srv.logger.Error("failed to expand token and nonce", zap.String("token_nounce_pair", tokenNouncePair), zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid invite token")))
+		return
+	}
+
+	token, _, err := encryptToken(encryptedToken, srv.cfg.SecretKey, &nonce, *srv.logger)
+	if err != nil {
+		srv.logger.Error("failed to decrypt token", zap.String("encrypted_token", encryptedToken), zap.String("nonce", string(nonce)), zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid invite token")))
+		return
+	}
 
 	invite, err := srv.mgmt.GetInviteByToken(ctx, token)
 	if err != nil {
@@ -191,7 +340,9 @@ func (srv *InviteController) AcceptProjectInvite(w http.ResponseWriter, r *http.
 	}
 	defer tx.Rollback()
 
-	err = srv.mgmt.AddAdminToProject(ctx, projectID, adminId, invite.Role)
+	managementStore := management.NewState(tx)
+
+	err = managementStore.AddAdminToProject(ctx, projectID, adminId, invite.Role)
 	if err != nil {
 		srv.logger.Error("failed to add admin to project", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -200,7 +351,7 @@ func (srv *InviteController) AcceptProjectInvite(w http.ResponseWriter, r *http.
 
 	//TODO: When the more more relation of the organizations x Admins is implemented, we should also add the user to the organization that the project belongs to.
 
-	invite, err = srv.mgmt.AcceptProjectInvite(ctx, token)
+	invite, err = managementStore.AcceptProjectInvite(ctx, token)
 	if err != nil {
 		srv.logger.Error("failed to accept project invite", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -233,14 +384,36 @@ func (srv *InviteController) AcceptProjectInvite(w http.ResponseWriter, r *http.
 	logger.Info("accepted project invite and added admin to project")
 
 	response := invite.OAPI()
+	resToken, err := decryptToken(*response.Token, nonce, srv.cfg.SecretKey, *srv.logger)
+	if err != nil {
+		srv.logger.Error("failed to decrypt invite token", zap.String("encrypted_token", *response.Token), zap.String("nonce", string(nonce)), zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid invite token")))
+		return
+	}
+
+	response.Token = &resToken
 	json.Write(w, http.StatusOK, response)
 }
 
-func (srv *InviteController) RevokeProjectInvite(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, token string) {
+func (srv *InviteController) RevokeProjectInvite(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, tokenNouncePair string) {
 	ctx := r.Context()
 	err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("invites", projectID))
 	if err != nil {
 		oapi.WriteProblem(w, err)
+		return
+	}
+
+	encryptedToken, nonce, err := unpackToken(tokenNouncePair, srv.cfg.SecretKey, srv.logger)
+	if err != nil {
+		srv.logger.Error("failed to expand token and nonce", zap.String("token_nounce_pair", tokenNouncePair), zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid invite token")))
+		return
+	}
+
+	token, _, err := encryptToken(encryptedToken, srv.cfg.SecretKey, &nonce, *srv.logger)
+	if err != nil {
+		srv.logger.Error("failed to decrypt token", zap.String("encrypted_token", encryptedToken), zap.String("nonce", string(nonce)), zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid invite token")))
 		return
 	}
 
@@ -252,6 +425,14 @@ func (srv *InviteController) RevokeProjectInvite(w http.ResponseWriter, r *http.
 	}
 
 	response := invite.OAPI()
+	resToken, err := decryptToken(*response.Token, nonce, srv.cfg.SecretKey, *srv.logger)
+	if err != nil {
+		srv.logger.Error("failed to decrypt invite token", zap.String("encrypted_token", *response.Token), zap.String("nonce", string(nonce)), zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid invite token")))
+		return
+	}
+
+	response.Token = &resToken
 	json.Write(w, http.StatusOK, response)
 }
 
@@ -291,7 +472,15 @@ func (srv *InviteController) ListProjectInvites(w http.ResponseWriter, r *http.R
 	logger.Info("listed project invites", zap.Int("count", len(invites)))
 	response := make([]oapi.ProjectInvite, len(invites))
 	for i, invite := range invites {
+		resToken, err := decryptToken(invite.Token, *invite.Nonce, srv.cfg.SecretKey, *srv.logger)
+		if err != nil {
+			srv.logger.Error("failed to decrypt invite token", zap.String("encrypted_token", *response[i].Token), zap.Error(err))
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid invite token")))
+			return
+		}
+
 		response[i] = invite.OAPI()
+		response[i].Token = &resToken
 	}
 
 	json.Write(w, http.StatusOK, oapi.ProjectInviteListResponse{

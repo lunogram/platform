@@ -1126,9 +1126,12 @@ type ProjectInvite struct {
 	InviteeEmail      *openapi_types.Email `json:"invitee_email,omitempty"`
 	InviterAdminEmail *string              `json:"inviter_admin_email"`
 	InviterAdminId    *openapi_types.UUID  `json:"inviter_admin_id,omitempty"`
-	ProjectId         *openapi_types.UUID  `json:"project_id,omitempty"`
-	RevokedAt         *time.Time           `json:"revoked_at"`
-	Role              *ProjectInviteRole   `json:"role,omitempty"`
+
+	// Nonce Random nonce to prevent token reuse
+	Nonce     *string             `json:"nonce,omitempty"`
+	ProjectId *openapi_types.UUID `json:"project_id,omitempty"`
+	RevokedAt *time.Time          `json:"revoked_at"`
+	Role      *ProjectInviteRole  `json:"role,omitempty"`
 
 	// Token Unique token for the invite link
 	Token *string `json:"token,omitempty"`
@@ -2774,10 +2777,10 @@ type ClientInterface interface {
 	CreateProjectInvite(ctx context.Context, projectID openapi_types.UUID, body CreateProjectInviteJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// AcceptProjectInvite request
-	AcceptProjectInvite(ctx context.Context, projectID openapi_types.UUID, token string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	AcceptProjectInvite(ctx context.Context, projectID openapi_types.UUID, tokenNouncePair string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// RevokeProjectInvite request
-	RevokeProjectInvite(ctx context.Context, projectID openapi_types.UUID, token string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	RevokeProjectInvite(ctx context.Context, projectID openapi_types.UUID, tokenNouncePair string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListJourneys request
 	ListJourneys(ctx context.Context, projectID openapi_types.UUID, params *ListJourneysParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -3936,8 +3939,8 @@ func (c *Client) CreateProjectInvite(ctx context.Context, projectID openapi_type
 	return c.Client.Do(req)
 }
 
-func (c *Client) AcceptProjectInvite(ctx context.Context, projectID openapi_types.UUID, token string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewAcceptProjectInviteRequest(c.Server, projectID, token)
+func (c *Client) AcceptProjectInvite(ctx context.Context, projectID openapi_types.UUID, tokenNouncePair string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAcceptProjectInviteRequest(c.Server, projectID, tokenNouncePair)
 	if err != nil {
 		return nil, err
 	}
@@ -3948,8 +3951,8 @@ func (c *Client) AcceptProjectInvite(ctx context.Context, projectID openapi_type
 	return c.Client.Do(req)
 }
 
-func (c *Client) RevokeProjectInvite(ctx context.Context, projectID openapi_types.UUID, token string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewRevokeProjectInviteRequest(c.Server, projectID, token)
+func (c *Client) RevokeProjectInvite(ctx context.Context, projectID openapi_types.UUID, tokenNouncePair string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRevokeProjectInviteRequest(c.Server, projectID, tokenNouncePair)
 	if err != nil {
 		return nil, err
 	}
@@ -8383,7 +8386,7 @@ func NewCreateProjectInviteRequestWithBody(server string, projectID openapi_type
 }
 
 // NewAcceptProjectInviteRequest generates requests for AcceptProjectInvite
-func NewAcceptProjectInviteRequest(server string, projectID openapi_types.UUID, token string) (*http.Request, error) {
+func NewAcceptProjectInviteRequest(server string, projectID openapi_types.UUID, tokenNouncePair string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -8395,7 +8398,7 @@ func NewAcceptProjectInviteRequest(server string, projectID openapi_types.UUID, 
 
 	var pathParam1 string
 
-	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "token", runtime.ParamLocationPath, token)
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "tokenNouncePair", runtime.ParamLocationPath, tokenNouncePair)
 	if err != nil {
 		return nil, err
 	}
@@ -8424,7 +8427,7 @@ func NewAcceptProjectInviteRequest(server string, projectID openapi_types.UUID, 
 }
 
 // NewRevokeProjectInviteRequest generates requests for RevokeProjectInvite
-func NewRevokeProjectInviteRequest(server string, projectID openapi_types.UUID, token string) (*http.Request, error) {
+func NewRevokeProjectInviteRequest(server string, projectID openapi_types.UUID, tokenNouncePair string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -8436,7 +8439,7 @@ func NewRevokeProjectInviteRequest(server string, projectID openapi_types.UUID, 
 
 	var pathParam1 string
 
-	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "token", runtime.ParamLocationPath, token)
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "tokenNouncePair", runtime.ParamLocationPath, tokenNouncePair)
 	if err != nil {
 		return nil, err
 	}
@@ -14458,10 +14461,10 @@ type ClientWithResponsesInterface interface {
 	CreateProjectInviteWithResponse(ctx context.Context, projectID openapi_types.UUID, body CreateProjectInviteJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateProjectInviteResponse, error)
 
 	// AcceptProjectInviteWithResponse request
-	AcceptProjectInviteWithResponse(ctx context.Context, projectID openapi_types.UUID, token string, reqEditors ...RequestEditorFn) (*AcceptProjectInviteResponse, error)
+	AcceptProjectInviteWithResponse(ctx context.Context, projectID openapi_types.UUID, tokenNouncePair string, reqEditors ...RequestEditorFn) (*AcceptProjectInviteResponse, error)
 
 	// RevokeProjectInviteWithResponse request
-	RevokeProjectInviteWithResponse(ctx context.Context, projectID openapi_types.UUID, token string, reqEditors ...RequestEditorFn) (*RevokeProjectInviteResponse, error)
+	RevokeProjectInviteWithResponse(ctx context.Context, projectID openapi_types.UUID, tokenNouncePair string, reqEditors ...RequestEditorFn) (*RevokeProjectInviteResponse, error)
 
 	// ListJourneysWithResponse request
 	ListJourneysWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListJourneysParams, reqEditors ...RequestEditorFn) (*ListJourneysResponse, error)
@@ -19116,8 +19119,8 @@ func (c *ClientWithResponses) CreateProjectInviteWithResponse(ctx context.Contex
 }
 
 // AcceptProjectInviteWithResponse request returning *AcceptProjectInviteResponse
-func (c *ClientWithResponses) AcceptProjectInviteWithResponse(ctx context.Context, projectID openapi_types.UUID, token string, reqEditors ...RequestEditorFn) (*AcceptProjectInviteResponse, error) {
-	rsp, err := c.AcceptProjectInvite(ctx, projectID, token, reqEditors...)
+func (c *ClientWithResponses) AcceptProjectInviteWithResponse(ctx context.Context, projectID openapi_types.UUID, tokenNouncePair string, reqEditors ...RequestEditorFn) (*AcceptProjectInviteResponse, error) {
+	rsp, err := c.AcceptProjectInvite(ctx, projectID, tokenNouncePair, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -19125,8 +19128,8 @@ func (c *ClientWithResponses) AcceptProjectInviteWithResponse(ctx context.Contex
 }
 
 // RevokeProjectInviteWithResponse request returning *RevokeProjectInviteResponse
-func (c *ClientWithResponses) RevokeProjectInviteWithResponse(ctx context.Context, projectID openapi_types.UUID, token string, reqEditors ...RequestEditorFn) (*RevokeProjectInviteResponse, error) {
-	rsp, err := c.RevokeProjectInvite(ctx, projectID, token, reqEditors...)
+func (c *ClientWithResponses) RevokeProjectInviteWithResponse(ctx context.Context, projectID openapi_types.UUID, tokenNouncePair string, reqEditors ...RequestEditorFn) (*RevokeProjectInviteResponse, error) {
+	rsp, err := c.RevokeProjectInvite(ctx, projectID, tokenNouncePair, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -25591,11 +25594,11 @@ type ServerInterface interface {
 	// (POST /api/admin/projects/{projectID}/invites)
 	CreateProjectInvite(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID)
 	// Accept a project invite
-	// (POST /api/admin/projects/{projectID}/invites/accept/{token})
-	AcceptProjectInvite(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, token string)
+	// (POST /api/admin/projects/{projectID}/invites/accept/{tokenNouncePair})
+	AcceptProjectInvite(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, tokenNouncePair string)
 	// Revoke a project invite
-	// (DELETE /api/admin/projects/{projectID}/invites/{token})
-	RevokeProjectInvite(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, token string)
+	// (DELETE /api/admin/projects/{projectID}/invites/{tokenNouncePair})
+	RevokeProjectInvite(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, tokenNouncePair string)
 	// List journeys
 	// (GET /api/admin/projects/{projectID}/journeys)
 	ListJourneys(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListJourneysParams)
@@ -26221,14 +26224,14 @@ func (_ Unimplemented) CreateProjectInvite(w http.ResponseWriter, r *http.Reques
 }
 
 // Accept a project invite
-// (POST /api/admin/projects/{projectID}/invites/accept/{token})
-func (_ Unimplemented) AcceptProjectInvite(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, token string) {
+// (POST /api/admin/projects/{projectID}/invites/accept/{tokenNouncePair})
+func (_ Unimplemented) AcceptProjectInvite(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, tokenNouncePair string) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Revoke a project invite
-// (DELETE /api/admin/projects/{projectID}/invites/{token})
-func (_ Unimplemented) RevokeProjectInvite(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, token string) {
+// (DELETE /api/admin/projects/{projectID}/invites/{tokenNouncePair})
+func (_ Unimplemented) RevokeProjectInvite(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, tokenNouncePair string) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -28996,12 +28999,12 @@ func (siw *ServerInterfaceWrapper) AcceptProjectInvite(w http.ResponseWriter, r 
 		return
 	}
 
-	// ------------- Path parameter "token" -------------
-	var token string
+	// ------------- Path parameter "tokenNouncePair" -------------
+	var tokenNouncePair string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "token", chi.URLParam(r, "token"), &token, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "tokenNouncePair", chi.URLParam(r, "tokenNouncePair"), &tokenNouncePair, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "token", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tokenNouncePair", Err: err})
 		return
 	}
 
@@ -29012,7 +29015,7 @@ func (siw *ServerInterfaceWrapper) AcceptProjectInvite(w http.ResponseWriter, r 
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.AcceptProjectInvite(w, r, projectID, token)
+		siw.Handler.AcceptProjectInvite(w, r, projectID, tokenNouncePair)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -29036,12 +29039,12 @@ func (siw *ServerInterfaceWrapper) RevokeProjectInvite(w http.ResponseWriter, r 
 		return
 	}
 
-	// ------------- Path parameter "token" -------------
-	var token string
+	// ------------- Path parameter "tokenNouncePair" -------------
+	var tokenNouncePair string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "token", chi.URLParam(r, "token"), &token, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "tokenNouncePair", chi.URLParam(r, "tokenNouncePair"), &tokenNouncePair, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "token", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tokenNouncePair", Err: err})
 		return
 	}
 
@@ -29052,7 +29055,7 @@ func (siw *ServerInterfaceWrapper) RevokeProjectInvite(w http.ResponseWriter, r 
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.RevokeProjectInvite(w, r, projectID, token)
+		siw.Handler.RevokeProjectInvite(w, r, projectID, tokenNouncePair)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -33945,10 +33948,10 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/invites", wrapper.CreateProjectInvite)
 	})
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/invites/accept/{token}", wrapper.AcceptProjectInvite)
+		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/invites/accept/{tokenNouncePair}", wrapper.AcceptProjectInvite)
 	})
 	r.Group(func(r chi.Router) {
-		r.Delete(options.BaseURL+"/api/admin/projects/{projectID}/invites/{token}", wrapper.RevokeProjectInvite)
+		r.Delete(options.BaseURL+"/api/admin/projects/{projectID}/invites/{tokenNouncePair}", wrapper.RevokeProjectInvite)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/journeys", wrapper.ListJourneys)

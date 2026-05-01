@@ -340,6 +340,7 @@ export interface ProjectInvite {
     invitee_email: string
     role: ProjectRole
     token: string
+    nonce: string
     expires_at: string
     accepted_at: string | null
     revoked_at: string | null

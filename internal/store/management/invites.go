@@ -25,6 +25,7 @@ type Invite struct {
 	InviterAdminEmail *string    `db:"inviter_admin_email"`
 	InviteeEmail      string     `db:"invitee_email"`
 	Token             string     `db:"token"`
+	Nonce             *string    `db:"nonce"`
 	Role              string     `db:"role"`
 	ExpiresAt         time.Time  `db:"expires_at"`
 	AcceptedAt        *time.Time `db:"accepted_at"`
@@ -43,6 +44,7 @@ func (invite *Invite) OAPI() oapi.ProjectInvite {
 		InviteeEmail:      &inviteeEmail,
 		InviterAdminEmail: invite.InviterAdminEmail,
 		Token:             &invite.Token,
+		Nonce:             invite.Nonce,
 		Role:              &role,
 		ExpiresAt:         &invite.ExpiresAt,
 		AcceptedAt:        invite.AcceptedAt,
@@ -50,7 +52,7 @@ func (invite *Invite) OAPI() oapi.ProjectInvite {
 	}
 }
 
-func (s *InvitesStore) CreateProjectInvite(ctx context.Context, projectID uuid.UUID, inviterAdminID string, inviteeEmail string, role oapi.CreateProjectInviteRole, token string, expiresIn string) (*Invite, error) {
+func (s *InvitesStore) CreateProjectInvite(ctx context.Context, projectID uuid.UUID, inviterAdminID string, inviteeEmail string, role oapi.CreateProjectInviteRole, token string, nonce string, expiresIn string) (*Invite, error) {
 	stmt := `
 	WITH revoked AS (
 		UPDATE project_invites
@@ -61,12 +63,12 @@ func (s *InvitesStore) CreateProjectInvite(ctx context.Context, projectID uuid.U
 		  AND accepted_at IS NULL
 		  AND expires_at > NOW()
 	)
-	INSERT INTO project_invites (project_id, inviter_admin_id, invitee_email, role, token, expires_at)
-	VALUES ($1, $2, $3, $4, $5, NOW() + $6::interval)
-	RETURNING id, project_id, inviter_admin_id, invitee_email, role, token, expires_at, created_at, revoked_at, accepted_at`
+	INSERT INTO project_invites (project_id, inviter_admin_id, invitee_email, role, token, nonce, expires_at)
+	VALUES ($1, $2, $3, $4, $5, $6, NOW() + $7::interval)
+	RETURNING id, project_id, inviter_admin_id, invitee_email, role, token, nonce, expires_at, created_at, revoked_at, accepted_at`
 
 	var invite Invite
-	err := s.db.GetContext(ctx, &invite, stmt, projectID, inviterAdminID, inviteeEmail, role, token, expiresIn)
+	err := s.db.GetContext(ctx, &invite, stmt, projectID, inviterAdminID, inviteeEmail, role, token, nonce, expiresIn)
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +77,7 @@ func (s *InvitesStore) CreateProjectInvite(ctx context.Context, projectID uuid.U
 
 func (s *InvitesStore) GetInviteByToken(ctx context.Context, token string) (*Invite, error) {
 	stmt := `
-	SELECT id, project_id, inviter_admin_id, invitee_email, role, token, expires_at, created_at, revoked_at, accepted_at
+	SELECT id, project_id, inviter_admin_id, invitee_email, role, token, nonce, expires_at, created_at, revoked_at, accepted_at
 	FROM project_invites
 	WHERE token = $1 AND revoked_at IS NULL AND accepted_at IS NULL AND expires_at > NOW()`
 
@@ -92,7 +94,7 @@ func (s *InvitesStore) AcceptProjectInvite(ctx context.Context, token string) (*
 	UPDATE project_invites
 	SET accepted_at = NOW()
 	WHERE token = $1 AND revoked_at IS NULL AND accepted_at IS NULL AND expires_at > NOW()
-	RETURNING id, project_id, inviter_admin_id, invitee_email, role, token, expires_at, created_at, revoked_at, accepted_at`
+	RETURNING id, project_id, inviter_admin_id, invitee_email, role, token, nonce, expires_at, created_at, revoked_at, accepted_at`
 
 	var invite Invite
 	err := s.db.GetContext(ctx, &invite, stmt, token)
@@ -107,7 +109,7 @@ func (s *InvitesStore) RevokeProjectInvite(ctx context.Context, token string) (*
 	UPDATE project_invites
 	SET revoked_at = NOW()
 	WHERE token = $1 AND revoked_at IS NULL AND accepted_at IS NULL
-	RETURNING id, project_id, inviter_admin_id, invitee_email, role, token, expires_at, created_at, revoked_at, accepted_at`
+	RETURNING id, project_id, inviter_admin_id, invitee_email, role, token, nonce, expires_at, created_at, revoked_at, accepted_at`
 
 	var invite Invite
 	err := s.db.GetContext(ctx, &invite, stmt, token)
@@ -141,7 +143,7 @@ func (s *InvitesStore) ListProjectInvites(ctx context.Context, projectID uuid.UU
 	}
 
 	stmt := `
-	SELECT pi.id AS id, pi.project_id AS project_id, pi.inviter_admin_id AS inviter_admin_id, a.email AS inviter_admin_email, pi.invitee_email AS invitee_email, pi.role AS role, pi.token AS token, pi.expires_at AS expires_at, pi.created_at AS created_at, pi.revoked_at AS revoked_at, pi.accepted_at AS accepted_at
+	SELECT pi.id AS id, pi.project_id AS project_id, pi.inviter_admin_id AS inviter_admin_id, a.email AS inviter_admin_email, pi.invitee_email AS invitee_email, pi.role AS role, pi.token AS token, pi.nonce AS nonce, pi.expires_at AS expires_at, pi.created_at AS created_at, pi.revoked_at AS revoked_at, pi.accepted_at AS accepted_at
 	FROM project_invites as pi
 	INNER JOIN admins as a ON pi.inviter_admin_id = a.id
 	WHERE pi.project_id = $1

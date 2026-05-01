@@ -55,7 +55,6 @@ import {
 export default function Invites() {
     const { t } = useTranslation()
     const [project] = useContext(ProjectContext)
-    console.log(project)
 
     const [searchQuery, setSearchQuery] = useState("")
     const [debouncedQuery, setDebouncedQuery] = useState("")
@@ -178,6 +177,36 @@ export default function Invites() {
             hour: "2-digit",
             minute: "2-digit",
         })
+    }
+
+    const mashTokenNonce = (nonce: string, token: string) => {
+        try {
+            const nonceBytes = Uint8Array.from(
+                atob(nonce.replace(/-/g, "+").replace(/_/g, "/")),
+                (c) => c.charCodeAt(0),
+            )
+            const tokenBytes = Uint8Array.from(
+                atob(token.replace(/-/g, "+").replace(/_/g, "/")),
+                (c) => c.charCodeAt(0),
+            )
+
+            console.log("nonceBytes", nonceBytes)
+            console.log("tokenBytes", tokenBytes)
+
+            const mashed = new Uint8Array(nonceBytes.length + tokenBytes.length)
+            mashed.set(nonceBytes)
+            mashed.set(tokenBytes, nonceBytes.length)
+
+            console.log("mashed", mashed, "mashed.length", mashed.length)
+
+            return btoa(String.fromCharCode(...mashed))
+                .replace(/\+/g, "-")
+                .replace(/\//g, "_")
+                .replace(/=/g, "")
+        } catch (e) {
+            console.error("mash failed", e)
+            return nonce + token
+        }
     }
 
     const getInviteStatus = (invite: ProjectInvite) => {
@@ -486,7 +515,12 @@ export default function Invites() {
                                                     <DropdownMenuItem
                                                         onClick={async (e) => {
                                                             e.stopPropagation()
-                                                            await handleCopyLink(invite.token)
+                                                            await handleCopyLink(
+                                                                mashTokenNonce(
+                                                                    invite.nonce,
+                                                                    invite.token,
+                                                                ),
+                                                            )
                                                         }}
                                                     >
                                                         <Copy className="mr-2 h-4 w-4" />
@@ -499,7 +533,12 @@ export default function Invites() {
                                                                 className="text-destructive"
                                                                 onClick={async (e) => {
                                                                     e.stopPropagation()
-                                                                    await handleRevoke(invite.token)
+                                                                    await handleRevoke(
+                                                                        mashTokenNonce(
+                                                                            invite.nonce,
+                                                                            invite.token,
+                                                                        ),
+                                                                    )
                                                                 }}
                                                             >
                                                                 <XCircle className="mr-2 h-4 w-4" />
@@ -609,7 +648,7 @@ export default function Invites() {
                         const invite = await api.invites.create(project.id, data)
                         await reload()
                         setIsCreating(false)
-                        setCreatedInviteToken(invite.token)
+                        setCreatedInviteToken(mashTokenNonce(invite.nonce, invite.token))
                     } finally {
                         setIsSaving(false)
                     }

@@ -696,7 +696,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/admin/projects/{projectID}/invites/accept/{token}": {
+    "/api/admin/projects/{projectID}/invites/accept/{tokenNouncePair}": {
         parameters: {
             query?: never;
             header?: never;
@@ -707,7 +707,7 @@ export interface paths {
         put?: never;
         /**
          * Accept a project invite
-         * @description Accepts a project invite using the invite token, associating the authenticated admin with the project
+         * @description Accepts a project invite using the invite token and nonce, associating the authenticated admin with the project
          */
         post: operations["AcceptProjectInvite"];
         delete?: never;
@@ -716,7 +716,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/admin/projects/{projectID}/invites/{token}": {
+    "/api/admin/projects/{projectID}/invites/{tokenNouncePair}": {
         parameters: {
             query?: never;
             header?: never;
@@ -728,7 +728,7 @@ export interface paths {
         post?: never;
         /**
          * Revoke a project invite
-         * @description Revokes a project invite using the invite token, preventing it from being accepted
+         * @description Revokes a project invite using the invite token and nonce, preventing it from being accepted
          */
         delete: operations["RevokeProjectInvite"];
         options?: never;
@@ -4768,6 +4768,11 @@ export interface components {
              */
             token?: string;
             /**
+             * @description Random nonce to prevent token reuse
+             * @example random_nonce_value
+             */
+            nonce?: string;
+            /**
              * Format: date-time
              * @example 2025-12-31T23:59:59Z
              */
@@ -6418,10 +6423,10 @@ export interface operations {
             header?: never;
             path: {
                 /**
-                 * @description The project invite token
-                 * @example abc123def456
+                 * @description The project invite token with nonce
+                 * @example some_nonce_valueabc123def456
                  */
-                token: string;
+                tokenNouncePair: string;
                 /** @description The project ID */
                 projectID: string;
             };
@@ -6449,10 +6454,10 @@ export interface operations {
                 /** @description The project ID */
                 projectID: string;
                 /**
-                 * @description The project invite token
-                 * @example abc123def456
+                 * @description The project invite token with nonce
+                 * @example some_nonce_valueabc123def456
                  */
-                token: string;
+                tokenNouncePair: string;
             };
             cookie?: never;
         };

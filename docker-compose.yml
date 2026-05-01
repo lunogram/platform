@@ -29,6 +29,8 @@ services:
       AUTH_JWKS_URL: ${AUTH_JWKS_URL:-}
       # Public URL used to generate user-facing links (e.g. preference center, unsubscribe)
       PUBLIC_URL: ${PUBLIC_URL:-http://localhost:8080}
+      # Invites
+      INVITES_SECRET_KEY: ${INVITES_SECRET_KEY:-dev-invites-secret-change-in-production}
     depends_on:
       postgres:
         condition: service_healthy
