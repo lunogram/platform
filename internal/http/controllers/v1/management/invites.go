@@ -42,10 +42,13 @@ func NewInviteController(logger *zap.Logger, mgmt *management.State, engine *rba
 	}
 }
 
-func randomString(n int) string {
+func randomString(n int) (string, error) {
 	b := make([]byte, n)
-	rand.Read(b)
-	return base64.RawURLEncoding.EncodeToString(b)
+	_, err := rand.Read(b)
+	if err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(b), nil
 }
 
 func getAesGCM(secretKey []byte) (cipher.AEAD, error) {
@@ -206,7 +209,12 @@ func (srv *InviteController) CreateProjectInvite(w http.ResponseWriter, r *http.
 	// in the observable universe (2^266) was an invite token, it'd still only be
 	// ~10^-21%. At that point we're also storing 2^266 * 200 bytes of data, which is a number so
 	// large it doesn't have a name. if this ever fires, forget the bug, go buy a lottery ticket.
-	token := randomString(50)
+	token, err := randomString(50)
+	if err != nil {
+		logger.Error("failed to generate random token", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
 	encryptedToken, nonce, err := encryptToken(token, srv.cfg.SecretKey, nil, *logger)
 	if err != nil {
 		logger.Error("failed to encrypt invite token", zap.Error(err))
@@ -328,7 +336,7 @@ func (srv *InviteController) AcceptProjectInvite(w http.ResponseWriter, r *http.
 		oapi.WriteProblem(w, err)
 		return
 	}
-	defer tx.Rollback()
+	defer tx.Rollback() //nolint:errcheck
 
 	managementStore := management.NewState(tx)
 
