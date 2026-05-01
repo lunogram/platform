@@ -62,16 +62,16 @@ func getAesGCM(secretKey []byte) (cipher.AEAD, error) {
 	return aesgcm, nil
 }
 
-// StdEncoding for the secret key (openssl rand -base64 32 speaks standard, not url).
-// RawURLEncoding for everything that touches a URL (because "/" in a nonce or token will make your
-// router throw a fit). mixing these up will ruin your day, as proven
-// by the developer who wrote this comment after 2 hours of "illegal base64 data at input byte 17".
 func encryptToken(token string, secretKey string, nonce *string, logger zap.Logger) (string, string, error) {
 	if secretKey == "none" {
 		logger.Warn("Invite token encryption is disabled. This should only be used for testing and development.")
 		return token, "", nil
 	}
 
+	// StdEncoding for the secret key (openssl rand -base64 32 speaks standard, not url).
+	// RawURLEncoding for everything that touches a URL (because "/" in a nonce or token will make your
+	// router throw a fit). mixing these up will ruin your day, as proven
+	// by the developer who wrote this comment after 2 hours of "illegal base64 data at input byte 17".
 	keyBytes, err := base64.StdEncoding.DecodeString(secretKey)
 	if err != nil {
 		return "", "", err
@@ -178,19 +178,6 @@ func (srv *InviteController) CreateProjectInvite(w http.ResponseWriter, r *http.
 	logger := srv.logger.With(zap.String("project_id", projectID.String()), zap.String("email", string(body.Email)))
 	logger.Info("creating project invite")
 
-	existingAdmin, err := srv.mgmt.GetAdminByEmail(ctx, string(body.Email))
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		logger.Error("failed to check for existing admin with email", zap.String("email", string(body.Email)), zap.Error(err))
-		oapi.WriteProblem(w, err)
-		return
-	}
-
-	if existingAdmin != nil {
-		logger.Debug("admin with email already exists, cannot create invite", zap.String("email", string(body.Email)))
-		oapi.WriteProblem(w, problem.ErrConflict(problem.Describe("an admin with that email already exists")))
-		return
-	}
-
 	actor := rbac.FromContext(ctx)
 	InviterAdminID := actor.ID
 
@@ -256,6 +243,9 @@ func (srv *InviteController) GetInviteDetails(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	// yes, we're encrypting here to query, not decrypting. the DB stores the encrypted token,
+	// so we re-encrypt the plain token from the URL with the same nonce to reproduce the
+	// ciphertext we can actually look up. deterministic encryption is a feature, not a bug.
 	token, _, err := encryptToken(encryptedToken, srv.cfg.SecretKey, &nonce, *srv.logger)
 	if err != nil {
 		srv.logger.Error("failed to decrypt token", zap.String("encrypted_token", encryptedToken), zap.String("nonce", string(nonce)), zap.Error(err))
@@ -342,11 +332,30 @@ func (srv *InviteController) AcceptProjectInvite(w http.ResponseWriter, r *http.
 
 	managementStore := management.NewState(tx)
 
-	err = managementStore.AddAdminToProject(ctx, projectID, adminId, invite.Role)
-	if err != nil {
-		srv.logger.Error("failed to add admin to project", zap.Error(err))
+	existingProjectAdmin, err := managementStore.GetProjectAdmin(ctx, projectID, adminId)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		srv.logger.Error("failed to check existing project admin", zap.Error(err))
 		oapi.WriteProblem(w, err)
 		return
+	}
+
+	if existingProjectAdmin != nil {
+		if isRoleHigher(invite.Role, existingProjectAdmin.Role) {
+			err = managementStore.UpdateProjectAdminRole(ctx, projectID, adminId, invite.Role)
+			if err != nil {
+				srv.logger.Error("failed to update admin project role", zap.Error(err))
+				oapi.WriteProblem(w, err)
+				return
+			}
+			srv.logger.Info("upgraded admin project role", zap.String("admin_id", adminId.String()), zap.String("old_role", existingProjectAdmin.Role), zap.String("new_role", invite.Role))
+		}
+	} else {
+		err = managementStore.AddAdminToProject(ctx, projectID, adminId, invite.Role)
+		if err != nil {
+			srv.logger.Error("failed to add admin to project", zap.Error(err))
+			oapi.WriteProblem(w, err)
+			return
+		}
 	}
 
 	//TODO: When the more more relation of the organizations x Admins is implemented, we should also add the user to the organization that the project belongs to.
@@ -358,10 +367,20 @@ func (srv *InviteController) AcceptProjectInvite(w http.ResponseWriter, r *http.
 		return
 	}
 
-	projectTouples := access.ProjectRoleTuples(adminId, projectID, "admin")
-	err = srv.engine.WriteTuples(ctx, projectTouples)
+	if existingProjectAdmin != nil && isRoleHigher(invite.Role, existingProjectAdmin.Role) {
+		oldTuples := access.ProjectRoleTuples(adminId, projectID, existingProjectAdmin.Role)
+		err = srv.engine.DeleteTuples(ctx, oldTuples)
+		if err != nil {
+			srv.logger.Error("failed to delete old RBAC tuples", zap.Error(err))
+			oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("failed to update project role")))
+			return
+		}
+	}
+
+	projectTuples := access.ProjectRoleTuples(adminId, projectID, invite.Role)
+	err = srv.engine.WriteTuples(ctx, projectTuples)
 	if err != nil {
-		srv.logger.Error("failed to write RBAC tuples for new project admin", zap.String("admin_id", adminId.String()), zap.String("project_id", invite.ProjectID.String()), zap.Error(err))
+		srv.logger.Error("failed to write RBAC tuples for project admin", zap.String("admin_id", adminId.String()), zap.String("project_id", invite.ProjectID.String()), zap.Error(err))
 		oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("failed to assign project role")))
 		return
 	}
