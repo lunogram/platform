@@ -29,10 +29,6 @@ type Project struct {
 }
 
 func (p *Project) OAPI() oapi.Project {
-	if p.Role == "" {
-		p.Role = "viewer"
-	}
-
 	project := oapi.Project{
 		Id:                p.ID,
 		Name:              p.Name,
