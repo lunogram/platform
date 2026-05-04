@@ -27,7 +27,7 @@ Providers integrate communication channels. Each provider implements:
 
 ### Creating a Provider
 
-See `providers/logger/` for a minimal example, or `providers/resend/` for a real integration.
+See `modules/logger/` for a minimal example, or `modules/resend/` for a real integration.
 
 ```bash
 # Build all modules
@@ -123,20 +123,20 @@ Each action ships a Preact app (in `preview/`) that gets built into a single HTM
 
 ### Creating a New Action
 
-1. Create `modules/actions/<name>/main.go` implementing `manifest()`, `execute()`, and `preview()`
-2. Create `modules/actions/<name>/preview/` with a Preact app (see `webhook/preview/` for reference)
-3. Create `modules/actions/<name>/go.mod` with the Extism PDK dependency
-4. Run `make actions` to build
+1. Create `modules/<name>/main.go` implementing `manifest()`, `execute()`, and `preview()`
+2. Create `modules/<name>/preview/` with a Preact app (see `modules/webhook/preview/` for reference)
+3. Create `modules/<name>/go.mod` with the Extism PDK dependency
+4. Run `make modules` to build
 
-See `actions/webhook/` for a complete working example.
+See `modules/webhook/` for a complete working example.
 
 ### Build Pipeline
 
-Running `make actions` performs these steps for each action module:
+Running `make modules` performs these steps for each action module:
 
 ```
 1. Preview build
-   cd modules/actions/<name>/preview && npm ci && npx vite build
+   cd modules/<name>/preview && npm ci && npx vite build
    → produces preview/dist/index.html
 
 2. Go source embeds the preview
@@ -145,10 +145,10 @@ Running `make actions` performs these steps for each action module:
 
 3. TinyGo compiles the WASM module
    tinygo build -target=wasi -buildmode c-shared -opt=2 -no-debug \
-     -o internal/actions/modules/<name>.wasm ./main.go
+     -o internal/integrations/modules/<name>.wasm ./main.go
 
 4. Host embeds all WASM modules at compile time
-   //go:embed modules/*    (in internal/actions/registry.go)
+   //go:embed modules/*    (in internal/integrations/registry.go)
 ```
 
 ---
@@ -159,10 +159,10 @@ Running `make actions` performs these steps for each action module:
 pkg/modules/                      # Shared types (WASM guests import this)
 pkg/modules/providers/            # Provider-specific types (payloads, requests)
 pkg/modules/actions/              # Action-specific types (manifest, request, variable specs)
-internal/providers/               # Provider WASM runtime (host only)
-internal/actions/                 # Action WASM runtime (host only)
-modules/providers/                # Provider module source code
-modules/actions/                  # Action module source code
+internal/integrations/            # Unified integration module embedding/loading
+internal/providers/               # Provider facade over unified integrations
+internal/actions/                 # Action facade over unified integrations
+modules/                          # Unified module source code (provider/action capabilities)
 ```
 
 The split keeps `pkg/modules` free of WASM runtime dependencies so TinyGo can compile it.

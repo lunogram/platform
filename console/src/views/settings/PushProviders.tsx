@@ -1,4 +1,4 @@
-import { useCallback, useContext, useState } from "react"
+import { useCallback, useContext, useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Trash2, Loader2, Smartphone } from "lucide-react"
 import { toast } from "sonner"
@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge"
 type ProjectPushProvider = components["schemas"]["ProjectPushProvider"]
 type Platform = components["schemas"]["ProjectPushProviderPlatform"]
 type Provider = components["schemas"]["Provider"]
+type ProviderMeta = components["schemas"]["ProviderMeta"]
 
 // Platform-specific SVG icons
 function AppleIcon({ className }: { className?: string }) {
@@ -103,7 +104,19 @@ export default function PushProviders() {
         }, [project.id]),
     )
 
-    const loading = !pushProviders || !providers
+    const [providerMetas] = useResolver(
+        useCallback(async () => {
+            const { data } = await oapiClient.GET(
+                "/api/admin/projects/{projectID}/providers/meta",
+                {
+                    params: { path: { projectID: project.id } },
+                },
+            )
+            return (data ?? []).filter((m: ProviderMeta) => m.channels?.includes("push"))
+        }, [project.id]),
+    )
+
+    const loading = !pushProviders || !providers || !providerMetas
     const configuredCount =
         pushProviders?.filter((pp: ProjectPushProvider) => pp.provider_id).length ?? 0
 
@@ -153,6 +166,7 @@ export default function PushProviders() {
                               platform={platform}
                               projectId={project.id}
                               providers={providers ?? []}
+                              providerMetas={providerMetas ?? []}
                               pushProvider={pushProviders?.find(
                                   (pp: ProjectPushProvider) => pp.platform === platform.key,
                               )}
@@ -168,6 +182,7 @@ interface PlatformCardProps {
     platform: (typeof PLATFORMS)[number]
     projectId: string
     providers: Provider[]
+    providerMetas: ProviderMeta[]
     pushProvider?: ProjectPushProvider
     onChanged: () => void
 }
@@ -176,14 +191,23 @@ function PlatformCard({
     platform,
     projectId,
     providers,
+    providerMetas,
     pushProvider,
     onChanged,
 }: PlatformCardProps) {
     const { t } = useTranslation()
     const [saving, setSaving] = useState(false)
+    const [logoFailed, setLogoFailed] = useState(false)
     const Icon = platform.icon
 
     const isConfigured = !!pushProvider
+    const selectedProvider = providers.find((p) => p.id === pushProvider?.provider_id)
+    const selectedProviderMeta = providerMetas.find((m) => m.type === selectedProvider?.module)
+    const selectedProviderIcon = selectedProviderMeta?.icon
+
+    useEffect(() => {
+        setLogoFailed(false)
+    }, [selectedProviderIcon])
 
     const handleSelect = async (providerId: string) => {
         setSaving(true)
@@ -227,7 +251,16 @@ function PlatformCard({
                     <div
                         className={`flex h-9 w-9 items-center justify-center rounded-lg ${platform.iconBg}`}
                     >
-                        <Icon className={`h-4 w-4 ${platform.iconColor}`} />
+                        {selectedProviderIcon && !logoFailed ? (
+                            <img
+                                src={selectedProviderIcon}
+                                alt={selectedProviderMeta?.name ?? platform.label}
+                                className="h-5 w-5 object-contain"
+                                onError={() => setLogoFailed(true)}
+                            />
+                        ) : (
+                            <Icon className={`h-4 w-4 ${platform.iconColor}`} />
+                        )}
                     </div>
                     <div>
                         <h4 className="text-sm font-semibold tracking-tight">{platform.label}</h4>
@@ -268,12 +301,29 @@ function PlatformCard({
                                 )}
                             </SelectTrigger>
                             <SelectContent>
-                                {providers.map((p) => (
-                                    <SelectItem key={p.id} value={p.id}>
-                                        <span>{p.name}</span>
-                                        <span className="ml-2 text-muted-foreground">{p.type}</span>
-                                    </SelectItem>
-                                ))}
+                                {providers.map((p) => {
+                                    const providerIcon = providerMetas.find(
+                                        (m) => m.type === p.module,
+                                    )?.icon
+
+                                    return (
+                                        <SelectItem key={p.id} value={p.id}>
+                                            <div className="flex items-center gap-2">
+                                                {providerIcon ? (
+                                                    <img
+                                                        src={providerIcon}
+                                                        alt={p.name}
+                                                        className="h-4 w-4 object-contain"
+                                                    />
+                                                ) : null}
+                                                <span>{p.name}</span>
+                                                <span className="text-muted-foreground">
+                                                    {p.module}
+                                                </span>
+                                            </div>
+                                        </SelectItem>
+                                    )
+                                })}
                             </SelectContent>
                         </Select>
                         {isConfigured && (

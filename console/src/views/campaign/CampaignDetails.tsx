@@ -1,4 +1,4 @@
-import { useCallback, useContext, useMemo, useState, useEffect } from "react"
+import { useCallback, useContext, useMemo, useState } from "react"
 import { CampaignContext, ProjectContext, TemplateContext } from "@/contexts"
 import type { Campaign, Template, Subscription } from "@/types"
 import { useTranslation } from "react-i18next"
@@ -64,6 +64,16 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
         return subscriptions.filter((s) => s.channel === campaign.channel)
     }, [subscriptions, campaign.channel])
 
+    const effectiveSubscriptionId = useMemo(() => {
+        if (isTransactional || filteredSubscriptions.length === 0) {
+            return ""
+        }
+        const hasValidSelection = filteredSubscriptions.some(
+            (subscription) => subscription.id === subscriptionId,
+        )
+        return hasValidSelection ? subscriptionId : filteredSubscriptions[0].id
+    }, [isTransactional, filteredSubscriptions, subscriptionId])
+
     const form = useForm<CampaignReviewFormData>({
         resolver: zodResolver(campaignSchema),
         defaultValues: {
@@ -88,7 +98,7 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
             const updatedCampaign = await api.campaigns.update(project.id, campaign.id, {
                 name: data.name,
                 transactional: isTransactional,
-                subscription_id: isTransactional ? undefined : subscriptionId || undefined,
+                subscription_id: isTransactional ? undefined : effectiveSubscriptionId || undefined,
                 variables: data.variables.filter((v) => v.name),
             })
 
@@ -187,7 +197,10 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
                                         <FieldLabel htmlFor="subscription-select">
                                             {t("campaign.subscription", "Subscription")}
                                         </FieldLabel>
-                                        <Select value={subscriptionId} onValueChange={setSubscriptionId}>
+                                        <Select
+                                            value={effectiveSubscriptionId}
+                                            onValueChange={setSubscriptionId}
+                                        >
                                             <SelectTrigger id="subscription-select">
                                                 <SelectValue
                                                     placeholder={t(
@@ -220,11 +233,18 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
                             )}
 
                             <div className="flex items-center gap-2">
-                                <Button type="submit" disabled={isSubmitting} isLoading={isSubmitting}>
+                                <Button
+                                    type="submit"
+                                    disabled={isSubmitting}
+                                    isLoading={isSubmitting}
+                                >
                                     {t("actions.save")}
                                 </Button>
                                 {isEnterprise && (
-                                    <Button variant="outline" onClick={() => setIsBroadcastOpen(true)}>
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => setIsBroadcastOpen(true)}
+                                    >
                                         <Radio className="mr-2 h-3.5 w-3.5" />
                                         {t("send_broadcast", "Send Broadcast")}
                                     </Button>

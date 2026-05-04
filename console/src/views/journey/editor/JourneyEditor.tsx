@@ -327,14 +327,7 @@ export default function JourneyEditor() {
             setStepsLoaded(true)
         }
         void load()
-    }, [
-        project.id,
-        journey.id,
-        setNodes,
-        setEdges,
-        stepsLoaded,
-        nodeActions,
-    ])
+    }, [project.id, journey.id, setNodes, setEdges, stepsLoaded, nodeActions])
 
     const onPaneClick = useCallback(() => {
         if (editNode) setNodes(nodes.map((n) => ({ ...n, data: { ...n.data, editing: false } })))

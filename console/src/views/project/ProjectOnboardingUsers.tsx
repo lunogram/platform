@@ -1,5 +1,7 @@
 import { useNavigate, useParams } from "react-router"
 import { useTranslation } from "react-i18next"
+import { AxiosError } from "axios"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import {
     Card,
@@ -37,7 +39,7 @@ export default function ProjectOnboardingUsers() {
 
         await api.users.create(projectId, {
             identifier: [
-                { source: "anonymous", external_id: crypto.randomUUID() },
+                { source: "admin", external_id: admin.id },
             ] as unknown as User["identifier"],
             data: {
                 full_name: fullName,
@@ -48,13 +50,40 @@ export default function ProjectOnboardingUsers() {
         })
     }
 
+    function getErrorDetail(err: unknown) {
+        if (err instanceof AxiosError && typeof err.response?.data?.detail === "string") {
+            return err.response.data.detail
+        }
+
+        return null
+    }
+
     const next = async () => {
         setNextLoading(true)
         try {
-            await createInitialUser()
-
             if (file) {
-                await api.users.addImport(projectId, file)
+                try {
+                    await api.users.addImport(projectId, file)
+                } catch (err) {
+                    toast.error(
+                        getErrorDetail(err) ||
+                            t("onboarding_users_import_failed", "Failed to import users from CSV."),
+                    )
+                    return
+                }
+            }
+
+            try {
+                await createInitialUser()
+            } catch (err) {
+                toast.error(
+                    getErrorDetail(err) ||
+                        t(
+                            "onboarding_users_default_user_create_failed",
+                            "Failed to create the default admin user.",
+                        ),
+                )
+                return
             }
 
             await navigate(`/projects/${projectId}/onboarding/getting-started`)
@@ -66,7 +95,19 @@ export default function ProjectOnboardingUsers() {
     async function skip() {
         setSkipLoading(true)
         try {
-            await createInitialUser()
+            try {
+                await createInitialUser()
+            } catch (err) {
+                toast.error(
+                    getErrorDetail(err) ||
+                        t(
+                            "onboarding_users_default_user_create_failed",
+                            "Failed to create the default admin user.",
+                        ),
+                )
+                return
+            }
+
             await navigate(`/projects/${projectId}/onboarding/getting-started`)
         } finally {
             setSkipLoading(false)

@@ -20,7 +20,6 @@ import (
 	"github.com/lunogram/platform/internal/wasm"
 	wasmProviders "github.com/lunogram/platform/internal/wasm/providers"
 	"github.com/lunogram/platform/pkg/modules"
-	"github.com/lunogram/platform/pkg/modules/providers"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
@@ -360,30 +359,42 @@ func newTestProviderRegistry(t *testing.T) *internalProviders.Registry {
 
 	registry := wasmProviders.NewRegistry(wasmCfg, logger)
 
+	lockedSpec, err := json.Marshal(modules.ProviderSpec{
+		Channels: []modules.Channel{modules.ChannelEmail},
+		Locked:   true,
+	})
+	require.NoError(t, err)
+
+	unlockedSpec, err := json.Marshal(modules.ProviderSpec{
+		Channels: []modules.Channel{modules.ChannelEmail},
+		Locked:   false,
+	})
+	require.NoError(t, err)
+
 	// Register a locked module
-	lockedModule := wasm.NewTestModule(providers.ProviderManifest{
+	lockedModule := wasm.NewTestModule(modules.IntegrationManifest{
+		APIVersion: "v1",
 		Metadata: modules.Metadata{
 			ID:    "locked-provider",
 			Title: "Locked Provider",
 		},
 		Version: "1.0.0",
-		Spec: providers.ProviderSpec{
-			Channels: []providers.Channel{providers.ChannelEmail},
-			Locked:   true,
+		Capabilities: []modules.Capability{
+			{Type: "provider", Version: "v1", Spec: lockedSpec},
 		},
 	}, wasmCfg)
 	require.NoError(t, registry.Registry.Register(lockedModule))
 
 	// Register a non-locked module
-	unlockedModule := wasm.NewTestModule(providers.ProviderManifest{
+	unlockedModule := wasm.NewTestModule(modules.IntegrationManifest{
+		APIVersion: "v1",
 		Metadata: modules.Metadata{
 			ID:    "unlocked-provider",
 			Title: "Unlocked Provider",
 		},
 		Version: "1.0.0",
-		Spec: providers.ProviderSpec{
-			Channels: []providers.Channel{providers.ChannelEmail},
-			Locked:   false,
+		Capabilities: []modules.Capability{
+			{Type: "provider", Version: "v1", Spec: unlockedSpec},
 		},
 	}, wasmCfg)
 	require.NoError(t, registry.Registry.Register(unlockedModule))

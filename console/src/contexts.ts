@@ -9,7 +9,6 @@ import type {
     Project,
     Template,
     User,
-    Action,
     UseStateContext,
 } from "./types"
 import type { Organization } from "./oapi/client"
@@ -76,10 +75,5 @@ export const TemplateContext = createContext<UseStateContext<Template>>([
 
 export const OrganizationContext = createContext<UseStateContext<Organization>>([
     {} as unknown as Organization,
-    () => {},
-])
-
-export const ActionContext = createContext<UseStateContext<Action>>([
-    {} as unknown as Action,
     () => {},
 ])
