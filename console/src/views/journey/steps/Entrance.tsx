@@ -16,14 +16,28 @@ import { Combobox } from "@/components/ui/combobox"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import api from "../../../api"
 import { Button } from "@/components/ui/button"
+import { Command, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { env } from "../../../config/env"
 import { useTranslation, Trans } from "react-i18next"
 import { createSimpleEventRule, isEventWrapper } from "../../users/rules/RuleHelpers"
 import { ruleDescription } from "../../users/rules/RuleDescriptions"
 import { Badge } from "@/components/ui/badge"
-import { Webhook, Zap, Copy, Check, CalendarClock } from "lucide-react"
+import {
+    Webhook,
+    Zap,
+    Copy,
+    Check,
+    CalendarClock,
+    ChevronsUpDown,
+    Loader2,
+    Plus,
+    ArrowLeft,
+} from "lucide-react"
 import { ScheduleOffsetCombobox } from "@/components/schedule-offset-combobox"
 import { formatOffset } from "@/utils"
+import { cn } from "@/utils"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Input } from "@/components/ui/input"
 
 import { Link } from "react-router"
 import type { UUID } from "@/types/common"
@@ -47,6 +61,9 @@ interface EntranceConfig {
 }
 
 const triggers = ["none", "event", "scheduled"] as const
+
+type EventOption = Pick<RulePath, "name" | "path">
+type EventComboboxView = "list" | "create"
 
 const triggerConfig = {
     none: { icon: Webhook, label: "API" },
@@ -204,6 +221,214 @@ function ApiTriggerSection({ journeyId, stepId }: { journeyId: UUID; stepId: UUI
     )
 }
 
+interface EventNameComboboxProps {
+    value?: string
+    onChange: (eventName: string) => void
+    onSearch: (query: string) => Promise<EventOption[]>
+}
+
+function EventNameCombobox({ value, onChange, onSearch }: EventNameComboboxProps) {
+    const { t } = useTranslation()
+    const [open, setOpen] = useState(false)
+    const [view, setView] = useState<EventComboboxView>("list")
+    const [search, setSearch] = useState("")
+    const [results, setResults] = useState<EventOption[]>([])
+    const [loading, setLoading] = useState(false)
+    const [newEventName, setNewEventName] = useState("")
+    const debounceRef = useRef<ReturnType<typeof setTimeout>>()
+
+    const resetCreateForm = useCallback((seedName = "") => {
+        setNewEventName(seedName)
+    }, [])
+
+    useEffect(() => {
+        if (!open || view !== "list") return
+        if (debounceRef.current) clearTimeout(debounceRef.current)
+
+        setLoading(true)
+        debounceRef.current = setTimeout(async () => {
+            try {
+                setResults(await onSearch(search))
+            } finally {
+                setLoading(false)
+            }
+        }, 250)
+
+        return () => {
+            if (debounceRef.current) clearTimeout(debounceRef.current)
+        }
+    }, [open, view, search, onSearch])
+
+    useEffect(() => {
+        if (!open) return
+        setView("list")
+        setSearch("")
+        resetCreateForm()
+    }, [open, resetCreateForm])
+
+    const handleSelect = (eventName: string) => {
+        onChange(eventName)
+        setOpen(false)
+    }
+
+    const handleSwitchToCreate = () => {
+        resetCreateForm(search || value || "")
+        setView("create")
+    }
+
+    const handleUseEvent = () => {
+        const name = newEventName.trim()
+        if (!name) return
+        onChange(name)
+        setOpen(false)
+    }
+
+    return (
+        <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+                <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={open}
+                    type="button"
+                    className={cn(
+                        "h-9 w-full justify-between shadow-none font-normal",
+                        !value && "text-muted-foreground",
+                    )}
+                >
+                    <span className="flex items-center gap-2 truncate">
+                        <Zap className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        <span className="truncate font-mono text-sm">
+                            {value || t("select_or_create_event", "Select or create event...")}
+                        </span>
+                    </span>
+                    <ChevronsUpDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent
+                className="w-[var(--radix-popover-trigger-width)] p-0"
+                align="start"
+                onOpenAutoFocus={(e) => e.preventDefault()}
+            >
+                {view === "list" ? (
+                    <div>
+                        <Command shouldFilter={false}>
+                            <CommandInput
+                                placeholder={t(
+                                    "search_or_type_event",
+                                    "Search or type an event...",
+                                )}
+                                value={search}
+                                onValueChange={setSearch}
+                            />
+                            <CommandList>
+                                {loading ? (
+                                    <div className="flex items-center justify-center py-6">
+                                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                                    </div>
+                                ) : results.length === 0 ? (
+                                    <div className="py-6 text-center text-sm text-muted-foreground">
+                                        {t("no_events_found", "No events found.")}
+                                    </div>
+                                ) : (
+                                    <div className="max-h-64 overflow-y-auto p-1">
+                                        {results.map((event) => (
+                                            <CommandItem
+                                                key={event.path}
+                                                value={event.path}
+                                                onSelect={() => handleSelect(event.name)}
+                                                className="cursor-pointer"
+                                            >
+                                                <Check
+                                                    className={cn(
+                                                        "mr-2 h-4 w-4 shrink-0",
+                                                        value === event.name
+                                                            ? "opacity-100"
+                                                            : "opacity-0",
+                                                    )}
+                                                />
+                                                <span className="truncate font-mono text-sm">
+                                                    {event.name}
+                                                </span>
+                                            </CommandItem>
+                                        ))}
+                                    </div>
+                                )}
+                            </CommandList>
+                        </Command>
+                        <div className="border-t p-1">
+                            <button
+                                type="button"
+                                onClick={handleSwitchToCreate}
+                                className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground cursor-pointer"
+                            >
+                                <Plus className="h-4 w-4" />
+                                {t("create_event_inline", "Create event...")}
+                            </button>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="p-3 space-y-3">
+                        <div className="flex items-center gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setView("list")}
+                                className="p-1 rounded-sm hover:bg-accent text-muted-foreground cursor-pointer"
+                            >
+                                <ArrowLeft className="h-4 w-4" />
+                            </button>
+                            <span className="text-sm font-medium">
+                                {t("create_event", "Create Event")}
+                            </span>
+                        </div>
+
+                        <div className="space-y-1">
+                            <Label htmlFor="new-entrance-event" className="text-xs font-medium">
+                                {t("event_name", "Event Name")}
+                            </Label>
+                            <Input
+                                id="new-entrance-event"
+                                value={newEventName}
+                                onChange={(e) => setNewEventName(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter") {
+                                        e.preventDefault()
+                                        handleUseEvent()
+                                    }
+                                    if (e.key === "Escape") {
+                                        e.preventDefault()
+                                        setView("list")
+                                    }
+                                }}
+                                placeholder="product.purchased"
+                                autoFocus
+                                className="h-8 font-mono"
+                            />
+                        </div>
+
+                        <p className="text-xs text-muted-foreground">
+                            {t(
+                                "create_entrance_event_hint",
+                                "This adds the event name to the entrance. Save the draft to persist it for this project.",
+                            )}
+                        </p>
+
+                        <Button
+                            type="button"
+                            size="sm"
+                            onClick={handleUseEvent}
+                            disabled={!newEventName.trim()}
+                            className="h-8"
+                        >
+                            {t("create", "Create")}
+                        </Button>
+                    </div>
+                )}
+            </PopoverContent>
+        </Popover>
+    )
+}
+
 export const entranceStep: JourneyStepType<EntranceConfig> = {
     name: "entrance",
     icon: <EntranceStepIcon />,
@@ -346,6 +571,21 @@ export const entranceStep: JourneyStepType<EntranceConfig> = {
             [ensureSuggestionsLoaded],
         )
 
+        const handleEventNameChange = useCallback(
+            (event_name: string) => {
+                const currentRule = value.rule
+                const updatedRule = currentRule
+                    ? { ...currentRule, value: event_name }
+                    : createSimpleEventRule(event_name)
+                onChange({
+                    ...value,
+                    event_name,
+                    rule: updatedRule,
+                })
+            },
+            [onChange, value],
+        )
+
         const handleScheduledSearch = useCallback(
             async (query: string): Promise<RulePath[]> => {
                 await ensureSuggestionsLoaded()
@@ -398,23 +638,10 @@ export const entranceStep: JourneyStepType<EntranceConfig> = {
                                 {t("event_name")}
                                 <span className="text-destructive">*</span>
                             </Label>
-                            <Combobox<RulePath>
-                                onSearch={handleSearch}
+                            <EventNameCombobox
                                 value={value.event_name ?? ""}
-                                displayValue={value.event_name}
-                                onValueChange={(event_name) => {
-                                    const currentRule = value.rule
-                                    const updatedRule = currentRule
-                                        ? { ...currentRule, value: event_name }
-                                        : createSimpleEventRule(event_name)
-                                    onChange({
-                                        ...value,
-                                        event_name,
-                                        rule: updatedRule,
-                                    })
-                                }}
-                                placeholder={t("event_name")}
-                                renderOption={(option) => option.name}
+                                onChange={handleEventNameChange}
+                                onSearch={handleSearch}
                             />
                         </div>
                         {value.event_name && (
@@ -581,9 +808,17 @@ export const entranceStep: JourneyStepType<EntranceConfig> = {
                         )}
                     </>
                 )}
-                {!!stepId && value.trigger === "none" && (
-                    <ApiTriggerSection journeyId={journeyId} stepId={stepId} />
-                )}
+                {value.trigger === "none" &&
+                    (stepId ? (
+                        <ApiTriggerSection journeyId={journeyId} stepId={stepId} />
+                    ) : (
+                        <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+                            {t(
+                                "entrance_api_save_first",
+                                "Save the draft to generate the API trigger example for this entrance.",
+                            )}
+                        </div>
+                    ))}
             </>
         )
     },

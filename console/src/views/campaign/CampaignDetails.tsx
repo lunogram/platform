@@ -163,6 +163,7 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
                                             <CampaignVariables
                                                 variables={field.value}
                                                 onChange={field.onChange}
+                                                channel={campaign.channel}
                                             />
                                         </Field>
                                     )}

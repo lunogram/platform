@@ -248,7 +248,11 @@ export default function NewCampaign() {
                                     "Define template variables that can be populated from journeys or the API.",
                                 )}
                             </FieldDescription>
-                            <CampaignVariables variables={variables} onChange={setVariables} />
+                            <CampaignVariables
+                                variables={variables}
+                                onChange={setVariables}
+                                channel={channel}
+                            />
                         </Field>
                     </FieldGroup>
 
