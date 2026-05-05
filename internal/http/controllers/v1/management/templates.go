@@ -462,7 +462,7 @@ func (srv *TemplatesController) SendTest(w http.ResponseWriter, r *http.Request,
 
 		var provider *management.Provider
 		if providerPlatform != "" {
-			pp, err := srv.store.ProjectPushProvidersStore.GetProjectPushProvider(ctx, projectID, providerPlatform)
+			pp, err := srv.store.ProjectProvidersStore.GetProjectProvider(ctx, projectID, providerPlatform)
 			if errors.Is(err, sql.ErrNoRows) {
 				oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("no push provider configured for selected device platform")))
 				return
@@ -480,7 +480,7 @@ func (srv *TemplatesController) SendTest(w http.ResponseWriter, r *http.Request,
 				return
 			}
 		} else {
-			pushProviders, err := srv.store.ProjectPushProvidersStore.ListProjectPushProviders(ctx, projectID)
+			pushProviders, err := srv.store.ProjectProvidersStore.ListProjectProviders(ctx, projectID)
 			if err != nil {
 				logger.Error("failed to list push providers", zap.Error(err))
 				oapi.WriteProblem(w, err)

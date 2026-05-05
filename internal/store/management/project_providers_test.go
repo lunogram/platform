@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestProjectPushProvidersStore(t *testing.T) {
+func TestProjectProvidersStore(t *testing.T) {
 	t.Parallel()
 	db := NewContainerStore(t)
 	ctx := context.Background()
@@ -42,7 +42,7 @@ func TestProjectPushProvidersStore(t *testing.T) {
 	t.Run("upsert creates new push provider", func(t *testing.T) {
 		providerID := createProvider(t, "FCM iOS")
 
-		result, err := db.UpsertProjectPushProvider(ctx, ProjectPushProvider{
+		result, err := db.UpsertProjectProvider(ctx, ProjectProvider{
 			ProjectID:  projectID,
 			ProviderID: providerID,
 			Platform:   PlatformIOS,
@@ -60,14 +60,14 @@ func TestProjectPushProvidersStore(t *testing.T) {
 		providerA := createProvider(t, "FCM Android A")
 		providerB := createProvider(t, "FCM Android B")
 
-		resultA, err := db.UpsertProjectPushProvider(ctx, ProjectPushProvider{
+		resultA, err := db.UpsertProjectProvider(ctx, ProjectProvider{
 			ProjectID:  projectID,
 			ProviderID: providerA,
 			Platform:   PlatformAndroid,
 		})
 		require.NoError(t, err)
 
-		resultB, err := db.UpsertProjectPushProvider(ctx, ProjectPushProvider{
+		resultB, err := db.UpsertProjectProvider(ctx, ProjectProvider{
 			ProjectID:  projectID,
 			ProviderID: providerB,
 			Platform:   PlatformAndroid,
@@ -80,7 +80,7 @@ func TestProjectPushProvidersStore(t *testing.T) {
 	})
 
 	t.Run("upsert with non-existent provider returns error", func(t *testing.T) {
-		_, err := db.UpsertProjectPushProvider(ctx, ProjectPushProvider{
+		_, err := db.UpsertProjectProvider(ctx, ProjectProvider{
 			ProjectID:  projectID,
 			ProviderID: uuid.New(),
 			Platform:   PlatformWeb,
@@ -92,14 +92,14 @@ func TestProjectPushProvidersStore(t *testing.T) {
 	t.Run("get returns push provider by platform", func(t *testing.T) {
 		providerID := createProvider(t, "FCM Web")
 
-		created, err := db.UpsertProjectPushProvider(ctx, ProjectPushProvider{
+		created, err := db.UpsertProjectProvider(ctx, ProjectProvider{
 			ProjectID:  projectID,
 			ProviderID: providerID,
 			Platform:   PlatformWeb,
 		})
 		require.NoError(t, err)
 
-		got, err := db.GetProjectPushProvider(ctx, projectID, PlatformWeb)
+		got, err := db.GetProjectProvider(ctx, projectID, PlatformWeb)
 		require.NoError(t, err)
 		assert.Equal(t, created.ID, got.ID)
 		assert.Equal(t, providerID, got.ProviderID)
@@ -115,7 +115,7 @@ func TestProjectPushProvidersStore(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		_, err = db.GetProjectPushProvider(ctx, otherProjectID, PlatformIOS)
+		_, err = db.GetProjectProvider(ctx, otherProjectID, PlatformIOS)
 		require.Error(t, err)
 	})
 
@@ -131,21 +131,21 @@ func TestProjectPushProvidersStore(t *testing.T) {
 		providerA := createProvider(t, "List Provider A")
 		providerB := createProvider(t, "List Provider B")
 
-		_, err = db.UpsertProjectPushProvider(ctx, ProjectPushProvider{
+		_, err = db.UpsertProjectProvider(ctx, ProjectProvider{
 			ProjectID:  listProjectID,
 			ProviderID: providerA,
 			Platform:   PlatformAndroid,
 		})
 		require.NoError(t, err)
 
-		_, err = db.UpsertProjectPushProvider(ctx, ProjectPushProvider{
+		_, err = db.UpsertProjectProvider(ctx, ProjectProvider{
 			ProjectID:  listProjectID,
 			ProviderID: providerB,
 			Platform:   PlatformIOS,
 		})
 		require.NoError(t, err)
 
-		providers, err := db.ListProjectPushProviders(ctx, listProjectID)
+		providers, err := db.ListProjectProviders(ctx, listProjectID)
 		require.NoError(t, err)
 		assert.Len(t, providers, 2)
 
@@ -163,7 +163,7 @@ func TestProjectPushProvidersStore(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		providers, err := db.ListProjectPushProviders(ctx, emptyProjectID)
+		providers, err := db.ListProjectProviders(ctx, emptyProjectID)
 		require.NoError(t, err)
 		assert.Empty(t, providers)
 	})
@@ -179,29 +179,29 @@ func TestProjectPushProvidersStore(t *testing.T) {
 
 		providerID := createProvider(t, "Delete Provider")
 
-		_, err = db.UpsertProjectPushProvider(ctx, ProjectPushProvider{
+		_, err = db.UpsertProjectProvider(ctx, ProjectProvider{
 			ProjectID:  deleteProjectID,
 			ProviderID: providerID,
 			Platform:   PlatformIOS,
 		})
 		require.NoError(t, err)
 
-		err = db.DeleteProjectPushProvider(ctx, deleteProjectID, PlatformIOS)
+		err = db.DeleteProjectProvider(ctx, deleteProjectID, PlatformIOS)
 		require.NoError(t, err)
 
-		_, err = db.GetProjectPushProvider(ctx, deleteProjectID, PlatformIOS)
+		_, err = db.GetProjectProvider(ctx, deleteProjectID, PlatformIOS)
 		require.Error(t, err)
 	})
 
 	t.Run("delete is idempotent for non-existent platform", func(t *testing.T) {
-		err := db.DeleteProjectPushProvider(ctx, projectID, "nonexistent")
+		err := db.DeleteProjectProvider(ctx, projectID, "nonexistent")
 		require.NoError(t, err)
 	})
 
 	t.Run("OAPI conversion", func(t *testing.T) {
 		providerID := createProvider(t, "OAPI Provider")
 
-		result, err := db.UpsertProjectPushProvider(ctx, ProjectPushProvider{
+		result, err := db.UpsertProjectProvider(ctx, ProjectProvider{
 			ProjectID:  projectID,
 			ProviderID: providerID,
 			Platform:   PlatformIOS,
@@ -227,14 +227,14 @@ func TestProjectPushProvidersStore(t *testing.T) {
 
 		providerID := createProvider(t, "OAPI Slice Provider")
 
-		_, err = db.UpsertProjectPushProvider(ctx, ProjectPushProvider{
+		_, err = db.UpsertProjectProvider(ctx, ProjectProvider{
 			ProjectID:  sliceProjectID,
 			ProviderID: providerID,
 			Platform:   PlatformAndroid,
 		})
 		require.NoError(t, err)
 
-		providers, err := db.ListProjectPushProviders(ctx, sliceProjectID)
+		providers, err := db.ListProjectProviders(ctx, sliceProjectID)
 		require.NoError(t, err)
 
 		oapiSlice := providers.OAPI()

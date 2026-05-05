@@ -3986,11 +3986,11 @@ export interface components {
             };
         };
         /**
-         * @description Target platform for push notifications
+         * @description Target platform for providers (push or mail)
          * @example ios
          * @enum {string}
          */
-        ProjectPushProviderPlatform: "ios" | "android" | "web";
+        ProjectPushProviderPlatform: "ios" | "android" | "web" | "mail";
         ProjectPushProvider: {
             /** Format: uuid */
             id: string;

@@ -520,7 +520,7 @@ func (srv *ProvidersController) autoAssignPushProvider(ctx context.Context, logg
 		return
 	}
 
-	existing, err := srv.store.ProjectPushProvidersStore.ListProjectPushProviders(ctx, projectID)
+	existing, err := srv.store.ProjectProvidersStore.ListProjectProviders(ctx, projectID)
 	if err != nil {
 		logger.Error("failed to list push providers for auto-default", zap.Error(err))
 		return
@@ -536,7 +536,7 @@ func (srv *ProvidersController) autoAssignPushProvider(ctx context.Context, logg
 			continue
 		}
 
-		_, err := srv.store.ProjectPushProvidersStore.UpsertProjectPushProvider(ctx, management.ProjectPushProvider{
+		_, err := srv.store.ProjectProvidersStore.UpsertProjectProvider(ctx, management.ProjectProvider{
 			ProjectID:  projectID,
 			ProviderID: providerID,
 			Platform:   platform.String(),

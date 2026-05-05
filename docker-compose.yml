@@ -31,6 +31,8 @@ services:
       PUBLIC_URL: ${PUBLIC_URL:-http://localhost:8080}
       # Invites
       INVITES_SECRET_KEY: ${INVITES_SECRET_KEY:-dev-invites-secret-change-in-production}
+    volumes:
+      - ./uploads:/app/uploads
     depends_on:
       postgres:
         condition: service_healthy

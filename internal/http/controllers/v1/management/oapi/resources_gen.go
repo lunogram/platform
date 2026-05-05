@@ -145,6 +145,7 @@ const (
 const (
 	ProjectPushProviderPlatformAndroid ProjectPushProviderPlatform = "android"
 	ProjectPushProviderPlatformIos     ProjectPushProviderPlatform = "ios"
+	ProjectPushProviderPlatformMail    ProjectPushProviderPlatform = "mail"
 	ProjectPushProviderPlatformWeb     ProjectPushProviderPlatform = "web"
 )
 
@@ -1158,7 +1159,7 @@ type ProjectPushProvider struct {
 	CreatedAt time.Time          `json:"created_at"`
 	Id        openapi_types.UUID `json:"id"`
 
-	// Platform Target platform for push notifications
+	// Platform Target platform for providers (push or mail)
 	Platform  ProjectPushProviderPlatform `json:"platform"`
 	ProjectId openapi_types.UUID          `json:"project_id"`
 
@@ -1167,7 +1168,7 @@ type ProjectPushProvider struct {
 	UpdatedAt  time.Time          `json:"updated_at"`
 }
 
-// ProjectPushProviderPlatform Target platform for push notifications
+// ProjectPushProviderPlatform Target platform for providers (push or mail)
 type ProjectPushProviderPlatform string
 
 // ProjectRole Role within a project
