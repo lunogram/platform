@@ -259,8 +259,8 @@ export default function IntegrationSetup() {
                         data: provider.data,
                         module: effectiveModule ?? "",
                         link_wrap: provider?.link_wrap ?? false,
-                        rate_limit: provider?.rate_limit ?? null,
-                        rate_interval: provider?.rate_interval ?? "1s",
+                        rate_limit: provider?.rate_limit?.limit ?? null,
+                        rate_interval: provider?.rate_limit?.interval ?? "1s",
                     }
                   : {
                         kind: "provider",
@@ -322,10 +322,8 @@ export default function IntegrationSetup() {
 
             if (rateLimitOverride) {
                 body.rate_limit =
-                    values.rate_limit && values.rate_limit > 0 ? values.rate_limit : null
-                body.rate_interval =
                     values.rate_limit && values.rate_limit > 0
-                        ? (values.rate_interval ?? "1s")
+                        ? { limit: values.rate_limit, interval: values.rate_interval ?? "1s" }
                         : null
             }
 
