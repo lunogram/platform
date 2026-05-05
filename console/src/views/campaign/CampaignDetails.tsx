@@ -1,4 +1,4 @@
-import { useCallback, useContext, useMemo, useState, useEffect } from "react"
+import { useCallback, useContext, useMemo, useState } from "react"
 import { CampaignContext, ProjectContext, TemplateContext } from "@/contexts"
 import type { Campaign, Template, Subscription } from "@/types"
 import { useTranslation } from "react-i18next"
@@ -64,6 +64,16 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
         return subscriptions.filter((s) => s.channel === campaign.channel)
     }, [subscriptions, campaign.channel])
 
+    const effectiveSubscriptionId = useMemo(() => {
+        if (isTransactional || filteredSubscriptions.length === 0) {
+            return ""
+        }
+        const hasValidSelection = filteredSubscriptions.some(
+            (subscription) => subscription.id === subscriptionId,
+        )
+        return hasValidSelection ? subscriptionId : filteredSubscriptions[0].id
+    }, [isTransactional, filteredSubscriptions, subscriptionId])
+
     const form = useForm<CampaignReviewFormData>({
         resolver: zodResolver(campaignSchema),
         defaultValues: {
@@ -88,7 +98,7 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
             const updatedCampaign = await api.campaigns.update(project.id, campaign.id, {
                 name: data.name,
                 transactional: isTransactional,
-                subscription_id: isTransactional ? undefined : subscriptionId || undefined,
+                subscription_id: isTransactional ? undefined : effectiveSubscriptionId || undefined,
                 variables: data.variables.filter((v) => v.name),
             })
 
@@ -153,6 +163,7 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
                                             <CampaignVariables
                                                 variables={field.value}
                                                 onChange={field.onChange}
+                                                channel={campaign.channel}
                                             />
                                         </Field>
                                     )}
@@ -188,7 +199,7 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
                                             {t("campaign.subscription", "Subscription")}
                                         </FieldLabel>
                                         <Select
-                                            value={subscriptionId}
+                                            value={effectiveSubscriptionId}
                                             onValueChange={setSubscriptionId}
                                         >
                                             <SelectTrigger id="subscription-select">

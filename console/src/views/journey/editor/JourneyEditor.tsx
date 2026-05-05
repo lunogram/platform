@@ -10,7 +10,7 @@ import ReactFlow, {
     useNodesState,
 } from "reactflow"
 import { JourneyContext, ProjectContext } from "../../../contexts"
-import { cn, createComparator } from "../../../utils"
+import { cn, createComparator, createUuid } from "../../../utils"
 import * as journeySteps from "../steps/index"
 import api from "../../../api"
 import oapiClient, { type Action } from "@/oapi/client"
@@ -52,6 +52,7 @@ import { useJourneyFlowHandlers } from "../hooks/useJourneyFlowHandlers"
 import { useUserSelection } from "../hooks/useUserSelection"
 import { useStepEditing } from "../hooks/useStepEditing"
 import { JourneyStepSidebar } from "../components/JourneyStepSidebar"
+import { JourneyTriggerSetup, type EntranceTrigger } from "../components/JourneyTriggerSetup"
 import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts"
 import { JourneyVariableProvider } from "../JourneyVariableContext"
 
@@ -364,6 +365,30 @@ export default function JourneyEditor() {
 
     const isArchived = journey.status === "archived"
     const isEditable = !isArchived && !isMobile
+    const showTriggerSetup = isEditable && stepsLoaded && nodes.length === 0
+
+    const createEntranceFromSetup = useCallback(
+        async (trigger: EntranceTrigger) => {
+            const type = getStepType("entrance")
+            const defaultData = type?.newData ? await type.newData() : {}
+
+            setHasUnsavedChanges(true)
+            setNodes([
+                {
+                    id: createUuid(),
+                    position: { x: 0, y: 0 },
+                    type: "step",
+                    data: {
+                        type: "entrance",
+                        name: t("entrance"),
+                        data: { ...defaultData, trigger },
+                        editing: true,
+                    },
+                },
+            ])
+        },
+        [setHasUnsavedChanges, setNodes, t],
+    )
 
     return (
         <div className="flex flex-col flex-1 h-svh min-h-0 overflow-hidden">
@@ -462,310 +487,236 @@ export default function JourneyEditor() {
 
             {/* Main content: canvas + sidebar */}
             <JourneyVariableProvider nodes={nodes} edges={edges}>
-                <div className={cn("flex flex-1 min-h-0", editNode && "journey-editing")}>
-                    <div className="flex-1 relative flex flex-col" ref={wrapper}>
-                        {isMobile && !isArchived && (
-                            <div className="flex items-center justify-center gap-2 bg-muted/90 border-b px-4 py-2.5 text-sm text-muted-foreground">
-                                <Info className="h-4 w-4 shrink-0" />
-                                {t("journey_view_only_mobile", "View only, edit on desktop")}
-                            </div>
-                        )}
-                        <ReactFlow
-                            nodeTypes={nodeTypes}
-                            edgeTypes={edgeTypes}
-                            nodes={nodes}
-                            edges={edges}
-                            onNodesChange={onNodesChange}
-                            onEdgesChange={onEdgesChange}
-                            onConnect={isEditable ? onConnect : undefined}
-                            onInit={setFlowInstance}
-                            onNodeDoubleClick={isEditable ? onNodeDoubleClick : undefined}
-                            onDrop={isEditable ? onDrop : undefined}
-                            onDragOver={
-                                isEditable
-                                    ? (e) => {
-                                          e.preventDefault()
-                                          e.dataTransfer.dropEffect = "move"
-                                      }
-                                    : undefined
-                            }
-                            onPaneClick={onPaneClick}
-                            nodesDraggable={isEditable}
-                            nodesConnectable={isEditable}
-                            elementsSelectable={isEditable}
-                            deleteKeyCode={isEditable ? ["Backspace", "Delete"] : []}
-                            panOnScroll
-                            selectNodesOnDrag={isEditable}
-                            fitView
-                            minZoom={0.1}
-                            fitViewOptions={{ padding: 0.3, maxZoom: 1 }}
-                        >
-                            <Background className="!bg-muted/30" />
-                            {!editNode && (
-                                <>
-                                    <Controls showInteractive={isEditable} />
-                                    {!isMobile && (
-                                        <MiniMap
-                                            nodeClassName={(n) =>
-                                                `journey-minimap ${getStepType(n.data.type)?.category ?? "unknown"}`
-                                            }
-                                        />
-                                    )}
+                {showTriggerSetup ? (
+                    <JourneyTriggerSetup onSelectTrigger={createEntranceFromSetup} />
+                ) : (
+                    <div className={cn("flex flex-1 min-h-0", editNode && "journey-editing")}>
+                        <div className="flex-1 relative flex flex-col" ref={wrapper}>
+                            {isMobile && !isArchived && (
+                                <div className="flex items-center justify-center gap-2 bg-muted/90 border-b px-4 py-2.5 text-sm text-muted-foreground">
+                                    <Info className="h-4 w-4 shrink-0" />
+                                    {t("journey_view_only_mobile", "View only, edit on desktop")}
+                                </div>
+                            )}
+                            <ReactFlow
+                                nodeTypes={nodeTypes}
+                                edgeTypes={edgeTypes}
+                                nodes={nodes}
+                                edges={edges}
+                                onNodesChange={onNodesChange}
+                                onEdgesChange={onEdgesChange}
+                                onConnect={isEditable ? onConnect : undefined}
+                                onInit={setFlowInstance}
+                                onNodeDoubleClick={isEditable ? onNodeDoubleClick : undefined}
+                                onDrop={isEditable ? onDrop : undefined}
+                                onDragOver={
+                                    isEditable
+                                        ? (e) => {
+                                              e.preventDefault()
+                                              e.dataTransfer.dropEffect = "move"
+                                          }
+                                        : undefined
+                                }
+                                onPaneClick={onPaneClick}
+                                nodesDraggable={isEditable}
+                                nodesConnectable={isEditable}
+                                elementsSelectable={isEditable}
+                                deleteKeyCode={isEditable ? ["Backspace", "Delete"] : []}
+                                panOnScroll
+                                selectNodesOnDrag={isEditable}
+                                fitView
+                                minZoom={0.1}
+                                fitViewOptions={{ padding: 0.3, maxZoom: 1 }}
+                            >
+                                <Background className="!bg-muted/30" />
+                                {!editNode && (
+                                    <>
+                                        <Controls showInteractive={isEditable} />
+                                        {!isMobile && (
+                                            <MiniMap
+                                                nodeClassName={(n) =>
+                                                    `journey-minimap ${getStepType(n.data.type)?.category ?? "unknown"}`
+                                                }
+                                            />
+                                        )}
 
-                                    {/* Following user control bar */}
-                                    {searchParams.get("follow") && (
-                                        <Panel position="top-center">
-                                            <div className="flex items-center gap-2 bg-background/95 backdrop-blur-sm border rounded-lg shadow-lg px-3 py-1.5">
-                                                <Eye className="h-4 w-4 text-orange-500 animate-pulse" />
-                                                <span className="text-sm font-medium">
-                                                    {t("following_user", "Following user")}
-                                                </span>
-                                                <div className="h-4 w-px bg-border" />
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={stopFollowing}
-                                                    className="h-7 gap-1.5 text-muted-foreground hover:text-foreground"
-                                                >
-                                                    <EyeOff className="h-3.5 w-3.5" />
-                                                    {t("stop_following", "Stop")}
-                                                </Button>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={() => {
-                                                        const userId = searchParams.get("follow")
-                                                        if (userId) cancelExecution(userId)
-                                                    }}
-                                                    className="h-7 gap-1.5 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                                >
-                                                    <XCircle className="h-3.5 w-3.5" />
-                                                    {t("cancel_execution", "Cancel")}
-                                                </Button>
-                                            </div>
-                                        </Panel>
-                                    )}
-
-                                    {/* Replay: viewing a completed journey path */}
-                                    {replayUserId && !searchParams.get("follow") && (
-                                        <Panel position="top-center">
-                                            <div className="flex items-center gap-2 bg-background/95 backdrop-blur-sm border rounded-lg shadow-lg px-3 py-1.5">
-                                                <Eye className="h-4 w-4 text-emerald-500" />
-                                                <span className="text-sm font-medium">
-                                                    {t("viewing_user_path", "Viewing user path")}
-                                                </span>
-                                                <div className="h-4 w-px bg-border" />
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={() => {
-                                                        resetFollowingState()
-                                                        navigate(".", { replace: true })
-                                                    }}
-                                                    className="h-7 gap-1.5 text-muted-foreground hover:text-foreground"
-                                                >
-                                                    <EyeOff className="h-3.5 w-3.5" />
-                                                    {t("dismiss", "Dismiss")}
-                                                </Button>
-                                            </div>
-                                        </Panel>
-                                    )}
-
-                                    {isEditable && (
-                                        <Panel position="top-left">
-                                            {selected.length ? (
+                                        {/* Following user control bar */}
+                                        {searchParams.get("follow") && (
+                                            <Panel position="top-center">
                                                 <div className="flex items-center gap-2 bg-background/95 backdrop-blur-sm border rounded-lg shadow-lg px-3 py-1.5">
+                                                    <Eye className="h-4 w-4 text-orange-500 animate-pulse" />
+                                                    <span className="text-sm font-medium">
+                                                        {t("following_user", "Following user")}
+                                                    </span>
+                                                    <div className="h-4 w-px bg-border" />
                                                     <Button
-                                                        onClick={() => {
-                                                            const { nodeCopies, edgeCopies } =
-                                                                cloneNodes(
-                                                                    edges,
-                                                                    nodes.filter((n) => n.selected),
-                                                                )
-                                                            updateNodes([
-                                                                ...nodes.map((n) => ({
-                                                                    ...n,
-                                                                    selected: false,
-                                                                })),
-                                                                ...nodeCopies,
-                                                            ])
-                                                            setEdges([
-                                                                ...edges.map((e) => ({
-                                                                    ...e,
-                                                                    selected: false,
-                                                                })),
-                                                                ...edgeCopies,
-                                                            ])
-                                                        }}
-                                                        size="sm"
                                                         variant="ghost"
-                                                        className="h-7"
+                                                        size="sm"
+                                                        onClick={stopFollowing}
+                                                        className="h-7 gap-1.5 text-muted-foreground hover:text-foreground"
                                                     >
-                                                        {`Duplicate Selected Steps (${selected.length})`}
+                                                        <EyeOff className="h-3.5 w-3.5" />
+                                                        {t("stop_following", "Stop")}
+                                                    </Button>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => {
+                                                            const userId =
+                                                                searchParams.get("follow")
+                                                            if (userId) cancelExecution(userId)
+                                                        }}
+                                                        className="h-7 gap-1.5 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                                    >
+                                                        <XCircle className="h-3.5 w-3.5" />
+                                                        {t("cancel_execution", "Cancel")}
                                                     </Button>
                                                 </div>
-                                            ) : (
-                                                <div className="hidden sm:flex items-center bg-background/95 backdrop-blur-sm border rounded-lg shadow-lg px-3 py-1.5">
-                                                    <span className="text-xs text-muted-foreground">
-                                                        Shift+Drag to Multi Select
-                                                    </span>
-                                                </div>
-                                            )}
-                                        </Panel>
-                                    )}
-                                </>
-                            )}
-                        </ReactFlow>
-                    </div>
-
-                    {/* Desktop: inline right sidebar */}
-                    {isEditable && (
-                        <div
-                            className={cn(
-                                "border-l bg-background shrink-0 flex flex-col",
-                                editNode ? "w-[40%]" : "w-1/4",
-                            )}
-                        >
-                            {editNode ? (
-                                <JourneyStepSidebar
-                                    editNode={editNode}
-                                    nodes={nodes}
-                                    project={project}
-                                    journey={journey}
-                                    onUpdate={updateEditNode}
-                                    onDelete={deleteNode}
-                                    onViewUsers={(stepId, stepType, stepName) =>
-                                        setViewUsersStep({ stepId, stepType, stepName })
-                                    }
-                                    onSaveDraft={handleSaveDraft}
-                                />
-                            ) : (
-                                <>
-                                    <NavTabs
-                                        className="px-4 pt-3 border-b shrink-0"
-                                        tabs={[
-                                            {
-                                                key: "components",
-                                                label: t("components"),
-                                                icon: Blocks,
-                                            },
-                                            {
-                                                key: "actions",
-                                                label: t("actions.plural", "Actions"),
-                                                icon: SquareFunction,
-                                                badge: actions?.length,
-                                            },
-                                        ]}
-                                        value={sidebarTab}
-                                        onChange={(key) =>
-                                            setSidebarTab(key as "components" | "actions")
-                                        }
-                                    />
-                                    <ScrollArea className="flex-1">
-                                        {sidebarTab === "components" && (
-                                            <div className="p-4 space-y-1.5">
-                                                {Object.entries(journeySteps)
-                                                    .filter(([key]) => key !== "action")
-                                                    .sort(
-                                                        createComparator((x) => {
-                                                            const order = {
-                                                                entrance: 0,
-                                                                flow: 1,
-                                                                delay: 2,
-                                                                action: 3,
-                                                                exit: 4,
-                                                                info: 5,
-                                                            }
-                                                            return order[x[1].category] ?? 99
-                                                        }),
-                                                    )
-                                                    .map(([key, type]) => (
-                                                        <div
-                                                            key={key}
-                                                            className="group flex items-start gap-3 rounded-lg border p-3 cursor-grab active:cursor-grabbing hover:bg-muted/50 transition-colors"
-                                                            draggable
-                                                            onDragStart={(event) => {
-                                                                const rect = (
-                                                                    event.target as HTMLDivElement
-                                                                ).getBoundingClientRect()
-                                                                event.dataTransfer.setData(
-                                                                    DATA_FORMAT,
-                                                                    JSON.stringify({
-                                                                        type: key,
-                                                                        x:
-                                                                            event.clientX -
-                                                                            rect.left,
-                                                                        y: event.clientY - rect.top,
-                                                                    }),
-                                                                )
-                                                            }}
-                                                        >
-                                                            <div
-                                                                className={cn(
-                                                                    "flex h-8 w-8 shrink-0 items-center justify-center rounded-md [&_svg]:h-4 [&_svg]:w-4",
-                                                                    stepCategoryColors[
-                                                                        type.category
-                                                                    ] ??
-                                                                        "bg-muted text-muted-foreground",
-                                                                )}
-                                                            >
-                                                                {type.icon}
-                                                            </div>
-                                                            <div className="flex-1 min-w-0">
-                                                                <p className="text-sm font-medium leading-none">
-                                                                    {t(type.name)}
-                                                                </p>
-                                                                <p className="text-xs text-muted-foreground mt-1 leading-snug">
-                                                                    {t(type.description)}
-                                                                </p>
-                                                            </div>
-                                                            <GripVertical className="h-4 w-4 text-muted-foreground/40 shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                                        </div>
-                                                    ))}
-                                            </div>
+                                            </Panel>
                                         )}
-                                        {sidebarTab === "actions" && (
-                                            <div className="p-4 space-y-2">
-                                                {!actions ? (
-                                                    Array.from({ length: 3 }).map((_, i) => (
-                                                        <div
-                                                            key={i}
-                                                            className="rounded-lg border border-dashed p-3 animate-pulse"
+
+                                        {/* Replay: viewing a completed journey path */}
+                                        {replayUserId && !searchParams.get("follow") && (
+                                            <Panel position="top-center">
+                                                <div className="flex items-center gap-2 bg-background/95 backdrop-blur-sm border rounded-lg shadow-lg px-3 py-1.5">
+                                                    <Eye className="h-4 w-4 text-emerald-500" />
+                                                    <span className="text-sm font-medium">
+                                                        {t(
+                                                            "viewing_user_path",
+                                                            "Viewing user path",
+                                                        )}
+                                                    </span>
+                                                    <div className="h-4 w-px bg-border" />
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => {
+                                                            resetFollowingState()
+                                                            navigate(".", { replace: true })
+                                                        }}
+                                                        className="h-7 gap-1.5 text-muted-foreground hover:text-foreground"
+                                                    >
+                                                        <EyeOff className="h-3.5 w-3.5" />
+                                                        {t("dismiss", "Dismiss")}
+                                                    </Button>
+                                                </div>
+                                            </Panel>
+                                        )}
+
+                                        {isEditable && (
+                                            <Panel position="top-left">
+                                                {selected.length ? (
+                                                    <div className="flex items-center gap-2 bg-background/95 backdrop-blur-sm border rounded-lg shadow-lg px-3 py-1.5">
+                                                        <Button
+                                                            onClick={() => {
+                                                                const { nodeCopies, edgeCopies } =
+                                                                    cloneNodes(
+                                                                        edges,
+                                                                        nodes.filter(
+                                                                            (n) => n.selected,
+                                                                        ),
+                                                                    )
+                                                                updateNodes([
+                                                                    ...nodes.map((n) => ({
+                                                                        ...n,
+                                                                        selected: false,
+                                                                    })),
+                                                                    ...nodeCopies,
+                                                                ])
+                                                                setEdges([
+                                                                    ...edges.map((e) => ({
+                                                                        ...e,
+                                                                        selected: false,
+                                                                    })),
+                                                                    ...edgeCopies,
+                                                                ])
+                                                            }}
+                                                            size="sm"
+                                                            variant="ghost"
+                                                            className="h-7"
                                                         >
-                                                            <div className="flex items-center gap-3">
-                                                                <div className="h-9 w-9 rounded-md bg-muted" />
-                                                                <div className="flex-1 space-y-1.5">
-                                                                    <div className="h-3.5 w-24 rounded bg-muted" />
-                                                                    <div className="h-3 w-16 rounded bg-muted" />
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    ))
-                                                ) : actions.length === 0 ? (
-                                                    <div className="rounded-lg border border-dashed p-6 text-center">
-                                                        <Zap className="h-6 w-6 text-muted-foreground/50 mx-auto mb-2" />
-                                                        <p className="text-sm font-medium text-muted-foreground">
-                                                            {t("no_actions_yet", "No actions yet")}
-                                                        </p>
-                                                        <p className="text-xs text-muted-foreground/70 mt-1">
-                                                            {t(
-                                                                "actions_drag_desc",
-                                                                "Create an action to add it as a step",
-                                                            )}
-                                                        </p>
+                                                            {`Duplicate Selected Steps (${selected.length})`}
+                                                        </Button>
                                                     </div>
                                                 ) : (
-                                                    actions.map((action: Action) => {
-                                                        const icon =
-                                                            action.type === "webhook" ? (
-                                                                <Webhook className="h-4 w-4" />
-                                                            ) : (
-                                                                <Zap className="h-4 w-4" />
-                                                            )
-                                                        return (
+                                                    <div className="hidden sm:flex items-center bg-background/95 backdrop-blur-sm border rounded-lg shadow-lg px-3 py-1.5">
+                                                        <span className="text-xs text-muted-foreground">
+                                                            Shift+Drag to Multi Select
+                                                        </span>
+                                                    </div>
+                                                )}
+                                            </Panel>
+                                        )}
+                                    </>
+                                )}
+                            </ReactFlow>
+                        </div>
+
+                        {/* Desktop: inline right sidebar */}
+                        {isEditable && (
+                            <div
+                                className={cn(
+                                    "border-l bg-background shrink-0 flex flex-col",
+                                    editNode ? "w-[40%]" : "w-1/4",
+                                )}
+                            >
+                                {editNode ? (
+                                    <JourneyStepSidebar
+                                        editNode={editNode}
+                                        nodes={nodes}
+                                        project={project}
+                                        journey={journey}
+                                        onUpdate={updateEditNode}
+                                        onDelete={deleteNode}
+                                        onViewUsers={(stepId, stepType, stepName) =>
+                                            setViewUsersStep({ stepId, stepType, stepName })
+                                        }
+                                        onSaveDraft={handleSaveDraft}
+                                    />
+                                ) : (
+                                    <>
+                                        <NavTabs
+                                            className="px-4 pt-3 border-b shrink-0"
+                                            tabs={[
+                                                {
+                                                    key: "components",
+                                                    label: t("components"),
+                                                    icon: Blocks,
+                                                },
+                                                {
+                                                    key: "actions",
+                                                    label: t("actions.plural", "Actions"),
+                                                    icon: SquareFunction,
+                                                    badge: actions?.length,
+                                                },
+                                            ]}
+                                            value={sidebarTab}
+                                            onChange={(key) =>
+                                                setSidebarTab(key as "components" | "actions")
+                                            }
+                                        />
+                                        <ScrollArea className="flex-1">
+                                            {sidebarTab === "components" && (
+                                                <div className="p-4 space-y-1.5">
+                                                    {Object.entries(journeySteps)
+                                                        .filter(([key]) => key !== "action")
+                                                        .sort(
+                                                            createComparator((x) => {
+                                                                const order = {
+                                                                    entrance: 0,
+                                                                    flow: 1,
+                                                                    delay: 2,
+                                                                    action: 3,
+                                                                    exit: 4,
+                                                                    info: 5,
+                                                                }
+                                                                return order[x[1].category] ?? 99
+                                                            }),
+                                                        )
+                                                        .map(([key, type]) => (
                                                             <div
-                                                                key={action.id}
-                                                                className="group flex items-center gap-3 rounded-lg border bg-card p-3 cursor-grab active:cursor-grabbing hover:bg-accent/50 hover:border-blue-300 dark:hover:border-blue-700 transition-colors"
+                                                                key={key}
+                                                                className="group flex items-start gap-3 rounded-lg border p-3 cursor-grab active:cursor-grabbing hover:bg-muted/50 transition-colors"
                                                                 draggable
                                                                 onDragStart={(event) => {
                                                                     const rect = (
@@ -774,12 +725,7 @@ export default function JourneyEditor() {
                                                                     event.dataTransfer.setData(
                                                                         DATA_FORMAT,
                                                                         JSON.stringify({
-                                                                            type: "action",
-                                                                            name: action.name,
-                                                                            data: {
-                                                                                action_id:
-                                                                                    action.id,
-                                                                            },
+                                                                            type: key,
                                                                             x:
                                                                                 event.clientX -
                                                                                 rect.left,
@@ -790,30 +736,124 @@ export default function JourneyEditor() {
                                                                     )
                                                                 }}
                                                             >
-                                                                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-blue-100 text-blue-600 dark:bg-blue-950 dark:text-blue-400 [&_svg]:h-4 [&_svg]:w-4">
-                                                                    {icon}
+                                                                <div
+                                                                    className={cn(
+                                                                        "flex h-8 w-8 shrink-0 items-center justify-center rounded-md [&_svg]:h-4 [&_svg]:w-4",
+                                                                        stepCategoryColors[
+                                                                            type.category
+                                                                        ] ??
+                                                                            "bg-muted text-muted-foreground",
+                                                                    )}
+                                                                >
+                                                                    {type.icon}
                                                                 </div>
                                                                 <div className="flex-1 min-w-0">
-                                                                    <p className="text-sm font-medium leading-none truncate">
-                                                                        {action.name}
+                                                                    <p className="text-sm font-medium leading-none">
+                                                                        {t(type.name)}
                                                                     </p>
-                                                                    <p className="text-xs text-muted-foreground mt-1">
-                                                                        {action.type}
+                                                                    <p className="text-xs text-muted-foreground mt-1 leading-snug">
+                                                                        {t(type.description)}
                                                                     </p>
                                                                 </div>
-                                                                <GripVertical className="h-4 w-4 text-muted-foreground/40 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                                                <GripVertical className="h-4 w-4 text-muted-foreground/40 shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity" />
                                                             </div>
-                                                        )
-                                                    })
-                                                )}
-                                            </div>
-                                        )}
-                                    </ScrollArea>
-                                </>
-                            )}
-                        </div>
-                    )}
-                </div>
+                                                        ))}
+                                                </div>
+                                            )}
+                                            {sidebarTab === "actions" && (
+                                                <div className="p-4 space-y-2">
+                                                    {!actions ? (
+                                                        Array.from({ length: 3 }).map((_, i) => (
+                                                            <div
+                                                                key={i}
+                                                                className="rounded-lg border border-dashed p-3 animate-pulse"
+                                                            >
+                                                                <div className="flex items-center gap-3">
+                                                                    <div className="h-9 w-9 rounded-md bg-muted" />
+                                                                    <div className="flex-1 space-y-1.5">
+                                                                        <div className="h-3.5 w-24 rounded bg-muted" />
+                                                                        <div className="h-3 w-16 rounded bg-muted" />
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        ))
+                                                    ) : actions.length === 0 ? (
+                                                        <div className="rounded-lg border border-dashed p-6 text-center">
+                                                            <Zap className="h-6 w-6 text-muted-foreground/50 mx-auto mb-2" />
+                                                            <p className="text-sm font-medium text-muted-foreground">
+                                                                {t(
+                                                                    "no_actions_yet",
+                                                                    "No actions yet",
+                                                                )}
+                                                            </p>
+                                                            <p className="text-xs text-muted-foreground/70 mt-1">
+                                                                {t(
+                                                                    "actions_drag_desc",
+                                                                    "Create an action to add it as a step",
+                                                                )}
+                                                            </p>
+                                                        </div>
+                                                    ) : (
+                                                        actions.map((action: Action) => {
+                                                            const icon =
+                                                                action.type === "webhook" ? (
+                                                                    <Webhook className="h-4 w-4" />
+                                                                ) : (
+                                                                    <Zap className="h-4 w-4" />
+                                                                )
+                                                            return (
+                                                                <div
+                                                                    key={action.id}
+                                                                    className="group flex items-center gap-3 rounded-lg border bg-card p-3 cursor-grab active:cursor-grabbing hover:bg-accent/50 hover:border-blue-300 dark:hover:border-blue-700 transition-colors"
+                                                                    draggable
+                                                                    onDragStart={(event) => {
+                                                                        const rect = (
+                                                                            event.target as HTMLDivElement
+                                                                        ).getBoundingClientRect()
+                                                                        event.dataTransfer.setData(
+                                                                            DATA_FORMAT,
+                                                                            JSON.stringify({
+                                                                                type: "action",
+                                                                                name: action.name,
+                                                                                data: {
+                                                                                    action_id:
+                                                                                        action.id,
+                                                                                },
+                                                                                x:
+                                                                                    event.clientX -
+                                                                                    rect.left,
+                                                                                y:
+                                                                                    event.clientY -
+                                                                                    rect.top,
+                                                                            }),
+                                                                        )
+                                                                    }}
+                                                                >
+                                                                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-blue-100 text-blue-600 dark:bg-blue-950 dark:text-blue-400 [&_svg]:h-4 [&_svg]:w-4">
+                                                                        {icon}
+                                                                    </div>
+                                                                    <div className="flex-1 min-w-0">
+                                                                        <p className="text-sm font-medium leading-none truncate">
+                                                                            {action.name}
+                                                                        </p>
+                                                                        <p className="text-xs text-muted-foreground mt-1">
+                                                                            {action.type}
+                                                                        </p>
+                                                                    </div>
+                                                                    <GripVertical className="h-4 w-4 text-muted-foreground/40 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                                                </div>
+                                                            )
+                                                        })
+                                                    )}
+                                                </div>
+                                            )}
+                                        </ScrollArea>
+                                    </>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                )}
             </JourneyVariableProvider>
 
             <UserSelectionModal

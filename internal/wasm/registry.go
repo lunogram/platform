@@ -121,6 +121,16 @@ func (r *Registry[T]) All() []*Module[T] {
 	return modules
 }
 
+// Config returns the registry WASM runtime configuration.
+func (r *Registry[T]) Config() config.WASM {
+	return r.config
+}
+
+// Logger returns the registry logger.
+func (r *Registry[T]) Logger() *zap.Logger {
+	return r.logger
+}
+
 // Close closes all modules in the registry and clears the registry.
 func (r *Registry[T]) Close(ctx context.Context) {
 	r.mu.Lock()

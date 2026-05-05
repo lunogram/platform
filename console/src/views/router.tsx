@@ -14,7 +14,6 @@ import {
     ProjectContext,
     UserContext,
     OrganizationContext,
-    ActionContext,
 } from "../contexts"
 import ApiKeys from "./settings/ApiKeys"
 import Invites from "./settings/Invites"
@@ -33,6 +32,7 @@ import UserDetailSubscriptions from "./users/UserDetailSubscriptions"
 import Campaigns from "./campaign/Campaigns"
 import Campaign from "./campaign/Campaign"
 import CampaignDetails from "./campaign/CampaignDetails"
+import NewCampaign from "./campaign/NewCampaign"
 import Template from "./campaign/template/Template"
 import TemplateContent from "./campaign/template/Content"
 import TemplateReview from "./campaign/template/Review"
@@ -40,9 +40,6 @@ import EmailEditor from "./campaign/template/mail/editor/Editor"
 // EmailBuilder is now embedded within the Editor view (not a separate route)
 import Journeys from "./journey/Journeys"
 import JourneyEditor from "./journey/editor/JourneyEditor"
-import Actions from "./action/Actions"
-import CreateAction from "./action/CreateAction"
-import ActionDetail from "./action/ActionDetail"
 import ProjectSettings from "./settings/ProjectSettings"
 import Integrations from "./settings/Integrations"
 import NewIntegration from "./settings/NewIntegration"
@@ -63,7 +60,7 @@ import {
     SettingsIcon,
     UsersIcon,
 } from "@/components/icons"
-import { Radio, Zap } from "lucide-react"
+import { Radio } from "lucide-react"
 import Broadcasts from "./broadcast/Broadcasts"
 import { BroadcastDetailRoute } from "./broadcast/BroadcastDetail"
 import { Projects } from "./project/Projects"
@@ -160,6 +157,7 @@ export const createRouter = ({
                             const project = await api.projects.get(projectId)
                             return project
                         },
+                        shouldRevalidate: () => true,
                         element: (
                             <StatefulLoaderContextProvider context={ProjectContext}>
                                 <Outlet />
@@ -281,17 +279,6 @@ export const createRouter = ({
                                                 minRole: "editor",
                                             },
                                             {
-                                                key: "actions",
-                                                to: "actions",
-                                                children: (
-                                                    <Translation>
-                                                        {(t) => t("actions.plural")}
-                                                    </Translation>
-                                                ),
-                                                icon: <Zap className="h-4 w-4" />,
-                                                minRole: "editor",
-                                            },
-                                            {
                                                 key: "organizations",
                                                 to: "organizations",
                                                 children: (
@@ -380,6 +367,11 @@ export const createRouter = ({
                                                 apiPath: api.campaigns,
                                                 element: <Campaigns create={true} />,
                                             }),
+                                            {
+                                                path: "new/:channel",
+                                                element: <NewCampaign />,
+                                                errorElement: <ErrorPage />,
+                                            },
                                             createStatefulRoute({
                                                 path: ":entityId",
                                                 apiPath: api.campaigns,
@@ -482,26 +474,6 @@ export const createRouter = ({
                                                 element: <JourneyUserEntrances />,
                                             },
                                         ],
-                                    }),
-                                    createStatefulRoute({
-                                        path: "actions",
-                                        apiPath: api.actions,
-                                        element: <Actions />,
-                                    }),
-                                    {
-                                        path: "actions/new",
-                                        element: <CreateAction />,
-                                    },
-                                    {
-                                        path: "actions/new/:type",
-                                        element: <ActionDetail />,
-                                    },
-                                    createStatefulRoute({
-                                        path: "actions/:entityId",
-                                        apiPath: api.actions,
-                                        paramName: "entityId",
-                                        context: ActionContext,
-                                        element: <ActionDetail />,
                                     }),
                                     createStatefulRoute({
                                         path: "users",
@@ -620,6 +592,14 @@ export const createRouter = ({
                                     },
                                     {
                                         path: "integrations/new/:module",
+                                        element: <IntegrationSetup />,
+                                    },
+                                    {
+                                        path: "integrations/new/:kind/:module",
+                                        element: <IntegrationSetup />,
+                                    },
+                                    {
+                                        path: "integrations/:kind/:id",
                                         element: <IntegrationSetup />,
                                     },
                                     {
