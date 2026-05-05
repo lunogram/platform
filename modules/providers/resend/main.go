@@ -60,8 +60,9 @@ func Manifest() int32 {
 			URL:   "https://lunogram.com",
 		},
 		Spec: providers.ProviderSpec{
-			Webhook:  true,
-			Channels: []providers.Channel{providers.ChannelEmail},
+			Webhook:   true,
+			Platforms: []providers.Platform{providers.PlatformEmail},
+			Channels:  []providers.Channel{providers.ChannelEmail},
 			RateLimit: &providers.RateLimit{
 				Limit:    5,
 				Interval: "1s",

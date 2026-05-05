@@ -3990,7 +3990,7 @@ export interface components {
          * @example ios
          * @enum {string}
          */
-        ProjectPushProviderPlatform: "ios" | "android" | "web" | "mail";
+        ProjectPushProviderPlatform: "ios" | "android" | "web" | "email";
         ProjectPushProvider: {
             /** Format: uuid */
             id: string;

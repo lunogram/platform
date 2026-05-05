@@ -8185,7 +8185,7 @@ components:
 
     ProjectPushProviderPlatform:
       type: string
-      enum: [ios, android, web, mail]
+      enum: [ios, android, web, email]
       description: Target platform for providers (push or mail)
       example: ios
 

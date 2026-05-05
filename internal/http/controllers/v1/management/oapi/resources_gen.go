@@ -144,8 +144,8 @@ const (
 // Defines values for ProjectPushProviderPlatform.
 const (
 	ProjectPushProviderPlatformAndroid ProjectPushProviderPlatform = "android"
+	ProjectPushProviderPlatformEmail   ProjectPushProviderPlatform = "email"
 	ProjectPushProviderPlatformIos     ProjectPushProviderPlatform = "ios"
-	ProjectPushProviderPlatformMail    ProjectPushProviderPlatform = "mail"
 	ProjectPushProviderPlatformWeb     ProjectPushProviderPlatform = "web"
 )
 

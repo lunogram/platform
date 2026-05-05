@@ -41,6 +41,7 @@ var validPlatforms = map[oapi.ProjectPushProviderPlatform]bool{
 	oapi.ProjectPushProviderPlatformIos:     true,
 	oapi.ProjectPushProviderPlatformAndroid: true,
 	oapi.ProjectPushProviderPlatformWeb:     true,
+	oapi.ProjectPushProviderPlatformEmail:   true,
 }
 
 func (srv *PushProvidersController) ListProjectPushProviders(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {

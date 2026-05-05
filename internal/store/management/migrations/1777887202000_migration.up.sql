@@ -16,5 +16,6 @@ ALTER TABLE project_providers ADD COLUMN platform_new VARCHAR(50) CHECK (platfor
 UPDATE project_providers SET platform_new = platform;
 ALTER TABLE project_providers DROP COLUMN platform;
 ALTER TABLE project_providers RENAME COLUMN platform_new TO platform;
+ALTER TABLE project_providers ALTER COLUMN platform SET NOT NULL;
 
 ALTER TABLE project_providers ADD CONSTRAINT project_providers_project_platform_uniq UNIQUE (project_id, platform);
