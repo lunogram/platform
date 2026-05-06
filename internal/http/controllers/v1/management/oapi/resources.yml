@@ -1799,7 +1799,7 @@ paths:
         default:
           $ref: "#/components/responses/Error"
   
-  /api/admin/projects/{projectID}/invites/accept/{tokenNouncePair}:
+  /api/admin/projects/{projectID}/invites/accept/{token}:
     post:
       summary: Accept a project invite
       description: Accepts a project invite using the invite token and nonce, associating the authenticated admin with the project
@@ -1809,7 +1809,7 @@ paths:
       security:
         - HttpBearerAuth: []
       parameters:
-        - name: tokenNouncePair
+        - name: token
           in: path
           required: true
           schema:
@@ -8185,7 +8185,7 @@ components:
 
     ProjectPushProviderPlatform:
       type: string
-      enum: [ios, android, web, email]
+      enum: [ios, android, web, mail]
       description: Target platform for providers (push or mail)
       example: ios
 

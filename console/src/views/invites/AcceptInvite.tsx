@@ -10,12 +10,14 @@ import type { ProjectInvite, AuthDriver, Admin } from "../../types"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
+import ErrorPage from "../ErrorPage"
 
 type PageState =
     | { status: "loading" }
     | { status: "error"; message: string }
+    | { status: "notFound"; message: string }
     | { status: "unauthenticated"; invite: ProjectInvite; drivers: AuthDriver[] }
     | { status: "wrong-account"; invite: ProjectInvite }
     | { status: "ready"; invite: ProjectInvite; profile: Admin }
@@ -32,7 +34,7 @@ function formatExpiry(expiresAt: string): string {
 
 export default function AcceptInvite() {
     const { t } = useTranslation()
-    const { token } = useParams() as { token: string }
+    const { token } = useParams<{ token: string }>()
     const [searchParams] = useSearchParams()
     const navigate = useNavigate()
     const autoAccept = searchParams.get("autoAccept") === "1"
@@ -49,7 +51,7 @@ export default function AcceptInvite() {
                         params: {
                             path: {
                                 projectID: invite.project_id!,
-                                token,
+                                token: token!,
                             },
                         },
                     },
@@ -74,15 +76,14 @@ export default function AcceptInvite() {
 
     useEffect(() => {
         const init = async () => {
-            // Fetch invite details (public endpoint, no auth needed)
             const { data: invite, error } = await oapiClient.GET("/api/invites/{token}", {
-                params: { path: { token } },
+                params: { path: { token: token! } },
             })
 
             if (error || !invite) {
                 setState({
-                    status: "error",
-                    message: t("invite_not_found", "This invite link is invalid or has expired."),
+                    status: "notFound",
+                    message: t("invite_not_found", "Invite not found."),
                 })
                 return
             }
@@ -103,7 +104,6 @@ export default function AcceptInvite() {
                 return
             }
 
-            // Check auth status in parallel with driver fetch
             const [profileResult, driversResult] = await Promise.allSettled([
                 api.profile.get(),
                 api.auth.methods(),
@@ -114,19 +114,16 @@ export default function AcceptInvite() {
                 driversResult.status === "fulfilled" ? driversResult.value : [AUTH_DRIVERS.BASIC]
 
             if (!profile) {
-                // Not logged in
                 setState({ status: "unauthenticated", invite: invite as ProjectInvite, drivers })
                 return
             }
 
-            // Logged in — check email match
             if (profile.email.toLowerCase() !== (invite.invitee_email ?? "").toLowerCase()) {
                 setState({ status: "wrong-account", invite: invite as ProjectInvite })
                 return
             }
 
             if (autoAccept) {
-                // Came back from registration — auto-accept
                 await doAccept(invite as ProjectInvite)
                 return
             }
@@ -143,6 +140,10 @@ export default function AcceptInvite() {
 
     const handleRegister = () => {
         navigate(`/register?r=${encodeURIComponent(`/invites/${token}?autoAccept=1`)}`)
+    }
+
+    if (state.status === "notFound") {
+        return <ErrorPage status={404} />
     }
 
     if (state.status === "loading" || state.status === "accepting") {
@@ -170,22 +171,6 @@ export default function AcceptInvite() {
                         <p className="text-sm text-muted-foreground">
                             {t("invite_accepted_redirecting", "Invite accepted! Redirecting...")}
                         </p>
-                    </CardContent>
-                </Card>
-            </div>
-        )
-    }
-
-    if (state.status === "error") {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-muted/40 p-4">
-                <Card className="w-full max-w-sm">
-                    <CardContent className="pt-6">
-                        <Alert variant="destructive">
-                            <ShieldAlert className="h-4 w-4" />
-                            <AlertTitle>{t("error")}</AlertTitle>
-                            <AlertDescription>{state.message}</AlertDescription>
-                        </Alert>
                     </CardContent>
                 </Card>
             </div>
@@ -259,28 +244,35 @@ export default function AcceptInvite() {
     }
 
     // status === "ready"
-    const { invite } = state
+    if (state.status === "ready") {
+        const { invite } = state
 
-    return (
-        <div className="min-h-screen flex items-center justify-center bg-muted/40 p-4">
-            <Card className="w-full max-w-sm">
-                <CardHeader className="space-y-1 text-center">
-                    <CardTitle className="text-2xl font-bold">
-                        {t("invite_title", "You've been invited")}
-                    </CardTitle>
-                    <CardDescription>
-                        {t("invite_review_prompt", "Review the details below and accept to join.")}
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <InviteDetails invite={invite} />
-                    <Button className="w-full" onClick={() => doAccept(invite)}>
-                        {t("invite_accept", "Accept invite")}
-                    </Button>
-                </CardContent>
-            </Card>
-        </div>
-    )
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-muted/40 p-4">
+                <Card className="w-full max-w-sm">
+                    <CardHeader className="space-y-1 text-center">
+                        <CardTitle className="text-2xl font-bold">
+                            {t("invite_title", "You've been invited")}
+                        </CardTitle>
+                        <CardDescription>
+                            {t(
+                                "invite_review_prompt",
+                                "Review the details below and accept to join.",
+                            )}
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <InviteDetails invite={invite} />
+                        <Button className="w-full" onClick={() => doAccept(invite)}>
+                            {t("invite_accept", "Accept invite")}
+                        </Button>
+                    </CardContent>
+                </Card>
+            </div>
+        )
+    } else {
+        return <ErrorPage status={500} />
+    }
 }
 
 function InviteDetails({ invite }: { invite: ProjectInvite }) {

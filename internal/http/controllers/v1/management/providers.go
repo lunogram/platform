@@ -286,7 +286,7 @@ func (srv *ProvidersController) CreateProvider(w http.ResponseWriter, r *http.Re
 		}
 	}
 
-	srv.autoAssignProjectProvider(ctx, logger, projectID, providerID, manifest)
+	srv.autoAssignPushProvider(ctx, logger, projectID, providerID, manifest)
 
 	created, err := srv.store.ProvidersStore.GetProviderByProject(ctx, projectID, providerID)
 	if err != nil {
@@ -513,9 +513,9 @@ func validateRateLimit(rl *oapi.RateLimit, overrideAllowed bool) error {
 	return nil
 }
 
-// autoAssignProjectProvider assigns the newly created provider as the default push
+// autoAssignPushProvider assigns the newly created provider as the default push
 // provider for any platforms it supports that don't already have one configured.
-func (srv *ProvidersController) autoAssignProjectProvider(ctx context.Context, logger *zap.Logger, projectID, providerID uuid.UUID, manifest providers.ProviderManifest) {
+func (srv *ProvidersController) autoAssignPushProvider(ctx context.Context, logger *zap.Logger, projectID, providerID uuid.UUID, manifest providers.ProviderManifest) {
 	if len(manifest.Spec.Platforms) == 0 {
 		return
 	}

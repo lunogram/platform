@@ -247,7 +247,7 @@ func (srv *InviteController) GetInviteDetails(w http.ResponseWriter, r *http.Req
 	encryptedToken, nonce, err := unpackToken(encryptionPair, srv.cfg.SecretKey, srv.logger)
 	if err != nil {
 		srv.logger.Error("failed to expand token and nonce", zap.String("token_nounce_pair", encryptionPair), zap.Error(err))
-		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid invite token")))
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("invite not found")))
 		return
 	}
 
@@ -257,7 +257,7 @@ func (srv *InviteController) GetInviteDetails(w http.ResponseWriter, r *http.Req
 	token, _, err := encryptToken(encryptedToken, srv.cfg.SecretKey, &nonce, *srv.logger)
 	if err != nil {
 		srv.logger.Error("failed to decrypt token", zap.String("encrypted_token", encryptedToken), zap.String("nonce", string(nonce)), zap.Error(err))
-		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid invite token")))
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("invite not found")))
 		return
 	}
 
@@ -285,18 +285,18 @@ func (srv *InviteController) GetInviteDetails(w http.ResponseWriter, r *http.Req
 	json.Write(w, http.StatusOK, response)
 }
 
-func (srv *InviteController) AcceptProjectInvite(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, tokenNouncePair string) {
+func (srv *InviteController) AcceptProjectInvite(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, token string) {
 	ctx := r.Context()
 	actor := rbac.FromContext(ctx)
 
-	encryptedToken, nonce, err := unpackToken(tokenNouncePair, srv.cfg.SecretKey, srv.logger)
+	encryptedToken, nonce, err := unpackToken(token, srv.cfg.SecretKey, srv.logger)
 	if err != nil {
-		srv.logger.Error("failed to expand token and nonce", zap.String("token_nounce_pair", tokenNouncePair), zap.Error(err))
+		srv.logger.Error("failed to expand token and nonce", zap.String("token", token), zap.Error(err))
 		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid invite token")))
 		return
 	}
 
-	token, _, err := encryptToken(encryptedToken, srv.cfg.SecretKey, &nonce, *srv.logger)
+	token, _, err = encryptToken(encryptedToken, srv.cfg.SecretKey, &nonce, *srv.logger)
 	if err != nil {
 		srv.logger.Error("failed to decrypt token", zap.String("encrypted_token", encryptedToken), zap.String("nonce", string(nonce)), zap.Error(err))
 		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid invite token")))

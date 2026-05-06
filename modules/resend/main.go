@@ -15,9 +15,8 @@ import (
 
 func providerCapabilitySpec() json.RawMessage {
 	spec, err := json.Marshal(modules.ProviderSpec{
-		Platforms: []modules.Platform{modules.PlatformEmail},
-		Channels:  []modules.Channel{modules.ChannelEmail},
-		Webhook:   true,
+		Channels: []modules.Channel{modules.ChannelEmail},
+		Webhook:  true,
 		RateLimit: &modules.RateLimit{
 			Limit:    5,
 			Interval: "1s",

@@ -179,36 +179,6 @@ export default function Invites() {
         })
     }
 
-    const mashTokenNonce = (nonce: string, token: string) => {
-        try {
-            const nonceBytes = Uint8Array.from(
-                atob(nonce.replace(/-/g, "+").replace(/_/g, "/")),
-                (c) => c.charCodeAt(0),
-            )
-            const tokenBytes = Uint8Array.from(
-                atob(token.replace(/-/g, "+").replace(/_/g, "/")),
-                (c) => c.charCodeAt(0),
-            )
-
-            console.log("nonceBytes", nonceBytes)
-            console.log("tokenBytes", tokenBytes)
-
-            const mashed = new Uint8Array(nonceBytes.length + tokenBytes.length)
-            mashed.set(nonceBytes)
-            mashed.set(tokenBytes, nonceBytes.length)
-
-            console.log("mashed", mashed, "mashed.length", mashed.length)
-
-            return btoa(String.fromCharCode(...mashed))
-                .replace(/\+/g, "-")
-                .replace(/\//g, "_")
-                .replace(/=/g, "")
-        } catch (e) {
-            console.error("mash failed", e)
-            return nonce + token
-        }
-    }
-
     const getInviteStatus = (invite: ProjectInvite) => {
         if (invite.revoked_at) {
             return { status: "revoked", icon: XCircle, className: "text-red-500" }
@@ -516,10 +486,7 @@ export default function Invites() {
                                                         onClick={async (e) => {
                                                             e.stopPropagation()
                                                             await handleCopyLink(
-                                                                mashTokenNonce(
-                                                                    invite.nonce,
-                                                                    invite.token,
-                                                                ),
+                                                                `${invite.nonce}${invite.token}`,
                                                             )
                                                         }}
                                                     >
@@ -534,10 +501,7 @@ export default function Invites() {
                                                                 onClick={async (e) => {
                                                                     e.stopPropagation()
                                                                     await handleRevoke(
-                                                                        mashTokenNonce(
-                                                                            invite.nonce,
-                                                                            invite.token,
-                                                                        ),
+                                                                        `${invite.nonce}${invite.token}`,
                                                                     )
                                                                 }}
                                                             >
@@ -648,7 +612,7 @@ export default function Invites() {
                         const invite = await api.invites.create(project.id, data)
                         await reload()
                         setIsCreating(false)
-                        setCreatedInviteToken(mashTokenNonce(invite.nonce, invite.token))
+                        setCreatedInviteToken(`${invite.nonce}${invite.token}`)
                     } finally {
                         setIsSaving(false)
                     }

@@ -696,7 +696,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/admin/projects/{projectID}/invites/accept/{tokenNouncePair}": {
+    "/api/admin/projects/{projectID}/invites/accept/{token}": {
         parameters: {
             query?: never;
             header?: never;
@@ -3990,7 +3990,7 @@ export interface components {
          * @example ios
          * @enum {string}
          */
-        ProjectPushProviderPlatform: "ios" | "android" | "web" | "email";
+        ProjectPushProviderPlatform: "ios" | "android" | "web" | "mail";
         ProjectPushProvider: {
             /** Format: uuid */
             id: string;
@@ -6426,7 +6426,7 @@ export interface operations {
                  * @description The project invite token with nonce
                  * @example some_nonce_valueabc123def456
                  */
-                tokenNouncePair: string;
+                token: string;
                 /** @description The project ID */
                 projectID: string;
             };

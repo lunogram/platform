@@ -62,7 +62,7 @@ type ProjectProvidersStore struct {
 // Returns the full row after the upsert.
 func (s *ProjectProvidersStore) UpsertProjectProvider(ctx context.Context, pp ProjectProvider) (*ProjectProvider, error) {
 	stmt := `
-	INSERT INTO project_providers (project_id, provider_id, platform)
+	INSERT INTO project_push_providers (project_id, provider_id, platform)
 	VALUES ($1, $2, $3)
 	ON CONFLICT (project_id, platform)
 	DO UPDATE SET provider_id = EXCLUDED.provider_id
@@ -85,7 +85,7 @@ func (s *ProjectProvidersStore) UpsertProjectProvider(ctx context.Context, pp Pr
 func (s *ProjectProvidersStore) ListProjectProviders(ctx context.Context, projectID uuid.UUID) (ProjectProviders, error) {
 	query := `
 	SELECT id, project_id, provider_id, platform, created_at, updated_at
-	FROM project_providers
+	FROM project_push_providers
 	WHERE project_id = $1
 	ORDER BY platform`
 
@@ -102,7 +102,7 @@ func (s *ProjectProvidersStore) ListProjectProviders(ctx context.Context, projec
 func (s *ProjectProvidersStore) GetProjectProvider(ctx context.Context, projectID uuid.UUID, platform string) (*ProjectProvider, error) {
 	query := `
 	SELECT id, project_id, provider_id, platform, created_at, updated_at
-	FROM project_providers
+	FROM project_push_providers
 	WHERE project_id = $1
 	AND platform = $2`
 
@@ -118,7 +118,7 @@ func (s *ProjectProvidersStore) GetProjectProvider(ctx context.Context, projectI
 // DeleteProjectProvider removes the provider mapping for a project+platform.
 func (s *ProjectProvidersStore) DeleteProjectProvider(ctx context.Context, projectID uuid.UUID, platform string) error {
 	query := `
-	DELETE FROM project_providers
+	DELETE FROM project_push_providers
 	WHERE project_id = $1
 	AND platform = $2`
 
