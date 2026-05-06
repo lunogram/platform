@@ -68,7 +68,7 @@ func (srv *PushProvidersController) ListProjectPushProviders(w http.ResponseWrit
 		return
 	}
 
-	providers, err := srv.store.ProjectProvidersStore.ListProjectProviders(ctx, projectID)
+	providers, err := srv.store.ProjectPushProvidersStore.ListProjectPushProviders(ctx, projectID)
 	if err != nil {
 		logger.Error("failed to list push providers", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -147,7 +147,7 @@ func (srv *PushProvidersController) UpsertProjectPushProvider(w http.ResponseWri
 		return
 	}
 
-	pp, err := srv.store.ProjectProvidersStore.UpsertProjectProvider(ctx, management.ProjectProvider{
+	pp, err := srv.store.ProjectPushProvidersStore.UpsertProjectPushProvider(ctx, management.ProjectProvider{
 		ProjectID:  projectID,
 		ProviderID: body.ProviderId,
 		Platform:   string(platform),
@@ -196,7 +196,7 @@ func (srv *PushProvidersController) DeleteProjectPushProvider(w http.ResponseWri
 		return
 	}
 
-	err = srv.store.ProjectProvidersStore.DeleteProjectProvider(ctx, projectID, string(platform))
+	err = srv.store.ProjectPushProvidersStore.DeleteProjectPushProvider(ctx, projectID, string(platform))
 	if err != nil {
 		logger.Error("failed to delete push provider", zap.Error(err))
 		oapi.WriteProblem(w, err)

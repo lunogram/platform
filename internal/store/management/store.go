@@ -6,24 +6,24 @@ import (
 
 func NewState(db store.DB) *State {
 	return &State{
-		AdminsStore:           NewAdminsStore(db),
-		ProjectsStore:         NewProjectsStore(db),
-		CampaignsStore:        NewCampaignsStore(db),
-		ProvidersStore:        NewProvidersStore(db),
-		TemplatesStore:        NewTemplatesStore(db),
-		SubscriptionsStore:    NewSubscriptionsStore(db),
-		OrganizationsStore:    NewOrganizationsStore(db),
-		TagsStore:             NewTagsStore(db),
-		LocalesStore:          NewLocalesStore(db),
-		DocumentsStore:        NewDocumentsStore(db),
-		AuthStore:             NewAuthStore(db),
-		ApiKeysStore:          NewApiKeysStore(db),
-		ActionsStore:          NewActionsStore(db),
-		SenderIdentitiesStore: NewSenderIdentitiesStore(db),
-		BroadcastsStore:       NewBroadcastsStore(db),
-		ProjectProvidersStore: NewProjectProvidersStore(db),
-		VapidKeysStore:        NewVapidKeysStore(db),
-		InvitesStore:          NewInvitesStore(db),
+		AdminsStore:               NewAdminsStore(db),
+		ProjectsStore:             NewProjectsStore(db),
+		CampaignsStore:            NewCampaignsStore(db),
+		ProvidersStore:            NewProvidersStore(db),
+		TemplatesStore:            NewTemplatesStore(db),
+		SubscriptionsStore:        NewSubscriptionsStore(db),
+		OrganizationsStore:        NewOrganizationsStore(db),
+		TagsStore:                 NewTagsStore(db),
+		LocalesStore:              NewLocalesStore(db),
+		DocumentsStore:            NewDocumentsStore(db),
+		AuthStore:                 NewAuthStore(db),
+		ApiKeysStore:              NewApiKeysStore(db),
+		ActionsStore:              NewActionsStore(db),
+		SenderIdentitiesStore:     NewSenderIdentitiesStore(db),
+		BroadcastsStore:           NewBroadcastsStore(db),
+		ProjectPushProvidersStore: NewProjectPushProvidersStore(db),
+		VapidKeysStore:            NewVapidKeysStore(db),
+		InvitesStore:              NewInvitesStore(db),
 	}
 }
 
@@ -43,7 +43,7 @@ type State struct {
 	*ActionsStore
 	*SenderIdentitiesStore
 	*BroadcastsStore
-	*ProjectProvidersStore
+	*ProjectPushProvidersStore
 	*VapidKeysStore
 	*InvitesStore
 }

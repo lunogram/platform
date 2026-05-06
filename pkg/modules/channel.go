@@ -16,5 +16,4 @@ const (
 	PlatformIOS     Platform = "ios"
 	PlatformAndroid Platform = "android"
 	PlatformWeb     Platform = "web"
-	PlatformEmail   Platform = "email"
 )

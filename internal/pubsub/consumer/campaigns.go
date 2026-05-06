@@ -492,7 +492,7 @@ func resolvePushDispatches(ctx context.Context, mgmt *management.State, projectI
 		return nil, Permanentf("user %s has no push-enabled devices", userID)
 	}
 
-	pushProviders, err := mgmt.ProjectProvidersStore.ListProjectProviders(ctx, projectID)
+	pushProviders, err := mgmt.ProjectPushProvidersStore.ListProjectPushProviders(ctx, projectID)
 	if err != nil {
 		return nil, fmt.Errorf("list project push providers: %w", err)
 	}

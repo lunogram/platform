@@ -50,17 +50,17 @@ func (p ProjectProvider) OAPI() oapi.ProjectPushProvider {
 	}
 }
 
-func NewProjectProvidersStore(db store.DB) *ProjectProvidersStore {
-	return &ProjectProvidersStore{db: db}
+func NewProjectPushProvidersStore(db store.DB) *ProjectPushProvidersStore {
+	return &ProjectPushProvidersStore{db: db}
 }
 
-type ProjectProvidersStore struct {
+type ProjectPushProvidersStore struct {
 	db store.DB
 }
 
-// UpsertProjectProvider creates or updates the provider for a given project+platform.
+// UpsertProjectPushProvider creates or updates the provider for a given project+platform.
 // Returns the full row after the upsert.
-func (s *ProjectProvidersStore) UpsertProjectProvider(ctx context.Context, pp ProjectProvider) (*ProjectProvider, error) {
+func (s *ProjectPushProvidersStore) UpsertProjectPushProvider(ctx context.Context, pp ProjectProvider) (*ProjectProvider, error) {
 	stmt := `
 	INSERT INTO project_push_providers (project_id, provider_id, platform)
 	VALUES ($1, $2, $3)
@@ -81,8 +81,8 @@ func (s *ProjectProvidersStore) UpsertProjectProvider(ctx context.Context, pp Pr
 	return &result, nil
 }
 
-// ListProjectProviders returns all provider mappings for a project.
-func (s *ProjectProvidersStore) ListProjectProviders(ctx context.Context, projectID uuid.UUID) (ProjectProviders, error) {
+// ListProjectPushProviders returns all provider mappings for a project.
+func (s *ProjectPushProvidersStore) ListProjectPushProviders(ctx context.Context, projectID uuid.UUID) (ProjectProviders, error) {
 	query := `
 	SELECT id, project_id, provider_id, platform, created_at, updated_at
 	FROM project_push_providers
@@ -98,8 +98,8 @@ func (s *ProjectProvidersStore) ListProjectProviders(ctx context.Context, projec
 	return result, nil
 }
 
-// GetProjectProvider returns the provider for a specific project+platform.
-func (s *ProjectProvidersStore) GetProjectProvider(ctx context.Context, projectID uuid.UUID, platform string) (*ProjectProvider, error) {
+// GetProjectPushProvider returns the provider for a specific project+platform.
+func (s *ProjectPushProvidersStore) GetProjectPushProvider(ctx context.Context, projectID uuid.UUID, platform string) (*ProjectProvider, error) {
 	query := `
 	SELECT id, project_id, provider_id, platform, created_at, updated_at
 	FROM project_push_providers
@@ -115,8 +115,8 @@ func (s *ProjectProvidersStore) GetProjectProvider(ctx context.Context, projectI
 	return &pp, nil
 }
 
-// DeleteProjectProvider removes the provider mapping for a project+platform.
-func (s *ProjectProvidersStore) DeleteProjectProvider(ctx context.Context, projectID uuid.UUID, platform string) error {
+// DeleteProjectPushProvider removes the provider mapping for a project+platform.
+func (s *ProjectPushProvidersStore) DeleteProjectPushProvider(ctx context.Context, projectID uuid.UUID, platform string) error {
 	query := `
 	DELETE FROM project_push_providers
 	WHERE project_id = $1
