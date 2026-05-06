@@ -1832,26 +1832,6 @@ export interface paths {
         get: operations["getProvider"];
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /**
-         * Update provider
-         * @description Updates provider configuration
-         */
-        patch: operations["updateProvider"];
-        trace?: never;
-    };
-    "/api/admin/projects/{projectID}/providers/{providerID}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
         /**
          * Delete provider
          * @description Soft deletes a provider
@@ -1859,7 +1839,11 @@ export interface paths {
         delete: operations["deleteProvider"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Update provider
+         * @description Updates provider configuration
+         */
+        patch: operations["updateProvider"];
         trace?: never;
     };
     "/api/admin/projects/{projectID}/subjects/user/scheduled/schema": {
@@ -8440,6 +8424,32 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    deleteProvider: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The provider module type */
+                type: string;
+                /** @description The provider ID */
+                providerID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Provider deleted successfully */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     updateProvider: {
         parameters: {
             query?: never;
@@ -8468,30 +8478,6 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Provider"];
                 };
-            };
-            default: components["responses"]["Error"];
-        };
-    };
-    deleteProvider: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description The project ID */
-                projectID: string;
-                /** @description The provider ID */
-                providerID: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Provider deleted successfully */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
             default: components["responses"]["Error"];
         };

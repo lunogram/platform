@@ -3,6 +3,7 @@ import type { FieldPath } from "react-hook-form"
 import { Controller, useForm } from "react-hook-form"
 import { useNavigate, useParams } from "react-router"
 import { useTranslation } from "react-i18next"
+import { toast } from "sonner"
 import { ArrowLeft, Gauge } from "lucide-react"
 
 import oapiClient from "@/oapi/client"
@@ -69,6 +70,16 @@ const RATE_INTERVAL_OPTIONS = [
     { value: "1h", label: "per hour" },
     { value: "24h", label: "per day" },
 ] as const
+
+function getErrorMessage(error: unknown, fallback: string) {
+    if (!error || typeof error !== "object") return fallback
+
+    const problem = error as Record<string, unknown>
+    if (typeof problem.detail === "string") return problem.detail
+    if (typeof problem.title === "string") return problem.title
+
+    return fallback
+}
 
 function normalizeKind(kind?: string, id?: string): IntegrationKind {
     if (kind === "action" || kind === "provider") return kind
@@ -287,23 +298,44 @@ export default function IntegrationSetup() {
                 }
 
                 if (isEdit && action?.id) {
-                    await oapiClient.PATCH("/api/admin/projects/{projectID}/actions/{actionID}", {
-                        params: {
-                            path: {
-                                projectID: project.id,
-                                actionID: action.id,
+                    const { error } = await oapiClient.PATCH(
+                        "/api/admin/projects/{projectID}/actions/{actionID}",
+                        {
+                            params: {
+                                path: {
+                                    projectID: project.id,
+                                    actionID: action.id,
+                                },
                             },
+                            body,
                         },
-                        body,
-                    })
+                    )
+                    if (error) {
+                        toast.error(
+                            getErrorMessage(
+                                error,
+                                t("integration_save_failed", "Failed to save integration"),
+                            ),
+                        )
+                        return
+                    }
                 } else {
-                    const { data: created } = await oapiClient.POST(
+                    const { data: created, error } = await oapiClient.POST(
                         "/api/admin/projects/{projectID}/actions",
                         {
                             params: { path: { projectID: project.id } },
                             body,
                         },
                     )
+                    if (error) {
+                        toast.error(
+                            getErrorMessage(
+                                error,
+                                t("integration_save_failed", "Failed to save integration"),
+                            ),
+                        )
+                        return
+                    }
                     if (created) {
                         navigate(`/projects/${project.id}/integrations/action/${created.id}`)
                         return
@@ -321,16 +353,21 @@ export default function IntegrationSetup() {
             }
 
             if (rateLimitOverride) {
-                body.rate_limit =
-                    values.rate_limit && values.rate_limit > 0 ? values.rate_limit : null
-                body.rate_interval =
-                    values.rate_limit && values.rate_limit > 0
-                        ? (values.rate_interval ?? "1s")
-                        : null
+                const hasCustomRateLimit =
+                    typeof values.rate_limit === "number" &&
+                    Number.isFinite(values.rate_limit) &&
+                    values.rate_limit > 0
+
+                if (hasCustomRateLimit || isEdit) {
+                    body.rate_limit = {
+                        limit: hasCustomRateLimit ? values.rate_limit! : 0,
+                        interval: hasCustomRateLimit ? (values.rate_interval ?? "1s") : "1s",
+                    }
+                }
             }
 
             if (isEdit && provider?.id) {
-                await oapiClient.PATCH(
+                const { error } = await oapiClient.PATCH(
                     "/api/admin/projects/{projectID}/providers/{type}/{providerID}",
                     {
                         params: {
@@ -343,8 +380,17 @@ export default function IntegrationSetup() {
                         body,
                     },
                 )
+                if (error) {
+                    toast.error(
+                        getErrorMessage(
+                            error,
+                            t("integration_save_failed", "Failed to save integration"),
+                        ),
+                    )
+                    return
+                }
             } else {
-                const { data: created } = await oapiClient.POST(
+                const { data: created, error } = await oapiClient.POST(
                     "/api/admin/projects/{projectID}/providers/{type}",
                     {
                         params: {
@@ -356,6 +402,15 @@ export default function IntegrationSetup() {
                         body,
                     },
                 )
+                if (error) {
+                    toast.error(
+                        getErrorMessage(
+                            error,
+                            t("integration_save_failed", "Failed to save integration"),
+                        ),
+                    )
+                    return
+                }
 
                 if (created) {
                     navigate(`/projects/${project.id}/integrations/provider/${created.id}`)
@@ -581,11 +636,15 @@ export default function IntegrationSetup() {
                                                 <FieldDescription>
                                                     {t(
                                                         "rate_limit_override_description",
-                                                        "Override the default rate limit for this provider. Leave empty to use the default." +
-                                                            (maxRateLimit
-                                                                ? ` Maximum: ${maxRateLimit} requests per minute.`
-                                                                : ""),
+                                                        "Override the default rate limit for this provider. Leave empty to use the default.",
                                                     )}
+                                                    {maxRateLimit
+                                                        ? ` ${t(
+                                                              "rate_limit_override_maximum",
+                                                              "Maximum: {{limit}} requests per minute.",
+                                                              { limit: maxRateLimit },
+                                                          )}`
+                                                        : ""}
                                                 </FieldDescription>
                                                 <div className="flex items-center gap-2">
                                                     <Input

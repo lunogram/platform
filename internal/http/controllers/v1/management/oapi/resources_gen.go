@@ -2784,13 +2784,13 @@ type ClientInterface interface {
 	// ListProviderMeta request
 	ListProviderMeta(ctx context.Context, projectID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// DeleteProvider request
-	DeleteProvider(ctx context.Context, projectID openapi_types.UUID, providerID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// CreateProviderWithBody request with any body
 	CreateProviderWithBody(ctx context.Context, projectID openapi_types.UUID, pType string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	CreateProvider(ctx context.Context, projectID openapi_types.UUID, pType string, body CreateProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteProvider request
+	DeleteProvider(ctx context.Context, projectID openapi_types.UUID, pType string, providerID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetProvider request
 	GetProvider(ctx context.Context, projectID openapi_types.UUID, pType string, providerID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -4317,18 +4317,6 @@ func (c *Client) ListProviderMeta(ctx context.Context, projectID openapi_types.U
 	return c.Client.Do(req)
 }
 
-func (c *Client) DeleteProvider(ctx context.Context, projectID openapi_types.UUID, providerID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteProviderRequest(c.Server, projectID, providerID)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
 func (c *Client) CreateProviderWithBody(ctx context.Context, projectID openapi_types.UUID, pType string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateProviderRequestWithBody(c.Server, projectID, pType, contentType, body)
 	if err != nil {
@@ -4343,6 +4331,18 @@ func (c *Client) CreateProviderWithBody(ctx context.Context, projectID openapi_t
 
 func (c *Client) CreateProvider(ctx context.Context, projectID openapi_types.UUID, pType string, body CreateProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateProviderRequest(c.Server, projectID, pType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteProvider(ctx context.Context, projectID openapi_types.UUID, pType string, providerID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteProviderRequest(c.Server, projectID, pType, providerID)
 	if err != nil {
 		return nil, err
 	}
@@ -9824,47 +9824,6 @@ func NewListProviderMetaRequest(server string, projectID openapi_types.UUID) (*h
 	return req, nil
 }
 
-// NewDeleteProviderRequest generates requests for DeleteProvider
-func NewDeleteProviderRequest(server string, projectID openapi_types.UUID, providerID openapi_types.UUID) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam1 string
-
-	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "providerID", runtime.ParamLocationPath, providerID)
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/admin/projects/%s/providers/%s", pathParam0, pathParam1)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
 // NewCreateProviderRequest calls the generic CreateProvider builder with application/json body
 func NewCreateProviderRequest(server string, projectID openapi_types.UUID, pType string, body CreateProviderJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -9915,6 +9874,54 @@ func NewCreateProviderRequestWithBody(server string, projectID openapi_types.UUI
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteProviderRequest generates requests for DeleteProvider
+func NewDeleteProviderRequest(server string, projectID openapi_types.UUID, pType string, providerID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "type", runtime.ParamLocationPath, pType)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "providerID", runtime.ParamLocationPath, providerID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/providers/%s/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -14048,13 +14055,13 @@ type ClientWithResponsesInterface interface {
 	// ListProviderMetaWithResponse request
 	ListProviderMetaWithResponse(ctx context.Context, projectID openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListProviderMetaResponse, error)
 
-	// DeleteProviderWithResponse request
-	DeleteProviderWithResponse(ctx context.Context, projectID openapi_types.UUID, providerID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteProviderResponse, error)
-
 	// CreateProviderWithBodyWithResponse request with any body
 	CreateProviderWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, pType string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateProviderResponse, error)
 
 	CreateProviderWithResponse(ctx context.Context, projectID openapi_types.UUID, pType string, body CreateProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateProviderResponse, error)
+
+	// DeleteProviderWithResponse request
+	DeleteProviderWithResponse(ctx context.Context, projectID openapi_types.UUID, pType string, providerID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteProviderResponse, error)
 
 	// GetProviderWithResponse request
 	GetProviderWithResponse(ctx context.Context, projectID openapi_types.UUID, pType string, providerID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetProviderResponse, error)
@@ -16204,28 +16211,6 @@ func (r ListProviderMetaResponse) StatusCode() int {
 	return 0
 }
 
-type DeleteProviderResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSONDefault  *Error
-}
-
-// Status returns HTTPResponse.Status
-func (r DeleteProviderResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r DeleteProviderResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
 type CreateProviderResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -16243,6 +16228,28 @@ func (r CreateProviderResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r CreateProviderResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteProviderResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteProviderResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteProviderResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -18827,15 +18834,6 @@ func (c *ClientWithResponses) ListProviderMetaWithResponse(ctx context.Context, 
 	return ParseListProviderMetaResponse(rsp)
 }
 
-// DeleteProviderWithResponse request returning *DeleteProviderResponse
-func (c *ClientWithResponses) DeleteProviderWithResponse(ctx context.Context, projectID openapi_types.UUID, providerID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteProviderResponse, error) {
-	rsp, err := c.DeleteProvider(ctx, projectID, providerID, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseDeleteProviderResponse(rsp)
-}
-
 // CreateProviderWithBodyWithResponse request with arbitrary body returning *CreateProviderResponse
 func (c *ClientWithResponses) CreateProviderWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, pType string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateProviderResponse, error) {
 	rsp, err := c.CreateProviderWithBody(ctx, projectID, pType, contentType, body, reqEditors...)
@@ -18851,6 +18849,15 @@ func (c *ClientWithResponses) CreateProviderWithResponse(ctx context.Context, pr
 		return nil, err
 	}
 	return ParseCreateProviderResponse(rsp)
+}
+
+// DeleteProviderWithResponse request returning *DeleteProviderResponse
+func (c *ClientWithResponses) DeleteProviderWithResponse(ctx context.Context, projectID openapi_types.UUID, pType string, providerID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteProviderResponse, error) {
+	rsp, err := c.DeleteProvider(ctx, projectID, pType, providerID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteProviderResponse(rsp)
 }
 
 // GetProviderWithResponse request returning *GetProviderResponse
@@ -22272,32 +22279,6 @@ func ParseListProviderMetaResponse(rsp *http.Response) (*ListProviderMetaRespons
 	return response, nil
 }
 
-// ParseDeleteProviderResponse parses an HTTP response from a DeleteProviderWithResponse call
-func ParseDeleteProviderResponse(rsp *http.Response) (*DeleteProviderResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &DeleteProviderResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
 // ParseCreateProviderResponse parses an HTTP response from a CreateProviderWithResponse call
 func ParseCreateProviderResponse(rsp *http.Response) (*CreateProviderResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -22319,6 +22300,32 @@ func ParseCreateProviderResponse(rsp *http.Response) (*CreateProviderResponse, e
 		}
 		response.JSON201 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteProviderResponse parses an HTTP response from a DeleteProviderWithResponse call
+func ParseDeleteProviderResponse(rsp *http.Response) (*DeleteProviderResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteProviderResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -24821,12 +24828,12 @@ type ServerInterface interface {
 	// List available provider modules
 	// (GET /api/admin/projects/{projectID}/providers/meta)
 	ListProviderMeta(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID)
-	// Delete provider
-	// (DELETE /api/admin/projects/{projectID}/providers/{providerID})
-	DeleteProvider(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, providerID openapi_types.UUID)
 	// Create provider
 	// (POST /api/admin/projects/{projectID}/providers/{type})
 	CreateProvider(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, pType string)
+	// Delete provider
+	// (DELETE /api/admin/projects/{projectID}/providers/{type}/{providerID})
+	DeleteProvider(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, pType string, providerID openapi_types.UUID)
 	// Get provider by ID
 	// (GET /api/admin/projects/{projectID}/providers/{type}/{providerID})
 	GetProvider(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, pType string, providerID openapi_types.UUID)
@@ -25535,15 +25542,15 @@ func (_ Unimplemented) ListProviderMeta(w http.ResponseWriter, r *http.Request, 
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// Delete provider
-// (DELETE /api/admin/projects/{projectID}/providers/{providerID})
-func (_ Unimplemented) DeleteProvider(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, providerID openapi_types.UUID) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
 // Create provider
 // (POST /api/admin/projects/{projectID}/providers/{type})
 func (_ Unimplemented) CreateProvider(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, pType string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Delete provider
+// (DELETE /api/admin/projects/{projectID}/providers/{type}/{providerID})
+func (_ Unimplemented) DeleteProvider(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, pType string, providerID openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -29455,46 +29462,6 @@ func (siw *ServerInterfaceWrapper) ListProviderMeta(w http.ResponseWriter, r *ht
 	handler.ServeHTTP(w, r)
 }
 
-// DeleteProvider operation middleware
-func (siw *ServerInterfaceWrapper) DeleteProvider(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-
-	// ------------- Path parameter "projectID" -------------
-	var projectID openapi_types.UUID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
-		return
-	}
-
-	// ------------- Path parameter "providerID" -------------
-	var providerID openapi_types.UUID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "providerID", chi.URLParam(r, "providerID"), &providerID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "providerID", Err: err})
-		return
-	}
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
-
-	r = r.WithContext(ctx)
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.DeleteProvider(w, r, projectID, providerID)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
 // CreateProvider operation middleware
 func (siw *ServerInterfaceWrapper) CreateProvider(w http.ResponseWriter, r *http.Request) {
 
@@ -29526,6 +29493,55 @@ func (siw *ServerInterfaceWrapper) CreateProvider(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CreateProvider(w, r, projectID, pType)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteProvider operation middleware
+func (siw *ServerInterfaceWrapper) DeleteProvider(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "type" -------------
+	var pType string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "type", chi.URLParam(r, "type"), &pType, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "type", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "providerID" -------------
+	var providerID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "providerID", chi.URLParam(r, "providerID"), &providerID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "providerID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteProvider(w, r, projectID, pType, providerID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -32897,10 +32913,10 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/providers/meta", wrapper.ListProviderMeta)
 	})
 	r.Group(func(r chi.Router) {
-		r.Delete(options.BaseURL+"/api/admin/projects/{projectID}/providers/{providerID}", wrapper.DeleteProvider)
+		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/providers/{type}", wrapper.CreateProvider)
 	})
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/providers/{type}", wrapper.CreateProvider)
+		r.Delete(options.BaseURL+"/api/admin/projects/{projectID}/providers/{type}/{providerID}", wrapper.DeleteProvider)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/providers/{type}/{providerID}", wrapper.GetProvider)

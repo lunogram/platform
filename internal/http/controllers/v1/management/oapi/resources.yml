@@ -4558,8 +4558,6 @@ paths:
                 $ref: "#/components/schemas/Provider"
         default:
           $ref: "#/components/responses/Error"
-
-  /api/admin/projects/{projectID}/providers/{providerID}:
     delete:
       summary: Delete provider
       description: Soft deletes a provider
@@ -4576,6 +4574,12 @@ paths:
             type: string
             format: uuid
           description: The project ID
+        - name: type
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The provider module type
         - name: providerID
           in: path
           required: true

@@ -412,7 +412,7 @@ func (srv *ProvidersController) UpdateProvider(w http.ResponseWriter, r *http.Re
 	json.Write(w, http.StatusOK, provider.OAPI())
 }
 
-func (srv *ProvidersController) DeleteProvider(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, providerID uuid.UUID) {
+func (srv *ProvidersController) DeleteProvider(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, providerType string, providerID uuid.UUID) {
 	ctx := r.Context()
 	err := srv.engine.Allowed(ctx, rbac.Delete, rbac.ProjectResourceScope("providers", projectID))
 	if err != nil {
@@ -420,7 +420,7 @@ func (srv *ProvidersController) DeleteProvider(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("provider_id", providerID))
+	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.String("type", providerType), zap.Stringer("provider_id", providerID))
 	logger.Info("deleting provider")
 
 	provider, err := srv.store.ProvidersStore.GetProviderByProject(ctx, projectID, providerID)

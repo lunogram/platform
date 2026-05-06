@@ -230,7 +230,7 @@ func TestDeleteProvider(t *testing.T) {
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("DELETE", "/v1/providers/"+test.providerID.String(), nil)
 			req = req.WithContext(actorCtx)
-			controller.DeleteProvider(res, req, projectID, test.providerID)
+			controller.DeleteProvider(res, req, projectID, "test", test.providerID)
 
 			require.Equal(t, test.code, res.Code, res.Body.String())
 		})
@@ -449,7 +449,7 @@ func TestDeleteLockedProvider(t *testing.T) {
 		res := httptest.NewRecorder()
 		req := httptest.NewRequest("DELETE", "/v1/providers/"+lockedProviderID.String(), nil)
 		req = req.WithContext(actorCtx)
-		controller.DeleteProvider(res, req, projectID, lockedProviderID)
+		controller.DeleteProvider(res, req, projectID, "locked-provider", lockedProviderID)
 
 		require.Equal(t, http.StatusForbidden, res.Code, res.Body.String())
 	})
@@ -458,7 +458,7 @@ func TestDeleteLockedProvider(t *testing.T) {
 		res := httptest.NewRecorder()
 		req := httptest.NewRequest("DELETE", "/v1/providers/"+unlockedProviderID.String(), nil)
 		req = req.WithContext(actorCtx)
-		controller.DeleteProvider(res, req, projectID, unlockedProviderID)
+		controller.DeleteProvider(res, req, projectID, "unlocked-provider", unlockedProviderID)
 
 		require.Equal(t, http.StatusNoContent, res.Code, res.Body.String())
 	})

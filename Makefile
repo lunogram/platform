@@ -27,7 +27,7 @@ M = $(shell printf "\033[34;1m▶\033[0m")
 $(BUILD_DIR):
 	@mkdir -p $@
 
-MODULES := $(notdir $(shell find ./modules -mindepth 1 -maxdepth 1 -type d))
+MODULES := $(notdir $(patsubst %/,%,$(dir $(wildcard modules/*/Makefile))))
 
 # Tools
 $(BIN):

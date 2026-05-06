@@ -83,7 +83,7 @@ export default function Integrations() {
                 oapiClient.GET("/api/admin/projects/{projectID}/actions", {
                     params: {
                         path: { projectID: project.id },
-                        query: { limit: 50, offset: 0, search: "" },
+                        query: { limit: 50, offset: 0 },
                     },
                 }),
             ])
@@ -199,9 +199,18 @@ export default function Integrations() {
                 params: { path: { projectID: project.id, actionID: integration.id } },
             })
         } else {
-            await oapiClient.DELETE("/api/admin/projects/{projectID}/providers/{providerID}", {
-                params: { path: { projectID: project.id, providerID: integration.id } },
-            })
+            await oapiClient.DELETE(
+                "/api/admin/projects/{projectID}/providers/{type}/{providerID}",
+                {
+                    params: {
+                        path: {
+                            projectID: project.id,
+                            type: integration.module,
+                            providerID: integration.id,
+                        },
+                    },
+                },
+            )
         }
 
         await reload()
@@ -351,8 +360,8 @@ export default function Integrations() {
                                         <TableCell className="hidden sm:table-cell">
                                             <Badge variant="secondary">
                                                 {integration.kind === "provider"
-                                                    ? t("provider", "Provider")
-                                                    : t("action.singular", "Action")}
+                                                    ? t("provider_label", "Provider")
+                                                    : t("action")}
                                             </Badge>
                                         </TableCell>
                                         <TableCell className="hidden sm:table-cell">
