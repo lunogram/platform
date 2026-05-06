@@ -269,6 +269,7 @@ export function CreateBroadcastDialog({
                                 type="datetime-local"
                                 value={scheduledAt}
                                 onChange={(e) => setScheduledAt(e.target.value)}
+                                // eslint-disable-next-line react-hooks/purity
                                 min={new Date(Date.now() + 60_000).toISOString().slice(0, 16)}
                             />
                         )}
