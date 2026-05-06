@@ -170,7 +170,10 @@ export default function NewIntegration() {
                                 <p>
                                     {searchQuery
                                         ? t("no_results")
-                                        : t("no_integrations_available", "No integrations available")}
+                                        : t(
+                                              "no_integrations_available",
+                                              "No integrations available",
+                                          )}
                                 </p>
                             </div>
                         ) : (

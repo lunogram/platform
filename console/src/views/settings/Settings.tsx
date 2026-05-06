@@ -30,7 +30,9 @@ export default function Settings() {
         { key: "general", to: "", label: t("general"), icon: SettingsLucideIcon },
         { key: "locales", to: "locales", label: t("locales"), icon: Globe },
         { key: "api-keys", to: "api-keys", label: t("api_keys"), icon: Key },
-        { key: "invites", to: "invites", label: t("invites"), icon: UserPlus },
+        ...(isEnterprise
+            ? [{ key: "invites", to: "invites", label: t("invites"), icon: UserPlus }]
+            : []),
         { key: "subscriptions", to: "subscriptions", label: t("subscriptions"), icon: Bell },
         {
             key: "event-schemas",
