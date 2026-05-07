@@ -277,16 +277,6 @@ export default function CampaignDetails() {
     const [project] = useContext(ProjectContext)
     const [template, setTemplate] = useState<Template | null>(null)
 
-    // useEffect(() => {
-    //     if (!campaign || campaign.templates.length === 0) {
-    //         return
-    //     }
-
-    //     const template =
-    //         campaign.templates.find((template) => template.locale === project.locale) ??
-    //         campaign.templates[0]
-    //     setTemplate(template)
-    // }, [campaign, project.locale])
     useEffect(() => {
         if (!campaign || campaign.templates.length === 0) return
         const selected =
