@@ -533,7 +533,7 @@ export default function Campaigns({ create = false }: CampaignsProps) {
                                             <Button
                                                 variant="ghost"
                                                 size="icon"
-                                                className="shrink-0 text-primary hover:text-primary"
+                                                className="shrink-0 text-primary hover:text-primary border border-border"
                                                 onClick={() => handleUnarchiveCampaign(campaign.id)}
                                                 aria-label={t("unarchive", "Unarchive")}
                                             >

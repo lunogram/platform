@@ -511,7 +511,7 @@ export default function Lists() {
                                             <Button
                                                 variant="ghost"
                                                 size="icon"
-                                                className="shrink-0 text-primary hover:text-primary"
+                                                className="shrink-0 text-primary hover:text-primary border border-border"
                                                 onClick={() => handleUnarchiveList(list.id)}
                                                 aria-label={t("unarchive", "Unarchive")}
                                             >
