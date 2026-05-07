@@ -125,12 +125,12 @@ export default function Campaigns({ create = false }: CampaignsProps) {
             if (!archivedOpen) return null
             const response = await oapiClient.GET("/api/admin/projects/{projectID}/campaigns", {
                 params: {
-                    path: { 
-                        projectID: project.id 
+                    path: {
+                        projectID: project.id,
                     },
-                    query: { 
+                    query: {
                         limit: 100,
-                        include_deleted: true
+                        include_deleted: true,
                     },
                 },
             })
@@ -482,11 +482,16 @@ export default function Campaigns({ create = false }: CampaignsProps) {
                                 <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary/10 text-primary">
                                     <Archive className="h-4 w-4" />
                                 </div>
-                                <DialogTitle>{t("archived_campaigns", "Archived campaigns")}</DialogTitle>
+                                <DialogTitle>
+                                    {t("archived_campaigns", "Archived campaigns")}
+                                </DialogTitle>
                             </div>
                         </div>
                         <DialogDescription>
-                            {t("archived_campaigns_description", "Restore a campaign to make it active again.")}
+                            {t(
+                                "archived_campaigns_description",
+                                "Restore a campaign to make it active again.",
+                            )}
                         </DialogDescription>
                     </DialogHeader>
                     <div className="max-h-[60vh] overflow-y-auto px-6 py-4">
@@ -507,7 +512,9 @@ export default function Campaigns({ create = false }: CampaignsProps) {
                         ) : (
                             <div className="space-y-1">
                                 {archivedResult.map((campaign) => {
-                                    const campaignColor = getRandomColor(campaign.name ?? campaign.id)
+                                    const campaignColor = getRandomColor(
+                                        campaign.name ?? campaign.id,
+                                    )
                                     const ChannelIcon = channelIcons[campaign.channel] ?? Mail
                                     const archivedAt =
                                         ("deleted_at" in campaign
@@ -525,9 +532,12 @@ export default function Campaigns({ create = false }: CampaignsProps) {
                                                 <ChannelIcon className="h-4 w-4 text-white" />
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <div className="text-sm font-medium truncate">{campaign.name}</div>
+                                                <div className="text-sm font-medium truncate">
+                                                    {campaign.name}
+                                                </div>
                                                 <div className="text-xs text-muted-foreground">
-                                                    {t("archived_on", "Archived on")} {formatDate(preferences, archivedAt, "PP")}
+                                                    {t("archived_on", "Archived on")}{" "}
+                                                    {formatDate(preferences, archivedAt, "PP")}
                                                 </div>
                                             </div>
                                             <Button

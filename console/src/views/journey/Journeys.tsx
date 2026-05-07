@@ -112,14 +112,14 @@ export default function Journeys() {
         useCallback(async () => {
             if (!archivedOpen) return null
             const response = await oapiClient.GET("/api/admin/projects/{projectID}/journeys", {
-                params: { 
+                params: {
                     path: {
-                        projectID: project.id
+                        projectID: project.id,
                     },
                     query: {
                         limit: 100,
-                        include_deleted: true
-                    }
+                        include_deleted: true,
+                    },
                 },
             })
             if (response.error || !response.data) return null
@@ -168,11 +168,11 @@ export default function Journeys() {
 
     const handleUnarchiveJourney = async (id: UUID) => {
         await oapiClient.POST("/api/admin/projects/{projectID}/journeys/{journeyID}/unarchive", {
-            params: { 
-                path: { 
+            params: {
+                path: {
                     projectID: project.id,
-                    journeyID: id
-                }
+                    journeyID: id,
+                },
             },
         })
         await Promise.all([reload(), reloadArchived()])
@@ -473,11 +473,16 @@ export default function Journeys() {
                                 <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary/10 text-primary">
                                     <Archive className="h-4 w-4" />
                                 </div>
-                                <DialogTitle>{t("archived_journeys", "Archived journeys")}</DialogTitle>
+                                <DialogTitle>
+                                    {t("archived_journeys", "Archived journeys")}
+                                </DialogTitle>
                             </div>
                         </div>
                         <DialogDescription>
-                            {t("archived_journeys_description", "Restore a journey to make it active again.")}
+                            {t(
+                                "archived_journeys_description",
+                                "Restore a journey to make it active again.",
+                            )}
                         </DialogDescription>
                     </DialogHeader>
                     <div className="max-h-[60vh] overflow-y-auto px-6 py-4">
@@ -515,9 +520,12 @@ export default function Journeys() {
                                                 <GitBranch className="h-4 w-4 text-white" />
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <div className="text-sm font-medium truncate">{journey.name}</div>
+                                                <div className="text-sm font-medium truncate">
+                                                    {journey.name}
+                                                </div>
                                                 <div className="text-xs text-muted-foreground">
-                                                    {t("archived_on", "Archived on")} {formatDate(preferences, archivedAt, "PP")}
+                                                    {t("archived_on", "Archived on")}{" "}
+                                                    {formatDate(preferences, archivedAt, "PP")}
                                                 </div>
                                             </div>
                                             <Button

@@ -106,15 +106,14 @@ export default function Lists() {
         useCallback(async () => {
             if (!archivedOpen) return null
             const response = await oapiClient.GET("/api/admin/projects/{projectID}/lists", {
-                params:
-                 { 
-                    path: { 
-                        projectID: projectId 
-                    }, 
-                    query: { 
-                        limit: 100, 
-                        include_deleted: true 
-                    } 
+                params: {
+                    path: {
+                        projectID: projectId,
+                    },
+                    query: {
+                        limit: 100,
+                        include_deleted: true,
+                    },
                 },
             })
             if (response.error || !response.data) return null
@@ -153,11 +152,11 @@ export default function Lists() {
 
     const handleUnarchiveList = async (id: UUID) => {
         await oapiClient.POST("/api/admin/projects/{projectID}/lists/{listID}/unarchive", {
-            params: { 
-                path: { 
-                    projectID: projectId, 
-                    listID: id 
-                } 
+            params: {
+                path: {
+                    projectID: projectId,
+                    listID: id,
+                },
             },
         })
         await Promise.all([reload(), reloadArchived()])
@@ -465,7 +464,10 @@ export default function Lists() {
                             </div>
                         </div>
                         <DialogDescription>
-                            {t("archived_lists_description", "Restore a list to make it active again.")}
+                            {t(
+                                "archived_lists_description",
+                                "Restore a list to make it active again.",
+                            )}
                         </DialogDescription>
                     </DialogHeader>
                     <div className="max-h-[60vh] overflow-y-auto px-6 py-4">
@@ -489,8 +491,8 @@ export default function Lists() {
                                     const listColor = getRandomColor(list.name ?? list.id)
                                     const archivedAt =
                                         ("deleted_at" in list
-                                        ? (list as { deleted_at?: string }).deleted_at
-                                        : undefined) ?? list.updated_at
+                                            ? (list as { deleted_at?: string }).deleted_at
+                                            : undefined) ?? list.updated_at
                                     return (
                                         <div
                                             key={list.id}
@@ -503,9 +505,12 @@ export default function Lists() {
                                                 <ListFilter className="h-4 w-4 text-white" />
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <div className="text-sm font-medium truncate">{list.name}</div>
+                                                <div className="text-sm font-medium truncate">
+                                                    {list.name}
+                                                </div>
                                                 <div className="text-xs text-muted-foreground">
-                                                    {t("archived_on", "Archived on")} {formatDate(preferences, archivedAt, "PP")}
+                                                    {t("archived_on", "Archived on")}{" "}
+                                                    {formatDate(preferences, archivedAt, "PP")}
                                                 </div>
                                             </div>
                                             <Button
