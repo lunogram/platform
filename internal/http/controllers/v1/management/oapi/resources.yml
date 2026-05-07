@@ -94,6 +94,7 @@ paths:
         - $ref: "#/components/parameters/Limit"
         - $ref: "#/components/parameters/Offset"
         - $ref: "#/components/parameters/Search"
+        - $ref: "#/components/parameters/IncludeDeleted"
       responses:
         "200":
           $ref: "#/components/responses/CampaignListResponse"
@@ -236,6 +237,36 @@ paths:
       responses:
         "204":
           description: Campaign deleted successfully
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/campaigns/{campaignID}/unarchive:
+    post:
+      summary: Unarchive campaign
+      description: Restores an archived campaign by clearing its deleted_at timestamp
+      operationId: unarchiveCampaign
+      tags:
+        - Campaigns
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: campaignID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The campaign ID
+      responses:
+        "204":
+          description: Campaign unarchived successfully
         default:
           $ref: "#/components/responses/Error"
 
@@ -557,6 +588,7 @@ paths:
         - $ref: "#/components/parameters/Limit"
         - $ref: "#/components/parameters/Offset"
         - $ref: "#/components/parameters/Search"
+        - $ref: "#/components/parameters/IncludeDeleted"
       responses:
         "200":
           $ref: "#/components/responses/ListListResponse"
@@ -694,6 +726,36 @@ paths:
       responses:
         "204":
           description: List deleted successfully
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/lists/{listID}/unarchive:
+    post:
+      summary: Unarchive list
+      description: Restores an archived list by clearing its deleted_at timestamp
+      operationId: unarchiveList
+      tags:
+        - Lists
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: listID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The list ID
+      responses:
+        "204":
+          description: List unarchived successfully
         default:
           $ref: "#/components/responses/Error"
 
@@ -993,6 +1055,7 @@ paths:
         - $ref: "#/components/parameters/Limit"
         - $ref: "#/components/parameters/Offset"
         - $ref: "#/components/parameters/Search"
+        - $ref: "#/components/parameters/IncludeDeleted"
       responses:
         "200":
           $ref: "#/components/responses/JourneyListResponse"
@@ -1470,6 +1533,36 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Journey"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/journeys/{journeyID}/unarchive:
+    post:
+      summary: Unarchive journey
+      description: Restores an archived journey by clearing its deleted_at timestamp
+      operationId: unarchiveJourney
+      tags:
+        - Journeys
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: journeyID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The journey ID
+      responses:
+        "204":
+          description: Journey unarchived successfully
         default:
           $ref: "#/components/responses/Error"
 
@@ -5354,6 +5447,15 @@ components:
         x-go-type: PaginationSearch
       description: Search query string
 
+    IncludeDeleted:
+      name: include_deleted
+      in: query
+      required: false
+      schema:
+        type: boolean
+        default: false
+      description: Include archived/soft-deleted items in the results
+
   responses:
     Error:
       description: Error response
@@ -6417,6 +6519,10 @@ components:
             $ref: "#/components/schemas/CampaignVariable"
         delivery:
           $ref: "#/components/schemas/Delivery"
+        archived:
+          type: boolean
+          example: false
+          description: "Whether the campaign has been archived"
 
     Delivery:
       type: object
@@ -6584,6 +6690,10 @@ components:
           type: string
           format: date-time
           example: "2025-11-23T17:20:00.021Z"
+        archived:
+          type: boolean
+          example: false
+          description: "Whether the list has been archived"
 
     Provider:
       type: object

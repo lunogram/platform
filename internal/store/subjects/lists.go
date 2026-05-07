@@ -63,6 +63,7 @@ type List struct {
 	UsersCount    int                         `db:"users_count"`
 	CreatedAt     time.Time                   `db:"created_at"`
 	UpdatedAt     time.Time                   `db:"updated_at"`
+	DeletedAt     *time.Time                  `db:"deleted_at"`
 }
 
 func (list List) OAPI() oapi.List {
@@ -75,6 +76,7 @@ func (list List) OAPI() oapi.List {
 		state = oapi.ListStateDraft
 	}
 
+	archived := list.DeletedAt != nil
 	result := oapi.List{
 		Id:         list.ID,
 		ProjectId:  list.ProjectID,
@@ -85,6 +87,7 @@ func (list List) OAPI() oapi.List {
 		Version:    list.Version,
 		CreatedAt:  list.CreatedAt,
 		UpdatedAt:  list.UpdatedAt,
+		Archived:   &archived,
 	}
 
 	if list.VersionNumber > 0 {
@@ -149,7 +152,8 @@ const listSelectFields = `
 	pub_r.rule AS rule,
 	draft_r.rule AS draft_rule,
 	COALESCE(active_v.version_number, 0) AS version_number,
-	l.version`
+	l.version,
+	l.deleted_at`
 
 // listSelectJoins returns the common JOIN clause for list queries.
 // - active_v: the version pointed to by lists.version_id
@@ -170,7 +174,7 @@ const listSelectJoins = `
 	LEFT JOIN list_versions draft_v ON draft_v.list_id = l.id AND draft_v.status = 'draft'
 	LEFT JOIN rules draft_r ON draft_v.rule_id = draft_r.id`
 
-func (s *ListsStore) ListLists(ctx context.Context, projectID uuid.UUID, pagination store.Pagination, search string) (Lists, int, error) {
+func (s *ListsStore) ListLists(ctx context.Context, projectID uuid.UUID, pagination store.Pagination, search string, includeDeleted bool) (Lists, int, error) {
 	q := fmt.Sprintf(`
 	SELECT
 		%s,
@@ -182,7 +186,7 @@ func (s *ListsStore) ListLists(ctx context.Context, projectID uuid.UUID, paginat
 	%s
 	LEFT JOIN list_users lu ON lu.list_id = l.id
 	WHERE l.project_id = $1
-	AND l.deleted_at IS NULL
+	AND ($5 = true OR l.deleted_at IS NULL)
 	AND ($4 = '' OR l.name ILIKE '%%' || $4 || '%%')
 	GROUP BY l.id, l.project_id, l.name, l.type, l.version_id,
 		active_v.status, pub_r.rule, draft_r.rule, active_v.version_number,
@@ -194,7 +198,7 @@ func (s *ListsStore) ListLists(ctx context.Context, projectID uuid.UUID, paginat
 		List
 		TotalCount int `db:"total_count"`
 	}
-	err := s.db.SelectContext(ctx, &results, q, projectID, pagination.Limit, pagination.Offset, search)
+	err := s.db.SelectContext(ctx, &results, q, projectID, pagination.Limit, pagination.Offset, search, includeDeleted)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -420,6 +424,18 @@ func (s *ListsStore) DeleteList(ctx context.Context, projectID, listID uuid.UUID
 	WHERE project_id = $1
 	AND id = $2
 	AND deleted_at IS NULL`
+
+	_, err := s.db.ExecContext(ctx, query, projectID, listID)
+	return err
+}
+
+func (s *ListsStore) UnarchiveList(ctx context.Context, projectID, listID uuid.UUID) error {
+	query := `
+	UPDATE lists
+	SET deleted_at = NULL
+	WHERE project_id = $1
+	AND id = $2
+	AND deleted_at IS NOT NULL`
 
 	_, err := s.db.ExecContext(ctx, query, projectID, listID)
 	return err

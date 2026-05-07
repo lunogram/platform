@@ -13,9 +13,11 @@ import {
     MoreHorizontal,
     Copy,
     Archive,
+    ArchiveRestore,
 } from "lucide-react"
 
 import api from "../../api"
+import { oapiClient } from "@/oapi/client"
 import { useResolver } from "../../hooks"
 import { formatDate } from "../../utils"
 import { getRandomColor } from "@/lib/colors"
@@ -81,6 +83,7 @@ export default function Journeys() {
     const [cursor, setCursor] = useState<string | undefined>()
     const [pageDirection, setPageDirection] = useState<"next" | "prev" | undefined>()
     const [cursorHistory, setCursorHistory] = useState<string[]>([])
+    const [archivedOpen, setArchivedOpen] = useState(false)
     const searchTimeoutRef = useRef<number>()
 
     const handleSearch = useCallback((value: string) => {
@@ -103,6 +106,25 @@ export default function Journeys() {
                 search: debouncedQuery || undefined,
             })
         }, [project.id, debouncedQuery, cursor, pageDirection]),
+    )
+
+    const [archivedResult, , reloadArchived] = useResolver(
+        useCallback(async () => {
+            if (!archivedOpen) return null
+            const response = await oapiClient.GET("/api/admin/projects/{projectID}/journeys", {
+                params: { 
+                    path: {
+                        projectID: project.id
+                    },
+                    query: {
+                        limit: 100,
+                        include_deleted: true
+                    }
+                },
+            })
+            if (response.error || !response.data) return null
+            return response.data.results?.filter((j) => j.status === "archived") ?? []
+        }, [project.id, archivedOpen]),
     )
 
     const journeys = result?.results
@@ -144,6 +166,18 @@ export default function Journeys() {
         await reload()
     }
 
+    const handleUnarchiveJourney = async (id: UUID) => {
+        await oapiClient.POST("/api/admin/projects/{projectID}/journeys/{journeyID}/unarchive", {
+            params: { 
+                path: { 
+                    projectID: project.id,
+                    journeyID: id
+                }
+            },
+        })
+        await Promise.all([reload(), reloadArchived()])
+    }
+
     return (
         <div className="flex flex-col gap-4 sm:gap-6 p-4 sm:p-6">
             {/* Header */}
@@ -173,14 +207,25 @@ export default function Journeys() {
                         className="pl-9"
                     />
                 </div>
-                <Button
-                    onClick={() => setIsCreateOpen(true)}
-                    className="flex-1 sm:flex-initial"
-                    aria-label={t("create_journey_from_header", "Create Journey from header")}
-                >
-                    <Plus className="mr-2 h-4 w-4" />
-                    {t("create_journey")}
-                </Button>
+                <div className="flex items-center gap-2">
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        aria-label={t("show_archived", "Show archived")}
+                        onClick={() => setArchivedOpen(true)}
+                    >
+                        <ArchiveRestore className="h-4 w-4" />
+                    </Button>
+                    <Button
+                        onClick={() => setIsCreateOpen(true)}
+                        className="flex-1 sm:flex-initial"
+                        aria-label={t("create_journey_from_header", "Create Journey from header")}
+                    >
+                        <Plus className="mr-2 h-4 w-4" />
+                        {t("create_journey")}
+                    </Button>
+                </div>
             </div>
 
             {/* Table */}
@@ -419,6 +464,79 @@ export default function Journeys() {
                     </div>
                 </div>
             </div>
+
+            <Dialog open={archivedOpen} onOpenChange={setArchivedOpen}>
+                <DialogContent className="max-w-xl p-0 overflow-hidden">
+                    <DialogHeader className="gap-2 border-b bg-muted/30 px-6 py-4">
+                        <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                                <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary/10 text-primary">
+                                    <Archive className="h-4 w-4" />
+                                </div>
+                                <DialogTitle>{t("archived_journeys", "Archived journeys")}</DialogTitle>
+                            </div>
+                        </div>
+                        <DialogDescription>
+                            {t("archived_journeys_description", "Restore a journey to make it active again.")}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="max-h-[60vh] overflow-y-auto px-6 py-4">
+                        {!archivedResult ? (
+                            <div className="flex flex-col items-center gap-2 py-8 text-sm text-muted-foreground">
+                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
+                                    <ArchiveRestore className="h-5 w-5" />
+                                </div>
+                                <p>{t("loading", "Loading...")}</p>
+                            </div>
+                        ) : archivedResult.length === 0 ? (
+                            <div className="flex flex-col items-center gap-2 py-8 text-sm text-muted-foreground">
+                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
+                                    <ArchiveRestore className="h-5 w-5" />
+                                </div>
+                                <p>{t("no_archived_journeys", "No archived journeys")}</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-1">
+                                {archivedResult.map((journey) => {
+                                    const journeyColor = getRandomColor(journey.name ?? journey.id)
+                                    const archivedAt =
+                                        ("deleted_at" in journey
+                                            ? (journey as { deleted_at?: string }).deleted_at
+                                            : undefined) ?? journey.updated_at
+                                    return (
+                                        <div
+                                            key={journey.id}
+                                            className="group flex items-center gap-3 rounded-md border border-transparent px-2 py-2 transition hover:border-border hover:bg-muted/40"
+                                        >
+                                            <div
+                                                className="flex h-9 w-9 items-center justify-center rounded-md shrink-0"
+                                                style={{ backgroundColor: journeyColor }}
+                                            >
+                                                <GitBranch className="h-4 w-4 text-white" />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="text-sm font-medium truncate">{journey.name}</div>
+                                                <div className="text-xs text-muted-foreground">
+                                                    {t("archived_on", "Archived on")} {formatDate(preferences, archivedAt, "PP")}
+                                                </div>
+                                            </div>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="shrink-0 text-primary hover:text-primary"
+                                                onClick={() => handleUnarchiveJourney(journey.id)}
+                                                aria-label={t("unarchive", "Unarchive")}
+                                            >
+                                                <ArchiveRestore className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        )}
+                    </div>
+                </DialogContent>
+            </Dialog>
 
             {/* Create Journey Dialog */}
             <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>

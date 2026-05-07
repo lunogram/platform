@@ -296,6 +296,7 @@ export interface SearchParams {
     search?: string
     tag?: string[]
     id?: UUID[]
+    include_deleted?: boolean
 }
 
 export interface SearchResult<T> {
@@ -472,6 +473,7 @@ export type List = {
         total: number
     }
     is_visible: boolean
+    archived?: boolean
     created_at: string
     updated_at: string
 } & (

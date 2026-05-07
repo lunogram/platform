@@ -13,6 +13,7 @@ import {
     MoreHorizontal,
     Copy,
     Archive,
+    ArchiveRestore,
 } from "lucide-react"
 import { oapiClient } from "@/oapi/client"
 import { useResolver } from "../../hooks"
@@ -45,6 +46,13 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+} from "@/components/ui/dialog"
 
 const channelIcons: Record<ChannelType, typeof Mail> = {
     email: Mail,
@@ -73,6 +81,7 @@ export default function Campaigns({ create = false }: CampaignsProps) {
     const [searchQuery, setSearchQuery] = useState("")
     const [debouncedQuery, setDebouncedQuery] = useState("")
     const [offset, setOffset] = useState(0)
+    const [archivedOpen, setArchivedOpen] = useState(false)
     const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
     const handleSearch = useCallback((value: string) => {
@@ -109,6 +118,25 @@ export default function Campaigns({ create = false }: CampaignsProps) {
 
             return response.data
         }, [project.id, debouncedQuery, offset]),
+    )
+
+    const [archivedResult, , reloadArchived] = useResolver(
+        useCallback(async () => {
+            if (!archivedOpen) return null
+            const response = await oapiClient.GET("/api/admin/projects/{projectID}/campaigns", {
+                params: {
+                    path: { 
+                        projectID: project.id 
+                    },
+                    query: { 
+                        limit: 100,
+                        include_deleted: true
+                    },
+                },
+            })
+            if (response.error || !response.data) return null
+            return response.data.results?.filter((c) => c.archived) ?? []
+        }, [project.id, archivedOpen]),
     )
 
     const campaigns = result?.results
@@ -159,6 +187,18 @@ export default function Campaigns({ create = false }: CampaignsProps) {
         await reload()
     }
 
+    const handleUnarchiveCampaign = async (id: string) => {
+        await oapiClient.POST("/api/admin/projects/{projectID}/campaigns/{campaignID}/unarchive", {
+            params: {
+                path: {
+                    projectID: project.id,
+                    campaignID: id,
+                },
+            },
+        })
+        await Promise.all([reload(), reloadArchived()])
+    }
+
     const handleRowClick = (campaign: { id: UUID } & unknown) => {
         navigate(`/projects/${project.id}/campaigns/${campaign.id.toString()}`)
     }
@@ -207,7 +247,18 @@ export default function Campaigns({ create = false }: CampaignsProps) {
                         className="pl-9"
                     />
                 </div>
-                <CreateCampaign open={create} />
+                <div className="flex items-center gap-2">
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        aria-label={t("show_archived", "Show archived")}
+                        onClick={() => setArchivedOpen(true)}
+                    >
+                        <ArchiveRestore className="h-4 w-4" />
+                    </Button>
+                    <CreateCampaign open={create} />
+                </div>
             </div>
 
             {/* Table */}
@@ -423,6 +474,79 @@ export default function Campaigns({ create = false }: CampaignsProps) {
                     </div>
                 </div>
             </div>
+            <Dialog open={archivedOpen} onOpenChange={setArchivedOpen}>
+                <DialogContent className="max-w-xl p-0 overflow-hidden">
+                    <DialogHeader className="gap-2 border-b bg-muted/30 px-6 py-4">
+                        <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                                <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary/10 text-primary">
+                                    <Archive className="h-4 w-4" />
+                                </div>
+                                <DialogTitle>{t("archived_campaigns", "Archived campaigns")}</DialogTitle>
+                            </div>
+                        </div>
+                        <DialogDescription>
+                            {t("archived_campaigns_description", "Restore a campaign to make it active again.")}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="max-h-[60vh] overflow-y-auto px-6 py-4">
+                        {!archivedResult ? (
+                            <div className="flex flex-col items-center gap-2 py-8 text-sm text-muted-foreground">
+                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
+                                    <ArchiveRestore className="h-5 w-5" />
+                                </div>
+                                <p>{t("loading", "Loading...")}</p>
+                            </div>
+                        ) : archivedResult.length === 0 ? (
+                            <div className="flex flex-col items-center gap-2 py-8 text-sm text-muted-foreground">
+                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
+                                    <ArchiveRestore className="h-5 w-5" />
+                                </div>
+                                <p>{t("no_archived_campaigns", "No archived campaigns")}</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-1">
+                                {archivedResult.map((campaign) => {
+                                    const campaignColor = getRandomColor(campaign.name ?? campaign.id)
+                                    const ChannelIcon = channelIcons[campaign.channel] ?? Mail
+                                    const archivedAt =
+                                        ("deleted_at" in campaign
+                                            ? (campaign as { deleted_at?: string }).deleted_at
+                                            : undefined) ?? campaign.updated_at
+                                    return (
+                                        <div
+                                            key={campaign.id}
+                                            className="group flex items-center gap-3 rounded-md border border-transparent px-2 py-2 transition hover:border-border hover:bg-muted/40"
+                                        >
+                                            <div
+                                                className="flex h-9 w-9 items-center justify-center rounded-md shrink-0"
+                                                style={{ backgroundColor: campaignColor }}
+                                            >
+                                                <ChannelIcon className="h-4 w-4 text-white" />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="text-sm font-medium truncate">{campaign.name}</div>
+                                                <div className="text-xs text-muted-foreground">
+                                                    {t("archived_on", "Archived on")} {formatDate(preferences, archivedAt, "PP")}
+                                                </div>
+                                            </div>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="shrink-0 text-primary hover:text-primary"
+                                                onClick={() => handleUnarchiveCampaign(campaign.id)}
+                                                aria-label={t("unarchive", "Unarchive")}
+                                            >
+                                                <ArchiveRestore className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        )}
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     )
 }

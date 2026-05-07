@@ -13,10 +13,12 @@ import {
     MoreHorizontal,
     Copy,
     Archive,
+    ArchiveRestore,
 } from "lucide-react"
 import { NIL } from "uuid"
 
 import api from "../../api"
+import { oapiClient } from "@/oapi/client"
 import { useResolver } from "../../hooks"
 import { formatDate, snakeToTitle } from "../../utils"
 import { getRandomColor } from "@/lib/colors"
@@ -78,7 +80,8 @@ export default function Lists() {
     const [debouncedQuery, setDebouncedQuery] = useState("")
     const [isCreateOpen, setIsCreateOpen] = useState(false)
     const [offset, setOffset] = useState(0)
-    const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>()
+    const [archivedOpen, setArchivedOpen] = useState(false)
+    const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
     const handleSearch = useCallback((value: string) => {
         setSearchQuery(value)
@@ -97,6 +100,26 @@ export default function Lists() {
                 search: debouncedQuery || undefined,
             })
         }, [projectId, debouncedQuery, offset]),
+    )
+
+    const [archivedResult, , reloadArchived] = useResolver(
+        useCallback(async () => {
+            if (!archivedOpen) return null
+            const response = await oapiClient.GET("/api/admin/projects/{projectID}/lists", {
+                params:
+                 { 
+                    path: { 
+                        projectID: projectId 
+                    }, 
+                    query: { 
+                        limit: 100, 
+                        include_deleted: true 
+                    } 
+                },
+            })
+            if (response.error || !response.data) return null
+            return response.data.results?.filter((l) => l.archived) ?? []
+        }, [projectId, archivedOpen]),
     )
 
     const lists = result?.results
@@ -126,6 +149,18 @@ export default function Lists() {
         e.stopPropagation()
         await api.lists.delete(projectId, id)
         await reload()
+    }
+
+    const handleUnarchiveList = async (id: UUID) => {
+        await oapiClient.POST("/api/admin/projects/{projectID}/lists/{listID}/unarchive", {
+            params: { 
+                path: { 
+                    projectID: projectId, 
+                    listID: id 
+                } 
+            },
+        })
+        await Promise.all([reload(), reloadArchived()])
     }
 
     return (
@@ -159,6 +194,15 @@ export default function Lists() {
                     />
                 </div>
                 <div className="flex w-full items-center gap-2 sm:w-auto">
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        aria-label={t("show_archived", "Show archived")}
+                        onClick={() => setArchivedOpen(true)}
+                    >
+                        <ArchiveRestore className="h-4 w-4" />
+                    </Button>
                     <Button
                         onClick={() => setIsCreateOpen(true)}
                         className="flex-1 sm:flex-initial"
@@ -408,6 +452,79 @@ export default function Lists() {
                     </div>
                 </div>
             </div>
+
+            <Dialog open={archivedOpen} onOpenChange={setArchivedOpen}>
+                <DialogContent className="max-w-xl p-0 overflow-hidden">
+                    <DialogHeader className="gap-2 border-b bg-muted/30 px-6 py-4">
+                        <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                                <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary/10 text-primary">
+                                    <Archive className="h-4 w-4" />
+                                </div>
+                                <DialogTitle>{t("archived_lists", "Archived lists")}</DialogTitle>
+                            </div>
+                        </div>
+                        <DialogDescription>
+                            {t("archived_lists_description", "Restore a list to make it active again.")}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="max-h-[60vh] overflow-y-auto px-6 py-4">
+                        {!archivedResult ? (
+                            <div className="flex flex-col items-center gap-2 py-8 text-sm text-muted-foreground">
+                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
+                                    <ArchiveRestore className="h-5 w-5" />
+                                </div>
+                                <p>{t("loading", "Loading...")}</p>
+                            </div>
+                        ) : archivedResult.length === 0 ? (
+                            <div className="flex flex-col items-center gap-2 py-8 text-sm text-muted-foreground">
+                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
+                                    <ArchiveRestore className="h-5 w-5" />
+                                </div>
+                                <p>{t("no_archived_lists", "No archived lists")}</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-1">
+                                {archivedResult.map((list) => {
+                                    const listColor = getRandomColor(list.name ?? list.id)
+                                    const archivedAt =
+                                        ("deleted_at" in list
+                                        ? (list as { deleted_at?: string }).deleted_at
+                                        : undefined) ?? list.updated_at
+                                    return (
+                                        <div
+                                            key={list.id}
+                                            className="group flex items-center gap-3 rounded-md border border-transparent px-2 py-2 transition hover:border-border hover:bg-muted/40"
+                                        >
+                                            <div
+                                                className="flex h-9 w-9 items-center justify-center rounded-md shrink-0"
+                                                style={{ backgroundColor: listColor }}
+                                            >
+                                                <ListFilter className="h-4 w-4 text-white" />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="text-sm font-medium truncate">{list.name}</div>
+                                                <div className="text-xs text-muted-foreground">
+                                                    {t("archived_on", "Archived on")} {formatDate(preferences, archivedAt, "PP")}
+                                                </div>
+                                            </div>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="shrink-0 text-primary hover:text-primary"
+                                                onClick={() => handleUnarchiveList(list.id)}
+                                                aria-label={t("unarchive", "Unarchive")}
+                                            >
+                                                <ArchiveRestore className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        )}
+                    </div>
+                </DialogContent>
+            </Dialog>
 
             {/* Create List Dialog */}
             <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>

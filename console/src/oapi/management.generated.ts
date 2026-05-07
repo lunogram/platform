@@ -116,6 +116,26 @@ export interface paths {
         patch: operations["updateCampaign"];
         trace?: never;
     };
+    "/api/admin/projects/{projectID}/campaigns/{campaignID}/unarchive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Unarchive campaign
+         * @description Restores an archived campaign by clearing its deleted_at timestamp
+         */
+        post: operations["unarchiveCampaign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/campaigns/{campaignID}/templates": {
         parameters: {
             query?: never;
@@ -274,6 +294,26 @@ export interface paths {
          * @description Updates list properties such as name, rule, and tags
          */
         patch: operations["updateList"];
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/lists/{listID}/unarchive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Unarchive list
+         * @description Restores an archived list by clearing its deleted_at timestamp
+         */
+        post: operations["unarchiveList"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/admin/projects/{projectID}/lists/{listID}/duplicate": {
@@ -534,6 +574,26 @@ export interface paths {
          * @description Creates a new version of a journey as a child, keeping the same step UUIDs
          */
         post: operations["versionJourney"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/journeys/{journeyID}/unarchive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Unarchive journey
+         * @description Restores an archived journey by clearing its deleted_at timestamp
+         */
+        post: operations["unarchiveJourney"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2748,6 +2808,11 @@ export interface components {
             templates: components["schemas"]["Template"][];
             variables?: components["schemas"]["CampaignVariable"][];
             delivery: components["schemas"]["Delivery"];
+            /**
+             * @description Whether the campaign has been archived
+             * @example false
+             */
+            archived?: boolean;
         };
         Delivery: {
             /** @example 0 */
@@ -2870,6 +2935,11 @@ export interface components {
              * @example 2025-11-23T17:20:00.021Z
              */
             updated_at: string;
+            /**
+             * @description Whether the list has been archived
+             * @example false
+             */
+            archived?: boolean;
         };
         Provider: {
             /**
@@ -4795,6 +4865,8 @@ export interface components {
         Offset: number;
         /** @description Search query string */
         Search: string;
+        /** @description Include archived/soft-deleted items in the results */
+        IncludeDeleted: boolean;
     };
     requestBodies: never;
     headers: never;
@@ -4880,6 +4952,8 @@ export interface operations {
                 offset?: components["parameters"]["Offset"];
                 /** @description Search query string */
                 search?: components["parameters"]["Search"];
+                /** @description Include archived/soft-deleted items in the results */
+                include_deleted?: components["parameters"]["IncludeDeleted"];
             };
             header?: never;
             path: {
@@ -5000,6 +5074,30 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Campaign"];
                 };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    unarchiveCampaign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The campaign ID */
+                campaignID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Campaign unarchived successfully */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             default: components["responses"]["Error"];
         };
@@ -5223,6 +5321,8 @@ export interface operations {
                 offset?: components["parameters"]["Offset"];
                 /** @description Search query string */
                 search?: components["parameters"]["Search"];
+                /** @description Include archived/soft-deleted items in the results */
+                include_deleted?: components["parameters"]["IncludeDeleted"];
             };
             header?: never;
             path: {
@@ -5341,6 +5441,30 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["List"];
                 };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    unarchiveList: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The list ID */
+                listID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List unarchived successfully */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             default: components["responses"]["Error"];
         };
@@ -5603,6 +5727,8 @@ export interface operations {
                 offset?: components["parameters"]["Offset"];
                 /** @description Search query string */
                 search?: components["parameters"]["Search"];
+                /** @description Include archived/soft-deleted items in the results */
+                include_deleted?: components["parameters"]["IncludeDeleted"];
             };
             header?: never;
             path: {
@@ -5968,6 +6094,30 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Journey"];
                 };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    unarchiveJourney: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The journey ID */
+                journeyID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Journey unarchived successfully */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             default: components["responses"]["Error"];
         };

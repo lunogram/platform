@@ -332,7 +332,7 @@ func (s *JourneysStore) CreateJourney(ctx context.Context, journey Journey) (uui
 	return id, nil
 }
 
-func (s *JourneysStore) ListJourneys(ctx context.Context, projectID uuid.UUID, pagination store.Pagination, search string) (Journeys, int, error) {
+func (s *JourneysStore) ListJourneys(ctx context.Context, projectID uuid.UUID, pagination store.Pagination, search string, includeDeleted bool) (Journeys, int, error) {
 	query := `
 	SELECT
 		id,
@@ -342,9 +342,10 @@ func (s *JourneysStore) ListJourneys(ctx context.Context, projectID uuid.UUID, p
 		version_id,
 		created_at,
 		updated_at,
+		deleted_at,
 		COUNT(*) OVER () AS total_count
 	FROM journeys
-	WHERE project_id = $1 AND deleted_at IS NULL
+	WHERE project_id = $1 AND ($5 = true OR deleted_at IS NULL)
 	AND ($4 = '' OR name ILIKE '%' || $4 || '%')
 	ORDER BY created_at DESC
 	LIMIT $2 OFFSET $3`
@@ -355,7 +356,7 @@ func (s *JourneysStore) ListJourneys(ctx context.Context, projectID uuid.UUID, p
 	}
 
 	var results []rows
-	err := s.db.SelectContext(ctx, &results, query, projectID, pagination.Limit, pagination.Offset, search)
+	err := s.db.SelectContext(ctx, &results, query, projectID, pagination.Limit, pagination.Offset, search, includeDeleted)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -444,6 +445,16 @@ func (s *JourneysStore) DeleteJourney(ctx context.Context, projectID, journeyID 
 	UPDATE journeys
 	SET deleted_at = now()
 	WHERE id = $1 AND project_id = $2 AND deleted_at IS NULL`
+
+	_, err := s.db.ExecContext(ctx, stmt, journeyID, projectID)
+	return err
+}
+
+func (s *JourneysStore) UnarchiveJourney(ctx context.Context, projectID, journeyID uuid.UUID) error {
+	stmt := `
+	UPDATE journeys
+	SET deleted_at = NULL
+	WHERE id = $1 AND project_id = $2 AND deleted_at IS NOT NULL`
 
 	_, err := s.db.ExecContext(ctx, stmt, journeyID, projectID)
 	return err
