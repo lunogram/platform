@@ -167,14 +167,18 @@ export default function Journeys() {
     }
 
     const handleUnarchiveJourney = async (id: UUID) => {
-        await oapiClient.POST("/api/admin/projects/{projectID}/journeys/{journeyID}/unarchive", {
-            params: {
-                path: {
+         const response = await oapiClient.POST("/api/admin/projects/{projectID}/journeys/{journeyID}/unarchive", {
+             params: {
+                 path: {
                     projectID: project.id,
                     journeyID: id,
                 },
             },
         })
+        if (response.error) {
+             throw response.error
+         }
+         
         await Promise.all([reload(), reloadArchived()])
     }
 

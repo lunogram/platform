@@ -437,8 +437,18 @@ func (s *ListsStore) UnarchiveList(ctx context.Context, projectID, listID uuid.U
 	AND id = $2
 	AND deleted_at IS NOT NULL`
 
-	_, err := s.db.ExecContext(ctx, query, projectID, listID)
-	return err
+	result, err := s.db.ExecContext(ctx, query, projectID, listID)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
 }
 
 func (s *ListsStore) DuplicateList(ctx context.Context, projectID, listID uuid.UUID, newName string) (uuid.UUID, error) {

@@ -458,17 +458,17 @@ func (srv *ListsController) UnarchiveList(w http.ResponseWriter, r *http.Request
 	logger.Info("unarchiving list")
 
 	_, err = srv.store.GetList(ctx, projectID, listID)
- 	if errors.Is(err, sql.ErrNoRows) {
- 		logger.Info("list not found", zap.Stringer("list_id", listID))
- 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("list not found")))
- 		return
- 	}
-	
- 	if err != nil {
- 		logger.Error("failed to get list", zap.Error(err))
- 		oapi.WriteProblem(w, err)
- 		return
- 	}
+	if errors.Is(err, sql.ErrNoRows) {
+		logger.Info("list not found", zap.Stringer("list_id", listID))
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("list not found")))
+		return
+	}
+
+	if err != nil {
+		logger.Error("failed to get list", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
 
 	err = srv.store.UnarchiveList(ctx, projectID, listID)
 	if err != nil {
