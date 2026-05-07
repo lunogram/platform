@@ -410,7 +410,9 @@ export function EmailContentPreview({ campaign, form, edit = false }: EmailSetup
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                                {campaign.templates.map((t) => {
+                                {Array.from(
+                                    new Map(campaign.templates.map((t) => [t.locale, t])).values(),
+                                ).map((t) => {
                                     const locale = locales.find((l) => l.key === t.locale)
                                     return (
                                         <SelectItem key={t.id} value={t.locale}>
