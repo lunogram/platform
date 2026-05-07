@@ -964,7 +964,7 @@ func TestListLists(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	lists, total, err := db.ListLists(ctx, projectID, store.Pagination{Limit: 10, Offset: 0}, "")
+	lists, total, err := db.ListLists(ctx, projectID, store.Pagination{Limit: 10, Offset: 0}, "", false)
 	require.NoError(t, err)
 	require.Equal(t, 3, total)
 	require.Len(t, lists, 3)
