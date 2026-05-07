@@ -222,8 +222,18 @@ func (s *CampaignsStore) UnarchiveCampaign(ctx context.Context, projectID, campa
 	AND id = $2
 	AND deleted_at IS NOT NULL`
 
-	_, err := s.db.ExecContext(ctx, query, projectID, campaignID)
-	return err
+ 	result, err := s.db.ExecContext(ctx, query, projectID, campaignID)
+ 	if err != nil {
+ 		return err
+ 	}
+ 	rowsAffected, err := result.RowsAffected()
+ 	if err != nil {
+ 		return err
+ 	}
+ 	if rowsAffected == 0 {
+ 		return store.ErrNoRows
+ 	}
+ 	return nil
 }
 
 type CampaignUsers []CampaignUser

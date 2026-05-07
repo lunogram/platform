@@ -188,14 +188,21 @@ export default function Campaigns({ create = false }: CampaignsProps) {
     }
 
     const handleUnarchiveCampaign = async (id: string) => {
-        await oapiClient.POST("/api/admin/projects/{projectID}/campaigns/{campaignID}/unarchive", {
-            params: {
-                path: {
-                    projectID: project.id,
-                    campaignID: id,
+        const response = await oapiClient.POST(
+            "/api/admin/projects/{projectID}/campaigns/{campaignID}/unarchive",
+            {
+                params: {
+                    path: {
+                        projectID: project.id,
+                        campaignID: id,
+                    },
                 },
             },
-        })
+        )
+        if (response.error) {
+            console.error("Failed to unarchive campaign", response.error)
+            return
+        }
         await Promise.all([reload(), reloadArchived()])
     }
 

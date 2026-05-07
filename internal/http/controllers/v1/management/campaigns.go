@@ -340,9 +340,9 @@ func (srv *CampaignsController) UnarchiveCampaign(w http.ResponseWriter, r *http
 	logger.Info("unarchiving campaign")
 
 	err = srv.mgmt.UnarchiveCampaign(ctx, projectID, campaignID)
-	if err != nil {
-		logger.Error("failed to unarchive campaign", zap.Error(err))
-		oapi.WriteProblem(w, err)
+	if errors.Is(err, sql.ErrNoRows) {
+		logger.Info("campaign not found", zap.Stringer("campaign_id", campaignID))
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("campaign not found")))
 		return
 	}
 

@@ -151,14 +151,18 @@ export default function Lists() {
     }
 
     const handleUnarchiveList = async (id: UUID) => {
-        await oapiClient.POST("/api/admin/projects/{projectID}/lists/{listID}/unarchive", {
-            params: {
-                path: {
-                    projectID: projectId,
-                    listID: id,
-                },
-            },
-        })
+         const response = await oapiClient.POST("/api/admin/projects/{projectID}/lists/{listID}/unarchive", {
+             params: {
+                 path: {
+                     projectID: projectId,
+                     listID: id,
+                 },
+             },
+         })
+         if (response.error) {
+             throw response.error
+         }
+
         await Promise.all([reload(), reloadArchived()])
     }
 
