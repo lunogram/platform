@@ -14,8 +14,8 @@ var UserFieldMap = map[string]func(*subjects.UpsertUserParams, string){
 	"external_id": func(u *subjects.UpsertUserParams, v string) {
 		u.Identifiers = append(u.Identifiers, subjects.ExternalIDParam{Source: "default", ExternalID: v})
 	},
-	"email":    func(u *subjects.UpsertUserParams, v string) { u.Email = &v },
-	"phone":    func(u *subjects.UpsertUserParams, v string) { u.Phone = &v },
+	"email": func(u *subjects.UpsertUserParams, v string) { u.Email = &v },
+	"phone": func(u *subjects.UpsertUserParams, v string) { u.Phone = &v },
 	"timezone": func(u *subjects.UpsertUserParams, v string) {
 		if resolved, err := timezone.Resolve(v); err == nil {
 			u.Timezone = &resolved
@@ -23,7 +23,7 @@ var UserFieldMap = map[string]func(*subjects.UpsertUserParams, string){
 			u.Timezone = &v
 		}
 	},
-	"locale":   func(u *subjects.UpsertUserParams, v string) { u.Locale = &v },
+	"locale": func(u *subjects.UpsertUserParams, v string) { u.Locale = &v },
 }
 
 func NewUsers(headers []string) (*UserMapper, error) {
