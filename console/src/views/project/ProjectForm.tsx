@@ -2,6 +2,7 @@ import api from "../../api"
 import type { Project } from "../../types"
 import { useTranslation } from "react-i18next"
 import type { UseFormReturn } from "react-hook-form"
+import { useState } from "react"
 import { Controller, FormProvider, useForm } from "react-hook-form"
 import { Globe, MessageSquareText } from "lucide-react"
 
@@ -18,6 +19,7 @@ import {
     SelectValue,
 } from "@/components/ui/select"
 
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Separator } from "@/components/ui/separator"
 import { LocalePicker } from "@/components/locale/picker"
 
@@ -58,6 +60,7 @@ export default function ProjectForm({ project, onSave }: ProjectFormProps) {
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         locale: browserLocale,
     }
+    const [saveError, setSaveError] = useState<string | null>(null)
     const form = useForm<Project>({
         defaultValues: defaults,
     })
@@ -87,7 +90,7 @@ export default function ProjectForm({ project, onSave }: ProjectFormProps) {
                 onSave?.(updatedProject)
             } catch (error) {
                 console.error("Failed to save project", error)
-                window.alert(t("project.saveError", "Unable to save project. Please try again."))
+                setSaveError(t("project.saveError", "Unable to save project. Please try again."))
             }
         },
     )
@@ -321,6 +324,16 @@ export default function ProjectForm({ project, onSave }: ProjectFormProps) {
                     </div>
                 )}
 
+                {saveError && (
+                    <Alert
+                        variant="destructive"
+                        className="cursor-pointer"
+                        onClick={() => setSaveError(null)}
+                    >
+                        <AlertTitle>{t("error")}</AlertTitle>
+                        <AlertDescription>{saveError}</AlertDescription>
+                    </Alert>
+                )}
                 {/* Save */}
                 <div className="flex items-center justify-end">
                     <Button type="submit" disabled={form.formState.isSubmitting}>
