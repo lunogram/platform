@@ -1,4 +1,4 @@
-import { useCallback, useContext, useMemo, useState } from "react"
+import { useCallback, useContext, useEffect, useMemo, useState } from "react"
 import { CampaignContext, ProjectContext, TemplateContext } from "@/contexts"
 import type { Campaign, Template, Subscription } from "@/types"
 import { useTranslation } from "react-i18next"
@@ -278,14 +278,10 @@ export default function CampaignDetails() {
     const [template, setTemplate] = useState<Template | null>(null)
 
     useEffect(() => {
-        if (!campaign || campaign.templates.length === 0) {
-            return
-        }
-
-        const template =
-            campaign.templates.find((template) => template.locale === project.locale) ??
-            campaign.templates[0]
-        setTemplate(template)
+        if (!campaign || campaign.templates.length === 0) return
+        const selected =
+            campaign.templates.find((t) => t.locale === project.locale) ?? campaign.templates[0]
+        setTemplate((prev) => (prev?.id !== selected.id ? selected : prev))
     }, [campaign, project.locale])
 
     if (!campaign || !project || !template) {
