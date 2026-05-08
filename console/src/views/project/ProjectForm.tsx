@@ -19,7 +19,15 @@ import {
     SelectValue,
 } from "@/components/ui/select"
 
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Separator } from "@/components/ui/separator"
 import { LocalePicker } from "@/components/locale/picker"
 
@@ -97,7 +105,8 @@ export default function ProjectForm({ project, onSave }: ProjectFormProps) {
 
     const isEditing = !!project
     return (
-        <FormProvider {...form}>
+        <AlertDialog open={!!saveError} onOpenChange={() => setSaveError(null)}>
+            <FormProvider {...form}>
             <form onSubmit={handleSubmit} className="space-y-6">
                 {isEditing ? (
                     <>
@@ -324,16 +333,6 @@ export default function ProjectForm({ project, onSave }: ProjectFormProps) {
                     </div>
                 )}
 
-                {saveError && (
-                    <Alert
-                        variant="destructive"
-                        className="cursor-pointer"
-                        onClick={() => setSaveError(null)}
-                    >
-                        <AlertTitle>{t("error")}</AlertTitle>
-                        <AlertDescription>{saveError}</AlertDescription>
-                    </Alert>
-                )}
                 {/* Save */}
                 <div className="flex items-center justify-end">
                     <Button type="submit" disabled={form.formState.isSubmitting}>
@@ -342,6 +341,18 @@ export default function ProjectForm({ project, onSave }: ProjectFormProps) {
                 </div>
             </form>
         </FormProvider>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>{t("error")}</AlertDialogTitle>
+                <AlertDialogDescription>{saveError}</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogAction onClick={() => setSaveError(null)}>
+                    {t("ok", "OK")}
+                </AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
     )
 }
 
