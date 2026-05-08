@@ -16,7 +16,6 @@ import (
 	"github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/http/problem"
 	"github.com/lunogram/platform/internal/importer"
-	"github.com/lunogram/platform/internal/pkg/timezone"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
 	"github.com/lunogram/platform/internal/rbac"
@@ -127,12 +126,6 @@ func (srv *UsersController) IdentifyUser(w http.ResponseWriter, r *http.Request,
 
 	defer tx.Rollback() //nolint:errcheck
 	usersStore := subjects.NewUsersStore(tx)
-
-	if body.Timezone != nil {
-		if resolved, err := timezone.Resolve(*body.Timezone); err == nil {
-			body.Timezone = &resolved
-		}
-	}
 
 	params := subjects.UpsertUserParams{
 		Identifiers: oapi.ToParams(body.Identifier),
@@ -484,12 +477,6 @@ func (srv *UsersController) UpdateUser(w http.ResponseWriter, r *http.Request, p
 
 	defer tx.Rollback() //nolint:errcheck
 	users := subjects.NewUsersStore(tx)
-
-	if body.Timezone != nil {
-		if resolved, err := timezone.Resolve(*body.Timezone); err == nil {
-			body.Timezone = &resolved
-		}
-	}
 
 	update := subjects.UserUpdate{
 		Email:    body.Email,
