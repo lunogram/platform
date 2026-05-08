@@ -34,7 +34,7 @@ export function ProjectSwitcher({
         <SidebarMenu>
             <SidebarMenuItem>
                 <DropdownMenu>
-                    <DropdownMenuTrigger className="w-full">
+                    <DropdownMenuTrigger asChild className="w-full">
                         <SidebarMenuButton
                             size="lg"
                             className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground cursor-pointer"
