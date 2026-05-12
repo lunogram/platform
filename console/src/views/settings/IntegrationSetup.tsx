@@ -26,6 +26,7 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Field, FieldLabel, FieldDescription } from "@/components/ui/field"
 import {
     Select,
@@ -49,7 +50,7 @@ type ProviderWithExtras = Provider & {
 type ActionWithExtras = Action
 
 type IntegrationMeta =
-    | { kind: "provider"; meta: ProviderMeta }
+    | { kind: "provider"; meta: ProviderMeta; readOnly?: boolean }
     | { kind: "action"; meta: ActionMeta }
 
 type IntegrationFormValues = {
@@ -85,6 +86,19 @@ function normalizeKind(kind?: string, id?: string): IntegrationKind {
     if (kind === "action" || kind === "provider") return kind
     if (id) return "provider"
     return "provider"
+}
+
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return undefined
+    return value as Record<string, unknown>
+}
+
+function hasExternalProviderId(provider?: ProviderWithExtras): boolean {
+    const data = asRecord(provider?.data)
+    return Boolean(
+        provider?.external_id ||
+        (typeof data?.external_id === "string" && data.external_id.length > 0),
+    )
 }
 
 /**
@@ -198,7 +212,19 @@ export default function IntegrationSetup() {
         if (!providerOptions) return undefined
         const targetType = isEdit ? provider?.module : moduleName
         const meta = providerOptions.find((o: ProviderMeta) => o.type === targetType)
-        return meta ? { kind: "provider", meta } : undefined
+        if (meta) return { kind: "provider", meta }
+        if (!isEdit || !provider) return undefined
+
+        return {
+            kind: "provider",
+            readOnly: true,
+            meta: {
+                type: provider.module,
+                name: provider.module,
+                channels: provider.channels ?? [],
+                schema: { type: "object", properties: [] },
+            },
+        }
     }, [actionOptions, providerOptions, kind, isEdit, action, provider, moduleName])
 
     const effectiveModule = useMemo(() => {
@@ -207,7 +233,10 @@ export default function IntegrationSetup() {
         return undefined
     }, [activeMeta])
 
-    const isExternal = !!provider?.external_id
+    const isExternal = hasExternalProviderId(provider)
+    const isReadOnlyProvider =
+        kind === "provider" &&
+        (isExternal || (activeMeta?.kind === "provider" && activeMeta.readOnly))
 
     const dataSchema = useMemo((): Schema | undefined => {
         if (!activeMeta) return undefined
@@ -285,7 +314,7 @@ export default function IntegrationSetup() {
     })
 
     const handleSubmit = async (values: IntegrationFormValues) => {
-        if (isExternal) return
+        if (isReadOnlyProvider) return
         if (!effectiveModule) return
 
         setIsSaving(true)
@@ -428,8 +457,14 @@ export default function IntegrationSetup() {
         ? `/projects/${project.id}/integrations`
         : `/projects/${project.id}/integrations/new`
 
-    if (!activeMeta && providerOptions && actionOptions && !(isEdit && !provider && !action)) {
-        navigate(backUrl)
+    const shouldRedirectMissingMeta =
+        !activeMeta && providerOptions && actionOptions && !(isEdit && !provider && !action)
+
+    useEffect(() => {
+        if (shouldRedirectMissingMeta) navigate(backUrl)
+    }, [backUrl, navigate, shouldRedirectMissingMeta])
+
+    if (shouldRedirectMissingMeta) {
         return null
     }
 
@@ -459,6 +494,7 @@ export default function IntegrationSetup() {
 
     const showSenderIdentity =
         kind === "provider" &&
+        !isReadOnlyProvider &&
         (senderIdentityChannel === "email" || senderIdentityChannel === "sms")
 
     const title =
@@ -555,11 +591,25 @@ export default function IntegrationSetup() {
                         </FieldLabel>
                         <Input
                             {...form.register("name", { required: true })}
-                            disabled={kind === "provider" && isExternal}
+                            disabled={isReadOnlyProvider}
                         />
                     </Field>
 
-                    {kind === "provider" && !isExternal && dataSchema && (
+                    {isReadOnlyProvider && (
+                        <Alert>
+                            <AlertTitle>
+                                {t("managed_integration_title", "Managed integration")}
+                            </AlertTitle>
+                            <AlertDescription>
+                                {t(
+                                    "managed_integration_description",
+                                    "This integration is configured by Lunogram and cannot be edited in the console.",
+                                )}
+                            </AlertDescription>
+                        </Alert>
+                    )}
+
+                    {kind === "provider" && !isReadOnlyProvider && dataSchema && (
                         <FormSchemaFields parent="data" schema={dataSchema} form={form} />
                     )}
 
@@ -567,7 +617,7 @@ export default function IntegrationSetup() {
                         <FormSchemaFields parent="config" schema={dataSchema} form={form} />
                     )}
 
-                    {kind === "provider" && !isExternal && (
+                    {kind === "provider" && !isReadOnlyProvider && (
                         <Controller
                             control={form.control}
                             name="link_wrap"
@@ -594,7 +644,7 @@ export default function IntegrationSetup() {
                         />
                     )}
 
-                    {kind === "provider" && !isExternal && manifestRateLimit && (
+                    {kind === "provider" && !isReadOnlyProvider && manifestRateLimit && (
                         <>
                             <Separator />
                             <div className="space-y-4">
@@ -722,7 +772,7 @@ export default function IntegrationSetup() {
                     </div>
                 )}
 
-                {(kind !== "provider" || !isExternal) && (
+                {(kind !== "provider" || !isReadOnlyProvider) && (
                     <div className="flex items-center gap-3 pt-8 pb-6 max-w-2xl">
                         <Button type="submit" form="integration-form" disabled={isSaving}>
                             {isSaving
