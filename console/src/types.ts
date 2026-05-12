@@ -1,6 +1,6 @@
 import type { ComponentType, Dispatch, Key, ReactNode, SetStateAction } from "react"
 import type { FieldPath, FieldValues, UseFormReturn } from "react-hook-form"
-import type { Node } from "reactflow"
+import type { Node } from "@xyflow/react"
 import type { UUID } from "@/types/common"
 
 export type Class<T> = new () => T
