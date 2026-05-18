@@ -83,7 +83,7 @@ export default function Journeys() {
     const [cursor, setCursor] = useState<string | undefined>()
     const [pageDirection, setPageDirection] = useState<"next" | "prev" | undefined>()
     const [cursorHistory, setCursorHistory] = useState<string[]>([])
-    const [archivedOpen, setArchivedOpen] = useState(false)
+    const [showArchived, setShowArchived] = useState(false)
     const searchTimeoutRef = useRef<number>()
 
     const handleSearch = useCallback((value: string) => {
@@ -110,7 +110,7 @@ export default function Journeys() {
 
     const [archivedResult, , reloadArchived] = useResolver(
         useCallback(async () => {
-            if (!archivedOpen) return null
+            if (!showArchived) return null
             const response = await oapiClient.GET("/api/admin/projects/{projectID}/journeys", {
                 params: {
                     path: {
@@ -119,18 +119,21 @@ export default function Journeys() {
                     query: {
                         limit: 100,
                         include_deleted: true,
+                        search: debouncedQuery || undefined,
                     },
                 },
             })
             if (response.error || !response.data) return null
             return response.data.results?.filter((j) => j.status === "archived") ?? []
-        }, [project.id, archivedOpen]),
+        }, [project.id, debouncedQuery, showArchived]),
     )
 
-    const journeys = result?.results
+    const isArchivedView = showArchived
+    const journeys = isArchivedView ? archivedResult : result?.results
     const total = result?.total ?? 0
-    const hasNextPage = !!result?.nextCursor
-    const hasPrevPage = cursorHistory.length > 0
+    const isLoading = isArchivedView ? archivedResult === null : !result
+    const hasNextPage = !isArchivedView && !!result?.nextCursor
+    const hasPrevPage = !isArchivedView && cursorHistory.length > 0
 
     const handleNextPage = () => {
         if (result?.nextCursor) {
@@ -178,7 +181,8 @@ export default function Journeys() {
         if (response.error) {
              throw response.error
          }
-         
+
+        setShowArchived(false)
         await Promise.all([reload(), reloadArchived()])
     }
 
@@ -213,11 +217,12 @@ export default function Journeys() {
                 </div>
                 <div className="flex items-center gap-2">
                     <Button
-                        variant="ghost"
+                        variant={showArchived ? "secondary" : "ghost"}
                         size="sm"
                         className="h-8 w-8 p-0"
                         aria-label={t("show_archived", "Show archived")}
-                        onClick={() => setArchivedOpen(true)}
+                        aria-pressed={showArchived}
+                        onClick={() => setShowArchived((prev) => !prev)}
                     >
                         <ArchiveRestore className="h-4 w-4" />
                     </Button>
@@ -249,7 +254,7 @@ export default function Journeys() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {!journeys ? (
+                        {isLoading ? (
                             Array.from({ length: 5 }).map((_, i) => (
                                 <TableRow key={i}>
                                     <TableCell>
@@ -281,11 +286,16 @@ export default function Journeys() {
                                     <div className="flex flex-col items-center gap-2 text-muted-foreground">
                                         <GitBranch className="h-8 w-8" />
                                         <p>
-                                            {debouncedQuery
-                                                ? t("no_journeys_found", "No journeys found")
-                                                : t("no_journeys_yet", "No journeys yet")}
+                                            {isArchivedView
+                                                ? t(
+                                                      "no_archived_journeys",
+                                                      "No archived journeys",
+                                                  )
+                                                : debouncedQuery
+                                                  ? t("no_journeys_found", "No journeys found")
+                                                  : t("no_journeys_yet", "No journeys yet")}
                                         </p>
-                                        {!debouncedQuery && (
+                                        {!debouncedQuery && !isArchivedView && (
                                             <Button
                                                 variant="outline"
                                                 size="sm"
@@ -371,15 +381,30 @@ export default function Journeys() {
                                                         <Copy className="mr-2 h-4 w-4" />
                                                         {t("duplicate")}
                                                     </DropdownMenuItem>
-                                                    <DropdownMenuItem
-                                                        onClick={(e) =>
-                                                            handleArchiveJourney(e, journey.id)
-                                                        }
-                                                        className="text-destructive"
-                                                    >
-                                                        <Archive className="mr-2 h-4 w-4" />
-                                                        {t("archive")}
-                                                    </DropdownMenuItem>
+                                                    {isArchivedView ? (
+                                                        <DropdownMenuItem
+                                                            onClick={(e) => {
+                                                                e.stopPropagation()
+                                                                handleUnarchiveJourney(journey.id)
+                                                            }}
+                                                        >
+                                                            <ArchiveRestore className="mr-2 h-4 w-4" />
+                                                            {t("unarchive", "Unarchive")}
+                                                        </DropdownMenuItem>
+                                                    ) : (
+                                                        <DropdownMenuItem
+                                                            onClick={(e) =>
+                                                                handleArchiveJourney(
+                                                                    e,
+                                                                    journey.id,
+                                                                )
+                                                            }
+                                                            className="text-destructive"
+                                                        >
+                                                            <Archive className="mr-2 h-4 w-4" />
+                                                            {t("archive")}
+                                                        </DropdownMenuItem>
+                                                    )}
                                                 </DropdownMenuContent>
                                             </DropdownMenu>
                                         </TableCell>
@@ -391,7 +416,7 @@ export default function Journeys() {
                 </Table>
 
                 {/* Pagination */}
-                {journeys && journeys.length > 0 && (
+                {!isArchivedView && journeys && journeys.length > 0 && (
                     <div className="flex items-center justify-between border-t px-4 py-3">
                         <p className="text-sm text-muted-foreground">
                             {total} {t("journeys").toLowerCase()}
@@ -469,86 +494,6 @@ export default function Journeys() {
                 </div>
             </div>
 
-            <Dialog open={archivedOpen} onOpenChange={setArchivedOpen}>
-                <DialogContent className="max-w-xl p-0 overflow-hidden">
-                    <DialogHeader className="gap-2 border-b bg-muted/30 px-6 py-4">
-                        <div className="flex items-center justify-between gap-3">
-                            <div className="flex items-center gap-3">
-                                <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary/10 text-primary">
-                                    <Archive className="h-4 w-4" />
-                                </div>
-                                <DialogTitle>
-                                    {t("archived_journeys", "Archived journeys")}
-                                </DialogTitle>
-                            </div>
-                        </div>
-                        <DialogDescription>
-                            {t(
-                                "archived_journeys_description",
-                                "Restore a journey to make it active again.",
-                            )}
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="max-h-[60vh] overflow-y-auto px-6 py-4">
-                        {!archivedResult ? (
-                            <div className="flex flex-col items-center gap-2 py-8 text-sm text-muted-foreground">
-                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
-                                    <ArchiveRestore className="h-5 w-5" />
-                                </div>
-                                <p>{t("loading", "Loading...")}</p>
-                            </div>
-                        ) : archivedResult.length === 0 ? (
-                            <div className="flex flex-col items-center gap-2 py-8 text-sm text-muted-foreground">
-                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
-                                    <ArchiveRestore className="h-5 w-5" />
-                                </div>
-                                <p>{t("no_archived_journeys", "No archived journeys")}</p>
-                            </div>
-                        ) : (
-                            <div className="space-y-1">
-                                {archivedResult.map((journey) => {
-                                    const journeyColor = getRandomColor(journey.name ?? journey.id)
-                                    const archivedAt =
-                                        ("deleted_at" in journey
-                                            ? (journey as { deleted_at?: string }).deleted_at
-                                            : undefined) ?? journey.updated_at
-                                    return (
-                                        <div
-                                            key={journey.id}
-                                            className="group flex items-center gap-3 rounded-md border border-transparent px-2 py-2 transition hover:border-border hover:bg-muted/40"
-                                        >
-                                            <div
-                                                className="flex h-9 w-9 items-center justify-center rounded-md shrink-0"
-                                                style={{ backgroundColor: journeyColor }}
-                                            >
-                                                <GitBranch className="h-4 w-4 text-white" />
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <div className="text-sm font-medium truncate">
-                                                    {journey.name}
-                                                </div>
-                                                <div className="text-xs text-muted-foreground">
-                                                    {t("archived_on", "Archived on")}{" "}
-                                                    {formatDate(preferences, archivedAt, "PP")}
-                                                </div>
-                                            </div>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="shrink-0 text-primary hover:text-primary border border-border"
-                                                onClick={() => handleUnarchiveJourney(journey.id)}
-                                                aria-label={t("unarchive", "Unarchive")}
-                                            >
-                                                <ArchiveRestore className="h-4 w-4" />
-                                            </Button>
-                                        </div>
-                                    )
-                                })}
-                            </div>
-                        )}
-                    </div>
-                </DialogContent>
-            </Dialog>
 
             {/* Create Journey Dialog */}
             <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>

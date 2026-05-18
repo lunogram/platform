@@ -46,13 +46,6 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogDescription,
-} from "@/components/ui/dialog"
 
 const channelIcons: Record<ChannelType, typeof Mail> = {
     email: Mail,
@@ -81,7 +74,7 @@ export default function Campaigns({ create = false }: CampaignsProps) {
     const [searchQuery, setSearchQuery] = useState("")
     const [debouncedQuery, setDebouncedQuery] = useState("")
     const [offset, setOffset] = useState(0)
-    const [archivedOpen, setArchivedOpen] = useState(false)
+    const [showArchived, setShowArchived] = useState(false)
     const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
     const handleSearch = useCallback((value: string) => {
@@ -122,7 +115,7 @@ export default function Campaigns({ create = false }: CampaignsProps) {
 
     const [archivedResult, , reloadArchived] = useResolver(
         useCallback(async () => {
-            if (!archivedOpen) return null
+            if (!showArchived) return null
             const response = await oapiClient.GET("/api/admin/projects/{projectID}/campaigns", {
                 params: {
                     path: {
@@ -131,17 +124,20 @@ export default function Campaigns({ create = false }: CampaignsProps) {
                     query: {
                         limit: 100,
                         include_deleted: true,
+                        search: debouncedQuery || undefined,
                     },
                 },
             })
             if (response.error || !response.data) return null
             return response.data.results?.filter((c) => c.archived) ?? []
-        }, [project.id, archivedOpen]),
+        }, [project.id, debouncedQuery, showArchived]),
     )
 
-    const campaigns = result?.results
-    const hasNextPage = !!result && offset + pageSize < result.total
-    const hasPrevPage = offset > 0
+    const isArchivedView = showArchived
+    const campaigns = isArchivedView ? archivedResult : result?.results
+    const isLoading = isArchivedView ? archivedResult === null : !result
+    const hasNextPage = !isArchivedView && !!result && offset + pageSize < result.total
+    const hasPrevPage = !isArchivedView && offset > 0
 
     const handleNextPage = () => {
         if (hasNextPage) {
@@ -184,6 +180,7 @@ export default function Campaigns({ create = false }: CampaignsProps) {
                 },
             },
         })
+        setShowArchived(false)
         await reload()
     }
 
@@ -203,6 +200,7 @@ export default function Campaigns({ create = false }: CampaignsProps) {
             console.error("Failed to unarchive campaign", response.error)
             return
         }
+        setShowArchived(false)
         await Promise.all([reload(), reloadArchived()])
     }
 
@@ -260,7 +258,8 @@ export default function Campaigns({ create = false }: CampaignsProps) {
                         size="sm"
                         className="h-8 w-8 p-0"
                         aria-label={t("show_archived", "Show archived")}
-                        onClick={() => setArchivedOpen(true)}
+                        aria-pressed={showArchived}
+                        onClick={() => setShowArchived((prev) => !prev)}
                     >
                         <ArchiveRestore className="h-4 w-4" />
                     </Button>
@@ -282,7 +281,7 @@ export default function Campaigns({ create = false }: CampaignsProps) {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {!campaigns ? (
+                        {isLoading ? (
                             Array.from({ length: 5 }).map((_, i) => (
                                 <TableRow key={i}>
                                     <TableCell>
@@ -311,9 +310,14 @@ export default function Campaigns({ create = false }: CampaignsProps) {
                                     <div className="flex flex-col items-center gap-2 text-muted-foreground">
                                         <Megaphone className="h-8 w-8" />
                                         <p>
-                                            {debouncedQuery
-                                                ? t("no_campaigns_found")
-                                                : t("no_campaigns_yet", "No campaigns yet")}
+                                            {isArchivedView
+                                                ? t(
+                                                      "no_archived_campaigns",
+                                                      "No archived campaigns",
+                                                  )
+                                                : debouncedQuery
+                                                  ? t("no_campaigns_found")
+                                                  : t("no_campaigns_yet", "No campaigns yet")}
                                         </p>
                                     </div>
                                 </TableCell>
@@ -384,15 +388,32 @@ export default function Campaigns({ create = false }: CampaignsProps) {
                                                         <Copy className="mr-2 h-4 w-4" />
                                                         {t("duplicate")}
                                                     </DropdownMenuItem>
-                                                    <DropdownMenuItem
-                                                        onClick={(e) =>
-                                                            handleArchiveCampaign(e, campaign.id)
-                                                        }
-                                                        className="text-destructive"
-                                                    >
-                                                        <Archive className="mr-2 h-4 w-4" />
-                                                        {t("archive")}
-                                                    </DropdownMenuItem>
+                                                    {isArchivedView ? (
+                                                        <DropdownMenuItem
+                                                            onClick={(e) => {
+                                                                e.stopPropagation()
+                                                                handleUnarchiveCampaign(
+                                                                    campaign.id.toString(),
+                                                                )
+                                                            }}
+                                                        >
+                                                            <ArchiveRestore className="mr-2 h-4 w-4" />
+                                                            {t("unarchive", "Unarchive")}
+                                                        </DropdownMenuItem>
+                                                    ) : (
+                                                        <DropdownMenuItem
+                                                            onClick={(e) =>
+                                                                handleArchiveCampaign(
+                                                                    e,
+                                                                    campaign.id,
+                                                                )
+                                                            }
+                                                            className="text-destructive"
+                                                        >
+                                                            <Archive className="mr-2 h-4 w-4" />
+                                                            {t("archive")}
+                                                        </DropdownMenuItem>
+                                                    )}
                                                 </DropdownMenuContent>
                                             </DropdownMenu>
                                         </TableCell>
@@ -404,7 +425,7 @@ export default function Campaigns({ create = false }: CampaignsProps) {
                 </Table>
 
                 {/* Pagination */}
-                {campaigns && campaigns.length > 0 && (
+                {!isArchivedView && campaigns && campaigns.length > 0 && (
                     <div className="flex items-center justify-between border-t px-4 py-3">
                         <p className="text-sm text-muted-foreground">
                             {result?.total ?? campaigns.length} {t("campaign.plural").toLowerCase()}
@@ -481,89 +502,6 @@ export default function Campaigns({ create = false }: CampaignsProps) {
                     </div>
                 </div>
             </div>
-            <Dialog open={archivedOpen} onOpenChange={setArchivedOpen}>
-                <DialogContent className="max-w-xl p-0 overflow-hidden">
-                    <DialogHeader className="gap-2 border-b bg-muted/30 px-6 py-4">
-                        <div className="flex items-center justify-between gap-3">
-                            <div className="flex items-center gap-3">
-                                <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary/10 text-primary">
-                                    <Archive className="h-4 w-4" />
-                                </div>
-                                <DialogTitle>
-                                    {t("archived_campaigns", "Archived campaigns")}
-                                </DialogTitle>
-                            </div>
-                        </div>
-                        <DialogDescription>
-                            {t(
-                                "archived_campaigns_description",
-                                "Restore a campaign to make it active again.",
-                            )}
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="max-h-[60vh] overflow-y-auto px-6 py-4">
-                        {!archivedResult ? (
-                            <div className="flex flex-col items-center gap-2 py-8 text-sm text-muted-foreground">
-                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
-                                    <ArchiveRestore className="h-5 w-5" />
-                                </div>
-                                <p>{t("loading", "Loading...")}</p>
-                            </div>
-                        ) : archivedResult.length === 0 ? (
-                            <div className="flex flex-col items-center gap-2 py-8 text-sm text-muted-foreground">
-                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
-                                    <ArchiveRestore className="h-5 w-5" />
-                                </div>
-                                <p>{t("no_archived_campaigns", "No archived campaigns")}</p>
-                            </div>
-                        ) : (
-                            <div className="space-y-1">
-                                {archivedResult.map((campaign) => {
-                                    const campaignColor = getRandomColor(
-                                        campaign.name ?? campaign.id,
-                                    )
-                                    const ChannelIcon = channelIcons[campaign.channel] ?? Mail
-                                    const archivedAt =
-                                        ("deleted_at" in campaign
-                                            ? (campaign as { deleted_at?: string }).deleted_at
-                                            : undefined) ?? campaign.updated_at
-                                    return (
-                                        <div
-                                            key={campaign.id}
-                                            className="group flex items-center gap-3 rounded-md border border-transparent px-2 py-2 transition hover:border-border hover:bg-muted/40"
-                                        >
-                                            <div
-                                                className="flex h-9 w-9 items-center justify-center rounded-md shrink-0"
-                                                style={{ backgroundColor: campaignColor }}
-                                            >
-                                                <ChannelIcon className="h-4 w-4 text-white" />
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <div className="text-sm font-medium truncate">
-                                                    {campaign.name}
-                                                </div>
-                                                <div className="text-xs text-muted-foreground">
-                                                    {t("archived_on", "Archived on")}{" "}
-                                                    {formatDate(preferences, archivedAt, "PP")}
-                                                </div>
-                                            </div>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="shrink-0 text-primary hover:text-primary border border-border"
-                                                onClick={() => handleUnarchiveCampaign(campaign.id)}
-                                                aria-label={t("unarchive", "Unarchive")}
-                                            >
-                                                <ArchiveRestore className="h-4 w-4" />
-                                            </Button>
-                                        </div>
-                                    )
-                                })}
-                            </div>
-                        )}
-                    </div>
-                </DialogContent>
-            </Dialog>
         </div>
     )
 }
