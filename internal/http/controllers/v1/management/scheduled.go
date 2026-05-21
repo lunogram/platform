@@ -269,17 +269,17 @@ func (srv *ScheduledController) GetUserScheduled(w http.ResponseWriter, r *http.
 
 	logger.Info("user schedules listed", zap.Int("total", total), zap.Int("count", len(items)))
 
-	results := make([]oapi.UserScheduled, len(items))
+	results := make([]scheduledResponse, len(items))
 	for i, item := range items {
 		results[i] = userScheduleToOAPI(item)
 	}
 
-	json.Write(w, http.StatusOK, oapi.UserScheduledList{
-		Results: results,
-		Total:   total,
-		Limit:   pagination.Limit,
-		Offset:  pagination.Offset,
-	})
+	json.Write(w, http.StatusOK, struct {
+		Results []scheduledResponse `json:"results"`
+		Total   int                 `json:"total"`
+		Limit   int                 `json:"limit"`
+		Offset  int                 `json:"offset"`
+	}{Results: results, Total: total, Limit: pagination.Limit, Offset: pagination.Offset})
 }
 
 // UpsertUserScheduled creates or updates a scheduled instance for a specific user.
@@ -548,17 +548,17 @@ func (srv *ScheduledController) GetOrganizationScheduled(w http.ResponseWriter, 
 
 	logger.Info("organization schedules listed", zap.Int("total", total), zap.Int("count", len(items)))
 
-	results := make([]oapi.UserScheduled, len(items))
+	results := make([]scheduledResponse, len(items))
 	for i, item := range items {
 		results[i] = orgScheduleToOAPI(item)
 	}
 
-	json.Write(w, http.StatusOK, oapi.UserScheduledList{
-		Results: results,
-		Total:   total,
-		Limit:   pagination.Limit,
-		Offset:  pagination.Offset,
-	})
+	json.Write(w, http.StatusOK, struct {
+		Results []scheduledResponse `json:"results"`
+		Total   int                 `json:"total"`
+		Limit   int                 `json:"limit"`
+		Offset  int                 `json:"offset"`
+	}{Results: results, Total: total, Limit: pagination.Limit, Offset: pagination.Offset})
 }
 
 // UpsertOrganizationScheduled creates or updates a scheduled instance for a specific organization.
@@ -782,19 +782,29 @@ func (srv *ScheduledController) UpdateOrganizationScheduled(w http.ResponseWrite
 	json.Write(w, http.StatusOK, orgScheduleToOAPI(*updated))
 }
 
+// scheduledResponse embeds the generated OAPI type and adds computed fields
+// that don't belong in the public spec.
+type scheduledResponse struct {
+	oapi.UserScheduled
+	HasPendingEvents bool `json:"has_pending_events"`
+}
+
 // userScheduleToOAPI converts a store UserSchedule to the OAPI UserScheduled type.
-func userScheduleToOAPI(us subjects.UserSchedule) oapi.UserScheduled {
-	result := oapi.UserScheduled{
-		Id:          us.ID,
-		UserId:      us.UserID,
-		ScheduledId: us.ScheduleID,
-		Data:        us.Data,
-		Interval:    us.Interval,
-		StartAt:     us.StartAt,
-		AnchorAt:    us.AnchorAt,
-		PausedAt:    us.PausedAt,
-		CreatedAt:   us.CreatedAt,
-		UpdatedAt:   us.UpdatedAt,
+func userScheduleToOAPI(us subjects.UserSchedule) scheduledResponse {
+	result := scheduledResponse{
+		UserScheduled: oapi.UserScheduled{
+			Id:          us.ID,
+			UserId:      us.UserID,
+			ScheduledId: us.ScheduleID,
+			Data:        us.Data,
+			Interval:    us.Interval,
+			StartAt:     us.StartAt,
+			AnchorAt:    us.AnchorAt,
+			PausedAt:    us.PausedAt,
+			CreatedAt:   us.CreatedAt,
+			UpdatedAt:   us.UpdatedAt,
+		},
+		HasPendingEvents: us.HasPendingEvents,
 	}
 	if us.ScheduledAt != nil {
 		result.ScheduledAt = *us.ScheduledAt
@@ -808,18 +818,21 @@ func userScheduleToOAPI(us subjects.UserSchedule) oapi.UserScheduled {
 
 // orgScheduleToOAPI converts a store OrganizationSchedule to the OAPI UserScheduled type.
 // Reuses UserScheduled since the wire format is the same; UserId carries OrganizationID.
-func orgScheduleToOAPI(os subjects.OrganizationSchedule) oapi.UserScheduled {
-	result := oapi.UserScheduled{
-		Id:          os.ID,
-		UserId:      os.OrganizationID,
-		ScheduledId: os.ScheduleID,
-		Data:        os.Data,
-		Interval:    os.Interval,
-		StartAt:     os.StartAt,
-		AnchorAt:    os.AnchorAt,
-		PausedAt:    os.PausedAt,
-		CreatedAt:   os.CreatedAt,
-		UpdatedAt:   os.UpdatedAt,
+func orgScheduleToOAPI(os subjects.OrganizationSchedule) scheduledResponse {
+	result := scheduledResponse{
+		UserScheduled: oapi.UserScheduled{
+			Id:          os.ID,
+			UserId:      os.OrganizationID,
+			ScheduledId: os.ScheduleID,
+			Data:        os.Data,
+			Interval:    os.Interval,
+			StartAt:     os.StartAt,
+			AnchorAt:    os.AnchorAt,
+			PausedAt:    os.PausedAt,
+			CreatedAt:   os.CreatedAt,
+			UpdatedAt:   os.UpdatedAt,
+		},
+		HasPendingEvents: os.HasPendingEvents,
 	}
 	if os.ScheduledAt != nil {
 		result.ScheduledAt = *os.ScheduledAt
