@@ -18,6 +18,7 @@ import {
     Pencil,
     Check,
     CalendarClock,
+    Inbox,
 } from "lucide-react"
 import { ProjectContext, UserContext } from "../../contexts"
 import { PreferencesContext } from "@/contexts/PreferencesContext"
@@ -154,6 +155,7 @@ export default function UserDetail() {
             label: t("scheduled", "Scheduled"),
             icon: CalendarClock,
         },
+        { key: "inbox", to: "inbox", label: t("inbox", "Inbox"), icon: Inbox },
         { key: "subscriptions", to: "subscriptions", label: t("subscriptions"), icon: Bell },
         { key: "journeys", to: "journeys", label: t("journeys"), icon: Route },
         { key: "organizations", to: "organizations", label: t("organizations"), icon: Building2 },

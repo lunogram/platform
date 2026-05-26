@@ -7,13 +7,10 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
+	"github.com/lunogram/platform/internal/ptr"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-func ptr[T any](v T) *T {
-	return &v
-}
 
 func TestJourneysStoreCreateJourney(t *testing.T) {
 	t.Parallel()
@@ -26,7 +23,7 @@ func TestJourneysStoreCreateJourney(t *testing.T) {
 		journeyID, err := store.CreateJourney(ctx, Journey{
 			ProjectID:   projectID,
 			Name:        "Onboarding Journey",
-			Description: ptr("Welcome new users"),
+			Description: ptr.To("Welcome new users"),
 		})
 		require.NoError(t, err)
 		assert.NotEqual(t, uuid.Nil, journeyID)
@@ -131,7 +128,7 @@ func TestJourneysStoreSetJourneySteps(t *testing.T) {
 		stepMap := oapi.JourneyStepMap{
 			"step-1": {
 				Type: "entrance",
-				Name: ptr("Welcome"),
+				Name: ptr.To("Welcome"),
 				X:    100,
 				Y:    200,
 				Children: []oapi.JourneyStepChild{
@@ -140,7 +137,7 @@ func TestJourneysStoreSetJourneySteps(t *testing.T) {
 			},
 			"step-2": {
 				Type: "exit",
-				Name: ptr("Goodbye"),
+				Name: ptr.To("Goodbye"),
 				X:    300,
 				Y:    400,
 			},
@@ -165,13 +162,13 @@ func TestJourneysStoreSetJourneySteps(t *testing.T) {
 		stepMap := oapi.JourneyStepMap{
 			"step-1": {
 				Type: "entrance",
-				Name: ptr("Updated Welcome"),
+				Name: ptr.To("Updated Welcome"),
 				X:    150,
 				Y:    250,
 			},
 			"step-2": {
 				Type: "exit",
-				Name: ptr("Updated Goodbye"),
+				Name: ptr.To("Updated Goodbye"),
 				X:    350,
 				Y:    450,
 			},
@@ -202,7 +199,7 @@ func TestJourneysStoreSetJourneySteps(t *testing.T) {
 		stepMap := oapi.JourneyStepMap{
 			"step-1": {
 				Type: "entrance",
-				Name: ptr("Welcome"),
+				Name: ptr.To("Welcome"),
 				X:    100,
 				Y:    200,
 			},
@@ -228,7 +225,7 @@ func TestJourneysStoreDuplicateJourney(t *testing.T) {
 	journeyID, err := store.CreateJourney(ctx, Journey{
 		ProjectID:   projectID,
 		Name:        "Original Journey",
-		Description: ptr("Original description"),
+		Description: ptr.To("Original description"),
 	})
 	require.NoError(t, err)
 
@@ -238,7 +235,7 @@ func TestJourneysStoreDuplicateJourney(t *testing.T) {
 	stepMap := oapi.JourneyStepMap{
 		"step-1": {
 			Type: "entrance",
-			Name: ptr("Welcome"),
+			Name: ptr.To("Welcome"),
 			X:    100,
 			Y:    200,
 			Children: []oapi.JourneyStepChild{
@@ -247,7 +244,7 @@ func TestJourneysStoreDuplicateJourney(t *testing.T) {
 		},
 		"step-2": {
 			Type: "exit",
-			Name: ptr("Goodbye"),
+			Name: ptr.To("Goodbye"),
 			X:    300,
 			Y:    400,
 		},
@@ -314,7 +311,7 @@ func TestJourneysStoreEventDependencies(t *testing.T) {
 		stepMap := oapi.JourneyStepMap{
 			"entrance-1": {
 				Type: "entrance",
-				Name: ptr("Signup Entrance"),
+				Name: ptr.To("Signup Entrance"),
 				X:    100,
 				Y:    200,
 			},
@@ -513,7 +510,7 @@ func TestJourneysStoreEnsureDraftVersionCopiesSteps(t *testing.T) {
 	stepMap := oapi.JourneyStepMap{
 		"step-1": {
 			Type: "entrance",
-			Name: ptr("Entrance"),
+			Name: ptr.To("Entrance"),
 			X:    100,
 			Y:    100,
 			Children: []oapi.JourneyStepChild{
@@ -522,7 +519,7 @@ func TestJourneysStoreEnsureDraftVersionCopiesSteps(t *testing.T) {
 		},
 		"step-2": {
 			Type: "email",
-			Name: ptr("Send Email"),
+			Name: ptr.To("Send Email"),
 			X:    200,
 			Y:    200,
 		},

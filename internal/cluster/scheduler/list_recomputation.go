@@ -16,7 +16,7 @@ func (controller *Controller) ReconcileListRecomputation(ctx context.Context) fu
 		start := time.Now()
 		var published, failed int
 
-		lists, err := controller.lists.SelectListsDueForTimeReconciliation(ctx)
+		lists, err := controller.lists.SelectListsDueForTimeReconciliation(ctx, controller.reconciliationBatchSize)
 		if err != nil {
 			controller.logger.Error("failed to select lists due for time reconciliation", zap.Error(err))
 			return

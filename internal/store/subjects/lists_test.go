@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/lunogram/platform/internal/ptr"
 	"github.com/lunogram/platform/internal/rules"
 	"github.com/lunogram/platform/internal/store"
 	"github.com/stretchr/testify/require"
@@ -1012,13 +1013,13 @@ func TestPreviewListUsers(t *testing.T) {
 	ctx := context.Background()
 
 	// Create users with different data
-	_, err := db.CreateUser(ctx, projectID, ptr("alice@example.com"), nil, []byte(`{"name":"Alice","age":30}`), nil, nil, []ExternalIDParam{{Source: "default", ExternalID: "alice"}})
+	_, err := db.CreateUser(ctx, projectID, ptr.To("alice@example.com"), nil, []byte(`{"name":"Alice","age":30}`), nil, nil, []ExternalIDParam{{Source: "default", ExternalID: "alice"}})
 	require.NoError(t, err)
 
-	_, err = db.CreateUser(ctx, projectID, ptr("bob@example.com"), nil, []byte(`{"name":"Bob","age":17}`), nil, nil, []ExternalIDParam{{Source: "default", ExternalID: "bob"}})
+	_, err = db.CreateUser(ctx, projectID, ptr.To("bob@example.com"), nil, []byte(`{"name":"Bob","age":17}`), nil, nil, []ExternalIDParam{{Source: "default", ExternalID: "bob"}})
 	require.NoError(t, err)
 
-	_, err = db.CreateUser(ctx, projectID, ptr("carol@example.com"), nil, []byte(`{"name":"Carol","age":25}`), nil, nil, []ExternalIDParam{{Source: "default", ExternalID: "carol"}})
+	_, err = db.CreateUser(ctx, projectID, ptr.To("carol@example.com"), nil, []byte(`{"name":"Carol","age":25}`), nil, nil, []ExternalIDParam{{Source: "default", ExternalID: "carol"}})
 	require.NoError(t, err)
 
 	// Rule: age >= 18 — should match Alice (30) and Carol (25) but not Bob (17)

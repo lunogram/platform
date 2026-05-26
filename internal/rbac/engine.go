@@ -3,7 +3,9 @@ package rbac
 import (
 	"context"
 	"fmt"
+	"sort"
 
+	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/http/problem"
 	openfgav1 "github.com/openfga/api/proto/openfga/v1"
 	"github.com/openfga/openfga/pkg/logger"
@@ -102,6 +104,41 @@ func (e *Engine) Allowed(ctx context.Context, permission Permission, scope Scope
 	}
 
 	return nil
+}
+
+// AllowedProject verifies that the authenticated actor in ctx has a valid
+// project scope and holds the given permission on the specified resource
+// within that project.
+//
+// This combines actor extraction, project scope validation, and permission
+// checking into a single call. It is the recommended way to authorize
+// project-scoped API handlers.
+//
+//	projectID, err := engine.AllowedProject(ctx, "users", rbac.Create)
+//	projectID, err := engine.AllowedProject(ctx, "inbox", rbac.Read)
+//
+// Returns the actor's project ID when authorized, or an error suitable for
+// writing as an HTTP problem response.
+func (e *Engine) AllowedProject(ctx context.Context, resource string, permission Permission) (uuid.UUID, error) {
+	actor := FromContext(ctx)
+	if actor == nil {
+		return uuid.Nil, problem.ErrUnauthorized()
+	}
+
+	if actor.ProjectID == uuid.Nil {
+		return uuid.Nil, problem.ErrUnauthorized(problem.Describe("project scope is required"))
+	}
+
+	allowed, err := e.Check(ctx, actor.UserKey(), string(permission), ProjectResourceScope(resource, actor.ProjectID))
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("rbac: permission check failed: %w", err)
+	}
+
+	if !allowed {
+		return uuid.Nil, problem.ErrForbidden(problem.Describe("missing permission: " + string(permission)))
+	}
+
+	return actor.ProjectID, nil
 }
 
 // Check returns true when the given user has the specified relation on the
@@ -264,12 +301,14 @@ func (e *Engine) ModelChanged() bool {
 }
 
 // modelsEqual compares two slices of type definitions using protobuf
-// equality. This catches any change in the model regardless of field
-// ordering within maps.
+// equality. Slices are sorted by type name before comparison so that
+// ordering differences do not cause false negatives.
 func modelsEqual(a, b []*openfgav1.TypeDefinition) bool {
 	if len(a) != len(b) {
 		return false
 	}
+	sort.Slice(a, func(i, j int) bool { return a[i].GetType() < a[j].GetType() })
+	sort.Slice(b, func(i, j int) bool { return b[i].GetType() < b[j].GetType() })
 	for i := range a {
 		if !proto.Equal(a[i], b[i]) {
 			return false

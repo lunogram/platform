@@ -15,6 +15,7 @@ import (
 	"github.com/lunogram/platform/internal/config"
 	"github.com/lunogram/platform/internal/container"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
+	"github.com/lunogram/platform/internal/ptr"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/consumer"
 	"github.com/lunogram/platform/internal/rbac"
@@ -846,7 +847,7 @@ func TestCreateDynamicListWithRule_IsDraft(t *testing.T) {
 	require.NoError(t, err)
 
 	// New dynamic lists with a rule should start as draft
-	require.Equal(t, oapi.ListStateDraft, response.State)
+	require.Equal(t, oapi.Draft, response.State)
 	require.NotNil(t, response.DraftRule, "draft_rule should be populated")
 	require.Nil(t, response.Rule, "published rule should be nil for draft list")
 }
@@ -923,7 +924,7 @@ func TestUpdateListSavesRuleToDraft(t *testing.T) {
 	err = json.Unmarshal(res.Body.Bytes(), &response)
 	require.NoError(t, err)
 
-	require.Equal(t, oapi.ListStateDraft, response.State)
+	require.Equal(t, oapi.Draft, response.State)
 	require.NotNil(t, response.DraftRule, "draft_rule should be populated after update with rule")
 	require.Nil(t, response.Rule, "published rule should be nil — not published yet")
 }
@@ -991,12 +992,12 @@ func TestUpdateListPublish(t *testing.T) {
 	var created oapi.List
 	err = json.Unmarshal(createRes.Body.Bytes(), &created)
 	require.NoError(t, err)
-	require.Equal(t, oapi.ListStateDraft, created.State)
+	require.Equal(t, oapi.Draft, created.State)
 
 	// Now publish the list
 	updateBody := oapi.UpdateListJSONRequestBody{
 		Name:      "Publishable List",
-		Published: ptr(true),
+		Published: ptr.To(true),
 	}
 
 	bb, err = json.Marshal(updateBody)
@@ -1013,7 +1014,7 @@ func TestUpdateListPublish(t *testing.T) {
 	err = json.Unmarshal(updateRes.Body.Bytes(), &published)
 	require.NoError(t, err)
 
-	require.Equal(t, oapi.ListStateReady, published.State, "state should be 'ready' after publish")
+	require.Equal(t, oapi.Ready, published.State, "state should be 'ready' after publish")
 	require.NotNil(t, published.Rule, "published rule should be populated after publish")
 	require.Nil(t, published.DraftRule, "draft_rule should be nil after publish (no pending draft)")
 }
@@ -1044,13 +1045,13 @@ func TestPreviewListUsers(t *testing.T) {
 
 	// Create users with different data
 	usersStore := subjects.NewUsersStore(usrs)
-	_, err = usersStore.CreateUser(ctx, projectID, ptr("alice@example.com"), nil, []byte(`{"name":"Alice","age":30}`), nil, nil, []subjects.ExternalIDParam{{Source: "default", ExternalID: "alice"}})
+	_, err = usersStore.CreateUser(ctx, projectID, ptr.To("alice@example.com"), nil, []byte(`{"name":"Alice","age":30}`), nil, nil, []subjects.ExternalIDParam{{Source: "default", ExternalID: "alice"}})
 	require.NoError(t, err)
 
-	_, err = usersStore.CreateUser(ctx, projectID, ptr("bob@example.com"), nil, []byte(`{"name":"Bob","age":17}`), nil, nil, []subjects.ExternalIDParam{{Source: "default", ExternalID: "bob"}})
+	_, err = usersStore.CreateUser(ctx, projectID, ptr.To("bob@example.com"), nil, []byte(`{"name":"Bob","age":17}`), nil, nil, []subjects.ExternalIDParam{{Source: "default", ExternalID: "bob"}})
 	require.NoError(t, err)
 
-	_, err = usersStore.CreateUser(ctx, projectID, ptr("carol@example.com"), nil, []byte(`{"name":"Carol","age":25}`), nil, nil, []subjects.ExternalIDParam{{Source: "default", ExternalID: "carol"}})
+	_, err = usersStore.CreateUser(ctx, projectID, ptr.To("carol@example.com"), nil, []byte(`{"name":"Carol","age":25}`), nil, nil, []subjects.ExternalIDParam{{Source: "default", ExternalID: "carol"}})
 	require.NoError(t, err)
 
 	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
@@ -1092,7 +1093,7 @@ func TestPreviewListUsers(t *testing.T) {
 	var created oapi.List
 	err = json.Unmarshal(createRes.Body.Bytes(), &created)
 	require.NoError(t, err)
-	require.Equal(t, oapi.ListStateDraft, created.State)
+	require.Equal(t, oapi.Draft, created.State)
 	require.NotNil(t, created.DraftRule)
 
 	t.Run("returns matching users for draft rule", func(t *testing.T) {
@@ -1256,7 +1257,7 @@ func TestDuplicatePublishedList_CreatesDraft(t *testing.T) {
 	// Publish the list
 	publishBody := oapi.UpdateListJSONRequestBody{
 		Name:      "Original Published List",
-		Published: ptr(true),
+		Published: ptr.To(true),
 	}
 
 	bb, err = json.Marshal(publishBody)
@@ -1283,7 +1284,7 @@ func TestDuplicatePublishedList_CreatesDraft(t *testing.T) {
 	require.NotEqual(t, created.Id, duplicated.Id)
 	require.Equal(t, "Copy of Original Published List", duplicated.Name)
 	// Duplicated list should start as draft
-	require.Equal(t, oapi.ListStateDraft, duplicated.State, "duplicated list should be draft")
+	require.Equal(t, oapi.Draft, duplicated.State, "duplicated list should be draft")
 	require.NotNil(t, duplicated.DraftRule, "duplicated list should have a draft_rule (copied from published)")
 	require.Nil(t, duplicated.Rule, "duplicated list should not have a published rule")
 }
