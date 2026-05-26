@@ -26,3 +26,8 @@ func ToParams(ids []ExternalID) []subjects.ExternalIDParam {
 	}
 	return result
 }
+
+// ExternalIDString returns the external ID string from the given ExternalID.
+func ExternalIDString(id ExternalID) *string {
+	return &id.ExternalId
+}

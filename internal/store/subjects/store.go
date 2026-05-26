@@ -14,8 +14,9 @@ func NewState(db store.DB, logger *zap.Logger) *State {
 		ListsStore:         NewListsStore(db),
 		RulesStore:         NewRulesStore(db),
 		ActionsStore:       NewActionsStore(db),
-		CampaignSendsStore: NewCampaignSendsStore(db),
-		ScheduledStore:     NewScheduledStore(db, logger),
+
+		InboxStore:     NewInboxStore(db),
+		ScheduledStore: NewScheduledStore(db, logger),
 	}
 }
 
@@ -27,6 +28,7 @@ type State struct {
 	*ListsStore
 	*RulesStore
 	*ActionsStore
-	*CampaignSendsStore
+
+	*InboxStore
 	*ScheduledStore
 }

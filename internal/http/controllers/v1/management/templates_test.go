@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/lunogram/platform/internal/ptr"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/rbac"
 
@@ -188,14 +189,14 @@ func TestUpdateTemplate(t *testing.T) {
 		"success": {
 			id: templateID,
 			body: oapi.UpdateTemplate{
-				Data: ptr(json.RawMessage(`{"subject":"Updated Subject"}`)),
+				Data: ptr.To(json.RawMessage(`{"subject":"Updated Subject"}`)),
 			},
 			code: 200,
 		},
 		"not found": {
 			id: uuid.Nil,
 			body: oapi.UpdateTemplate{
-				Data: ptr(json.RawMessage(`{}`)),
+				Data: ptr.To(json.RawMessage(`{}`)),
 			},
 			code: 404,
 		},

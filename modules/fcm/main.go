@@ -13,6 +13,7 @@ import (
 	"time"
 
 	pdk "github.com/extism/go-pdk"
+	"github.com/lunogram/platform/modules/fcm/payload"
 	"github.com/lunogram/platform/pkg/modules"
 	"github.com/lunogram/platform/pkg/modules/providers"
 )
@@ -113,44 +114,6 @@ type serviceAccount struct {
 	TokenURI    string `json:"token_uri"`
 }
 
-type fcmMessage struct {
-	Message fcmMessageBody `json:"message"`
-}
-
-type fcmMessageBody struct {
-	Token        string            `json:"token"`
-	Notification *fcmNotification  `json:"notification,omitempty"`
-	Data         map[string]string `json:"data,omitempty"`
-	Android      *fcmAndroidConfig `json:"android,omitempty"`
-	APNS         *fcmAPNSConfig    `json:"apns,omitempty"`
-}
-
-type fcmNotification struct {
-	Title    string `json:"title,omitempty"`
-	Body     string `json:"body,omitempty"`
-	ImageURL string `json:"image,omitempty"`
-}
-
-type fcmAndroidConfig struct {
-	Notification *fcmAndroidNotification `json:"notification,omitempty"`
-}
-
-type fcmAndroidNotification struct {
-	Sound string `json:"sound,omitempty"`
-}
-
-type fcmAPNSConfig struct {
-	Payload *fcmAPNSPayload `json:"payload,omitempty"`
-}
-
-type fcmAPNSPayload struct {
-	APS *fcmAPS `json:"aps,omitempty"`
-}
-
-type fcmAPS struct {
-	Sound string `json:"sound,omitempty"`
-}
-
 //go:export provider_send
 func Send() (code int32) {
 	stage := "init"
@@ -204,7 +167,7 @@ func Send() (code int32) {
 	}
 
 	stage = "send_notifications"
-	ok, fail, errs := sendAllFCM(accessToken, req.Config.ProjectID, push)
+	ok, fail, errs := sendAllFCM(accessToken, req.Config.ProjectID, push, req.Metadata)
 	response := buildSendResponse("fcm", ok, fail, len(push.Tokens), errs)
 
 	stage = "write_output"
@@ -314,9 +277,9 @@ func exchangeJWTForToken(tokenURI, jwt string) (string, error) {
 	return result.AccessToken, nil
 }
 
-func sendAllFCM(accessToken, projectID string, push providers.PushPayload) (ok, fail int, errs []string) {
+func sendAllFCM(accessToken, projectID string, push providers.PushPayload, metadata map[string]string) (ok, fail int, errs []string) {
 	for i, token := range push.Tokens {
-		if err := sendFCMNotification(accessToken, projectID, token, push); err != nil {
+		if err := sendFCMNotification(accessToken, projectID, token, push, metadata); err != nil {
 			fail++
 			msg := fmt.Sprintf("FCM token %d failed: %v", i+1, err)
 			errs = append(errs, msg)
@@ -328,31 +291,12 @@ func sendAllFCM(accessToken, projectID string, push providers.PushPayload) (ok, 
 	return
 }
 
-func sendFCMNotification(accessToken, projectID, token string, push providers.PushPayload) error {
+func sendFCMNotification(accessToken, projectID, token string, push providers.PushPayload, metadata map[string]string) error {
 	if token == "" {
 		return fmt.Errorf("empty FCM token")
 	}
 
-	msg := fcmMessageBody{
-		Token:        token,
-		Notification: &fcmNotification{Title: push.Title, Body: push.Body},
-	}
-	if push.ImageURL != nil {
-		msg.Notification.ImageURL = *push.ImageURL
-	}
-	if len(push.Data) > 0 {
-		stringData := make(map[string]string, len(push.Data))
-		for k, v := range push.Data {
-			stringData[k] = fmt.Sprintf("%v", v)
-		}
-		msg.Data = stringData
-	}
-	if push.Sound != nil {
-		msg.Android = &fcmAndroidConfig{Notification: &fcmAndroidNotification{Sound: *push.Sound}}
-		msg.APNS = &fcmAPNSConfig{Payload: &fcmAPNSPayload{APS: &fcmAPS{Sound: *push.Sound}}}
-	}
-
-	body, err := json.Marshal(fcmMessage{Message: msg})
+	body, err := payload.Build(token, push, metadata)
 	if err != nil {
 		return fmt.Errorf("failed to marshal FCM message: %w", err)
 	}

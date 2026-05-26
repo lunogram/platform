@@ -49,6 +49,11 @@ const (
 const (
 	ConsumerUsersProcess              = "users-process"
 	ConsumerUsersSchema               = "users-schema"
+	ConsumerUserInboxProcess          = "users-inbox-process"
+	ConsumerUserInboxDispatch         = "users-inbox-dispatch"
+	ConsumerUserInboxRead             = "users-inbox-opened"
+	ConsumerUserInboxArchived         = "users-inbox-archived"
+	ConsumerUserInboxSent             = "users-inbox-sent"
 	ConsumerUserEventsProcess         = "users-events-process"
 	ConsumerUserEventsSchema          = "users-events-schema"
 	ConsumerScheduledProcess          = "scheduled-process"
@@ -62,6 +67,11 @@ const (
 	ConsumerBroadcastsBatch           = "broadcasts-batch"
 	ConsumerOrganizationsProcess      = "organizations-process"
 	ConsumerOrganizationsSchema       = "organizations-schema"
+	ConsumerOrganizationInboxProcess  = "organizations-inbox-process"
+	ConsumerOrganizationInboxDispatch = "organizations-inbox-dispatch"
+	ConsumerOrganizationInboxRead     = "organizations-inbox-opened"
+	ConsumerOrganizationInboxArchived = "organizations-inbox-archived"
+	ConsumerOrganizationInboxSent     = "organizations-inbox-sent"
 	ConsumerOrganizationUsersProcess  = "organizations-users-process"
 	ConsumerOrganizationUsersSchema   = "organizations-users-schema"
 	ConsumerOrganizationEventsProcess = "organizations-events-process"
@@ -84,6 +94,12 @@ func Serve(ctx graceful.Context, jet jetstream.JetStream, logger *zap.Logger, ns
 
 	router.HandleStream(ns.Stream(StreamUsers), ns.Consumer(ConsumerUsersProcess), UsersHandler(logger, usrs, pub, schemaCache))
 	router.HandleStream(ns.Stream(StreamUsers), ns.Consumer(ConsumerUsersSchema), UserSchemasHandler(logger, usrs))
+	userInbox := NewUserInboxHandler(logger, db.Subjects, mgmt, usrs, registry, pub, NewLimiter(limiter))
+	router.HandleStream(ns.Stream(StreamUsers), ns.Consumer(ConsumerUserInboxProcess), userInbox.Messages())
+	router.HandleStream(ns.Stream(StreamUsers), ns.Consumer(ConsumerUserInboxDispatch), userInbox.Dispatch())
+	router.HandleStream(ns.Stream(StreamUsers), ns.Consumer(ConsumerUserInboxRead), userInbox.Read())
+	router.HandleStream(ns.Stream(StreamUsers), ns.Consumer(ConsumerUserInboxArchived), userInbox.Archived())
+	router.HandleStream(ns.Stream(StreamUsers), ns.Consumer(ConsumerUserInboxSent), userInbox.Sent())
 	router.HandleStream(ns.Stream(StreamUserEvents), ns.Consumer(ConsumerUserEventsProcess), UserEventsHandler(logger, usrs, jrny, pub, schemaCache))
 	router.HandleStream(ns.Stream(StreamUserEvents), ns.Consumer(ConsumerUserEventsSchema), UserEventSchemasHandler(logger, usrs))
 	router.HandleStream(ns.Stream(StreamUserEvents), ns.Consumer(ConsumerUserEventsMatch), WithInProgress(MatchUserEventsHandler(logger, usrs, jrny, pub, schemaCache)))
@@ -93,11 +109,17 @@ func Serve(ctx graceful.Context, jet jetstream.JetStream, logger *zap.Logger, ns
 	router.HandleStream(ns.Stream(StreamLists), ns.Consumer(ConsumerListsRecompute), RecomputeListHandler(logger, usrs, pub, recomputeLocker))
 	router.HandleStream(ns.Stream(StreamJourneys), ns.Consumer(ConsumerJourneysAdvance), JourneyStepHandler(logger, db.Subjects, jrny, mgmt, pub, actionRegistry, registry))
 	router.HandleStream(ns.Stream(StreamJourneys), ns.Consumer(ConsumerJourneysEntrance), JourneyEntranceHandler(logger, jrny, pub))
-	router.HandleStream(ns.Stream(StreamCampaigns), ns.Consumer(ConsumerCampaignsSend), CampaignsSendHandler(logger, mgmt, usrs, registry, renderer, pub, NewLimiter(limiter), publicURL, linkKey, trackingURL))
+	router.HandleStream(ns.Stream(StreamCampaigns), ns.Consumer(ConsumerCampaignsSend), CampaignsSendHandler(logger, db.Subjects, mgmt, usrs, renderer, pub, publicURL, linkKey, trackingURL))
 	router.HandleStream(ns.Stream(StreamBroadcasts), ns.Consumer(ConsumerBroadcastsProcess), BroadcastProcessHandler(logger, mgmt, usrs, registry, pub, ns))
 	router.HandleStream(ns.Stream(StreamBroadcasts), ns.Consumer(ConsumerBroadcastsBatch), BroadcastBatchHandler(logger, mgmt, usrs, pub, ns))
 	router.HandleStream(ns.Stream(StreamOrganizations), ns.Consumer(ConsumerOrganizationsProcess), OrganizationsHandler(logger, usrs, pub, schemaCache))
 	router.HandleStream(ns.Stream(StreamOrganizations), ns.Consumer(ConsumerOrganizationsSchema), OrganizationSchemasHandler(logger, usrs))
+	orgInbox := NewOrganizationInboxHandler(logger, db.Subjects, mgmt, usrs, registry, pub, NewLimiter(limiter))
+	router.HandleStream(ns.Stream(StreamOrganizations), ns.Consumer(ConsumerOrganizationInboxProcess), orgInbox.Messages())
+	router.HandleStream(ns.Stream(StreamOrganizations), ns.Consumer(ConsumerOrganizationInboxDispatch), orgInbox.Dispatch())
+	router.HandleStream(ns.Stream(StreamOrganizations), ns.Consumer(ConsumerOrganizationInboxRead), orgInbox.Read())
+	router.HandleStream(ns.Stream(StreamOrganizations), ns.Consumer(ConsumerOrganizationInboxArchived), orgInbox.Archived())
+	router.HandleStream(ns.Stream(StreamOrganizations), ns.Consumer(ConsumerOrganizationInboxSent), orgInbox.Sent())
 	router.HandleStream(ns.Stream(StreamOrganizationUsers), ns.Consumer(ConsumerOrganizationUsersProcess), OrganizationUsersHandler(logger, usrs, pub, schemaCache))
 	router.HandleStream(ns.Stream(StreamOrganizationUsers), ns.Consumer(ConsumerOrganizationUsersSchema), OrganizationUserSchemasHandler(logger, usrs))
 	router.HandleStream(ns.Stream(StreamOrganizationEvents), ns.Consumer(ConsumerOrganizationEventsProcess), OrganizationEventsHandler(logger, usrs, jrny, pub, schemaCache))
@@ -106,4 +128,5 @@ func Serve(ctx graceful.Context, jet jetstream.JetStream, logger *zap.Logger, ns
 	router.HandleStream(ns.Stream(StreamActions), ns.Consumer(ConsumerActionsSchema), ActionSchemasHandler(logger, usrs))
 	router.HandleCaller(ns.Subject(SubjectActionsExecute), ActionExecuteHandler(logger, actionRegistry, pub, schemaCache))
 	router.HandleCaller(ns.Subject(SubjectActionsValidate), ActionValidateHandler(logger, actionRegistry))
+
 }

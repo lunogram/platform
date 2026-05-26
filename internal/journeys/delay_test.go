@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
+	"github.com/lunogram/platform/internal/ptr"
 	"github.com/lunogram/platform/internal/store/journey"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -378,7 +379,7 @@ func TestCalculateResumeTime(t *testing.T) {
 		"date format - valid RFC3339": {
 			delayData: oapi.DelayStepData{
 				Format: oapi.Date,
-				Date:   ptr("2026-02-15T14:30:00Z"),
+				Date:   ptr.To("2026-02-15T14:30:00Z"),
 			},
 			data: map[string]any{},
 			checkFunc: func(t *testing.T, resumeAt time.Time) {
@@ -393,7 +394,7 @@ func TestCalculateResumeTime(t *testing.T) {
 		"date format - liquid template rendering": {
 			delayData: oapi.DelayStepData{
 				Format: oapi.Date,
-				Date:   ptr("{{ journey.entrance.resume_date }}"),
+				Date:   ptr.To("{{ journey.entrance.resume_date }}"),
 			},
 			data: map[string]any{
 				"journey": map[string]any{
@@ -413,7 +414,7 @@ func TestCalculateResumeTime(t *testing.T) {
 		"date format - date-only string uses user timezone at midnight": {
 			delayData: oapi.DelayStepData{
 				Format: oapi.Date,
-				Date:   ptr("2026-03-10"),
+				Date:   ptr.To("2026-03-10"),
 			},
 			data: map[string]any{
 				"user": map[string]any{
@@ -434,7 +435,7 @@ func TestCalculateResumeTime(t *testing.T) {
 		"date format - datetime without timezone uses user timezone": {
 			delayData: oapi.DelayStepData{
 				Format: oapi.Date,
-				Date:   ptr("2026-07-04T09:30:00"),
+				Date:   ptr.To("2026-07-04T09:30:00"),
 			},
 			data: map[string]any{
 				"user": map[string]any{
@@ -455,7 +456,7 @@ func TestCalculateResumeTime(t *testing.T) {
 		"date format - date-only without user timezone falls back to UTC": {
 			delayData: oapi.DelayStepData{
 				Format: oapi.Date,
-				Date:   ptr("2026-03-10"),
+				Date:   ptr.To("2026-03-10"),
 			},
 			data: map[string]any{},
 			checkFunc: func(t *testing.T, resumeAt time.Time) {
@@ -471,7 +472,7 @@ func TestCalculateResumeTime(t *testing.T) {
 		"date format - RFC3339 with offset ignores user timezone": {
 			delayData: oapi.DelayStepData{
 				Format: oapi.Date,
-				Date:   ptr("2026-07-04T09:30:00+05:30"),
+				Date:   ptr.To("2026-07-04T09:30:00+05:30"),
 			},
 			data: map[string]any{
 				"user": map[string]any{
@@ -490,7 +491,7 @@ func TestCalculateResumeTime(t *testing.T) {
 		"date format - liquid resolves to date-only with user timezone": {
 			delayData: oapi.DelayStepData{
 				Format: oapi.Date,
-				Date:   ptr("{{ journey.entrance.target_date }}"),
+				Date:   ptr.To("{{ journey.entrance.target_date }}"),
 			},
 			data: map[string]any{
 				"user": map[string]any{
@@ -516,7 +517,7 @@ func TestCalculateResumeTime(t *testing.T) {
 		"date format - invalid date string": {
 			delayData: oapi.DelayStepData{
 				Format: oapi.Date,
-				Date:   ptr("not-a-date"),
+				Date:   ptr.To("not-a-date"),
 			},
 			data:    map[string]any{},
 			wantErr: true,

@@ -53,10 +53,16 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 	bootstrap.EnsureStream(ctx, jetstream.StreamConfig{
 		Name:        ns.Stream(StreamUsers),
 		Description: "Responsible for receiving incoming users",
-		Subjects:    []string{ns.Subject("users.process.>"), ns.Subject("users.schema.>")},
+		Subjects:    []string{ns.Subject("users.process.>"), ns.Subject("users.schema.>"), ns.Subject("users.inbox.>")},
 		Discard:     jetstream.DiscardOld,
 		MaxAge:      24 * time.Hour,
 		Replicas:    1,
+		// Duplicates covers Msg-Id-based dedup for inbox dispatch fan-out
+		// publishes. It must outlive the upstream inbox handler's retry
+		// window (ProcessMaxDeliver with up to 10m backoff steps) so that
+		// re-fan-outs from a redelivered inbox.process message are
+		// deduplicated by JetStream.
+		Duplicates: 1 * time.Hour,
 	})
 
 	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamUsers), jetstream.ConsumerConfig{
@@ -77,6 +83,51 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 		MaxDeliver:    DefaultMaxDeliver,
 	})
 
+	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamUsers), jetstream.ConsumerConfig{
+		Name:          ns.Consumer(ConsumerUserInboxProcess),
+		FilterSubject: ns.Subject("users.inbox.process.>"),
+		Description:   "Processes user inbox messages",
+		AckPolicy:     jetstream.AckExplicitPolicy,
+		BackOff:       DefaultBackOff,
+		MaxDeliver:    ProcessMaxDeliver,
+	})
+
+	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamUsers), jetstream.ConsumerConfig{
+		Name:          ns.Consumer(ConsumerUserInboxDispatch),
+		FilterSubject: ns.Subject("users.inbox.dispatch.>"),
+		Description:   "Dispatches a single push inbox message to one provider",
+		AckPolicy:     jetstream.AckExplicitPolicy,
+		BackOff:       DefaultBackOff,
+		MaxDeliver:    ProcessMaxDeliver,
+	})
+
+	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamUsers), jetstream.ConsumerConfig{
+		Name:          ns.Consumer(ConsumerUserInboxRead),
+		FilterSubject: ns.Subject("users.inbox.read.>"),
+		Description:   "Applies read state transitions to user inbox messages",
+		AckPolicy:     jetstream.AckExplicitPolicy,
+		BackOff:       DefaultBackOff,
+		MaxDeliver:    ProcessMaxDeliver,
+	})
+
+	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamUsers), jetstream.ConsumerConfig{
+		Name:          ns.Consumer(ConsumerUserInboxArchived),
+		FilterSubject: ns.Subject("users.inbox.archived.>"),
+		Description:   "Applies archived state transitions to user inbox messages",
+		AckPolicy:     jetstream.AckExplicitPolicy,
+		BackOff:       DefaultBackOff,
+		MaxDeliver:    ProcessMaxDeliver,
+	})
+
+	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamUsers), jetstream.ConsumerConfig{
+		Name:          ns.Consumer(ConsumerUserInboxSent),
+		FilterSubject: ns.Subject("users.inbox.sent.>"),
+		Description:   "Processes user inbox message sent events for broadcast completion",
+		AckPolicy:     jetstream.AckExplicitPolicy,
+		BackOff:       DefaultBackOff,
+		MaxDeliver:    ProcessMaxDeliver,
+	})
+
 	bootstrap.EnsureStream(ctx, jetstream.StreamConfig{
 		Name:        ns.Stream(StreamUserEvents),
 		Description: "Responsible for receiving incoming user events",
@@ -84,6 +135,10 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 		Discard:     jetstream.DiscardOld,
 		MaxAge:      24 * time.Hour,
 		Replicas:    1,
+		// Inbox handlers publish lifecycle events (inbox.message.created,
+		// read, archived) with a stable Msg-Id. See StreamUsers for the
+		// rationale behind the duplicates window.
+		Duplicates: 1 * time.Hour,
 	})
 
 	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamUserEvents), jetstream.ConsumerConfig{
@@ -215,6 +270,10 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 		Replicas:          1,
 		AllowMsgSchedules: true,
 		AllowMsgTTL:       true,
+		// Broadcast batch fan-out publishes per-user SendCampaign messages
+		// with a deterministic Msg-Id. See StreamUsers for the rationale
+		// behind the duplicates window.
+		Duplicates: 1 * time.Hour,
 	})
 
 	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamCampaigns), jetstream.ConsumerConfig{
@@ -256,10 +315,12 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 	bootstrap.EnsureStream(ctx, jetstream.StreamConfig{
 		Name:        ns.Stream(StreamOrganizations),
 		Description: "Organization processing and schema extraction",
-		Subjects:    []string{ns.Subject("organizations.process.>"), ns.Subject("organizations.schema.>")},
+		Subjects:    []string{ns.Subject("organizations.process.>"), ns.Subject("organizations.schema.>"), ns.Subject("organizations.inbox.>")},
 		Discard:     jetstream.DiscardOld,
 		MaxAge:      24 * time.Hour,
 		Replicas:    1,
+		// See StreamUsers for the rationale behind the duplicates window.
+		Duplicates: 1 * time.Hour,
 	})
 
 	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamOrganizations), jetstream.ConsumerConfig{
@@ -278,6 +339,51 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 		FilterSubject: ns.Subject("organizations.schema.>"),
 		BackOff:       DefaultBackOff,
 		MaxDeliver:    DefaultMaxDeliver,
+	})
+
+	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamOrganizations), jetstream.ConsumerConfig{
+		Name:          ns.Consumer(ConsumerOrganizationInboxProcess),
+		FilterSubject: ns.Subject("organizations.inbox.process.>"),
+		Description:   "Processes organization inbox messages",
+		AckPolicy:     jetstream.AckExplicitPolicy,
+		BackOff:       DefaultBackOff,
+		MaxDeliver:    ProcessMaxDeliver,
+	})
+
+	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamOrganizations), jetstream.ConsumerConfig{
+		Name:          ns.Consumer(ConsumerOrganizationInboxDispatch),
+		FilterSubject: ns.Subject("organizations.inbox.dispatch.>"),
+		Description:   "Dispatches a single push inbox message to one provider",
+		AckPolicy:     jetstream.AckExplicitPolicy,
+		BackOff:       DefaultBackOff,
+		MaxDeliver:    ProcessMaxDeliver,
+	})
+
+	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamOrganizations), jetstream.ConsumerConfig{
+		Name:          ns.Consumer(ConsumerOrganizationInboxRead),
+		FilterSubject: ns.Subject("organizations.inbox.read.>"),
+		Description:   "Applies read state transitions to organization inbox messages",
+		AckPolicy:     jetstream.AckExplicitPolicy,
+		BackOff:       DefaultBackOff,
+		MaxDeliver:    ProcessMaxDeliver,
+	})
+
+	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamOrganizations), jetstream.ConsumerConfig{
+		Name:          ns.Consumer(ConsumerOrganizationInboxArchived),
+		FilterSubject: ns.Subject("organizations.inbox.archived.>"),
+		Description:   "Applies archived state transitions to organization inbox messages",
+		AckPolicy:     jetstream.AckExplicitPolicy,
+		BackOff:       DefaultBackOff,
+		MaxDeliver:    ProcessMaxDeliver,
+	})
+
+	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamOrganizations), jetstream.ConsumerConfig{
+		Name:          ns.Consumer(ConsumerOrganizationInboxSent),
+		FilterSubject: ns.Subject("organizations.inbox.sent.>"),
+		Description:   "Processes organization inbox message sent events for broadcast completion",
+		AckPolicy:     jetstream.AckExplicitPolicy,
+		BackOff:       DefaultBackOff,
+		MaxDeliver:    ProcessMaxDeliver,
 	})
 
 	bootstrap.EnsureStream(ctx, jetstream.StreamConfig{
@@ -314,6 +420,10 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 		Discard:     jetstream.DiscardOld,
 		MaxAge:      24 * time.Hour,
 		Replicas:    1,
+		// Inbox handlers publish lifecycle events (inbox.message.created,
+		// read, archived) with a stable Msg-Id. See StreamUsers for the
+		// rationale behind the duplicates window.
+		Duplicates: 1 * time.Hour,
 	})
 
 	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamOrganizationEvents), jetstream.ConsumerConfig{

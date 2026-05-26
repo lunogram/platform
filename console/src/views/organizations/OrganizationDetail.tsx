@@ -9,6 +9,7 @@ import {
     Activity,
     CalendarClock,
     ChevronRight,
+    Inbox,
     MoreHorizontal,
 } from "lucide-react"
 import { ProjectContext, OrganizationContext } from "../../contexts"
@@ -86,6 +87,7 @@ export default function OrganizationDetail() {
             label: t("scheduled", "Scheduled"),
             icon: CalendarClock,
         },
+        { key: "inbox", to: "inbox", label: t("inbox", "Inbox"), icon: Inbox },
     ]
 
     return (

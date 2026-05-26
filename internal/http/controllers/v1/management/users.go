@@ -14,15 +14,19 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/http/json"
+	httpparams "github.com/lunogram/platform/internal/http/params"
 	"github.com/lunogram/platform/internal/http/problem"
 	"github.com/lunogram/platform/internal/importer"
+	"github.com/lunogram/platform/internal/ptr"
 	"github.com/lunogram/platform/internal/pubsub"
+	"github.com/lunogram/platform/internal/pubsub/consumer"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
 	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/journey"
 	"github.com/lunogram/platform/internal/store/management"
 	"github.com/lunogram/platform/internal/store/subjects"
+	"github.com/lunogram/platform/pkg/modules"
 	"go.uber.org/zap"
 )
 
@@ -412,7 +416,7 @@ func (srv *UsersController) DeleteUserDevice(w http.ResponseWriter, r *http.Requ
 
 	logger.Info("deleting user device")
 
-	err = srv.users.DeleteDevice(ctx, projectID, deviceID)
+	err = srv.users.DeleteDevice(ctx, projectID, userID, deviceID)
 	if err != nil {
 		logger.Error("failed to delete device", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -621,6 +625,325 @@ func (srv *UsersController) GetUserEvents(w http.ResponseWriter, r *http.Request
 	}
 
 	json.Write(w, http.StatusOK, response)
+}
+
+func (srv *UsersController) GetUserInboxMessages(w http.ResponseWriter, r *http.Request, projectID, userID uuid.UUID, params oapi.GetUserInboxMessagesParams) {
+	ctx := r.Context()
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("inbox", projectID))
+	if err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	_, err = srv.users.GetUser(ctx, projectID, userID)
+	if errors.Is(err, sql.ErrNoRows) {
+		srv.logger.Info("user not found")
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
+		return
+	}
+	if err != nil {
+		srv.logger.Error("failed to get user", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	filter := subjects.InboxListFilter{
+		MessageSource:    params.MessageSource,
+		Priority:         params.Priority,
+		Search:           params.Search.ToString(),
+		IncludeArchived:  params.IncludeArchived != nil && *params.IncludeArchived,
+		IncludeScheduled: params.IncludeScheduled != nil && *params.IncludeScheduled,
+	}
+	if params.Status != nil {
+		filter.Status = string(*params.Status)
+	}
+	if params.Channel != nil {
+		filter.Channel = modules.Channel(*params.Channel)
+	}
+	if tags := httpparams.Split(ptr.From(params.Tags)); len(tags) > 0 {
+		filter.Tags = tags
+	}
+
+	pagination := store.Pagination{Limit: params.Limit.ToInt(), Offset: params.Offset.ToInt()}
+	messages, total, err := srv.users.ListUserInboxMessages(ctx, projectID, userID, pagination, filter)
+	if err != nil {
+		srv.logger.Error("failed to list user inbox messages", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	json.Write(w, http.StatusOK, oapi.InboxMessageList{Results: messages.OAPI(), Total: total, Limit: pagination.Limit, Offset: pagination.Offset})
+}
+
+func (srv *UsersController) CreateUserInboxMessage(w http.ResponseWriter, r *http.Request, projectID, userID uuid.UUID) {
+	ctx := r.Context()
+	err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("inbox", projectID))
+	if err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	_, err = srv.users.GetUser(ctx, projectID, userID)
+	if errors.Is(err, sql.ErrNoRows) {
+		srv.logger.Info("user not found")
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
+		return
+	}
+	if err != nil {
+		srv.logger.Error("failed to get user", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	var body oapi.CreateUserInboxMessageJSONRequestBody
+	if err := json.Decode(r.Body, &body); err != nil {
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid request body")))
+		return
+	}
+
+	tx, err := srv.usersDB.BeginTxx(ctx, nil)
+	if err != nil {
+		srv.logger.Error("failed to begin transaction", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+	defer tx.Rollback() //nolint:errcheck
+
+	inbox := subjects.NewInboxStore(tx)
+	params, err := inboxMessageParams(body)
+	if err != nil {
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid message data")))
+		return
+	}
+	message, err := inbox.CreateUserInboxMessage(ctx, projectID, userID, params)
+	if errors.Is(err, sql.ErrNoRows) {
+		oapi.WriteProblem(w, problem.ErrConflict(problem.Describe("inbox message already exists")))
+		return
+	}
+	if err != nil {
+		srv.logger.Error("failed to create user inbox message", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	if err := tx.Commit(); err != nil {
+		srv.logger.Error("failed to commit user inbox message", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	if message.IsDue() {
+		if err := srv.pubsub.Publish(ctx, schemas.UserInboxProcess(projectID), schemas.InboxMessage{
+			ProjectID: projectID,
+			MessageID: message.ID,
+			SubjectID: userID,
+			Channel:   string(message.Channel),
+		}); err != nil {
+			srv.logger.Error("failed to publish user inbox message", zap.Error(err))
+			oapi.WriteProblem(w, problem.ErrInternal())
+			return
+		}
+	}
+
+	json.Write(w, http.StatusCreated, message.OAPI())
+}
+
+func (srv *UsersController) ReadUserInboxMessage(w http.ResponseWriter, r *http.Request, projectID, userID, messageID uuid.UUID) {
+	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("inbox", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	tx, err := srv.usersDB.BeginTxx(ctx, nil)
+	if err != nil {
+		srv.logger.Error("failed to begin transaction", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+	defer tx.Rollback() //nolint:errcheck
+
+	inbox := subjects.NewInboxStore(tx)
+	message, transitioned, err := inbox.ReadUserInboxMessage(ctx, projectID, userID, messageID)
+	if errors.Is(err, sql.ErrNoRows) {
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("inbox message not found")))
+		return
+	}
+	if err != nil {
+		srv.logger.Error("failed to read user inbox message", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+	if err := tx.Commit(); err != nil {
+		srv.logger.Error("failed to commit user inbox message update", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+	if transitioned {
+		if err := consumer.PublishInboxLifecycleEvent(ctx, srv.pubsub, message, schemas.EventInboxMessageRead); err != nil {
+			srv.logger.Error("failed to publish user inbox event", zap.Error(err))
+			oapi.WriteProblem(w, problem.ErrInternal())
+			return
+		}
+	}
+	json.Write(w, http.StatusOK, message.OAPI())
+}
+
+func (srv *UsersController) ArchiveUserInboxMessage(w http.ResponseWriter, r *http.Request, projectID, userID, messageID uuid.UUID) {
+	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("inbox", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	tx, err := srv.usersDB.BeginTxx(ctx, nil)
+	if err != nil {
+		srv.logger.Error("failed to begin transaction", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+	defer tx.Rollback() //nolint:errcheck
+
+	inbox := subjects.NewInboxStore(tx)
+	message, transitioned, err := inbox.ArchiveUserInboxMessage(ctx, projectID, userID, messageID)
+	if errors.Is(err, sql.ErrNoRows) {
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("inbox message not found")))
+		return
+	}
+	if err != nil {
+		srv.logger.Error("failed to archive user inbox message", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+	if err := tx.Commit(); err != nil {
+		srv.logger.Error("failed to commit user inbox message update", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+	if transitioned {
+		if err := consumer.PublishInboxLifecycleEvent(ctx, srv.pubsub, message, schemas.EventInboxMessageArchived); err != nil {
+			srv.logger.Error("failed to publish user inbox event", zap.Error(err))
+			oapi.WriteProblem(w, problem.ErrInternal())
+			return
+		}
+	}
+	json.Write(w, http.StatusOK, message.OAPI())
+}
+
+func (srv *UsersController) UnarchiveUserInboxMessage(w http.ResponseWriter, r *http.Request, projectID, userID, messageID uuid.UUID) {
+	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("inbox", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	tx, err := srv.usersDB.BeginTxx(ctx, nil)
+	if err != nil {
+		srv.logger.Error("failed to begin transaction", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+	defer tx.Rollback() //nolint:errcheck
+
+	inbox := subjects.NewInboxStore(tx)
+	message, transitioned, err := inbox.UnarchiveUserInboxMessage(ctx, projectID, userID, messageID)
+	if errors.Is(err, sql.ErrNoRows) {
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("inbox message not found")))
+		return
+	}
+	if err != nil {
+		srv.logger.Error("failed to unarchive user inbox message", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+	if err := tx.Commit(); err != nil {
+		srv.logger.Error("failed to commit user inbox message update", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+	if transitioned {
+		if err := consumer.PublishInboxLifecycleEvent(ctx, srv.pubsub, message, schemas.EventInboxMessageUnarchived); err != nil {
+			srv.logger.Error("failed to publish user inbox event", zap.Error(err))
+			oapi.WriteProblem(w, problem.ErrInternal())
+			return
+		}
+	}
+	json.Write(w, http.StatusOK, message.OAPI())
+}
+
+func (srv *UsersController) UnreadUserInboxMessage(w http.ResponseWriter, r *http.Request, projectID, userID, messageID uuid.UUID) {
+	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("inbox", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	tx, err := srv.usersDB.BeginTxx(ctx, nil)
+	if err != nil {
+		srv.logger.Error("failed to begin transaction", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+	defer tx.Rollback() //nolint:errcheck
+
+	inbox := subjects.NewInboxStore(tx)
+	message, transitioned, err := inbox.UnreadUserInboxMessage(ctx, projectID, userID, messageID)
+	if errors.Is(err, sql.ErrNoRows) {
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("inbox message not found")))
+		return
+	}
+	if err != nil {
+		srv.logger.Error("failed to mark user inbox message as unread", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+	if err := tx.Commit(); err != nil {
+		srv.logger.Error("failed to commit user inbox message update", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+	if transitioned {
+		if err := consumer.PublishInboxLifecycleEvent(ctx, srv.pubsub, message, schemas.EventInboxMessageUnread); err != nil {
+			srv.logger.Error("failed to publish user inbox event", zap.Error(err))
+			oapi.WriteProblem(w, problem.ErrInternal())
+			return
+		}
+	}
+	json.Write(w, http.StatusOK, message.OAPI())
+}
+
+func (srv *UsersController) RescheduleUserInboxMessage(w http.ResponseWriter, r *http.Request, projectID, userID, messageID uuid.UUID) {
+	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("inbox", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+	if err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("scheduled", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	var body oapi.RescheduleUserInboxMessageJSONRequestBody
+	if err := json.Decode(r.Body, &body); err != nil {
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid request body")))
+		return
+	}
+
+	message, err := srv.users.UpdateUserInboxMessageScheduledAt(ctx, projectID, userID, messageID, body.ScheduledAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("inbox message not found")))
+		return
+	}
+	if errors.Is(err, subjects.ErrInboxMessageAlreadyDue) {
+		oapi.WriteProblem(w, problem.ErrConflict(problem.Describe("inbox message is already due and cannot be rescheduled")))
+		return
+	}
+	if err != nil {
+		srv.logger.Error("failed to reschedule user inbox message", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+	json.Write(w, http.StatusOK, message.OAPI())
 }
 
 func (srv *UsersController) CreateUserEvent(w http.ResponseWriter, r *http.Request, projectID, userID uuid.UUID) {
