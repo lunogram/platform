@@ -1,9 +1,12 @@
 import { useCallback, useState } from "react"
+import { useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import { Loader2, Trash2 } from "lucide-react"
+import * as z from "zod"
 
 import oapiClient, { type SenderIdentity } from "@/oapi/client"
 import { useResolver } from "@/hooks"
+import { phoneSchema } from "@/validation/phone"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -19,9 +22,6 @@ import {
     TableRow,
 } from "@/components/ui/table"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-const PHONE_RE = /^\+?[1-9]\d{6,14}$/
 
 interface SenderIdentityListProps {
     projectId: string
@@ -41,12 +41,16 @@ export function SenderIdentityList({
     onDefaultChange,
 }: SenderIdentityListProps) {
     const { t } = useTranslation()
-    const [newAddress, setNewAddress] = useState("")
-    const [newName, setNewName] = useState("")
     const [isCreating, setIsCreating] = useState(false)
     const [createError, setCreateError] = useState<string | null>(null)
     const [hasAttempted, setHasAttempted] = useState(false)
     const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+
+    const addressForm = useForm<{ address: string; name: string }>({
+        defaultValues: { address: "", name: "" },
+    })
+    const newAddress = addressForm.watch("address")
+    const newName = addressForm.watch("name")
     const [isDeleting, setIsDeleting] = useState(false)
 
     const [result, , reload] = useResolver(
@@ -69,7 +73,9 @@ export function SenderIdentityList({
 
     const isValidAddress = (address: string) => {
         if (!address.trim()) return false
-        return channel === "email" ? EMAIL_RE.test(address.trim()) : PHONE_RE.test(address.trim())
+        return channel === "email"
+            ? z.email().safeParse(address.trim()).success
+            : phoneSchema.safeParse(address.trim()).success
     }
 
     const inputIsValid = isValidAddress(newAddress)
@@ -99,8 +105,7 @@ export function SenderIdentityList({
                 )
                 return
             }
-            setNewAddress("")
-            setNewName("")
+            addressForm.reset()
             setHasAttempted(false)
             await reload()
         } catch {
@@ -168,8 +173,7 @@ export function SenderIdentityList({
                             <Input
                                 type="text"
                                 className="shadow-none"
-                                value={newName}
-                                onChange={(e) => setNewName(e.target.value)}
+                                {...addressForm.register("name")}
                                 onKeyDown={handleKeyDown}
                                 placeholder="Display name"
                                 disabled={isCreating}
@@ -178,9 +182,9 @@ export function SenderIdentityList({
                         <Input
                             type={channel === "email" ? "email" : "tel"}
                             className="shadow-none"
-                            value={newAddress}
+                            {...addressForm.register("address")}
                             onChange={(e) => {
-                                setNewAddress(e.target.value)
+                                addressForm.setValue("address", e.target.value)
                                 if (createError) setCreateError(null)
                             }}
                             onBlur={() => {
@@ -195,7 +199,7 @@ export function SenderIdentityList({
                             variant="outline"
                             size="sm"
                             className="h-9 shrink-0 shadow-none"
-                            onClick={handleCreate}
+                            onClick={addressForm.handleSubmit(handleCreate)}
                             disabled={!newAddress.trim() || !inputIsValid || isCreating}
                         >
                             {isCreating && <Loader2 className="h-4 w-4 animate-spin" />}

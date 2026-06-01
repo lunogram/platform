@@ -1,4 +1,6 @@
 import { useCallback, useState, useRef, useContext } from "react"
+import { Controller, useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
 import { useParams } from "react-router"
 import { useTranslation } from "react-i18next"
 import {
@@ -24,6 +26,7 @@ import { UsersIcon as UsersPageIcon } from "@/components/icons"
 import api from "../../api"
 import type { UUID } from "@/types/common"
 import type { User } from "../../types"
+import { createUserSchema, type CreateUserFormValues } from "@/validation/users/create-user"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -83,16 +86,18 @@ export default function Users() {
     const [isCreateOpen, setIsCreateOpen] = useState(false)
     const [isCreating, setIsCreating] = useState(false)
     const [isBulkImportOpen, setIsBulkImportOpen] = useState(false)
-    const [newUserExternalId, setNewUserExternalId] = useState("")
-    const [newUserEmail, setNewUserEmail] = useState("")
-    const [newUserPhone, setNewUserPhone] = useState("")
-    const [newUserTimezone, setNewUserTimezone] = useState(
-        () => Intl.DateTimeFormat().resolvedOptions().timeZone,
-    )
-    const [newUserLocale, setNewUserLocale] = useState(
-        () => navigator.languages[0]?.split("-")[0] ?? "en",
-    )
     const [newUserData, setNewUserData] = useState<Record<string, unknown>>({})
+
+    const form = useForm<CreateUserFormValues>({
+        resolver: zodResolver(createUserSchema),
+        defaultValues: {
+            external_id: "",
+            email: "",
+            phone: "",
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            locale: navigator.languages[0]?.split("-")[0] ?? "en",
+        },
+    })
     const [page, setPage] = useState(1)
     const limit = 15
     const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>()
@@ -123,30 +128,26 @@ export default function Users() {
     const hasNextPage = page < totalPages
     const hasPrevPage = page > 1
 
-    const createUser = async () => {
-        if (!newUserEmail.trim() && !newUserExternalId.trim()) return
+    const createUser = async (data: CreateUserFormValues) => {
+        if (!data.external_id?.trim() && !data.email) return
 
         setIsCreating(true)
         try {
             const newUser: User = {
-                identifier: newUserExternalId.trim()
-                    ? [{ source: "default", external_id: newUserExternalId.trim() }]
+                identifier: data.external_id.trim()
+                    ? [{ source: "default", external_id: data.external_id.trim() }]
                     : [{ source: "anonymous", external_id: crypto.randomUUID() }],
-                email: newUserEmail.trim() || undefined,
-                phone: newUserPhone.trim() || undefined,
-                timezone: newUserTimezone.trim() || undefined,
-                locale: newUserLocale.trim() || undefined,
+                email: data.email.trim() || undefined,
+                phone: data.phone.trim() || undefined,
+                timezone: data.timezone.trim() || undefined,
+                locale: data.locale.trim() || undefined,
                 data: newUserData,
             } as User
 
             await api.users.create(projectId, newUser)
             await reload()
             setIsCreateOpen(false)
-            setNewUserExternalId("")
-            setNewUserEmail("")
-            setNewUserPhone("")
-            setNewUserTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone)
-            setNewUserLocale(navigator.languages[0]?.split("-")[0] ?? "en")
+            form.reset()
             setNewUserData({})
         } finally {
             setIsCreating(false)
@@ -416,82 +417,99 @@ export default function Users() {
                             )}
                         </DialogDescription>
                     </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                        <div className="grid gap-2">
-                            <Label htmlFor="external_id">{t("identifier", "Identifier")}</Label>
-                            <Input
-                                id="external_id"
-                                placeholder={t("enter_identifier", "e.g., usr_123")}
-                                value={newUserExternalId}
-                                onChange={(e) => setNewUserExternalId(e.target.value)}
-                            />
-                        </div>
-                        <div className="grid sm:grid-cols-2 gap-4">
-                            <div className="grid gap-2 content-start">
-                                <Label htmlFor="email">{t("email")}</Label>
+                    <form id="create-user-form" onSubmit={form.handleSubmit(createUser)}>
+                        <div className="grid gap-4 py-4">
+                            <div className="grid gap-2">
+                                <Label htmlFor="external_id">{t("identifier", "Identifier")}</Label>
                                 <Input
-                                    id="email"
-                                    type="email"
-                                    placeholder={t("enter_email", "e.g., john@example.com")}
-                                    value={newUserEmail}
-                                    onChange={(e) => setNewUserEmail(e.target.value)}
+                                    id="external_id"
+                                    placeholder={t("enter_identifier", "e.g., usr_123")}
+                                    {...form.register("external_id")}
                                 />
-                            </div>
-                            <div className="grid gap-2 content-start">
-                                <Label htmlFor="phone">{t("phone")}</Label>
-                                <Input
-                                    id="phone"
-                                    placeholder={t("enter_phone", "e.g., +1 555 0123")}
-                                    value={newUserPhone}
-                                    onChange={(e) => setNewUserPhone(e.target.value)}
-                                />
-                            </div>
-                        </div>
-                        <div className="grid sm:grid-cols-2 gap-4">
-                            <div className="grid gap-2 content-start">
-                                <Label htmlFor="timezone">{t("timezone")}</Label>
-                                <Input
-                                    id="timezone"
-                                    placeholder={t("enter_timezone", "e.g., America/New_York")}
-                                    value={newUserTimezone}
-                                    onChange={(e) => setNewUserTimezone(e.target.value)}
-                                />
-                            </div>
-                            <div className="grid gap-2 content-start">
-                                <Label>{t("locale.singular")}</Label>
-                                <LocalePicker value={newUserLocale} onChange={setNewUserLocale} />
-                            </div>
-                        </div>
-                        <div className="grid gap-2">
-                            <Label>{t("data", "Data")}</Label>
-                            <AttributeEditor
-                                value={newUserData}
-                                onChange={setNewUserData}
-                                emptyTitle={t("no_data", "No data")}
-                                emptyDescription={t(
-                                    "no_data_description",
-                                    "Add custom attributes to this user.",
+                                {form.formState.errors.external_id && (
+                                    <p className="text-sm text-destructive">
+                                        {form.formState.errors.external_id.message}
+                                    </p>
                                 )}
-                            />
+                            </div>
+                            <div className="grid sm:grid-cols-2 gap-4">
+                                <div className="grid gap-2 content-start">
+                                    <Label htmlFor="email">{t("email")}</Label>
+                                    <Input
+                                        id="email"
+                                        type="email"
+                                        placeholder={t("enter_email", "e.g., john@example.com")}
+                                        {...form.register("email")}
+                                    />
+                                    {form.formState.errors.email && (
+                                        <p className="text-sm text-destructive">
+                                            {form.formState.errors.email.message}
+                                        </p>
+                                    )}
+                                </div>
+                                <div className="grid gap-2 content-start">
+                                    <Label htmlFor="phone">{t("phone")}</Label>
+                                    <Input
+                                        id="phone"
+                                        placeholder={t("enter_phone", "e.g., +1 555 0123")}
+                                        {...form.register("phone")}
+                                    />
+                                    {form.formState.errors.phone && (
+                                        <p className="text-sm text-destructive">
+                                            {form.formState.errors.phone.message}
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="grid sm:grid-cols-2 gap-4">
+                                <div className="grid gap-2 content-start">
+                                    <Label htmlFor="timezone">{t("timezone")}</Label>
+                                    <Input
+                                        id="timezone"
+                                        placeholder={t("enter_timezone", "e.g., America/New_York")}
+                                        {...form.register("timezone")}
+                                    />
+                                </div>
+                                <div className="grid gap-2 content-start">
+                                    <Label>{t("locale.singular")}</Label>
+                                    <Controller
+                                        control={form.control}
+                                        name="locale"
+                                        render={({ field }) => (
+                                            <LocalePicker
+                                                value={field.value ?? ""}
+                                                onChange={field.onChange}
+                                            />
+                                        )}
+                                    />
+                                </div>
+                            </div>
+                            <div className="grid gap-2">
+                                <Label>{t("data", "Data")}</Label>
+                                <AttributeEditor
+                                    value={newUserData}
+                                    onChange={setNewUserData}
+                                    emptyTitle={t("no_data", "No data")}
+                                    emptyDescription={t(
+                                        "no_data_description",
+                                        "Add custom attributes to this user.",
+                                    )}
+                                />
+                            </div>
                         </div>
-                    </div>
-                    <DialogFooter>
-                        <Button
-                            variant="outline"
-                            onClick={() => setIsCreateOpen(false)}
-                            disabled={isCreating}
-                        >
-                            {t("cancel")}
-                        </Button>
-                        <Button
-                            onClick={createUser}
-                            disabled={
-                                (!newUserEmail.trim() && !newUserExternalId.trim()) || isCreating
-                            }
-                        >
-                            {isCreating ? t("creating") : t("create")}
-                        </Button>
-                    </DialogFooter>
+                        <DialogFooter>
+                            <Button
+                                variant="outline"
+                                onClick={() => setIsCreateOpen(false)}
+                                disabled={isCreating}
+                            >
+                                {t("cancel")}
+                            </Button>
+                            <Button type="submit" disabled={isCreating}>
+                                {isCreating ? t("creating") : t("create")}
+                            </Button>
+                        </DialogFooter>
+                    </form>
                 </DialogContent>
             </Dialog>
 

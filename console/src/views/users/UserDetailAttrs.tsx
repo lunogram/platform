@@ -6,9 +6,12 @@ import { ProjectContext, UserContext } from "../../contexts"
 import { useResolver } from "../../hooks"
 import api from "../../api"
 import oapiClient from "../../oapi/client"
+import { Controller, useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
 import type { components } from "@/oapi/management.generated"
 
 import { Button } from "@/components/ui/button"
+import { deviceFormSchema, type DeviceFormValues } from "@/validation/users/device-form"
 import { AttributeEditor } from "@/components/ui/attribute-editor"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -173,44 +176,40 @@ export default function UserDetailAttrs() {
     const [deletingDeviceId, setDeletingDeviceId] = useState<string | null>(null)
     const [isAddOpen, setIsAddOpen] = useState(false)
     const [isAddingDevice, setIsAddingDevice] = useState(false)
-    const [newDeviceId, setNewDeviceId] = useState("")
-    const [newDeviceToken, setNewDeviceToken] = useState("")
-    const [newDeviceEndpoint, setNewDeviceEndpoint] = useState("")
-    const [newDeviceAuthKey, setNewDeviceAuthKey] = useState("")
-    const [newDeviceP256dhKey, setNewDeviceP256dhKey] = useState("")
-    const [newDeviceOS, setNewDeviceOS] = useState<"ios" | "android" | "web">("ios")
-    const [newDeviceOSVersion, setNewDeviceOSVersion] = useState("")
-    const [newDeviceModel, setNewDeviceModel] = useState("")
-    const [newDeviceAppBuild, setNewDeviceAppBuild] = useState("")
-    const [newDeviceAppVersion, setNewDeviceAppVersion] = useState("")
     const [newDeviceData, setNewDeviceData] = useState<Record<string, unknown>>({})
 
+    const deviceForm = useForm<DeviceFormValues>({
+        resolver: zodResolver(deviceFormSchema),
+        defaultValues: {
+            device_id: "",
+            os: "ios",
+            token: "",
+            endpoint: "",
+            auth_key: "",
+            p256dh_key: "",
+            os_version: "",
+            model: "",
+            app_build: "",
+            app_version: "",
+        },
+    })
+
+    const watchedOS = deviceForm.watch("os")
+
     const resetNewDeviceForm = () => {
-        setNewDeviceId("")
-        setNewDeviceToken("")
-        setNewDeviceEndpoint("")
-        setNewDeviceAuthKey("")
-        setNewDeviceP256dhKey("")
-        setNewDeviceOS("ios")
-        setNewDeviceOSVersion("")
-        setNewDeviceModel("")
-        setNewDeviceAppBuild("")
-        setNewDeviceAppVersion("")
+        deviceForm.reset()
         setNewDeviceData({})
     }
 
-    const handleAddDevice = async () => {
-        const deviceId = newDeviceId.trim()
+    const handleAddDevice = async (formData: DeviceFormValues) => {
+        const deviceId = formData.device_id.trim()
         if (!deviceId) return
 
-        const isWeb = newDeviceOS === "web"
-        const token = newDeviceToken.trim()
-        const endpoint = newDeviceEndpoint.trim()
-        const auth = newDeviceAuthKey.trim()
-        const p256dh = newDeviceP256dhKey.trim()
-
-        if (!isWeb && !token) return
-        if (isWeb && (!endpoint || !auth || !p256dh)) return
+        const isWeb = formData.os === "web"
+        const token = formData.token?.trim() ?? ""
+        const endpoint = formData.endpoint?.trim() ?? ""
+        const auth = formData.auth_key?.trim() ?? ""
+        const p256dh = formData.p256dh_key?.trim() ?? ""
 
         const parsedData = Object.keys(newDeviceData).length > 0 ? newDeviceData : undefined
 
@@ -241,11 +240,11 @@ export default function UserDetailAttrs() {
                                   }),
                         },
                         data: parsedData,
-                        os: newDeviceOS,
-                        os_version: newDeviceOSVersion.trim() || undefined,
-                        model: newDeviceModel.trim() || undefined,
-                        app_build: newDeviceAppBuild.trim() || undefined,
-                        app_version: newDeviceAppVersion.trim() || undefined,
+                        os: formData.os,
+                        os_version: formData.os_version?.trim() || undefined,
+                        model: formData.model?.trim() || undefined,
+                        app_build: formData.app_build?.trim() || undefined,
+                        app_version: formData.app_version?.trim() || undefined,
                     },
                 },
             )
@@ -419,31 +418,36 @@ export default function UserDetailAttrs() {
                                                 "device_id_placeholder",
                                                 "e.g., ios-sim-001",
                                             )}
-                                            value={newDeviceId}
-                                            onChange={(e) => setNewDeviceId(e.target.value)}
+                                            {...deviceForm.register("device_id")}
                                         />
                                     </div>
                                     <div className="grid gap-2 content-start">
                                         <Label htmlFor="new-device-os">{t("os", "OS")}</Label>
-                                        <Select
-                                            value={newDeviceOS}
-                                            onValueChange={(value) =>
-                                                setNewDeviceOS(value as "ios" | "android" | "web")
-                                            }
-                                        >
-                                            <SelectTrigger id="new-device-os">
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="ios">iOS</SelectItem>
-                                                <SelectItem value="android">Android</SelectItem>
-                                                <SelectItem value="web">Web</SelectItem>
-                                            </SelectContent>
-                                        </Select>
+                                        <Controller
+                                            control={deviceForm.control}
+                                            name="os"
+                                            render={({ field }) => (
+                                                <Select
+                                                    value={field.value}
+                                                    onValueChange={(value) => field.onChange(value)}
+                                                >
+                                                    <SelectTrigger id="new-device-os">
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="ios">iOS</SelectItem>
+                                                        <SelectItem value="android">
+                                                            Android
+                                                        </SelectItem>
+                                                        <SelectItem value="web">Web</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            )}
+                                        />
                                     </div>
                                 </div>
 
-                                {newDeviceOS === "web" ? (
+                                {watchedOS === "web" ? (
                                     <div className="grid gap-4">
                                         <div className="grid gap-2 content-start">
                                             <Label htmlFor="new-device-endpoint">
@@ -456,10 +460,7 @@ export default function UserDetailAttrs() {
                                                     "device_endpoint_placeholder",
                                                     "https://push.service/...",
                                                 )}
-                                                value={newDeviceEndpoint}
-                                                onChange={(e) =>
-                                                    setNewDeviceEndpoint(e.target.value)
-                                                }
+                                                {...deviceForm.register("endpoint")}
                                             />
                                         </div>
 
@@ -476,10 +477,7 @@ export default function UserDetailAttrs() {
                                                         "device_auth_key_placeholder",
                                                         "Web Push auth key",
                                                     )}
-                                                    value={newDeviceAuthKey}
-                                                    onChange={(e) =>
-                                                        setNewDeviceAuthKey(e.target.value)
-                                                    }
+                                                    {...deviceForm.register("auth_key")}
                                                 />
                                             </div>
                                             <div className="grid gap-2 content-start">
@@ -494,10 +492,7 @@ export default function UserDetailAttrs() {
                                                         "device_p256dh_key_placeholder",
                                                         "Web Push p256dh key",
                                                     )}
-                                                    value={newDeviceP256dhKey}
-                                                    onChange={(e) =>
-                                                        setNewDeviceP256dhKey(e.target.value)
-                                                    }
+                                                    {...deviceForm.register("p256dh_key")}
                                                 />
                                             </div>
                                         </div>
@@ -515,8 +510,7 @@ export default function UserDetailAttrs() {
                                                 "device_token_placeholder",
                                                 "e.g., fcm_token_abc123",
                                             )}
-                                            value={newDeviceToken}
-                                            onChange={(e) => setNewDeviceToken(e.target.value)}
+                                            {...deviceForm.register("token")}
                                         />
                                     </div>
                                 )}
@@ -529,8 +523,7 @@ export default function UserDetailAttrs() {
                                         <Input
                                             id="new-device-os-version"
                                             placeholder={t("os_version_placeholder", "e.g., 17.2")}
-                                            value={newDeviceOSVersion}
-                                            onChange={(e) => setNewDeviceOSVersion(e.target.value)}
+                                            {...deviceForm.register("os_version")}
                                         />
                                     </div>
                                     <div className="grid gap-2 content-start">
@@ -543,8 +536,7 @@ export default function UserDetailAttrs() {
                                                 "model_placeholder",
                                                 "e.g., iPhone 15 Pro",
                                             )}
-                                            value={newDeviceModel}
-                                            onChange={(e) => setNewDeviceModel(e.target.value)}
+                                            {...deviceForm.register("model")}
                                         />
                                     </div>
                                     <div className="grid gap-2 content-start">
@@ -557,8 +549,7 @@ export default function UserDetailAttrs() {
                                                 "app_version_placeholder",
                                                 "e.g., 2.1.0",
                                             )}
-                                            value={newDeviceAppVersion}
-                                            onChange={(e) => setNewDeviceAppVersion(e.target.value)}
+                                            {...deviceForm.register("app_version")}
                                         />
                                     </div>
                                     <div className="grid gap-2 content-start">
@@ -568,8 +559,7 @@ export default function UserDetailAttrs() {
                                         <Input
                                             id="new-device-app-build"
                                             placeholder={t("app_build_placeholder", "e.g., 142")}
-                                            value={newDeviceAppBuild}
-                                            onChange={(e) => setNewDeviceAppBuild(e.target.value)}
+                                            {...deviceForm.register("app_build")}
                                         />
                                     </div>
                                 </div>
@@ -600,16 +590,8 @@ export default function UserDetailAttrs() {
                                     {t("cancel", "Cancel")}
                                 </Button>
                                 <Button
-                                    onClick={handleAddDevice}
-                                    disabled={
-                                        !newDeviceId.trim() ||
-                                        (newDeviceOS === "web"
-                                            ? !newDeviceEndpoint.trim() ||
-                                              !newDeviceAuthKey.trim() ||
-                                              !newDeviceP256dhKey.trim()
-                                            : !newDeviceToken.trim()) ||
-                                        isAddingDevice
-                                    }
+                                    onClick={deviceForm.handleSubmit(handleAddDevice)}
+                                    disabled={isAddingDevice}
                                 >
                                     {isAddingDevice
                                         ? t("registering", "Registering...")
