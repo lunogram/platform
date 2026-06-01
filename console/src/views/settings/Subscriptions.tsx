@@ -1,6 +1,8 @@
 import { useCallback, useContext, useMemo, useState } from "react"
 import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
 import { useTranslation } from "react-i18next"
+import { subscriptionSchema } from "@/validation/settings/subscriptions"
 import { Plus, Search, Bell, MoreHorizontal } from "lucide-react"
 import api from "../../api"
 import { ProjectContext } from "../../contexts"
@@ -229,6 +231,7 @@ function SubscriptionDialog({ editing, onClose, onSave }: SubscriptionDialogProp
     const { t } = useTranslation()
     const [isSaving, setIsSaving] = useState(false)
     const form = useForm<Partial<Subscription>>({
+        resolver: zodResolver(subscriptionSchema),
         values: editing ?? undefined,
     })
 
@@ -273,7 +276,7 @@ function SubscriptionDialog({ editing, onClose, onSave }: SubscriptionDialogProp
                         <Label htmlFor="sub_name">
                             {t("name")} <span className="inline text-destructive">*</span>
                         </Label>
-                        <Input id="sub_name" {...form.register("name", { required: true })} />
+                        <Input id="sub_name" {...form.register("name")} />
                     </div>
 
                     <div className="flex items-center justify-between gap-4 rounded-lg border p-3">

@@ -1,4 +1,6 @@
 import { useCallback, useState } from "react"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
 import { useNavigate, useParams } from "react-router"
 import { useTranslation } from "react-i18next"
 import { Clock, Info, RefreshCw, X } from "lucide-react"
@@ -9,6 +11,10 @@ import type { Domain } from "@lunogram-enterprise/oapi-client/courier"
 import oapiClient from "@/oapi/client"
 import { useResolver } from "../../hooks"
 import { StatusBadge, DNSRecordsTable } from "../settings/Domains"
+import {
+    onboardingDomainSchema,
+    type OnboardingDomainFormValues,
+} from "@/validation/project/onboarding-domain"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -30,8 +36,6 @@ import {
     TableRow,
 } from "@/components/ui/table"
 import type { UUID } from "@/types/common"
-
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 const placeholderRecords = [
     {
@@ -62,10 +66,15 @@ export default function ProjectOnboardingDomain() {
     const { t } = useTranslation()
     const { projectId = NIL as UUID } = useParams<{ projectId: UUID }>()
 
-    const [emailAddress, setEmailAddress] = useState("")
-    const [displayName, setDisplayName] = useState("")
-    const [emailError, setEmailError] = useState<string | null>(null)
     const [isCreating, setIsCreating] = useState(false)
+
+    const form = useForm<OnboardingDomainFormValues>({
+        resolver: zodResolver(onboardingDomainSchema),
+        defaultValues: {
+            email_address: "",
+            display_name: "",
+        },
+    })
     const [isVerifying, setIsVerifying] = useState(false)
     const [isRemoving, setIsRemoving] = useState(false)
     const [activeDomain, setActiveDomain] = useState<Domain | null>(null)
@@ -136,21 +145,10 @@ export default function ProjectOnboardingDomain() {
         return match?.id ?? null
     })()
 
-    const handleSubmit = async () => {
-        const address = emailAddress.trim()
-        const name = displayName.trim()
+    const handleSubmit = form.handleSubmit(async (data) => {
+        const address = data.email_address.trim()
+        const name = data.display_name?.trim() ?? ""
 
-        // Validate email
-        if (!address) {
-            setEmailError(t("email_required", "Email address is required."))
-            return
-        }
-        if (!EMAIL_RE.test(address)) {
-            setEmailError(t("invalid_email", "Please enter a valid email address."))
-            return
-        }
-
-        setEmailError(null)
         setIsCreating(true)
 
         try {
@@ -188,14 +186,13 @@ export default function ProjectOnboardingDomain() {
             setActiveDomain(created)
             setActiveSenderIdentityId(senderIdentity?.id ?? null)
             setActiveEmail({ address, name: name || undefined })
-            setEmailAddress("")
-            setDisplayName("")
+            form.reset()
         } catch {
             toast.error(t("domain_create_failed", "Failed to add domain"))
         } finally {
             setIsCreating(false)
         }
-    }
+    })
 
     const handleVerify = async () => {
         if (!domain) return
@@ -255,7 +252,7 @@ export default function ProjectOnboardingDomain() {
         await navigate(`/projects/${projectId}/onboarding/users`)
     }
 
-    const isValidEmail = EMAIL_RE.test(emailAddress.trim())
+    const isValidEmail = form.formState.isValid
 
     // --- Provider gate: no courier provider ---
     // courierProvider is null initially (loading), and null if not found.
@@ -324,8 +321,7 @@ export default function ProjectOnboardingDomain() {
                                 <Input
                                     id="display-name"
                                     placeholder="Acme Inc."
-                                    value={displayName}
-                                    onChange={(e) => setDisplayName(e.target.value)}
+                                    {...form.register("display_name")}
                                     onKeyDown={(e) => {
                                         if (e.key === "Enter") {
                                             e.preventDefault()
@@ -344,11 +340,7 @@ export default function ProjectOnboardingDomain() {
                                     id="email-address"
                                     type="email"
                                     placeholder="hello@example.com"
-                                    value={emailAddress}
-                                    onChange={(e) => {
-                                        setEmailAddress(e.target.value)
-                                        if (emailError) setEmailError(null)
-                                    }}
+                                    {...form.register("email_address")}
                                     onKeyDown={(e) => {
                                         if (e.key === "Enter") {
                                             e.preventDefault()
@@ -358,8 +350,10 @@ export default function ProjectOnboardingDomain() {
                                     autoFocus
                                     disabled={isCreating}
                                 />
-                                {emailError && (
-                                    <p className="text-sm text-destructive">{emailError}</p>
+                                {form.formState.errors.email_address && (
+                                    <p className="text-sm text-destructive">
+                                        {form.formState.errors.email_address.message}
+                                    </p>
                                 )}
                             </div>
                         </div>
@@ -468,7 +462,7 @@ export default function ProjectOnboardingDomain() {
                 {!domain ? (
                     <>
                         <Button
-                            onClick={handleSubmit}
+                            onClick={() => handleSubmit()}
                             disabled={!isValidEmail}
                             isLoading={isCreating}
                         >

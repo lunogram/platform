@@ -1,5 +1,7 @@
 import { useCallback, useContext, useEffect, useMemo, useState } from "react"
 import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { providerFormSchema } from "@/validation/settings/integration-modal"
 import { useTranslation } from "react-i18next"
 import { ChevronLeft } from "lucide-react"
 import oapiClient from "@/oapi/client"
@@ -79,6 +81,7 @@ export function IntegrationForm({
     }, [project.id, defaultProvider])
 
     const form = useForm<ProviderFormValues>({
+        resolver: zodResolver(providerFormSchema),
         values: provider
             ? {
                   name: provider.name,
@@ -166,7 +169,7 @@ export function IntegrationForm({
                 <Label className="inline-flex items-center gap-1">
                     {t("name")} <span className="text-destructive">*</span>
                 </Label>
-                <Input {...form.register("name", { required: true })} />
+                <Input {...form.register("name")} />
             </div>
 
             {dataSchema && <FormSchemaFields parent="data" schema={dataSchema} form={form} />}
