@@ -105,7 +105,12 @@ export default function ProjectForm({ project, onSave }: ProjectFormProps) {
 
     const isEditing = !!project
     return (
-        <AlertDialog open={!!saveError} onOpenChange={() => setSaveError(null)}>
+        <AlertDialog
+            open={!!saveError}
+            onOpenChange={(open: boolean) => {
+                if (!open) setSaveError(null)
+            }}
+        >
             <FormProvider {...form}>
                 <form onSubmit={handleSubmit} className="space-y-6">
                     {isEditing ? (
