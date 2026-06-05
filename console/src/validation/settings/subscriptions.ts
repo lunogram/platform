@@ -2,7 +2,7 @@ import * as z from "zod"
 
 export const subscriptionSchema = z.object({
     name: z.string().min(1, "Name is required"),
-    is_public: z.boolean().optional(),
+    is_public: z.boolean().default(false),
     channel: z.enum(["email", "push", "sms"]).optional(),
 })
 

@@ -313,7 +313,7 @@ export default function IntegrationSetup() {
                         name: "",
                         data: {},
                         module: effectiveModule ?? "",
-                        link_wrap: true,
+                        link_wrap: false,
                         rate_limit: null,
                         rate_interval: "1s",
                     },
@@ -596,6 +596,11 @@ export default function IntegrationSetup() {
                             {t("name")} <span className="text-destructive">*</span>
                         </FieldLabel>
                         <Input {...form.register("name")} disabled={isReadOnlyProvider} />
+                        {form.formState.errors.name && (
+                            <p className="text-sm text-destructive">
+                                {form.formState.errors.name.message}
+                            </p>
+                        )}
                     </Field>
 
                     {isReadOnlyProvider && (

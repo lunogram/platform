@@ -420,6 +420,11 @@ export default function UserDetailAttrs() {
                                             )}
                                             {...deviceForm.register("device_id")}
                                         />
+                                        {deviceForm.formState.errors.device_id && (
+                                            <p className="text-sm text-destructive">
+                                                {deviceForm.formState.errors.device_id.message}
+                                            </p>
+                                        )}
                                     </div>
                                     <div className="grid gap-2 content-start">
                                         <Label htmlFor="new-device-os">{t("os", "OS")}</Label>
@@ -462,6 +467,11 @@ export default function UserDetailAttrs() {
                                                 )}
                                                 {...deviceForm.register("endpoint")}
                                             />
+                                            {deviceForm.formState.errors.endpoint && (
+                                                <p className="text-sm text-destructive">
+                                                    {deviceForm.formState.errors.endpoint.message}
+                                                </p>
+                                            )}
                                         </div>
 
                                         <div className="grid sm:grid-cols-2 gap-4">
@@ -479,6 +489,11 @@ export default function UserDetailAttrs() {
                                                     )}
                                                     {...deviceForm.register("auth_key")}
                                                 />
+                                                {deviceForm.formState.errors.auth_key && (
+                                                    <p className="text-sm text-destructive">
+                                                        {deviceForm.formState.errors.auth_key.message}
+                                                    </p>
+                                                )}
                                             </div>
                                             <div className="grid gap-2 content-start">
                                                 <Label htmlFor="new-device-p256dh-key">
@@ -494,6 +509,11 @@ export default function UserDetailAttrs() {
                                                     )}
                                                     {...deviceForm.register("p256dh_key")}
                                                 />
+                                                {deviceForm.formState.errors.p256dh_key && (
+                                                    <p className="text-sm text-destructive">
+                                                        {deviceForm.formState.errors.p256dh_key.message}
+                                                    </p>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
@@ -512,6 +532,11 @@ export default function UserDetailAttrs() {
                                             )}
                                             {...deviceForm.register("token")}
                                         />
+                                        {deviceForm.formState.errors.token && (
+                                            <p className="text-sm text-destructive">
+                                                {deviceForm.formState.errors.token.message}
+                                            </p>
+                                        )}
                                     </div>
                                 )}
 

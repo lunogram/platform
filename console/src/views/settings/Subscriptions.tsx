@@ -277,6 +277,11 @@ function SubscriptionDialog({ editing, onClose, onSave }: SubscriptionDialogProp
                             {t("name")} <span className="inline text-destructive">*</span>
                         </Label>
                         <Input id="sub_name" {...form.register("name")} />
+                        {form.formState.errors.name && (
+                            <p className="text-sm text-destructive">
+                                {form.formState.errors.name.message}
+                            </p>
+                        )}
                     </div>
 
                     <div className="flex items-center justify-between gap-4 rounded-lg border p-3">

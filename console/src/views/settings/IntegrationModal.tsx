@@ -89,7 +89,7 @@ export function IntegrationForm({
                   module,
                   link_wrap: provider.link_wrap ?? true,
               }
-            : { name: "", data: {}, module, link_wrap: true },
+            : { name: "", data: {}, module, link_wrap: false },
     })
 
     const handleSubmit = async (values: ProviderFormValues) => {
@@ -170,6 +170,11 @@ export function IntegrationForm({
                     {t("name")} <span className="text-destructive">*</span>
                 </Label>
                 <Input {...form.register("name")} />
+                {form.formState.errors.name && (
+                    <p className="text-sm text-destructive">
+                        {form.formState.errors.name.message}
+                    </p>
+                )}
             </div>
 
             {dataSchema && <FormSchemaFields parent="data" schema={dataSchema} form={form} />}

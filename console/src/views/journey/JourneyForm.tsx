@@ -63,7 +63,7 @@ export function JourneyForm({ journey, onSaved }: JourneyFormProps) {
                     {t("name")}
                     <span className="text-destructive"> *</span>
                 </Label>
-                <Input id="journey-name" {...form.register("name")} required />
+                <Input id="journey-name" {...form.register("name")} />
                 {form.formState.errors.name && (
                     <p className="text-sm text-destructive">{form.formState.errors.name.message}</p>
                 )}

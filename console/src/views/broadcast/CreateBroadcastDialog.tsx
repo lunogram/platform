@@ -238,6 +238,11 @@ export function CreateBroadcastDialog({
                                 </Select>
                             )}
                         />
+                        {form.formState.errors.campaign_id && (
+                            <p className="text-sm text-destructive">
+                                {form.formState.errors.campaign_id.message}
+                            </p>
+                        )}
                     </div>
 
                     {/* List Selector */}
@@ -284,6 +289,11 @@ export function CreateBroadcastDialog({
                                 </Select>
                             )}
                         />
+                        {form.formState.errors.list_id && (
+                            <p className="text-sm text-destructive">
+                                {form.formState.errors.list_id.message}
+                            </p>
+                        )}
                     </div>
 
                     {/* Schedule Toggle */}
@@ -313,6 +323,11 @@ export function CreateBroadcastDialog({
                                 {...form.register("scheduled_at")}
                                 min={new Date(Date.now() + 60_000).toISOString().slice(0, 16)}
                             />
+                        )}
+                        {form.formState.errors.scheduled_at && (
+                            <p className="text-sm text-destructive">
+                                {form.formState.errors.scheduled_at.message}
+                            </p>
                         )}
                     </div>
 
