@@ -1,4 +1,4 @@
-import { useCallback, useState, useRef, useContext } from "react"
+import { useCallback, useMemo, useState, useRef, useContext } from "react"
 import { useParams } from "react-router"
 import { useTranslation } from "react-i18next"
 import {
@@ -105,6 +105,7 @@ export default function Users() {
     )
     const [newUserData, setNewUserData] = useState<Record<string, unknown>>({})
     const [page, setPage] = useState(1)
+    const timezones = useMemo(() => Intl.supportedValuesOf("timeZone"), [])
     const limit = 15
     const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>()
 
@@ -489,28 +490,26 @@ export default function Users() {
                                                     {t("no_timezone_found", "No timezone found.")}
                                                 </CommandEmpty>
                                                 <CommandGroup>
-                                                    {Intl.supportedValuesOf("timeZone").map(
-                                                        (tz) => (
-                                                            <CommandItem
-                                                                key={tz}
-                                                                value={tz}
-                                                                onSelect={() => {
-                                                                    setNewUserTimezone(tz)
-                                                                    setIsNewUserTimezoneOpen(false)
-                                                                }}
-                                                            >
-                                                                <Check
-                                                                    className={cn(
-                                                                        "mr-2 h-4 w-4",
-                                                                        newUserTimezone === tz
-                                                                            ? "opacity-100"
-                                                                            : "opacity-0",
-                                                                    )}
-                                                                />
-                                                                {tz}
-                                                            </CommandItem>
-                                                        ),
-                                                    )}
+                                                    {timezones.map((tz) => (
+                                                        <CommandItem
+                                                            key={tz}
+                                                            value={tz}
+                                                            onSelect={() => {
+                                                                setNewUserTimezone(tz)
+                                                                setIsNewUserTimezoneOpen(false)
+                                                            }}
+                                                        >
+                                                            <Check
+                                                                className={cn(
+                                                                    "mr-2 h-4 w-4",
+                                                                    newUserTimezone === tz
+                                                                        ? "opacity-100"
+                                                                        : "opacity-0",
+                                                                )}
+                                                            />
+                                                            {tz}
+                                                        </CommandItem>
+                                                    ))}
                                                 </CommandGroup>
                                             </CommandList>
                                         </Command>
