@@ -5290,6 +5290,35 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
+  /api/admin/projects/{projectID}/archive/restore:
+    post:
+      summary: Restore archived item
+      description: Restores a previously archived item by kind and ID
+      operationId: restoreArchive
+      tags:
+        - Archive
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RestoreArchiveRequest"
+      responses:
+        "204":
+          description: Item restored successfully
+        default:
+          $ref: "#/components/responses/Error"
+
   /api/admin/projects/{projectID}/broadcasts/{broadcastID}/send:
     post:
       summary: Send broadcast
@@ -5571,6 +5600,21 @@ components:
                       $ref: "#/components/schemas/Broadcast"
 
   schemas:
+    RestoreArchiveRequest:
+      type: object
+      required:
+        - kind
+        - id
+      properties:
+        kind:
+          type: string
+          enum: [campaign, journey, list, provider, action, api_key]
+          description: The kind of item to restore
+        id:
+          type: string
+          format: uuid
+          description: The ID of the item to restore
+
     Channel:
       type: string
       enum: [email, sms, push]
@@ -8534,6 +8578,9 @@ components:
           type: string
           format: date-time
           example: "2025-01-10T08:00:00Z"
+        has_pending_events:
+          type: boolean
+          description: Whether there are pending scheduled events for this schedule instance
 
     UserScheduledList:
       allOf:

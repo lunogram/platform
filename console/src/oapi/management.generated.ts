@@ -2094,6 +2094,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/projects/{projectID}/archive/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore archived item
+         * @description Restores a previously archived item by kind and ID
+         */
+        post: operations["restoreArchive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/broadcasts/{broadcastID}/send": {
         parameters: {
             query?: never;
@@ -2118,6 +2138,18 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        RestoreArchiveRequest: {
+            /**
+             * @description The kind of item to restore
+             * @enum {string}
+             */
+            kind: "campaign" | "journey" | "list" | "provider" | "action" | "api_key";
+            /**
+             * Format: uuid
+             * @description The ID of the item to restore
+             */
+            id: string;
+        };
         /**
          * @description Communication channel type
          * @example email
@@ -4304,6 +4336,8 @@ export interface components {
              * @example 2025-01-10T08:00:00Z
              */
             updated_at: string;
+            /** @description Whether there are pending scheduled events for this schedule instance */
+            has_pending_events?: boolean;
         };
         UserScheduledList: components["schemas"]["PaginatedResponse"] & {
             results: components["schemas"]["UserScheduled"][];
@@ -9000,6 +9034,32 @@ export interface operations {
                 content: {
                     "text/event-stream": string;
                 };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    restoreArchive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RestoreArchiveRequest"];
+            };
+        };
+        responses: {
+            /** @description Item restored successfully */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             default: components["responses"]["Error"];
         };
