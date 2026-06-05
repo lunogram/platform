@@ -6,7 +6,7 @@ export const integrationSetupSchema = z.object({
     name: z.string().min(1, "Name is required"),
     data: z.record(z.string(), z.unknown()).optional(),
     config: z.record(z.string(), z.unknown()).optional(),
-    link_wrap: z.boolean().optional(),
+    link_wrap: z.boolean().default(false),
     rate_limit: z.number().int().min(0).nullable().optional(),
     rate_interval: z.string().nullable().optional(),
 })

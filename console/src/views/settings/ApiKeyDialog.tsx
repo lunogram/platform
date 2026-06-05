@@ -116,6 +116,11 @@ export default function ApiKeyDialog({ editing, onClose, onSave, isSaving }: Api
                             {t("name")} <span className="text-destructive">*</span>
                         </Label>
                         <Input id="name" {...form.register("name")} />
+                        {form.formState.errors.name && (
+                            <p className="text-sm text-destructive">
+                                {form.formState.errors.name.message}
+                            </p>
+                        )}
                     </div>
                     <div className="grid gap-2">
                         <Label htmlFor="description">{t("description")}</Label>
