@@ -460,45 +460,57 @@ export default function Users() {
                         </div>
                         <div className="grid sm:grid-cols-2 gap-4">
                             <div className="grid gap-2 content-start">
-                                <Label>{t("timezone")}</Label>
-                                <Popover open={isNewUserTimezoneOpen} onOpenChange={setIsNewUserTimezoneOpen}>
+                                <Label htmlFor="timezone">{t("timezone")}</Label>
+                                <Popover
+                                    open={isNewUserTimezoneOpen}
+                                    onOpenChange={setIsNewUserTimezoneOpen}
+                                >
                                     <PopoverTrigger asChild>
                                         <Button
                                             variant="outline"
                                             role="combobox"
+                                            id="timezone"
                                             className="justify-between"
                                         >
-                                            {newUserTimezone || t("select_timezone", "Select timezone")}
+                                            {newUserTimezone ||
+                                                t("select_timezone", "Select timezone")}
                                         </Button>
                                     </PopoverTrigger>
                                     <PopoverContent className="w-72 p-0" align="start">
                                         <Command>
-                                            <CommandInput placeholder={t("search_timezone", "Search timezone...")} />
+                                            <CommandInput
+                                                placeholder={t(
+                                                    "search_timezone",
+                                                    "Search timezone...",
+                                                )}
+                                            />
                                             <CommandList>
                                                 <CommandEmpty>
                                                     {t("no_timezone_found", "No timezone found.")}
                                                 </CommandEmpty>
                                                 <CommandGroup>
-                                                    {Intl.supportedValuesOf("timeZone").map((tz) => (
-                                                        <CommandItem
-                                                            key={tz}
-                                                            value={tz}
-                                                            onSelect={() => {
-                                                                setNewUserTimezone(tz)
-                                                                setIsNewUserTimezoneOpen(false)
-                                                            }}
-                                                        >
-                                                            <Check
-                                                                className={cn(
-                                                                    "mr-2 h-4 w-4",
-                                                                    newUserTimezone === tz
-                                                                        ? "opacity-100"
-                                                                        : "opacity-0",
-                                                                )}
-                                                            />
-                                                            {tz}
-                                                        </CommandItem>
-                                                    ))}
+                                                    {Intl.supportedValuesOf("timeZone").map(
+                                                        (tz) => (
+                                                            <CommandItem
+                                                                key={tz}
+                                                                value={tz}
+                                                                onSelect={() => {
+                                                                    setNewUserTimezone(tz)
+                                                                    setIsNewUserTimezoneOpen(false)
+                                                                }}
+                                                            >
+                                                                <Check
+                                                                    className={cn(
+                                                                        "mr-2 h-4 w-4",
+                                                                        newUserTimezone === tz
+                                                                            ? "opacity-100"
+                                                                            : "opacity-0",
+                                                                    )}
+                                                                />
+                                                                {tz}
+                                                            </CommandItem>
+                                                        ),
+                                                    )}
                                                 </CommandGroup>
                                             </CommandList>
                                         </Command>
