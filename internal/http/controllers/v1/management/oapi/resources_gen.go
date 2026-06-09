@@ -373,36 +373,6 @@ func (e ProjectRole) Valid() bool {
 	}
 }
 
-// Defines values for RestoreArchiveRequestKind.
-const (
-	RestoreArchiveRequestKindAction   RestoreArchiveRequestKind = "action"
-	RestoreArchiveRequestKindApiKey   RestoreArchiveRequestKind = "api_key"
-	RestoreArchiveRequestKindCampaign RestoreArchiveRequestKind = "campaign"
-	RestoreArchiveRequestKindJourney  RestoreArchiveRequestKind = "journey"
-	RestoreArchiveRequestKindList     RestoreArchiveRequestKind = "list"
-	RestoreArchiveRequestKindProvider RestoreArchiveRequestKind = "provider"
-)
-
-// Valid indicates whether the value is a known member of the RestoreArchiveRequestKind enum.
-func (e RestoreArchiveRequestKind) Valid() bool {
-	switch e {
-	case RestoreArchiveRequestKindAction:
-		return true
-	case RestoreArchiveRequestKindApiKey:
-		return true
-	case RestoreArchiveRequestKindCampaign:
-		return true
-	case RestoreArchiveRequestKindJourney:
-		return true
-	case RestoreArchiveRequestKindList:
-		return true
-	case RestoreArchiveRequestKindProvider:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for ScheduleOffsetDirection.
 const (
 	ScheduleOffsetDirectionAfter  ScheduleOffsetDirection = "after"
@@ -1569,18 +1539,6 @@ type RateLimit struct {
 	Limit int `json:"limit"`
 }
 
-// RestoreArchiveRequest defines model for RestoreArchiveRequest.
-type RestoreArchiveRequest struct {
-	// Id The ID of the item to restore
-	Id openapi_types.UUID `json:"id"`
-
-	// Kind The kind of item to restore
-	Kind RestoreArchiveRequestKind `json:"kind"`
-}
-
-// RestoreArchiveRequestKind The kind of item to restore
-type RestoreArchiveRequestKind string
-
 // ScheduleOffset defines model for ScheduleOffset.
 type ScheduleOffset struct {
 	CreatedAt time.Time `json:"created_at"`
@@ -2684,9 +2642,6 @@ type TestActionFunctionJSONRequestBody = TestActionFunctionRequest
 // UpdateProjectAdminJSONRequestBody defines body for UpdateProjectAdmin for application/json ContentType.
 type UpdateProjectAdminJSONRequestBody = UpdateProjectAdmin
 
-// RestoreArchiveJSONRequestBody defines body for RestoreArchive for application/json ContentType.
-type RestoreArchiveJSONRequestBody = RestoreArchiveRequest
-
 // CreateBroadcastJSONRequestBody defines body for CreateBroadcast for application/json ContentType.
 type CreateBroadcastJSONRequestBody = CreateBroadcast
 
@@ -2968,11 +2923,6 @@ type ClientInterface interface {
 	UpdateProjectAdminWithBody(ctx context.Context, projectID openapi_types.UUID, adminID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	UpdateProjectAdmin(ctx context.Context, projectID openapi_types.UUID, adminID openapi_types.UUID, body UpdateProjectAdminJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// RestoreArchiveWithBody request with any body
-	RestoreArchiveWithBody(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	RestoreArchive(ctx context.Context, projectID openapi_types.UUID, body RestoreArchiveJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListBroadcasts request
 	ListBroadcasts(ctx context.Context, projectID openapi_types.UUID, params *ListBroadcastsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -3778,30 +3728,6 @@ func (c *Client) UpdateProjectAdminWithBody(ctx context.Context, projectID opena
 
 func (c *Client) UpdateProjectAdmin(ctx context.Context, projectID openapi_types.UUID, adminID openapi_types.UUID, body UpdateProjectAdminJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateProjectAdminRequest(c.Server, projectID, adminID, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) RestoreArchiveWithBody(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewRestoreArchiveRequestWithBody(c.Server, projectID, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) RestoreArchive(ctx context.Context, projectID openapi_types.UUID, body RestoreArchiveJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewRestoreArchiveRequest(c.Server, projectID, body)
 	if err != nil {
 		return nil, err
 	}
@@ -6907,53 +6833,6 @@ func NewUpdateProjectAdminRequestWithBody(server string, projectID openapi_types
 	}
 
 	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewRestoreArchiveRequest calls the generic RestoreArchive builder with application/json body
-func NewRestoreArchiveRequest(server string, projectID openapi_types.UUID, body RestoreArchiveJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewRestoreArchiveRequestWithBody(server, projectID, "application/json", bodyReader)
-}
-
-// NewRestoreArchiveRequestWithBody generates requests for RestoreArchive with any type of body
-func NewRestoreArchiveRequestWithBody(server string, projectID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/admin/projects/%s/archive/restore", pathParam0)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
@@ -14267,11 +14146,6 @@ type ClientWithResponsesInterface interface {
 
 	UpdateProjectAdminWithResponse(ctx context.Context, projectID openapi_types.UUID, adminID openapi_types.UUID, body UpdateProjectAdminJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateProjectAdminResponse, error)
 
-	// RestoreArchiveWithBodyWithResponse request with any body
-	RestoreArchiveWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RestoreArchiveResponse, error)
-
-	RestoreArchiveWithResponse(ctx context.Context, projectID openapi_types.UUID, body RestoreArchiveJSONRequestBody, reqEditors ...RequestEditorFn) (*RestoreArchiveResponse, error)
-
 	// ListBroadcastsWithResponse request
 	ListBroadcastsWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListBroadcastsParams, reqEditors ...RequestEditorFn) (*ListBroadcastsResponse, error)
 
@@ -15372,36 +15246,6 @@ func (r UpdateProjectAdminResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r UpdateProjectAdminResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type RestoreArchiveResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSONDefault  *Error
-}
-
-// Status returns HTTPResponse.Status
-func (r RestoreArchiveResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r RestoreArchiveResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r RestoreArchiveResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -19853,23 +19697,6 @@ func (c *ClientWithResponses) UpdateProjectAdminWithResponse(ctx context.Context
 	return ParseUpdateProjectAdminResponse(rsp)
 }
 
-// RestoreArchiveWithBodyWithResponse request with arbitrary body returning *RestoreArchiveResponse
-func (c *ClientWithResponses) RestoreArchiveWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RestoreArchiveResponse, error) {
-	rsp, err := c.RestoreArchiveWithBody(ctx, projectID, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseRestoreArchiveResponse(rsp)
-}
-
-func (c *ClientWithResponses) RestoreArchiveWithResponse(ctx context.Context, projectID openapi_types.UUID, body RestoreArchiveJSONRequestBody, reqEditors ...RequestEditorFn) (*RestoreArchiveResponse, error) {
-	rsp, err := c.RestoreArchive(ctx, projectID, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseRestoreArchiveResponse(rsp)
-}
-
 // ListBroadcastsWithResponse request returning *ListBroadcastsResponse
 func (c *ClientWithResponses) ListBroadcastsWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListBroadcastsParams, reqEditors ...RequestEditorFn) (*ListBroadcastsResponse, error) {
 	rsp, err := c.ListBroadcasts(ctx, projectID, params, reqEditors...)
@@ -22041,32 +21868,6 @@ func ParseUpdateProjectAdminResponse(rsp *http.Response) (*UpdateProjectAdminRes
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseRestoreArchiveResponse parses an HTTP response from a RestoreArchiveWithResponse call
-func ParseRestoreArchiveResponse(rsp *http.Response) (*RestoreArchiveResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &RestoreArchiveResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -26392,9 +26193,6 @@ type ServerInterface interface {
 	// Update project admin role
 	// (PATCH /api/admin/projects/{projectID}/admins/{adminID})
 	UpdateProjectAdmin(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, adminID openapi_types.UUID)
-	// Restore archived item
-	// (POST /api/admin/projects/{projectID}/archive/restore)
-	RestoreArchive(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID)
 	// List broadcasts
 	// (GET /api/admin/projects/{projectID}/broadcasts)
 	ListBroadcasts(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListBroadcastsParams)
@@ -26923,12 +26721,6 @@ func (_ Unimplemented) GetProjectAdmin(w http.ResponseWriter, r *http.Request, p
 // Update project admin role
 // (PATCH /api/admin/projects/{projectID}/admins/{adminID})
 func (_ Unimplemented) UpdateProjectAdmin(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, adminID openapi_types.UUID) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// Restore archived item
-// (POST /api/admin/projects/{projectID}/archive/restore)
-func (_ Unimplemented) RestoreArchive(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -28574,38 +28366,6 @@ func (siw *ServerInterfaceWrapper) UpdateProjectAdmin(w http.ResponseWriter, r *
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UpdateProjectAdmin(w, r, projectID, adminID)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// RestoreArchive operation middleware
-func (siw *ServerInterfaceWrapper) RestoreArchive(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "projectID" -------------
-	var projectID openapi_types.UUID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
-		return
-	}
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
-
-	r = r.WithContext(ctx)
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.RestoreArchive(w, r, projectID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -35076,9 +34836,6 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Patch(options.BaseURL+"/api/admin/projects/{projectID}/admins/{adminID}", wrapper.UpdateProjectAdmin)
-	})
-	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/archive/restore", wrapper.RestoreArchive)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/broadcasts", wrapper.ListBroadcasts)
