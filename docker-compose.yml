@@ -23,7 +23,7 @@ services:
       AUTH_BASIC_PASSWORD: ${AUTH_BASIC_PASSWORD:-admin}
       AUTH_CLERK_SECRET_KEY: ${AUTH_CLERK_SECRET_KEY:-}
       AUTH_CLERK_WEBHOOK_SECRET: ${AUTH_CLERK_WEBHOOK_SECRET:-}
-      PUBLIC_URL: ${PUBLIC_URL:-http://localhost}:${APP_PORT:-8080}
+      PUBLIC_URL: ${PUBLIC_URL:-http://localhost:${APP_PORT:-8080}}
     depends_on:
       postgres:
         condition: service_healthy
