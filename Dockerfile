@@ -16,7 +16,8 @@ FROM node:24-alpine AS console
 WORKDIR /src
 RUN corepack enable
 COPY console/package.json console/pnpm-lock.yaml ./console/
-RUN cd console && pnpm install --frozen-lockfile
+RUN cd console && pnpm install --frozen-lockfile --ignore-scripts
+#RUN cd console && pnpm install --frozen-lockfile
 COPY console/ ./console/
 RUN cd console && pnpm build
 
