@@ -49,3 +49,7 @@ services:
         condition: service_started
     networks:
       - app_network
+
+networks:
+  app_network:
+    driver: bridge
