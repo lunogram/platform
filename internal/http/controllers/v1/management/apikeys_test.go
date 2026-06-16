@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/lunogram/platform/internal/ptr"
 	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/rbac/access"
 
@@ -82,7 +83,7 @@ func TestCreateApiKey(t *testing.T) {
 			body: oapi.CreateApiKeyJSONRequestBody{
 				Name:        "Described API Key",
 				Scope:       oapi.Secret,
-				Description: ptr("This is a test API key"),
+				Description: ptr.To("This is a test API key"),
 			},
 			code: 201,
 		},
@@ -155,15 +156,15 @@ func TestListApiKeys(t *testing.T) {
 	tests := map[string]test{
 		"default pagination": {
 			params: oapi.ListApiKeysParams{
-				Limit:  ptr(oapi.Limit(20)),
-				Offset: ptr(oapi.Offset(0)),
+				Limit:  ptr.To(oapi.Limit(20)),
+				Offset: ptr.To(oapi.Offset(0)),
 			},
 			code: 200,
 		},
 		"custom pagination": {
 			params: oapi.ListApiKeysParams{
-				Limit:  ptr(oapi.Limit(2)),
-				Offset: ptr(oapi.Offset(1)),
+				Limit:  ptr.To(oapi.Limit(2)),
+				Offset: ptr.To(oapi.Offset(1)),
 			},
 			code: 200,
 		},
@@ -296,7 +297,7 @@ func TestUpdateApiKey(t *testing.T) {
 	tests := map[string]test{
 		"update name": {
 			body: oapi.UpdateApiKeyJSONRequestBody{
-				Name: ptr("Updated Key"),
+				Name: ptr.To("Updated Key"),
 			},
 			code: 200,
 		},
@@ -308,7 +309,7 @@ func TestUpdateApiKey(t *testing.T) {
 		},
 		"update description": {
 			body: oapi.UpdateApiKeyJSONRequestBody{
-				Description: ptr("Updated description"),
+				Description: ptr.To("Updated description"),
 			},
 			code: 200,
 		},

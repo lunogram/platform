@@ -1,5 +1,7 @@
 import { useTranslation } from "react-i18next"
 import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { apiKeySchema } from "@/validation/settings/api-key-dialog"
 import { Check, Eye, Smartphone, Pencil, Shield } from "lucide-react"
 import { snakeToTitle } from "../../utils"
 import type { ProjectApiKey } from "../../types"
@@ -74,6 +76,7 @@ export interface ApiKeyDialogProps {
 export default function ApiKeyDialog({ editing, onClose, onSave, isSaving }: ApiKeyDialogProps) {
     const { t } = useTranslation()
     const form = useForm<Partial<ProjectApiKey>>({
+        resolver: zodResolver(apiKeySchema),
         values: editing ?? undefined,
     })
 
@@ -112,7 +115,12 @@ export default function ApiKeyDialog({ editing, onClose, onSave, isSaving }: Api
                         <Label htmlFor="name" className="inline-flex items-center gap-1">
                             {t("name")} <span className="text-destructive">*</span>
                         </Label>
-                        <Input id="name" {...form.register("name", { required: true })} />
+                        <Input id="name" {...form.register("name")} />
+                        {form.formState.errors.name && (
+                            <p className="text-sm text-destructive">
+                                {form.formState.errors.name.message}
+                            </p>
+                        )}
                     </div>
                     <div className="grid gap-2">
                         <Label htmlFor="description">{t("description")}</Label>

@@ -66,7 +66,7 @@ func (controller *Controller) ReconcileScheduledBroadcasts(ctx context.Context) 
 			return nil
 		}
 
-		processed, err := controller.broadcasts.ScanScheduledBroadcasts(ctx, scanner)
+		processed, err := controller.broadcasts.ScanScheduledBroadcasts(ctx, controller.reconciliationBatchSize, scanner)
 		if err != nil {
 			controller.logger.Error("failed to scan scheduled broadcasts", zap.Error(err))
 		}

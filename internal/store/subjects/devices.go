@@ -256,15 +256,16 @@ func (s *DevicesStore) GetDeviceByProjectAndDeviceID(ctx context.Context, projec
 	return device, nil
 }
 
-func (s *DevicesStore) DeleteDevice(ctx context.Context, projectID, deviceID uuid.UUID) error {
+func (s *DevicesStore) DeleteDevice(ctx context.Context, projectID, userID, deviceID uuid.UUID) error {
 	query := `
 	UPDATE user_devices
 	SET deleted_at = NOW()
 	WHERE project_id = $1
-	AND id = $2
+	AND user_id = $2
+	AND id = $3
 	AND deleted_at IS NULL`
 
-	_, err := s.db.ExecContext(ctx, query, projectID, deviceID)
+	_, err := s.db.ExecContext(ctx, query, projectID, userID, deviceID)
 	return err
 }
 

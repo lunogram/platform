@@ -7,13 +7,11 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
+	"github.com/lunogram/platform/internal/ptr"
+	"github.com/lunogram/platform/internal/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-func ptr[T any](v T) *T {
-	return &v
-}
 
 func TestJourneysStoreCreateJourney(t *testing.T) {
 	t.Parallel()
@@ -26,7 +24,7 @@ func TestJourneysStoreCreateJourney(t *testing.T) {
 		journeyID, err := store.CreateJourney(ctx, Journey{
 			ProjectID:   projectID,
 			Name:        "Onboarding Journey",
-			Description: ptr("Welcome new users"),
+			Description: ptr.To("Welcome new users"),
 		})
 		require.NoError(t, err)
 		assert.NotEqual(t, uuid.Nil, journeyID)
@@ -131,7 +129,7 @@ func TestJourneysStoreSetJourneySteps(t *testing.T) {
 		stepMap := oapi.JourneyStepMap{
 			"step-1": {
 				Type: "entrance",
-				Name: ptr("Welcome"),
+				Name: ptr.To("Welcome"),
 				X:    100,
 				Y:    200,
 				Children: []oapi.JourneyStepChild{
@@ -140,7 +138,7 @@ func TestJourneysStoreSetJourneySteps(t *testing.T) {
 			},
 			"step-2": {
 				Type: "exit",
-				Name: ptr("Goodbye"),
+				Name: ptr.To("Goodbye"),
 				X:    300,
 				Y:    400,
 			},
@@ -165,13 +163,13 @@ func TestJourneysStoreSetJourneySteps(t *testing.T) {
 		stepMap := oapi.JourneyStepMap{
 			"step-1": {
 				Type: "entrance",
-				Name: ptr("Updated Welcome"),
+				Name: ptr.To("Updated Welcome"),
 				X:    150,
 				Y:    250,
 			},
 			"step-2": {
 				Type: "exit",
-				Name: ptr("Updated Goodbye"),
+				Name: ptr.To("Updated Goodbye"),
 				X:    350,
 				Y:    450,
 			},
@@ -202,7 +200,7 @@ func TestJourneysStoreSetJourneySteps(t *testing.T) {
 		stepMap := oapi.JourneyStepMap{
 			"step-1": {
 				Type: "entrance",
-				Name: ptr("Welcome"),
+				Name: ptr.To("Welcome"),
 				X:    100,
 				Y:    200,
 			},
@@ -228,7 +226,7 @@ func TestJourneysStoreDuplicateJourney(t *testing.T) {
 	journeyID, err := store.CreateJourney(ctx, Journey{
 		ProjectID:   projectID,
 		Name:        "Original Journey",
-		Description: ptr("Original description"),
+		Description: ptr.To("Original description"),
 	})
 	require.NoError(t, err)
 
@@ -238,7 +236,7 @@ func TestJourneysStoreDuplicateJourney(t *testing.T) {
 	stepMap := oapi.JourneyStepMap{
 		"step-1": {
 			Type: "entrance",
-			Name: ptr("Welcome"),
+			Name: ptr.To("Welcome"),
 			X:    100,
 			Y:    200,
 			Children: []oapi.JourneyStepChild{
@@ -247,7 +245,7 @@ func TestJourneysStoreDuplicateJourney(t *testing.T) {
 		},
 		"step-2": {
 			Type: "exit",
-			Name: ptr("Goodbye"),
+			Name: ptr.To("Goodbye"),
 			X:    300,
 			Y:    400,
 		},
@@ -314,7 +312,7 @@ func TestJourneysStoreEventDependencies(t *testing.T) {
 		stepMap := oapi.JourneyStepMap{
 			"entrance-1": {
 				Type: "entrance",
-				Name: ptr("Signup Entrance"),
+				Name: ptr.To("Signup Entrance"),
 				X:    100,
 				Y:    200,
 			},
@@ -513,7 +511,7 @@ func TestJourneysStoreEnsureDraftVersionCopiesSteps(t *testing.T) {
 	stepMap := oapi.JourneyStepMap{
 		"step-1": {
 			Type: "entrance",
-			Name: ptr("Entrance"),
+			Name: ptr.To("Entrance"),
 			X:    100,
 			Y:    100,
 			Children: []oapi.JourneyStepChild{
@@ -522,7 +520,7 @@ func TestJourneysStoreEnsureDraftVersionCopiesSteps(t *testing.T) {
 		},
 		"step-2": {
 			Type: "email",
-			Name: ptr("Send Email"),
+			Name: ptr.To("Send Email"),
 			X:    200,
 			Y:    200,
 		},
@@ -752,4 +750,66 @@ func TestJourneysStoreMultiExecutionSteps(t *testing.T) {
 		require.NoError(t, err)
 		assert.JSONEq(t, `{"updated": true}`, string(reloaded.Data))
 	})
+}
+
+func TestListJourneys_ArchivedFilter(t *testing.T) {
+	t.Parallel()
+
+	db, _ := NewContainerStore(t)
+	projectID := uuid.New()
+	ctx := context.Background()
+
+	activeID, err := db.CreateJourney(ctx, Journey{ProjectID: projectID, Name: "Active Journey"})
+	require.NoError(t, err)
+
+	archivedID, err := db.CreateJourney(ctx, Journey{ProjectID: projectID, Name: "Archived Journey"})
+	require.NoError(t, err)
+	require.NoError(t, db.DeleteJourney(ctx, projectID, archivedID))
+
+	page := store.Pagination{Limit: 10, Offset: 0}
+
+	// archivedOnly=false returns only active journeys, with a total that excludes archived ones.
+	active, total, err := db.ListJourneys(ctx, projectID, page, "", false)
+	require.NoError(t, err)
+	require.Equal(t, 1, total)
+	require.Len(t, active, 1)
+	require.Equal(t, activeID, active[0].ID)
+	require.Nil(t, active[0].DeletedAt)
+
+	// archivedOnly=true returns only archived journeys, with a matching total for pagination.
+	archived, total, err := db.ListJourneys(ctx, projectID, page, "", true)
+	require.NoError(t, err)
+	require.Equal(t, 1, total)
+	require.Len(t, archived, 1)
+	require.Equal(t, archivedID, archived[0].ID)
+	require.NotNil(t, archived[0].DeletedAt)
+}
+
+func TestUnarchiveJourney(t *testing.T) {
+	t.Parallel()
+
+	db, _ := NewContainerStore(t)
+	projectID := uuid.New()
+	ctx := context.Background()
+
+	journeyID, err := db.CreateJourney(ctx, Journey{ProjectID: projectID, Name: "Restore Me"})
+	require.NoError(t, err)
+	require.NoError(t, db.DeleteJourney(ctx, projectID, journeyID))
+
+	// Restoring an archived journey clears deleted_at and brings it back to the active list.
+	require.NoError(t, db.UnarchiveJourney(ctx, projectID, journeyID))
+
+	active, total, err := db.ListJourneys(ctx, projectID, store.Pagination{Limit: 10, Offset: 0}, "", false)
+	require.NoError(t, err)
+	require.Equal(t, 1, total)
+	require.Len(t, active, 1)
+	require.Equal(t, journeyID, active[0].ID)
+
+	// Unarchiving a journey that is not archived (already active) reports no rows affected.
+	err = db.UnarchiveJourney(ctx, projectID, journeyID)
+	require.ErrorIs(t, err, store.ErrNoRows)
+
+	// Unarchiving a non-existent journey reports no rows affected.
+	err = db.UnarchiveJourney(ctx, projectID, uuid.New())
+	require.ErrorIs(t, err, store.ErrNoRows)
 }

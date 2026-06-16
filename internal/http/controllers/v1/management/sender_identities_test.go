@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
+	"github.com/lunogram/platform/internal/ptr"
 	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/store/management"
 	teststore "github.com/lunogram/platform/internal/store/test"
@@ -246,32 +247,32 @@ func TestListSenderIdentities(t *testing.T) {
 	tests := map[string]test{
 		"list-all": {
 			params: oapi.ListSenderIdentitiesParams{
-				Limit:  ptr(oapi.Limit(20)),
-				Offset: ptr(oapi.Offset(0)),
+				Limit:  ptr.To(oapi.Limit(20)),
+				Offset: ptr.To(oapi.Offset(0)),
 			},
 			expected: 3,
 			total:    3,
 		},
 		"with-pagination": {
 			params: oapi.ListSenderIdentitiesParams{
-				Limit:  ptr(oapi.Limit(2)),
-				Offset: ptr(oapi.Offset(0)),
+				Limit:  ptr.To(oapi.Limit(2)),
+				Offset: ptr.To(oapi.Offset(0)),
 			},
 			expected: 2,
 			total:    3,
 		},
 		"with-offset": {
 			params: oapi.ListSenderIdentitiesParams{
-				Limit:  ptr(oapi.Limit(20)),
-				Offset: ptr(oapi.Offset(2)),
+				Limit:  ptr.To(oapi.Limit(20)),
+				Offset: ptr.To(oapi.Offset(2)),
 			},
 			expected: 1,
 			total:    3,
 		},
 		"filter-by-email-channel": {
 			params: oapi.ListSenderIdentitiesParams{
-				Limit:   ptr(oapi.Limit(20)),
-				Offset:  ptr(oapi.Offset(0)),
+				Limit:   ptr.To(oapi.Limit(20)),
+				Offset:  ptr.To(oapi.Offset(0)),
 				Channel: &emailChannel,
 			},
 			expected: 2,
@@ -279,8 +280,8 @@ func TestListSenderIdentities(t *testing.T) {
 		},
 		"filter-by-sms-channel": {
 			params: oapi.ListSenderIdentitiesParams{
-				Limit:   ptr(oapi.Limit(20)),
-				Offset:  ptr(oapi.Offset(0)),
+				Limit:   ptr.To(oapi.Limit(20)),
+				Offset:  ptr.To(oapi.Offset(0)),
 				Channel: &smsChannel,
 			},
 			expected: 1,
@@ -288,8 +289,8 @@ func TestListSenderIdentities(t *testing.T) {
 		},
 		"filter-by-provider": {
 			params: oapi.ListSenderIdentitiesParams{
-				Limit:      ptr(oapi.Limit(20)),
-				Offset:     ptr(oapi.Offset(0)),
+				Limit:      ptr.To(oapi.Limit(20)),
+				Offset:     ptr.To(oapi.Offset(0)),
 				ProviderId: &emailProviderID,
 			},
 			expected: 2,
@@ -340,8 +341,8 @@ func TestListSenderIdentitiesProjectNotFound(t *testing.T) {
 	req := httptest.NewRequest("GET", "/v1/sender-identities", nil)
 	req = req.WithContext(actorCtx)
 	controller.ListSenderIdentities(res, req, invalidProjectID, oapi.ListSenderIdentitiesParams{
-		Limit:  ptr(oapi.Limit(20)),
-		Offset: ptr(oapi.Offset(0)),
+		Limit:  ptr.To(oapi.Limit(20)),
+		Offset: ptr.To(oapi.Offset(0)),
 	})
 
 	require.Equal(t, 404, res.Code, res.Body.String())
@@ -618,8 +619,8 @@ func TestCreateAndGetSenderIdentityRoundTrip(t *testing.T) {
 	req = httptest.NewRequest("GET", "/v1/sender-identities", nil)
 	req = req.WithContext(actorCtx)
 	controller.ListSenderIdentities(res, req, projectID, oapi.ListSenderIdentitiesParams{
-		Limit:  ptr(oapi.Limit(20)),
-		Offset: ptr(oapi.Offset(0)),
+		Limit:  ptr.To(oapi.Limit(20)),
+		Offset: ptr.To(oapi.Offset(0)),
 	})
 	require.Equal(t, 200, res.Code, res.Body.String())
 

@@ -73,7 +73,7 @@ paths:
           description: Webhook processed successfully
         default:
           $ref: "#/components/responses/Error"
-  
+
   /api/admin/projects/{projectID}/campaigns:
     get:
       summary: List campaigns
@@ -94,6 +94,7 @@ paths:
         - $ref: "#/components/parameters/Limit"
         - $ref: "#/components/parameters/Offset"
         - $ref: "#/components/parameters/Search"
+        - $ref: "#/components/parameters/IncludeDeleted"
       responses:
         "200":
           $ref: "#/components/responses/CampaignListResponse"
@@ -236,6 +237,36 @@ paths:
       responses:
         "204":
           description: Campaign deleted successfully
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/campaigns/{campaignID}/unarchive:
+    post:
+      summary: Unarchive campaign
+      description: Restores an archived campaign by clearing its deleted_at timestamp
+      operationId: unarchiveCampaign
+      tags:
+        - Campaigns
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: campaignID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The campaign ID
+      responses:
+        "204":
+          description: Campaign unarchived successfully
         default:
           $ref: "#/components/responses/Error"
 
@@ -557,6 +588,7 @@ paths:
         - $ref: "#/components/parameters/Limit"
         - $ref: "#/components/parameters/Offset"
         - $ref: "#/components/parameters/Search"
+        - $ref: "#/components/parameters/IncludeDeleted"
       responses:
         "200":
           $ref: "#/components/responses/ListListResponse"
@@ -694,6 +726,36 @@ paths:
       responses:
         "204":
           description: List deleted successfully
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/lists/{listID}/unarchive:
+    post:
+      summary: Unarchive list
+      description: Restores an archived list by clearing its deleted_at timestamp
+      operationId: unarchiveList
+      tags:
+        - Lists
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: listID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The list ID
+      responses:
+        "204":
+          description: List unarchived successfully
         default:
           $ref: "#/components/responses/Error"
 
@@ -993,6 +1055,7 @@ paths:
         - $ref: "#/components/parameters/Limit"
         - $ref: "#/components/parameters/Offset"
         - $ref: "#/components/parameters/Search"
+        - $ref: "#/components/parameters/IncludeDeleted"
       responses:
         "200":
           $ref: "#/components/responses/JourneyListResponse"
@@ -1470,6 +1533,36 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Journey"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/journeys/{journeyID}/unarchive:
+    post:
+      summary: Unarchive journey
+      description: Restores an archived journey by clearing its deleted_at timestamp
+      operationId: unarchiveJourney
+      tags:
+        - Journeys
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: journeyID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The journey ID
+      responses:
+        "204":
+          description: Journey unarchived successfully
         default:
           $ref: "#/components/responses/Error"
 
@@ -2012,6 +2105,324 @@ paths:
       responses:
         "202":
           description: Event accepted for processing
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/subjects/users/{userID}/inbox:
+    get:
+      summary: Get user inbox messages
+      description: Retrieves inbox messages for a specific user
+      operationId: getUserInboxMessages
+      tags:
+        - Users
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The user ID
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [unread, read, archived]
+        - name: tags
+          in: query
+          schema:
+            type: string
+          description: Comma-separated tag filter. All listed tags must be present.
+        - name: message_source
+          in: query
+          schema:
+            type: string
+        - name: priority
+          in: query
+          schema:
+            type: integer
+        - name: channel
+          in: query
+          schema:
+            $ref: "#/components/schemas/Channel"
+        - name: include_archived
+          in: query
+          schema:
+            type: boolean
+            default: false
+        - name: include_scheduled
+          in: query
+          schema:
+            type: boolean
+            default: false
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Search"
+      responses:
+        "200":
+          description: User inbox messages retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxMessageList"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      summary: Create user inbox message
+      description: Creates an inbox message for a specific user
+      operationId: createUserInboxMessage
+      tags:
+        - Users
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The user ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateInboxMessageRequest"
+      responses:
+        "201":
+          description: User inbox message created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxMessage"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/subjects/users/{userID}/inbox/{messageID}/read:
+    post:
+      summary: Read user inbox message
+      description: Marks a user inbox message as read
+      operationId: readUserInboxMessage
+      tags:
+        - Users
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The user ID
+        - name: messageID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The inbox message ID
+      responses:
+        "200":
+          description: User inbox message read successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxMessage"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/subjects/users/{userID}/inbox/{messageID}/archive:
+    post:
+      summary: Archive user inbox message
+      description: Marks a user inbox message as archived
+      operationId: archiveUserInboxMessage
+      tags:
+        - Users
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The user ID
+        - name: messageID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The inbox message ID
+      responses:
+        "200":
+          description: User inbox message archived successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxMessage"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/subjects/users/{userID}/inbox/{messageID}/unarchive:
+    post:
+      summary: Unarchive user inbox message
+      description: Removes the archived status from a user inbox message
+      operationId: unarchiveUserInboxMessage
+      tags:
+        - Users
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The user ID
+        - name: messageID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The inbox message ID
+      responses:
+        "200":
+          description: User inbox message unarchived successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxMessage"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/subjects/users/{userID}/inbox/{messageID}/unread:
+    post:
+      summary: Mark user inbox message as unread
+      description: Removes the read status from a user inbox message, marking it as unread
+      operationId: unreadUserInboxMessage
+      tags:
+        - Users
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The user ID
+        - name: messageID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The inbox message ID
+      responses:
+        "200":
+          description: User inbox message marked as unread successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxMessage"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/subjects/users/{userID}/inbox/{messageID}/schedule:
+    post:
+      summary: Reschedule user inbox message
+      description: Updates the scheduled send time of a user inbox message before it is dispatched
+      operationId: rescheduleUserInboxMessage
+      tags:
+        - Users
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The user ID
+        - name: messageID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The inbox message ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RescheduleInboxMessageRequest"
+      responses:
+        "200":
+          description: User inbox message rescheduled successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxMessage"
         default:
           $ref: "#/components/responses/Error"
 
@@ -2696,6 +3107,324 @@ paths:
       responses:
         "202":
           description: Event accepted for processing
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/subjects/organizations/{organizationID}/inbox:
+    get:
+      summary: Get organization inbox messages
+      description: Retrieves inbox messages for a specific organization
+      operationId: getOrganizationInboxMessages
+      tags:
+        - Organizations
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: organizationID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The organization ID
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [unread, read, archived]
+        - name: tags
+          in: query
+          schema:
+            type: string
+          description: Comma-separated tag filter. All listed tags must be present.
+        - name: message_source
+          in: query
+          schema:
+            type: string
+        - name: priority
+          in: query
+          schema:
+            type: integer
+        - name: channel
+          in: query
+          schema:
+            $ref: "#/components/schemas/Channel"
+        - name: include_archived
+          in: query
+          schema:
+            type: boolean
+            default: false
+        - name: include_scheduled
+          in: query
+          schema:
+            type: boolean
+            default: false
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Search"
+      responses:
+        "200":
+          description: Organization inbox messages retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxMessageList"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      summary: Create organization inbox message
+      description: Creates an inbox message for a specific organization
+      operationId: createOrganizationInboxMessage
+      tags:
+        - Organizations
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: organizationID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The organization ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateInboxMessageRequest"
+      responses:
+        "201":
+          description: Organization inbox message created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxMessage"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/subjects/organizations/{organizationID}/inbox/{messageID}/read:
+    post:
+      summary: Read organization inbox message
+      description: Marks an organization inbox message as read
+      operationId: readOrganizationInboxMessage
+      tags:
+        - Organizations
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: organizationID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The organization ID
+        - name: messageID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The inbox message ID
+      responses:
+        "200":
+          description: Organization inbox message read successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxMessage"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/subjects/organizations/{organizationID}/inbox/{messageID}/archive:
+    post:
+      summary: Archive organization inbox message
+      description: Marks an organization inbox message as archived
+      operationId: archiveOrganizationInboxMessage
+      tags:
+        - Organizations
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: organizationID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The organization ID
+        - name: messageID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The inbox message ID
+      responses:
+        "200":
+          description: Organization inbox message archived successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxMessage"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/subjects/organizations/{organizationID}/inbox/{messageID}/unarchive:
+    post:
+      summary: Unarchive organization inbox message
+      description: Removes the archived status from an organization inbox message
+      operationId: unarchiveOrganizationInboxMessage
+      tags:
+        - Organizations
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: organizationID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The organization ID
+        - name: messageID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The inbox message ID
+      responses:
+        "200":
+          description: Organization inbox message unarchived successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxMessage"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/subjects/organizations/{organizationID}/inbox/{messageID}/unread:
+    post:
+      summary: Mark organization inbox message as unread
+      description: Removes the read status from an organization inbox message, marking it as unread
+      operationId: unreadOrganizationInboxMessage
+      tags:
+        - Organizations
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: organizationID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The organization ID
+        - name: messageID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The inbox message ID
+      responses:
+        "200":
+          description: Organization inbox message marked as unread successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxMessage"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/subjects/organizations/{organizationID}/inbox/{messageID}/schedule:
+    post:
+      summary: Reschedule organization inbox message
+      description: Updates the scheduled send time of an organization inbox message before it is dispatched
+      operationId: rescheduleOrganizationInboxMessage
+      tags:
+        - Organizations
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: organizationID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The organization ID
+        - name: messageID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The inbox message ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RescheduleInboxMessageRequest"
+      responses:
+        "200":
+          description: Organization inbox message rescheduled successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxMessage"
         default:
           $ref: "#/components/responses/Error"
 
@@ -5358,6 +6087,15 @@ components:
         x-go-type: PaginationSearch
       description: Search query string
 
+    IncludeDeleted:
+      name: include_deleted
+      in: query
+      required: false
+      schema:
+        type: boolean
+        default: false
+      description: When true, return only archived (soft-deleted) items instead of active ones
+
   responses:
     Error:
       description: Error response
@@ -5573,7 +6311,7 @@ components:
   schemas:
     Channel:
       type: string
-      enum: [email, sms, push]
+      enum: [email, sms, push, inbox]
       description: Communication channel type
       example: email
 
@@ -6421,6 +7159,10 @@ components:
             $ref: "#/components/schemas/CampaignVariable"
         delivery:
           $ref: "#/components/schemas/Delivery"
+        archived:
+          type: boolean
+          example: false
+          description: "Whether the campaign has been archived"
 
     Delivery:
       type: object
@@ -6588,6 +7330,10 @@ components:
           type: string
           format: date-time
           example: "2025-11-23T17:20:00.021Z"
+        archived:
+          type: boolean
+          example: false
+          description: "Whether the list has been archived"
 
     Provider:
       type: object
@@ -7409,6 +8155,175 @@ components:
               type: array
               items:
                 $ref: "#/components/schemas/UserEvent"
+
+    RescheduleInboxMessageRequest:
+      type: object
+      required:
+        - scheduled_at
+      properties:
+        scheduled_at:
+          type: string
+          format: date-time
+          description: Updates the inbox message provider send time before dispatch.
+
+    CreateInboxMessageRequest:
+      type: object
+      required:
+        - channel
+      properties:
+        identifier:
+          $ref: "#/components/schemas/ExternalID"
+          nullable: true
+          description: Optional external identifier for the message. Allows tracing the message back to its origin source.
+        channel:
+          $ref: "#/components/schemas/Channel"
+        sender_identity_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Required for email and sms messages. Push uses project push provider settings.
+        campaign_id:
+          type: string
+          format: uuid
+          nullable: true
+        broadcast_id:
+          type: string
+          format: uuid
+          nullable: true
+        content:
+          type: object
+          additionalProperties: true
+          nullable: true
+          x-go-type: json.RawMessage
+          description: Channel-specific payload content.
+        data:
+          type: object
+          additionalProperties: true
+          nullable: true
+          x-go-type: map[string]any
+        tags:
+          type: array
+          items:
+            type: string
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 5
+          default: 3
+          x-go-type: int16
+        source:
+          type: string
+          nullable: true
+        scheduled_at:
+          type: string
+          format: date-time
+          nullable: true
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    InboxMessage:
+      type: object
+      required:
+        - id
+        - project_id
+        - channel
+        - content
+        - data
+        - tags
+        - priority
+        - scheduled_at
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        organization_id:
+          type: string
+          format: uuid
+        external_id:
+          type: string
+          nullable: true
+          description: External identifier for the message, if one was provided at creation time.
+        channel:
+          $ref: "#/components/schemas/Channel"
+        sender_identity_id:
+          type: string
+          format: uuid
+          nullable: true
+        campaign_id:
+          type: string
+          format: uuid
+          nullable: true
+        broadcast_id:
+          type: string
+          format: uuid
+          nullable: true
+        content:
+          type: object
+          additionalProperties: true
+          x-go-type: json.RawMessage
+        data:
+          type: object
+          additionalProperties: true
+          x-go-type: json.RawMessage
+        tags:
+          type: array
+          items:
+            type: string
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 5
+          x-go-type: int16
+        source:
+          type: string
+          nullable: true
+        scheduled_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+        read_at:
+          type: string
+          format: date-time
+          nullable: true
+        archived_at:
+          type: string
+          format: date-time
+          nullable: true
+        sent_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    InboxMessageList:
+      allOf:
+        - $ref: "#/components/schemas/PaginatedResponse"
+        - type: object
+          required:
+            - results
+          properties:
+            results:
+              type: array
+              items:
+                $ref: "#/components/schemas/InboxMessage"
 
     CreateUserDevice:
       type: object

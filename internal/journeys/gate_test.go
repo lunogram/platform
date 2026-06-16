@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
+	"github.com/lunogram/platform/internal/ptr"
 	"github.com/lunogram/platform/internal/rules"
 	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/journey"
@@ -46,8 +47,8 @@ func TestHandleGate(t *testing.T) {
 				Type: GateStepType,
 				Data: json.RawMessage(`{"rule":{"type":"wrapper","group":"user","operator":"and","children":[]}}`),
 				Children: []store.JourneyVersionStepChild{
-					{ChildExternalID: "child1", Path: ptr("yes")},
-					{ChildExternalID: "child2", Path: ptr("no")},
+					{ChildExternalID: "child1", Path: ptr.To("yes")},
+					{ChildExternalID: "child2", Path: ptr.To("no")},
 				},
 			},
 			state: nil,
@@ -65,8 +66,8 @@ func TestHandleGate(t *testing.T) {
 				Type: GateStepType,
 				Data: json.RawMessage(`{"rule":{"type":"wrapper","group":"user","operator":"and","children":[]}}`),
 				Children: []store.JourneyVersionStepChild{
-					{ChildExternalID: "child1", Path: ptr("yes")},
-					{ChildExternalID: "child2", Path: ptr("no")},
+					{ChildExternalID: "child1", Path: ptr.To("yes")},
+					{ChildExternalID: "child2", Path: ptr.To("no")},
 				},
 			},
 			state: nil,
@@ -84,8 +85,8 @@ func TestHandleGate(t *testing.T) {
 				Type: GateStepType,
 				Data: json.RawMessage(`{"rule":{"type":"wrapper","group":"user","operator":"and","children":[]}}`),
 				Children: []store.JourneyVersionStepChild{
-					{ChildExternalID: "child1", Path: ptr("yes")},
-					{ChildExternalID: "child2", Path: ptr("no")},
+					{ChildExternalID: "child1", Path: ptr.To("yes")},
+					{ChildExternalID: "child2", Path: ptr.To("no")},
 				},
 			},
 			state: &journey.JourneyUserState{
@@ -122,8 +123,8 @@ func TestHandleGate(t *testing.T) {
 				Type: GateStepType,
 				Data: json.RawMessage(`{"rule":{"type":"wrapper","group":"user","operator":"and","children":[]}}`),
 				Children: []store.JourneyVersionStepChild{
-					{ChildExternalID: "child1", Path: ptr("other")},
-					{ChildExternalID: "child2", Path: ptr("another")},
+					{ChildExternalID: "child1", Path: ptr.To("other")},
+					{ChildExternalID: "child2", Path: ptr.To("another")},
 				},
 			},
 			state: nil,
@@ -237,46 +238,46 @@ func TestSelectGateBranch(t *testing.T) {
 		},
 		"single yes child when rule matches": {
 			children: []store.JourneyVersionStepChild{
-				{ChildExternalID: "child1", Path: ptr("yes")},
+				{ChildExternalID: "child1", Path: ptr.To("yes")},
 			},
 			matchesRule:     true,
-			expectedPath:    ptr("yes"),
+			expectedPath:    ptr.To("yes"),
 			expectedErr:     false,
 			expectedChildID: "child1",
 		},
 		"single no child when rule mismatches": {
 			children: []store.JourneyVersionStepChild{
-				{ChildExternalID: "child2", Path: ptr("no")},
+				{ChildExternalID: "child2", Path: ptr.To("no")},
 			},
 			matchesRule:     false,
-			expectedPath:    ptr("no"),
+			expectedPath:    ptr.To("no"),
 			expectedErr:     false,
 			expectedChildID: "child2",
 		},
 		"yes path selected when rule matches with both paths": {
 			children: []store.JourneyVersionStepChild{
-				{ChildExternalID: "child1", Path: ptr("yes")},
-				{ChildExternalID: "child2", Path: ptr("no")},
+				{ChildExternalID: "child1", Path: ptr.To("yes")},
+				{ChildExternalID: "child2", Path: ptr.To("no")},
 			},
 			matchesRule:     true,
-			expectedPath:    ptr("yes"),
+			expectedPath:    ptr.To("yes"),
 			expectedErr:     false,
 			expectedChildID: "child1",
 		},
 		"no path selected when rule mismatches with both paths": {
 			children: []store.JourneyVersionStepChild{
-				{ChildExternalID: "child1", Path: ptr("yes")},
-				{ChildExternalID: "child2", Path: ptr("no")},
+				{ChildExternalID: "child1", Path: ptr.To("yes")},
+				{ChildExternalID: "child2", Path: ptr.To("no")},
 			},
 			matchesRule:     false,
-			expectedPath:    ptr("no"),
+			expectedPath:    ptr.To("no"),
 			expectedErr:     false,
 			expectedChildID: "child2",
 		},
 		"no yes/no paths returns nil": {
 			children: []store.JourneyVersionStepChild{
-				{ChildExternalID: "child1", Path: ptr("other")},
-				{ChildExternalID: "child2", Path: ptr("another")},
+				{ChildExternalID: "child1", Path: ptr.To("other")},
+				{ChildExternalID: "child2", Path: ptr.To("another")},
 			},
 			matchesRule:     true,
 			expectedPath:    nil,
@@ -286,10 +287,10 @@ func TestSelectGateBranch(t *testing.T) {
 		"yes path selected with nil path sibling": {
 			children: []store.JourneyVersionStepChild{
 				{ChildExternalID: "child1", Path: nil},
-				{ChildExternalID: "child2", Path: ptr("yes")},
+				{ChildExternalID: "child2", Path: ptr.To("yes")},
 			},
 			matchesRule:     true, // Rule matches, has "yes" path
-			expectedPath:    ptr("yes"),
+			expectedPath:    ptr.To("yes"),
 			expectedErr:     false,
 			expectedChildID: "child2", // Selects yes path
 		},
@@ -888,8 +889,8 @@ func TestEvaluateGateRules(t *testing.T) {
 			Type: GateStepType,
 			Data: stepDataJSON,
 			Children: []store.JourneyVersionStepChild{
-				{ChildExternalID: "yes-child", Path: ptr("yes")},
-				{ChildExternalID: "no-child", Path: ptr("no")},
+				{ChildExternalID: "yes-child", Path: ptr.To("yes")},
+				{ChildExternalID: "no-child", Path: ptr.To("no")},
 			},
 		}
 

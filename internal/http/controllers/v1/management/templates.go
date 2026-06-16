@@ -17,6 +17,7 @@ import (
 	"github.com/lunogram/platform/internal/render"
 	"github.com/lunogram/platform/internal/store/management"
 	"github.com/lunogram/platform/internal/store/subjects"
+	"github.com/lunogram/platform/pkg/modules"
 	moduleProviders "github.com/lunogram/platform/pkg/modules/providers"
 
 	"go.uber.org/zap"
@@ -355,7 +356,7 @@ func (srv *TemplatesController) SendTest(w http.ResponseWriter, r *http.Request,
 
 	templateData := template.Data
 
-	if campaign.Channel == "email" {
+	if campaign.Channel == string(modules.ChannelEmail) {
 		templateData, err = channels.ComposeEmailTemplateData(ctx, srv.renderer, projectID, templateData, props)
 		if err != nil {
 			logger.Error("failed to compose template data", zap.Error(err))
@@ -375,7 +376,7 @@ func (srv *TemplatesController) SendTest(w http.ResponseWriter, r *http.Request,
 	// a push request. For backward compatibility, "to" can still be a raw
 	// token. Prefer passing a registered device_id so we can resolve the full
 	// push config (including Web Push endpoint/keys).
-	if campaign.Channel == "push" {
+	if campaign.Channel == string(modules.ChannelPush) {
 		if body.To == "" && (body.Push == nil || body.Push.DeviceId == "") {
 			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("to is required")))
 			return
