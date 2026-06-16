@@ -158,7 +158,9 @@ func (srv *CampaignsController) ListCampaigns(w http.ResponseWriter, r *http.Req
 		Offset: params.Offset.ToInt(),
 	}
 
-	result, total, err := srv.mgmt.ListCampaigns(ctx, projectID, pagination, params.Search.ToString())
+	archivedOnly := params.IncludeDeleted != nil && *params.IncludeDeleted
+
+	result, total, err := srv.mgmt.ListCampaigns(ctx, projectID, pagination, params.Search.ToString(), archivedOnly)
 	if err != nil {
 		logger.Error("failed to list campaigns", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -323,6 +325,34 @@ func (srv *CampaignsController) DeleteCampaign(w http.ResponseWriter, r *http.Re
 	}
 
 	logger.Info("campaign deleted")
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (srv *CampaignsController) UnarchiveCampaign(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, campaignID uuid.UUID) {
+	ctx := r.Context()
+	err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("campaigns", projectID))
+	if err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("campaign_id", campaignID))
+	logger.Info("unarchiving campaign")
+
+	err = srv.mgmt.UnarchiveCampaign(ctx, projectID, campaignID)
+	if errors.Is(err, sql.ErrNoRows) {
+		logger.Info("campaign not found", zap.Stringer("campaign_id", campaignID))
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("campaign not found")))
+		return
+	}
+
+	if err != nil {
+		logger.Error("failed to unarchive campaign", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	logger.Info("campaign unarchived")
 	w.WriteHeader(http.StatusNoContent)
 }
 

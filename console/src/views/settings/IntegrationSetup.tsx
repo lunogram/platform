@@ -1,8 +1,14 @@
 import { useCallback, useContext, useEffect, useMemo, useState } from "react"
 import type { FieldPath } from "react-hook-form"
 import { Controller, useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import {
+    integrationSetupSchema,
+    type IntegrationSetupFormValues,
+} from "@/validation/settings/integration-setup"
 import { useNavigate, useParams } from "react-router"
 import { useTranslation } from "react-i18next"
+import { toast } from "sonner"
 import { ArrowLeft, Gauge } from "lucide-react"
 
 import oapiClient from "@/oapi/client"
@@ -25,6 +31,7 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Field, FieldLabel, FieldDescription } from "@/components/ui/field"
 import {
     Select,
@@ -48,7 +55,7 @@ type ProviderWithExtras = Provider & {
 type ActionWithExtras = Action
 
 type IntegrationMeta =
-    | { kind: "provider"; meta: ProviderMeta }
+    | { kind: "provider"; meta: ProviderMeta; readOnly?: boolean }
     | { kind: "action"; meta: ActionMeta }
 
 type IntegrationFormValues = {
@@ -58,8 +65,10 @@ type IntegrationFormValues = {
     data?: Record<string, unknown>
     config?: Record<string, unknown>
     link_wrap?: boolean
-    rate_limit?: number | null
-    rate_interval?: string | null
+    rate_limit?: {
+        limit: number
+        interval: string
+    }
 }
 
 /** Map human-friendly interval labels to Go duration strings */
@@ -70,10 +79,33 @@ const RATE_INTERVAL_OPTIONS = [
     { value: "24h", label: "per day" },
 ] as const
 
+function getErrorMessage(error: unknown, fallback: string) {
+    if (!error || typeof error !== "object") return fallback
+
+    const problem = error as Record<string, unknown>
+    if (typeof problem.detail === "string") return problem.detail
+    if (typeof problem.title === "string") return problem.title
+
+    return fallback
+}
+
 function normalizeKind(kind?: string, id?: string): IntegrationKind {
     if (kind === "action" || kind === "provider") return kind
     if (id) return "provider"
     return "provider"
+}
+
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return undefined
+    return value as Record<string, unknown>
+}
+
+function hasExternalProviderId(provider?: ProviderWithExtras): boolean {
+    const data = asRecord(provider?.data)
+    return Boolean(
+        provider?.external_id ||
+        (typeof data?.external_id === "string" && data.external_id.length > 0),
+    )
 }
 
 /**
@@ -187,7 +219,19 @@ export default function IntegrationSetup() {
         if (!providerOptions) return undefined
         const targetType = isEdit ? provider?.module : moduleName
         const meta = providerOptions.find((o: ProviderMeta) => o.type === targetType)
-        return meta ? { kind: "provider", meta } : undefined
+        if (meta) return { kind: "provider", meta }
+        if (!isEdit || !provider) return undefined
+
+        return {
+            kind: "provider",
+            readOnly: true,
+            meta: {
+                type: provider.module,
+                name: provider.module,
+                channels: provider.channels ?? [],
+                schema: { type: "object", properties: [] },
+            },
+        }
     }, [actionOptions, providerOptions, kind, isEdit, action, provider, moduleName])
 
     const effectiveModule = useMemo(() => {
@@ -196,7 +240,10 @@ export default function IntegrationSetup() {
         return undefined
     }, [activeMeta])
 
-    const isExternal = !!provider?.external_id
+    const isExternal = hasExternalProviderId(provider)
+    const isReadOnlyProvider =
+        kind === "provider" &&
+        (isExternal || (activeMeta?.kind === "provider" && activeMeta.readOnly))
 
     const dataSchema = useMemo((): Schema | undefined => {
         if (!activeMeta) return undefined
@@ -243,7 +290,8 @@ export default function IntegrationSetup() {
     const maxRateLimit =
         activeMeta?.kind === "provider" ? activeMeta.meta.max_rate_limit : undefined
 
-    const form = useForm<IntegrationFormValues>({
+    const form = useForm<IntegrationSetupFormValues>({
+        resolver: zodResolver(integrationSetupSchema),
         values:
             kind === "action"
                 ? {
@@ -259,23 +307,47 @@ export default function IntegrationSetup() {
                         data: provider.data,
                         module: effectiveModule ?? "",
                         link_wrap: provider?.link_wrap ?? false,
-                        rate_limit: provider?.rate_limit?.limit ?? null,
-                        rate_interval: provider?.rate_limit?.interval ?? "1s",
+                        rate_limit: provider?.rate_limit,
                     }
                   : {
                         kind: "provider",
                         name: "",
                         data: {},
                         module: effectiveModule ?? "",
-                        link_wrap: true,
-                        rate_limit: null,
-                        rate_interval: "1s",
+                        link_wrap: false,
+                        rate_limit: {
+                            limit: manifestRateLimit?.limit ?? 0,
+                            interval: manifestRateLimit?.interval ?? "1s",
+                        },
                     },
     })
 
-    const handleSubmit = async (values: IntegrationFormValues) => {
-        if (isExternal) return
+    const handleSubmit = async (values: IntegrationSetupFormValues) => {
+        if (isReadOnlyProvider) return
         if (!effectiveModule) return
+
+        // Validate required schema fields before submitting
+        if (dataSchema?.required && dataSchema.required.length > 0) {
+            const prefix = kind === "action" ? "config" : "data"
+            form.clearErrors(prefix)
+            let hasErrors = false
+            for (const key of dataSchema.required) {
+                const value = values[prefix]?.[key]
+                if (
+                    value === undefined ||
+                    value === null ||
+                    value === "" ||
+                    (typeof value === "string" && !value.trim())
+                ) {
+                    form.setError(`${prefix}.${key}`, {
+                        type: "required",
+                        message: t("field_required", "This field is required"),
+                    })
+                    hasErrors = true
+                }
+            }
+            if (hasErrors) return
+        }
 
         setIsSaving(true)
         try {
@@ -287,23 +359,44 @@ export default function IntegrationSetup() {
                 }
 
                 if (isEdit && action?.id) {
-                    await oapiClient.PATCH("/api/admin/projects/{projectID}/actions/{actionID}", {
-                        params: {
-                            path: {
-                                projectID: project.id,
-                                actionID: action.id,
+                    const { error } = await oapiClient.PATCH(
+                        "/api/admin/projects/{projectID}/actions/{actionID}",
+                        {
+                            params: {
+                                path: {
+                                    projectID: project.id,
+                                    actionID: action.id,
+                                },
                             },
+                            body,
                         },
-                        body,
-                    })
+                    )
+                    if (error) {
+                        toast.error(
+                            getErrorMessage(
+                                error,
+                                t("integration_save_failed", "Failed to save integration"),
+                            ),
+                        )
+                        return
+                    }
                 } else {
-                    const { data: created } = await oapiClient.POST(
+                    const { data: created, error } = await oapiClient.POST(
                         "/api/admin/projects/{projectID}/actions",
                         {
                             params: { path: { projectID: project.id } },
                             body,
                         },
                     )
+                    if (error) {
+                        toast.error(
+                            getErrorMessage(
+                                error,
+                                t("integration_save_failed", "Failed to save integration"),
+                            ),
+                        )
+                        return
+                    }
                     if (created) {
                         navigate(`/projects/${project.id}/integrations/action/${created.id}`)
                         return
@@ -321,14 +414,11 @@ export default function IntegrationSetup() {
             }
 
             if (rateLimitOverride) {
-                body.rate_limit =
-                    values.rate_limit && values.rate_limit > 0
-                        ? { limit: values.rate_limit, interval: values.rate_interval ?? "1s" }
-                        : null
+                body.rate_limit = values.rate_limit
             }
 
             if (isEdit && provider?.id) {
-                await oapiClient.PATCH(
+                const { error } = await oapiClient.PATCH(
                     "/api/admin/projects/{projectID}/providers/{type}/{providerID}",
                     {
                         params: {
@@ -341,8 +431,17 @@ export default function IntegrationSetup() {
                         body,
                     },
                 )
+                if (error) {
+                    toast.error(
+                        getErrorMessage(
+                            error,
+                            t("integration_save_failed", "Failed to save integration"),
+                        ),
+                    )
+                    return
+                }
             } else {
-                const { data: created } = await oapiClient.POST(
+                const { data: created, error } = await oapiClient.POST(
                     "/api/admin/projects/{projectID}/providers/{type}",
                     {
                         params: {
@@ -354,6 +453,15 @@ export default function IntegrationSetup() {
                         body,
                     },
                 )
+                if (error) {
+                    toast.error(
+                        getErrorMessage(
+                            error,
+                            t("integration_save_failed", "Failed to save integration"),
+                        ),
+                    )
+                    return
+                }
 
                 if (created) {
                     navigate(`/projects/${project.id}/integrations/provider/${created.id}`)
@@ -371,8 +479,14 @@ export default function IntegrationSetup() {
         ? `/projects/${project.id}/integrations`
         : `/projects/${project.id}/integrations/new`
 
-    if (!activeMeta && providerOptions && actionOptions && !(isEdit && !provider && !action)) {
-        navigate(backUrl)
+    const shouldRedirectMissingMeta =
+        !activeMeta && providerOptions && actionOptions && !(isEdit && !provider && !action)
+
+    useEffect(() => {
+        if (shouldRedirectMissingMeta) navigate(backUrl)
+    }, [backUrl, navigate, shouldRedirectMissingMeta])
+
+    if (shouldRedirectMissingMeta) {
         return null
     }
 
@@ -402,6 +516,7 @@ export default function IntegrationSetup() {
 
     const showSenderIdentity =
         kind === "provider" &&
+        !isReadOnlyProvider &&
         (senderIdentityChannel === "email" || senderIdentityChannel === "sms")
 
     const title =
@@ -496,13 +611,29 @@ export default function IntegrationSetup() {
                         <FieldLabel>
                             {t("name")} <span className="text-destructive">*</span>
                         </FieldLabel>
-                        <Input
-                            {...form.register("name", { required: true })}
-                            disabled={kind === "provider" && isExternal}
-                        />
+                        <Input {...form.register("name")} disabled={isReadOnlyProvider} />
+                        {form.formState.errors.name && (
+                            <p className="text-sm text-destructive">
+                                {form.formState.errors.name.message}
+                            </p>
+                        )}
                     </Field>
 
-                    {kind === "provider" && !isExternal && dataSchema && (
+                    {isReadOnlyProvider && (
+                        <Alert>
+                            <AlertTitle>
+                                {t("managed_integration_title", "Managed integration")}
+                            </AlertTitle>
+                            <AlertDescription>
+                                {t(
+                                    "managed_integration_description",
+                                    "This integration is configured by Lunogram and cannot be edited in the console.",
+                                )}
+                            </AlertDescription>
+                        </Alert>
+                    )}
+
+                    {kind === "provider" && !isReadOnlyProvider && dataSchema && (
                         <FormSchemaFields parent="data" schema={dataSchema} form={form} />
                     )}
 
@@ -510,7 +641,7 @@ export default function IntegrationSetup() {
                         <FormSchemaFields parent="config" schema={dataSchema} form={form} />
                     )}
 
-                    {kind === "provider" && !isExternal && (
+                    {kind === "provider" && !isReadOnlyProvider && (
                         <Controller
                             control={form.control}
                             name="link_wrap"
@@ -537,7 +668,7 @@ export default function IntegrationSetup() {
                         />
                     )}
 
-                    {kind === "provider" && !isExternal && manifestRateLimit && (
+                    {kind === "provider" && !isReadOnlyProvider && manifestRateLimit && (
                         <>
                             <Separator />
                             <div className="space-y-4">
@@ -579,11 +710,15 @@ export default function IntegrationSetup() {
                                                 <FieldDescription>
                                                     {t(
                                                         "rate_limit_override_description",
-                                                        "Override the default rate limit for this provider. Leave empty to use the default." +
-                                                            (maxRateLimit
-                                                                ? ` Maximum: ${maxRateLimit} requests per minute.`
-                                                                : ""),
+                                                        "Override the default rate limit for this provider. Leave empty to use the default.",
                                                     )}
+                                                    {maxRateLimit
+                                                        ? ` ${t(
+                                                              "rate_limit_override_maximum",
+                                                              "Maximum: {{limit}} requests per minute.",
+                                                              { limit: maxRateLimit },
+                                                          )}`
+                                                        : ""}
                                                 </FieldDescription>
                                                 <div className="flex items-center gap-2">
                                                     <Input
@@ -594,7 +729,7 @@ export default function IntegrationSetup() {
                                                             manifestRateLimit.limit,
                                                         )}
                                                         className="w-28"
-                                                        {...form.register("rate_limit", {
+                                                        {...form.register("rate_limit.limit", {
                                                             valueAsNumber: true,
                                                             min: 0,
                                                             max: maxRateLimit ?? undefined,
@@ -602,7 +737,7 @@ export default function IntegrationSetup() {
                                                     />
                                                     <Controller
                                                         control={form.control}
-                                                        name="rate_interval"
+                                                        name="rate_limit.interval"
                                                         render={({ field }) => (
                                                             <Select
                                                                 value={field.value ?? "1s"}
@@ -661,7 +796,7 @@ export default function IntegrationSetup() {
                     </div>
                 )}
 
-                {(kind !== "provider" || !isExternal) && (
+                {(kind !== "provider" || !isReadOnlyProvider) && (
                     <div className="flex items-center gap-3 pt-8 pb-6 max-w-2xl">
                         <Button type="submit" form="integration-form" disabled={isSaving}>
                             {isSaving

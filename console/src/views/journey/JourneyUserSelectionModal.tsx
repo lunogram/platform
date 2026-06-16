@@ -299,25 +299,21 @@ export function UserSelectionModal({
                             {users.length > 0 ? (
                                 <div className="divide-y">
                                     {users.map((user) => (
-                                        <div
+                                        <button
                                             key={user.id}
-                                            className="group flex items-center justify-between px-4 sm:px-6 py-2 cursor-pointer hover:bg-muted/50 transition-colors"
+                                            type="button"
+                                            className="group flex w-full items-center justify-between px-4 sm:px-6 py-2 cursor-pointer hover:bg-muted/50 transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
                                             onClick={() => handleUserClick(user)}
                                         >
                                             <UserCell user={user} />
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-                                                onClick={(e) => {
-                                                    e.stopPropagation()
-                                                    handleUserClick(user)
-                                                }}
+                                            <span
+                                                className="inline-flex h-8 shrink-0 items-center justify-center gap-2 rounded-md px-3 text-xs font-medium opacity-0 transition-opacity group-hover:opacity-100"
+                                                aria-hidden="true"
                                             >
                                                 <Play className="h-3.5 w-3.5 mr-1.5 fill-current" />
                                                 {t("run", "Run")}
-                                            </Button>
-                                        </div>
+                                            </span>
+                                        </button>
                                     ))}
                                     {loading && hasMore && (
                                         <div className="flex justify-center py-4">

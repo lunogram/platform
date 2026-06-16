@@ -275,9 +275,7 @@ export const actionStep: JourneyStepType<ActionConfig> = {
             <div className="min-w-0 space-y-3">
                 {currentAction && (
                     <div className="space-y-1.5">
-                        <Label className="text-sm font-medium">
-                            {t("action.singular", "Action")}
-                        </Label>
+                        <Label className="text-sm font-medium">{t("action")}</Label>
                         <div className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
                             <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-muted [&>svg]:h-3 [&>svg]:w-3">
                                 {actionTypeIcons[currentAction.type] ?? <Zap className="h-3 w-3" />}

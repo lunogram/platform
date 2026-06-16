@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/lunogram/platform/internal/ptr"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -20,10 +21,10 @@ func TestAdminsStore(t *testing.T) {
 	t.Run("creates admin", func(t *testing.T) {
 		adminID, err := db.CreateAdmin(ctx, Admin{
 			OrganizationID: orgID,
-			ExternalID:     ptr("ext-123"),
+			ExternalID:     ptr.To("ext-123"),
 			Email:          "admin@example.com",
-			FirstName:      ptr("Test"),
-			LastName:       ptr("Admin"),
+			FirstName:      ptr.To("Test"),
+			LastName:       ptr.To("Admin"),
 		})
 		require.NoError(t, err)
 		assert.NotEqual(t, uuid.Nil, adminID)

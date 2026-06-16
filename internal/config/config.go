@@ -71,8 +71,16 @@ type Nats struct {
 
 type Cluster struct {
 	ReconciliationInterval time.Duration `env:"RECONCILIATION_INTERVAL" envDefault:"1m"`
-	LeaderCampaignInterval time.Duration `env:"LEADER_CAMPAIGN_INTERVAL" envDefault:"5s"`
-	HeartbeatInterval      time.Duration `env:"HEARTBEAT_INTERVAL" envDefault:"4s"`
+	// ReconciliationBatchSize is the maximum number of rows each
+	// reconciliation task (journey resumptions, scheduled messages,
+	// inbox dispatch, broadcasts, list recomputation, ...) will scan
+	// and process in a single tick. Lower values smooth out load at
+	// the cost of higher end-to-end latency for large backlogs;
+	// higher values drain backlogs faster but increase per-tick
+	// resource usage. Remaining work rolls over to the next tick.
+	ReconciliationBatchSize int           `env:"RECONCILIATION_BATCH_SIZE" envDefault:"1000"`
+	LeaderCampaignInterval  time.Duration `env:"LEADER_CAMPAIGN_INTERVAL" envDefault:"5s"`
+	HeartbeatInterval       time.Duration `env:"HEARTBEAT_INTERVAL" envDefault:"4s"`
 }
 
 type WASM struct {

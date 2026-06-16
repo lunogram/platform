@@ -160,8 +160,9 @@ func (srv *ListsController) ListLists(w http.ResponseWriter, r *http.Request, pr
 	}
 
 	search := params.Search.ToString()
+	archivedOnly := params.IncludeDeleted != nil && *params.IncludeDeleted
 
-	result, total, err := srv.store.ListLists(ctx, projectID, pagination, search)
+	result, total, err := srv.store.ListLists(ctx, projectID, pagination, search, archivedOnly)
 	if err != nil {
 		logger.Error("failed to list lists", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -442,6 +443,34 @@ func (srv *ListsController) DeleteList(w http.ResponseWriter, r *http.Request, p
 	}
 
 	logger.Info("list deleted")
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (srv *ListsController) UnarchiveList(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, listID uuid.UUID) {
+	ctx := r.Context()
+	err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("lists", projectID))
+	if err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("list_id", listID))
+	logger.Info("unarchiving list")
+
+	err = srv.store.UnarchiveList(ctx, projectID, listID)
+	if errors.Is(err, sql.ErrNoRows) {
+		logger.Info("list not found", zap.Stringer("list_id", listID))
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("list not found")))
+		return
+	}
+
+	if err != nil {
+		logger.Error("failed to unarchive list", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	logger.Info("list unarchived")
 	w.WriteHeader(http.StatusNoContent)
 }
 

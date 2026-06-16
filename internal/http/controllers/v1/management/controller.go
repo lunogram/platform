@@ -36,7 +36,7 @@ func NewController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB
 		TagsController:             NewTagsController(logger, managementDB, engine),
 		LocalesController:          NewLocalesController(logger, managementDB, engine),
 		JourneysController:         NewJourneysController(logger, journeyDB, usersDB, mgmt, pub, jet, engine, consumer.Namespace(cfg.Nats.Namespace)),
-		OrganizationsController:    NewOrganizationsController(logger, usersDB, pub, engine),
+		OrganizationsController:    NewOrganizationsController(logger, usersDB, mgmt, pub, engine),
 		ListsController:            NewListsController(logger, usersDB, projects, pub, cfg.Storage.MaxUploadSize, engine),
 		DocumentsController:        NewDocumentsController(logger, managementDB, storage, cfg.Storage.MaxUploadSize, urlResolver, engine),
 		ProvidersController:        NewProvidersController(logger, managementDB, registry, engine, cfg.PublicBaseURL()),

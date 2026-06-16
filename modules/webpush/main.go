@@ -15,6 +15,7 @@ import (
 	"time"
 
 	pdk "github.com/extism/go-pdk"
+	"github.com/lunogram/platform/modules/webpush/payload"
 	"github.com/lunogram/platform/pkg/modules"
 	"github.com/lunogram/platform/pkg/modules/providers"
 )
@@ -145,13 +146,13 @@ func Send() int32 {
 		return ExitPermanent
 	}
 
-	wpPayload, err := buildWebPushPayload(push)
+	payload, err := payload.Build(push, req.Metadata)
 	if err != nil {
 		pdk.SetError(fmt.Errorf("failed to build Web Push payload: %w", err))
 		return ExitPermanent
 	}
 
-	ok, fail, errs := sendAllWebPush(req.Config, push.WebPushTargets, wpPayload)
+	ok, fail, errs := sendAllWebPush(req.Config, push.WebPushTargets, payload)
 	response := buildSendResponse("webpush", ok, fail, len(push.WebPushTargets), errs)
 
 	if err := pdk.OutputJSON(response); err != nil {
@@ -160,23 +161,6 @@ func Send() int32 {
 	}
 
 	return ExitSuccess
-}
-
-func buildWebPushPayload(push providers.PushPayload) ([]byte, error) {
-	n := map[string]any{"title": push.Title, "body": push.Body}
-	if len(push.Data) > 0 {
-		n["data"] = push.Data
-	}
-	if push.ImageURL != nil {
-		n["image"] = *push.ImageURL
-	}
-	if push.Badge != nil {
-		n["badge"] = *push.Badge
-	}
-	if push.Sound != nil {
-		n["sound"] = *push.Sound
-	}
-	return json.Marshal(n)
 }
 
 func sendAllWebPush(config Config, targets []providers.WebPushTarget, payload []byte) (ok, fail int, errs []string) {

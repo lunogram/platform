@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/lunogram/platform/pkg/modules/providers"
 	"github.com/resend/resend-go/v3"
 )
@@ -27,16 +28,49 @@ type Config struct {
 	WebhookID     string `json:"webhookId"`
 }
 
+// resendWebhookTag is a single tag entry echoed back on the Resend webhook
+// payload. Resend uses tags as its native custom-metadata mechanism and
+// echoes any tags set on the original send back on every delivery webhook.
+type resendWebhookTag struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
+}
+
 // resendWebhookPayload is the JSON body from a Resend webhook callback.
 type resendWebhookPayload struct {
 	Type      string `json:"type"`
 	CreatedAt string `json:"created_at"`
 	Data      struct {
-		EmailID string   `json:"email_id"`
-		To      []string `json:"to"`
-		From    string   `json:"from"`
-		Subject string   `json:"subject"`
+		EmailID string             `json:"email_id"`
+		To      []string           `json:"to"`
+		From    string             `json:"from"`
+		Subject string             `json:"subject"`
+		Tags    []resendWebhookTag `json:"tags"`
 	} `json:"data"`
+}
+
+// extractInboxMessageID scans the supplied Resend webhook tags for the
+// canonical inbox_message_id metadata key and parses it as a UUID. Returns
+// the zero UUID and a nil error when the tag is absent (a pre-T06 send had
+// no metadata to echo) so that webhook ingestion remains backwards
+// compatible. A non-nil error is returned only when the tag is present but
+// not a valid UUID; callers should log the error and proceed with the zero
+// UUID rather than reject the webhook (provider retries are expensive).
+func extractInboxMessageID(tags []resendWebhookTag) (uuid.UUID, error) {
+	for _, tag := range tags {
+		if tag.Name != providers.MetadataKeyInboxMessageID {
+			continue
+		}
+		if tag.Value == "" {
+			return uuid.Nil, nil
+		}
+		parsed, err := uuid.Parse(tag.Value)
+		if err != nil {
+			return uuid.Nil, fmt.Errorf("invalid inbox_message_id tag %q: %w", tag.Value, err)
+		}
+		return parsed, nil
+	}
+	return uuid.Nil, nil
 }
 
 // formatAddress formats an EmailAddress as "Name <addr>" or just "addr".
@@ -91,7 +125,10 @@ func mapWebhookEvent(eventType string) (providers.WebhookEventName, bool) {
 }
 
 // ComposeSendEmailRequest converts platform email payload to a Resend SDK request.
-func ComposeSendEmailRequest(email providers.EmailPayload) *resend.SendEmailRequest {
+// Any metadata key/value pairs are forwarded as Resend tags so they are echoed
+// back on delivery webhooks (Resend tag values must match ^[a-zA-Z0-9_-]+$,
+// which UUIDs satisfy).
+func ComposeSendEmailRequest(email providers.EmailPayload, metadata map[string]string) *resend.SendEmailRequest {
 	req := &resend.SendEmailRequest{
 		From:    formatAddress(email.From),
 		To:      []string{email.To},
@@ -109,6 +146,13 @@ func ComposeSendEmailRequest(email providers.EmailPayload) *resend.SendEmailRequ
 	}
 	if email.ReplyTo != nil {
 		req.ReplyTo = *email.ReplyTo
+	}
+
+	if len(metadata) > 0 {
+		req.Tags = make([]resend.Tag, 0, len(metadata))
+		for name, value := range metadata {
+			req.Tags = append(req.Tags, resend.Tag{Name: name, Value: value})
+		}
 	}
 
 	return req

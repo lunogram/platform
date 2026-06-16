@@ -102,16 +102,28 @@ func ProviderWebhookHandler(logger *zap.Logger, mgmt *management.State, registry
 		// Publish each event to NATS on the provider webhooks subject.
 		// Events are validated against the canonical set of provider event names
 		// so that WASM modules cannot inject arbitrary event names into the pipeline.
+		// TODO(events-log-consumer): build a NATS consumer on
+		// schemas.ProvidersWebhook(projectID) that joins the InboxMessageID
+		// back to the originating inbox message and writes a row to the
+		// events log. Tracked as a follow-up issue.
 		for _, event := range res.Events {
 			webhookEvent := schemas.ProviderWebhookEvent{
-				ProjectID:  projectID,
-				ProviderID: providerID,
-				Module:     provider.Module,
-				Channel:    "", // resolved downstream from MessageID → campaign lookup
-				EventName:  event.EventName.String(),
-				MessageID:  event.MessageID,
-				Timestamp:  event.Timestamp,
-				Data:       event.Data,
+				ProjectID:      projectID,
+				ProviderID:     providerID,
+				Module:         provider.Module,
+				Channel:        "", // resolved downstream from MessageID → campaign lookup
+				EventName:      event.EventName.String(),
+				MessageID:      event.MessageID,
+				InboxMessageID: event.InboxMessageID,
+				Timestamp:      event.Timestamp,
+				Data:           event.Data,
+			}
+
+			if event.InboxMessageID == uuid.Nil {
+				logger.Warn("webhook event has no inbox message ID, skipping",
+					zap.String("event_name", event.EventName.String()),
+				)
+				continue
 			}
 
 			err = pub.Publish(ctx, schemas.ProvidersWebhook(projectID), webhookEvent)
@@ -120,6 +132,8 @@ func ProviderWebhookHandler(logger *zap.Logger, mgmt *management.State, registry
 					zap.String("event_name", event.EventName.String()),
 					zap.Error(err),
 				)
+				w.WriteHeader(http.StatusInternalServerError)
+				return
 			}
 		}
 

@@ -13,6 +13,7 @@ import {
     MoreHorizontal,
     Copy,
     Archive,
+    ArchiveRestore,
 } from "lucide-react"
 import { oapiClient } from "@/oapi/client"
 import { useResolver } from "../../hooks"
@@ -73,11 +74,14 @@ export default function Campaigns({ create = false }: CampaignsProps) {
     const [searchQuery, setSearchQuery] = useState("")
     const [debouncedQuery, setDebouncedQuery] = useState("")
     const [offset, setOffset] = useState(0)
+    const [archivedOffset, setArchivedOffset] = useState(0)
+    const [showArchived, setShowArchived] = useState(false)
     const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
     const handleSearch = useCallback((value: string) => {
         setSearchQuery(value)
         setOffset(0)
+        setArchivedOffset(0)
         clearTimeout(searchTimeoutRef.current)
         searchTimeoutRef.current = setTimeout(() => {
             setDebouncedQuery(value)
@@ -111,20 +115,45 @@ export default function Campaigns({ create = false }: CampaignsProps) {
         }, [project.id, debouncedQuery, offset]),
     )
 
-    const campaigns = result?.results
-    const hasNextPage = !!result && offset + pageSize < result.total
-    const hasPrevPage = offset > 0
+    const [archivedResult, , reloadArchived] = useResolver(
+        useCallback(async () => {
+            if (!showArchived) return null
+            const response = await oapiClient.GET("/api/admin/projects/{projectID}/campaigns", {
+                params: {
+                    path: {
+                        projectID: project.id,
+                    },
+                    query: {
+                        limit: pageSize,
+                        offset: archivedOffset,
+                        include_deleted: true,
+                        search: debouncedQuery || undefined,
+                    },
+                },
+            })
+            if (response.error || !response.data) return null
+            return response.data
+        }, [project.id, debouncedQuery, showArchived, archivedOffset]),
+    )
+
+    const isArchivedView = showArchived
+    const campaigns = (isArchivedView ? archivedResult?.results : result?.results) ?? []
+    const total = isArchivedView ? (archivedResult?.total ?? 0) : (result?.total ?? 0)
+    const isLoading = isArchivedView ? archivedResult === null : !result
+    const currentOffset = isArchivedView ? archivedOffset : offset
+    const hasNextPage = currentOffset + pageSize < total
+    const hasPrevPage = currentOffset > 0
 
     const handleNextPage = () => {
-        if (hasNextPage) {
-            setOffset((prev) => prev + pageSize)
-        }
+        if (!hasNextPage) return
+        const setter = isArchivedView ? setArchivedOffset : setOffset
+        setter((prev) => prev + pageSize)
     }
 
     const handlePrevPage = () => {
-        if (hasPrevPage) {
-            setOffset((prev) => Math.max(0, prev - pageSize))
-        }
+        if (!hasPrevPage) return
+        const setter = isArchivedView ? setArchivedOffset : setOffset
+        setter((prev) => Math.max(0, prev - pageSize))
     }
 
     const handleDuplicateCampaign = async (e: React.MouseEvent, id: UUID) => {
@@ -156,7 +185,29 @@ export default function Campaigns({ create = false }: CampaignsProps) {
                 },
             },
         })
+        setShowArchived(false)
         await reload()
+    }
+
+    const handleUnarchiveCampaign = async (id: string) => {
+        const response = await oapiClient.POST(
+            "/api/admin/projects/{projectID}/campaigns/{campaignID}/unarchive",
+            {
+                params: {
+                    path: {
+                        projectID: project.id,
+                        campaignID: id,
+                    },
+                },
+            },
+        )
+        if (response.error) {
+            console.error("Failed to unarchive campaign", response.error)
+            return
+        }
+        setShowArchived(false)
+        setArchivedOffset(0)
+        await Promise.all([reload(), reloadArchived()])
     }
 
     const handleRowClick = (campaign: { id: UUID } & unknown) => {
@@ -207,7 +258,22 @@ export default function Campaigns({ create = false }: CampaignsProps) {
                         className="pl-9"
                     />
                 </div>
-                <CreateCampaign open={create} />
+                <div className="flex items-center gap-2">
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        aria-label={t("show_archived", "Show archived")}
+                        aria-pressed={showArchived}
+                        onClick={() => {
+                            setArchivedOffset(0)
+                            setShowArchived((prev) => !prev)
+                        }}
+                    >
+                        <ArchiveRestore className="h-4 w-4" />
+                    </Button>
+                    <CreateCampaign open={create} />
+                </div>
             </div>
 
             {/* Table */}
@@ -224,7 +290,7 @@ export default function Campaigns({ create = false }: CampaignsProps) {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {!campaigns ? (
+                        {isLoading ? (
                             Array.from({ length: 5 }).map((_, i) => (
                                 <TableRow key={i}>
                                     <TableCell>
@@ -253,9 +319,14 @@ export default function Campaigns({ create = false }: CampaignsProps) {
                                     <div className="flex flex-col items-center gap-2 text-muted-foreground">
                                         <Megaphone className="h-8 w-8" />
                                         <p>
-                                            {debouncedQuery
-                                                ? t("no_campaigns_found")
-                                                : t("no_campaigns_yet", "No campaigns yet")}
+                                            {isArchivedView
+                                                ? t(
+                                                      "no_archived_campaigns",
+                                                      "No archived campaigns",
+                                                  )
+                                                : debouncedQuery
+                                                  ? t("no_campaigns_found")
+                                                  : t("no_campaigns_yet", "No campaigns yet")}
                                         </p>
                                     </div>
                                 </TableCell>
@@ -326,15 +397,32 @@ export default function Campaigns({ create = false }: CampaignsProps) {
                                                         <Copy className="mr-2 h-4 w-4" />
                                                         {t("duplicate")}
                                                     </DropdownMenuItem>
-                                                    <DropdownMenuItem
-                                                        onClick={(e) =>
-                                                            handleArchiveCampaign(e, campaign.id)
-                                                        }
-                                                        className="text-destructive"
-                                                    >
-                                                        <Archive className="mr-2 h-4 w-4" />
-                                                        {t("archive")}
-                                                    </DropdownMenuItem>
+                                                    {isArchivedView ? (
+                                                        <DropdownMenuItem
+                                                            onClick={(e) => {
+                                                                e.stopPropagation()
+                                                                handleUnarchiveCampaign(
+                                                                    campaign.id.toString(),
+                                                                )
+                                                            }}
+                                                        >
+                                                            <ArchiveRestore className="mr-2 h-4 w-4" />
+                                                            {t("unarchive", "Unarchive")}
+                                                        </DropdownMenuItem>
+                                                    ) : (
+                                                        <DropdownMenuItem
+                                                            onClick={(e) =>
+                                                                handleArchiveCampaign(
+                                                                    e,
+                                                                    campaign.id,
+                                                                )
+                                                            }
+                                                            className="text-destructive"
+                                                        >
+                                                            <Archive className="mr-2 h-4 w-4" />
+                                                            {t("archive")}
+                                                        </DropdownMenuItem>
+                                                    )}
                                                 </DropdownMenuContent>
                                             </DropdownMenu>
                                         </TableCell>
@@ -346,10 +434,10 @@ export default function Campaigns({ create = false }: CampaignsProps) {
                 </Table>
 
                 {/* Pagination */}
-                {campaigns && campaigns.length > 0 && (
+                {campaigns.length > 0 && (
                     <div className="flex items-center justify-between border-t px-4 py-3">
                         <p className="text-sm text-muted-foreground">
-                            {result?.total ?? campaigns.length} {t("campaign.plural").toLowerCase()}
+                            {total} {t("campaign.plural").toLowerCase()}
                         </p>
                         {(hasPrevPage || hasNextPage) && (
                             <div className="flex items-center gap-2">

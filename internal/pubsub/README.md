@@ -22,6 +22,14 @@ graph TB
     Client -->|Send Campaign| CampaignSubject["campaigns.send.{project_id}.{campaign_id}"]
     Client -->|Submit Scheduled| SchedSubject["scheduled.process.{project_id}"]
     Client -->|Create Offset| SchedBackfillSubject["scheduled.backfill.{project_id}"]
+    Client -->|Send Broadcast| BroadcastSubject["broadcasts.process.{project_id}.{broadcast_id}"]
+    Client -->|User Inbox Message| UserInboxSubject["users.inbox.process.{project_id}"]
+    Client -->|User Inbox Opened| UserInboxOpenedSubject["users.inbox.opened.{project_id}"]
+    Client -->|User Inbox Archived| UserInboxArchivedSubject["users.inbox.archived.{project_id}"]
+    Client -->|Org Inbox Message| OrgInboxSubject["organizations.inbox.process.{project_id}"]
+    Client -->|Org Inbox Opened| OrgInboxOpenedSubject["organizations.inbox.opened.{project_id}"]
+    Client -->|Org Inbox Archived| OrgInboxArchivedSubject["organizations.inbox.archived.{project_id}"]
+    Client -->|Project Event| ProjectEventSubject["projects.events.{organization_id}"]
 
     EventSubject -->|Consume| EventHandler["User Event Handler"]
     UserSubject -->|Consume| UserHandler["User Handler"]
@@ -33,6 +41,14 @@ graph TB
     CampaignSubject -->|Consume| CampaignHandler["Campaign Send Handler"]
     SchedSubject -->|Consume| SchedHandler["Scheduled Handler"]
     SchedBackfillSubject -->|Consume| SchedBackfillHandler["Scheduled Backfill Handler"]
+    BroadcastSubject -->|Consume| BroadcastHandler["Broadcast Process Handler"]
+    UserInboxSubject -->|Consume| UserInboxHandler["User Inbox Message Handler"]
+    UserInboxOpenedSubject -->|Consume| UserInboxOpenedHandler["User Inbox Opened Handler"]
+    UserInboxArchivedSubject -->|Consume| UserInboxArchivedHandler["User Inbox Archived Handler"]
+    OrgInboxSubject -->|Consume| OrgInboxHandler["Organization Inbox Message Handler"]
+    OrgInboxOpenedSubject -->|Consume| OrgInboxOpenedHandler["Organization Inbox Opened Handler"]
+    OrgInboxArchivedSubject -->|Consume| OrgInboxArchivedHandler["Organization Inbox Archived Handler"]
+    ProjectEventSubject -->|Consume| ProjectEventHandler["Project Event Handler"]
 
     %% Schema publishing
     EventHandler --> EventSchemaSubject["users.events.schema.{project_id}"]
@@ -53,10 +69,12 @@ graph TB
     UserHandler -->|Affected Lists| ListSubject
     UserHandler -->|User system events| EventSubject
     UserHandler --> UserSchemaSubject["users.schema.{project_id}"]
+    UserHandler -->|Anniversary Schedule| SchedSubject
 
     %% Recompute triggers from organizations
     OrgHandler -->|Affected Lists| ListSubject
     OrgHandler -->|Org system events| OrgEventSubject
+    OrgHandler -->|Anniversary Schedule| SchedSubject
     OrgUserHandler -->|Affected Lists| ListSubject
     OrgUserHandler -->|Org user system events| OrgEventSubject
 
@@ -91,11 +109,12 @@ graph TB
     %% Journey self-advancement and completion
     JourneyState -->|Child Steps| JourneySubject
     JourneyState -->|Journey Completed| StepExecutedSubject["journeys.step_executed.{project_id}.{journey_id}.{user_id}"]
+    JourneyState -->|Action Schema| ActionSchemaSubject
 
     %% Action execution via NATS request/reply
-    JourneyState -.->|Request/Reply| ActionExecute["actions.execute.{project_id}"]
+    Client -.->|Request/Reply| ActionExecute["actions.execute.{project_id}"]
     ActionExecute -.->|Consume| ActionHandler["Action Execute Handler"]
-    ActionHandler -.->|Reply| JourneyState
+    ActionHandler -.->|Reply| Client
     ActionHandler -->|Schema Extract| ActionSchemaSubject
 
     %% Action validation via NATS request/reply
@@ -107,5 +126,29 @@ graph TB
     CampaignHandler -.->|Compile Request/Reply| EmailCompile["email.compile.{project_id}"]
     CampaignHandler -.->|Render Request/Reply| EmailRender["email.render.{project_id}"]
 
+    %% Campaign inbox lifecycle events and dispatch
+    CampaignHandler -->|Inbox Created Event| EventSubject
+    CampaignHandler -->|Push Dispatch| UserInboxDispatchSubject["users.inbox.dispatch.{project_id}"]
+
     ListRecompute -->|List Membership Change| EventSubject
+
+    %% Broadcast fan-out
+    BroadcastHandler -->|First Batch| BroadcastBatchSubject["broadcasts.batch.{project_id}.{broadcast_id}"]
+    BroadcastBatchSubject -->|Consume| BroadcastBatchHandler["Broadcast Batch Handler"]
+    BroadcastBatchHandler -->|Send per user| CampaignSubject
+    BroadcastBatchHandler -->|Next Batch| BroadcastBatchSubject
+
+    %% Inbox lifecycle events
+    UserInboxHandler -->|Lifecycle Event| EventSubject
+    UserInboxHandler -->|Push Dispatch| UserInboxDispatchSubject
+    UserInboxOpenedHandler -->|Lifecycle Event| EventSubject
+    UserInboxArchivedHandler -->|Lifecycle Event| EventSubject
+    OrgInboxHandler -->|Lifecycle Event| OrgEventSubject
+    OrgInboxHandler -->|Push Dispatch| OrgInboxDispatchSubject["organizations.inbox.dispatch.{project_id}"]
+    OrgInboxOpenedHandler -->|Lifecycle Event| OrgEventSubject
+    OrgInboxArchivedHandler -->|Lifecycle Event| OrgEventSubject
+
+    %% Inbox push dispatch handlers
+    UserInboxDispatchSubject -->|Consume| UserInboxDispatchHandler["User Inbox Dispatch Handler"]
+    OrgInboxDispatchSubject -->|Consume| OrgInboxDispatchHandler["Organization Inbox Dispatch Handler"]
 ```

@@ -4,8 +4,10 @@
 package provider
 
 import (
+	"fmt"
 	"net/url"
 
+	"github.com/google/uuid"
 	"github.com/lunogram/platform/pkg/modules/providers"
 )
 
@@ -132,4 +134,60 @@ func ResolveSender(payloadFrom string) (string, bool) {
 		return payloadFrom, true
 	}
 	return "", false
+}
+
+// ExtractInboxMessageID reads the platform inbox-message UUID from the
+// `inbox_message_id` query parameter on the Twilio StatusCallback URL.
+// AppendStatusCallbackMetadata sets it on the outbound StatusCallback URL,
+// and Twilio echoes the full URL back when posting status callbacks.
+//
+// Returns the zero UUID and a nil error when the query parameter is absent
+// (pre-T06 sends did not propagate metadata) so that webhook ingestion
+// remains backwards compatible. A non-nil error is returned when the
+// parameter is present but not a valid UUID, or when the raw URL fails to
+// parse; callers should log the error and proceed with the zero UUID rather
+// than reject the webhook.
+func ExtractInboxMessageID(rawURL string) (uuid.UUID, error) {
+	if rawURL == "" {
+		return uuid.Nil, nil
+	}
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("parse webhook URL: %w", err)
+	}
+	value := parsed.Query().Get(providers.MetadataKeyInboxMessageID)
+	if value == "" {
+		return uuid.Nil, nil
+	}
+	id, err := uuid.Parse(value)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("invalid inbox_message_id query param %q: %w", value, err)
+	}
+	return id, nil
+}
+
+// AppendStatusCallbackMetadata appends the supplied metadata as query
+// parameters on the configured Twilio StatusCallback URL. Twilio echoes any
+// query string on the callback URL back to the platform when the message
+// status changes, so this is how SMS providers (which lack native custom
+// metadata) carry the inbox-message UUID to the webhook handler.
+//
+// If callbackURL is empty or metadata is empty the URL is returned unchanged.
+// Existing query parameters are preserved; metadata keys overwrite duplicates.
+// If callbackURL fails to parse it is returned unchanged so the caller still
+// passes Twilio's own URL validation.
+func AppendStatusCallbackMetadata(callbackURL string, metadata map[string]string) string {
+	if callbackURL == "" || len(metadata) == 0 {
+		return callbackURL
+	}
+	parsed, err := url.Parse(callbackURL)
+	if err != nil {
+		return callbackURL
+	}
+	q := parsed.Query()
+	for k, v := range metadata {
+		q.Set(k, v)
+	}
+	parsed.RawQuery = q.Encode()
+	return parsed.String()
 }
