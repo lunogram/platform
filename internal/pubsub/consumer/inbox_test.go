@@ -9,6 +9,7 @@ import (
 	"github.com/lunogram/platform/internal/ptr"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
 	"github.com/lunogram/platform/pkg/modules"
+	providers "github.com/lunogram/platform/pkg/modules/providers"
 	"github.com/stretchr/testify/require"
 )
 
@@ -88,6 +89,50 @@ func TestInboxMessageParamsPreservesEmptyOptionals(t *testing.T) {
 	require.Nil(t, params.Source)
 	require.Nil(t, params.ScheduledAt)
 	require.Nil(t, params.ExpiresAt)
+}
+
+// TestComposePayloadRejectsEmptyRecipient verifies that composing a generic
+// {title, body} payload for a channel that needs a recipient fails when no
+// address is supplied (e.g. organization email/SMS where the content did not
+// carry channel-specific recipient fields), rather than silently producing a
+// payload with an empty "to".
+func TestComposePayloadRejectsEmptyRecipient(t *testing.T) {
+	t.Parallel()
+
+	generic := json.RawMessage(`{"title":"hi","body":"there"}`)
+
+	_, err := composePayload(providers.ChannelEmail, generic, nil, "")
+	require.Error(t, err)
+
+	_, err = composePayload(providers.ChannelSMS, generic, nil, "")
+	require.Error(t, err)
+}
+
+// TestComposePayloadPassesThroughChannelSpecificContent verifies that content
+// already carrying channel-specific fields (e.g. an email "subject") is passed
+// through untouched, so a missing recipient argument is not treated as an
+// error for pre-composed payloads.
+func TestComposePayloadPassesThroughChannelSpecificContent(t *testing.T) {
+	t.Parallel()
+
+	content := json.RawMessage(`{"subject":"hi","to":"u@example.com"}`)
+
+	out, err := composePayload(providers.ChannelEmail, content, nil, "")
+	require.NoError(t, err)
+	require.JSONEq(t, string(content), string(out))
+}
+
+// TestInboxProcessMsgIDIsStableAndDistinct verifies the scheduler's
+// re-injection Msg-Id is deterministic per message and does not collide with
+// the push dispatch Msg-Id namespace.
+func TestInboxProcessMsgIDIsStableAndDistinct(t *testing.T) {
+	t.Parallel()
+
+	messageID := uuid.New()
+	providerID := uuid.New()
+
+	require.Equal(t, schemas.InboxProcessMsgID(messageID), schemas.InboxProcessMsgID(messageID))
+	require.NotEqual(t, schemas.InboxProcessMsgID(messageID), schemas.InboxDispatchMsgID(messageID, providerID))
 }
 
 // TODO(plan): handler-level coverage (inbox channel ingestion, email
