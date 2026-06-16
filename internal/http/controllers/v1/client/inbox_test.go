@@ -51,14 +51,15 @@ func postJSON(t *testing.T, router chi.Router, path string, body any) *httptest.
 // validUserInboxMessage returns a minimal valid inbox message payload.
 func validUserInboxMessage() map[string]any {
 	return map[string]any{
-		"target":  []map[string]any{{"external_id": "user_123"}},
-		"channel": "push",
-		"content": map[string]any{"title": "Hello"},
+		"target":     []map[string]any{{"external_id": "user_123"}},
+		"identifier": map[string]any{"external_id": "message_123"},
+		"channel":    "push",
+		"content":    map[string]any{"title": "Hello"},
 	}
 }
 
 // validUserInboxEvent returns a minimal valid inbox state-event payload (the
-// shared shape accepted by both /inbox/opened and /inbox/archived).
+// shared shape accepted by both /inbox/read and /inbox/archived).
 func validUserInboxEvent() map[string]any {
 	return map[string]any{
 		"target":     []map[string]any{{"external_id": "user_123"}},
@@ -80,7 +81,7 @@ func TestInboxSpecValidation_EmptyTarget(t *testing.T) {
 			},
 		},
 		"user inbox events": {
-			path: "/api/client/users/inbox/opened",
+			path: "/api/client/users/inbox/read",
 			body: []map[string]any{
 				withOverrides(validUserInboxEvent(), "target", []map[string]any{}),
 			},
@@ -167,9 +168,9 @@ func TestInboxSpecValidation_EmptyArray(t *testing.T) {
 		path string
 	}{
 		"user inbox messages": {path: "/api/client/users/inbox"},
-		"user inbox opened":   {path: "/api/client/users/inbox/opened"},
+		"user inbox read":     {path: "/api/client/users/inbox/read"},
 		"user inbox archived": {path: "/api/client/users/inbox/archived"},
-		"org inbox opened":    {path: "/api/client/organizations/inbox/opened"},
+		"org inbox read":      {path: "/api/client/organizations/inbox/read"},
 		"org inbox archived":  {path: "/api/client/organizations/inbox/archived"},
 	}
 
@@ -194,8 +195,8 @@ func TestInboxSpecValidation_ValidRequest(t *testing.T) {
 			path: "/api/client/users/inbox",
 			body: []map[string]any{validUserInboxMessage()},
 		},
-		"user inbox opened": {
-			path: "/api/client/users/inbox/opened",
+		"user inbox read": {
+			path: "/api/client/users/inbox/read",
 			body: []map[string]any{validUserInboxEvent()},
 		},
 		"user inbox archived": {
