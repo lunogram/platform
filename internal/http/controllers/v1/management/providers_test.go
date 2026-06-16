@@ -14,6 +14,7 @@ import (
 
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	internalProviders "github.com/lunogram/platform/internal/providers"
+	"github.com/lunogram/platform/internal/ptr"
 	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/store/management"
 	teststore "github.com/lunogram/platform/internal/store/test"
@@ -58,8 +59,8 @@ func TestListProviders(t *testing.T) {
 	tests := map[string]test{
 		"default pagination": {
 			params: oapi.ListProvidersParams{
-				Limit:  ptr(oapi.Limit(20)),
-				Offset: ptr(oapi.Offset(0)),
+				Limit:  ptr.To(oapi.Limit(20)),
+				Offset: ptr.To(oapi.Offset(0)),
 			},
 			code: 200,
 		},
@@ -230,7 +231,7 @@ func TestDeleteProvider(t *testing.T) {
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("DELETE", "/v1/providers/"+test.providerID.String(), nil)
 			req = req.WithContext(actorCtx)
-			controller.DeleteProvider(res, req, projectID, test.providerID)
+			controller.DeleteProvider(res, req, projectID, "test", test.providerID)
 
 			require.Equal(t, test.code, res.Code, res.Body.String())
 		})
@@ -327,7 +328,7 @@ func TestUpdateProvider(t *testing.T) {
 	tests := map[string]test{
 		"not found": {
 			body: oapi.UpdateProviderJSONRequestBody{
-				Name: ptr("Updated Provider"),
+				Name: ptr.To("Updated Provider"),
 			},
 			providerID: uuid.New(),
 			code:       404,
@@ -449,7 +450,7 @@ func TestDeleteLockedProvider(t *testing.T) {
 		res := httptest.NewRecorder()
 		req := httptest.NewRequest("DELETE", "/v1/providers/"+lockedProviderID.String(), nil)
 		req = req.WithContext(actorCtx)
-		controller.DeleteProvider(res, req, projectID, lockedProviderID)
+		controller.DeleteProvider(res, req, projectID, "locked-provider", lockedProviderID)
 
 		require.Equal(t, http.StatusForbidden, res.Code, res.Body.String())
 	})
@@ -458,7 +459,7 @@ func TestDeleteLockedProvider(t *testing.T) {
 		res := httptest.NewRecorder()
 		req := httptest.NewRequest("DELETE", "/v1/providers/"+unlockedProviderID.String(), nil)
 		req = req.WithContext(actorCtx)
-		controller.DeleteProvider(res, req, projectID, unlockedProviderID)
+		controller.DeleteProvider(res, req, projectID, "unlocked-provider", unlockedProviderID)
 
 		require.Equal(t, http.StatusNoContent, res.Code, res.Body.String())
 	})

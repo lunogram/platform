@@ -283,12 +283,14 @@ func (s *CampaignsStore) GetCampaignUsers(ctx context.Context, usersDB store.DB,
 		return []CampaignUser{}, 0, nil
 	}
 
-	// Query campaign_sends from users DB
+	// Query user_inbox_messages from users DB
 	query := `
-	SELECT id, campaign_id, user_id, state, sent_at, created_at, updated_at,
+	SELECT id, campaign_id, user_id,
+		CASE WHEN sent_at IS NOT NULL THEN 'sent' ELSE 'pending' END AS state,
+		sent_at, created_at, updated_at,
 		COUNT(*) OVER () AS total_count
-	FROM campaign_sends
-	WHERE campaign_id = $1
+	FROM user_inbox_messages
+	WHERE campaign_id = $1 AND deleted_at IS NULL
 	ORDER BY created_at DESC
 	LIMIT $2 OFFSET $3`
 

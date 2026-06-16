@@ -17,25 +17,38 @@ import (
 )
 
 func NewController(ctx graceful.Context, logger *zap.Logger, config config.Node, jrny *journey.State, usrs *subjects.State, mgmt *management.State, pub pubsub.Publisher) *Controller {
+	batchSize := config.Cluster.ReconciliationBatchSize
+	if batchSize <= 0 {
+		batchSize = 1000
+	}
+
 	return &Controller{
-		logger:     logger,
-		config:     config,
-		journeys:   jrny.JourneysStore,
-		scheduled:  usrs.ScheduledStore,
-		lists:      usrs.ListsStore,
-		broadcasts: mgmt.BroadcastsStore,
-		pub:        pub,
+		logger:                  logger,
+		config:                  config,
+		reconciliationBatchSize: batchSize,
+		journeys:                jrny.JourneysStore,
+		scheduled:               usrs.ScheduledStore,
+		inbox:                   usrs.InboxStore,
+		lists:                   usrs.ListsStore,
+		broadcasts:              mgmt.BroadcastsStore,
+		pub:                     pub,
 	}
 }
 
 type Controller struct {
-	logger     *zap.Logger
-	config     config.Node
-	journeys   *journey.JourneysStore
-	scheduled  *subjects.ScheduledStore
-	lists      *subjects.ListsStore
-	broadcasts *management.BroadcastsStore
-	pub        pubsub.Publisher
+	logger *zap.Logger
+	config config.Node
+	// reconciliationBatchSize caps the number of rows each reconciliation
+	// task scans per tick. It prevents a single tick from monopolizing
+	// store/CPU/network resources when large backlogs accumulate; any
+	// remaining work is naturally picked up on the next tick.
+	reconciliationBatchSize int
+	journeys                *journey.JourneysStore
+	scheduled               *subjects.ScheduledStore
+	inbox                   *subjects.InboxStore
+	lists                   *subjects.ListsStore
+	broadcasts              *management.BroadcastsStore
+	pub                     pubsub.Publisher
 }
 
 func (controller *Controller) Schedule(ctx context.Context) {
@@ -60,6 +73,8 @@ func (controller *Controller) Schedule(ctx context.Context) {
 			wg.Go(controller.ReconcileOrganizationSchedules(ctx))
 			wg.Go(controller.ReconcileUserScheduledEvents(ctx))
 			wg.Go(controller.ReconcileOrganizationScheduledEvents(ctx))
+			wg.Go(controller.ReconcileUserInboxMessages(ctx))
+			wg.Go(controller.ReconcileOrganizationInboxMessages(ctx))
 			wg.Go(controller.ReconcileScheduledBroadcasts(ctx))
 			wg.Go(controller.ReconcileListRecomputation(ctx))
 			wg.Wait() // nolint:errcheck

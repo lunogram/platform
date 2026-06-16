@@ -267,6 +267,16 @@ The `identifier` column is required and is used as the `external_id` with the `d
 All other columns (like `plan` and `company` above) become custom properties.
 
 <Callout type="info">
+  **Timezone auto-conversion**: Values in the `timezone` column are automatically
+  resolved to IANA timezone names. Abbreviations like `EST`, `PST`, `CET` and
+  GMT/UTC offsets like `GMT-5` or `+02:00` are resolved to a best-match IANA
+  timezone name (for example, `America/New_York`, `America/Los_Angeles`).
+  IANA names like `America/New_York` are used as-is. Note that abbreviation and
+  offset conversion is heuristic/lossy: inputs may map to a region-based timezone
+  that observes DST, so a fixed offset may not be preserved year-round.
+</Callout>
+
+<Callout type="info">
   Importing via a [static list](/lists#static-lists) also creates users, but
   adds them to the list. Direct CSV imports only create or update profiles.
 </Callout>

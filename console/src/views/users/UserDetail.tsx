@@ -18,6 +18,7 @@ import {
     Pencil,
     Check,
     CalendarClock,
+    Inbox,
 } from "lucide-react"
 import { ProjectContext, UserContext } from "../../contexts"
 import { PreferencesContext } from "@/contexts/PreferencesContext"
@@ -58,6 +59,7 @@ import {
     CommandList,
 } from "@/components/ui/command"
 import { InlineEdit } from "@/components/ui/inline-edit"
+import { optionalPhoneSchema } from "@/validation/phone"
 import type { User } from "../../types"
 
 // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -154,6 +156,7 @@ export default function UserDetail() {
             label: t("scheduled", "Scheduled"),
             icon: CalendarClock,
         },
+        { key: "inbox", to: "inbox", label: t("inbox", "Inbox"), icon: Inbox },
         { key: "subscriptions", to: "subscriptions", label: t("subscriptions"), icon: Bell },
         { key: "journeys", to: "journeys", label: t("journeys"), icon: Route },
         { key: "organizations", to: "organizations", label: t("organizations"), icon: Building2 },
@@ -253,6 +256,7 @@ export default function UserDetail() {
                                     {/* 2. Phone */}
                                     <InlineEdit
                                         value={user.phone ?? ""}
+                                        validate={optionalPhoneSchema}
                                         onSave={async (value) => {
                                             const updatedUser = await api.users.update(
                                                 project.id,

@@ -95,6 +95,11 @@ func Send() int32 {
 	}
 
 	pdk.Log(pdk.LogInfo, fmt.Sprintf("channel: %s", req.Channel))
+	if len(req.Metadata) > 0 {
+		for k, v := range req.Metadata {
+			pdk.Log(pdk.LogInfo, fmt.Sprintf("metadata.%s: %s", k, v))
+		}
+	}
 
 	switch req.Channel {
 	case providers.ChannelEmail:
@@ -137,7 +142,8 @@ func Send() int32 {
 	response := providers.SendResponse{
 		Status: "logged",
 		Metadata: map[string]any{
-			"channel": req.Channel,
+			"channel":          req.Channel,
+			"request_metadata": req.Metadata,
 		},
 	}
 

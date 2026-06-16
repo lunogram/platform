@@ -153,6 +153,26 @@ func TestUserMapperMapRecord(t *testing.T) {
 				require.Empty(t, user.Data)
 			},
 		},
+		"timezone GMT offset conversion": {
+			headers: []string{"external_id", "timezone"},
+			record:  []string{"user-gmt", "GMT+2"},
+			validate: func(t *testing.T, user subjects.UpsertUserParams) {
+				require.Len(t, user.Identifiers, 1)
+				require.Equal(t, "user-gmt", user.Identifiers[0].ExternalID)
+				require.NotNil(t, user.Timezone)
+				require.Equal(t, "Europe/Amsterdam", *user.Timezone)
+			},
+		},
+		"timezone IANA passthrough": {
+			headers: []string{"external_id", "timezone"},
+			record:  []string{"user-iana", "America/New_York"},
+			validate: func(t *testing.T, user subjects.UpsertUserParams) {
+				require.Len(t, user.Identifiers, 1)
+				require.Equal(t, "user-iana", user.Identifiers[0].ExternalID)
+				require.NotNil(t, user.Timezone)
+				require.Equal(t, "America/New_York", *user.Timezone)
+			},
+		},
 		"empty values": {
 			headers: []string{"external_id", "email", "phone"},
 			record:  []string{"user-empty", "", ""},

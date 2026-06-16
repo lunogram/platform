@@ -7,7 +7,7 @@ import {
     useState,
     type PropsWithChildren,
 } from "react"
-import type { Edge, Node } from "reactflow"
+import type { Edge, Node } from "@xyflow/react"
 import type { JourneyNodeData } from "./editor/JourneyEditor.types"
 import type { VariableSuggestions } from "@/types"
 import { getUpstreamDataKeys } from "./editor/JourneyEditor.utils"

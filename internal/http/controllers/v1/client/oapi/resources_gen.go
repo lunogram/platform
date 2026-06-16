@@ -24,6 +24,30 @@ const (
 	HttpBearerAuthScopes httpBearerAuthContextKey = "HttpBearerAuth.Scopes"
 )
 
+// Defines values for Channel.
+const (
+	Email Channel = "email"
+	Inbox Channel = "inbox"
+	Push  Channel = "push"
+	Sms   Channel = "sms"
+)
+
+// Valid indicates whether the value is a known member of the Channel enum.
+func (e Channel) Valid() bool {
+	switch e {
+	case Email:
+		return true
+	case Inbox:
+		return true
+	case Push:
+		return true
+	case Sms:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for DeviceRegistrationOs.
 const (
 	Android DeviceRegistrationOs = "android"
@@ -44,6 +68,51 @@ func (e DeviceRegistrationOs) Valid() bool {
 		return false
 	}
 }
+
+// Defines values for GetOrganizationInboxParamsStatus.
+const (
+	GetOrganizationInboxParamsStatusArchived GetOrganizationInboxParamsStatus = "archived"
+	GetOrganizationInboxParamsStatusRead     GetOrganizationInboxParamsStatus = "read"
+	GetOrganizationInboxParamsStatusUnread   GetOrganizationInboxParamsStatus = "unread"
+)
+
+// Valid indicates whether the value is a known member of the GetOrganizationInboxParamsStatus enum.
+func (e GetOrganizationInboxParamsStatus) Valid() bool {
+	switch e {
+	case GetOrganizationInboxParamsStatusArchived:
+		return true
+	case GetOrganizationInboxParamsStatusRead:
+		return true
+	case GetOrganizationInboxParamsStatusUnread:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetUserInboxParamsStatus.
+const (
+	GetUserInboxParamsStatusArchived GetUserInboxParamsStatus = "archived"
+	GetUserInboxParamsStatusRead     GetUserInboxParamsStatus = "read"
+	GetUserInboxParamsStatusUnread   GetUserInboxParamsStatus = "unread"
+)
+
+// Valid indicates whether the value is a known member of the GetUserInboxParamsStatus enum.
+func (e GetUserInboxParamsStatus) Valid() bool {
+	switch e {
+	case GetUserInboxParamsStatusArchived:
+		return true
+	case GetUserInboxParamsStatusRead:
+		return true
+	case GetUserInboxParamsStatusUnread:
+		return true
+	default:
+		return false
+	}
+}
+
+// Channel defines model for Channel.
+type Channel string
 
 // DeleteOrganizationRequest defines model for DeleteOrganizationRequest.
 type DeleteOrganizationRequest struct {
@@ -155,6 +224,72 @@ type IdentifyRequest struct {
 	Timezone *string `json:"timezone,omitempty"`
 }
 
+// InboxCount defines model for InboxCount.
+type InboxCount struct {
+	Total  int `json:"total"`
+	Unread int `json:"unread"`
+}
+
+// InboxMessage defines model for InboxMessage.
+type InboxMessage struct {
+	ArchivedAt  *time.Time          `json:"archived_at,omitempty"`
+	BroadcastId *openapi_types.UUID `json:"broadcast_id,omitempty"`
+	CampaignId  *openapi_types.UUID `json:"campaign_id,omitempty"`
+	Channel     Channel             `json:"channel"`
+	Content     json.RawMessage     `json:"content"`
+	CreatedAt   time.Time           `json:"created_at"`
+	Data        json.RawMessage     `json:"data"`
+	ExpiresAt   *time.Time          `json:"expires_at,omitempty"`
+
+	// ExternalId External identifier for the message, if one was provided at creation time.
+	ExternalId       *string             `json:"external_id,omitempty"`
+	Id               openapi_types.UUID  `json:"id"`
+	OrganizationId   *openapi_types.UUID `json:"organization_id,omitempty"`
+	Priority         int16               `json:"priority"`
+	ProjectId        openapi_types.UUID  `json:"project_id"`
+	ReadAt           *time.Time          `json:"read_at,omitempty"`
+	ScheduledAt      time.Time           `json:"scheduled_at"`
+	SenderIdentityId *openapi_types.UUID `json:"sender_identity_id,omitempty"`
+	SentAt           *time.Time          `json:"sent_at,omitempty"`
+	Source           *string             `json:"source,omitempty"`
+	Tags             []string            `json:"tags"`
+	UpdatedAt        time.Time           `json:"updated_at"`
+	UserId           *openapi_types.UUID `json:"user_id,omitempty"`
+}
+
+// InboxMessageCreate defines model for InboxMessageCreate.
+type InboxMessageCreate struct {
+	BroadcastId *openapi_types.UUID `json:"broadcast_id,omitempty"`
+	CampaignId  *openapi_types.UUID `json:"campaign_id,omitempty"`
+	Channel     Channel             `json:"channel"`
+
+	// Content Channel-specific payload content.
+	Content   *json.RawMessage `json:"content,omitempty"`
+	Data      *map[string]any  `json:"data,omitempty"`
+	ExpiresAt *time.Time       `json:"expires_at,omitempty"`
+
+	// Identifier An external identifier with source and optional metadata
+	Identifier  ExternalID `json:"identifier"`
+	Priority    *int16     `json:"priority,omitempty"`
+	ScheduledAt *time.Time `json:"scheduled_at,omitempty"`
+
+	// SenderIdentityId Required for email and sms messages. Push uses project push provider settings.
+	SenderIdentityId *openapi_types.UUID `json:"sender_identity_id,omitempty"`
+	Source           *string             `json:"source,omitempty"`
+	Tags             *[]string           `json:"tags,omitempty"`
+
+	// Target One or more external identifiers to identify the user
+	Target UserIdentifier `json:"target"`
+}
+
+// InboxMessageList defines model for InboxMessageList.
+type InboxMessageList struct {
+	Limit   int            `json:"limit"`
+	Offset  int            `json:"offset"`
+	Results []InboxMessage `json:"results"`
+	Total   int            `json:"total"`
+}
+
 // Organization defines model for Organization.
 type Organization struct {
 	CreatedAt time.Time          `json:"created_at"`
@@ -187,6 +322,42 @@ type OrganizationEvent struct {
 // OrganizationIdentifier One or more external identifiers to identify the organization
 type OrganizationIdentifier = []ExternalID
 
+// OrganizationInboxMessageCreate defines model for OrganizationInboxMessageCreate.
+type OrganizationInboxMessageCreate struct {
+	BroadcastId *openapi_types.UUID `json:"broadcast_id,omitempty"`
+	CampaignId  *openapi_types.UUID `json:"campaign_id,omitempty"`
+	Channel     Channel             `json:"channel"`
+
+	// Content Channel-specific payload content.
+	Content   *json.RawMessage `json:"content,omitempty"`
+	Data      *map[string]any  `json:"data,omitempty"`
+	ExpiresAt *time.Time       `json:"expires_at,omitempty"`
+
+	// Identifier An external identifier with source and optional metadata
+	Identifier  ExternalID `json:"identifier"`
+	Priority    *int16     `json:"priority,omitempty"`
+	ScheduledAt *time.Time `json:"scheduled_at,omitempty"`
+
+	// SenderIdentityId Required for email and sms messages. Push uses project push provider settings.
+	SenderIdentityId *openapi_types.UUID `json:"sender_identity_id,omitempty"`
+	Source           *string             `json:"source,omitempty"`
+	Tags             *[]string           `json:"tags,omitempty"`
+
+	// Target One or more external identifiers to identify the organization
+	Target OrganizationIdentifier `json:"target"`
+}
+
+// OrganizationInboxMessageEvents defines model for OrganizationInboxMessageEvents.
+type OrganizationInboxMessageEvents = []OrganizationInboxMessageRef
+
+// OrganizationInboxMessageRef defines model for OrganizationInboxMessageRef.
+type OrganizationInboxMessageRef struct {
+	MessageId openapi_types.UUID `json:"message_id"`
+
+	// Target One or more external identifiers to identify the organization
+	Target OrganizationIdentifier `json:"target"`
+}
+
 // OrganizationRequest defines model for OrganizationRequest.
 type OrganizationRequest struct {
 	Data *map[string]any `json:"data,omitempty"`
@@ -215,6 +386,12 @@ type PostEventsRequest = []Event
 
 // PostOrganizationEventsRequest defines model for PostOrganizationEventsRequest.
 type PostOrganizationEventsRequest = []OrganizationEvent
+
+// PostOrganizationInboxMessagesRequest defines model for PostOrganizationInboxMessagesRequest.
+type PostOrganizationInboxMessagesRequest = []OrganizationInboxMessageCreate
+
+// PostUserInboxMessagesRequest defines model for PostUserInboxMessagesRequest.
+type PostUserInboxMessagesRequest = []InboxMessageCreate
 
 // Problem defines model for Problem.
 type Problem struct {
@@ -317,17 +494,92 @@ type User struct {
 // UserIdentifier One or more external identifiers to identify the user
 type UserIdentifier = []ExternalID
 
+// UserInboxMessageEvents defines model for UserInboxMessageEvents.
+type UserInboxMessageEvents = []UserInboxMessageRef
+
+// UserInboxMessageRef defines model for UserInboxMessageRef.
+type UserInboxMessageRef struct {
+	MessageId openapi_types.UUID `json:"message_id"`
+
+	// Target One or more external identifiers to identify the user
+	Target UserIdentifier `json:"target"`
+}
+
 // VapidPublicKey defines model for VapidPublicKey.
 type VapidPublicKey struct {
 	// PublicKey The VAPID public key
 	PublicKey string `json:"public_key"`
 }
 
+// Limit defines model for Limit.
+type Limit = PaginationLimit
+
+// Offset defines model for Offset.
+type Offset = PaginationOffset
+
 // Error defines model for Error.
 type Error = Problem
 
 // httpBearerAuthContextKey is the context key for HttpBearerAuth security scheme
 type httpBearerAuthContextKey string
+
+// GetOrganizationInboxParams defines parameters for GetOrganizationInbox.
+type GetOrganizationInboxParams struct {
+	Source     string                            `form:"source" json:"source"`
+	ExternalId string                            `form:"external_id" json:"external_id"`
+	Status     *GetOrganizationInboxParamsStatus `form:"status,omitempty" json:"status,omitempty"`
+
+	// Tags Comma-separated tag filter. All listed tags must be present.
+	Tags          *string `form:"tags,omitempty" json:"tags,omitempty"`
+	MessageSource *string `form:"message_source,omitempty" json:"message_source,omitempty"`
+	Priority      *int    `form:"priority,omitempty" json:"priority,omitempty"`
+	Channel       Channel `form:"channel" json:"channel"`
+
+	// Limit Maximum number of items to return
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Offset Number of items to skip
+	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
+// GetOrganizationInboxParamsStatus defines parameters for GetOrganizationInbox.
+type GetOrganizationInboxParamsStatus string
+
+// GetOrganizationInboxCountParams defines parameters for GetOrganizationInboxCount.
+type GetOrganizationInboxCountParams struct {
+	Source     string  `form:"source" json:"source"`
+	ExternalId string  `form:"external_id" json:"external_id"`
+	Channel    Channel `form:"channel" json:"channel"`
+}
+
+// GetUserInboxParams defines parameters for GetUserInbox.
+type GetUserInboxParams struct {
+	Source     string                    `form:"source" json:"source"`
+	ExternalId string                    `form:"external_id" json:"external_id"`
+	Status     *GetUserInboxParamsStatus `form:"status,omitempty" json:"status,omitempty"`
+
+	// Tags Comma-separated tag filter. All listed tags must be present.
+	Tags          *string `form:"tags,omitempty" json:"tags,omitempty"`
+	MessageSource *string `form:"message_source,omitempty" json:"message_source,omitempty"`
+	Priority      *int    `form:"priority,omitempty" json:"priority,omitempty"`
+	Channel       Channel `form:"channel" json:"channel"`
+
+	// Limit Maximum number of items to return
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Offset Number of items to skip
+	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
+// GetUserInboxParamsStatus defines parameters for GetUserInbox.
+type GetUserInboxParamsStatus string
+
+// GetUserInboxCountParams defines parameters for GetUserInboxCount.
+type GetUserInboxCountParams struct {
+	Source     string  `form:"source" json:"source"`
+	ExternalId string  `form:"external_id" json:"external_id"`
+	Channel    Channel `form:"channel" json:"channel"`
+}
 
 // UpdatePreferencesFormdataBody defines parameters for UpdatePreferences.
 type UpdatePreferencesFormdataBody struct {
@@ -349,6 +601,15 @@ type UpsertOrganizationClientJSONRequestBody = OrganizationRequest
 
 // PostOrganizationEventsClientJSONRequestBody defines body for PostOrganizationEventsClient for application/json ContentType.
 type PostOrganizationEventsClientJSONRequestBody = PostOrganizationEventsRequest
+
+// PostOrganizationInboxMessagesJSONRequestBody defines body for PostOrganizationInboxMessages for application/json ContentType.
+type PostOrganizationInboxMessagesJSONRequestBody = PostOrganizationInboxMessagesRequest
+
+// PostOrganizationInboxArchivedJSONRequestBody defines body for PostOrganizationInboxArchived for application/json ContentType.
+type PostOrganizationInboxArchivedJSONRequestBody = OrganizationInboxMessageEvents
+
+// PostOrganizationInboxReadJSONRequestBody defines body for PostOrganizationInboxRead for application/json ContentType.
+type PostOrganizationInboxReadJSONRequestBody = OrganizationInboxMessageEvents
 
 // DeleteOrganizationScheduledClientJSONRequestBody defines body for DeleteOrganizationScheduledClient for application/json ContentType.
 type DeleteOrganizationScheduledClientJSONRequestBody = DeleteOrganizationScheduledRequest
@@ -373,6 +634,15 @@ type RegisterDeviceJSONRequestBody = DeviceRegistration
 
 // PostUserEventsJSONRequestBody defines body for PostUserEvents for application/json ContentType.
 type PostUserEventsJSONRequestBody = PostEventsRequest
+
+// PostUserInboxMessagesJSONRequestBody defines body for PostUserInboxMessages for application/json ContentType.
+type PostUserInboxMessagesJSONRequestBody = PostUserInboxMessagesRequest
+
+// PostUserInboxArchivedJSONRequestBody defines body for PostUserInboxArchived for application/json ContentType.
+type PostUserInboxArchivedJSONRequestBody = UserInboxMessageEvents
+
+// PostUserInboxReadJSONRequestBody defines body for PostUserInboxRead for application/json ContentType.
+type PostUserInboxReadJSONRequestBody = UserInboxMessageEvents
 
 // DeleteUserScheduledClientJSONRequestBody defines body for DeleteUserScheduledClient for application/json ContentType.
 type DeleteUserScheduledClientJSONRequestBody = DeleteUserScheduledRequest
@@ -471,6 +741,27 @@ type ClientInterface interface {
 
 	PostOrganizationEventsClient(ctx context.Context, body PostOrganizationEventsClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetOrganizationInbox request
+	GetOrganizationInbox(ctx context.Context, params *GetOrganizationInboxParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostOrganizationInboxMessagesWithBody request with any body
+	PostOrganizationInboxMessagesWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PostOrganizationInboxMessages(ctx context.Context, body PostOrganizationInboxMessagesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostOrganizationInboxArchivedWithBody request with any body
+	PostOrganizationInboxArchivedWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PostOrganizationInboxArchived(ctx context.Context, body PostOrganizationInboxArchivedJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetOrganizationInboxCount request
+	GetOrganizationInboxCount(ctx context.Context, params *GetOrganizationInboxCountParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostOrganizationInboxReadWithBody request with any body
+	PostOrganizationInboxReadWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PostOrganizationInboxRead(ctx context.Context, body PostOrganizationInboxReadJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// DeleteOrganizationScheduledClientWithBody request with any body
 	DeleteOrganizationScheduledClientWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -513,6 +804,27 @@ type ClientInterface interface {
 	PostUserEventsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	PostUserEvents(ctx context.Context, body PostUserEventsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetUserInbox request
+	GetUserInbox(ctx context.Context, params *GetUserInboxParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostUserInboxMessagesWithBody request with any body
+	PostUserInboxMessagesWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PostUserInboxMessages(ctx context.Context, body PostUserInboxMessagesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostUserInboxArchivedWithBody request with any body
+	PostUserInboxArchivedWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PostUserInboxArchived(ctx context.Context, body PostUserInboxArchivedJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetUserInboxCount request
+	GetUserInboxCount(ctx context.Context, params *GetUserInboxCountParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostUserInboxReadWithBody request with any body
+	PostUserInboxReadWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PostUserInboxRead(ctx context.Context, body PostUserInboxReadJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteUserScheduledClientWithBody request with any body
 	DeleteUserScheduledClientWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -598,6 +910,102 @@ func (c *Client) PostOrganizationEventsClientWithBody(ctx context.Context, conte
 
 func (c *Client) PostOrganizationEventsClient(ctx context.Context, body PostOrganizationEventsClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPostOrganizationEventsClientRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetOrganizationInbox(ctx context.Context, params *GetOrganizationInboxParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetOrganizationInboxRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostOrganizationInboxMessagesWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostOrganizationInboxMessagesRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostOrganizationInboxMessages(ctx context.Context, body PostOrganizationInboxMessagesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostOrganizationInboxMessagesRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostOrganizationInboxArchivedWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostOrganizationInboxArchivedRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostOrganizationInboxArchived(ctx context.Context, body PostOrganizationInboxArchivedJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostOrganizationInboxArchivedRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetOrganizationInboxCount(ctx context.Context, params *GetOrganizationInboxCountParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetOrganizationInboxCountRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostOrganizationInboxReadWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostOrganizationInboxReadRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostOrganizationInboxRead(ctx context.Context, body PostOrganizationInboxReadJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostOrganizationInboxReadRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -812,6 +1220,102 @@ func (c *Client) PostUserEvents(ctx context.Context, body PostUserEventsJSONRequ
 	return c.Client.Do(req)
 }
 
+func (c *Client) GetUserInbox(ctx context.Context, params *GetUserInboxParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetUserInboxRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostUserInboxMessagesWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostUserInboxMessagesRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostUserInboxMessages(ctx context.Context, body PostUserInboxMessagesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostUserInboxMessagesRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostUserInboxArchivedWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostUserInboxArchivedRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostUserInboxArchived(ctx context.Context, body PostUserInboxArchivedJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostUserInboxArchivedRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetUserInboxCount(ctx context.Context, params *GetUserInboxCountParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetUserInboxCountRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostUserInboxReadWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostUserInboxReadRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostUserInboxRead(ctx context.Context, body PostUserInboxReadJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostUserInboxReadRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) DeleteUserScheduledClientWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDeleteUserScheduledClientRequestWithBody(c.Server, contentType, body)
 	if err != nil {
@@ -1009,6 +1513,330 @@ func NewPostOrganizationEventsClientRequestWithBody(server string, contentType s
 	}
 
 	operationPath := fmt.Sprintf("/api/client/organizations/events")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetOrganizationInboxRequest generates requests for GetOrganizationInbox
+func NewGetOrganizationInboxRequest(server string, params *GetOrganizationInboxParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/client/organizations/inbox")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "source", params.Source, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "external_id", params.ExternalId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if params.Status != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "status", *params.Status, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Tags != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "tags", *params.Tags, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.MessageSource != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "message_source", *params.MessageSource, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Priority != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "priority", *params.Priority, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "channel", params.Channel, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Offset != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "offset", *params.Offset, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPostOrganizationInboxMessagesRequest calls the generic PostOrganizationInboxMessages builder with application/json body
+func NewPostOrganizationInboxMessagesRequest(server string, body PostOrganizationInboxMessagesJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPostOrganizationInboxMessagesRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewPostOrganizationInboxMessagesRequestWithBody generates requests for PostOrganizationInboxMessages with any type of body
+func NewPostOrganizationInboxMessagesRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/client/organizations/inbox")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewPostOrganizationInboxArchivedRequest calls the generic PostOrganizationInboxArchived builder with application/json body
+func NewPostOrganizationInboxArchivedRequest(server string, body PostOrganizationInboxArchivedJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPostOrganizationInboxArchivedRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewPostOrganizationInboxArchivedRequestWithBody generates requests for PostOrganizationInboxArchived with any type of body
+func NewPostOrganizationInboxArchivedRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/client/organizations/inbox/archived")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetOrganizationInboxCountRequest generates requests for GetOrganizationInboxCount
+func NewGetOrganizationInboxCountRequest(server string, params *GetOrganizationInboxCountParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/client/organizations/inbox/count")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "source", params.Source, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "external_id", params.ExternalId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "channel", params.Channel, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPostOrganizationInboxReadRequest calls the generic PostOrganizationInboxRead builder with application/json body
+func NewPostOrganizationInboxReadRequest(server string, body PostOrganizationInboxReadJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPostOrganizationInboxReadRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewPostOrganizationInboxReadRequestWithBody generates requests for PostOrganizationInboxRead with any type of body
+func NewPostOrganizationInboxReadRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/client/organizations/inbox/read")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -1375,6 +2203,330 @@ func NewPostUserEventsRequestWithBody(server string, contentType string, body io
 	return req, nil
 }
 
+// NewGetUserInboxRequest generates requests for GetUserInbox
+func NewGetUserInboxRequest(server string, params *GetUserInboxParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/client/users/inbox")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "source", params.Source, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "external_id", params.ExternalId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if params.Status != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "status", *params.Status, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Tags != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "tags", *params.Tags, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.MessageSource != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "message_source", *params.MessageSource, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Priority != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "priority", *params.Priority, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "channel", params.Channel, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Offset != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "offset", *params.Offset, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPostUserInboxMessagesRequest calls the generic PostUserInboxMessages builder with application/json body
+func NewPostUserInboxMessagesRequest(server string, body PostUserInboxMessagesJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPostUserInboxMessagesRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewPostUserInboxMessagesRequestWithBody generates requests for PostUserInboxMessages with any type of body
+func NewPostUserInboxMessagesRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/client/users/inbox")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewPostUserInboxArchivedRequest calls the generic PostUserInboxArchived builder with application/json body
+func NewPostUserInboxArchivedRequest(server string, body PostUserInboxArchivedJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPostUserInboxArchivedRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewPostUserInboxArchivedRequestWithBody generates requests for PostUserInboxArchived with any type of body
+func NewPostUserInboxArchivedRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/client/users/inbox/archived")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetUserInboxCountRequest generates requests for GetUserInboxCount
+func NewGetUserInboxCountRequest(server string, params *GetUserInboxCountParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/client/users/inbox/count")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "source", params.Source, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "external_id", params.ExternalId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "channel", params.Channel, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPostUserInboxReadRequest calls the generic PostUserInboxRead builder with application/json body
+func NewPostUserInboxReadRequest(server string, body PostUserInboxReadJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPostUserInboxReadRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewPostUserInboxReadRequestWithBody generates requests for PostUserInboxRead with any type of body
+func NewPostUserInboxReadRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/client/users/inbox/read")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewDeleteUserScheduledClientRequest calls the generic DeleteUserScheduledClient builder with application/json body
 func NewDeleteUserScheduledClientRequest(server string, body DeleteUserScheduledClientJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -1658,6 +2810,27 @@ type ClientWithResponsesInterface interface {
 
 	PostOrganizationEventsClientWithResponse(ctx context.Context, body PostOrganizationEventsClientJSONRequestBody, reqEditors ...RequestEditorFn) (*PostOrganizationEventsClientResponse, error)
 
+	// GetOrganizationInboxWithResponse request
+	GetOrganizationInboxWithResponse(ctx context.Context, params *GetOrganizationInboxParams, reqEditors ...RequestEditorFn) (*GetOrganizationInboxResponse, error)
+
+	// PostOrganizationInboxMessagesWithBodyWithResponse request with any body
+	PostOrganizationInboxMessagesWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostOrganizationInboxMessagesResponse, error)
+
+	PostOrganizationInboxMessagesWithResponse(ctx context.Context, body PostOrganizationInboxMessagesJSONRequestBody, reqEditors ...RequestEditorFn) (*PostOrganizationInboxMessagesResponse, error)
+
+	// PostOrganizationInboxArchivedWithBodyWithResponse request with any body
+	PostOrganizationInboxArchivedWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostOrganizationInboxArchivedResponse, error)
+
+	PostOrganizationInboxArchivedWithResponse(ctx context.Context, body PostOrganizationInboxArchivedJSONRequestBody, reqEditors ...RequestEditorFn) (*PostOrganizationInboxArchivedResponse, error)
+
+	// GetOrganizationInboxCountWithResponse request
+	GetOrganizationInboxCountWithResponse(ctx context.Context, params *GetOrganizationInboxCountParams, reqEditors ...RequestEditorFn) (*GetOrganizationInboxCountResponse, error)
+
+	// PostOrganizationInboxReadWithBodyWithResponse request with any body
+	PostOrganizationInboxReadWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostOrganizationInboxReadResponse, error)
+
+	PostOrganizationInboxReadWithResponse(ctx context.Context, body PostOrganizationInboxReadJSONRequestBody, reqEditors ...RequestEditorFn) (*PostOrganizationInboxReadResponse, error)
+
 	// DeleteOrganizationScheduledClientWithBodyWithResponse request with any body
 	DeleteOrganizationScheduledClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteOrganizationScheduledClientResponse, error)
 
@@ -1700,6 +2873,27 @@ type ClientWithResponsesInterface interface {
 	PostUserEventsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostUserEventsResponse, error)
 
 	PostUserEventsWithResponse(ctx context.Context, body PostUserEventsJSONRequestBody, reqEditors ...RequestEditorFn) (*PostUserEventsResponse, error)
+
+	// GetUserInboxWithResponse request
+	GetUserInboxWithResponse(ctx context.Context, params *GetUserInboxParams, reqEditors ...RequestEditorFn) (*GetUserInboxResponse, error)
+
+	// PostUserInboxMessagesWithBodyWithResponse request with any body
+	PostUserInboxMessagesWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostUserInboxMessagesResponse, error)
+
+	PostUserInboxMessagesWithResponse(ctx context.Context, body PostUserInboxMessagesJSONRequestBody, reqEditors ...RequestEditorFn) (*PostUserInboxMessagesResponse, error)
+
+	// PostUserInboxArchivedWithBodyWithResponse request with any body
+	PostUserInboxArchivedWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostUserInboxArchivedResponse, error)
+
+	PostUserInboxArchivedWithResponse(ctx context.Context, body PostUserInboxArchivedJSONRequestBody, reqEditors ...RequestEditorFn) (*PostUserInboxArchivedResponse, error)
+
+	// GetUserInboxCountWithResponse request
+	GetUserInboxCountWithResponse(ctx context.Context, params *GetUserInboxCountParams, reqEditors ...RequestEditorFn) (*GetUserInboxCountResponse, error)
+
+	// PostUserInboxReadWithBodyWithResponse request with any body
+	PostUserInboxReadWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostUserInboxReadResponse, error)
+
+	PostUserInboxReadWithResponse(ctx context.Context, body PostUserInboxReadJSONRequestBody, reqEditors ...RequestEditorFn) (*PostUserInboxReadResponse, error)
 
 	// DeleteUserScheduledClientWithBodyWithResponse request with any body
 	DeleteUserScheduledClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteUserScheduledClientResponse, error)
@@ -1808,6 +3002,158 @@ func (r PostOrganizationEventsClientResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r PostOrganizationEventsClientResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetOrganizationInboxResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *InboxMessageList
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetOrganizationInboxResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetOrganizationInboxResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetOrganizationInboxResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PostOrganizationInboxMessagesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r PostOrganizationInboxMessagesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostOrganizationInboxMessagesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PostOrganizationInboxMessagesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PostOrganizationInboxArchivedResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r PostOrganizationInboxArchivedResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostOrganizationInboxArchivedResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PostOrganizationInboxArchivedResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetOrganizationInboxCountResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *InboxCount
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetOrganizationInboxCountResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetOrganizationInboxCountResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetOrganizationInboxCountResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PostOrganizationInboxReadResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r PostOrganizationInboxReadResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostOrganizationInboxReadResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PostOrganizationInboxReadResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -2087,6 +3433,158 @@ func (r PostUserEventsResponse) ContentType() string {
 	return ""
 }
 
+type GetUserInboxResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *InboxMessageList
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetUserInboxResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetUserInboxResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetUserInboxResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PostUserInboxMessagesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r PostUserInboxMessagesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostUserInboxMessagesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PostUserInboxMessagesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PostUserInboxArchivedResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r PostUserInboxArchivedResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostUserInboxArchivedResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PostUserInboxArchivedResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetUserInboxCountResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *InboxCount
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetUserInboxCountResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetUserInboxCountResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetUserInboxCountResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PostUserInboxReadResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r PostUserInboxReadResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostUserInboxReadResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PostUserInboxReadResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type DeleteUserScheduledClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -2286,6 +3784,75 @@ func (c *ClientWithResponses) PostOrganizationEventsClientWithResponse(ctx conte
 	return ParsePostOrganizationEventsClientResponse(rsp)
 }
 
+// GetOrganizationInboxWithResponse request returning *GetOrganizationInboxResponse
+func (c *ClientWithResponses) GetOrganizationInboxWithResponse(ctx context.Context, params *GetOrganizationInboxParams, reqEditors ...RequestEditorFn) (*GetOrganizationInboxResponse, error) {
+	rsp, err := c.GetOrganizationInbox(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetOrganizationInboxResponse(rsp)
+}
+
+// PostOrganizationInboxMessagesWithBodyWithResponse request with arbitrary body returning *PostOrganizationInboxMessagesResponse
+func (c *ClientWithResponses) PostOrganizationInboxMessagesWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostOrganizationInboxMessagesResponse, error) {
+	rsp, err := c.PostOrganizationInboxMessagesWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostOrganizationInboxMessagesResponse(rsp)
+}
+
+func (c *ClientWithResponses) PostOrganizationInboxMessagesWithResponse(ctx context.Context, body PostOrganizationInboxMessagesJSONRequestBody, reqEditors ...RequestEditorFn) (*PostOrganizationInboxMessagesResponse, error) {
+	rsp, err := c.PostOrganizationInboxMessages(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostOrganizationInboxMessagesResponse(rsp)
+}
+
+// PostOrganizationInboxArchivedWithBodyWithResponse request with arbitrary body returning *PostOrganizationInboxArchivedResponse
+func (c *ClientWithResponses) PostOrganizationInboxArchivedWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostOrganizationInboxArchivedResponse, error) {
+	rsp, err := c.PostOrganizationInboxArchivedWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostOrganizationInboxArchivedResponse(rsp)
+}
+
+func (c *ClientWithResponses) PostOrganizationInboxArchivedWithResponse(ctx context.Context, body PostOrganizationInboxArchivedJSONRequestBody, reqEditors ...RequestEditorFn) (*PostOrganizationInboxArchivedResponse, error) {
+	rsp, err := c.PostOrganizationInboxArchived(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostOrganizationInboxArchivedResponse(rsp)
+}
+
+// GetOrganizationInboxCountWithResponse request returning *GetOrganizationInboxCountResponse
+func (c *ClientWithResponses) GetOrganizationInboxCountWithResponse(ctx context.Context, params *GetOrganizationInboxCountParams, reqEditors ...RequestEditorFn) (*GetOrganizationInboxCountResponse, error) {
+	rsp, err := c.GetOrganizationInboxCount(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetOrganizationInboxCountResponse(rsp)
+}
+
+// PostOrganizationInboxReadWithBodyWithResponse request with arbitrary body returning *PostOrganizationInboxReadResponse
+func (c *ClientWithResponses) PostOrganizationInboxReadWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostOrganizationInboxReadResponse, error) {
+	rsp, err := c.PostOrganizationInboxReadWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostOrganizationInboxReadResponse(rsp)
+}
+
+func (c *ClientWithResponses) PostOrganizationInboxReadWithResponse(ctx context.Context, body PostOrganizationInboxReadJSONRequestBody, reqEditors ...RequestEditorFn) (*PostOrganizationInboxReadResponse, error) {
+	rsp, err := c.PostOrganizationInboxRead(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostOrganizationInboxReadResponse(rsp)
+}
+
 // DeleteOrganizationScheduledClientWithBodyWithResponse request with arbitrary body returning *DeleteOrganizationScheduledClientResponse
 func (c *ClientWithResponses) DeleteOrganizationScheduledClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteOrganizationScheduledClientResponse, error) {
 	rsp, err := c.DeleteOrganizationScheduledClientWithBody(ctx, contentType, body, reqEditors...)
@@ -2431,6 +3998,75 @@ func (c *ClientWithResponses) PostUserEventsWithResponse(ctx context.Context, bo
 	return ParsePostUserEventsResponse(rsp)
 }
 
+// GetUserInboxWithResponse request returning *GetUserInboxResponse
+func (c *ClientWithResponses) GetUserInboxWithResponse(ctx context.Context, params *GetUserInboxParams, reqEditors ...RequestEditorFn) (*GetUserInboxResponse, error) {
+	rsp, err := c.GetUserInbox(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetUserInboxResponse(rsp)
+}
+
+// PostUserInboxMessagesWithBodyWithResponse request with arbitrary body returning *PostUserInboxMessagesResponse
+func (c *ClientWithResponses) PostUserInboxMessagesWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostUserInboxMessagesResponse, error) {
+	rsp, err := c.PostUserInboxMessagesWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostUserInboxMessagesResponse(rsp)
+}
+
+func (c *ClientWithResponses) PostUserInboxMessagesWithResponse(ctx context.Context, body PostUserInboxMessagesJSONRequestBody, reqEditors ...RequestEditorFn) (*PostUserInboxMessagesResponse, error) {
+	rsp, err := c.PostUserInboxMessages(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostUserInboxMessagesResponse(rsp)
+}
+
+// PostUserInboxArchivedWithBodyWithResponse request with arbitrary body returning *PostUserInboxArchivedResponse
+func (c *ClientWithResponses) PostUserInboxArchivedWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostUserInboxArchivedResponse, error) {
+	rsp, err := c.PostUserInboxArchivedWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostUserInboxArchivedResponse(rsp)
+}
+
+func (c *ClientWithResponses) PostUserInboxArchivedWithResponse(ctx context.Context, body PostUserInboxArchivedJSONRequestBody, reqEditors ...RequestEditorFn) (*PostUserInboxArchivedResponse, error) {
+	rsp, err := c.PostUserInboxArchived(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostUserInboxArchivedResponse(rsp)
+}
+
+// GetUserInboxCountWithResponse request returning *GetUserInboxCountResponse
+func (c *ClientWithResponses) GetUserInboxCountWithResponse(ctx context.Context, params *GetUserInboxCountParams, reqEditors ...RequestEditorFn) (*GetUserInboxCountResponse, error) {
+	rsp, err := c.GetUserInboxCount(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetUserInboxCountResponse(rsp)
+}
+
+// PostUserInboxReadWithBodyWithResponse request with arbitrary body returning *PostUserInboxReadResponse
+func (c *ClientWithResponses) PostUserInboxReadWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostUserInboxReadResponse, error) {
+	rsp, err := c.PostUserInboxReadWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostUserInboxReadResponse(rsp)
+}
+
+func (c *ClientWithResponses) PostUserInboxReadWithResponse(ctx context.Context, body PostUserInboxReadJSONRequestBody, reqEditors ...RequestEditorFn) (*PostUserInboxReadResponse, error) {
+	rsp, err := c.PostUserInboxRead(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostUserInboxReadResponse(rsp)
+}
+
 // DeleteUserScheduledClientWithBodyWithResponse request with arbitrary body returning *DeleteUserScheduledClientResponse
 func (c *ClientWithResponses) DeleteUserScheduledClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteUserScheduledClientResponse, error) {
 	rsp, err := c.DeleteUserScheduledClientWithBody(ctx, contentType, body, reqEditors...)
@@ -2568,6 +4204,150 @@ func ParsePostOrganizationEventsClientResponse(rsp *http.Response) (*PostOrganiz
 	}
 
 	response := &PostOrganizationEventsClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetOrganizationInboxResponse parses an HTTP response from a GetOrganizationInboxWithResponse call
+func ParseGetOrganizationInboxResponse(rsp *http.Response) (*GetOrganizationInboxResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetOrganizationInboxResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest InboxMessageList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePostOrganizationInboxMessagesResponse parses an HTTP response from a PostOrganizationInboxMessagesWithResponse call
+func ParsePostOrganizationInboxMessagesResponse(rsp *http.Response) (*PostOrganizationInboxMessagesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostOrganizationInboxMessagesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePostOrganizationInboxArchivedResponse parses an HTTP response from a PostOrganizationInboxArchivedWithResponse call
+func ParsePostOrganizationInboxArchivedResponse(rsp *http.Response) (*PostOrganizationInboxArchivedResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostOrganizationInboxArchivedResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetOrganizationInboxCountResponse parses an HTTP response from a GetOrganizationInboxCountWithResponse call
+func ParseGetOrganizationInboxCountResponse(rsp *http.Response) (*GetOrganizationInboxCountResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetOrganizationInboxCountResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest InboxCount
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePostOrganizationInboxReadResponse parses an HTTP response from a PostOrganizationInboxReadWithResponse call
+func ParsePostOrganizationInboxReadResponse(rsp *http.Response) (*PostOrganizationInboxReadResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostOrganizationInboxReadResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -2840,6 +4620,150 @@ func ParsePostUserEventsResponse(rsp *http.Response) (*PostUserEventsResponse, e
 	return response, nil
 }
 
+// ParseGetUserInboxResponse parses an HTTP response from a GetUserInboxWithResponse call
+func ParseGetUserInboxResponse(rsp *http.Response) (*GetUserInboxResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetUserInboxResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest InboxMessageList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePostUserInboxMessagesResponse parses an HTTP response from a PostUserInboxMessagesWithResponse call
+func ParsePostUserInboxMessagesResponse(rsp *http.Response) (*PostUserInboxMessagesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostUserInboxMessagesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePostUserInboxArchivedResponse parses an HTTP response from a PostUserInboxArchivedWithResponse call
+func ParsePostUserInboxArchivedResponse(rsp *http.Response) (*PostUserInboxArchivedResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostUserInboxArchivedResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetUserInboxCountResponse parses an HTTP response from a GetUserInboxCountWithResponse call
+func ParseGetUserInboxCountResponse(rsp *http.Response) (*GetUserInboxCountResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetUserInboxCountResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest InboxCount
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePostUserInboxReadResponse parses an HTTP response from a PostUserInboxReadWithResponse call
+func ParsePostUserInboxReadResponse(rsp *http.Response) (*PostUserInboxReadResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostUserInboxReadResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseDeleteUserScheduledClientResponse parses an HTTP response from a DeleteUserScheduledClientWithResponse call
 func ParseDeleteUserScheduledClientResponse(rsp *http.Response) (*DeleteUserScheduledClientResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -2958,6 +4882,21 @@ type ServerInterface interface {
 	// Post organization events
 	// (POST /api/client/organizations/events)
 	PostOrganizationEventsClient(w http.ResponseWriter, r *http.Request)
+	// Query organization inbox messages
+	// (GET /api/client/organizations/inbox)
+	GetOrganizationInbox(w http.ResponseWriter, r *http.Request, params GetOrganizationInboxParams)
+	// Create organization inbox messages
+	// (POST /api/client/organizations/inbox)
+	PostOrganizationInboxMessages(w http.ResponseWriter, r *http.Request)
+	// Mark organization inbox messages archived
+	// (POST /api/client/organizations/inbox/archived)
+	PostOrganizationInboxArchived(w http.ResponseWriter, r *http.Request)
+	// Count organization inbox messages
+	// (GET /api/client/organizations/inbox/count)
+	GetOrganizationInboxCount(w http.ResponseWriter, r *http.Request, params GetOrganizationInboxCountParams)
+	// Mark organization inbox messages read
+	// (POST /api/client/organizations/inbox/read)
+	PostOrganizationInboxRead(w http.ResponseWriter, r *http.Request)
 	// Delete organization scheduled
 	// (DELETE /api/client/organizations/scheduled)
 	DeleteOrganizationScheduledClient(w http.ResponseWriter, r *http.Request)
@@ -2985,6 +4924,21 @@ type ServerInterface interface {
 	// Post user events
 	// (POST /api/client/users/events)
 	PostUserEvents(w http.ResponseWriter, r *http.Request)
+	// Query user inbox messages
+	// (GET /api/client/users/inbox)
+	GetUserInbox(w http.ResponseWriter, r *http.Request, params GetUserInboxParams)
+	// Create user inbox messages
+	// (POST /api/client/users/inbox)
+	PostUserInboxMessages(w http.ResponseWriter, r *http.Request)
+	// Mark user inbox messages archived
+	// (POST /api/client/users/inbox/archived)
+	PostUserInboxArchived(w http.ResponseWriter, r *http.Request)
+	// Count user inbox messages
+	// (GET /api/client/users/inbox/count)
+	GetUserInboxCount(w http.ResponseWriter, r *http.Request, params GetUserInboxCountParams)
+	// Mark user inbox messages read
+	// (POST /api/client/users/inbox/read)
+	PostUserInboxRead(w http.ResponseWriter, r *http.Request)
 	// Delete user scheduled
 	// (DELETE /api/client/users/scheduled)
 	DeleteUserScheduledClient(w http.ResponseWriter, r *http.Request)
@@ -3021,6 +4975,36 @@ func (_ Unimplemented) UpsertOrganizationClient(w http.ResponseWriter, r *http.R
 // Post organization events
 // (POST /api/client/organizations/events)
 func (_ Unimplemented) PostOrganizationEventsClient(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Query organization inbox messages
+// (GET /api/client/organizations/inbox)
+func (_ Unimplemented) GetOrganizationInbox(w http.ResponseWriter, r *http.Request, params GetOrganizationInboxParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Create organization inbox messages
+// (POST /api/client/organizations/inbox)
+func (_ Unimplemented) PostOrganizationInboxMessages(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Mark organization inbox messages archived
+// (POST /api/client/organizations/inbox/archived)
+func (_ Unimplemented) PostOrganizationInboxArchived(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Count organization inbox messages
+// (GET /api/client/organizations/inbox/count)
+func (_ Unimplemented) GetOrganizationInboxCount(w http.ResponseWriter, r *http.Request, params GetOrganizationInboxCountParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Mark organization inbox messages read
+// (POST /api/client/organizations/inbox/read)
+func (_ Unimplemented) PostOrganizationInboxRead(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -3075,6 +5059,36 @@ func (_ Unimplemented) RegisterDevice(w http.ResponseWriter, r *http.Request) {
 // Post user events
 // (POST /api/client/users/events)
 func (_ Unimplemented) PostUserEvents(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Query user inbox messages
+// (GET /api/client/users/inbox)
+func (_ Unimplemented) GetUserInbox(w http.ResponseWriter, r *http.Request, params GetUserInboxParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Create user inbox messages
+// (POST /api/client/users/inbox)
+func (_ Unimplemented) PostUserInboxMessages(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Mark user inbox messages archived
+// (POST /api/client/users/inbox/archived)
+func (_ Unimplemented) PostUserInboxArchived(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Count user inbox messages
+// (GET /api/client/users/inbox/count)
+func (_ Unimplemented) GetUserInboxCount(w http.ResponseWriter, r *http.Request, params GetUserInboxCountParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Mark user inbox messages read
+// (POST /api/client/users/inbox/read)
+func (_ Unimplemented) PostUserInboxRead(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -3168,6 +5182,274 @@ func (siw *ServerInterfaceWrapper) PostOrganizationEventsClient(w http.ResponseW
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PostOrganizationEventsClient(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetOrganizationInbox operation middleware
+func (siw *ServerInterfaceWrapper) GetOrganizationInbox(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetOrganizationInboxParams
+
+	// ------------- Required query parameter "source" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "source", r.URL.Query(), &params.Source, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "source"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "source", Err: err})
+		}
+		return
+	}
+
+	// ------------- Required query parameter "external_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "external_id", r.URL.Query(), &params.ExternalId, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "external_id"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "external_id", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "status" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "status", r.URL.Query(), &params.Status, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "status"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "status", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "tags" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "tags", r.URL.Query(), &params.Tags, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "tags"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tags", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "message_source" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "message_source", r.URL.Query(), &params.MessageSource, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "message_source"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "message_source", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "priority" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "priority", r.URL.Query(), &params.Priority, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "priority"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "priority", Err: err})
+		}
+		return
+	}
+
+	// ------------- Required query parameter "channel" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "channel", r.URL.Query(), &params.Channel, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "channel"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "channel", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "offset", r.URL.Query(), &params.Offset, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "offset"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetOrganizationInbox(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostOrganizationInboxMessages operation middleware
+func (siw *ServerInterfaceWrapper) PostOrganizationInboxMessages(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostOrganizationInboxMessages(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostOrganizationInboxArchived operation middleware
+func (siw *ServerInterfaceWrapper) PostOrganizationInboxArchived(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostOrganizationInboxArchived(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetOrganizationInboxCount operation middleware
+func (siw *ServerInterfaceWrapper) GetOrganizationInboxCount(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetOrganizationInboxCountParams
+
+	// ------------- Required query parameter "source" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "source", r.URL.Query(), &params.Source, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "source"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "source", Err: err})
+		}
+		return
+	}
+
+	// ------------- Required query parameter "external_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "external_id", r.URL.Query(), &params.ExternalId, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "external_id"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "external_id", Err: err})
+		}
+		return
+	}
+
+	// ------------- Required query parameter "channel" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "channel", r.URL.Query(), &params.Channel, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "channel"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "channel", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetOrganizationInboxCount(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostOrganizationInboxRead operation middleware
+func (siw *ServerInterfaceWrapper) PostOrganizationInboxRead(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostOrganizationInboxRead(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -3348,6 +5630,274 @@ func (siw *ServerInterfaceWrapper) PostUserEvents(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PostUserEvents(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetUserInbox operation middleware
+func (siw *ServerInterfaceWrapper) GetUserInbox(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetUserInboxParams
+
+	// ------------- Required query parameter "source" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "source", r.URL.Query(), &params.Source, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "source"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "source", Err: err})
+		}
+		return
+	}
+
+	// ------------- Required query parameter "external_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "external_id", r.URL.Query(), &params.ExternalId, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "external_id"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "external_id", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "status" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "status", r.URL.Query(), &params.Status, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "status"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "status", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "tags" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "tags", r.URL.Query(), &params.Tags, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "tags"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tags", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "message_source" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "message_source", r.URL.Query(), &params.MessageSource, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "message_source"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "message_source", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "priority" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "priority", r.URL.Query(), &params.Priority, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "priority"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "priority", Err: err})
+		}
+		return
+	}
+
+	// ------------- Required query parameter "channel" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "channel", r.URL.Query(), &params.Channel, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "channel"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "channel", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "offset", r.URL.Query(), &params.Offset, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "offset"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetUserInbox(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostUserInboxMessages operation middleware
+func (siw *ServerInterfaceWrapper) PostUserInboxMessages(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostUserInboxMessages(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostUserInboxArchived operation middleware
+func (siw *ServerInterfaceWrapper) PostUserInboxArchived(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostUserInboxArchived(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetUserInboxCount operation middleware
+func (siw *ServerInterfaceWrapper) GetUserInboxCount(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetUserInboxCountParams
+
+	// ------------- Required query parameter "source" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "source", r.URL.Query(), &params.Source, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "source"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "source", Err: err})
+		}
+		return
+	}
+
+	// ------------- Required query parameter "external_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "external_id", r.URL.Query(), &params.ExternalId, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "external_id"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "external_id", Err: err})
+		}
+		return
+	}
+
+	// ------------- Required query parameter "channel" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "channel", r.URL.Query(), &params.Channel, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "channel"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "channel", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetUserInboxCount(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostUserInboxRead operation middleware
+func (siw *ServerInterfaceWrapper) PostUserInboxRead(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostUserInboxRead(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -3623,6 +6173,21 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/api/client/organizations/events", wrapper.PostOrganizationEventsClient)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/client/organizations/inbox", wrapper.GetOrganizationInbox)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/client/organizations/inbox", wrapper.PostOrganizationInboxMessages)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/client/organizations/inbox/archived", wrapper.PostOrganizationInboxArchived)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/client/organizations/inbox/count", wrapper.GetOrganizationInboxCount)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/client/organizations/inbox/read", wrapper.PostOrganizationInboxRead)
+	})
+	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/api/client/organizations/scheduled", wrapper.DeleteOrganizationScheduledClient)
 	})
 	r.Group(func(r chi.Router) {
@@ -3648,6 +6213,21 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/client/users/events", wrapper.PostUserEvents)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/client/users/inbox", wrapper.GetUserInbox)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/client/users/inbox", wrapper.PostUserInboxMessages)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/client/users/inbox/archived", wrapper.PostUserInboxArchived)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/client/users/inbox/count", wrapper.GetUserInboxCount)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/client/users/inbox/read", wrapper.PostUserInboxRead)
 	})
 	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/api/client/users/scheduled", wrapper.DeleteUserScheduledClient)

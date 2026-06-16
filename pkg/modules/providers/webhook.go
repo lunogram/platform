@@ -1,6 +1,10 @@
 package providers
 
-import "encoding/json"
+import (
+	"encoding/json"
+
+	"github.com/google/uuid"
+)
 
 // WebhookRequest is the input to the provider's webhook() function.
 // It contains the raw HTTP request data and the provider's configuration
@@ -76,6 +80,15 @@ type WebhookEvent struct {
 	// MessageID is the provider's message ID that was returned in SendResponse.ID.
 	// Used to correlate this event back to the original send.
 	MessageID string `json:"message_id"`
+
+	// InboxMessageID is the platform inbox-message UUID echoed back from the
+	// provider's native custom-metadata mechanism (Resend tags, Twilio
+	// StatusCallback query params, etc.). Zero value indicates the provider
+	// webhook did not carry a parseable inbox_message_id — typically because
+	// the originating send predates metadata propagation. Downstream consumers
+	// must treat the zero UUID as "unknown" and fall back to MessageID-based
+	// correlation.
+	InboxMessageID uuid.UUID `json:"inbox_message_id,omitempty"`
 
 	// Timestamp is when the event occurred according to the provider.
 	// ISO 8601 format. Falls back to receipt time if not available.

@@ -85,7 +85,7 @@ export default function Preview({ template, size = "large" }: PreviewProps) {
                     Today {format(new Date(), "p")}
                 </span>
                 <div className="text-bubble">
-                    {data.text}
+                    {data.body}
                     <br />
                     {project.text_opt_out_message}
                 </div>

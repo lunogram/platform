@@ -26,6 +26,7 @@ import UserDetail from "./users/UserDetail"
 import { createStatefulRoute } from "./createStatefulRoute"
 import UserDetailAttrs from "./users/UserDetailAttrs"
 import UserDetailEvents from "./users/UserDetailEvents"
+import UserDetailInbox from "./users/UserDetailInbox"
 import UserDetailScheduled from "./users/UserDetailScheduled"
 import UserDetailSubscriptions from "./users/UserDetailSubscriptions"
 import Campaigns from "./campaign/Campaigns"
@@ -81,6 +82,7 @@ import Organizations from "./organizations/Organizations"
 import OrganizationDetail from "./organizations/OrganizationDetail"
 import OrganizationDetailAttrs from "./organizations/OrganizationDetailAttrs"
 import OrganizationDetailEvents from "./organizations/OrganizationDetailEvents"
+import OrganizationDetailInbox from "./organizations/OrganizationDetailInbox"
 import OrganizationDetailMembers from "./organizations/OrganizationDetailMembers"
 import OrganizationDetailScheduled from "./organizations/OrganizationDetailScheduled"
 import { Translation } from "react-i18next"
@@ -489,6 +491,10 @@ export const createRouter = ({
                                                 element: <UserDetailScheduled />,
                                             },
                                             {
+                                                path: "inbox",
+                                                element: <UserDetailInbox />,
+                                            },
+                                            {
                                                 path: "subscriptions",
                                                 element: <UserDetailSubscriptions />,
                                             },
@@ -558,6 +564,10 @@ export const createRouter = ({
                                             {
                                                 path: "scheduled",
                                                 element: <OrganizationDetailScheduled />,
+                                            },
+                                            {
+                                                path: "inbox",
+                                                element: <OrganizationDetailInbox />,
                                             },
                                         ],
                                     },

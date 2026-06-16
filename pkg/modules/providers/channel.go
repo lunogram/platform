@@ -4,6 +4,7 @@ package providers
 type Channel string
 
 const (
+	ChannelInbox Channel = "inbox"
 	ChannelEmail Channel = "email"
 	ChannelSMS   Channel = "sms"
 	ChannelPush  Channel = "push"
@@ -17,7 +18,7 @@ func (c Channel) String() string {
 // IsValid checks if the channel is a valid known channel type.
 func (c Channel) IsValid() bool {
 	switch c {
-	case ChannelEmail, ChannelSMS, ChannelPush:
+	case ChannelInbox, ChannelEmail, ChannelSMS, ChannelPush:
 		return true
 	default:
 		return false
