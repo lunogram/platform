@@ -65,7 +65,7 @@ import {
 } from "@/components/ui/table"
 
 type InboxMessage = components["schemas"]["InboxMessage"]
-type InboxStatus = "all" | "unread" | "opened" | "archived"
+type InboxStatus = "all" | "unread" | "read" | "archived"
 type InboxChannel = components["schemas"]["Channel"]
 
 interface InboxDetailTableProps {
@@ -167,7 +167,8 @@ export default function InboxDetailTable({ subjectId, subjectType }: InboxDetail
 
             const payload = {
                 channel,
-                sender_identity_id: channel === "push" || channel === "inbox" ? undefined : senderIdentityId,
+                sender_identity_id:
+                    channel === "push" || channel === "inbox" ? undefined : senderIdentityId,
                 content: {
                     title: title.trim(),
                     body: body.trim() || undefined,
@@ -209,7 +210,7 @@ export default function InboxDetailTable({ subjectId, subjectType }: InboxDetail
 
     const updateMessage = async (
         message: InboxMessage,
-        event: "opened" | "archived" | "scheduled" | "unarchived" | "unread",
+        event: "read" | "archived" | "scheduled" | "unarchived" | "unread",
         newScheduledAt?: string,
     ) => {
         try {
@@ -229,9 +230,9 @@ export default function InboxDetailTable({ subjectId, subjectType }: InboxDetail
                         },
                     )
                     if (error) throw error
-                } else if (event === "opened") {
+                } else if (event === "read") {
                     const { error } = await oapiClient.POST(
-                        "/api/admin/projects/{projectID}/subjects/users/{userID}/inbox/{messageID}/open",
+                        "/api/admin/projects/{projectID}/subjects/users/{userID}/inbox/{messageID}/read",
                         {
                             params: {
                                 path: {
@@ -302,9 +303,9 @@ export default function InboxDetailTable({ subjectId, subjectType }: InboxDetail
                         },
                     )
                     if (error) throw error
-                } else if (event === "opened") {
+                } else if (event === "read") {
                     const { error } = await oapiClient.POST(
-                        "/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/inbox/{messageID}/open",
+                        "/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/inbox/{messageID}/read",
                         {
                             params: {
                                 path: {
@@ -370,7 +371,7 @@ export default function InboxDetailTable({ subjectId, subjectType }: InboxDetail
                         ? t("inbox_message_unarchived", "Message unarchived")
                         : event === "unread"
                           ? t("inbox_message_unread", "Message marked unread")
-                          : t("inbox_message_opened", "Message marked opened"),
+                          : t("inbox_message_read", "Message marked read"),
             )
             await reload()
         } catch {
@@ -420,7 +421,7 @@ export default function InboxDetailTable({ subjectId, subjectType }: InboxDetail
                         <SelectContent>
                             <SelectItem value="all">{t("all", "All")}</SelectItem>
                             <SelectItem value="unread">{t("unread", "Unread")}</SelectItem>
-                            <SelectItem value="opened">{t("opened", "Opened")}</SelectItem>
+                            <SelectItem value="read">{t("read", "Read")}</SelectItem>
                             <SelectItem value="archived">{t("archived", "Archived")}</SelectItem>
                         </SelectContent>
                     </Select>
@@ -595,14 +596,14 @@ export default function InboxDetailTable({ subjectId, subjectType }: InboxDetail
                                                     </Button>
                                                 </DropdownMenuTrigger>
                                                 <DropdownMenuContent align="end">
-                                                    {!message.opened_at &&
+                                                    {!message.read_at &&
                                                         !message.archived_at &&
                                                         visible && (
                                                             <DropdownMenuItem
                                                                 onClick={() =>
                                                                     updateMessage(
                                                                         message,
-                                                                        "opened",
+                                                                        "read",
                                                                     ).catch(console.error)
                                                                 }
                                                             >
@@ -610,7 +611,7 @@ export default function InboxDetailTable({ subjectId, subjectType }: InboxDetail
                                                                     aria-hidden="true"
                                                                     className="mr-2 h-4 w-4"
                                                                 />
-                                                                {t("mark_opened", "Mark opened")}
+                                                                {t("mark_read", "Mark read")}
                                                             </DropdownMenuItem>
                                                         )}
                                                     {!message.archived_at && visible && (
@@ -645,7 +646,7 @@ export default function InboxDetailTable({ subjectId, subjectType }: InboxDetail
                                                             {t("unarchive", "Unarchive")}
                                                         </DropdownMenuItem>
                                                     )}
-                                                    {message.opened_at &&
+                                                    {message.read_at &&
                                                         !message.archived_at &&
                                                         visible && (
                                                             <DropdownMenuItem
@@ -954,8 +955,8 @@ function statusBadge(message: InboxMessage, t: TFunction) {
             </Badge>
         )
     }
-    if (message.opened_at) {
-        return <Badge variant="secondary">{t("opened", "Opened")}</Badge>
+    if (message.read_at) {
+        return <Badge variant="secondary">{t("read", "Read")}</Badge>
     }
     return <Badge>{t("unread", "Unread")}</Badge>
 }

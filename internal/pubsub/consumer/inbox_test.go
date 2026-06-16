@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lunogram/platform/internal/ptr"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
 	"github.com/lunogram/platform/pkg/modules"
 	"github.com/stretchr/testify/require"
@@ -39,7 +40,7 @@ func TestInboxMessageParamsProjectsAllWireFields(t *testing.T) {
 		Content:          json.RawMessage(`{"subject":"hi"}`),
 		Data:             json.RawMessage(`{"template_id":"abc"}`),
 		Tags:             []string{"campaign", "journey"},
-		Priority:         3,
+		Priority:         ptr.To(int16(3)),
 		Source:           &source,
 		ScheduledAt:      &scheduledAt,
 		ExpiresAt:        &expiresAt,
@@ -83,7 +84,7 @@ func TestInboxMessageParamsPreservesEmptyOptionals(t *testing.T) {
 	require.Nil(t, params.Content)
 	require.Nil(t, params.Data)
 	require.Nil(t, params.Tags)
-	require.Equal(t, int16(0), params.Priority)
+	require.Nil(t, params.Priority)
 	require.Nil(t, params.Source)
 	require.Nil(t, params.ScheduledAt)
 	require.Nil(t, params.ExpiresAt)
