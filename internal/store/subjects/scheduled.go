@@ -49,18 +49,19 @@ type ScheduleOffset struct {
 
 // UserSchedule represents a user's assignment to a schedule.
 type UserSchedule struct {
-	ID          uuid.UUID       `db:"id" json:"id"`
-	UserID      uuid.UUID       `db:"user_id" json:"user_id"`
-	ScheduleID  uuid.UUID       `db:"schedule_id" json:"schedule_id"`
-	ScheduledAt *time.Time      `db:"scheduled_at" json:"scheduled_at,omitempty"` // fire time for single
-	StartAt     *time.Time      `db:"start_at" json:"start_at,omitempty"`         // start of interval for recurring (historical, never mutated after creation)
-	AnchorAt    *time.Time      `db:"anchor_at" json:"anchor_at,omitempty"`       // computation base for occurrence (scheduled_at = anchor_at + occurrence * interval)
-	Interval    *string         `db:"interval" json:"interval,omitempty"`         // duration string for recurring (e.g. "1 month", "30 days")
-	Occurrence  int             `db:"occurrence" json:"occurrence"`               // number of intervals advanced from anchor_at
-	Data        json.RawMessage `db:"data" json:"data"`
-	PausedAt    *time.Time      `db:"paused_at" json:"paused_at,omitempty"`
-	CreatedAt   time.Time       `db:"created_at" json:"created_at"`
-	UpdatedAt   time.Time       `db:"updated_at" json:"updated_at"`
+	ID               uuid.UUID       `db:"id" json:"id"`
+	UserID           uuid.UUID       `db:"user_id" json:"user_id"`
+	ScheduleID       uuid.UUID       `db:"schedule_id" json:"schedule_id"`
+	ScheduledAt      *time.Time      `db:"scheduled_at" json:"scheduled_at,omitempty"` // fire time for single
+	StartAt          *time.Time      `db:"start_at" json:"start_at,omitempty"`         // start of interval for recurring (historical, never mutated after creation)
+	AnchorAt         *time.Time      `db:"anchor_at" json:"anchor_at,omitempty"`       // computation base for occurrence (scheduled_at = anchor_at + occurrence * interval)
+	Interval         *string         `db:"interval" json:"interval,omitempty"`         // duration string for recurring (e.g. "1 month", "30 days")
+	Occurrence       int             `db:"occurrence" json:"occurrence"`               // number of intervals advanced from anchor_at
+	Data             json.RawMessage `db:"data" json:"data"`
+	PausedAt         *time.Time      `db:"paused_at" json:"paused_at,omitempty"`
+	HasPendingEvents bool            `db:"has_pending_events" json:"has_pending_events"`
+	CreatedAt        time.Time       `db:"created_at" json:"created_at"`
+	UpdatedAt        time.Time       `db:"updated_at" json:"updated_at"`
 }
 
 // ScheduledEvent represents a pre-computed event to be fired by the scheduler.
@@ -89,18 +90,19 @@ type DueScheduledEvent struct {
 
 // OrganizationSchedule represents an organization's assignment to a schedule.
 type OrganizationSchedule struct {
-	ID             uuid.UUID       `db:"id" json:"id"`
-	OrganizationID uuid.UUID       `db:"organization_id" json:"organization_id"`
-	ScheduleID     uuid.UUID       `db:"schedule_id" json:"schedule_id"`
-	ScheduledAt    *time.Time      `db:"scheduled_at" json:"scheduled_at,omitempty"`
-	StartAt        *time.Time      `db:"start_at" json:"start_at,omitempty"`
-	AnchorAt       *time.Time      `db:"anchor_at" json:"anchor_at,omitempty"` // computation base for occurrence (scheduled_at = anchor_at + occurrence * interval)
-	Interval       *string         `db:"interval" json:"interval,omitempty"`
-	Occurrence     int             `db:"occurrence" json:"occurrence"` // number of intervals advanced from anchor_at
-	Data           json.RawMessage `db:"data" json:"data"`
-	PausedAt       *time.Time      `db:"paused_at" json:"paused_at,omitempty"`
-	CreatedAt      time.Time       `db:"created_at" json:"created_at"`
-	UpdatedAt      time.Time       `db:"updated_at" json:"updated_at"`
+	ID               uuid.UUID       `db:"id" json:"id"`
+	OrganizationID   uuid.UUID       `db:"organization_id" json:"organization_id"`
+	ScheduleID       uuid.UUID       `db:"schedule_id" json:"schedule_id"`
+	ScheduledAt      *time.Time      `db:"scheduled_at" json:"scheduled_at,omitempty"`
+	StartAt          *time.Time      `db:"start_at" json:"start_at,omitempty"`
+	AnchorAt         *time.Time      `db:"anchor_at" json:"anchor_at,omitempty"` // computation base for occurrence (scheduled_at = anchor_at + occurrence * interval)
+	Interval         *string         `db:"interval" json:"interval,omitempty"`
+	Occurrence       int             `db:"occurrence" json:"occurrence"` // number of intervals advanced from anchor_at
+	Data             json.RawMessage `db:"data" json:"data"`
+	PausedAt         *time.Time      `db:"paused_at" json:"paused_at,omitempty"`
+	HasPendingEvents bool            `db:"has_pending_events" json:"has_pending_events"`
+	CreatedAt        time.Time       `db:"created_at" json:"created_at"`
+	UpdatedAt        time.Time       `db:"updated_at" json:"updated_at"`
 }
 
 // OrgScheduledEvent represents a pre-computed event for an organization schedule.
@@ -677,6 +679,10 @@ func (s *ScheduledStore) ListUserSchedules(ctx context.Context, projectID, userI
 	SELECT
 		us.id, us.user_id, us.schedule_id, us.scheduled_at, us.start_at, us.anchor_at, us.interval,
 		us.occurrence, COALESCE(us.data, '{}'::jsonb) AS data, us.paused_at, us.created_at, us.updated_at,
+		EXISTS (
+			SELECT 1 FROM user_scheduled_events use
+			WHERE use.user_schedule_id = us.id AND use.fired_at IS NULL
+		) AS has_pending_events,
 		COUNT(*) OVER () AS total_count
 	FROM user_schedules us
 	INNER JOIN schedules sc ON us.schedule_id = sc.id
@@ -1280,6 +1286,10 @@ func (s *ScheduledStore) ListOrganizationSchedules(ctx context.Context, projectI
 	SELECT
 		os.id, os.organization_id, os.schedule_id, os.scheduled_at, os.start_at, os.anchor_at, os.interval,
 		os.occurrence, COALESCE(os.data, '{}'::jsonb) AS data, os.paused_at, os.created_at, os.updated_at,
+		EXISTS (
+			SELECT 1 FROM organization_scheduled_events ose
+			WHERE ose.organization_schedule_id = os.id AND ose.fired_at IS NULL
+		) AS has_pending_events,
 		COUNT(*) OVER () AS total_count
 	FROM organization_schedules os
 	INNER JOIN schedules sc ON os.schedule_id = sc.id

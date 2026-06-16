@@ -3,7 +3,6 @@ import { CampaignContext, ProjectContext, TemplateContext } from "@/contexts"
 import type { Campaign, Template, Subscription } from "@/types"
 import { useTranslation } from "react-i18next"
 import { Controller, useForm } from "react-hook-form"
-import { z } from "zod"
 import { zodResolver } from "@hookform/resolvers/zod"
 import api from "@/api"
 import { Radio } from "lucide-react"
@@ -29,17 +28,7 @@ import {
 } from "@/components/ui/select"
 import { CreateBroadcastDialog } from "@/views/broadcast/CreateBroadcastDialog"
 
-const campaignVariableSchema = z.object({
-    name: z.string(),
-    default: z.string().optional(),
-})
-
-const campaignSchema = z.object({
-    name: z.string().min(1, "Name is required"),
-    variables: z.array(campaignVariableSchema),
-})
-
-type CampaignReviewFormData = z.infer<typeof campaignSchema>
+import { campaignSchema, type CampaignReviewFormData } from "@/validation/campaign/campaign-details"
 
 function CampaignReview({ campaign, template }: { campaign: Campaign; template: Template }) {
     const { t } = useTranslation()
