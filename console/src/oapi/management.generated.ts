@@ -4633,6 +4633,8 @@ export interface components {
              * @example 2025-01-10T08:00:00Z
              */
             updated_at: string;
+            /** @description Whether there are pending scheduled events for this schedule instance */
+            has_pending_events?: boolean;
         };
         UserScheduledList: components["schemas"]["PaginatedResponse"] & {
             results: components["schemas"]["UserScheduled"][];

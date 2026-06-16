@@ -631,6 +631,42 @@ func TestListUserSchedules(t *testing.T) {
 	require.Equal(t, 5, total2)
 }
 
+func TestListUserSchedulesHasPendingEvents(t *testing.T) {
+	t.Parallel()
+
+	db := NewContainerStore(t)
+	projectID := uuid.New()
+	ctx := context.Background()
+
+	userID := createTestUserForSchedules(t, db, ctx, projectID)
+	scheduleID, err := db.UpsertSchedule(ctx, projectID, "pending_test", "single")
+	require.NoError(t, err)
+
+	futureTime := time.Now().Add(24 * time.Hour).UTC().Truncate(time.Microsecond)
+	_, err = db.CreateUserSchedule(ctx, userID, scheduleID, &futureTime, nil, nil, json.RawMessage(`{}`))
+	require.NoError(t, err)
+
+	// While the generated event is unfired, the schedule reports pending events.
+	items, _, err := db.ListUserSchedules(ctx, projectID, userID, store.Pagination{Limit: 10, Offset: 0})
+	require.NoError(t, err)
+	require.Len(t, items, 1)
+	require.True(t, items[0].HasPendingEvents)
+
+	// Firing every event must clear the flag (regression: the badge previously
+	// relied on scheduled_at <= now and stayed lit forever).
+	events, err := db.ListPendingScheduledEventsForUser(ctx, userID, scheduleID)
+	require.NoError(t, err)
+	require.NotEmpty(t, events)
+	for _, e := range events {
+		require.NoError(t, db.MarkScheduledEventFired(ctx, e.ID))
+	}
+
+	items, _, err = db.ListUserSchedules(ctx, projectID, userID, store.Pagination{Limit: 10, Offset: 0})
+	require.NoError(t, err)
+	require.Len(t, items, 1)
+	require.False(t, items[0].HasPendingEvents)
+}
+
 func TestListUserSchedulesEmpty(t *testing.T) {
 	t.Parallel()
 
@@ -1132,6 +1168,41 @@ func TestListOrganizationSchedules(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, items2, 2)
 	require.Equal(t, 5, total2)
+}
+
+func TestListOrganizationSchedulesHasPendingEvents(t *testing.T) {
+	t.Parallel()
+
+	db := NewContainerStore(t)
+	projectID := uuid.New()
+	ctx := context.Background()
+
+	orgID := createTestOrgForSchedules(t, db, ctx, projectID)
+	scheduleID, err := db.UpsertSchedule(ctx, projectID, "org_pending_test", "single")
+	require.NoError(t, err)
+
+	futureTime := time.Now().Add(24 * time.Hour).UTC().Truncate(time.Microsecond)
+	_, err = db.CreateOrganizationSchedule(ctx, orgID, scheduleID, &futureTime, nil, nil, json.RawMessage(`{}`))
+	require.NoError(t, err)
+
+	// While the generated event is unfired, the schedule reports pending events.
+	items, _, err := db.ListOrganizationSchedules(ctx, projectID, orgID, store.Pagination{Limit: 10, Offset: 0})
+	require.NoError(t, err)
+	require.Len(t, items, 1)
+	require.True(t, items[0].HasPendingEvents)
+
+	// Firing every event must clear the flag.
+	events, err := db.ListPendingOrgScheduledEventsForOrg(ctx, orgID, scheduleID)
+	require.NoError(t, err)
+	require.NotEmpty(t, events)
+	for _, e := range events {
+		require.NoError(t, db.MarkOrgScheduledEventFired(ctx, e.ID))
+	}
+
+	items, _, err = db.ListOrganizationSchedules(ctx, projectID, orgID, store.Pagination{Limit: 10, Offset: 0})
+	require.NoError(t, err)
+	require.Len(t, items, 1)
+	require.False(t, items[0].HasPendingEvents)
 }
 
 func TestListOrganizationSchedulesEmpty(t *testing.T) {

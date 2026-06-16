@@ -1,4 +1,6 @@
-import { useCallback, useContext, useEffect, useMemo, useState } from "react"
+import { useCallback, useContext, useEffect, useMemo, useState, type JSX } from "react"
+import { Controller, useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
 import { useNavigate, useParams } from "react-router"
 import { useTranslation } from "react-i18next"
 import { Mail, MessageSquareDot, Smartphone } from "lucide-react"
@@ -24,6 +26,12 @@ import {
 import { Switch } from "@/components/ui/switch"
 
 import { CampaignVariables } from "./CampaignVariables"
+import { newCampaignSchema, type NewCampaignFormValues } from "@/validation/campaign/new-campaign"
+import {
+    emailTemplateDataSchema,
+    textTemplateDataSchema,
+    pushTemplateDataSchema,
+} from "@/validation/campaign/template/data"
 
 type ChannelConfig = {
     title: string
@@ -42,13 +50,24 @@ export default function NewCampaign() {
     const { t } = useTranslation()
     const { channel: channelParam } = useParams()
 
-    const [name, setName] = useState("")
     const [variables, setVariables] = useState<CampaignVariable[]>([])
-    const [isTransactional, setTransactional] = useState(false)
-    const [subscriptionId, setSubscriptionId] = useState("")
     const [isCreating, setIsCreating] = useState(false)
 
     const channel = isChannelType(channelParam) ? channelParam : null
+
+    const form = useForm<NewCampaignFormValues>({
+        resolver: zodResolver(newCampaignSchema),
+        mode: "onChange",
+        defaultValues: {
+            name: "",
+            channel: channel ?? "email",
+            transactional: false,
+            subscription_id: "",
+        },
+    })
+
+    const isTransactional = form.watch("transactional")
+    const subscriptionId = form.watch("subscription_id")
 
     const [subscriptions] = useResolver(
         useCallback(async (): Promise<Subscription[]> => {
@@ -83,9 +102,9 @@ export default function NewCampaign() {
         )
 
         if (!hasValidSelection) {
-            setSubscriptionId(filteredSubscriptions[0].id)
+            form.setValue("subscription_id", filteredSubscriptions[0].id)
         }
-    }, [isTransactional, subscriptionsLoading, filteredSubscriptions, subscriptionId])
+    }, [isTransactional, subscriptionsLoading, filteredSubscriptions, subscriptionId, form])
 
     const channelConfig = useMemo<ChannelConfig | null>(() => {
         if (!channel) {
@@ -116,12 +135,16 @@ export default function NewCampaign() {
         return config[channel]
     }, [channel, t])
 
-    const hasName = name.trim().length > 0
-    const hasSubscription = isTransactional || subscriptionId.length > 0
-    const canCreate = !!project?.id && !!channel && hasName && hasSubscription && !isCreating
+    const canCreate = form.formState.isValid && !!project?.id && !!channel && !isCreating
 
-    async function createCampaign() {
-        if (!project?.id || !channel || !hasName || (!isTransactional && !subscriptionId)) {
+    const templateSchemaMap = {
+        email: emailTemplateDataSchema,
+        sms: textTemplateDataSchema,
+        push: pushTemplateDataSchema,
+    } as const
+
+    async function createCampaign(data: NewCampaignFormValues) {
+        if (!project?.id || !channel) {
             return
         }
 
@@ -137,10 +160,10 @@ export default function NewCampaign() {
                         },
                     },
                     body: {
-                        name: name.trim(),
+                        name: data.name.trim(),
                         channel,
-                        transactional: isTransactional,
-                        subscription_id: isTransactional ? undefined : subscriptionId,
+                        transactional: data.transactional,
+                        subscription_id: data.transactional ? undefined : data.subscription_id,
                     },
                 },
             )
@@ -166,7 +189,7 @@ export default function NewCampaign() {
 
             const template = await api.campaigns.templates.create(project.id, campaignId, {
                 locale: project.locale,
-                data: {},
+                data: templateSchemaMap[channel].parse({}),
             })
 
             navigate(`/projects/${project.id}/campaigns/${campaignId}/templates/${template.id}`)
@@ -196,13 +219,7 @@ export default function NewCampaign() {
                     </p>
                 </div>
 
-                <form
-                    className="space-y-6"
-                    onSubmit={(event) => {
-                        event.preventDefault()
-                        void createCampaign()
-                    }}
-                >
+                <form className="space-y-6" onSubmit={form.handleSubmit(createCampaign)}>
                     <FieldGroup>
                         <Field className="gap-2">
                             <FieldLabel>{t("channel", "Channel")}</FieldLabel>
@@ -229,13 +246,17 @@ export default function NewCampaign() {
                             </FieldLabel>
                             <Input
                                 id="campaign-name"
-                                value={name}
-                                onChange={(event) => setName(event.target.value)}
+                                {...form.register("name")}
                                 placeholder={t(
                                     "campaign.setup.form.name.placeholder",
                                     "Campaign name",
                                 )}
                             />
+                            {form.formState.errors.name && (
+                                <p className="text-sm text-destructive">
+                                    {form.formState.errors.name.message}
+                                </p>
+                            )}
                         </Field>
                     </FieldGroup>
 
@@ -256,29 +277,35 @@ export default function NewCampaign() {
                         </Field>
                     </FieldGroup>
 
-                    <div className="flex items-center justify-between rounded-md border p-3">
-                        <div className="space-y-1">
-                            <Label htmlFor="transactional-toggle">
-                                {t("campaign.transactional", "Transactional")}
-                            </Label>
-                            <p className="text-sm text-muted-foreground">
-                                {t(
-                                    "campaign.transactional.help",
-                                    "When enabled, subscription preference is ignored.",
-                                )}
-                            </p>
-                        </div>
-                        <Switch
-                            id="transactional-toggle"
-                            checked={isTransactional}
-                            onCheckedChange={(checked) => {
-                                setTransactional(checked)
-                                if (checked) {
-                                    setSubscriptionId("")
-                                }
-                            }}
-                        />
-                    </div>
+                    <Controller
+                        control={form.control}
+                        name="transactional"
+                        render={({ field }) => (
+                            <div className="flex items-center justify-between rounded-md border p-3">
+                                <div className="space-y-1">
+                                    <Label htmlFor="transactional-toggle">
+                                        {t("campaign.transactional", "Transactional")}
+                                    </Label>
+                                    <p className="text-sm text-muted-foreground">
+                                        {t(
+                                            "campaign.transactional.help",
+                                            "When enabled, subscription preference is ignored.",
+                                        )}
+                                    </p>
+                                </div>
+                                <Switch
+                                    id="transactional-toggle"
+                                    checked={field.value}
+                                    onCheckedChange={(checked) => {
+                                        field.onChange(checked)
+                                        if (checked) {
+                                            form.setValue("subscription_id", "")
+                                        }
+                                    }}
+                                />
+                            </div>
+                        )}
+                    />
 
                     {!isTransactional && (
                         <FieldGroup>
@@ -286,40 +313,46 @@ export default function NewCampaign() {
                                 <FieldLabel htmlFor="subscription-select">
                                     {t("campaign.subscription", "Subscription")}
                                 </FieldLabel>
-                                <Select value={subscriptionId} onValueChange={setSubscriptionId}>
-                                    <SelectTrigger id="subscription-select">
-                                        <SelectValue
-                                            placeholder={t(
-                                                "campaign.subscription.placeholder",
-                                                "Select subscription",
-                                            )}
-                                        />
-                                    </SelectTrigger>
-                                    <SelectContent className="z-[1100]">
-                                        {subscriptionsLoading && (
-                                            <SelectItem value="__loading" disabled>
-                                                {t("loading", "Loading...")}
-                                            </SelectItem>
-                                        )}
-                                        {!subscriptionsLoading &&
-                                            filteredSubscriptions.length === 0 && (
-                                                <SelectItem value="__empty" disabled>
-                                                    {t(
-                                                        "campaign.subscription.empty",
-                                                        "No subscriptions for this channel",
+                                <Controller
+                                    control={form.control}
+                                    name="subscription_id"
+                                    render={({ field }) => (
+                                        <Select value={field.value} onValueChange={field.onChange}>
+                                            <SelectTrigger id="subscription-select">
+                                                <SelectValue
+                                                    placeholder={t(
+                                                        "campaign.subscription.placeholder",
+                                                        "Select subscription",
                                                     )}
-                                                </SelectItem>
-                                            )}
-                                        {filteredSubscriptions.map((subscription) => (
-                                            <SelectItem
-                                                key={subscription.id}
-                                                value={subscription.id}
-                                            >
-                                                {subscription.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                                />
+                                            </SelectTrigger>
+                                            <SelectContent className="z-[1100]">
+                                                {subscriptionsLoading && (
+                                                    <SelectItem value="__loading" disabled>
+                                                        {t("loading", "Loading...")}
+                                                    </SelectItem>
+                                                )}
+                                                {!subscriptionsLoading &&
+                                                    filteredSubscriptions.length === 0 && (
+                                                        <SelectItem value="__empty" disabled>
+                                                            {t(
+                                                                "campaign.subscription.empty",
+                                                                "No subscriptions for this channel",
+                                                            )}
+                                                        </SelectItem>
+                                                    )}
+                                                {filteredSubscriptions.map((subscription) => (
+                                                    <SelectItem
+                                                        key={subscription.id}
+                                                        value={subscription.id}
+                                                    >
+                                                        {subscription.name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    )}
+                                />
                             </Field>
                         </FieldGroup>
                     )}
