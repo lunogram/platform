@@ -158,9 +158,9 @@ func (srv *CampaignsController) ListCampaigns(w http.ResponseWriter, r *http.Req
 		Offset: params.Offset.ToInt(),
 	}
 
-	includeDeleted := params.IncludeDeleted != nil && *params.IncludeDeleted
+	archivedOnly := params.IncludeDeleted != nil && *params.IncludeDeleted
 
-	result, total, err := srv.mgmt.ListCampaigns(ctx, projectID, pagination, params.Search.ToString(), includeDeleted)
+	result, total, err := srv.mgmt.ListCampaigns(ctx, projectID, pagination, params.Search.ToString(), archivedOnly)
 	if err != nil {
 		logger.Error("failed to list campaigns", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -343,6 +343,12 @@ func (srv *CampaignsController) UnarchiveCampaign(w http.ResponseWriter, r *http
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("campaign not found", zap.Stringer("campaign_id", campaignID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("campaign not found")))
+		return
+	}
+
+	if err != nil {
+		logger.Error("failed to unarchive campaign", zap.Error(err))
+		oapi.WriteProblem(w, err)
 		return
 	}
 

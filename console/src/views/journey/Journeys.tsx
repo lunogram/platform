@@ -83,14 +83,18 @@ export default function Journeys() {
     const [cursor, setCursor] = useState<string | undefined>()
     const [pageDirection, setPageDirection] = useState<"next" | "prev" | undefined>()
     const [cursorHistory, setCursorHistory] = useState<string[]>([])
+    const [archivedOffset, setArchivedOffset] = useState(0)
     const [showArchived, setShowArchived] = useState(false)
     const searchTimeoutRef = useRef<number>()
+
+    const archivedPageSize = 15
 
     const handleSearch = useCallback((value: string) => {
         setSearchQuery(value)
         setCursor(undefined)
         setPageDirection(undefined)
         setCursorHistory([])
+        setArchivedOffset(0)
         clearTimeout(searchTimeoutRef.current)
         searchTimeoutRef.current = setTimeout(() => {
             setDebouncedQuery(value)
@@ -117,25 +121,34 @@ export default function Journeys() {
                         projectID: project.id,
                     },
                     query: {
-                        limit: 100,
+                        limit: archivedPageSize,
+                        offset: archivedOffset,
                         include_deleted: true,
                         search: debouncedQuery || undefined,
                     },
                 },
             })
             if (response.error || !response.data) return null
-            return response.data.results?.filter((j) => j.status === "archived") ?? []
-        }, [project.id, debouncedQuery, showArchived]),
+            return response.data
+        }, [project.id, debouncedQuery, showArchived, archivedOffset]),
     )
 
     const isArchivedView = showArchived
-    const journeys = isArchivedView ? archivedResult : result?.results
-    const total = result?.total ?? 0
+    const journeys = (isArchivedView ? archivedResult?.results : result?.results) ?? []
+    const total = isArchivedView ? (archivedResult?.total ?? 0) : (result?.total ?? 0)
     const isLoading = isArchivedView ? archivedResult === null : !result
-    const hasNextPage = !isArchivedView && !!result?.nextCursor
-    const hasPrevPage = !isArchivedView && cursorHistory.length > 0
+    const hasNextPage = isArchivedView
+        ? archivedOffset + archivedPageSize < total
+        : !!result?.nextCursor
+    const hasPrevPage = isArchivedView ? archivedOffset > 0 : cursorHistory.length > 0
 
     const handleNextPage = () => {
+        if (isArchivedView) {
+            if (hasNextPage) {
+                setArchivedOffset((prev) => prev + archivedPageSize)
+            }
+            return
+        }
         if (result?.nextCursor) {
             setCursorHistory((prev) => [...prev, cursor ?? ""])
             setCursor(result.nextCursor)
@@ -144,6 +157,12 @@ export default function Journeys() {
     }
 
     const handlePrevPage = () => {
+        if (isArchivedView) {
+            if (hasPrevPage) {
+                setArchivedOffset((prev) => Math.max(0, prev - archivedPageSize))
+            }
+            return
+        }
         if (cursorHistory.length > 0) {
             const prev = [...cursorHistory]
             const prevCursor = prev.pop()
@@ -170,19 +189,23 @@ export default function Journeys() {
     }
 
     const handleUnarchiveJourney = async (id: UUID) => {
-         const response = await oapiClient.POST("/api/admin/projects/{projectID}/journeys/{journeyID}/unarchive", {
-             params: {
-                 path: {
-                    projectID: project.id,
-                    journeyID: id,
+        const response = await oapiClient.POST(
+            "/api/admin/projects/{projectID}/journeys/{journeyID}/unarchive",
+            {
+                params: {
+                    path: {
+                        projectID: project.id,
+                        journeyID: id,
+                    },
                 },
             },
-        })
+        )
         if (response.error) {
-             throw response.error
-         }
+            throw response.error
+        }
 
         setShowArchived(false)
+        setArchivedOffset(0)
         await Promise.all([reload(), reloadArchived()])
     }
 
@@ -222,7 +245,10 @@ export default function Journeys() {
                         className="h-8 w-8 p-0"
                         aria-label={t("show_archived", "Show archived")}
                         aria-pressed={showArchived}
-                        onClick={() => setShowArchived((prev) => !prev)}
+                        onClick={() => {
+                            setArchivedOffset(0)
+                            setShowArchived((prev) => !prev)
+                        }}
                     >
                         <ArchiveRestore className="h-4 w-4" />
                     </Button>
@@ -416,7 +442,7 @@ export default function Journeys() {
                 </Table>
 
                 {/* Pagination */}
-                {!isArchivedView && journeys && journeys.length > 0 && (
+                {journeys.length > 0 && (
                     <div className="flex items-center justify-between border-t px-4 py-3">
                         <p className="text-sm text-muted-foreground">
                             {total} {t("journeys").toLowerCase()}

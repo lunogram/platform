@@ -74,12 +74,14 @@ export default function Campaigns({ create = false }: CampaignsProps) {
     const [searchQuery, setSearchQuery] = useState("")
     const [debouncedQuery, setDebouncedQuery] = useState("")
     const [offset, setOffset] = useState(0)
+    const [archivedOffset, setArchivedOffset] = useState(0)
     const [showArchived, setShowArchived] = useState(false)
     const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
     const handleSearch = useCallback((value: string) => {
         setSearchQuery(value)
         setOffset(0)
+        setArchivedOffset(0)
         clearTimeout(searchTimeoutRef.current)
         searchTimeoutRef.current = setTimeout(() => {
             setDebouncedQuery(value)
@@ -122,33 +124,36 @@ export default function Campaigns({ create = false }: CampaignsProps) {
                         projectID: project.id,
                     },
                     query: {
-                        limit: 100,
+                        limit: pageSize,
+                        offset: archivedOffset,
                         include_deleted: true,
                         search: debouncedQuery || undefined,
                     },
                 },
             })
             if (response.error || !response.data) return null
-            return response.data.results?.filter((c) => c.archived) ?? []
-        }, [project.id, debouncedQuery, showArchived]),
+            return response.data
+        }, [project.id, debouncedQuery, showArchived, archivedOffset]),
     )
 
     const isArchivedView = showArchived
-    const campaigns = isArchivedView ? archivedResult : result?.results
+    const campaigns = (isArchivedView ? archivedResult?.results : result?.results) ?? []
+    const total = isArchivedView ? (archivedResult?.total ?? 0) : (result?.total ?? 0)
     const isLoading = isArchivedView ? archivedResult === null : !result
-    const hasNextPage = !isArchivedView && !!result && offset + pageSize < result.total
-    const hasPrevPage = !isArchivedView && offset > 0
+    const currentOffset = isArchivedView ? archivedOffset : offset
+    const hasNextPage = currentOffset + pageSize < total
+    const hasPrevPage = currentOffset > 0
 
     const handleNextPage = () => {
-        if (hasNextPage) {
-            setOffset((prev) => prev + pageSize)
-        }
+        if (!hasNextPage) return
+        const setter = isArchivedView ? setArchivedOffset : setOffset
+        setter((prev) => prev + pageSize)
     }
 
     const handlePrevPage = () => {
-        if (hasPrevPage) {
-            setOffset((prev) => Math.max(0, prev - pageSize))
-        }
+        if (!hasPrevPage) return
+        const setter = isArchivedView ? setArchivedOffset : setOffset
+        setter((prev) => Math.max(0, prev - pageSize))
     }
 
     const handleDuplicateCampaign = async (e: React.MouseEvent, id: UUID) => {
@@ -201,6 +206,7 @@ export default function Campaigns({ create = false }: CampaignsProps) {
             return
         }
         setShowArchived(false)
+        setArchivedOffset(0)
         await Promise.all([reload(), reloadArchived()])
     }
 
@@ -259,7 +265,10 @@ export default function Campaigns({ create = false }: CampaignsProps) {
                         className="h-8 w-8 p-0"
                         aria-label={t("show_archived", "Show archived")}
                         aria-pressed={showArchived}
-                        onClick={() => setShowArchived((prev) => !prev)}
+                        onClick={() => {
+                            setArchivedOffset(0)
+                            setShowArchived((prev) => !prev)
+                        }}
                     >
                         <ArchiveRestore className="h-4 w-4" />
                     </Button>
@@ -425,10 +434,10 @@ export default function Campaigns({ create = false }: CampaignsProps) {
                 </Table>
 
                 {/* Pagination */}
-                {!isArchivedView && campaigns && campaigns.length > 0 && (
+                {campaigns.length > 0 && (
                     <div className="flex items-center justify-between border-t px-4 py-3">
                         <p className="text-sm text-muted-foreground">
-                            {result?.total ?? campaigns.length} {t("campaign.plural").toLowerCase()}
+                            {total} {t("campaign.plural").toLowerCase()}
                         </p>
                         {(hasPrevPage || hasNextPage) && (
                             <div className="flex items-center gap-2">

@@ -69,11 +69,11 @@ func (srv *JourneysController) ListJourneys(w http.ResponseWriter, r *http.Reque
 	}
 
 	search := params.Search.ToString()
-	includeDeleted := params.IncludeDeleted != nil && *params.IncludeDeleted
+	archivedOnly := params.IncludeDeleted != nil && *params.IncludeDeleted
 
 	logger.Info("listing journeys", zap.Int("limit", pagination.Limit), zap.Int("offset", pagination.Offset))
 
-	journeys, total, err := srv.jrny.ListJourneys(ctx, projectID, pagination, search, includeDeleted)
+	journeys, total, err := srv.jrny.ListJourneys(ctx, projectID, pagination, search, archivedOnly)
 	if err != nil {
 		logger.Error("failed to list journeys", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -380,20 +380,13 @@ func (srv *JourneysController) UnarchiveJourney(w http.ResponseWriter, r *http.R
 
 	logger.Info("unarchiving journey")
 
-	_, err = srv.jrny.GetJourney(ctx, projectID, journeyID)
+	err = srv.jrny.UnarchiveJourney(ctx, projectID, journeyID)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("journey not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("journey not found")))
 		return
 	}
 
-	if err != nil {
-		logger.Error("failed to get journey", zap.Error(err))
-		oapi.WriteProblem(w, err)
-		return
-	}
-
-	err = srv.jrny.UnarchiveJourney(ctx, projectID, journeyID)
 	if err != nil {
 		logger.Error("failed to unarchive journey", zap.Error(err))
 		oapi.WriteProblem(w, err)

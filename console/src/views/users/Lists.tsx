@@ -80,12 +80,14 @@ export default function Lists() {
     const [debouncedQuery, setDebouncedQuery] = useState("")
     const [isCreateOpen, setIsCreateOpen] = useState(false)
     const [offset, setOffset] = useState(0)
+    const [archivedOffset, setArchivedOffset] = useState(0)
     const [showArchived, setShowArchived] = useState(false)
     const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
     const handleSearch = useCallback((value: string) => {
         setSearchQuery(value)
         setOffset(0)
+        setArchivedOffset(0)
         clearTimeout(searchTimeoutRef.current)
         searchTimeoutRef.current = setTimeout(() => {
             setDebouncedQuery(value)
@@ -111,30 +113,34 @@ export default function Lists() {
                         projectID: projectId,
                     },
                     query: {
-                        limit: 100,
+                        limit: pageSize,
+                        offset: archivedOffset,
                         include_deleted: true,
                         search: debouncedQuery || undefined,
                     },
                 },
             })
             if (response.error || !response.data) return null
-            return response.data.results?.filter((l) => l.archived) ?? []
-        }, [projectId, debouncedQuery, showArchived]),
+            return response.data
+        }, [projectId, debouncedQuery, showArchived, archivedOffset]),
     )
 
     const isArchivedView = showArchived
-    const lists = isArchivedView ? archivedResult : result?.results
-    const total = result?.total ?? 0
+    const lists = (isArchivedView ? archivedResult?.results : result?.results) ?? []
+    const total = isArchivedView ? (archivedResult?.total ?? 0) : (result?.total ?? 0)
     const isLoading = isArchivedView ? archivedResult === null : !result
-    const hasNextPage = !isArchivedView && offset + pageSize < total
-    const hasPrevPage = !isArchivedView && offset > 0
+    const currentOffset = isArchivedView ? archivedOffset : offset
+    const hasNextPage = currentOffset + pageSize < total
+    const hasPrevPage = currentOffset > 0
 
     const handleNextPage = () => {
-        setOffset((prev) => prev + pageSize)
+        const setter = isArchivedView ? setArchivedOffset : setOffset
+        setter((prev) => prev + pageSize)
     }
 
     const handlePrevPage = () => {
-        setOffset((prev) => Math.max(0, prev - pageSize))
+        const setter = isArchivedView ? setArchivedOffset : setOffset
+        setter((prev) => Math.max(0, prev - pageSize))
     }
 
     const handleRowClick = (list: List) => {
@@ -154,19 +160,23 @@ export default function Lists() {
     }
 
     const handleUnarchiveList = async (id: UUID) => {
-         const response = await oapiClient.POST("/api/admin/projects/{projectID}/lists/{listID}/unarchive", {
-             params: {
-                 path: {
-                     projectID: projectId,
-                     listID: id,
-                 },
-             },
-         })
-         if (response.error) {
-             throw response.error
-         }
+        const response = await oapiClient.POST(
+            "/api/admin/projects/{projectID}/lists/{listID}/unarchive",
+            {
+                params: {
+                    path: {
+                        projectID: projectId,
+                        listID: id,
+                    },
+                },
+            },
+        )
+        if (response.error) {
+            throw response.error
+        }
 
         setShowArchived(false)
+        setArchivedOffset(0)
         await Promise.all([reload(), reloadArchived()])
     }
 
@@ -207,7 +217,10 @@ export default function Lists() {
                         className="h-8 w-8 p-0"
                         aria-label={t("show_archived", "Show archived")}
                         aria-pressed={showArchived}
-                        onClick={() => setShowArchived((prev) => !prev)}
+                        onClick={() => {
+                            setArchivedOffset(0)
+                            setShowArchived((prev) => !prev)
+                        }}
                     >
                         <ArchiveRestore className="h-4 w-4" />
                     </Button>
@@ -400,7 +413,7 @@ export default function Lists() {
                 </Table>
 
                 {/* Pagination */}
-                {!isArchivedView && lists && lists.length > 0 && (
+                {lists.length > 0 && (
                     <div className="flex items-center justify-between border-t px-4 py-3">
                         <p className="text-sm text-muted-foreground">
                             {total} {t("lists").toLowerCase()}

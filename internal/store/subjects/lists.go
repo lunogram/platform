@@ -174,7 +174,7 @@ const listSelectJoins = `
 	LEFT JOIN list_versions draft_v ON draft_v.list_id = l.id AND draft_v.status = 'draft'
 	LEFT JOIN rules draft_r ON draft_v.rule_id = draft_r.id`
 
-func (s *ListsStore) ListLists(ctx context.Context, projectID uuid.UUID, pagination store.Pagination, search string, includeDeleted bool) (Lists, int, error) {
+func (s *ListsStore) ListLists(ctx context.Context, projectID uuid.UUID, pagination store.Pagination, search string, archivedOnly bool) (Lists, int, error) {
 	q := fmt.Sprintf(`
 	SELECT
 		%s,
@@ -186,7 +186,7 @@ func (s *ListsStore) ListLists(ctx context.Context, projectID uuid.UUID, paginat
 	%s
 	LEFT JOIN list_users lu ON lu.list_id = l.id
 	WHERE l.project_id = $1
-	AND ($5 = true OR l.deleted_at IS NULL)
+	AND (($5 = false AND l.deleted_at IS NULL) OR ($5 = true AND l.deleted_at IS NOT NULL))
 	AND ($4 = '' OR l.name ILIKE '%%' || $4 || '%%')
 	GROUP BY l.id, l.project_id, l.name, l.type, l.version_id,
 		active_v.status, pub_r.rule, draft_r.rule, active_v.version_number,
@@ -198,7 +198,7 @@ func (s *ListsStore) ListLists(ctx context.Context, projectID uuid.UUID, paginat
 		List
 		TotalCount int `db:"total_count"`
 	}
-	err := s.db.SelectContext(ctx, &results, q, projectID, pagination.Limit, pagination.Offset, search, includeDeleted)
+	err := s.db.SelectContext(ctx, &results, q, projectID, pagination.Limit, pagination.Offset, search, archivedOnly)
 	if err != nil {
 		return nil, 0, err
 	}
