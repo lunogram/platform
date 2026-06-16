@@ -1,8 +1,10 @@
 package provider
 
 import (
+	"net/url"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/lunogram/platform/pkg/modules/providers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -259,5 +261,133 @@ func TestConfigJSON(t *testing.T) {
 		assert.Equal(t, "AC123", config.AccountSID)
 		assert.Equal(t, "secret", config.AuthToken)
 		assert.Equal(t, "https://example.com/webhook", config.WebhookURL)
+	})
+}
+
+func TestAppendStatusCallbackMetadata(t *testing.T) {
+	t.Parallel()
+
+	t.Run("empty callback returns unchanged", func(t *testing.T) {
+		got := AppendStatusCallbackMetadata("", map[string]string{
+			providers.MetadataKeyInboxMessageID: "uuid",
+		})
+		assert.Equal(t, "", got)
+	})
+
+	t.Run("nil metadata returns unchanged", func(t *testing.T) {
+		got := AppendStatusCallbackMetadata("https://example.com/webhook", nil)
+		assert.Equal(t, "https://example.com/webhook", got)
+	})
+
+	t.Run("empty metadata returns unchanged", func(t *testing.T) {
+		got := AppendStatusCallbackMetadata("https://example.com/webhook", map[string]string{})
+		assert.Equal(t, "https://example.com/webhook", got)
+	})
+
+	t.Run("appends inbox_message_id as query parameter", func(t *testing.T) {
+		uuid := "550e8400-e29b-41d4-a716-446655440000"
+		got := AppendStatusCallbackMetadata("https://example.com/webhook", map[string]string{
+			providers.MetadataKeyInboxMessageID: uuid,
+		})
+		parsed, err := url.Parse(got)
+		require.NoError(t, err)
+		assert.Equal(t, uuid, parsed.Query().Get(providers.MetadataKeyInboxMessageID))
+		assert.Equal(t, "https", parsed.Scheme)
+		assert.Equal(t, "example.com", parsed.Host)
+		assert.Equal(t, "/webhook", parsed.Path)
+	})
+
+	t.Run("preserves existing query parameters", func(t *testing.T) {
+		got := AppendStatusCallbackMetadata("https://example.com/webhook?provider=twilio", map[string]string{
+			providers.MetadataKeyInboxMessageID: "uuid-1",
+		})
+		parsed, err := url.Parse(got)
+		require.NoError(t, err)
+		assert.Equal(t, "twilio", parsed.Query().Get("provider"))
+		assert.Equal(t, "uuid-1", parsed.Query().Get(providers.MetadataKeyInboxMessageID))
+	})
+
+	t.Run("metadata key overwrites duplicate query parameter", func(t *testing.T) {
+		got := AppendStatusCallbackMetadata("https://example.com/webhook?inbox_message_id=old", map[string]string{
+			providers.MetadataKeyInboxMessageID: "new",
+		})
+		parsed, err := url.Parse(got)
+		require.NoError(t, err)
+		assert.Equal(t, "new", parsed.Query().Get(providers.MetadataKeyInboxMessageID))
+	})
+
+	t.Run("invalid URL is returned unchanged", func(t *testing.T) {
+		// url.Parse is permissive; use a control character to force an error.
+		bad := "https://example.com/\x7f"
+		got := AppendStatusCallbackMetadata(bad, map[string]string{
+			providers.MetadataKeyInboxMessageID: "uuid",
+		})
+		assert.Equal(t, bad, got)
+	})
+}
+
+func TestExtractInboxMessageID(t *testing.T) {
+	t.Parallel()
+
+	const validUUID = "550e8400-e29b-41d4-a716-446655440000"
+
+	t.Run("returns parsed UUID when query param is present and valid", func(t *testing.T) {
+		callback := AppendStatusCallbackMetadata("https://example.com/webhook", map[string]string{
+			providers.MetadataKeyInboxMessageID: validUUID,
+		})
+		got, err := ExtractInboxMessageID(callback)
+		require.NoError(t, err)
+		assert.Equal(t, validUUID, got.String())
+	})
+
+	t.Run("returns zero UUID and nil error when query param is missing", func(t *testing.T) {
+		got, err := ExtractInboxMessageID("https://example.com/webhook?foo=bar")
+		require.NoError(t, err)
+		assert.Equal(t, uuid.Nil, got)
+	})
+
+	t.Run("returns zero UUID and nil error when URL has no query string", func(t *testing.T) {
+		got, err := ExtractInboxMessageID("https://example.com/webhook")
+		require.NoError(t, err)
+		assert.Equal(t, uuid.Nil, got)
+	})
+
+	t.Run("returns zero UUID and nil error when raw URL is empty", func(t *testing.T) {
+		got, err := ExtractInboxMessageID("")
+		require.NoError(t, err)
+		assert.Equal(t, uuid.Nil, got)
+	})
+
+	t.Run("returns zero UUID and error when value is not a UUID", func(t *testing.T) {
+		got, err := ExtractInboxMessageID("https://example.com/webhook?inbox_message_id=not-a-uuid")
+		require.Error(t, err)
+		assert.Equal(t, uuid.Nil, got)
+	})
+
+	t.Run("returns zero UUID and nil error when value is empty string", func(t *testing.T) {
+		got, err := ExtractInboxMessageID("https://example.com/webhook?inbox_message_id=")
+		require.NoError(t, err)
+		assert.Equal(t, uuid.Nil, got)
+	})
+
+	t.Run("returns zero UUID and error when URL is malformed", func(t *testing.T) {
+		// Control char forces url.Parse to fail.
+		got, err := ExtractInboxMessageID("https://example.com/\x7f?inbox_message_id=" + validUUID)
+		require.Error(t, err)
+		assert.Equal(t, uuid.Nil, got)
+	})
+
+	t.Run("round-trips with AppendStatusCallbackMetadata", func(t *testing.T) {
+		id := uuid.New()
+		callback := AppendStatusCallbackMetadata("https://example.com/webhook?keep=me", map[string]string{
+			providers.MetadataKeyInboxMessageID: id.String(),
+		})
+		parsed, perr := url.Parse(callback)
+		require.NoError(t, perr)
+		assert.Equal(t, "me", parsed.Query().Get("keep"))
+
+		got, err := ExtractInboxMessageID(callback)
+		require.NoError(t, err)
+		assert.Equal(t, id, got)
 	})
 }

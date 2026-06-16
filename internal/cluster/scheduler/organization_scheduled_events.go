@@ -90,7 +90,7 @@ func (controller *Controller) ReconcileOrganizationScheduledEvents(ctx context.C
 			return nil
 		}
 
-		processed, err := controller.scheduled.ScanDueOrgScheduledEvents(ctx, scanner)
+		processed, err := controller.scheduled.ScanDueOrgScheduledEvents(ctx, controller.reconciliationBatchSize, scanner)
 		if err != nil {
 			controller.logger.Error("failed to scan due org scheduled events", zap.Error(err))
 		}
@@ -142,7 +142,7 @@ func (controller *Controller) ReconcileOrganizationSchedules(ctx context.Context
 			return nil
 		}
 
-		processed, err := controller.scheduled.ScanRecurringOrgSchedulesWithoutPendingEvents(ctx, scanner)
+		processed, err := controller.scheduled.ScanRecurringOrgSchedulesWithoutPendingEvents(ctx, controller.reconciliationBatchSize, scanner)
 		if err != nil {
 			controller.logger.Error("failed to scan recurring organization schedules", zap.Error(err))
 		}

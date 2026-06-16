@@ -788,6 +788,130 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/projects/{projectID}/subjects/users/{userID}/inbox": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get user inbox messages
+         * @description Retrieves inbox messages for a specific user
+         */
+        get: operations["getUserInboxMessages"];
+        put?: never;
+        /**
+         * Create user inbox message
+         * @description Creates an inbox message for a specific user
+         */
+        post: operations["createUserInboxMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/subjects/users/{userID}/inbox/{messageID}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Read user inbox message
+         * @description Marks a user inbox message as read
+         */
+        post: operations["readUserInboxMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/subjects/users/{userID}/inbox/{messageID}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Archive user inbox message
+         * @description Marks a user inbox message as archived
+         */
+        post: operations["archiveUserInboxMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/subjects/users/{userID}/inbox/{messageID}/unarchive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Unarchive user inbox message
+         * @description Removes the archived status from a user inbox message
+         */
+        post: operations["unarchiveUserInboxMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/subjects/users/{userID}/inbox/{messageID}/unread": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark user inbox message as unread
+         * @description Removes the read status from a user inbox message, marking it as unread
+         */
+        post: operations["unreadUserInboxMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/subjects/users/{userID}/inbox/{messageID}/schedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reschedule user inbox message
+         * @description Updates the scheduled send time of a user inbox message before it is dispatched
+         */
+        post: operations["rescheduleUserInboxMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/subjects/users/{userID}/subscriptions": {
         parameters: {
             query?: never;
@@ -1070,6 +1194,130 @@ export interface paths {
          * @description Creates a new event for a specific organization
          */
         post: operations["createOrganizationEvent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/inbox": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get organization inbox messages
+         * @description Retrieves inbox messages for a specific organization
+         */
+        get: operations["getOrganizationInboxMessages"];
+        put?: never;
+        /**
+         * Create organization inbox message
+         * @description Creates an inbox message for a specific organization
+         */
+        post: operations["createOrganizationInboxMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/inbox/{messageID}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Read organization inbox message
+         * @description Marks an organization inbox message as read
+         */
+        post: operations["readOrganizationInboxMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/inbox/{messageID}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Archive organization inbox message
+         * @description Marks an organization inbox message as archived
+         */
+        post: operations["archiveOrganizationInboxMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/inbox/{messageID}/unarchive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Unarchive organization inbox message
+         * @description Removes the archived status from an organization inbox message
+         */
+        post: operations["unarchiveOrganizationInboxMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/inbox/{messageID}/unread": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark organization inbox message as unread
+         * @description Removes the read status from an organization inbox message, marking it as unread
+         */
+        post: operations["unreadOrganizationInboxMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/inbox/{messageID}/schedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reschedule organization inbox message
+         * @description Updates the scheduled send time of an organization inbox message before it is dispatched
+         */
+        post: operations["rescheduleOrganizationInboxMessage"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2123,7 +2371,7 @@ export interface components {
          * @example email
          * @enum {string}
          */
-        Channel: "email" | "sms" | "push";
+        Channel: "email" | "sms" | "push" | "inbox";
         /**
          * @description Type of action (module ID from registered action modules)
          * @example webhook
@@ -3457,6 +3705,87 @@ export interface components {
         };
         UserEventList: components["schemas"]["PaginatedResponse"] & {
             results: components["schemas"]["UserEvent"][];
+        };
+        RescheduleInboxMessageRequest: {
+            /**
+             * Format: date-time
+             * @description Updates the inbox message provider send time before dispatch.
+             */
+            scheduled_at: string;
+        };
+        CreateInboxMessageRequest: {
+            /** @description Optional external identifier for the message. Allows tracing the message back to its origin source. */
+            identifier?: components["schemas"]["ExternalID"];
+            channel: components["schemas"]["Channel"];
+            /**
+             * Format: uuid
+             * @description Required for email and sms messages. Push uses project push provider settings.
+             */
+            sender_identity_id?: string | null;
+            /** Format: uuid */
+            campaign_id?: string | null;
+            /** Format: uuid */
+            broadcast_id?: string | null;
+            /** @description Channel-specific payload content. */
+            content?: {
+                [key: string]: unknown;
+            } | null;
+            data?: {
+                [key: string]: unknown;
+            } | null;
+            tags?: string[];
+            /** @default 3 */
+            priority: number;
+            source?: string | null;
+            /** Format: date-time */
+            scheduled_at?: string | null;
+            /** Format: date-time */
+            expires_at?: string | null;
+        };
+        InboxMessage: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            project_id: string;
+            /** Format: uuid */
+            user_id?: string;
+            /** Format: uuid */
+            organization_id?: string;
+            /** @description External identifier for the message, if one was provided at creation time. */
+            external_id?: string | null;
+            channel: components["schemas"]["Channel"];
+            /** Format: uuid */
+            sender_identity_id?: string | null;
+            /** Format: uuid */
+            campaign_id?: string | null;
+            /** Format: uuid */
+            broadcast_id?: string | null;
+            content: {
+                [key: string]: unknown;
+            };
+            data: {
+                [key: string]: unknown;
+            };
+            tags: string[];
+            priority: number;
+            source?: string | null;
+            /** Format: date-time */
+            scheduled_at: string;
+            /** Format: date-time */
+            expires_at?: string | null;
+            /** Format: date-time */
+            read_at?: string | null;
+            /** Format: date-time */
+            archived_at?: string | null;
+            /** Format: date-time */
+            sent_at?: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        InboxMessageList: components["schemas"]["PaginatedResponse"] & {
+            results: components["schemas"]["InboxMessage"][];
         };
         CreateUserDevice: {
             /** @example AB12CD34-EF56-GH78-IJ90 */
@@ -6437,6 +6766,221 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    getUserInboxMessages: {
+        parameters: {
+            query?: {
+                status?: "unread" | "read" | "archived";
+                /** @description Comma-separated tag filter. All listed tags must be present. */
+                tags?: string;
+                message_source?: string;
+                priority?: number;
+                channel?: components["schemas"]["Channel"];
+                include_archived?: boolean;
+                include_scheduled?: boolean;
+                /** @description Maximum number of items to return */
+                limit?: components["parameters"]["Limit"];
+                /** @description Number of items to skip */
+                offset?: components["parameters"]["Offset"];
+                /** @description Search query string */
+                search?: components["parameters"]["Search"];
+            };
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The user ID */
+                userID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description User inbox messages retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboxMessageList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createUserInboxMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The user ID */
+                userID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateInboxMessageRequest"];
+            };
+        };
+        responses: {
+            /** @description User inbox message created successfully */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboxMessage"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    readUserInboxMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The user ID */
+                userID: string;
+                /** @description The inbox message ID */
+                messageID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description User inbox message read successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboxMessage"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    archiveUserInboxMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The user ID */
+                userID: string;
+                /** @description The inbox message ID */
+                messageID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description User inbox message archived successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboxMessage"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    unarchiveUserInboxMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The user ID */
+                userID: string;
+                /** @description The inbox message ID */
+                messageID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description User inbox message unarchived successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboxMessage"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    unreadUserInboxMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The user ID */
+                userID: string;
+                /** @description The inbox message ID */
+                messageID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description User inbox message marked as unread successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboxMessage"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    rescheduleUserInboxMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The user ID */
+                userID: string;
+                /** @description The inbox message ID */
+                messageID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RescheduleInboxMessageRequest"];
+            };
+        };
+        responses: {
+            /** @description User inbox message rescheduled successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboxMessage"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     getUserSubscriptions: {
         parameters: {
             query?: {
@@ -6982,6 +7526,221 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getOrganizationInboxMessages: {
+        parameters: {
+            query?: {
+                status?: "unread" | "read" | "archived";
+                /** @description Comma-separated tag filter. All listed tags must be present. */
+                tags?: string;
+                message_source?: string;
+                priority?: number;
+                channel?: components["schemas"]["Channel"];
+                include_archived?: boolean;
+                include_scheduled?: boolean;
+                /** @description Maximum number of items to return */
+                limit?: components["parameters"]["Limit"];
+                /** @description Number of items to skip */
+                offset?: components["parameters"]["Offset"];
+                /** @description Search query string */
+                search?: components["parameters"]["Search"];
+            };
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The organization ID */
+                organizationID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Organization inbox messages retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboxMessageList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createOrganizationInboxMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The organization ID */
+                organizationID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateInboxMessageRequest"];
+            };
+        };
+        responses: {
+            /** @description Organization inbox message created successfully */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboxMessage"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    readOrganizationInboxMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The organization ID */
+                organizationID: string;
+                /** @description The inbox message ID */
+                messageID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Organization inbox message read successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboxMessage"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    archiveOrganizationInboxMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The organization ID */
+                organizationID: string;
+                /** @description The inbox message ID */
+                messageID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Organization inbox message archived successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboxMessage"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    unarchiveOrganizationInboxMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The organization ID */
+                organizationID: string;
+                /** @description The inbox message ID */
+                messageID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Organization inbox message unarchived successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboxMessage"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    unreadOrganizationInboxMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The organization ID */
+                organizationID: string;
+                /** @description The inbox message ID */
+                messageID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Organization inbox message marked as unread successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboxMessage"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    rescheduleOrganizationInboxMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The organization ID */
+                organizationID: string;
+                /** @description The inbox message ID */
+                messageID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RescheduleInboxMessageRequest"];
+            };
+        };
+        responses: {
+            /** @description Organization inbox message rescheduled successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboxMessage"];
+                };
             };
             default: components["responses"]["Error"];
         };

@@ -153,7 +153,7 @@ func Send() int32 {
 	}
 
 	client := NewResendClient(req.Config.APIKey)
-	sendReq := ComposeSendEmailRequest(email)
+	sendReq := ComposeSendEmailRequest(email, req.Metadata)
 
 	// Log the outgoing request payload for debugging 422 errors from Resend.
 	debugPayload, _ := json.Marshal(struct {
@@ -240,12 +240,21 @@ func WebhookHandler() int32 {
 		return ExitSuccess
 	}
 
+	// Extract the platform inbox-message UUID from the echoed tags. A parse
+	// failure is logged but never fails the webhook: pre-T06 sends did not
+	// carry the metadata, and provider retries are expensive.
+	inboxMessageID, err := extractInboxMessageID(payload.Data.Tags)
+	if err != nil {
+		pdk.Log(pdk.LogWarn, fmt.Sprintf("resend webhook: %s (continuing with zero inbox_message_id)", err))
+	}
+
 	response := providers.WebhookResponse{
 		Events: []providers.WebhookEvent{
 			{
-				EventName: eventName,
-				MessageID: payload.Data.EmailID,
-				Timestamp: payload.CreatedAt,
+				EventName:      eventName,
+				MessageID:      payload.Data.EmailID,
+				InboxMessageID: inboxMessageID,
+				Timestamp:      payload.CreatedAt,
 				Data: map[string]any{
 					"to":      payload.Data.To,
 					"from":    payload.Data.From,

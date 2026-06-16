@@ -9,21 +9,27 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/http/json"
+	httpparams "github.com/lunogram/platform/internal/http/params"
 	"github.com/lunogram/platform/internal/http/problem"
+	"github.com/lunogram/platform/internal/ptr"
 	"github.com/lunogram/platform/internal/pubsub"
+	"github.com/lunogram/platform/internal/pubsub/consumer"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
 	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/management"
 	"github.com/lunogram/platform/internal/store/subjects"
+	"github.com/lunogram/platform/pkg/modules"
 	"go.uber.org/zap"
 )
 
-func NewOrganizationsController(logger *zap.Logger, db *sqlx.DB, pub pubsub.Publisher, engine *rbac.Engine) *OrganizationsController {
+func NewOrganizationsController(logger *zap.Logger, usersDB *sqlx.DB, mgmt *management.State, pub pubsub.Publisher, engine *rbac.Engine) *OrganizationsController {
 	return &OrganizationsController{
 		logger: logger,
-		db:     db,
-		orgs:   subjects.NewState(db, logger),
-		events: subjects.NewEventsStore(db),
+		db:     usersDB,
+		mgmt:   mgmt,
+		orgs:   subjects.NewState(usersDB, logger),
+		events: subjects.NewEventsStore(usersDB),
 		pubsub: pub,
 		engine: engine,
 	}
@@ -32,6 +38,7 @@ func NewOrganizationsController(logger *zap.Logger, db *sqlx.DB, pub pubsub.Publ
 type OrganizationsController struct {
 	logger *zap.Logger
 	db     *sqlx.DB
+	mgmt   *management.State
 	orgs   *subjects.State
 	events *subjects.EventsStore
 	pubsub pubsub.Publisher
@@ -275,7 +282,7 @@ func (srv *OrganizationsController) UpdateOrganization(w http.ResponseWriter, r 
 		return
 	}
 
-	updatedOrg, err := organizations.GetOrganization(ctx, projectID, organizationID)
+	updated, err := organizations.GetOrganization(ctx, projectID, organizationID)
 	if err != nil {
 		logger.Error("failed to get updated organization", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -284,12 +291,12 @@ func (srv *OrganizationsController) UpdateOrganization(w http.ResponseWriter, r 
 
 	// Publish to pubsub for recomputation and schema extraction
 	msg := schemas.Organization{
-		ID:          updatedOrg.ID,
+		ID:          updated.ID,
 		ProjectID:   projectID,
-		Identifiers: updatedOrg.ExternalIDs.Params(),
-		Name:        updatedOrg.Name,
+		Identifiers: updated.ExternalIDs.Params(),
+		Name:        updated.Name,
 		Data:        data,
-		Version:     updatedOrg.Version,
+		Version:     updated.Version,
 	}
 
 	err = srv.pubsub.Publish(ctx, schemas.OrganizationsProcess(projectID), msg)
@@ -307,7 +314,7 @@ func (srv *OrganizationsController) UpdateOrganization(w http.ResponseWriter, r 
 	}
 
 	logger.Info("organization updated")
-	json.Write(w, http.StatusOK, updatedOrg.OAPI())
+	json.Write(w, http.StatusOK, updated.OAPI())
 }
 
 func (srv *OrganizationsController) DeleteOrganization(w http.ResponseWriter, r *http.Request, projectID, organizationID uuid.UUID) {
@@ -595,6 +602,325 @@ func (srv *OrganizationsController) GetOrganizationEvents(w http.ResponseWriter,
 	}
 
 	json.Write(w, http.StatusOK, response)
+}
+
+func (srv *OrganizationsController) GetOrganizationInboxMessages(w http.ResponseWriter, r *http.Request, projectID, organizationID uuid.UUID, params oapi.GetOrganizationInboxMessagesParams) {
+	ctx := r.Context()
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("inbox", projectID))
+	if err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	_, err = srv.orgs.GetOrganization(ctx, projectID, organizationID)
+	if errors.Is(err, sql.ErrNoRows) {
+		srv.logger.Info("organization not found")
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("organization not found")))
+		return
+	}
+	if err != nil {
+		srv.logger.Error("failed to get organization", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	filter := subjects.InboxListFilter{
+		MessageSource:    params.MessageSource,
+		Priority:         params.Priority,
+		Search:           params.Search.ToString(),
+		IncludeArchived:  params.IncludeArchived != nil && *params.IncludeArchived,
+		IncludeScheduled: params.IncludeScheduled != nil && *params.IncludeScheduled,
+	}
+	if params.Status != nil {
+		filter.Status = string(*params.Status)
+	}
+	if params.Channel != nil {
+		filter.Channel = modules.Channel(*params.Channel)
+	}
+	if tags := httpparams.Split(ptr.From(params.Tags)); len(tags) > 0 {
+		filter.Tags = tags
+	}
+
+	pagination := store.Pagination{Limit: params.Limit.ToInt(), Offset: params.Offset.ToInt()}
+	messages, total, err := srv.orgs.ListOrganizationInboxMessages(ctx, projectID, organizationID, pagination, filter)
+	if err != nil {
+		srv.logger.Error("failed to list organization inbox messages", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	json.Write(w, http.StatusOK, oapi.InboxMessageList{Results: messages.OAPI(), Total: total, Limit: pagination.Limit, Offset: pagination.Offset})
+}
+
+func (srv *OrganizationsController) CreateOrganizationInboxMessage(w http.ResponseWriter, r *http.Request, projectID, organizationID uuid.UUID) {
+	ctx := r.Context()
+	err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("inbox", projectID))
+	if err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	_, err = srv.orgs.GetOrganization(ctx, projectID, organizationID)
+	if errors.Is(err, sql.ErrNoRows) {
+		srv.logger.Info("organization not found")
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("organization not found")))
+		return
+	}
+	if err != nil {
+		srv.logger.Error("failed to get organization", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	var body oapi.CreateOrganizationInboxMessageJSONRequestBody
+	if err := json.Decode(r.Body, &body); err != nil {
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid request body")))
+		return
+	}
+
+	tx, err := srv.db.BeginTxx(ctx, nil)
+	if err != nil {
+		srv.logger.Error("failed to begin transaction", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+	defer tx.Rollback() //nolint:errcheck
+
+	inbox := subjects.NewInboxStore(tx)
+	params, err := inboxMessageParams(body)
+	if err != nil {
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid message data")))
+		return
+	}
+	message, err := inbox.CreateOrganizationInboxMessage(ctx, projectID, organizationID, params)
+	if errors.Is(err, sql.ErrNoRows) {
+		oapi.WriteProblem(w, problem.ErrConflict(problem.Describe("inbox message already exists")))
+		return
+	}
+	if err != nil {
+		srv.logger.Error("failed to create organization inbox message", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	if err := tx.Commit(); err != nil {
+		srv.logger.Error("failed to commit organization inbox message", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	if message.IsDue() {
+		if err := srv.pubsub.Publish(ctx, schemas.OrganizationInboxProcess(projectID), schemas.InboxMessage{
+			ProjectID: projectID,
+			MessageID: message.ID,
+			SubjectID: organizationID,
+			Channel:   string(message.Channel),
+		}); err != nil {
+			srv.logger.Error("failed to publish organization inbox message", zap.Error(err))
+			oapi.WriteProblem(w, problem.ErrInternal())
+			return
+		}
+	}
+
+	json.Write(w, http.StatusCreated, message.OAPI())
+}
+
+func (srv *OrganizationsController) ReadOrganizationInboxMessage(w http.ResponseWriter, r *http.Request, projectID, organizationID, messageID uuid.UUID) {
+	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("inbox", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	tx, err := srv.db.BeginTxx(ctx, nil)
+	if err != nil {
+		srv.logger.Error("failed to begin transaction", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+	defer tx.Rollback() //nolint:errcheck
+
+	inbox := subjects.NewInboxStore(tx)
+	message, transitioned, err := inbox.ReadOrganizationInboxMessage(ctx, projectID, organizationID, messageID)
+	if errors.Is(err, sql.ErrNoRows) {
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("inbox message not found")))
+		return
+	}
+	if err != nil {
+		srv.logger.Error("failed to read organization inbox message", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+	if err := tx.Commit(); err != nil {
+		srv.logger.Error("failed to commit organization inbox message update", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+	if transitioned {
+		if err := consumer.PublishInboxLifecycleEvent(ctx, srv.pubsub, message, schemas.EventInboxMessageRead); err != nil {
+			srv.logger.Error("failed to publish organization inbox event", zap.Error(err))
+			oapi.WriteProblem(w, problem.ErrInternal())
+			return
+		}
+	}
+	json.Write(w, http.StatusOK, message.OAPI())
+}
+
+func (srv *OrganizationsController) ArchiveOrganizationInboxMessage(w http.ResponseWriter, r *http.Request, projectID, organizationID, messageID uuid.UUID) {
+	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("inbox", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	tx, err := srv.db.BeginTxx(ctx, nil)
+	if err != nil {
+		srv.logger.Error("failed to begin transaction", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+	defer tx.Rollback() //nolint:errcheck
+
+	inbox := subjects.NewInboxStore(tx)
+	message, transitioned, err := inbox.ArchiveOrganizationInboxMessage(ctx, projectID, organizationID, messageID)
+	if errors.Is(err, sql.ErrNoRows) {
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("inbox message not found")))
+		return
+	}
+	if err != nil {
+		srv.logger.Error("failed to archive organization inbox message", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+	if err := tx.Commit(); err != nil {
+		srv.logger.Error("failed to commit organization inbox message update", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+	if transitioned {
+		if err := consumer.PublishInboxLifecycleEvent(ctx, srv.pubsub, message, schemas.EventInboxMessageArchived); err != nil {
+			srv.logger.Error("failed to publish organization inbox event", zap.Error(err))
+			oapi.WriteProblem(w, problem.ErrInternal())
+			return
+		}
+	}
+	json.Write(w, http.StatusOK, message.OAPI())
+}
+
+func (srv *OrganizationsController) UnarchiveOrganizationInboxMessage(w http.ResponseWriter, r *http.Request, projectID, organizationID, messageID uuid.UUID) {
+	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("inbox", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	tx, err := srv.db.BeginTxx(ctx, nil)
+	if err != nil {
+		srv.logger.Error("failed to begin transaction", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+	defer tx.Rollback() //nolint:errcheck
+
+	inbox := subjects.NewInboxStore(tx)
+	message, transitioned, err := inbox.UnarchiveOrganizationInboxMessage(ctx, projectID, organizationID, messageID)
+	if errors.Is(err, sql.ErrNoRows) {
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("inbox message not found")))
+		return
+	}
+	if err != nil {
+		srv.logger.Error("failed to unarchive organization inbox message", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+	if err := tx.Commit(); err != nil {
+		srv.logger.Error("failed to commit organization inbox message update", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+	if transitioned {
+		if err := consumer.PublishInboxLifecycleEvent(ctx, srv.pubsub, message, schemas.EventInboxMessageUnarchived); err != nil {
+			srv.logger.Error("failed to publish organization inbox event", zap.Error(err))
+			oapi.WriteProblem(w, problem.ErrInternal())
+			return
+		}
+	}
+	json.Write(w, http.StatusOK, message.OAPI())
+}
+
+func (srv *OrganizationsController) UnreadOrganizationInboxMessage(w http.ResponseWriter, r *http.Request, projectID, organizationID, messageID uuid.UUID) {
+	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("inbox", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	tx, err := srv.db.BeginTxx(ctx, nil)
+	if err != nil {
+		srv.logger.Error("failed to begin transaction", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+	defer tx.Rollback() //nolint:errcheck
+
+	inbox := subjects.NewInboxStore(tx)
+	message, transitioned, err := inbox.UnreadOrganizationInboxMessage(ctx, projectID, organizationID, messageID)
+	if errors.Is(err, sql.ErrNoRows) {
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("inbox message not found")))
+		return
+	}
+	if err != nil {
+		srv.logger.Error("failed to mark organization inbox message as unread", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+	if err := tx.Commit(); err != nil {
+		srv.logger.Error("failed to commit organization inbox message update", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+	if transitioned {
+		if err := consumer.PublishInboxLifecycleEvent(ctx, srv.pubsub, message, schemas.EventInboxMessageUnread); err != nil {
+			srv.logger.Error("failed to publish organization inbox event", zap.Error(err))
+			oapi.WriteProblem(w, problem.ErrInternal())
+			return
+		}
+	}
+	json.Write(w, http.StatusOK, message.OAPI())
+}
+
+func (srv *OrganizationsController) RescheduleOrganizationInboxMessage(w http.ResponseWriter, r *http.Request, projectID, organizationID, messageID uuid.UUID) {
+	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("inbox", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+	if err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("scheduled", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	var body oapi.RescheduleOrganizationInboxMessageJSONRequestBody
+	if err := json.Decode(r.Body, &body); err != nil {
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid request body")))
+		return
+	}
+
+	message, err := srv.orgs.UpdateOrganizationInboxMessageScheduledAt(ctx, projectID, organizationID, messageID, body.ScheduledAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("inbox message not found")))
+		return
+	}
+	if errors.Is(err, subjects.ErrInboxMessageAlreadyDue) {
+		oapi.WriteProblem(w, problem.ErrConflict(problem.Describe("inbox message is already due and cannot be rescheduled")))
+		return
+	}
+	if err != nil {
+		srv.logger.Error("failed to reschedule organization inbox message", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+	json.Write(w, http.StatusOK, message.OAPI())
 }
 
 func (srv *OrganizationsController) CreateOrganizationEvent(w http.ResponseWriter, r *http.Request, projectID, organizationID uuid.UUID) {

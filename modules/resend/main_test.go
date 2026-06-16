@@ -1,12 +1,15 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/lunogram/platform/pkg/modules/providers"
 	"github.com/resend/resend-go/v3"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestFormatAddress(t *testing.T) {
@@ -179,7 +182,7 @@ func TestBuildSendEmailRequest(t *testing.T) {
 			Text:    "Hello",
 		}
 
-		req := ComposeSendEmailRequest(email)
+		req := ComposeSendEmailRequest(email, nil)
 
 		assert.Equal(t, "sender@example.com", req.From)
 		assert.Equal(t, []string{"recipient@example.com"}, req.To)
@@ -198,7 +201,7 @@ func TestBuildSendEmailRequest(t *testing.T) {
 			Subject: "Test",
 		}
 
-		req := ComposeSendEmailRequest(email)
+		req := ComposeSendEmailRequest(email, nil)
 
 		assert.Equal(t, "Sender Name <sender@example.com>", req.From)
 	})
@@ -217,7 +220,7 @@ func TestBuildSendEmailRequest(t *testing.T) {
 			ReplyTo: &replyTo,
 		}
 
-		req := ComposeSendEmailRequest(email)
+		req := ComposeSendEmailRequest(email, nil)
 
 		assert.Equal(t, []string{"cc@example.com"}, req.Cc)
 		assert.Equal(t, []string{"bcc@example.com"}, req.Bcc)
@@ -235,7 +238,7 @@ func TestBuildSendEmailRequest(t *testing.T) {
 			},
 		}
 
-		req := ComposeSendEmailRequest(email)
+		req := ComposeSendEmailRequest(email, nil)
 
 		assert.Equal(t, "custom-value", req.Headers["X-Custom-Header"])
 		assert.Equal(t, "ref-123", req.Headers["X-Entity-Ref"])
@@ -251,11 +254,40 @@ func TestBuildSendEmailRequest(t *testing.T) {
 			ReplyTo: nil,
 		}
 
-		req := ComposeSendEmailRequest(email)
+		req := ComposeSendEmailRequest(email, nil)
 
 		assert.Nil(t, req.Cc)
 		assert.Nil(t, req.Bcc)
 		assert.Empty(t, req.ReplyTo)
+	})
+
+	t.Run("email with inbox_message_id metadata becomes a tag", func(t *testing.T) {
+		email := providers.EmailPayload{
+			To:      "recipient@example.com",
+			From:    providers.EmailAddress{Address: "sender@example.com"},
+			Subject: "Test",
+		}
+		uuid := "550e8400-e29b-41d4-a716-446655440000"
+
+		req := ComposeSendEmailRequest(email, map[string]string{
+			providers.MetadataKeyInboxMessageID: uuid,
+		})
+
+		assert.Len(t, req.Tags, 1)
+		assert.Equal(t, providers.MetadataKeyInboxMessageID, req.Tags[0].Name)
+		assert.Equal(t, uuid, req.Tags[0].Value)
+	})
+
+	t.Run("email with empty metadata sets no tags", func(t *testing.T) {
+		email := providers.EmailPayload{
+			To:      "recipient@example.com",
+			From:    providers.EmailAddress{Address: "sender@example.com"},
+			Subject: "Test",
+		}
+
+		req := ComposeSendEmailRequest(email, map[string]string{})
+
+		assert.Nil(t, req.Tags)
 	})
 }
 
@@ -274,4 +306,73 @@ func TestWebhookEvents(t *testing.T) {
 func TestExitCodes(t *testing.T) {
 	assert.Equal(t, int32(-1), ExitTransient)
 	assert.Equal(t, int32(-2), ExitPermanent)
+}
+
+func TestExtractInboxMessageID(t *testing.T) {
+	const validUUID = "550e8400-e29b-41d4-a716-446655440000"
+
+	t.Run("returns parsed UUID when tag is present", func(t *testing.T) {
+		tags := []resendWebhookTag{
+			{Name: "campaign", Value: "welcome"},
+			{Name: providers.MetadataKeyInboxMessageID, Value: validUUID},
+		}
+		got, err := extractInboxMessageID(tags)
+		require.NoError(t, err)
+		assert.Equal(t, validUUID, got.String())
+	})
+
+	t.Run("returns zero UUID and nil error when tag is absent", func(t *testing.T) {
+		tags := []resendWebhookTag{{Name: "other", Value: "x"}}
+		got, err := extractInboxMessageID(tags)
+		require.NoError(t, err)
+		assert.Equal(t, uuid.Nil, got)
+	})
+
+	t.Run("returns zero UUID and nil error when tags is nil", func(t *testing.T) {
+		got, err := extractInboxMessageID(nil)
+		require.NoError(t, err)
+		assert.Equal(t, uuid.Nil, got)
+	})
+
+	t.Run("returns zero UUID and nil error when value is empty", func(t *testing.T) {
+		tags := []resendWebhookTag{{Name: providers.MetadataKeyInboxMessageID, Value: ""}}
+		got, err := extractInboxMessageID(tags)
+		require.NoError(t, err)
+		assert.Equal(t, uuid.Nil, got)
+	})
+
+	t.Run("returns zero UUID and error when value is not a UUID", func(t *testing.T) {
+		tags := []resendWebhookTag{{Name: providers.MetadataKeyInboxMessageID, Value: "not-a-uuid"}}
+		got, err := extractInboxMessageID(tags)
+		require.Error(t, err)
+		assert.Equal(t, uuid.Nil, got)
+	})
+}
+
+func TestResendWebhookPayloadParsesTags(t *testing.T) {
+	// Verify that the webhook payload struct extracts the tags that Resend
+	// echoes back from the original send.
+	const validUUID = "550e8400-e29b-41d4-a716-446655440000"
+	body := []byte(`{
+		"type": "email.delivered",
+		"created_at": "2024-01-01T00:00:00Z",
+		"data": {
+			"email_id": "abc-123",
+			"to": ["recipient@example.com"],
+			"from": "sender@example.com",
+			"subject": "hi",
+			"tags": [
+				{"name": "inbox_message_id", "value": "` + validUUID + `"},
+				{"name": "campaign", "value": "welcome"}
+			]
+		}
+	}`)
+
+	var payload resendWebhookPayload
+	require.NoError(t, json.Unmarshal(body, &payload))
+
+	require.Len(t, payload.Data.Tags, 2)
+	got, err := extractInboxMessageID(payload.Data.Tags)
+	require.NoError(t, err)
+	assert.Equal(t, validUUID, got.String())
 }

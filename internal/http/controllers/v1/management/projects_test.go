@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/config"
+	"github.com/lunogram/platform/internal/ptr"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/rbac"
 
@@ -96,7 +97,7 @@ func TestCreateProject(t *testing.T) {
 		"with description": {
 			body: oapi.CreateProjectJSONRequestBody{
 				Name:        "Test Project",
-				Description: ptr("A test project"),
+				Description: ptr.To("A test project"),
 				Timezone:    "America/New_York",
 				Locale:      "en",
 			},
@@ -300,13 +301,13 @@ func TestUpdateProject(t *testing.T) {
 	tests := map[string]test{
 		"update name": {
 			body: oapi.UpdateProjectJSONRequestBody{
-				Name: ptr("Updated Project"),
+				Name: ptr.To("Updated Project"),
 			},
 			code: http.StatusOK,
 		},
 		"update timezone": {
 			body: oapi.UpdateProjectJSONRequestBody{
-				Timezone: ptr("America/Los_Angeles"),
+				Timezone: ptr.To("America/Los_Angeles"),
 			},
 			code: http.StatusOK,
 		},

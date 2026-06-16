@@ -13,6 +13,7 @@ import (
 	"time"
 
 	pdk "github.com/extism/go-pdk"
+	"github.com/lunogram/platform/modules/apns/payload"
 	"github.com/lunogram/platform/pkg/modules"
 	"github.com/lunogram/platform/pkg/modules/providers"
 )
@@ -132,22 +133,6 @@ type Config struct {
 	Production *bool  `json:"apnsProduction"`
 }
 
-type apnsPayload struct {
-	APS  apnsAPS        `json:"aps"`
-	Data map[string]any `json:"data,omitempty"`
-}
-
-type apnsAPS struct {
-	Alert *apnsAlert `json:"alert,omitempty"`
-	Badge *int       `json:"badge,omitempty"`
-	Sound *string    `json:"sound,omitempty"`
-}
-
-type apnsAlert struct {
-	Title string `json:"title,omitempty"`
-	Body  string `json:"body,omitempty"`
-}
-
 //go:export provider_send
 func Send() int32 {
 	var req providers.SendRequest[Config]
@@ -178,7 +163,7 @@ func Send() int32 {
 		return ExitPermanent
 	}
 
-	ok, fail, errs := sendAllAPNs(req.Config, push)
+	ok, fail, errs := sendAllAPNs(req.Config, push, req.Metadata)
 	response := buildSendResponse("apns", ok, fail, len(push.APNsTokens), errs)
 
 	if err := pdk.OutputJSON(response); err != nil {
@@ -189,9 +174,9 @@ func Send() int32 {
 	return ExitSuccess
 }
 
-func sendAllAPNs(config Config, push providers.PushPayload) (ok, fail int, errs []string) {
+func sendAllAPNs(config Config, push providers.PushPayload, metadata map[string]string) (ok, fail int, errs []string) {
 	for i, token := range push.APNsTokens {
-		if err := sendAPNsNotification(config, token, push); err != nil {
+		if err := sendAPNsNotification(config, token, push, metadata); err != nil {
 			fail++
 			msg := fmt.Sprintf("APNs token %d failed: %v", i+1, err)
 			errs = append(errs, msg)
@@ -203,7 +188,7 @@ func sendAllAPNs(config Config, push providers.PushPayload) (ok, fail int, errs 
 	return
 }
 
-func sendAPNsNotification(config Config, deviceToken string, push providers.PushPayload) error {
+func sendAPNsNotification(config Config, deviceToken string, push providers.PushPayload, metadata map[string]string) error {
 	if deviceToken == "" {
 		return fmt.Errorf("empty APNs device token")
 	}
@@ -213,25 +198,7 @@ func sendAPNsNotification(config Config, deviceToken string, push providers.Push
 		return fmt.Errorf("failed to build APNs JWT: %w", err)
 	}
 
-	alert := &apnsAlert{
-		Title: push.Title,
-		Body:  push.Body,
-	}
-
-	aps := apnsAPS{Alert: alert}
-	if push.Badge != nil {
-		aps.Badge = push.Badge
-	}
-	if push.Sound != nil {
-		aps.Sound = push.Sound
-	}
-
-	payload := apnsPayload{APS: aps}
-	if len(push.Data) > 0 {
-		payload.Data = push.Data
-	}
-
-	payloadBytes, err := json.Marshal(payload)
+	payloadBytes, err := payload.Build(push, metadata)
 	if err != nil {
 		return fmt.Errorf("failed to marshal APNs payload: %w", err)
 	}

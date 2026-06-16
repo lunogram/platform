@@ -167,6 +167,17 @@ type Pagination struct {
 	Offset int
 }
 
+// MaxPaginationLimit is the upper bound for any paginated query.
+const MaxPaginationLimit = 100
+
+// Clamp ensures the pagination limit does not exceed MaxPaginationLimit.
+func (p Pagination) Clamp() Pagination {
+	if p.Limit <= 0 || p.Limit > MaxPaginationLimit {
+		p.Limit = MaxPaginationLimit
+	}
+	return p
+}
+
 // JSONB is a generic wrapper for JSONB database columns.
 type JSONB[T any] struct {
 	Data T
