@@ -10,8 +10,8 @@ import {
     SelectValue,
 } from "@/components/ui/select"
 import { snakeToTitle } from "../../../utils"
-import type { Node } from "reactflow"
-import { useNodes } from "reactflow"
+import type { Node } from "@xyflow/react"
+import { useNodes } from "@xyflow/react"
 
 interface ExitConfig {
     entrance_uuid?: string

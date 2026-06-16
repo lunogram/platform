@@ -1,16 +1,79 @@
-import type { Edge, Node } from "reactflow"
-import { MarkerType, getConnectedEdges } from "reactflow"
+import type { Connection, Edge, Node } from "@xyflow/react"
+import { MarkerType, getConnectedEdges } from "@xyflow/react"
 import * as journeySteps from "../steps/index"
 import { createUuid } from "@/utils"
 import type { JourneyStepMap, JourneyStepType } from "@/types"
 import { STEP_STYLE } from "../hooks/JourneyEditor.constants"
-import type { JourneyNode, JourneyNodeData } from "./JourneyEditor.types"
+import type { JourneyEdge, JourneyNode, JourneyNodeData } from "./JourneyEditor.types"
 import type { UUID } from "@/types/common"
 
 export const getStepType = (type: string) =>
     (type ? (journeySteps[type as keyof typeof journeySteps] as JourneyStepType) : null) ?? null
 
 export const getSourcePath = (handleId: string) => handleId.substring(0, handleId.indexOf("-s-"))
+
+export function isValidJourneyConnection(
+    connection: Connection | JourneyEdge,
+    nodes: JourneyNode[],
+    edges: JourneyEdge[],
+) {
+    const { source, target } = connection
+    const sourceHandle = connection.sourceHandle ?? null
+    const targetHandle = connection.targetHandle ?? null
+    if (!source || !sourceHandle || !target || source === target) return false
+
+    const sourceNode = nodes.find((node) => node.id === source)
+    const targetNode = nodes.find((node) => node.id === target)
+    if (!sourceNode || !targetNode) return false
+
+    const sourceType = sourceNode.data.type ? getStepType(sourceNode.data.type) : null
+    const targetType = targetNode.data.type ? getStepType(targetNode.data.type) : null
+    if (!sourceType || !targetType || targetType.hideTopHandle) return false
+
+    if (
+        edges.some(
+            (edge) =>
+                edge.source === source &&
+                edge.sourceHandle === sourceHandle &&
+                edge.target === target &&
+                edge.targetHandle === targetHandle,
+        )
+    )
+        return false
+    if (wouldCreateCycle(edges, source, target)) return false
+
+    if (sourceType.multiChildSources) return true
+
+    return (
+        edges.filter((edge) => edge.source === source && edge.sourceHandle === sourceHandle)
+            .length === 0
+    )
+}
+
+export function wouldCreateCycle(edges: JourneyEdge[], source: string, target: string) {
+    const childrenBySource = new Map<string, string[]>()
+    for (const edge of edges) {
+        const children = childrenBySource.get(edge.source) ?? []
+        children.push(edge.target)
+        childrenBySource.set(edge.source, children)
+    }
+
+    const queue = [target]
+    const visited = new Set<string>()
+
+    while (queue.length > 0) {
+        const current = queue.shift()!
+        if (current === source) return true
+        if (visited.has(current)) continue
+        visited.add(current)
+
+        for (const child of childrenBySource.get(current) ?? []) {
+            queue.push(child)
+        }
+    }
+
+    return false
+}
 
 interface CreateEdgeParams {
     sourceId: string
@@ -19,11 +82,14 @@ interface CreateEdgeParams {
     path?: string
 }
 
-export function createEdge({ data, sourceId, targetId, path }: CreateEdgeParams): Edge {
+export function createEdge({ data, sourceId, targetId, path }: CreateEdgeParams): JourneyEdge {
+    const sourcePath = path ?? ""
+    const sourceHandle = `${sourcePath}-s-${sourceId}`
+
     return {
-        id: "e-" + sourceId + "__" + targetId,
+        id: `e-${sourceId}__${sourcePath}__${targetId}`,
         source: sourceId,
-        sourceHandle: (path ?? "") + "-s-" + sourceId,
+        sourceHandle,
         target: targetId,
         targetHandle: "t-" + targetId,
         data,
@@ -37,18 +103,20 @@ export function createEdge({ data, sourceId, targetId, path }: CreateEdgeParams)
 export function stepsToNodes(
     stepMap: JourneyStepMap,
     actions: {
-        setViewUsersStep?: (step: { stepId: UUID; stepType: string }) => void
+        setViewUsersStep?: (step: { stepId: UUID; stepType: string; stepName?: string }) => void
         skipDelay?: (stepId: string) => Promise<void>
         openUserModal?: (nodeId: string) => void
     },
 ) {
     const nodes: JourneyNode[] = []
-    const edges: Edge[] = []
+    const edges: JourneyEdge[] = []
+    const entries = Object.entries(stepMap)
+    const nodeIds = new Set(entries.map(([id]) => id))
 
     for (const [
         id,
         { x, y, type, data, name, data_key, children, stats, stats_at, id: stepId },
-    ] of Object.entries(stepMap)) {
+    ] of entries) {
         const { width, height, ...restData } = (data as Record<string, unknown>) ?? {}
         const sizeStyle =
             typeof width === "number" && typeof height === "number" ? { width, height } : undefined
@@ -70,14 +138,18 @@ export function stepsToNodes(
                 ...actions,
             },
         })
-        children?.forEach(({ external_id, path, data }) =>
-            edges.push(createEdge({ sourceId: id, targetId: external_id, data, path })),
-        )
+        children
+            ?.filter(({ external_id }) => nodeIds.has(external_id))
+            .forEach(({ external_id, path, data }) =>
+                edges.push(createEdge({ sourceId: id, targetId: external_id, data, path })),
+            )
     }
     return { nodes, edges }
 }
 
-export function nodesToSteps(nodes: Node<JourneyNodeData>[], edges: Edge[]) {
+export function nodesToSteps(nodes: JourneyNode[], edges: JourneyEdge[]) {
+    const nodeIds = new Set(nodes.map(({ id }) => id))
+
     return nodes.reduce<JourneyStepMap>(
         (
             a,
@@ -100,7 +172,7 @@ export function nodesToSteps(nodes: Node<JourneyNodeData>[], edges: Edge[]) {
                 x,
                 y,
                 children: edges
-                    .filter((e) => e.source === id)
+                    .filter((e) => e.source === id && nodeIds.has(e.target) && e.sourceHandle)
                     .map(({ data = {}, sourceHandle, target }) => ({
                         external_id: target,
                         path: getSourcePath(sourceHandle!),
@@ -136,6 +208,8 @@ export function getUpstreamDataKeys(
     edges: Edge[],
     nodeId: string,
 ): UpstreamDataKey[] {
+    const nodesById = new Map(nodes.map((node) => [node.id, node]))
+
     // Build a reverse adjacency map: target -> sources
     const parentMap = new Map<string, string[]>()
     for (const edge of edges) {
@@ -153,7 +227,7 @@ export function getUpstreamDataKeys(
 
     while (queue.length > 0) {
         const current = queue.shift()!
-        const node = nodes.find((n) => n.id === current)
+        const node = nodesById.get(current)
         if (node?.data.data_key) {
             const stepData = node.data.data as Record<string, unknown> | undefined
             result.push({
@@ -177,9 +251,9 @@ export function getUpstreamDataKeys(
     return result
 }
 
-export function cloneNodes(edges: Edge[], targets: Node<JourneyNodeData>[]) {
+export function cloneNodes(edges: JourneyEdge[], targets: JourneyNode[]) {
     const mapping: { [prev: string]: string } = {}
-    const nodeCopies: Node<JourneyNodeData>[] = []
+    const nodeCopies: JourneyNode[] = []
     for (const node of targets) {
         const id = createUuid()
         mapping[node.id] = id

@@ -1,12 +1,21 @@
 import { memo, useCallback, useContext, useMemo, createElement, useState } from "react"
-import type { EdgeProps } from "reactflow"
-import { getBezierPath, EdgeLabelRenderer, useNodes, useEdges, useReactFlow } from "reactflow"
+import type { EdgeProps } from "@xyflow/react"
+import {
+    getBezierPath,
+    EdgeLabelRenderer,
+    EdgeToolbar,
+    useNodes,
+    useEdges,
+    useReactFlow,
+} from "@xyflow/react"
+import { useTranslation } from "react-i18next"
 import { Trash2 } from "lucide-react"
 import { ProjectContext, JourneyContext } from "@/contexts"
 import { getStepType } from "../editor/JourneyEditor.utils"
-import type { JourneyNode } from "../editor/JourneyEditor.types"
+import type { JourneyEdge, JourneyNode } from "../editor/JourneyEditor.types"
+import { useJourneyEditorActions } from "../editor/JourneyEditorActions"
 
-import "reactflow/dist/style.css"
+const EDGE_TOOLBAR_Z_INDEX = 1003
 
 export const JourneyStepEdge = memo(
     ({
@@ -24,11 +33,13 @@ export const JourneyStepEdge = memo(
         style = {},
         selected,
         markerEnd,
-    }: EdgeProps) => {
+    }: EdgeProps<JourneyEdge>) => {
+        const { t } = useTranslation()
         const [project] = useContext(ProjectContext)
         const [journey] = useContext(JourneyContext)
-        const nodes = useNodes() as JourneyNode[]
-        const edges = useEdges()
+        const { onEdgeDataChange, onEdgeDelete } = useJourneyEditorActions()
+        const nodes = useNodes<JourneyNode>()
+        const edges = useEdges<JourneyEdge>()
 
         const [hovered, setHovered] = useState(false)
 
@@ -54,18 +65,19 @@ export const JourneyStepEdge = memo(
             targetY,
             targetPosition,
         })
-        const { setEdges } = useReactFlow()
+        const { deleteElements } = useReactFlow<JourneyNode, JourneyEdge>()
 
         const onChangeData = useCallback(
-            (data: Record<string, unknown>) =>
-                setEdges((edges) => edges.map((e) => (e.id === id ? { ...e, data } : e))),
-            [id, setEdges],
+            (next: Record<string, unknown>) => onEdgeDataChange(id, next),
+            [id, onEdgeDataChange],
         )
 
-        const onDelete = useCallback(
-            () => setEdges((edges) => edges.filter((e) => e.id !== id)),
-            [id, setEdges],
-        )
+        const onDelete = useCallback(() => {
+            onEdgeDelete(id)
+            deleteElements({ edges: [{ id }] }).catch((err) => {
+                console.error("Failed to delete edge:", err)
+            })
+        }, [deleteElements, id, onEdgeDelete])
 
         const sourceNode = nodes.find((n) => n.id === source)
         const sourceType = sourceNode?.data?.type ? getStepType(sourceNode.data.type) : null
@@ -93,25 +105,6 @@ export const JourneyStepEdge = memo(
                     markerEnd={markerEnd}
                 />
                 <EdgeLabelRenderer>
-                    {/* Delete button — offset when an edge editor label is present */}
-                    {showDelete && (
-                        <button
-                            type="button"
-                            onClick={(e) => {
-                                e.stopPropagation()
-                                onDelete()
-                            }}
-                            onMouseEnter={() => setHovered(true)}
-                            onMouseLeave={() => setHovered(false)}
-                            style={{
-                                position: "absolute",
-                                transform: `translate(-50%, -50%) translate(${labelX}px,${labelY + (hasEditEdge ? -28 : 0)}px)`,
-                            }}
-                            className="pointer-events-auto flex items-center justify-center w-6 h-6 rounded-full bg-destructive text-white shadow-md hover:bg-red-700 transition-colors cursor-pointer"
-                        >
-                            <Trash2 className="h-3 w-3" />
-                        </button>
-                    )}
                     {/* Step-type edge editor (e.g. condition labels) */}
                     {hasEditEdge && (
                         <div
@@ -132,6 +125,30 @@ export const JourneyStepEdge = memo(
                         </div>
                     )}
                 </EdgeLabelRenderer>
+                <EdgeToolbar
+                    edgeId={id}
+                    x={labelX}
+                    y={labelY + (hasEditEdge ? -28 : 0)}
+                    isVisible={showDelete}
+                    // JourneyEditor.css lifts nodes to z-index 1002 so live
+                    // connection handles stay above the connection-line SVG.
+                    // Keep the delete affordance above that custom node layer.
+                    style={{ zIndex: EDGE_TOOLBAR_Z_INDEX }}
+                >
+                    <button
+                        type="button"
+                        onClick={(e) => {
+                            e.stopPropagation()
+                            onDelete()
+                        }}
+                        onMouseEnter={() => setHovered(true)}
+                        onMouseLeave={() => setHovered(false)}
+                        aria-label={t("delete_connection", "Delete connection")}
+                        className="nodrag nopan pointer-events-auto flex items-center justify-center w-6 h-6 rounded-full bg-destructive text-white shadow-md hover:bg-red-700 transition-colors cursor-pointer"
+                    >
+                        <Trash2 className="h-3 w-3" />
+                    </button>
+                </EdgeToolbar>
             </>
         )
     },

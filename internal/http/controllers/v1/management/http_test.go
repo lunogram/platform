@@ -7,7 +7,3 @@ var DefaultProject = management.Project{
 	Timezone: "UTC",
 	Locale:   "en",
 }
-
-func ptr[T any](v T) *T {
-	return &v
-}

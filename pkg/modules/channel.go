@@ -4,6 +4,7 @@ package modules
 type Channel string
 
 const (
+	ChannelInbox Channel = "inbox"
 	ChannelEmail Channel = "email"
 	ChannelSMS   Channel = "sms"
 	ChannelPush  Channel = "push"

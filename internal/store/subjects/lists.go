@@ -835,7 +835,12 @@ type ListDueForReconciliation struct {
 // on rolling time periods and whose recompute interval has elapsed since the
 // last recomputation. Lists that have never been recomputed (last_recomputed_at
 // IS NULL) are always included.
-func (s *ListsStore) SelectListsDueForTimeReconciliation(ctx context.Context) ([]ListDueForReconciliation, error) {
+//
+// The query uses FOR UPDATE OF l SKIP LOCKED so that rows already locked by a
+// concurrent transaction are silently skipped instead of blocking. This prevents
+// double-processing during cluster leader transitions where two nodes may
+// briefly both act as leader.
+func (s *ListsStore) SelectListsDueForTimeReconciliation(ctx context.Context, limit int) ([]ListDueForReconciliation, error) {
 	query := `
 	SELECT l.id, l.project_id
 	FROM lists l
@@ -848,10 +853,13 @@ func (s *ListsStore) SelectListsDueForTimeReconciliation(ctx context.Context) ([
 		AND (
 			l.last_recomputed_at IS NULL
 			OR l.last_recomputed_at + r.recompute_interval <= NOW()
-		)`
+		)
+	ORDER BY l.last_recomputed_at ASC NULLS FIRST, l.created_at ASC
+	LIMIT $1
+	FOR UPDATE OF l SKIP LOCKED`
 
 	var results []ListDueForReconciliation
-	err := s.db.SelectContext(ctx, &results, query)
+	err := s.db.SelectContext(ctx, &results, query, limit)
 	if err != nil {
 		return nil, err
 	}

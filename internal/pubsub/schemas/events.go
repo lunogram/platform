@@ -3,6 +3,7 @@ package schemas
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -23,9 +24,31 @@ const (
 	EventOrganizationUserAdded   = "organization.user.added"
 	EventOrganizationUserUpdated = "organization.user.updated"
 	EventOrganizationUserRemoved = "organization.user.removed"
+	EventInboxMessageCreated     = "inbox.message.created"
+	EventInboxMessageRead        = "inbox.message.read"
+	EventInboxMessageArchived    = "inbox.message.archived"
+	EventInboxMessageUnarchived  = "inbox.message.unarchived"
+	EventInboxMessageUnread      = "inbox.message.unread"
+	EventInboxMessageSent        = "inbox.message.sent"
 
 	EventProjectCreated = "project.created"
 )
+
+// InboxDispatchMsgID returns the deterministic JetStream Msg-Id used to dedupe
+// push inbox dispatch messages. Each (messageID, providerID) pair produces a
+// stable ID so fan-out retries are collapsed by the broker.
+func InboxDispatchMsgID(messageID uuid.UUID, providerID uuid.UUID) string {
+	return fmt.Sprintf("inbox-dispatch:%s:%s", messageID, providerID)
+}
+
+// InboxProcessMsgID returns the deterministic JetStream Msg-Id used to dedupe
+// inbox.process publishes for a scheduled message. The scheduler re-scans due
+// messages every tick until sent_at is set; a stable per-message ID collapses
+// those repeated re-injections so a message is dispatched at most once within
+// the stream's Duplicates window.
+func InboxProcessMsgID(messageID uuid.UUID) string {
+	return fmt.Sprintf("inbox-process:%s", messageID)
+}
 
 // ExternalID is an alias for subjects.ExternalIDParam so that pubsub messages
 // use the same type as the store layer without manual conversion.
@@ -70,12 +93,54 @@ func (u User) UserEvent(name string) UserEvent {
 	}
 }
 
+const (
+	InboxSourceInbox     = "inbox"
+	InboxSourceCampaign  = "campaign"
+	InboxSourceBroadcast = "broadcast"
+	InboxSourceJourney   = "journey"
+)
+
+// SendCampaignData holds provenance metadata for the campaign send.
+// It mirrors the inbox convention: provenance lives in Data.
+type SendCampaignData struct {
+	JourneyID      *uuid.UUID `json:"journey_id,omitempty"`
+	JourneyEntryID *uuid.UUID `json:"journey_entry_id,omitempty"`
+	JourneyStepID  *string    `json:"journey_step_id,omitempty"`
+}
+
 type SendCampaign struct {
 	ProjectID   uuid.UUID         `json:"project_id"`
 	UserID      uuid.UUID         `json:"user_id"`
 	CampaignID  uuid.UUID         `json:"campaign_id"`
 	BroadcastID *uuid.UUID        `json:"broadcast_id,omitempty"`
-	Data        map[string]string `json:"data,omitempty"`
+	Data        *SendCampaignData `json:"data,omitempty"`
+	Variables   map[string]string `json:"variables,omitempty"`
+}
+
+// InboxOrigin resolves the inbox source label and the external_id key used
+// to dedupe campaign-driven inbox rows.
+//
+// Segments are appended most-specific → least-specific (journey, broadcast,
+// campaign) so the first segment doubles as the source label. Every layer
+// of context that is present is included in the key, making deduplication
+// as precise as the available provenance allows.
+//
+// providerPart is the SenderIdentity UUID for email/SMS and the literal
+// "multi" for push fan-outs.
+func (e SendCampaign) InboxOrigin(providerPart string) (string, string) {
+	var parts []string
+
+	if e.Data != nil && e.Data.JourneyID != nil && e.Data.JourneyEntryID != nil && e.Data.JourneyStepID != nil {
+		parts = append(parts, "journey", e.Data.JourneyEntryID.String(), *e.Data.JourneyStepID)
+	}
+
+	if e.BroadcastID != nil {
+		parts = append(parts, "broadcast", e.BroadcastID.String())
+	}
+
+	parts = append(parts, "campaign", e.CampaignID.String(), "user", e.UserID.String(), "provider", providerPart)
+
+	return parts[0], strings.Join(parts, ":")
 }
 
 type JourneyStep struct {
@@ -178,6 +243,57 @@ type OrganizationEvent struct {
 	Data                    map[string]any `json:"data"`
 }
 
+// InboxMessage is the wire shape published on users.inbox.process /
+// organizations.inbox.process when a row is created. It mirrors the
+// InboxMessage row: render output (title, body, format, link_url, ...)
+// lives in Content; provenance (template_id, journey_*) lives in Data.
+type InboxMessage struct {
+	ProjectID        uuid.UUID       `json:"project_id"`
+	MessageID        uuid.UUID       `json:"message_id,omitempty"`
+	SubjectID        uuid.UUID       `json:"subject_id,omitempty"`
+	Identifiers      []ExternalID    `json:"identifiers,omitempty"`
+	ExternalID       *string         `json:"external_id,omitempty"`
+	Channel          string          `json:"channel"`
+	SenderIdentityID *uuid.UUID      `json:"sender_identity_id,omitempty"`
+	CampaignID       *uuid.UUID      `json:"campaign_id,omitempty"`
+	BroadcastID      *uuid.UUID      `json:"broadcast_id,omitempty"`
+	Content          json.RawMessage `json:"content,omitempty"`
+	Data             json.RawMessage `json:"data,omitempty"`
+	Tags             []string        `json:"tags,omitempty"`
+	Priority         *int16          `json:"priority,omitempty"`
+	Source           *string         `json:"source,omitempty"`
+	ScheduledAt      *time.Time      `json:"scheduled_at,omitempty"`
+	ExpiresAt        *time.Time      `json:"expires_at,omitempty"`
+}
+
+// InboxPushDispatch is the wire shape published on
+// {users,organizations}.inbox.dispatch.<projectID> when a push inbox
+// message fans out to its per-provider dispatches. Each provider gets its
+// own NATS message so that a single provider failure only retries that
+// provider, not the whole fan-out. The Msg-Id is
+// "inbox-dispatch:<inbox_message_id>:<provider_id>" so JetStream
+// deduplicates retries from the upstream inbox handler.
+type InboxPushDispatch struct {
+	ProjectID      uuid.UUID       `json:"project_id"`
+	InboxMessageID uuid.UUID       `json:"inbox_message_id"`
+	ProviderID     uuid.UUID       `json:"provider_id"`
+	Scope          string          `json:"scope"` // "user" or "organization"
+	Payload        json.RawMessage `json:"payload"`
+}
+
+// InboxStateEvent is the wire payload for an inbox state-change command
+// (opened, archived, ...). The specific lifecycle action is encoded by the
+// NATS subject the message is published on (UserInboxRead,
+// UserInboxArchived, OrganizationInboxRead, ...), not by a field on the
+// payload, so each action gets its own consumer with its own retry policy
+// and broker-side filtering.
+type InboxStateEvent struct {
+	ProjectID   uuid.UUID    `json:"project_id"`
+	MessageID   uuid.UUID    `json:"message_id"`
+	SubjectID   uuid.UUID    `json:"subject_id,omitempty"`
+	Identifiers []ExternalID `json:"identifiers,omitempty"`
+}
+
 // ProcessBroadcast represents a request to process a broadcast send.
 type ProcessBroadcast struct {
 	ProjectID   uuid.UUID `json:"project_id"`
@@ -220,6 +336,37 @@ func UsersSchema(projectID uuid.UUID) Subject {
 	return Subject(fmt.Sprintf("users.schema.%s", projectID))
 }
 
+// UserInboxProcess returns the NATS subject for user inbox message creation.
+func UserInboxProcess(projectID uuid.UUID) Subject {
+	return Subject(fmt.Sprintf("users.inbox.process.%s", projectID))
+}
+
+// UserInboxRead returns the NATS subject for user inbox "read" state
+// commands. Each lifecycle action gets its own subject (and consumer) so
+// that producers and brokers can route by action without payload
+// introspection.
+func UserInboxRead(projectID uuid.UUID) Subject {
+	return Subject(fmt.Sprintf("users.inbox.read.%s", projectID))
+}
+
+// UserInboxArchived returns the NATS subject for user inbox "archived"
+// state commands.
+func UserInboxArchived(projectID uuid.UUID) Subject {
+	return Subject(fmt.Sprintf("users.inbox.archived.%s", projectID))
+}
+
+// UserInboxSent returns the NATS subject for user inbox "sent" completion
+// events, emitted after all providers have been dispatched.
+func UserInboxSent(projectID uuid.UUID) Subject {
+	return Subject(fmt.Sprintf("users.inbox.sent.%s", projectID))
+}
+
+// UserInboxDispatch returns the NATS subject for per-provider push inbox
+// dispatch fan-out (user scope).
+func UserInboxDispatch(projectID uuid.UUID) Subject {
+	return Subject(fmt.Sprintf("users.inbox.dispatch.%s", projectID))
+}
+
 // UserEventsProcess returns the NATS subject for user event processing.
 func UserEventsProcess(projectID uuid.UUID) Subject {
 	return Subject(fmt.Sprintf("users.events.process.%s", projectID))
@@ -258,6 +405,35 @@ func OrganizationsProcess(projectID uuid.UUID) Subject {
 // OrganizationsSchema returns the NATS subject for organization schema updates.
 func OrganizationsSchema(projectID uuid.UUID) Subject {
 	return Subject(fmt.Sprintf("organizations.schema.%s", projectID))
+}
+
+// OrganizationInboxProcess returns the NATS subject for organization inbox message creation.
+func OrganizationInboxProcess(projectID uuid.UUID) Subject {
+	return Subject(fmt.Sprintf("organizations.inbox.process.%s", projectID))
+}
+
+// OrganizationInboxRead returns the NATS subject for organization inbox
+// "read" state commands.
+func OrganizationInboxRead(projectID uuid.UUID) Subject {
+	return Subject(fmt.Sprintf("organizations.inbox.read.%s", projectID))
+}
+
+// OrganizationInboxArchived returns the NATS subject for organization
+// inbox "archived" state commands.
+func OrganizationInboxArchived(projectID uuid.UUID) Subject {
+	return Subject(fmt.Sprintf("organizations.inbox.archived.%s", projectID))
+}
+
+// OrganizationInboxSent returns the NATS subject for organization inbox
+// "sent" completion events, emitted after all providers have been dispatched.
+func OrganizationInboxSent(projectID uuid.UUID) Subject {
+	return Subject(fmt.Sprintf("organizations.inbox.sent.%s", projectID))
+}
+
+// OrganizationInboxDispatch returns the NATS subject for per-provider push
+// inbox dispatch fan-out (organization scope).
+func OrganizationInboxDispatch(projectID uuid.UUID) Subject {
+	return Subject(fmt.Sprintf("organizations.inbox.dispatch.%s", projectID))
 }
 
 // OrganizationUsersProcess returns the NATS subject for organization user processing.
@@ -412,15 +588,20 @@ func EmailRender(projectID uuid.UUID) Subject {
 
 // ProviderWebhookEvent represents a delivery event received from a provider webhook.
 type ProviderWebhookEvent struct {
-	ProjectID  uuid.UUID      `json:"project_id"`
-	ProviderID uuid.UUID      `json:"provider_id"`
-	Module     string         `json:"module"`
-	Channel    string         `json:"channel"`
-	EventName  string         `json:"event_name"`
-	MessageID  string         `json:"reference_id"`
-	UserID     uuid.UUID      `json:"user_id,omitempty"` // Resolved downstream, zero if unknown
-	Timestamp  string         `json:"timestamp,omitempty"`
-	Data       map[string]any `json:"data,omitempty"`
+	ProjectID  uuid.UUID `json:"project_id"`
+	ProviderID uuid.UUID `json:"provider_id"`
+	Module     string    `json:"module"`
+	Channel    string    `json:"channel"`
+	EventName  string    `json:"event_name"`
+	MessageID  string    `json:"reference_id"`
+	// InboxMessageID is the platform inbox-message UUID echoed back from the
+	// provider via its native custom-metadata mechanism. Zero value means the
+	// originating send did not propagate the metadata; consumers must fall
+	// back to MessageID-based correlation in that case.
+	InboxMessageID uuid.UUID      `json:"inbox_message_id,omitempty"`
+	UserID         uuid.UUID      `json:"user_id,omitempty"` // Resolved downstream, zero if unknown
+	Timestamp      string         `json:"timestamp,omitempty"`
+	Data           map[string]any `json:"data,omitempty"`
 }
 
 // ProvidersWebhook returns the NATS subject for provider webhook events.

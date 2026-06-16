@@ -349,7 +349,14 @@ export default function Journeys() {
                                         onClick={() => handleRowClick(journey)}
                                     >
                                         <TableCell>
-                                            <div className="flex items-center gap-3">
+                                            <button
+                                                type="button"
+                                                className="flex w-full items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                                onClick={(e) => {
+                                                    e.stopPropagation()
+                                                    handleRowClick(journey)
+                                                }}
+                                            >
                                                 <div
                                                     className="flex h-8 w-8 items-center justify-center rounded-md shrink-0"
                                                     style={{ backgroundColor: journeyColor }}
@@ -366,7 +373,7 @@ export default function Journeys() {
                                                         </div>
                                                     )}
                                                 </div>
-                                            </div>
+                                            </button>
                                         </TableCell>
                                         <TableCell>
                                             {getStatusBadge(journey.status as JourneyStatus, t)}

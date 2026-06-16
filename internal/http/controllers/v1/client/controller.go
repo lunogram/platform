@@ -22,6 +22,7 @@ func NewController(logger *zap.Logger, mgmtDB, usersDB *sqlx.DB, mgmt *managemen
 		EventsController:        NewEventsController(clientController),
 		OrganizationsController: NewOrganizationsController(clientController),
 		ScheduledController:     NewScheduledController(clientController),
+		InboxController:         NewInboxController(clientController),
 		DevicesController:       NewDevicesController(clientController),
 		SubscriptionsController: subsController,
 	}, nil
@@ -32,6 +33,7 @@ type Controller struct {
 	*EventsController
 	*OrganizationsController
 	*ScheduledController
+	*InboxController
 	*DevicesController
 	*SubscriptionsController
 }
