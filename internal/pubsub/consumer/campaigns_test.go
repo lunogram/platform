@@ -216,12 +216,6 @@ func stringPtr(value string) *string {
 	return &value
 }
 
-func newSubjectsTestStore(t *testing.T) *subjects.State {
-	t.Helper()
-	state, _ := newSubjectsTestStoreWithDB(t)
-	return state
-}
-
 func newSubjectsTestStoreWithDB(t *testing.T) (*subjects.State, *sqlx.DB) {
 	t.Helper()
 
