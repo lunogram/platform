@@ -248,8 +248,12 @@ func (srv *ProvidersController) CreateProvider(w http.ResponseWriter, r *http.Re
 	}
 
 	if body.RateLimit != nil {
-		provider.RateLimit = body.RateLimit.Limit
-		provider.RateInterval = body.RateLimit.Interval
+		if body.RateLimit.Limit > 0 {
+			provider.RateLimit = body.RateLimit.Limit
+		}
+		if body.RateLimit.Interval != "" {
+			provider.RateInterval = body.RateLimit.Interval
+		}
 	}
 
 	providerID, err := srv.store.ProvidersStore.CreateProvider(ctx, provider)
@@ -390,8 +394,12 @@ func (srv *ProvidersController) UpdateProvider(w http.ResponseWriter, r *http.Re
 	}
 
 	if body.RateLimit != nil {
-		update.RateLimit = &body.RateLimit.Limit
-		update.RateInterval = &body.RateLimit.Interval
+		if body.RateLimit.Limit > 0 {
+			update.RateLimit = &body.RateLimit.Limit
+		}
+		if body.RateLimit.Interval != "" {
+			update.RateInterval = &body.RateLimit.Interval
+		}
 	}
 
 	err = srv.store.ProvidersStore.UpdateProvider(ctx, projectID, providerID, update)
@@ -412,7 +420,7 @@ func (srv *ProvidersController) UpdateProvider(w http.ResponseWriter, r *http.Re
 	json.Write(w, http.StatusOK, provider.OAPI())
 }
 
-func (srv *ProvidersController) DeleteProvider(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, providerID uuid.UUID) {
+func (srv *ProvidersController) DeleteProvider(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, providerType string, providerID uuid.UUID) {
 	ctx := r.Context()
 	err := srv.engine.Allowed(ctx, rbac.Delete, rbac.ProjectResourceScope("providers", projectID))
 	if err != nil {
@@ -420,7 +428,7 @@ func (srv *ProvidersController) DeleteProvider(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("provider_id", providerID))
+	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.String("type", providerType), zap.Stringer("provider_id", providerID))
 	logger.Info("deleting provider")
 
 	provider, err := srv.store.ProvidersStore.GetProviderByProject(ctx, projectID, providerID)

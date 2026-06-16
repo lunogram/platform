@@ -106,6 +106,7 @@ func (e CampaignUserStatus) Valid() bool {
 // Defines values for Channel.
 const (
 	ChannelEmail Channel = "email"
+	ChannelInbox Channel = "inbox"
 	ChannelPush  Channel = "push"
 	ChannelSms   Channel = "sms"
 )
@@ -114,6 +115,8 @@ const (
 func (e Channel) Valid() bool {
 	switch e {
 	case ChannelEmail:
+		return true
+	case ChannelInbox:
 		return true
 	case ChannelPush:
 		return true
@@ -517,6 +520,48 @@ func (e ListSenderIdentitiesParamsChannel) Valid() bool {
 	}
 }
 
+// Defines values for GetOrganizationInboxMessagesParamsStatus.
+const (
+	GetOrganizationInboxMessagesParamsStatusArchived GetOrganizationInboxMessagesParamsStatus = "archived"
+	GetOrganizationInboxMessagesParamsStatusRead     GetOrganizationInboxMessagesParamsStatus = "read"
+	GetOrganizationInboxMessagesParamsStatusUnread   GetOrganizationInboxMessagesParamsStatus = "unread"
+)
+
+// Valid indicates whether the value is a known member of the GetOrganizationInboxMessagesParamsStatus enum.
+func (e GetOrganizationInboxMessagesParamsStatus) Valid() bool {
+	switch e {
+	case GetOrganizationInboxMessagesParamsStatusArchived:
+		return true
+	case GetOrganizationInboxMessagesParamsStatusRead:
+		return true
+	case GetOrganizationInboxMessagesParamsStatusUnread:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetUserInboxMessagesParamsStatus.
+const (
+	GetUserInboxMessagesParamsStatusArchived GetUserInboxMessagesParamsStatus = "archived"
+	GetUserInboxMessagesParamsStatusRead     GetUserInboxMessagesParamsStatus = "read"
+	GetUserInboxMessagesParamsStatusUnread   GetUserInboxMessagesParamsStatus = "unread"
+)
+
+// Valid indicates whether the value is a known member of the GetUserInboxMessagesParamsStatus enum.
+func (e GetUserInboxMessagesParamsStatus) Valid() bool {
+	switch e {
+	case GetUserInboxMessagesParamsStatusArchived:
+		return true
+	case GetUserInboxMessagesParamsStatusRead:
+		return true
+	case GetUserInboxMessagesParamsStatusUnread:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AuthCallbackParamsDriver.
 const (
 	AuthCallbackParamsDriverBasic AuthCallbackParamsDriver = "basic"
@@ -829,6 +874,30 @@ type CreateCampaign struct {
 	Transactional  *bool               `json:"transactional,omitempty"`
 }
 
+// CreateInboxMessageRequest defines model for CreateInboxMessageRequest.
+type CreateInboxMessageRequest struct {
+	BroadcastId *openapi_types.UUID `json:"broadcast_id,omitempty"`
+	CampaignId  *openapi_types.UUID `json:"campaign_id,omitempty"`
+
+	// Channel Communication channel type
+	Channel Channel `json:"channel"`
+
+	// Content Channel-specific payload content.
+	Content   *json.RawMessage `json:"content,omitempty"`
+	Data      *map[string]any  `json:"data,omitempty"`
+	ExpiresAt *time.Time       `json:"expires_at,omitempty"`
+
+	// Identifier An external identifier with source and optional metadata
+	Identifier  *ExternalID `json:"identifier,omitempty"`
+	Priority    *int16      `json:"priority,omitempty"`
+	ScheduledAt *time.Time  `json:"scheduled_at,omitempty"`
+
+	// SenderIdentityId Required for email and sms messages. Push uses project push provider settings.
+	SenderIdentityId *openapi_types.UUID `json:"sender_identity_id,omitempty"`
+	Source           *string             `json:"source,omitempty"`
+	Tags             *[]string           `json:"tags,omitempty"`
+}
+
 // CreateJourney defines model for CreateJourney.
 type CreateJourney struct {
 	Description *string `json:"description,omitempty"`
@@ -1120,6 +1189,48 @@ type IdentifyUser struct {
 	// Phone E.164 formatted phone number
 	Phone    *string `json:"phone,omitempty"`
 	Timezone *string `json:"timezone,omitempty"`
+}
+
+// InboxMessage defines model for InboxMessage.
+type InboxMessage struct {
+	ArchivedAt  *time.Time          `json:"archived_at,omitempty"`
+	BroadcastId *openapi_types.UUID `json:"broadcast_id,omitempty"`
+	CampaignId  *openapi_types.UUID `json:"campaign_id,omitempty"`
+
+	// Channel Communication channel type
+	Channel   Channel         `json:"channel"`
+	Content   json.RawMessage `json:"content"`
+	CreatedAt time.Time       `json:"created_at"`
+	Data      json.RawMessage `json:"data"`
+	ExpiresAt *time.Time      `json:"expires_at,omitempty"`
+
+	// ExternalId External identifier for the message, if one was provided at creation time.
+	ExternalId       *string             `json:"external_id,omitempty"`
+	Id               openapi_types.UUID  `json:"id"`
+	OrganizationId   *openapi_types.UUID `json:"organization_id,omitempty"`
+	Priority         int16               `json:"priority"`
+	ProjectId        openapi_types.UUID  `json:"project_id"`
+	ReadAt           *time.Time          `json:"read_at,omitempty"`
+	ScheduledAt      time.Time           `json:"scheduled_at"`
+	SenderIdentityId *openapi_types.UUID `json:"sender_identity_id,omitempty"`
+	SentAt           *time.Time          `json:"sent_at,omitempty"`
+	Source           *string             `json:"source,omitempty"`
+	Tags             []string            `json:"tags"`
+	UpdatedAt        time.Time           `json:"updated_at"`
+	UserId           *openapi_types.UUID `json:"user_id,omitempty"`
+}
+
+// InboxMessageList defines model for InboxMessageList.
+type InboxMessageList struct {
+	// Limit Maximum number of items returned
+	Limit int `json:"limit"`
+
+	// Offset Number of items skipped
+	Offset  int            `json:"offset"`
+	Results []InboxMessage `json:"results"`
+
+	// Total Total number of items matching the filters
+	Total int `json:"total"`
 }
 
 // Journey defines model for Journey.
@@ -1542,6 +1653,12 @@ type RateLimit struct {
 
 	// Limit Max number of messages per interval. 0 means use the module default.
 	Limit int `json:"limit"`
+}
+
+// RescheduleInboxMessageRequest defines model for RescheduleInboxMessageRequest.
+type RescheduleInboxMessageRequest struct {
+	// ScheduledAt Updates the inbox message provider send time before dispatch.
+	ScheduledAt time.Time `json:"scheduled_at"`
 }
 
 // ScheduleOffset defines model for ScheduleOffset.
@@ -2018,10 +2135,13 @@ type UserList struct {
 // UserScheduled defines model for UserScheduled.
 type UserScheduled struct {
 	// AnchorAt Anchor time used as the base for occurrence calculations. Rebased when scheduled_at is explicitly set.
-	AnchorAt  *time.Time         `json:"anchor_at,omitempty"`
-	CreatedAt time.Time          `json:"created_at"`
-	Data      json.RawMessage    `json:"data"`
-	Id        openapi_types.UUID `json:"id"`
+	AnchorAt  *time.Time      `json:"anchor_at,omitempty"`
+	CreatedAt time.Time       `json:"created_at"`
+	Data      json.RawMessage `json:"data"`
+
+	// HasPendingEvents Whether there are pending scheduled events for this schedule instance
+	HasPendingEvents *bool              `json:"has_pending_events,omitempty"`
+	Id               openapi_types.UUID `json:"id"`
 
 	// Interval Interval for recurring schedules
 	Interval *string `json:"interval,omitempty"`
@@ -2325,7 +2445,7 @@ type ListCampaignsParams struct {
 	// Search Search query string
 	Search *Search `form:"search,omitempty" json:"search,omitempty"`
 
-	// IncludeDeleted Include archived/soft-deleted items in the results
+	// IncludeDeleted When true, return only archived (soft-deleted) items instead of active ones
 	IncludeDeleted *IncludeDeleted `form:"include_deleted,omitempty" json:"include_deleted,omitempty"`
 }
 
@@ -2376,7 +2496,7 @@ type ListJourneysParams struct {
 	// Search Search query string
 	Search *Search `form:"search,omitempty" json:"search,omitempty"`
 
-	// IncludeDeleted Include archived/soft-deleted items in the results
+	// IncludeDeleted When true, return only archived (soft-deleted) items instead of active ones
 	IncludeDeleted *IncludeDeleted `form:"include_deleted,omitempty" json:"include_deleted,omitempty"`
 }
 
@@ -2421,7 +2541,7 @@ type ListListsParams struct {
 	// Search Search query string
 	Search *Search `form:"search,omitempty" json:"search,omitempty"`
 
-	// IncludeDeleted Include archived/soft-deleted items in the results
+	// IncludeDeleted When true, return only archived (soft-deleted) items instead of active ones
 	IncludeDeleted *IncludeDeleted `form:"include_deleted,omitempty" json:"include_deleted,omitempty"`
 }
 
@@ -2509,6 +2629,31 @@ type GetOrganizationEventsParams struct {
 	Search *Search `form:"search,omitempty" json:"search,omitempty"`
 }
 
+// GetOrganizationInboxMessagesParams defines parameters for GetOrganizationInboxMessages.
+type GetOrganizationInboxMessagesParams struct {
+	Status *GetOrganizationInboxMessagesParamsStatus `form:"status,omitempty" json:"status,omitempty"`
+
+	// Tags Comma-separated tag filter. All listed tags must be present.
+	Tags             *string  `form:"tags,omitempty" json:"tags,omitempty"`
+	MessageSource    *string  `form:"message_source,omitempty" json:"message_source,omitempty"`
+	Priority         *int     `form:"priority,omitempty" json:"priority,omitempty"`
+	Channel          *Channel `form:"channel,omitempty" json:"channel,omitempty"`
+	IncludeArchived  *bool    `form:"include_archived,omitempty" json:"include_archived,omitempty"`
+	IncludeScheduled *bool    `form:"include_scheduled,omitempty" json:"include_scheduled,omitempty"`
+
+	// Limit Maximum number of items to return
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Offset Number of items to skip
+	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
+
+	// Search Search query string
+	Search *Search `form:"search,omitempty" json:"search,omitempty"`
+}
+
+// GetOrganizationInboxMessagesParamsStatus defines parameters for GetOrganizationInboxMessages.
+type GetOrganizationInboxMessagesParamsStatus string
+
 // GetOrganizationScheduledParams defines parameters for GetOrganizationScheduled.
 type GetOrganizationScheduledParams struct {
 	// Limit Maximum number of items to return
@@ -2556,6 +2701,31 @@ type GetUserEventsParams struct {
 	// Search Search query string
 	Search *Search `form:"search,omitempty" json:"search,omitempty"`
 }
+
+// GetUserInboxMessagesParams defines parameters for GetUserInboxMessages.
+type GetUserInboxMessagesParams struct {
+	Status *GetUserInboxMessagesParamsStatus `form:"status,omitempty" json:"status,omitempty"`
+
+	// Tags Comma-separated tag filter. All listed tags must be present.
+	Tags             *string  `form:"tags,omitempty" json:"tags,omitempty"`
+	MessageSource    *string  `form:"message_source,omitempty" json:"message_source,omitempty"`
+	Priority         *int     `form:"priority,omitempty" json:"priority,omitempty"`
+	Channel          *Channel `form:"channel,omitempty" json:"channel,omitempty"`
+	IncludeArchived  *bool    `form:"include_archived,omitempty" json:"include_archived,omitempty"`
+	IncludeScheduled *bool    `form:"include_scheduled,omitempty" json:"include_scheduled,omitempty"`
+
+	// Limit Maximum number of items to return
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Offset Number of items to skip
+	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
+
+	// Search Search query string
+	Search *Search `form:"search,omitempty" json:"search,omitempty"`
+}
+
+// GetUserInboxMessagesParamsStatus defines parameters for GetUserInboxMessages.
+type GetUserInboxMessagesParamsStatus string
 
 // GetUserJourneysParams defines parameters for GetUserJourneys.
 type GetUserJourneysParams struct {
@@ -2734,6 +2904,12 @@ type UpdateOrganizationJSONRequestBody = UpdateOrganization
 // CreateOrganizationEventJSONRequestBody defines body for CreateOrganizationEvent for application/json ContentType.
 type CreateOrganizationEventJSONRequestBody = CreateOrganizationEventRequest
 
+// CreateOrganizationInboxMessageJSONRequestBody defines body for CreateOrganizationInboxMessage for application/json ContentType.
+type CreateOrganizationInboxMessageJSONRequestBody = CreateInboxMessageRequest
+
+// RescheduleOrganizationInboxMessageJSONRequestBody defines body for RescheduleOrganizationInboxMessage for application/json ContentType.
+type RescheduleOrganizationInboxMessageJSONRequestBody = RescheduleInboxMessageRequest
+
 // UpsertOrganizationScheduledJSONRequestBody defines body for UpsertOrganizationScheduled for application/json ContentType.
 type UpsertOrganizationScheduledJSONRequestBody = UpsertOrganizationScheduledRequest
 
@@ -2760,6 +2936,12 @@ type CreateUserDeviceJSONRequestBody = CreateUserDevice
 
 // CreateUserEventJSONRequestBody defines body for CreateUserEvent for application/json ContentType.
 type CreateUserEventJSONRequestBody = CreateUserEventRequest
+
+// CreateUserInboxMessageJSONRequestBody defines body for CreateUserInboxMessage for application/json ContentType.
+type CreateUserInboxMessageJSONRequestBody = CreateInboxMessageRequest
+
+// RescheduleUserInboxMessageJSONRequestBody defines body for RescheduleUserInboxMessage for application/json ContentType.
+type RescheduleUserInboxMessageJSONRequestBody = RescheduleInboxMessageRequest
 
 // UpsertUserScheduledJSONRequestBody defines body for UpsertUserScheduled for application/json ContentType.
 type UpsertUserScheduledJSONRequestBody = UpsertUserScheduledRequest
@@ -3164,13 +3346,13 @@ type ClientInterface interface {
 	// ListProviderMeta request
 	ListProviderMeta(ctx context.Context, projectID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// DeleteProvider request
-	DeleteProvider(ctx context.Context, projectID openapi_types.UUID, providerID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// CreateProviderWithBody request with any body
 	CreateProviderWithBody(ctx context.Context, projectID openapi_types.UUID, pType string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	CreateProvider(ctx context.Context, projectID openapi_types.UUID, pType string, body CreateProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteProvider request
+	DeleteProvider(ctx context.Context, projectID openapi_types.UUID, pType string, providerID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetProvider request
 	GetProvider(ctx context.Context, projectID openapi_types.UUID, pType string, providerID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -3246,6 +3428,31 @@ type ClientInterface interface {
 
 	// DeleteOrganizationExternalID request
 	DeleteOrganizationExternalID(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, identifierID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetOrganizationInboxMessages request
+	GetOrganizationInboxMessages(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, params *GetOrganizationInboxMessagesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateOrganizationInboxMessageWithBody request with any body
+	CreateOrganizationInboxMessageWithBody(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateOrganizationInboxMessage(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, body CreateOrganizationInboxMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ArchiveOrganizationInboxMessage request
+	ArchiveOrganizationInboxMessage(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, messageID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ReadOrganizationInboxMessage request
+	ReadOrganizationInboxMessage(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, messageID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RescheduleOrganizationInboxMessageWithBody request with any body
+	RescheduleOrganizationInboxMessageWithBody(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, messageID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	RescheduleOrganizationInboxMessage(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, messageID openapi_types.UUID, body RescheduleOrganizationInboxMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UnarchiveOrganizationInboxMessage request
+	UnarchiveOrganizationInboxMessage(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, messageID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UnreadOrganizationInboxMessage request
+	UnreadOrganizationInboxMessage(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, messageID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetOrganizationScheduled request
 	GetOrganizationScheduled(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, params *GetOrganizationScheduledParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -3337,6 +3544,31 @@ type ClientInterface interface {
 
 	// DeleteUserExternalID request
 	DeleteUserExternalID(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, identifierID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetUserInboxMessages request
+	GetUserInboxMessages(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, params *GetUserInboxMessagesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateUserInboxMessageWithBody request with any body
+	CreateUserInboxMessageWithBody(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateUserInboxMessage(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, body CreateUserInboxMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ArchiveUserInboxMessage request
+	ArchiveUserInboxMessage(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, messageID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ReadUserInboxMessage request
+	ReadUserInboxMessage(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, messageID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RescheduleUserInboxMessageWithBody request with any body
+	RescheduleUserInboxMessageWithBody(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, messageID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	RescheduleUserInboxMessage(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, messageID openapi_types.UUID, body RescheduleUserInboxMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UnarchiveUserInboxMessage request
+	UnarchiveUserInboxMessage(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, messageID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UnreadUserInboxMessage request
+	UnreadUserInboxMessage(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, messageID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetUserJourneys request
 	GetUserJourneys(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, params *GetUserJourneysParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -4733,18 +4965,6 @@ func (c *Client) ListProviderMeta(ctx context.Context, projectID openapi_types.U
 	return c.Client.Do(req)
 }
 
-func (c *Client) DeleteProvider(ctx context.Context, projectID openapi_types.UUID, providerID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteProviderRequest(c.Server, projectID, providerID)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
 func (c *Client) CreateProviderWithBody(ctx context.Context, projectID openapi_types.UUID, pType string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateProviderRequestWithBody(c.Server, projectID, pType, contentType, body)
 	if err != nil {
@@ -4759,6 +4979,18 @@ func (c *Client) CreateProviderWithBody(ctx context.Context, projectID openapi_t
 
 func (c *Client) CreateProvider(ctx context.Context, projectID openapi_types.UUID, pType string, body CreateProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateProviderRequest(c.Server, projectID, pType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteProvider(ctx context.Context, projectID openapi_types.UUID, pType string, providerID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteProviderRequest(c.Server, projectID, pType, providerID)
 	if err != nil {
 		return nil, err
 	}
@@ -5083,6 +5315,114 @@ func (c *Client) CreateOrganizationEvent(ctx context.Context, projectID openapi_
 
 func (c *Client) DeleteOrganizationExternalID(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, identifierID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDeleteOrganizationExternalIDRequest(c.Server, projectID, organizationID, identifierID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetOrganizationInboxMessages(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, params *GetOrganizationInboxMessagesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetOrganizationInboxMessagesRequest(c.Server, projectID, organizationID, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateOrganizationInboxMessageWithBody(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateOrganizationInboxMessageRequestWithBody(c.Server, projectID, organizationID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateOrganizationInboxMessage(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, body CreateOrganizationInboxMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateOrganizationInboxMessageRequest(c.Server, projectID, organizationID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ArchiveOrganizationInboxMessage(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, messageID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewArchiveOrganizationInboxMessageRequest(c.Server, projectID, organizationID, messageID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ReadOrganizationInboxMessage(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, messageID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewReadOrganizationInboxMessageRequest(c.Server, projectID, organizationID, messageID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RescheduleOrganizationInboxMessageWithBody(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, messageID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRescheduleOrganizationInboxMessageRequestWithBody(c.Server, projectID, organizationID, messageID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RescheduleOrganizationInboxMessage(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, messageID openapi_types.UUID, body RescheduleOrganizationInboxMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRescheduleOrganizationInboxMessageRequest(c.Server, projectID, organizationID, messageID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UnarchiveOrganizationInboxMessage(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, messageID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUnarchiveOrganizationInboxMessageRequest(c.Server, projectID, organizationID, messageID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UnreadOrganizationInboxMessage(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, messageID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUnreadOrganizationInboxMessageRequest(c.Server, projectID, organizationID, messageID)
 	if err != nil {
 		return nil, err
 	}
@@ -5479,6 +5819,114 @@ func (c *Client) CreateUserEvent(ctx context.Context, projectID openapi_types.UU
 
 func (c *Client) DeleteUserExternalID(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, identifierID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDeleteUserExternalIDRequest(c.Server, projectID, userID, identifierID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetUserInboxMessages(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, params *GetUserInboxMessagesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetUserInboxMessagesRequest(c.Server, projectID, userID, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateUserInboxMessageWithBody(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateUserInboxMessageRequestWithBody(c.Server, projectID, userID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateUserInboxMessage(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, body CreateUserInboxMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateUserInboxMessageRequest(c.Server, projectID, userID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ArchiveUserInboxMessage(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, messageID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewArchiveUserInboxMessageRequest(c.Server, projectID, userID, messageID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ReadUserInboxMessage(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, messageID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewReadUserInboxMessageRequest(c.Server, projectID, userID, messageID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RescheduleUserInboxMessageWithBody(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, messageID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRescheduleUserInboxMessageRequestWithBody(c.Server, projectID, userID, messageID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RescheduleUserInboxMessage(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, messageID openapi_types.UUID, body RescheduleUserInboxMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRescheduleUserInboxMessageRequest(c.Server, projectID, userID, messageID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UnarchiveUserInboxMessage(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, messageID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUnarchiveUserInboxMessageRequest(c.Server, projectID, userID, messageID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UnreadUserInboxMessage(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, messageID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUnreadUserInboxMessageRequest(c.Server, projectID, userID, messageID)
 	if err != nil {
 		return nil, err
 	}
@@ -10372,47 +10820,6 @@ func NewListProviderMetaRequest(server string, projectID openapi_types.UUID) (*h
 	return req, nil
 }
 
-// NewDeleteProviderRequest generates requests for DeleteProvider
-func NewDeleteProviderRequest(server string, projectID openapi_types.UUID, providerID openapi_types.UUID) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam1 string
-
-	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "providerID", providerID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/admin/projects/%s/providers/%s", pathParam0, pathParam1)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
 // NewCreateProviderRequest calls the generic CreateProvider builder with application/json body
 func NewCreateProviderRequest(server string, projectID openapi_types.UUID, pType string, body CreateProviderJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -10463,6 +10870,54 @@ func NewCreateProviderRequestWithBody(server string, projectID openapi_types.UUI
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteProviderRequest generates requests for DeleteProvider
+func NewDeleteProviderRequest(server string, projectID openapi_types.UUID, pType string, providerID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "type", pType, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "providerID", providerID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/providers/%s/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -11529,6 +11984,489 @@ func NewDeleteOrganizationExternalIDRequest(server string, projectID openapi_typ
 	}
 
 	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetOrganizationInboxMessagesRequest generates requests for GetOrganizationInboxMessages
+func NewGetOrganizationInboxMessagesRequest(server string, projectID openapi_types.UUID, organizationID openapi_types.UUID, params *GetOrganizationInboxMessagesParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "organizationID", organizationID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/subjects/organizations/%s/inbox", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Status != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "status", *params.Status, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Tags != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "tags", *params.Tags, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.MessageSource != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "message_source", *params.MessageSource, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Priority != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "priority", *params.Priority, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Channel != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "channel", *params.Channel, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.IncludeArchived != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "include_archived", *params.IncludeArchived, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.IncludeScheduled != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "include_scheduled", *params.IncludeScheduled, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Offset != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "offset", *params.Offset, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Search != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "search", *params.Search, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateOrganizationInboxMessageRequest calls the generic CreateOrganizationInboxMessage builder with application/json body
+func NewCreateOrganizationInboxMessageRequest(server string, projectID openapi_types.UUID, organizationID openapi_types.UUID, body CreateOrganizationInboxMessageJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateOrganizationInboxMessageRequestWithBody(server, projectID, organizationID, "application/json", bodyReader)
+}
+
+// NewCreateOrganizationInboxMessageRequestWithBody generates requests for CreateOrganizationInboxMessage with any type of body
+func NewCreateOrganizationInboxMessageRequestWithBody(server string, projectID openapi_types.UUID, organizationID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "organizationID", organizationID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/subjects/organizations/%s/inbox", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewArchiveOrganizationInboxMessageRequest generates requests for ArchiveOrganizationInboxMessage
+func NewArchiveOrganizationInboxMessageRequest(server string, projectID openapi_types.UUID, organizationID openapi_types.UUID, messageID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "organizationID", organizationID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "messageID", messageID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/subjects/organizations/%s/inbox/%s/archive", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewReadOrganizationInboxMessageRequest generates requests for ReadOrganizationInboxMessage
+func NewReadOrganizationInboxMessageRequest(server string, projectID openapi_types.UUID, organizationID openapi_types.UUID, messageID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "organizationID", organizationID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "messageID", messageID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/subjects/organizations/%s/inbox/%s/read", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewRescheduleOrganizationInboxMessageRequest calls the generic RescheduleOrganizationInboxMessage builder with application/json body
+func NewRescheduleOrganizationInboxMessageRequest(server string, projectID openapi_types.UUID, organizationID openapi_types.UUID, messageID openapi_types.UUID, body RescheduleOrganizationInboxMessageJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewRescheduleOrganizationInboxMessageRequestWithBody(server, projectID, organizationID, messageID, "application/json", bodyReader)
+}
+
+// NewRescheduleOrganizationInboxMessageRequestWithBody generates requests for RescheduleOrganizationInboxMessage with any type of body
+func NewRescheduleOrganizationInboxMessageRequestWithBody(server string, projectID openapi_types.UUID, organizationID openapi_types.UUID, messageID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "organizationID", organizationID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "messageID", messageID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/subjects/organizations/%s/inbox/%s/schedule", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewUnarchiveOrganizationInboxMessageRequest generates requests for UnarchiveOrganizationInboxMessage
+func NewUnarchiveOrganizationInboxMessageRequest(server string, projectID openapi_types.UUID, organizationID openapi_types.UUID, messageID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "organizationID", organizationID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "messageID", messageID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/subjects/organizations/%s/inbox/%s/unarchive", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUnreadOrganizationInboxMessageRequest generates requests for UnreadOrganizationInboxMessage
+func NewUnreadOrganizationInboxMessageRequest(server string, projectID openapi_types.UUID, organizationID openapi_types.UUID, messageID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "organizationID", organizationID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "messageID", messageID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/subjects/organizations/%s/inbox/%s/unread", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -12833,6 +13771,489 @@ func NewDeleteUserExternalIDRequest(server string, projectID openapi_types.UUID,
 	}
 
 	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetUserInboxMessagesRequest generates requests for GetUserInboxMessages
+func NewGetUserInboxMessagesRequest(server string, projectID openapi_types.UUID, userID openapi_types.UUID, params *GetUserInboxMessagesParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "userID", userID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/subjects/users/%s/inbox", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Status != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "status", *params.Status, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Tags != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "tags", *params.Tags, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.MessageSource != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "message_source", *params.MessageSource, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Priority != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "priority", *params.Priority, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Channel != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "channel", *params.Channel, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.IncludeArchived != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "include_archived", *params.IncludeArchived, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.IncludeScheduled != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "include_scheduled", *params.IncludeScheduled, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Offset != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "offset", *params.Offset, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Search != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "search", *params.Search, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateUserInboxMessageRequest calls the generic CreateUserInboxMessage builder with application/json body
+func NewCreateUserInboxMessageRequest(server string, projectID openapi_types.UUID, userID openapi_types.UUID, body CreateUserInboxMessageJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateUserInboxMessageRequestWithBody(server, projectID, userID, "application/json", bodyReader)
+}
+
+// NewCreateUserInboxMessageRequestWithBody generates requests for CreateUserInboxMessage with any type of body
+func NewCreateUserInboxMessageRequestWithBody(server string, projectID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "userID", userID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/subjects/users/%s/inbox", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewArchiveUserInboxMessageRequest generates requests for ArchiveUserInboxMessage
+func NewArchiveUserInboxMessageRequest(server string, projectID openapi_types.UUID, userID openapi_types.UUID, messageID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "userID", userID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "messageID", messageID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/subjects/users/%s/inbox/%s/archive", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewReadUserInboxMessageRequest generates requests for ReadUserInboxMessage
+func NewReadUserInboxMessageRequest(server string, projectID openapi_types.UUID, userID openapi_types.UUID, messageID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "userID", userID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "messageID", messageID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/subjects/users/%s/inbox/%s/read", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewRescheduleUserInboxMessageRequest calls the generic RescheduleUserInboxMessage builder with application/json body
+func NewRescheduleUserInboxMessageRequest(server string, projectID openapi_types.UUID, userID openapi_types.UUID, messageID openapi_types.UUID, body RescheduleUserInboxMessageJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewRescheduleUserInboxMessageRequestWithBody(server, projectID, userID, messageID, "application/json", bodyReader)
+}
+
+// NewRescheduleUserInboxMessageRequestWithBody generates requests for RescheduleUserInboxMessage with any type of body
+func NewRescheduleUserInboxMessageRequestWithBody(server string, projectID openapi_types.UUID, userID openapi_types.UUID, messageID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "userID", userID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "messageID", messageID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/subjects/users/%s/inbox/%s/schedule", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewUnarchiveUserInboxMessageRequest generates requests for UnarchiveUserInboxMessage
+func NewUnarchiveUserInboxMessageRequest(server string, projectID openapi_types.UUID, userID openapi_types.UUID, messageID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "userID", userID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "messageID", messageID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/subjects/users/%s/inbox/%s/unarchive", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUnreadUserInboxMessageRequest generates requests for UnreadUserInboxMessage
+func NewUnreadUserInboxMessageRequest(server string, projectID openapi_types.UUID, userID openapi_types.UUID, messageID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "userID", userID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "messageID", messageID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/subjects/users/%s/inbox/%s/unread", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -14583,13 +16004,13 @@ type ClientWithResponsesInterface interface {
 	// ListProviderMetaWithResponse request
 	ListProviderMetaWithResponse(ctx context.Context, projectID openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListProviderMetaResponse, error)
 
-	// DeleteProviderWithResponse request
-	DeleteProviderWithResponse(ctx context.Context, projectID openapi_types.UUID, providerID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteProviderResponse, error)
-
 	// CreateProviderWithBodyWithResponse request with any body
 	CreateProviderWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, pType string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateProviderResponse, error)
 
 	CreateProviderWithResponse(ctx context.Context, projectID openapi_types.UUID, pType string, body CreateProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateProviderResponse, error)
+
+	// DeleteProviderWithResponse request
+	DeleteProviderWithResponse(ctx context.Context, projectID openapi_types.UUID, pType string, providerID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteProviderResponse, error)
 
 	// GetProviderWithResponse request
 	GetProviderWithResponse(ctx context.Context, projectID openapi_types.UUID, pType string, providerID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetProviderResponse, error)
@@ -14665,6 +16086,31 @@ type ClientWithResponsesInterface interface {
 
 	// DeleteOrganizationExternalIDWithResponse request
 	DeleteOrganizationExternalIDWithResponse(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, identifierID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteOrganizationExternalIDResponse, error)
+
+	// GetOrganizationInboxMessagesWithResponse request
+	GetOrganizationInboxMessagesWithResponse(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, params *GetOrganizationInboxMessagesParams, reqEditors ...RequestEditorFn) (*GetOrganizationInboxMessagesResponse, error)
+
+	// CreateOrganizationInboxMessageWithBodyWithResponse request with any body
+	CreateOrganizationInboxMessageWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateOrganizationInboxMessageResponse, error)
+
+	CreateOrganizationInboxMessageWithResponse(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, body CreateOrganizationInboxMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateOrganizationInboxMessageResponse, error)
+
+	// ArchiveOrganizationInboxMessageWithResponse request
+	ArchiveOrganizationInboxMessageWithResponse(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, messageID openapi_types.UUID, reqEditors ...RequestEditorFn) (*ArchiveOrganizationInboxMessageResponse, error)
+
+	// ReadOrganizationInboxMessageWithResponse request
+	ReadOrganizationInboxMessageWithResponse(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, messageID openapi_types.UUID, reqEditors ...RequestEditorFn) (*ReadOrganizationInboxMessageResponse, error)
+
+	// RescheduleOrganizationInboxMessageWithBodyWithResponse request with any body
+	RescheduleOrganizationInboxMessageWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, messageID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RescheduleOrganizationInboxMessageResponse, error)
+
+	RescheduleOrganizationInboxMessageWithResponse(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, messageID openapi_types.UUID, body RescheduleOrganizationInboxMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*RescheduleOrganizationInboxMessageResponse, error)
+
+	// UnarchiveOrganizationInboxMessageWithResponse request
+	UnarchiveOrganizationInboxMessageWithResponse(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, messageID openapi_types.UUID, reqEditors ...RequestEditorFn) (*UnarchiveOrganizationInboxMessageResponse, error)
+
+	// UnreadOrganizationInboxMessageWithResponse request
+	UnreadOrganizationInboxMessageWithResponse(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, messageID openapi_types.UUID, reqEditors ...RequestEditorFn) (*UnreadOrganizationInboxMessageResponse, error)
 
 	// GetOrganizationScheduledWithResponse request
 	GetOrganizationScheduledWithResponse(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, params *GetOrganizationScheduledParams, reqEditors ...RequestEditorFn) (*GetOrganizationScheduledResponse, error)
@@ -14756,6 +16202,31 @@ type ClientWithResponsesInterface interface {
 
 	// DeleteUserExternalIDWithResponse request
 	DeleteUserExternalIDWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, identifierID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteUserExternalIDResponse, error)
+
+	// GetUserInboxMessagesWithResponse request
+	GetUserInboxMessagesWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, params *GetUserInboxMessagesParams, reqEditors ...RequestEditorFn) (*GetUserInboxMessagesResponse, error)
+
+	// CreateUserInboxMessageWithBodyWithResponse request with any body
+	CreateUserInboxMessageWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateUserInboxMessageResponse, error)
+
+	CreateUserInboxMessageWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, body CreateUserInboxMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateUserInboxMessageResponse, error)
+
+	// ArchiveUserInboxMessageWithResponse request
+	ArchiveUserInboxMessageWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, messageID openapi_types.UUID, reqEditors ...RequestEditorFn) (*ArchiveUserInboxMessageResponse, error)
+
+	// ReadUserInboxMessageWithResponse request
+	ReadUserInboxMessageWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, messageID openapi_types.UUID, reqEditors ...RequestEditorFn) (*ReadUserInboxMessageResponse, error)
+
+	// RescheduleUserInboxMessageWithBodyWithResponse request with any body
+	RescheduleUserInboxMessageWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, messageID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RescheduleUserInboxMessageResponse, error)
+
+	RescheduleUserInboxMessageWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, messageID openapi_types.UUID, body RescheduleUserInboxMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*RescheduleUserInboxMessageResponse, error)
+
+	// UnarchiveUserInboxMessageWithResponse request
+	UnarchiveUserInboxMessageWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, messageID openapi_types.UUID, reqEditors ...RequestEditorFn) (*UnarchiveUserInboxMessageResponse, error)
+
+	// UnreadUserInboxMessageWithResponse request
+	UnreadUserInboxMessageWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, messageID openapi_types.UUID, reqEditors ...RequestEditorFn) (*UnreadUserInboxMessageResponse, error)
 
 	// GetUserJourneysWithResponse request
 	GetUserJourneysWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, params *GetUserJourneysParams, reqEditors ...RequestEditorFn) (*GetUserJourneysResponse, error)
@@ -17477,36 +18948,6 @@ func (r ListProviderMetaResponse) ContentType() string {
 	return ""
 }
 
-type DeleteProviderResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSONDefault  *Error
-}
-
-// Status returns HTTPResponse.Status
-func (r DeleteProviderResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r DeleteProviderResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r DeleteProviderResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
 type CreateProviderResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -17532,6 +18973,36 @@ func (r CreateProviderResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r CreateProviderResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteProviderResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteProviderResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteProviderResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteProviderResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -18193,6 +19664,223 @@ func (r DeleteOrganizationExternalIDResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r DeleteOrganizationExternalIDResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetOrganizationInboxMessagesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *InboxMessageList
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetOrganizationInboxMessagesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetOrganizationInboxMessagesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetOrganizationInboxMessagesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateOrganizationInboxMessageResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *InboxMessage
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateOrganizationInboxMessageResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateOrganizationInboxMessageResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateOrganizationInboxMessageResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ArchiveOrganizationInboxMessageResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *InboxMessage
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ArchiveOrganizationInboxMessageResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ArchiveOrganizationInboxMessageResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ArchiveOrganizationInboxMessageResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ReadOrganizationInboxMessageResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *InboxMessage
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ReadOrganizationInboxMessageResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ReadOrganizationInboxMessageResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ReadOrganizationInboxMessageResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type RescheduleOrganizationInboxMessageResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *InboxMessage
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r RescheduleOrganizationInboxMessageResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RescheduleOrganizationInboxMessageResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RescheduleOrganizationInboxMessageResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UnarchiveOrganizationInboxMessageResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *InboxMessage
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r UnarchiveOrganizationInboxMessageResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UnarchiveOrganizationInboxMessageResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UnarchiveOrganizationInboxMessageResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UnreadOrganizationInboxMessageResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *InboxMessage
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r UnreadOrganizationInboxMessageResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UnreadOrganizationInboxMessageResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UnreadOrganizationInboxMessageResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -18959,6 +20647,223 @@ func (r DeleteUserExternalIDResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r DeleteUserExternalIDResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetUserInboxMessagesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *InboxMessageList
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetUserInboxMessagesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetUserInboxMessagesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetUserInboxMessagesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateUserInboxMessageResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *InboxMessage
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateUserInboxMessageResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateUserInboxMessageResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateUserInboxMessageResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ArchiveUserInboxMessageResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *InboxMessage
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ArchiveUserInboxMessageResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ArchiveUserInboxMessageResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ArchiveUserInboxMessageResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ReadUserInboxMessageResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *InboxMessage
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ReadUserInboxMessageResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ReadUserInboxMessageResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ReadUserInboxMessageResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type RescheduleUserInboxMessageResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *InboxMessage
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r RescheduleUserInboxMessageResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RescheduleUserInboxMessageResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RescheduleUserInboxMessageResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UnarchiveUserInboxMessageResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *InboxMessage
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r UnarchiveUserInboxMessageResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UnarchiveUserInboxMessageResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UnarchiveUserInboxMessageResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UnreadUserInboxMessageResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *InboxMessage
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r UnreadUserInboxMessageResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UnreadUserInboxMessageResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UnreadUserInboxMessageResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -20719,15 +22624,6 @@ func (c *ClientWithResponses) ListProviderMetaWithResponse(ctx context.Context, 
 	return ParseListProviderMetaResponse(rsp)
 }
 
-// DeleteProviderWithResponse request returning *DeleteProviderResponse
-func (c *ClientWithResponses) DeleteProviderWithResponse(ctx context.Context, projectID openapi_types.UUID, providerID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteProviderResponse, error) {
-	rsp, err := c.DeleteProvider(ctx, projectID, providerID, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseDeleteProviderResponse(rsp)
-}
-
 // CreateProviderWithBodyWithResponse request with arbitrary body returning *CreateProviderResponse
 func (c *ClientWithResponses) CreateProviderWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, pType string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateProviderResponse, error) {
 	rsp, err := c.CreateProviderWithBody(ctx, projectID, pType, contentType, body, reqEditors...)
@@ -20743,6 +22639,15 @@ func (c *ClientWithResponses) CreateProviderWithResponse(ctx context.Context, pr
 		return nil, err
 	}
 	return ParseCreateProviderResponse(rsp)
+}
+
+// DeleteProviderWithResponse request returning *DeleteProviderResponse
+func (c *ClientWithResponses) DeleteProviderWithResponse(ctx context.Context, projectID openapi_types.UUID, pType string, providerID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteProviderResponse, error) {
+	rsp, err := c.DeleteProvider(ctx, projectID, pType, providerID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteProviderResponse(rsp)
 }
 
 // GetProviderWithResponse request returning *GetProviderResponse
@@ -20980,6 +22885,85 @@ func (c *ClientWithResponses) DeleteOrganizationExternalIDWithResponse(ctx conte
 		return nil, err
 	}
 	return ParseDeleteOrganizationExternalIDResponse(rsp)
+}
+
+// GetOrganizationInboxMessagesWithResponse request returning *GetOrganizationInboxMessagesResponse
+func (c *ClientWithResponses) GetOrganizationInboxMessagesWithResponse(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, params *GetOrganizationInboxMessagesParams, reqEditors ...RequestEditorFn) (*GetOrganizationInboxMessagesResponse, error) {
+	rsp, err := c.GetOrganizationInboxMessages(ctx, projectID, organizationID, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetOrganizationInboxMessagesResponse(rsp)
+}
+
+// CreateOrganizationInboxMessageWithBodyWithResponse request with arbitrary body returning *CreateOrganizationInboxMessageResponse
+func (c *ClientWithResponses) CreateOrganizationInboxMessageWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateOrganizationInboxMessageResponse, error) {
+	rsp, err := c.CreateOrganizationInboxMessageWithBody(ctx, projectID, organizationID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateOrganizationInboxMessageResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateOrganizationInboxMessageWithResponse(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, body CreateOrganizationInboxMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateOrganizationInboxMessageResponse, error) {
+	rsp, err := c.CreateOrganizationInboxMessage(ctx, projectID, organizationID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateOrganizationInboxMessageResponse(rsp)
+}
+
+// ArchiveOrganizationInboxMessageWithResponse request returning *ArchiveOrganizationInboxMessageResponse
+func (c *ClientWithResponses) ArchiveOrganizationInboxMessageWithResponse(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, messageID openapi_types.UUID, reqEditors ...RequestEditorFn) (*ArchiveOrganizationInboxMessageResponse, error) {
+	rsp, err := c.ArchiveOrganizationInboxMessage(ctx, projectID, organizationID, messageID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseArchiveOrganizationInboxMessageResponse(rsp)
+}
+
+// ReadOrganizationInboxMessageWithResponse request returning *ReadOrganizationInboxMessageResponse
+func (c *ClientWithResponses) ReadOrganizationInboxMessageWithResponse(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, messageID openapi_types.UUID, reqEditors ...RequestEditorFn) (*ReadOrganizationInboxMessageResponse, error) {
+	rsp, err := c.ReadOrganizationInboxMessage(ctx, projectID, organizationID, messageID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseReadOrganizationInboxMessageResponse(rsp)
+}
+
+// RescheduleOrganizationInboxMessageWithBodyWithResponse request with arbitrary body returning *RescheduleOrganizationInboxMessageResponse
+func (c *ClientWithResponses) RescheduleOrganizationInboxMessageWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, messageID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RescheduleOrganizationInboxMessageResponse, error) {
+	rsp, err := c.RescheduleOrganizationInboxMessageWithBody(ctx, projectID, organizationID, messageID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRescheduleOrganizationInboxMessageResponse(rsp)
+}
+
+func (c *ClientWithResponses) RescheduleOrganizationInboxMessageWithResponse(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, messageID openapi_types.UUID, body RescheduleOrganizationInboxMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*RescheduleOrganizationInboxMessageResponse, error) {
+	rsp, err := c.RescheduleOrganizationInboxMessage(ctx, projectID, organizationID, messageID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRescheduleOrganizationInboxMessageResponse(rsp)
+}
+
+// UnarchiveOrganizationInboxMessageWithResponse request returning *UnarchiveOrganizationInboxMessageResponse
+func (c *ClientWithResponses) UnarchiveOrganizationInboxMessageWithResponse(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, messageID openapi_types.UUID, reqEditors ...RequestEditorFn) (*UnarchiveOrganizationInboxMessageResponse, error) {
+	rsp, err := c.UnarchiveOrganizationInboxMessage(ctx, projectID, organizationID, messageID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUnarchiveOrganizationInboxMessageResponse(rsp)
+}
+
+// UnreadOrganizationInboxMessageWithResponse request returning *UnreadOrganizationInboxMessageResponse
+func (c *ClientWithResponses) UnreadOrganizationInboxMessageWithResponse(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, messageID openapi_types.UUID, reqEditors ...RequestEditorFn) (*UnreadOrganizationInboxMessageResponse, error) {
+	rsp, err := c.UnreadOrganizationInboxMessage(ctx, projectID, organizationID, messageID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUnreadOrganizationInboxMessageResponse(rsp)
 }
 
 // GetOrganizationScheduledWithResponse request returning *GetOrganizationScheduledResponse
@@ -21269,6 +23253,85 @@ func (c *ClientWithResponses) DeleteUserExternalIDWithResponse(ctx context.Conte
 		return nil, err
 	}
 	return ParseDeleteUserExternalIDResponse(rsp)
+}
+
+// GetUserInboxMessagesWithResponse request returning *GetUserInboxMessagesResponse
+func (c *ClientWithResponses) GetUserInboxMessagesWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, params *GetUserInboxMessagesParams, reqEditors ...RequestEditorFn) (*GetUserInboxMessagesResponse, error) {
+	rsp, err := c.GetUserInboxMessages(ctx, projectID, userID, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetUserInboxMessagesResponse(rsp)
+}
+
+// CreateUserInboxMessageWithBodyWithResponse request with arbitrary body returning *CreateUserInboxMessageResponse
+func (c *ClientWithResponses) CreateUserInboxMessageWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateUserInboxMessageResponse, error) {
+	rsp, err := c.CreateUserInboxMessageWithBody(ctx, projectID, userID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateUserInboxMessageResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateUserInboxMessageWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, body CreateUserInboxMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateUserInboxMessageResponse, error) {
+	rsp, err := c.CreateUserInboxMessage(ctx, projectID, userID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateUserInboxMessageResponse(rsp)
+}
+
+// ArchiveUserInboxMessageWithResponse request returning *ArchiveUserInboxMessageResponse
+func (c *ClientWithResponses) ArchiveUserInboxMessageWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, messageID openapi_types.UUID, reqEditors ...RequestEditorFn) (*ArchiveUserInboxMessageResponse, error) {
+	rsp, err := c.ArchiveUserInboxMessage(ctx, projectID, userID, messageID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseArchiveUserInboxMessageResponse(rsp)
+}
+
+// ReadUserInboxMessageWithResponse request returning *ReadUserInboxMessageResponse
+func (c *ClientWithResponses) ReadUserInboxMessageWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, messageID openapi_types.UUID, reqEditors ...RequestEditorFn) (*ReadUserInboxMessageResponse, error) {
+	rsp, err := c.ReadUserInboxMessage(ctx, projectID, userID, messageID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseReadUserInboxMessageResponse(rsp)
+}
+
+// RescheduleUserInboxMessageWithBodyWithResponse request with arbitrary body returning *RescheduleUserInboxMessageResponse
+func (c *ClientWithResponses) RescheduleUserInboxMessageWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, messageID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RescheduleUserInboxMessageResponse, error) {
+	rsp, err := c.RescheduleUserInboxMessageWithBody(ctx, projectID, userID, messageID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRescheduleUserInboxMessageResponse(rsp)
+}
+
+func (c *ClientWithResponses) RescheduleUserInboxMessageWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, messageID openapi_types.UUID, body RescheduleUserInboxMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*RescheduleUserInboxMessageResponse, error) {
+	rsp, err := c.RescheduleUserInboxMessage(ctx, projectID, userID, messageID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRescheduleUserInboxMessageResponse(rsp)
+}
+
+// UnarchiveUserInboxMessageWithResponse request returning *UnarchiveUserInboxMessageResponse
+func (c *ClientWithResponses) UnarchiveUserInboxMessageWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, messageID openapi_types.UUID, reqEditors ...RequestEditorFn) (*UnarchiveUserInboxMessageResponse, error) {
+	rsp, err := c.UnarchiveUserInboxMessage(ctx, projectID, userID, messageID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUnarchiveUserInboxMessageResponse(rsp)
+}
+
+// UnreadUserInboxMessageWithResponse request returning *UnreadUserInboxMessageResponse
+func (c *ClientWithResponses) UnreadUserInboxMessageWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, messageID openapi_types.UUID, reqEditors ...RequestEditorFn) (*UnreadUserInboxMessageResponse, error) {
+	rsp, err := c.UnreadUserInboxMessage(ctx, projectID, userID, messageID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUnreadUserInboxMessageResponse(rsp)
 }
 
 // GetUserJourneysWithResponse request returning *GetUserJourneysResponse
@@ -24242,32 +26305,6 @@ func ParseListProviderMetaResponse(rsp *http.Response) (*ListProviderMetaRespons
 	return response, nil
 }
 
-// ParseDeleteProviderResponse parses an HTTP response from a DeleteProviderWithResponse call
-func ParseDeleteProviderResponse(rsp *http.Response) (*DeleteProviderResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &DeleteProviderResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
 // ParseCreateProviderResponse parses an HTTP response from a CreateProviderWithResponse call
 func ParseCreateProviderResponse(rsp *http.Response) (*CreateProviderResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -24289,6 +26326,32 @@ func ParseCreateProviderResponse(rsp *http.Response) (*CreateProviderResponse, e
 		}
 		response.JSON201 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteProviderResponse parses an HTTP response from a DeleteProviderWithResponse call
+func ParseDeleteProviderResponse(rsp *http.Response) (*DeleteProviderResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteProviderResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -24956,6 +27019,237 @@ func ParseDeleteOrganizationExternalIDResponse(rsp *http.Response) (*DeleteOrgan
 	}
 
 	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetOrganizationInboxMessagesResponse parses an HTTP response from a GetOrganizationInboxMessagesWithResponse call
+func ParseGetOrganizationInboxMessagesResponse(rsp *http.Response) (*GetOrganizationInboxMessagesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetOrganizationInboxMessagesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest InboxMessageList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateOrganizationInboxMessageResponse parses an HTTP response from a CreateOrganizationInboxMessageWithResponse call
+func ParseCreateOrganizationInboxMessageResponse(rsp *http.Response) (*CreateOrganizationInboxMessageResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateOrganizationInboxMessageResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest InboxMessage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseArchiveOrganizationInboxMessageResponse parses an HTTP response from a ArchiveOrganizationInboxMessageWithResponse call
+func ParseArchiveOrganizationInboxMessageResponse(rsp *http.Response) (*ArchiveOrganizationInboxMessageResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ArchiveOrganizationInboxMessageResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest InboxMessage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseReadOrganizationInboxMessageResponse parses an HTTP response from a ReadOrganizationInboxMessageWithResponse call
+func ParseReadOrganizationInboxMessageResponse(rsp *http.Response) (*ReadOrganizationInboxMessageResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ReadOrganizationInboxMessageResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest InboxMessage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRescheduleOrganizationInboxMessageResponse parses an HTTP response from a RescheduleOrganizationInboxMessageWithResponse call
+func ParseRescheduleOrganizationInboxMessageResponse(rsp *http.Response) (*RescheduleOrganizationInboxMessageResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RescheduleOrganizationInboxMessageResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest InboxMessage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUnarchiveOrganizationInboxMessageResponse parses an HTTP response from a UnarchiveOrganizationInboxMessageWithResponse call
+func ParseUnarchiveOrganizationInboxMessageResponse(rsp *http.Response) (*UnarchiveOrganizationInboxMessageResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UnarchiveOrganizationInboxMessageResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest InboxMessage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUnreadOrganizationInboxMessageResponse parses an HTTP response from a UnreadOrganizationInboxMessageWithResponse call
+func ParseUnreadOrganizationInboxMessageResponse(rsp *http.Response) (*UnreadOrganizationInboxMessageResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UnreadOrganizationInboxMessageResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest InboxMessage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -25706,6 +28000,237 @@ func ParseDeleteUserExternalIDResponse(rsp *http.Response) (*DeleteUserExternalI
 	}
 
 	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetUserInboxMessagesResponse parses an HTTP response from a GetUserInboxMessagesWithResponse call
+func ParseGetUserInboxMessagesResponse(rsp *http.Response) (*GetUserInboxMessagesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetUserInboxMessagesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest InboxMessageList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateUserInboxMessageResponse parses an HTTP response from a CreateUserInboxMessageWithResponse call
+func ParseCreateUserInboxMessageResponse(rsp *http.Response) (*CreateUserInboxMessageResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateUserInboxMessageResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest InboxMessage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseArchiveUserInboxMessageResponse parses an HTTP response from a ArchiveUserInboxMessageWithResponse call
+func ParseArchiveUserInboxMessageResponse(rsp *http.Response) (*ArchiveUserInboxMessageResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ArchiveUserInboxMessageResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest InboxMessage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseReadUserInboxMessageResponse parses an HTTP response from a ReadUserInboxMessageWithResponse call
+func ParseReadUserInboxMessageResponse(rsp *http.Response) (*ReadUserInboxMessageResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ReadUserInboxMessageResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest InboxMessage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRescheduleUserInboxMessageResponse parses an HTTP response from a RescheduleUserInboxMessageWithResponse call
+func ParseRescheduleUserInboxMessageResponse(rsp *http.Response) (*RescheduleUserInboxMessageResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RescheduleUserInboxMessageResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest InboxMessage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUnarchiveUserInboxMessageResponse parses an HTTP response from a UnarchiveUserInboxMessageWithResponse call
+func ParseUnarchiveUserInboxMessageResponse(rsp *http.Response) (*UnarchiveUserInboxMessageResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UnarchiveUserInboxMessageResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest InboxMessage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUnreadUserInboxMessageResponse parses an HTTP response from a UnreadUserInboxMessageWithResponse call
+func ParseUnreadUserInboxMessageResponse(rsp *http.Response) (*UnreadUserInboxMessageResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UnreadUserInboxMessageResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest InboxMessage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -26800,12 +29325,12 @@ type ServerInterface interface {
 	// List available provider modules
 	// (GET /api/admin/projects/{projectID}/providers/meta)
 	ListProviderMeta(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID)
-	// Delete provider
-	// (DELETE /api/admin/projects/{projectID}/providers/{providerID})
-	DeleteProvider(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, providerID openapi_types.UUID)
 	// Create provider
 	// (POST /api/admin/projects/{projectID}/providers/{type})
 	CreateProvider(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, pType string)
+	// Delete provider
+	// (DELETE /api/admin/projects/{projectID}/providers/{type}/{providerID})
+	DeleteProvider(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, pType string, providerID openapi_types.UUID)
 	// Get provider by ID
 	// (GET /api/admin/projects/{projectID}/providers/{type}/{providerID})
 	GetProvider(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, pType string, providerID openapi_types.UUID)
@@ -26869,6 +29394,27 @@ type ServerInterface interface {
 	// Delete organization external identifier
 	// (DELETE /api/admin/projects/{projectID}/subjects/organizations/{organizationID}/identifiers/{identifierID})
 	DeleteOrganizationExternalID(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, organizationID openapi_types.UUID, identifierID openapi_types.UUID)
+	// Get organization inbox messages
+	// (GET /api/admin/projects/{projectID}/subjects/organizations/{organizationID}/inbox)
+	GetOrganizationInboxMessages(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, organizationID openapi_types.UUID, params GetOrganizationInboxMessagesParams)
+	// Create organization inbox message
+	// (POST /api/admin/projects/{projectID}/subjects/organizations/{organizationID}/inbox)
+	CreateOrganizationInboxMessage(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, organizationID openapi_types.UUID)
+	// Archive organization inbox message
+	// (POST /api/admin/projects/{projectID}/subjects/organizations/{organizationID}/inbox/{messageID}/archive)
+	ArchiveOrganizationInboxMessage(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, organizationID openapi_types.UUID, messageID openapi_types.UUID)
+	// Read organization inbox message
+	// (POST /api/admin/projects/{projectID}/subjects/organizations/{organizationID}/inbox/{messageID}/read)
+	ReadOrganizationInboxMessage(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, organizationID openapi_types.UUID, messageID openapi_types.UUID)
+	// Reschedule organization inbox message
+	// (POST /api/admin/projects/{projectID}/subjects/organizations/{organizationID}/inbox/{messageID}/schedule)
+	RescheduleOrganizationInboxMessage(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, organizationID openapi_types.UUID, messageID openapi_types.UUID)
+	// Unarchive organization inbox message
+	// (POST /api/admin/projects/{projectID}/subjects/organizations/{organizationID}/inbox/{messageID}/unarchive)
+	UnarchiveOrganizationInboxMessage(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, organizationID openapi_types.UUID, messageID openapi_types.UUID)
+	// Mark organization inbox message as unread
+	// (POST /api/admin/projects/{projectID}/subjects/organizations/{organizationID}/inbox/{messageID}/unread)
+	UnreadOrganizationInboxMessage(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, organizationID openapi_types.UUID, messageID openapi_types.UUID)
 	// Get organization scheduled
 	// (GET /api/admin/projects/{projectID}/subjects/organizations/{organizationID}/scheduled)
 	GetOrganizationScheduled(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, organizationID openapi_types.UUID, params GetOrganizationScheduledParams)
@@ -26944,6 +29490,27 @@ type ServerInterface interface {
 	// Delete user external identifier
 	// (DELETE /api/admin/projects/{projectID}/subjects/users/{userID}/identifiers/{identifierID})
 	DeleteUserExternalID(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID, identifierID openapi_types.UUID)
+	// Get user inbox messages
+	// (GET /api/admin/projects/{projectID}/subjects/users/{userID}/inbox)
+	GetUserInboxMessages(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID, params GetUserInboxMessagesParams)
+	// Create user inbox message
+	// (POST /api/admin/projects/{projectID}/subjects/users/{userID}/inbox)
+	CreateUserInboxMessage(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID)
+	// Archive user inbox message
+	// (POST /api/admin/projects/{projectID}/subjects/users/{userID}/inbox/{messageID}/archive)
+	ArchiveUserInboxMessage(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID, messageID openapi_types.UUID)
+	// Read user inbox message
+	// (POST /api/admin/projects/{projectID}/subjects/users/{userID}/inbox/{messageID}/read)
+	ReadUserInboxMessage(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID, messageID openapi_types.UUID)
+	// Reschedule user inbox message
+	// (POST /api/admin/projects/{projectID}/subjects/users/{userID}/inbox/{messageID}/schedule)
+	RescheduleUserInboxMessage(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID, messageID openapi_types.UUID)
+	// Unarchive user inbox message
+	// (POST /api/admin/projects/{projectID}/subjects/users/{userID}/inbox/{messageID}/unarchive)
+	UnarchiveUserInboxMessage(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID, messageID openapi_types.UUID)
+	// Mark user inbox message as unread
+	// (POST /api/admin/projects/{projectID}/subjects/users/{userID}/inbox/{messageID}/unread)
+	UnreadUserInboxMessage(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID, messageID openapi_types.UUID)
 	// Get user journeys
 	// (GET /api/admin/projects/{projectID}/subjects/users/{userID}/journeys)
 	GetUserJourneys(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID, params GetUserJourneysParams)
@@ -27532,15 +30099,15 @@ func (_ Unimplemented) ListProviderMeta(w http.ResponseWriter, r *http.Request, 
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// Delete provider
-// (DELETE /api/admin/projects/{projectID}/providers/{providerID})
-func (_ Unimplemented) DeleteProvider(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, providerID openapi_types.UUID) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
 // Create provider
 // (POST /api/admin/projects/{projectID}/providers/{type})
 func (_ Unimplemented) CreateProvider(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, pType string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Delete provider
+// (DELETE /api/admin/projects/{projectID}/providers/{type}/{providerID})
+func (_ Unimplemented) DeleteProvider(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, pType string, providerID openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -27667,6 +30234,48 @@ func (_ Unimplemented) CreateOrganizationEvent(w http.ResponseWriter, r *http.Re
 // Delete organization external identifier
 // (DELETE /api/admin/projects/{projectID}/subjects/organizations/{organizationID}/identifiers/{identifierID})
 func (_ Unimplemented) DeleteOrganizationExternalID(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, organizationID openapi_types.UUID, identifierID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Get organization inbox messages
+// (GET /api/admin/projects/{projectID}/subjects/organizations/{organizationID}/inbox)
+func (_ Unimplemented) GetOrganizationInboxMessages(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, organizationID openapi_types.UUID, params GetOrganizationInboxMessagesParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Create organization inbox message
+// (POST /api/admin/projects/{projectID}/subjects/organizations/{organizationID}/inbox)
+func (_ Unimplemented) CreateOrganizationInboxMessage(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, organizationID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Archive organization inbox message
+// (POST /api/admin/projects/{projectID}/subjects/organizations/{organizationID}/inbox/{messageID}/archive)
+func (_ Unimplemented) ArchiveOrganizationInboxMessage(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, organizationID openapi_types.UUID, messageID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Read organization inbox message
+// (POST /api/admin/projects/{projectID}/subjects/organizations/{organizationID}/inbox/{messageID}/read)
+func (_ Unimplemented) ReadOrganizationInboxMessage(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, organizationID openapi_types.UUID, messageID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Reschedule organization inbox message
+// (POST /api/admin/projects/{projectID}/subjects/organizations/{organizationID}/inbox/{messageID}/schedule)
+func (_ Unimplemented) RescheduleOrganizationInboxMessage(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, organizationID openapi_types.UUID, messageID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Unarchive organization inbox message
+// (POST /api/admin/projects/{projectID}/subjects/organizations/{organizationID}/inbox/{messageID}/unarchive)
+func (_ Unimplemented) UnarchiveOrganizationInboxMessage(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, organizationID openapi_types.UUID, messageID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Mark organization inbox message as unread
+// (POST /api/admin/projects/{projectID}/subjects/organizations/{organizationID}/inbox/{messageID}/unread)
+func (_ Unimplemented) UnreadOrganizationInboxMessage(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, organizationID openapi_types.UUID, messageID openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -27817,6 +30426,48 @@ func (_ Unimplemented) CreateUserEvent(w http.ResponseWriter, r *http.Request, p
 // Delete user external identifier
 // (DELETE /api/admin/projects/{projectID}/subjects/users/{userID}/identifiers/{identifierID})
 func (_ Unimplemented) DeleteUserExternalID(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID, identifierID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Get user inbox messages
+// (GET /api/admin/projects/{projectID}/subjects/users/{userID}/inbox)
+func (_ Unimplemented) GetUserInboxMessages(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID, params GetUserInboxMessagesParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Create user inbox message
+// (POST /api/admin/projects/{projectID}/subjects/users/{userID}/inbox)
+func (_ Unimplemented) CreateUserInboxMessage(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Archive user inbox message
+// (POST /api/admin/projects/{projectID}/subjects/users/{userID}/inbox/{messageID}/archive)
+func (_ Unimplemented) ArchiveUserInboxMessage(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID, messageID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Read user inbox message
+// (POST /api/admin/projects/{projectID}/subjects/users/{userID}/inbox/{messageID}/read)
+func (_ Unimplemented) ReadUserInboxMessage(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID, messageID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Reschedule user inbox message
+// (POST /api/admin/projects/{projectID}/subjects/users/{userID}/inbox/{messageID}/schedule)
+func (_ Unimplemented) RescheduleUserInboxMessage(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID, messageID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Unarchive user inbox message
+// (POST /api/admin/projects/{projectID}/subjects/users/{userID}/inbox/{messageID}/unarchive)
+func (_ Unimplemented) UnarchiveUserInboxMessage(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID, messageID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Mark user inbox message as unread
+// (POST /api/admin/projects/{projectID}/subjects/users/{userID}/inbox/{messageID}/unread)
+func (_ Unimplemented) UnreadUserInboxMessage(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID, messageID openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -31918,47 +34569,6 @@ func (siw *ServerInterfaceWrapper) ListProviderMeta(w http.ResponseWriter, r *ht
 	handler.ServeHTTP(w, r)
 }
 
-// DeleteProvider operation middleware
-func (siw *ServerInterfaceWrapper) DeleteProvider(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "projectID" -------------
-	var projectID openapi_types.UUID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
-		return
-	}
-
-	// ------------- Path parameter "providerID" -------------
-	var providerID openapi_types.UUID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "providerID", chi.URLParam(r, "providerID"), &providerID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "providerID", Err: err})
-		return
-	}
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
-
-	r = r.WithContext(ctx)
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.DeleteProvider(w, r, projectID, providerID)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
 // CreateProvider operation middleware
 func (siw *ServerInterfaceWrapper) CreateProvider(w http.ResponseWriter, r *http.Request) {
 
@@ -31991,6 +34601,56 @@ func (siw *ServerInterfaceWrapper) CreateProvider(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CreateProvider(w, r, projectID, pType)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteProvider operation middleware
+func (siw *ServerInterfaceWrapper) DeleteProvider(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "type" -------------
+	var pType string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "type", chi.URLParam(r, "type"), &pType, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "type", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "providerID" -------------
+	var providerID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "providerID", chi.URLParam(r, "providerID"), &providerID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "providerID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteProvider(w, r, projectID, pType, providerID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -32946,6 +35606,471 @@ func (siw *ServerInterfaceWrapper) DeleteOrganizationExternalID(w http.ResponseW
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.DeleteOrganizationExternalID(w, r, projectID, organizationID, identifierID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetOrganizationInboxMessages operation middleware
+func (siw *ServerInterfaceWrapper) GetOrganizationInboxMessages(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "organizationID" -------------
+	var organizationID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "organizationID", chi.URLParam(r, "organizationID"), &organizationID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "organizationID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetOrganizationInboxMessagesParams
+
+	// ------------- Optional query parameter "status" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "status", r.URL.Query(), &params.Status, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "status"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "status", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "tags" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "tags", r.URL.Query(), &params.Tags, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "tags"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tags", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "message_source" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "message_source", r.URL.Query(), &params.MessageSource, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "message_source"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "message_source", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "priority" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "priority", r.URL.Query(), &params.Priority, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "priority"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "priority", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "channel" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "channel", r.URL.Query(), &params.Channel, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "channel"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "channel", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "include_archived" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "include_archived", r.URL.Query(), &params.IncludeArchived, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "include_archived"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "include_archived", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "include_scheduled" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "include_scheduled", r.URL.Query(), &params.IncludeScheduled, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "include_scheduled"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "include_scheduled", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "offset", r.URL.Query(), &params.Offset, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "offset"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "search" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "search", r.URL.Query(), &params.Search, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "search"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "search", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetOrganizationInboxMessages(w, r, projectID, organizationID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateOrganizationInboxMessage operation middleware
+func (siw *ServerInterfaceWrapper) CreateOrganizationInboxMessage(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "organizationID" -------------
+	var organizationID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "organizationID", chi.URLParam(r, "organizationID"), &organizationID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "organizationID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateOrganizationInboxMessage(w, r, projectID, organizationID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ArchiveOrganizationInboxMessage operation middleware
+func (siw *ServerInterfaceWrapper) ArchiveOrganizationInboxMessage(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "organizationID" -------------
+	var organizationID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "organizationID", chi.URLParam(r, "organizationID"), &organizationID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "organizationID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "messageID" -------------
+	var messageID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "messageID", chi.URLParam(r, "messageID"), &messageID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "messageID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ArchiveOrganizationInboxMessage(w, r, projectID, organizationID, messageID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ReadOrganizationInboxMessage operation middleware
+func (siw *ServerInterfaceWrapper) ReadOrganizationInboxMessage(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "organizationID" -------------
+	var organizationID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "organizationID", chi.URLParam(r, "organizationID"), &organizationID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "organizationID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "messageID" -------------
+	var messageID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "messageID", chi.URLParam(r, "messageID"), &messageID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "messageID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ReadOrganizationInboxMessage(w, r, projectID, organizationID, messageID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RescheduleOrganizationInboxMessage operation middleware
+func (siw *ServerInterfaceWrapper) RescheduleOrganizationInboxMessage(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "organizationID" -------------
+	var organizationID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "organizationID", chi.URLParam(r, "organizationID"), &organizationID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "organizationID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "messageID" -------------
+	var messageID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "messageID", chi.URLParam(r, "messageID"), &messageID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "messageID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RescheduleOrganizationInboxMessage(w, r, projectID, organizationID, messageID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UnarchiveOrganizationInboxMessage operation middleware
+func (siw *ServerInterfaceWrapper) UnarchiveOrganizationInboxMessage(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "organizationID" -------------
+	var organizationID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "organizationID", chi.URLParam(r, "organizationID"), &organizationID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "organizationID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "messageID" -------------
+	var messageID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "messageID", chi.URLParam(r, "messageID"), &messageID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "messageID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UnarchiveOrganizationInboxMessage(w, r, projectID, organizationID, messageID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UnreadOrganizationInboxMessage operation middleware
+func (siw *ServerInterfaceWrapper) UnreadOrganizationInboxMessage(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "organizationID" -------------
+	var organizationID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "organizationID", chi.URLParam(r, "organizationID"), &organizationID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "organizationID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "messageID" -------------
+	var messageID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "messageID", chi.URLParam(r, "messageID"), &messageID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "messageID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UnreadOrganizationInboxMessage(w, r, projectID, organizationID, messageID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -34104,6 +37229,471 @@ func (siw *ServerInterfaceWrapper) DeleteUserExternalID(w http.ResponseWriter, r
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.DeleteUserExternalID(w, r, projectID, userID, identifierID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetUserInboxMessages operation middleware
+func (siw *ServerInterfaceWrapper) GetUserInboxMessages(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "userID" -------------
+	var userID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userID", chi.URLParam(r, "userID"), &userID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "userID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetUserInboxMessagesParams
+
+	// ------------- Optional query parameter "status" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "status", r.URL.Query(), &params.Status, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "status"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "status", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "tags" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "tags", r.URL.Query(), &params.Tags, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "tags"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tags", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "message_source" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "message_source", r.URL.Query(), &params.MessageSource, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "message_source"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "message_source", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "priority" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "priority", r.URL.Query(), &params.Priority, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "priority"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "priority", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "channel" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "channel", r.URL.Query(), &params.Channel, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "channel"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "channel", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "include_archived" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "include_archived", r.URL.Query(), &params.IncludeArchived, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "include_archived"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "include_archived", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "include_scheduled" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "include_scheduled", r.URL.Query(), &params.IncludeScheduled, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "include_scheduled"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "include_scheduled", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "offset", r.URL.Query(), &params.Offset, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "offset"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "search" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "search", r.URL.Query(), &params.Search, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "search"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "search", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetUserInboxMessages(w, r, projectID, userID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateUserInboxMessage operation middleware
+func (siw *ServerInterfaceWrapper) CreateUserInboxMessage(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "userID" -------------
+	var userID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userID", chi.URLParam(r, "userID"), &userID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "userID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateUserInboxMessage(w, r, projectID, userID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ArchiveUserInboxMessage operation middleware
+func (siw *ServerInterfaceWrapper) ArchiveUserInboxMessage(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "userID" -------------
+	var userID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userID", chi.URLParam(r, "userID"), &userID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "userID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "messageID" -------------
+	var messageID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "messageID", chi.URLParam(r, "messageID"), &messageID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "messageID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ArchiveUserInboxMessage(w, r, projectID, userID, messageID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ReadUserInboxMessage operation middleware
+func (siw *ServerInterfaceWrapper) ReadUserInboxMessage(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "userID" -------------
+	var userID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userID", chi.URLParam(r, "userID"), &userID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "userID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "messageID" -------------
+	var messageID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "messageID", chi.URLParam(r, "messageID"), &messageID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "messageID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ReadUserInboxMessage(w, r, projectID, userID, messageID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RescheduleUserInboxMessage operation middleware
+func (siw *ServerInterfaceWrapper) RescheduleUserInboxMessage(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "userID" -------------
+	var userID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userID", chi.URLParam(r, "userID"), &userID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "userID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "messageID" -------------
+	var messageID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "messageID", chi.URLParam(r, "messageID"), &messageID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "messageID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RescheduleUserInboxMessage(w, r, projectID, userID, messageID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UnarchiveUserInboxMessage operation middleware
+func (siw *ServerInterfaceWrapper) UnarchiveUserInboxMessage(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "userID" -------------
+	var userID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userID", chi.URLParam(r, "userID"), &userID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "userID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "messageID" -------------
+	var messageID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "messageID", chi.URLParam(r, "messageID"), &messageID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "messageID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UnarchiveUserInboxMessage(w, r, projectID, userID, messageID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UnreadUserInboxMessage operation middleware
+func (siw *ServerInterfaceWrapper) UnreadUserInboxMessage(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "userID" -------------
+	var userID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userID", chi.URLParam(r, "userID"), &userID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "userID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "messageID" -------------
+	var messageID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "messageID", chi.URLParam(r, "messageID"), &messageID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "messageID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UnreadUserInboxMessage(w, r, projectID, userID, messageID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -35625,10 +39215,10 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/providers/meta", wrapper.ListProviderMeta)
 	})
 	r.Group(func(r chi.Router) {
-		r.Delete(options.BaseURL+"/api/admin/projects/{projectID}/providers/{providerID}", wrapper.DeleteProvider)
+		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/providers/{type}", wrapper.CreateProvider)
 	})
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/providers/{type}", wrapper.CreateProvider)
+		r.Delete(options.BaseURL+"/api/admin/projects/{projectID}/providers/{type}/{providerID}", wrapper.DeleteProvider)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/providers/{type}/{providerID}", wrapper.GetProvider)
@@ -35692,6 +39282,27 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/identifiers/{identifierID}", wrapper.DeleteOrganizationExternalID)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/inbox", wrapper.GetOrganizationInboxMessages)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/inbox", wrapper.CreateOrganizationInboxMessage)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/inbox/{messageID}/archive", wrapper.ArchiveOrganizationInboxMessage)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/inbox/{messageID}/read", wrapper.ReadOrganizationInboxMessage)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/inbox/{messageID}/schedule", wrapper.RescheduleOrganizationInboxMessage)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/inbox/{messageID}/unarchive", wrapper.UnarchiveOrganizationInboxMessage)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/inbox/{messageID}/unread", wrapper.UnreadOrganizationInboxMessage)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/scheduled", wrapper.GetOrganizationScheduled)
@@ -35767,6 +39378,27 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/api/admin/projects/{projectID}/subjects/users/{userID}/identifiers/{identifierID}", wrapper.DeleteUserExternalID)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/subjects/users/{userID}/inbox", wrapper.GetUserInboxMessages)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/subjects/users/{userID}/inbox", wrapper.CreateUserInboxMessage)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/subjects/users/{userID}/inbox/{messageID}/archive", wrapper.ArchiveUserInboxMessage)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/subjects/users/{userID}/inbox/{messageID}/read", wrapper.ReadUserInboxMessage)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/subjects/users/{userID}/inbox/{messageID}/schedule", wrapper.RescheduleUserInboxMessage)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/subjects/users/{userID}/inbox/{messageID}/unarchive", wrapper.UnarchiveUserInboxMessage)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/subjects/users/{userID}/inbox/{messageID}/unread", wrapper.UnreadUserInboxMessage)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/subjects/users/{userID}/journeys", wrapper.GetUserJourneys)

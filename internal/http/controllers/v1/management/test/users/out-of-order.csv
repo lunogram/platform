@@ -1,4 +1,4 @@
 email,phone,timezone,locale,external_id
-user1@example.com,+1234567890,UTC,en,user-1
-user2@example.com,+1234567891,UTC,en,user-2
-user3@example.com,+1234567892,UTC,en,user-3
+user1@example.com,+1234567890,GMT+2,en,user-1
+user2@example.com,+1234567891,UTC-5,en,user-2
+user3@example.com,+1234567892,PST,en,user-3

@@ -8,14 +8,11 @@ import (
 	"github.com/cloudproud/graceful"
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/container"
+	"github.com/lunogram/platform/internal/ptr"
 	"github.com/lunogram/platform/internal/store"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
-
-func ptr[T any](v T) *T {
-	return &v
-}
 
 // NewContainerStore creates a test database and returns a users State
 func NewContainerStore(t *testing.T) *State {
@@ -53,11 +50,11 @@ func TestCreateUser(t *testing.T) {
 
 	tests := map[string]test{
 		"create user with all fields": {
-			email:    ptr("test@example.com"),
-			phone:    ptr("+1234567890"),
+			email:    ptr.To("test@example.com"),
+			phone:    ptr.To("+1234567890"),
 			data:     json.RawMessage(`{"first_name":"John","last_name":"Doe"}`),
-			timezone: ptr("America/New_York"),
-			locale:   ptr("en"),
+			timezone: ptr.To("America/New_York"),
+			locale:   ptr.To("en"),
 			identifiers: []ExternalIDParam{
 				{Source: "anonymous", ExternalID: "anon_123"},
 				{Source: "default", ExternalID: "user_123"},
@@ -108,7 +105,7 @@ func TestGetUserByExternalID(t *testing.T) {
 	ctx := context.Background()
 
 	externalID := "user_external_123"
-	userID, err := db.CreateUser(ctx, projectID, ptr("external@example.com"), nil, json.RawMessage(`{}`), nil, nil, []ExternalIDParam{
+	userID, err := db.CreateUser(ctx, projectID, ptr.To("external@example.com"), nil, json.RawMessage(`{}`), nil, nil, []ExternalIDParam{
 		{Source: "anonymous", ExternalID: "anon_123"},
 		{Source: "default", ExternalID: externalID},
 	})
@@ -150,19 +147,19 @@ func TestListUsersWithSearch(t *testing.T) {
 	projectID := uuid.New()
 	ctx := context.Background()
 
-	_, err := db.CreateUser(ctx, projectID, ptr("john@example.com"), nil, json.RawMessage(`{}`), nil, nil, []ExternalIDParam{
+	_, err := db.CreateUser(ctx, projectID, ptr.To("john@example.com"), nil, json.RawMessage(`{}`), nil, nil, []ExternalIDParam{
 		{Source: "anonymous", ExternalID: "anon_1"},
 		{Source: "default", ExternalID: "user_john"},
 	})
 	require.NoError(t, err)
 
-	_, err = db.CreateUser(ctx, projectID, ptr("jane@example.com"), nil, json.RawMessage(`{}`), nil, nil, []ExternalIDParam{
+	_, err = db.CreateUser(ctx, projectID, ptr.To("jane@example.com"), nil, json.RawMessage(`{}`), nil, nil, []ExternalIDParam{
 		{Source: "anonymous", ExternalID: "anon_2"},
 		{Source: "default", ExternalID: "user_jane"},
 	})
 	require.NoError(t, err)
 
-	_, err = db.CreateUser(ctx, projectID, nil, ptr("+1234567890"), json.RawMessage(`{}`), nil, nil, []ExternalIDParam{
+	_, err = db.CreateUser(ctx, projectID, nil, ptr.To("+1234567890"), json.RawMessage(`{}`), nil, nil, []ExternalIDParam{
 		{Source: "anonymous", ExternalID: "anon_3"},
 	})
 	require.NoError(t, err)
@@ -288,10 +285,10 @@ func TestUpsertUser(t *testing.T) {
 					{Source: "anonymous", ExternalID: "anon_new"},
 					{Source: "default", ExternalID: "user_new"},
 				},
-				Email: ptr("new@example.com"),
+				Email: ptr.To("new@example.com"),
 				Data:  map[string]any{},
 			},
-			expectedEmail: ptr("new@example.com"),
+			expectedEmail: ptr.To("new@example.com"),
 			description:   "should create new user",
 		},
 		"update existing user by external_id": {
@@ -299,17 +296,17 @@ func TestUpsertUser(t *testing.T) {
 				{Source: "anonymous", ExternalID: "anon_existing"},
 				{Source: "default", ExternalID: "user_existing"},
 			},
-			setupEmail: ptr("old@example.com"),
+			setupEmail: ptr.To("old@example.com"),
 			setupData:  json.RawMessage(`{}`),
 			upsertData: UpsertUserParams{
 				Identifiers: []ExternalIDParam{
 					{Source: "anonymous", ExternalID: "anon_different"},
 					{Source: "default", ExternalID: "user_existing"},
 				},
-				Email: ptr("updated@example.com"),
+				Email: ptr.To("updated@example.com"),
 				Data:  map[string]any{},
 			},
-			expectedEmail: ptr("updated@example.com"),
+			expectedEmail: ptr.To("updated@example.com"),
 			description:   "should update email on conflict",
 		},
 		"upsert with JSONB data": {
@@ -375,12 +372,12 @@ func TestUpdateUserWithDataMerge(t *testing.T) {
 
 	tests := map[string]test{
 		"merge adds new keys": {
-			updateData:   ptr(json.RawMessage(`{"last_name":"Doe"}`)),
+			updateData:   ptr.To(json.RawMessage(`{"last_name":"Doe"}`)),
 			expectedKeys: []string{"first_name", "last_name", "age", "nested"},
 			description:  "should preserve existing keys and add new ones",
 		},
 		"merge overwrites existing keys": {
-			updateData:   ptr(json.RawMessage(`{"age":31}`)),
+			updateData:   ptr.To(json.RawMessage(`{"age":31}`)),
 			expectedKeys: []string{"first_name", "age", "nested"},
 			description:  "should update existing key value",
 		},
@@ -449,7 +446,7 @@ func TestVersionAutoIncrement(t *testing.T) {
 	initialVersion := user.Version
 
 	err = db.UpdateUser(ctx, userID, UserUpdate{
-		Email: ptr("test@example.com"),
+		Email: ptr.To("test@example.com"),
 	})
 	require.NoError(t, err)
 
@@ -468,12 +465,12 @@ func TestUserOAPIConversion(t *testing.T) {
 			{Source: "anonymous", ExternalID: "anon_123"},
 			{Source: "default", ExternalID: "user_123"},
 		},
-		Email:         ptr("test@example.com"),
-		Phone:         ptr("+1234567890"),
+		Email:         ptr.To("test@example.com"),
+		Phone:         ptr.To("+1234567890"),
 		Data:          json.RawMessage(`{"key":"value"}`),
 		HasPushDevice: false,
-		Timezone:      ptr("UTC"),
-		Locale:        ptr("en"),
+		Timezone:      ptr.To("UTC"),
+		Locale:        ptr.To("en"),
 		Version:       1,
 	}
 
@@ -545,8 +542,8 @@ func TestGetUserWithDevices(t *testing.T) {
 			Type:  PushConfigTypeAPNs,
 			Token: token,
 		},
-		OS:    ptr("iOS"),
-		Model: ptr("iPhone 14"),
+		OS:    ptr.To("iOS"),
+		Model: ptr.To("iPhone 14"),
 	})
 	require.NoError(t, err)
 

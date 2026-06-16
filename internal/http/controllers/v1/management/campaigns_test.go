@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/lunogram/platform/internal/ptr"
 	"github.com/lunogram/platform/internal/rbac"
 
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
@@ -341,12 +342,12 @@ func TestUpdateCampaign(t *testing.T) {
 	}{
 		"success": {
 			id:   campaignID,
-			body: oapi.UpdateCampaignJSONRequestBody{Name: ptr("Updated Name")},
+			body: oapi.UpdateCampaignJSONRequestBody{Name: ptr.To("Updated Name")},
 			code: 200,
 		},
 		"transactional clears subscription": {
 			id:   campaignID,
-			body: oapi.UpdateCampaignJSONRequestBody{Transactional: ptr(true)},
+			body: oapi.UpdateCampaignJSONRequestBody{Transactional: ptr.To(true)},
 			code: 200,
 			assert: func(t *testing.T) {
 				t.Helper()
@@ -373,7 +374,7 @@ func TestUpdateCampaign(t *testing.T) {
 		},
 		"not found": {
 			id:   uuid.Nil,
-			body: oapi.UpdateCampaignJSONRequestBody{Name: ptr("Updated Name")},
+			body: oapi.UpdateCampaignJSONRequestBody{Name: ptr.To("Updated Name")},
 			code: 404,
 		},
 	}

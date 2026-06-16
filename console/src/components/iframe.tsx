@@ -20,12 +20,14 @@ export default function Iframe({
         if (frame) {
             if (frame.contentDocument?.body) {
                 frame.contentDocument.body.innerHTML = content
+                frame.contentDocument.body.style.overflow = allowScroll ? "" : "hidden"
+                frame.contentDocument.documentElement.style.overflow = allowScroll ? "" : "hidden"
             }
             if (fullHeight) {
                 frame.style.minHeight = `${frame.contentWindow?.document.documentElement.scrollHeight}px`
             }
         }
-    }, [content, fullHeight])
+    }, [allowScroll, content, fullHeight])
 
     useEffect(() => setBody(), [content, setBody])
 
@@ -36,7 +38,7 @@ export default function Iframe({
             scrolling={allowScroll ? "yes" : "no"}
             sandbox="allow-scripts allow-same-origin"
             ref={ref}
-            style={width ? { width } : {}}
+            style={{ ...(width ? { width } : {}), overflow: allowScroll ? "auto" : "hidden" }}
             onLoad={() => setBody()}
         />
     )

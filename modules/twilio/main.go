@@ -133,7 +133,7 @@ func Send() int32 {
 	params.SetBody(sms.Body)
 
 	if req.Config.WebhookURL != "" {
-		params.SetStatusCallback(req.Config.WebhookURL)
+		params.SetStatusCallback(provider.AppendStatusCallbackMetadata(req.Config.WebhookURL, req.Metadata))
 	}
 
 	if len(sms.MediaURLs) > 0 {
@@ -236,13 +236,22 @@ func WebhookHandler() int32 {
 		data["error_message"] = payload.ErrorMessage
 	}
 
+	// Extract the platform inbox-message UUID from the StatusCallback URL.
+	// A parse failure is logged but never fails the webhook: pre-T06 sends
+	// did not propagate metadata, and Twilio retries are expensive.
+	inboxMessageID, err := provider.ExtractInboxMessageID(req.URL)
+	if err != nil {
+		pdk.Log(pdk.LogWarn, fmt.Sprintf("twilio webhook: %s (continuing with zero inbox_message_id)", err))
+	}
+
 	if err := pdk.OutputJSON(providers.WebhookResponse{
 		Events: []providers.WebhookEvent{
 			{
-				EventName: eventName,
-				MessageID: payload.MessageSid,
-				Timestamp: time.Now().UTC().Format(time.RFC3339),
-				Data:      data,
+				EventName:      eventName,
+				MessageID:      payload.MessageSid,
+				InboxMessageID: inboxMessageID,
+				Timestamp:      time.Now().UTC().Format(time.RFC3339),
+				Data:           data,
 			},
 		},
 	}); err != nil {

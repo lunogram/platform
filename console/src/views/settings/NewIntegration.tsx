@@ -170,7 +170,10 @@ export default function NewIntegration() {
                                 <p>
                                     {searchQuery
                                         ? t("no_results")
-                                        : t("no_integrations_available", "No integrations available")}
+                                        : t(
+                                              "no_integrations_available",
+                                              "No integrations available",
+                                          )}
                                 </p>
                             </div>
                         ) : (
@@ -227,7 +230,7 @@ export default function NewIntegration() {
                                                             variant="secondary"
                                                             className="text-[10px] px-1.5 py-0"
                                                         >
-                                                            {t("action.singular", "Action")}
+                                                            {t("action")}
                                                         </Badge>
                                                     )}
                                                 </div>
