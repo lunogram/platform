@@ -110,6 +110,17 @@ func (h *UserInboxHandler) Messages() HandlerFunc {
 			}
 		}
 
+		// A message scheduled for the future is persisted but not dispatched
+		// here. The cluster scheduler re-injects it onto this subject once
+		// scheduled_at has passed, at which point it flows through to dispatch.
+		// This keeps scheduling honored regardless of which path published the
+		// message (client/campaign publish immediately; management withholds
+		// until due).
+		if !created.IsDue() {
+			h.logger.Debug("user inbox message not yet due, awaiting scheduler", zap.Stringer("message_id", created.ID), zap.Time("scheduled_at", created.ScheduledAt))
+			return nil
+		}
+
 		// Dispatch non-inbox channels before marking the message as sent.
 		if created.Channel != modules.ChannelInbox {
 			switch providers.Channel(created.Channel) {
