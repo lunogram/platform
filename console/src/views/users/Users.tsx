@@ -1,4 +1,4 @@
-import { useCallback, useState, useRef, useContext } from "react"
+import { useCallback, useMemo, useState, useRef, useContext } from "react"
 import { useParams } from "react-router"
 import { useTranslation } from "react-i18next"
 import {
@@ -11,12 +11,13 @@ import {
     Upload,
     Mail,
     Database,
+    Check,
 } from "lucide-react"
 import { UserImportDialog } from "@/components/ui/user-import-dialog"
 import { NIL } from "uuid"
 import { useRoute } from "@/hooks/use-route"
 import { useResolver } from "../../hooks"
-import { formatDate } from "../../utils"
+import { formatDate, cn } from "../../utils"
 import { getRandomColor } from "@/lib/colors"
 import { getUserDisplayName, getUserInitials, getPrimaryExternalId } from "@/lib/name"
 import { PreferencesContext } from "@/contexts/PreferencesContext"
@@ -45,6 +46,15 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import {
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+    CommandList,
+} from "@/components/ui/command"
 import { AttributeEditor } from "@/components/ui/attribute-editor"
 import { LocalePicker } from "@/components/locale/picker"
 
@@ -86,6 +96,7 @@ export default function Users() {
     const [newUserExternalId, setNewUserExternalId] = useState("")
     const [newUserEmail, setNewUserEmail] = useState("")
     const [newUserPhone, setNewUserPhone] = useState("")
+    const [isNewUserTimezoneOpen, setIsNewUserTimezoneOpen] = useState(false)
     const [newUserTimezone, setNewUserTimezone] = useState(
         () => Intl.DateTimeFormat().resolvedOptions().timeZone,
     )
@@ -94,6 +105,7 @@ export default function Users() {
     )
     const [newUserData, setNewUserData] = useState<Record<string, unknown>>({})
     const [page, setPage] = useState(1)
+    const timezones = useMemo(() => Intl.supportedValuesOf("timeZone"), [])
     const limit = 15
     const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>()
 
@@ -450,12 +462,59 @@ export default function Users() {
                         <div className="grid sm:grid-cols-2 gap-4">
                             <div className="grid gap-2 content-start">
                                 <Label htmlFor="timezone">{t("timezone")}</Label>
-                                <Input
-                                    id="timezone"
-                                    placeholder={t("enter_timezone", "e.g., America/New_York")}
-                                    value={newUserTimezone}
-                                    onChange={(e) => setNewUserTimezone(e.target.value)}
-                                />
+                                <Popover
+                                    open={isNewUserTimezoneOpen}
+                                    onOpenChange={setIsNewUserTimezoneOpen}
+                                >
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            role="combobox"
+                                            id="timezone"
+                                            className="justify-between"
+                                        >
+                                            {newUserTimezone ||
+                                                t("select_timezone", "Select timezone")}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-72 p-0" align="start">
+                                        <Command>
+                                            <CommandInput
+                                                placeholder={t(
+                                                    "search_timezone",
+                                                    "Search timezone...",
+                                                )}
+                                            />
+                                            <CommandList>
+                                                <CommandEmpty>
+                                                    {t("no_timezone_found", "No timezone found.")}
+                                                </CommandEmpty>
+                                                <CommandGroup>
+                                                    {timezones.map((tz) => (
+                                                        <CommandItem
+                                                            key={tz}
+                                                            value={tz}
+                                                            onSelect={() => {
+                                                                setNewUserTimezone(tz)
+                                                                setIsNewUserTimezoneOpen(false)
+                                                            }}
+                                                        >
+                                                            <Check
+                                                                className={cn(
+                                                                    "mr-2 h-4 w-4",
+                                                                    newUserTimezone === tz
+                                                                        ? "opacity-100"
+                                                                        : "opacity-0",
+                                                                )}
+                                                            />
+                                                            {tz}
+                                                        </CommandItem>
+                                                    ))}
+                                                </CommandGroup>
+                                            </CommandList>
+                                        </Command>
+                                    </PopoverContent>
+                                </Popover>
                             </div>
                             <div className="grid gap-2 content-start">
                                 <Label>{t("locale.singular")}</Label>
