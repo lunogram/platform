@@ -13,10 +13,12 @@ import {
     MoreHorizontal,
     Copy,
     Archive,
+    ArchiveRestore,
 } from "lucide-react"
 import { NIL } from "uuid"
 
 import api from "../../api"
+import { oapiClient } from "@/oapi/client"
 import { useResolver } from "../../hooks"
 import { formatDate, snakeToTitle } from "../../utils"
 import { getRandomColor } from "@/lib/colors"
@@ -78,11 +80,14 @@ export default function Lists() {
     const [debouncedQuery, setDebouncedQuery] = useState("")
     const [isCreateOpen, setIsCreateOpen] = useState(false)
     const [offset, setOffset] = useState(0)
-    const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>()
+    const [archivedOffset, setArchivedOffset] = useState(0)
+    const [showArchived, setShowArchived] = useState(false)
+    const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
     const handleSearch = useCallback((value: string) => {
         setSearchQuery(value)
         setOffset(0)
+        setArchivedOffset(0)
         clearTimeout(searchTimeoutRef.current)
         searchTimeoutRef.current = setTimeout(() => {
             setDebouncedQuery(value)
@@ -99,17 +104,43 @@ export default function Lists() {
         }, [projectId, debouncedQuery, offset]),
     )
 
-    const lists = result?.results
-    const total = result?.total ?? 0
-    const hasNextPage = offset + pageSize < total
-    const hasPrevPage = offset > 0
+    const [archivedResult, , reloadArchived] = useResolver(
+        useCallback(async () => {
+            if (!showArchived) return null
+            const response = await oapiClient.GET("/api/admin/projects/{projectID}/lists", {
+                params: {
+                    path: {
+                        projectID: projectId,
+                    },
+                    query: {
+                        limit: pageSize,
+                        offset: archivedOffset,
+                        include_deleted: true,
+                        search: debouncedQuery || undefined,
+                    },
+                },
+            })
+            if (response.error || !response.data) return null
+            return response.data
+        }, [projectId, debouncedQuery, showArchived, archivedOffset]),
+    )
+
+    const isArchivedView = showArchived
+    const lists = (isArchivedView ? archivedResult?.results : result?.results) ?? []
+    const total = isArchivedView ? (archivedResult?.total ?? 0) : (result?.total ?? 0)
+    const isLoading = isArchivedView ? archivedResult === null : !result
+    const currentOffset = isArchivedView ? archivedOffset : offset
+    const hasNextPage = currentOffset + pageSize < total
+    const hasPrevPage = currentOffset > 0
 
     const handleNextPage = () => {
-        setOffset((prev) => prev + pageSize)
+        const setter = isArchivedView ? setArchivedOffset : setOffset
+        setter((prev) => prev + pageSize)
     }
 
     const handlePrevPage = () => {
-        setOffset((prev) => Math.max(0, prev - pageSize))
+        const setter = isArchivedView ? setArchivedOffset : setOffset
+        setter((prev) => Math.max(0, prev - pageSize))
     }
 
     const handleRowClick = (list: List) => {
@@ -126,6 +157,27 @@ export default function Lists() {
         e.stopPropagation()
         await api.lists.delete(projectId, id)
         await reload()
+    }
+
+    const handleUnarchiveList = async (id: UUID) => {
+        const response = await oapiClient.POST(
+            "/api/admin/projects/{projectID}/lists/{listID}/unarchive",
+            {
+                params: {
+                    path: {
+                        projectID: projectId,
+                        listID: id,
+                    },
+                },
+            },
+        )
+        if (response.error) {
+            throw response.error
+        }
+
+        setShowArchived(false)
+        setArchivedOffset(0)
+        await Promise.all([reload(), reloadArchived()])
     }
 
     return (
@@ -160,6 +212,19 @@ export default function Lists() {
                 </div>
                 <div className="flex w-full items-center gap-2 sm:w-auto">
                     <Button
+                        variant={showArchived ? "secondary" : "ghost"}
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        aria-label={t("show_archived", "Show archived")}
+                        aria-pressed={showArchived}
+                        onClick={() => {
+                            setArchivedOffset(0)
+                            setShowArchived((prev) => !prev)
+                        }}
+                    >
+                        <ArchiveRestore className="h-4 w-4" />
+                    </Button>
+                    <Button
                         onClick={() => setIsCreateOpen(true)}
                         className="flex-1 sm:flex-initial"
                         aria-label={t("create_list_from_header", "Create List from header")}
@@ -191,7 +256,7 @@ export default function Lists() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {!lists ? (
+                        {isLoading ? (
                             Array.from({ length: 5 }).map((_, i) => (
                                 <TableRow key={i}>
                                     <TableCell>
@@ -226,11 +291,16 @@ export default function Lists() {
                                     <div className="flex flex-col items-center gap-2 text-muted-foreground">
                                         <ListFilter className="h-8 w-8" />
                                         <p>
-                                            {debouncedQuery
-                                                ? t("no_lists_found", "No lists found")
-                                                : t("no_lists_yet", "No lists yet")}
+                                            {isArchivedView
+                                                ? t(
+                                                      "no_archived_lists",
+                                                      "No archived lists",
+                                                  )
+                                                : debouncedQuery
+                                                  ? t("no_lists_found", "No lists found")
+                                                  : t("no_lists_yet", "No lists yet")}
                                         </p>
-                                        {!debouncedQuery && (
+                                        {!debouncedQuery && !isArchivedView && (
                                             <Button
                                                 variant="outline"
                                                 size="sm"
@@ -311,15 +381,27 @@ export default function Lists() {
                                                         <Copy className="mr-2 h-4 w-4" />
                                                         {t("duplicate")}
                                                     </DropdownMenuItem>
-                                                    <DropdownMenuItem
-                                                        onClick={(e) =>
-                                                            handleArchiveList(e, list.id)
-                                                        }
-                                                        className="text-destructive"
-                                                    >
-                                                        <Archive className="mr-2 h-4 w-4" />
-                                                        {t("archive")}
-                                                    </DropdownMenuItem>
+                                                    {isArchivedView ? (
+                                                        <DropdownMenuItem
+                                                            onClick={(e) => {
+                                                                e.stopPropagation()
+                                                                handleUnarchiveList(list.id)
+                                                            }}
+                                                        >
+                                                            <ArchiveRestore className="mr-2 h-4 w-4" />
+                                                            {t("unarchive", "Unarchive")}
+                                                        </DropdownMenuItem>
+                                                    ) : (
+                                                        <DropdownMenuItem
+                                                            onClick={(e) =>
+                                                                handleArchiveList(e, list.id)
+                                                            }
+                                                            className="text-destructive"
+                                                        >
+                                                            <Archive className="mr-2 h-4 w-4" />
+                                                            {t("archive")}
+                                                        </DropdownMenuItem>
+                                                    )}
                                                 </DropdownMenuContent>
                                             </DropdownMenu>
                                         </TableCell>
@@ -331,7 +413,7 @@ export default function Lists() {
                 </Table>
 
                 {/* Pagination */}
-                {lists && lists.length > 0 && (
+                {lists.length > 0 && (
                     <div className="flex items-center justify-between border-t px-4 py-3">
                         <p className="text-sm text-muted-foreground">
                             {total} {t("lists").toLowerCase()}
@@ -408,6 +490,7 @@ export default function Lists() {
                     </div>
                 </div>
             </div>
+
 
             {/* Create List Dialog */}
             <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
