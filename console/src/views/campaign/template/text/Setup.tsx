@@ -5,7 +5,7 @@ import type { Campaign, Template, User, Locale } from "@/types"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router"
 import api from "@/api"
-import * as z from "zod"
+import type * as z from "zod"
 
 import { Render } from "@/renderTemplates"
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
@@ -25,22 +25,24 @@ import { ProjectContext, TemplateContext } from "@/contexts"
 import { useCampaignVariableContext } from "../../CampaignVariableContext"
 import { useSendTestSMS } from "./useSendTestSMS"
 
-const textSetupFormSchema = z.object({
-    sender_identity_id: z.string().optional(),
-    body: z.string("Message is required").min(1, "Message is required"),
-})
+import { textSetupFormSchema } from "@/validation/campaign/template/text/setup"
 
-export function TextForm(campaign: Campaign, template?: Template) {
-    const formSchema = textSetupFormSchema.extend({
-        sender_identity_id: z.string("From number is required").min(1),
-    })
+export function TextForm(_campaign: Campaign, template?: Template) {
+    const formSchema = textSetupFormSchema
+
+    const defaultValues: z.infer<typeof textSetupFormSchema> = {
+        sender_identity_id: "",
+        body: "",
+    }
+
+    if (template && template.type === "sms") {
+        defaultValues.sender_identity_id = template.sender_identity_id ?? ""
+        defaultValues.body = template.data.body
+    }
 
     return useForm({
         resolver: zodResolver(formSchema),
-        defaultValues: {
-            sender_identity_id: template?.sender_identity_id ?? "",
-            body: template?.data.body ?? "",
-        },
+        defaultValues: defaultValues,
     })
 }
 

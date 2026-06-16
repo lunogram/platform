@@ -1,4 +1,6 @@
 import { useCallback, useContext, useEffect, useState } from "react"
+import { Controller, useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
 import { useTranslation } from "react-i18next"
 import { Radio, Mail, Smartphone, MessageSquareDot, Info, Calendar } from "lucide-react"
 
@@ -32,10 +34,15 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Switch } from "@/components/ui/switch"
 import { Input } from "@/components/ui/input"
+import {
+    createBroadcastSchema,
+    type CreateBroadcastFormValues,
+} from "@/validation/broadcast/create-broadcast"
+import { broadcastResponseSchema } from "@/validation/broadcast/broadcast-response"
 
 const channelIcons: Record<ChannelType, typeof Mail> = {
     email: Mail,
-    text: Smartphone,
+    sms: Smartphone,
     push: MessageSquareDot,
 }
 
@@ -60,22 +67,30 @@ export function CreateBroadcastDialog({
     const [project] = useContext(ProjectContext)
     const { t } = useTranslation()
 
-    const [selectedCampaignId, setSelectedCampaignId] = useState<UUID | undefined>(
-        preselectedCampaignId,
-    )
-    const [selectedListId, setSelectedListId] = useState<UUID | undefined>(preselectedListId)
     const [isSubmitting, setIsSubmitting] = useState(false)
-    const [isScheduled, setIsScheduled] = useState(false)
-    const [scheduledAt, setScheduledAt] = useState("")
 
-    // Sync pre-selected props when they change (useState only uses initial value)
+    const form = useForm<CreateBroadcastFormValues>({
+        resolver: zodResolver(createBroadcastSchema),
+        defaultValues: {
+            campaign_id: preselectedCampaignId ?? "",
+            list_id: preselectedListId ?? "",
+            is_scheduled: false,
+            scheduled_at: "",
+        },
+    })
+
+    const selectedCampaignId = form.watch("campaign_id") || undefined
+    const selectedListId = form.watch("list_id") || undefined
+    const isScheduled = form.watch("is_scheduled")
+
+    // Sync pre-selected props when they change
     useEffect(() => {
-        if (preselectedCampaignId) setSelectedCampaignId(preselectedCampaignId)
-    }, [preselectedCampaignId])
+        if (preselectedCampaignId) form.setValue("campaign_id", preselectedCampaignId)
+    }, [preselectedCampaignId, form])
 
     useEffect(() => {
-        if (preselectedListId) setSelectedListId(preselectedListId)
-    }, [preselectedListId])
+        if (preselectedListId) form.setValue("list_id", preselectedListId)
+    }, [preselectedListId, form])
 
     // Load campaigns
     const [campaignsResult] = useResolver(
@@ -106,15 +121,12 @@ export function CreateBroadcastDialog({
     const selectedCampaign = campaigns.find((c: Campaign) => c.id === selectedCampaignId)
     const selectedList = lists.find((l: List) => l.id === selectedListId)
 
-    const canSubmit =
-        !!selectedCampaignId && !!selectedListId && !isSubmitting && (!isScheduled || !!scheduledAt)
-
-    const handleSubmit = async () => {
-        if (!selectedCampaignId || !selectedListId) return
+    const handleSubmit = async (values: CreateBroadcastFormValues) => {
+        if (!values.campaign_id || !values.list_id) return
 
         // Validate scheduled time is in the future
-        if (isScheduled && scheduledAt) {
-            const scheduledDate = new Date(scheduledAt)
+        if (values.is_scheduled && values.scheduled_at) {
+            const scheduledDate = new Date(values.scheduled_at)
             if (scheduledDate <= new Date()) {
                 toast.error(
                     t("scheduled_at_must_be_future", "Scheduled time must be in the future"),
@@ -132,16 +144,17 @@ export function CreateBroadcastDialog({
                         path: { projectID: project.id },
                     },
                     body: {
-                        campaign_id: selectedCampaignId,
-                        list_id: selectedListId,
-                        ...(isScheduled && scheduledAt
-                            ? { scheduled_at: new Date(scheduledAt).toISOString() }
+                        campaign_id: values.campaign_id,
+                        list_id: values.list_id,
+                        ...(values.is_scheduled && values.scheduled_at
+                            ? { scheduled_at: new Date(values.scheduled_at).toISOString() }
                             : {}),
                     },
                 },
             )
             if (error) throw error
-            onCreated?.(broadcast as Broadcast)
+            if (!broadcast) throw new Error("Unexpected empty response")
+            onCreated?.(broadcastResponseSchema.parse(broadcast))
         } catch (err) {
             const detail =
                 err instanceof Object && "detail" in err && typeof err.detail === "string"
@@ -155,11 +168,12 @@ export function CreateBroadcastDialog({
 
     const handleOpenChange = (value: boolean) => {
         if (!value) {
-            // Reset state on close (only if not pre-selected)
-            if (!preselectedCampaignId) setSelectedCampaignId(undefined)
-            if (!preselectedListId) setSelectedListId(undefined)
-            setIsScheduled(false)
-            setScheduledAt("")
+            form.reset({
+                campaign_id: preselectedCampaignId ?? "",
+                list_id: preselectedListId ?? "",
+                is_scheduled: false,
+                scheduled_at: "",
+            })
         }
         onOpenChange(value)
     }
@@ -178,75 +192,108 @@ export function CreateBroadcastDialog({
                     {/* Campaign Selector */}
                     <div className="grid gap-2">
                         <Label>{t("campaign.singular", "Campaign")}</Label>
-                        <Select
-                            value={selectedCampaignId}
-                            onValueChange={(v) => setSelectedCampaignId(v as UUID)}
-                            disabled={!!preselectedCampaignId}
-                        >
-                            <SelectTrigger>
-                                <SelectValue
-                                    placeholder={t("select_campaign", "Select a campaign...")}
-                                />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {campaigns.length === 0 ? (
-                                    <div className="px-2 py-4 text-center text-sm text-muted-foreground">
-                                        {t(
-                                            "no_campaigns_available",
-                                            "No campaigns available. Create a campaign first.",
+                        <Controller
+                            control={form.control}
+                            name="campaign_id"
+                            render={({ field }) => (
+                                <Select
+                                    value={field.value}
+                                    onValueChange={field.onChange}
+                                    disabled={!!preselectedCampaignId}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue
+                                            placeholder={t(
+                                                "select_campaign",
+                                                "Select a campaign...",
+                                            )}
+                                        />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {campaigns.length === 0 ? (
+                                            <div className="px-2 py-4 text-center text-sm text-muted-foreground">
+                                                {t(
+                                                    "no_campaigns_available",
+                                                    "No campaigns available. Create a campaign first.",
+                                                )}
+                                            </div>
+                                        ) : (
+                                            campaigns.map((campaign: Campaign) => {
+                                                const ChannelIcon =
+                                                    channelIcons[campaign.channel] ?? Mail
+                                                return (
+                                                    <SelectItem
+                                                        key={campaign.id}
+                                                        value={campaign.id}
+                                                    >
+                                                        <div className="flex items-center gap-2">
+                                                            <ChannelIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                                                            <span>{campaign.name}</span>
+                                                        </div>
+                                                    </SelectItem>
+                                                )
+                                            })
                                         )}
-                                    </div>
-                                ) : (
-                                    campaigns.map((campaign: Campaign) => {
-                                        const ChannelIcon = channelIcons[campaign.channel] ?? Mail
-                                        return (
-                                            <SelectItem key={campaign.id} value={campaign.id}>
-                                                <div className="flex items-center gap-2">
-                                                    <ChannelIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                                                    <span>{campaign.name}</span>
-                                                </div>
-                                            </SelectItem>
-                                        )
-                                    })
-                                )}
-                            </SelectContent>
-                        </Select>
+                                    </SelectContent>
+                                </Select>
+                            )}
+                        />
+                        {form.formState.errors.campaign_id && (
+                            <p className="text-sm text-destructive">
+                                {form.formState.errors.campaign_id.message}
+                            </p>
+                        )}
                     </div>
 
                     {/* List Selector */}
                     <div className="grid gap-2">
                         <Label>{t("list", "List")}</Label>
-                        <Select
-                            value={selectedListId}
-                            onValueChange={(v) => setSelectedListId(v as UUID)}
-                            disabled={!!preselectedListId}
-                        >
-                            <SelectTrigger>
-                                <SelectValue placeholder={t("select_list", "Select a list...")} />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {lists.length === 0 ? (
-                                    <div className="px-2 py-4 text-center text-sm text-muted-foreground">
-                                        {t(
-                                            "no_lists_available",
-                                            "No published lists available. Publish a list first.",
-                                        )}
-                                    </div>
-                                ) : (
-                                    lists.map((list: List) => (
-                                        <SelectItem key={list.id} value={list.id}>
-                                            <div className="flex items-center gap-2">
-                                                <span>{list.name}</span>
-                                                <span className="text-muted-foreground text-xs">
-                                                    ({list.users_count?.toLocaleString() ?? 0}{" "}
-                                                    {t("users").toLowerCase()})
-                                                </span>
+                        <Controller
+                            control={form.control}
+                            name="list_id"
+                            render={({ field }) => (
+                                <Select
+                                    value={field.value}
+                                    onValueChange={field.onChange}
+                                    disabled={!!preselectedListId}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue
+                                            placeholder={t("select_list", "Select a list...")}
+                                        />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {lists.length === 0 ? (
+                                            <div className="px-2 py-4 text-center text-sm text-muted-foreground">
+                                                {t(
+                                                    "no_lists_available",
+                                                    "No published lists available. Publish a list first.",
+                                                )}
                                             </div>
-                                        </SelectItem>
-                                    ))
-                                )}
-                            </SelectContent>
-                        </Select>
+                                        ) : (
+                                            lists.map((list: List) => (
+                                                <SelectItem key={list.id} value={list.id}>
+                                                    <div className="flex items-center gap-2">
+                                                        <span>{list.name}</span>
+                                                        <span className="text-muted-foreground text-xs">
+                                                            (
+                                                            {list.users_count?.toLocaleString() ??
+                                                                0}{" "}
+                                                            {t("users").toLowerCase()})
+                                                        </span>
+                                                    </div>
+                                                </SelectItem>
+                                            ))
+                                        )}
+                                    </SelectContent>
+                                </Select>
+                            )}
+                        />
+                        {form.formState.errors.list_id && (
+                            <p className="text-sm text-destructive">
+                                {form.formState.errors.list_id.message}
+                            </p>
+                        )}
                     </div>
 
                     {/* Schedule Toggle */}
@@ -258,19 +305,29 @@ export function CreateBroadcastDialog({
                                     {t("schedule_broadcast", "Schedule for later")}
                                 </Label>
                             </div>
-                            <Switch
-                                id="schedule-toggle"
-                                checked={isScheduled}
-                                onCheckedChange={setIsScheduled}
+                            <Controller
+                                control={form.control}
+                                name="is_scheduled"
+                                render={({ field }) => (
+                                    <Switch
+                                        id="schedule-toggle"
+                                        checked={field.value}
+                                        onCheckedChange={field.onChange}
+                                    />
+                                )}
                             />
                         </div>
                         {isScheduled && (
                             <Input
                                 type="datetime-local"
-                                value={scheduledAt}
-                                onChange={(e) => setScheduledAt(e.target.value)}
+                                {...form.register("scheduled_at")}
                                 min={new Date(Date.now() + 60_000).toISOString().slice(0, 16)}
                             />
+                        )}
+                        {form.formState.errors.scheduled_at && (
+                            <p className="text-sm text-destructive">
+                                {form.formState.errors.scheduled_at.message}
+                            </p>
                         )}
                     </div>
 
@@ -284,7 +341,7 @@ export function CreateBroadcastDialog({
                                     `This will send "${selectedCampaign.name}" to ${selectedList.users_count?.toLocaleString() ?? 0} users in "${selectedList.name}".`,
                                     {
                                         campaign: selectedCampaign.name,
-                                        count: selectedList.users_count?.toLocaleString() ?? 0,
+                                        count: selectedList.users_count ?? 0,
                                         list: selectedList.name,
                                     },
                                 )}
@@ -301,7 +358,7 @@ export function CreateBroadcastDialog({
                     >
                         {t("cancel")}
                     </Button>
-                    <Button onClick={handleSubmit} disabled={!canSubmit}>
+                    <Button onClick={form.handleSubmit(handleSubmit)} disabled={isSubmitting}>
                         {isSubmitting ? (
                             <Radio className="mr-2 h-4 w-4 animate-spin" />
                         ) : isScheduled ? (
