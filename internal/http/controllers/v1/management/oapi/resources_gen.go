@@ -778,6 +778,9 @@ type BroadcastState string
 
 // Campaign defines model for Campaign.
 type Campaign struct {
+	// Archived Whether the campaign has been archived
+	Archived *bool `json:"archived,omitempty"`
+
 	// Channel Communication channel type
 	Channel        Channel             `json:"channel"`
 	CreatedAt      time.Time           `json:"created_at"`
@@ -1301,6 +1304,8 @@ type JourneyStepType string
 
 // List defines model for List.
 type List struct {
+	// Archived Whether the list has been archived
+	Archived  *bool     `json:"archived,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
 
 	// DraftRule Draft rule definition (from the draft version, if one exists)
@@ -2189,6 +2194,9 @@ type UserSubscriptionList struct {
 	Total int `json:"total"`
 }
 
+// IncludeDeleted defines model for IncludeDeleted.
+type IncludeDeleted = bool
+
 // Limit defines model for Limit.
 type Limit = PaginationLimit
 
@@ -2436,6 +2444,9 @@ type ListCampaignsParams struct {
 
 	// Search Search query string
 	Search *Search `form:"search,omitempty" json:"search,omitempty"`
+
+	// IncludeDeleted When true, return only archived (soft-deleted) items instead of active ones
+	IncludeDeleted *IncludeDeleted `form:"include_deleted,omitempty" json:"include_deleted,omitempty"`
 }
 
 // GetCampaignUsersParams defines parameters for GetCampaignUsers.
@@ -2484,6 +2495,9 @@ type ListJourneysParams struct {
 
 	// Search Search query string
 	Search *Search `form:"search,omitempty" json:"search,omitempty"`
+
+	// IncludeDeleted When true, return only archived (soft-deleted) items instead of active ones
+	IncludeDeleted *IncludeDeleted `form:"include_deleted,omitempty" json:"include_deleted,omitempty"`
 }
 
 // CreateJourneyParams defines parameters for CreateJourney.
@@ -2526,6 +2540,9 @@ type ListListsParams struct {
 
 	// Search Search query string
 	Search *Search `form:"search,omitempty" json:"search,omitempty"`
+
+	// IncludeDeleted When true, return only archived (soft-deleted) items instead of active ones
+	IncludeDeleted *IncludeDeleted `form:"include_deleted,omitempty" json:"include_deleted,omitempty"`
 }
 
 // GetListUsersParams defines parameters for GetListUsers.
@@ -3174,6 +3191,9 @@ type ClientInterface interface {
 
 	SendTest(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, templateID openapi_types.UUID, body SendTestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// UnarchiveCampaign request
+	UnarchiveCampaign(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetCampaignUsers request
 	GetCampaignUsers(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, params *GetCampaignUsersParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -3227,6 +3247,9 @@ type ClientInterface interface {
 	SetJourneyStepsWithBody(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	SetJourneySteps(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, body SetJourneyStepsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UnarchiveJourney request
+	UnarchiveJourney(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CancelUserJourney request
 	CancelUserJourney(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -3290,6 +3313,9 @@ type ClientInterface interface {
 
 	// DuplicateList request
 	DuplicateList(ctx context.Context, projectID openapi_types.UUID, listID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UnarchiveList request
+	UnarchiveList(ctx context.Context, projectID openapi_types.UUID, listID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetListUsers request
 	GetListUsers(ctx context.Context, projectID openapi_types.UUID, listID openapi_types.UUID, params *GetListUsersParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -4279,6 +4305,18 @@ func (c *Client) SendTest(ctx context.Context, projectID openapi_types.UUID, cam
 	return c.Client.Do(req)
 }
 
+func (c *Client) UnarchiveCampaign(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUnarchiveCampaignRequest(c.Server, projectID, campaignID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) GetCampaignUsers(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, params *GetCampaignUsersParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetCampaignUsersRequest(c.Server, projectID, campaignID, params)
 	if err != nil {
@@ -4497,6 +4535,18 @@ func (c *Client) SetJourneyStepsWithBody(ctx context.Context, projectID openapi_
 
 func (c *Client) SetJourneySteps(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, body SetJourneyStepsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewSetJourneyStepsRequest(c.Server, projectID, journeyID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UnarchiveJourney(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUnarchiveJourneyRequest(c.Server, projectID, journeyID)
 	if err != nil {
 		return nil, err
 	}
@@ -4773,6 +4823,18 @@ func (c *Client) UpdateList(ctx context.Context, projectID openapi_types.UUID, l
 
 func (c *Client) DuplicateList(ctx context.Context, projectID openapi_types.UUID, listID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDuplicateListRequest(c.Server, projectID, listID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UnarchiveList(ctx context.Context, projectID openapi_types.UUID, listID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUnarchiveListRequest(c.Server, projectID, listID)
 	if err != nil {
 		return nil, err
 	}
@@ -7836,6 +7898,18 @@ func NewListCampaignsRequest(server string, projectID openapi_types.UUID, params
 
 		}
 
+		if params.IncludeDeleted != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "include_deleted", *params.IncludeDeleted, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
 		if encoded := queryValues.Encode(); encoded != "" {
 			rawQueryFragments = append(rawQueryFragments, encoded)
 		}
@@ -8346,6 +8420,47 @@ func NewSendTestRequestWithBody(server string, projectID openapi_types.UUID, cam
 	return req, nil
 }
 
+// NewUnarchiveCampaignRequest generates requests for UnarchiveCampaign
+func NewUnarchiveCampaignRequest(server string, projectID openapi_types.UUID, campaignID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "campaignID", campaignID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/campaigns/%s/unarchive", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetCampaignUsersRequest generates requests for GetCampaignUsers
 func NewGetCampaignUsersRequest(server string, projectID openapi_types.UUID, campaignID openapi_types.UUID, params *GetCampaignUsersParams) (*http.Request, error) {
 	var err error
@@ -8814,6 +8929,18 @@ func NewListJourneysRequest(server string, projectID openapi_types.UUID, params 
 
 		}
 
+		if params.IncludeDeleted != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "include_deleted", *params.IncludeDeleted, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
 		if encoded := queryValues.Encode(); encoded != "" {
 			rawQueryFragments = append(rawQueryFragments, encoded)
 		}
@@ -9211,6 +9338,47 @@ func NewSetJourneyStepsRequestWithBody(server string, projectID openapi_types.UU
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewUnarchiveJourneyRequest generates requests for UnarchiveJourney
+func NewUnarchiveJourneyRequest(server string, projectID openapi_types.UUID, journeyID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "journeyID", journeyID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/journeys/%s/unarchive", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -9849,6 +10017,18 @@ func NewListListsRequest(server string, projectID openapi_types.UUID, params *Li
 
 		}
 
+		if params.IncludeDeleted != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "include_deleted", *params.IncludeDeleted, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
 		if encoded := queryValues.Encode(); encoded != "" {
 			rawQueryFragments = append(rawQueryFragments, encoded)
 		}
@@ -10070,6 +10250,47 @@ func NewDuplicateListRequest(server string, projectID openapi_types.UUID, listID
 	}
 
 	operationPath := fmt.Sprintf("/api/admin/projects/%s/lists/%s/duplicate", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUnarchiveListRequest generates requests for UnarchiveList
+func NewUnarchiveListRequest(server string, projectID openapi_types.UUID, listID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "listID", listID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/lists/%s/unarchive", pathParam0, pathParam1)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -15628,6 +15849,9 @@ type ClientWithResponsesInterface interface {
 
 	SendTestWithResponse(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, templateID openapi_types.UUID, body SendTestJSONRequestBody, reqEditors ...RequestEditorFn) (*SendTestResponse, error)
 
+	// UnarchiveCampaignWithResponse request
+	UnarchiveCampaignWithResponse(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, reqEditors ...RequestEditorFn) (*UnarchiveCampaignResponse, error)
+
 	// GetCampaignUsersWithResponse request
 	GetCampaignUsersWithResponse(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, params *GetCampaignUsersParams, reqEditors ...RequestEditorFn) (*GetCampaignUsersResponse, error)
 
@@ -15681,6 +15905,9 @@ type ClientWithResponsesInterface interface {
 	SetJourneyStepsWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetJourneyStepsResponse, error)
 
 	SetJourneyStepsWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, body SetJourneyStepsJSONRequestBody, reqEditors ...RequestEditorFn) (*SetJourneyStepsResponse, error)
+
+	// UnarchiveJourneyWithResponse request
+	UnarchiveJourneyWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, reqEditors ...RequestEditorFn) (*UnarchiveJourneyResponse, error)
 
 	// CancelUserJourneyWithResponse request
 	CancelUserJourneyWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*CancelUserJourneyResponse, error)
@@ -15744,6 +15971,9 @@ type ClientWithResponsesInterface interface {
 
 	// DuplicateListWithResponse request
 	DuplicateListWithResponse(ctx context.Context, projectID openapi_types.UUID, listID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DuplicateListResponse, error)
+
+	// UnarchiveListWithResponse request
+	UnarchiveListWithResponse(ctx context.Context, projectID openapi_types.UUID, listID openapi_types.UUID, reqEditors ...RequestEditorFn) (*UnarchiveListResponse, error)
 
 	// GetListUsersWithResponse request
 	GetListUsersWithResponse(ctx context.Context, projectID openapi_types.UUID, listID openapi_types.UUID, params *GetListUsersParams, reqEditors ...RequestEditorFn) (*GetListUsersResponse, error)
@@ -17315,6 +17545,36 @@ func (r SendTestResponse) ContentType() string {
 	return ""
 }
 
+type UnarchiveCampaignResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r UnarchiveCampaignResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UnarchiveCampaignResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UnarchiveCampaignResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type GetCampaignUsersResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -17810,6 +18070,36 @@ func (r SetJourneyStepsResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r SetJourneyStepsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UnarchiveJourneyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r UnarchiveJourneyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UnarchiveJourneyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UnarchiveJourneyResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -18335,6 +18625,36 @@ func (r DuplicateListResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r DuplicateListResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UnarchiveListResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r UnarchiveListResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UnarchiveListResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UnarchiveListResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -21819,6 +22139,15 @@ func (c *ClientWithResponses) SendTestWithResponse(ctx context.Context, projectI
 	return ParseSendTestResponse(rsp)
 }
 
+// UnarchiveCampaignWithResponse request returning *UnarchiveCampaignResponse
+func (c *ClientWithResponses) UnarchiveCampaignWithResponse(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, reqEditors ...RequestEditorFn) (*UnarchiveCampaignResponse, error) {
+	rsp, err := c.UnarchiveCampaign(ctx, projectID, campaignID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUnarchiveCampaignResponse(rsp)
+}
+
 // GetCampaignUsersWithResponse request returning *GetCampaignUsersResponse
 func (c *ClientWithResponses) GetCampaignUsersWithResponse(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, params *GetCampaignUsersParams, reqEditors ...RequestEditorFn) (*GetCampaignUsersResponse, error) {
 	rsp, err := c.GetCampaignUsers(ctx, projectID, campaignID, params, reqEditors...)
@@ -21985,6 +22314,15 @@ func (c *ClientWithResponses) SetJourneyStepsWithResponse(ctx context.Context, p
 		return nil, err
 	}
 	return ParseSetJourneyStepsResponse(rsp)
+}
+
+// UnarchiveJourneyWithResponse request returning *UnarchiveJourneyResponse
+func (c *ClientWithResponses) UnarchiveJourneyWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, reqEditors ...RequestEditorFn) (*UnarchiveJourneyResponse, error) {
+	rsp, err := c.UnarchiveJourney(ctx, projectID, journeyID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUnarchiveJourneyResponse(rsp)
 }
 
 // CancelUserJourneyWithResponse request returning *CancelUserJourneyResponse
@@ -22186,6 +22524,15 @@ func (c *ClientWithResponses) DuplicateListWithResponse(ctx context.Context, pro
 		return nil, err
 	}
 	return ParseDuplicateListResponse(rsp)
+}
+
+// UnarchiveListWithResponse request returning *UnarchiveListResponse
+func (c *ClientWithResponses) UnarchiveListWithResponse(ctx context.Context, projectID openapi_types.UUID, listID openapi_types.UUID, reqEditors ...RequestEditorFn) (*UnarchiveListResponse, error) {
+	rsp, err := c.UnarchiveList(ctx, projectID, listID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUnarchiveListResponse(rsp)
 }
 
 // GetListUsersWithResponse request returning *GetListUsersResponse
@@ -24549,6 +24896,32 @@ func ParseSendTestResponse(rsp *http.Response) (*SendTestResponse, error) {
 	return response, nil
 }
 
+// ParseUnarchiveCampaignResponse parses an HTTP response from a UnarchiveCampaignWithResponse call
+func ParseUnarchiveCampaignResponse(rsp *http.Response) (*UnarchiveCampaignResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UnarchiveCampaignResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseGetCampaignUsersResponse parses an HTTP response from a GetCampaignUsersWithResponse call
 func ParseGetCampaignUsersResponse(rsp *http.Response) (*GetCampaignUsersResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -25052,6 +25425,32 @@ func ParseSetJourneyStepsResponse(rsp *http.Response) (*SetJourneyStepsResponse,
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUnarchiveJourneyResponse parses an HTTP response from a UnarchiveJourneyWithResponse call
+func ParseUnarchiveJourneyResponse(rsp *http.Response) (*UnarchiveJourneyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UnarchiveJourneyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -25575,6 +25974,32 @@ func ParseDuplicateListResponse(rsp *http.Response) (*DuplicateListResponse, err
 		}
 		response.JSON201 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUnarchiveListResponse parses an HTTP response from a UnarchiveListWithResponse call
+func ParseUnarchiveListResponse(rsp *http.Response) (*UnarchiveListResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UnarchiveListResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -28765,6 +29190,9 @@ type ServerInterface interface {
 	// Send test
 	// (POST /api/admin/projects/{projectID}/campaigns/{campaignID}/templates/{templateID}/test)
 	SendTest(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, campaignID openapi_types.UUID, templateID openapi_types.UUID)
+	// Unarchive campaign
+	// (POST /api/admin/projects/{projectID}/campaigns/{campaignID}/unarchive)
+	UnarchiveCampaign(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, campaignID openapi_types.UUID)
 	// Get campaign users
 	// (GET /api/admin/projects/{projectID}/campaigns/{campaignID}/users)
 	GetCampaignUsers(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, campaignID openapi_types.UUID, params GetCampaignUsersParams)
@@ -28813,6 +29241,9 @@ type ServerInterface interface {
 	// Set journey steps
 	// (PUT /api/admin/projects/{projectID}/journeys/{journeyID}/steps)
 	SetJourneySteps(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID)
+	// Unarchive journey
+	// (POST /api/admin/projects/{projectID}/journeys/{journeyID}/unarchive)
+	UnarchiveJourney(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID)
 	// Cancel user journey
 	// (DELETE /api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID})
 	CancelUserJourney(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID)
@@ -28864,6 +29295,9 @@ type ServerInterface interface {
 	// Duplicate list
 	// (POST /api/admin/projects/{projectID}/lists/{listID}/duplicate)
 	DuplicateList(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, listID openapi_types.UUID)
+	// Unarchive list
+	// (POST /api/admin/projects/{projectID}/lists/{listID}/unarchive)
+	UnarchiveList(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, listID openapi_types.UUID)
 	// Get list users
 	// (GET /api/admin/projects/{projectID}/lists/{listID}/users)
 	GetListUsers(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, listID openapi_types.UUID, params GetListUsersParams)
@@ -29395,6 +29829,12 @@ func (_ Unimplemented) SendTest(w http.ResponseWriter, r *http.Request, projectI
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// Unarchive campaign
+// (POST /api/admin/projects/{projectID}/campaigns/{campaignID}/unarchive)
+func (_ Unimplemented) UnarchiveCampaign(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, campaignID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // Get campaign users
 // (GET /api/admin/projects/{projectID}/campaigns/{campaignID}/users)
 func (_ Unimplemented) GetCampaignUsers(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, campaignID openapi_types.UUID, params GetCampaignUsersParams) {
@@ -29488,6 +29928,12 @@ func (_ Unimplemented) GetJourneySteps(w http.ResponseWriter, r *http.Request, p
 // Set journey steps
 // (PUT /api/admin/projects/{projectID}/journeys/{journeyID}/steps)
 func (_ Unimplemented) SetJourneySteps(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Unarchive journey
+// (POST /api/admin/projects/{projectID}/journeys/{journeyID}/unarchive)
+func (_ Unimplemented) UnarchiveJourney(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -29590,6 +30036,12 @@ func (_ Unimplemented) UpdateList(w http.ResponseWriter, r *http.Request, projec
 // Duplicate list
 // (POST /api/admin/projects/{projectID}/lists/{listID}/duplicate)
 func (_ Unimplemented) DuplicateList(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, listID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Unarchive list
+// (POST /api/admin/projects/{projectID}/lists/{listID}/unarchive)
+func (_ Unimplemented) UnarchiveList(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, listID openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -31512,6 +31964,19 @@ func (siw *ServerInterfaceWrapper) ListCampaigns(w http.ResponseWriter, r *http.
 		return
 	}
 
+	// ------------- Optional query parameter "include_deleted" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "include_deleted", r.URL.Query(), &params.IncludeDeleted, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "include_deleted"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "include_deleted", Err: err})
+		}
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListCampaigns(w, r, projectID, params)
 	}))
@@ -31960,6 +32425,47 @@ func (siw *ServerInterfaceWrapper) SendTest(w http.ResponseWriter, r *http.Reque
 	handler.ServeHTTP(w, r)
 }
 
+// UnarchiveCampaign operation middleware
+func (siw *ServerInterfaceWrapper) UnarchiveCampaign(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "campaignID" -------------
+	var campaignID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "campaignID", chi.URLParam(r, "campaignID"), &campaignID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "campaignID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UnarchiveCampaign(w, r, projectID, campaignID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetCampaignUsers operation middleware
 func (siw *ServerInterfaceWrapper) GetCampaignUsers(w http.ResponseWriter, r *http.Request) {
 
@@ -32383,6 +32889,19 @@ func (siw *ServerInterfaceWrapper) ListJourneys(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	// ------------- Optional query parameter "include_deleted" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "include_deleted", r.URL.Query(), &params.IncludeDeleted, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "include_deleted"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "include_deleted", Err: err})
+		}
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListJourneys(w, r, projectID, params)
 	}))
@@ -32720,6 +33239,47 @@ func (siw *ServerInterfaceWrapper) SetJourneySteps(w http.ResponseWriter, r *htt
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.SetJourneySteps(w, r, projectID, journeyID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UnarchiveJourney operation middleware
+func (siw *ServerInterfaceWrapper) UnarchiveJourney(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "journeyID" -------------
+	var journeyID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "journeyID", chi.URLParam(r, "journeyID"), &journeyID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "journeyID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UnarchiveJourney(w, r, projectID, journeyID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -33299,6 +33859,19 @@ func (siw *ServerInterfaceWrapper) ListLists(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	// ------------- Optional query parameter "include_deleted" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "include_deleted", r.URL.Query(), &params.IncludeDeleted, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "include_deleted"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "include_deleted", Err: err})
+		}
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListLists(w, r, projectID, params)
 	}))
@@ -33497,6 +34070,47 @@ func (siw *ServerInterfaceWrapper) DuplicateList(w http.ResponseWriter, r *http.
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.DuplicateList(w, r, projectID, listID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UnarchiveList operation middleware
+func (siw *ServerInterfaceWrapper) UnarchiveList(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "listID" -------------
+	var listID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "listID", chi.URLParam(r, "listID"), &listID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "listID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UnarchiveList(w, r, projectID, listID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -38466,6 +39080,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/campaigns/{campaignID}/templates/{templateID}/test", wrapper.SendTest)
 	})
 	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/campaigns/{campaignID}/unarchive", wrapper.UnarchiveCampaign)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/campaigns/{campaignID}/users", wrapper.GetCampaignUsers)
 	})
 	r.Group(func(r chi.Router) {
@@ -38512,6 +39129,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/api/admin/projects/{projectID}/journeys/{journeyID}/steps", wrapper.SetJourneySteps)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/journeys/{journeyID}/unarchive", wrapper.UnarchiveJourney)
 	})
 	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID}", wrapper.CancelUserJourney)
@@ -38563,6 +39183,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/lists/{listID}/duplicate", wrapper.DuplicateList)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/lists/{listID}/unarchive", wrapper.UnarchiveList)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/lists/{listID}/users", wrapper.GetListUsers)
