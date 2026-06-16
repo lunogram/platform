@@ -10,10 +10,6 @@ import (
 	"go.uber.org/zap/zaptest"
 )
 
-func ptr[T any](v T) *T {
-	return &v
-}
-
 func NewContainerStore(t *testing.T) *State {
 	t.Helper()
 

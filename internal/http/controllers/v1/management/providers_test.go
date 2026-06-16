@@ -14,6 +14,7 @@ import (
 
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	internalProviders "github.com/lunogram/platform/internal/providers"
+	"github.com/lunogram/platform/internal/ptr"
 	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/store/management"
 	teststore "github.com/lunogram/platform/internal/store/test"
@@ -58,8 +59,8 @@ func TestListProviders(t *testing.T) {
 	tests := map[string]test{
 		"default pagination": {
 			params: oapi.ListProvidersParams{
-				Limit:  ptr(oapi.Limit(20)),
-				Offset: ptr(oapi.Offset(0)),
+				Limit:  ptr.To(oapi.Limit(20)),
+				Offset: ptr.To(oapi.Offset(0)),
 			},
 			code: 200,
 		},
@@ -327,7 +328,7 @@ func TestUpdateProvider(t *testing.T) {
 	tests := map[string]test{
 		"not found": {
 			body: oapi.UpdateProviderJSONRequestBody{
-				Name: ptr("Updated Provider"),
+				Name: ptr.To("Updated Provider"),
 			},
 			providerID: uuid.New(),
 			code:       404,

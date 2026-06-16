@@ -33,10 +33,9 @@ type Broadcast struct {
 	ListType   string         `db:"list_type"`
 	State      BroadcastState `db:"state"`
 	// Total is the number of messages published to NATS during broadcast
-	// processing. The actual delivered count comes from campaign_sends and
-	// is fetched separately when returning responses to the client.
+	// processing. Sent tracks the number of messages actually delivered.
 	Total       int        `db:"total"`
-	Sent        int        `db:"-"` // computed: actual delivery count from campaign_sends
+	Sent        int        `db:"sent"`
 	Error       *string    `db:"error"`
 	ScheduledAt *time.Time `db:"scheduled_at"`
 	CreatedAt   time.Time  `db:"created_at"`
@@ -129,7 +128,7 @@ func (s *BroadcastsStore) GetBroadcast(ctx context.Context, projectID, broadcast
 	query := `
 	SELECT
 		cb.id, cb.project_id, cb.campaign_id, cb.list_id, cb.list_name, cb.list_type,
-		cb.state, cb.total, cb.error, cb.scheduled_at, cb.created_at, cb.updated_at, cb.started_at, cb.completed_at,
+		cb.state, cb.total, cb.sent, cb.error, cb.scheduled_at, cb.created_at, cb.updated_at, cb.started_at, cb.completed_at,
 		c.name AS campaign_name, c.channel AS campaign_channel
 	FROM campaign_broadcasts cb
 	INNER JOIN campaigns c ON c.id = cb.campaign_id
@@ -160,7 +159,7 @@ func (s *BroadcastsStore) ListBroadcasts(ctx context.Context, projectID uuid.UUI
 	query := `
 	SELECT
 		cb.id, cb.project_id, cb.campaign_id, cb.list_id, cb.list_name, cb.list_type,
-		cb.state, cb.total, cb.error, cb.scheduled_at, cb.created_at, cb.updated_at, cb.started_at, cb.completed_at,
+		cb.state, cb.total, cb.sent, cb.error, cb.scheduled_at, cb.created_at, cb.updated_at, cb.started_at, cb.completed_at,
 		c.name AS campaign_name, c.channel AS campaign_channel,
 		COUNT(*) OVER () AS total_count
 	FROM campaign_broadcasts cb
@@ -256,6 +255,19 @@ func (s *BroadcastsStore) TransitionBroadcastState(ctx context.Context, projectI
 	return n > 0, nil
 }
 
+// IncrementBroadcastSent atomically increments the sent counter on a broadcast
+// and returns the new sent count and total.
+func (s *BroadcastsStore) IncrementBroadcastSent(ctx context.Context, broadcastID uuid.UUID) (sent int, total int, err error) {
+	stmt := `
+	UPDATE campaign_broadcasts
+	SET sent = sent + 1, updated_at = NOW()
+	WHERE id = $1
+	RETURNING sent, total`
+
+	err = s.db.QueryRowContext(ctx, stmt, broadcastID).Scan(&sent, &total)
+	return
+}
+
 // IncrementBroadcastTotal atomically adds delta to the broadcast's total count.
 // This is used during batched broadcast processing to track progress without
 // race conditions between batches.
@@ -326,35 +338,35 @@ func (s *BroadcastsStore) CancelBroadcast(ctx context.Context, projectID, broadc
 
 // ScanScheduledBroadcasts finds broadcasts in 'scheduled' state whose scheduled_at
 // time has passed. The scanner callback is invoked for each due broadcast. This is
-// used by the cluster leader scheduler to trigger scheduled broadcasts.
-func (s *BroadcastsStore) ScanScheduledBroadcasts(ctx context.Context, scanner func(Broadcast) error) (int, error) {
+// used by the cluster leader scheduler to trigger scheduled broadcasts. The query
+// uses FOR UPDATE SKIP LOCKED so that rows already locked by a concurrent
+// transaction are silently skipped instead of blocking. This prevents
+// double-processing during cluster leader transitions where two nodes may
+// briefly both act as leader.
+func (s *BroadcastsStore) ScanScheduledBroadcasts(ctx context.Context, limit int, scanner func(Broadcast) error) (int, error) {
 	query := `
 	SELECT id, project_id, campaign_id, list_id, list_name, list_type, state, total, error, scheduled_at, created_at, updated_at, started_at, completed_at
 	FROM campaign_broadcasts
 	WHERE state = 'scheduled'
 	AND scheduled_at IS NOT NULL
 	AND scheduled_at <= NOW()
-	ORDER BY scheduled_at ASC`
+	ORDER BY scheduled_at ASC
+	LIMIT $1
+	FOR UPDATE SKIP LOCKED`
 
-	rows, err := s.db.QueryxContext(ctx, query)
+	var broadcasts []Broadcast
+	err := s.db.SelectContext(ctx, &broadcasts, query, limit)
 	if err != nil {
 		return 0, err
 	}
-	defer rows.Close()
 
-	var n int
-	for rows.Next() {
-		var b Broadcast
-		if err := rows.StructScan(&b); err != nil {
-			return n, err
-		}
+	for n, b := range broadcasts {
 		if err := scanner(b); err != nil {
 			return n, err
 		}
-		n++
 	}
 
-	return n, rows.Err()
+	return len(broadcasts), nil
 }
 
 // TransitionScheduledBroadcastToSending atomically transitions a broadcast from
@@ -407,7 +419,7 @@ func (s *BroadcastsStore) TransitionPendingBroadcastToSending(ctx context.Contex
 	return nil
 }
 
-// BroadcastUser combines campaign_sends metadata with user profile data.
+// BroadcastUser combines inbox message metadata with user profile data.
 type BroadcastUser struct {
 	ID       uuid.UUID  `db:"id" json:"id"`
 	UserID   uuid.UUID  `db:"user_id" json:"user_id"`
@@ -420,21 +432,23 @@ type BroadcastUser struct {
 
 type BroadcastUsers []BroadcastUser
 
-// GetBroadcastUsers queries campaign_sends for a specific broadcast_id
+// GetBroadcastUsers queries user_inbox_messages for a specific broadcast_id
 // and joins with the users table to return user profile data. The search
 // parameter filters on full_name, email, or phone.
 func (s *BroadcastsStore) GetBroadcastUsers(ctx context.Context, usersDB store.DB, broadcastID uuid.UUID, pagination store.Pagination, search string) (BroadcastUsers, int, error) {
 	query := `
 	SELECT
-		cs.id, cs.user_id, cs.state, cs.sent_at,
+		m.id, m.user_id,
+		CASE WHEN m.sent_at IS NOT NULL THEN 'sent' ELSE 'pending' END AS state,
+		m.sent_at,
 		NULLIF(TRIM(COALESCE(u.data->>'first_name', '') || ' ' || COALESCE(u.data->>'last_name', '')), '') AS full_name,
 		u.email, u.phone,
 		COUNT(*) OVER () AS total_count
-	FROM campaign_sends cs
-	INNER JOIN users u ON u.id = cs.user_id
-	WHERE cs.broadcast_id = $1
+	FROM user_inbox_messages m
+	INNER JOIN users u ON u.id = m.user_id
+	WHERE m.broadcast_id = $1 AND m.deleted_at IS NULL
 	AND ($4 = '' OR u.data->>'first_name' ILIKE '%' || $4 || '%' OR u.data->>'last_name' ILIKE '%' || $4 || '%' OR u.email ILIKE '%' || $4 || '%' OR u.phone ILIKE '%' || $4 || '%')
-	ORDER BY cs.created_at DESC
+	ORDER BY m.created_at DESC
 	LIMIT $2 OFFSET $3`
 
 	var results []struct {
