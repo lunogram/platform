@@ -699,7 +699,6 @@ export interface EmailTemplateData {
 }
 
 export interface TextTemplateData {
-    sender_identity_id: string
     body: string
 }
 

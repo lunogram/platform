@@ -121,7 +121,7 @@ export default function OrganizationDetailEvents() {
     const [searchQuery, setSearchQuery] = useState("")
     const [debouncedQuery, setDebouncedQuery] = useState("")
     const [expandedEventId, setExpandedEventId] = useState<string | null>(null)
-    const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>(setTimeout(() => {}, 0))
+    const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined)
     const limit = 25
 
     const [isCreateOpen, setIsCreateOpen] = useState(false)

@@ -218,7 +218,7 @@ export default function ScheduledDetailTable({
     const [resumeTarget, setResumeTarget] = useState<ScheduledItem | null>(null)
     const [resumeMode, setResumeMode] = useState<"immediately" | "at_next_interval">("immediately")
 
-    const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>(setTimeout(() => {}, 0))
+    const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined)
     const limit = 15
 
     const handleSearch = (value: string) => {

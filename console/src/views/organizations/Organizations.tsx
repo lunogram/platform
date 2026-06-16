@@ -70,7 +70,7 @@ export default function Organizations() {
     })
     const [page, setPage] = useState(1)
     const limit = 15
-    const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>(setTimeout(() => {}, 0))
+    const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
     // Debounce search
     const handleSearch = useCallback((value: string) => {
