@@ -795,6 +795,8 @@ github.com/tklauser/go-sysconf v0.3.13 h1:GBUpcahXSpR2xN01jhkNAbTLRk2Yzgggk8IM08
 github.com/tklauser/go-sysconf v0.3.13/go.mod h1:zwleP4Q4OehZHGn4CYZDipCgg9usW5IJePewFCGVEa0=
 github.com/tklauser/numcpus v0.7.0 h1:yjuerZP127QG9m5Zh/mSO4wqurYil27tHrqwRoRjpr4=
 github.com/tklauser/numcpus v0.7.0/go.mod h1:bb6dMVcj8A42tSE7i32fsIUCbQNllK5iDguyOZRUzAY=
+github.com/tkuchiki/go-timezone v0.2.3 h1:D3TVdIPrFsu9lxGxqNX2wsZwn1MZtTqTW0mdevMozHc=
+github.com/tkuchiki/go-timezone v0.2.3/go.mod h1:oFweWxYl35C/s7HMVZXiA19Jr9Y0qJHMaG/J2TES4LY=
 github.com/tomarrell/wrapcheck/v2 v2.10.0 h1:SzRCryzy4IrAH7bVGG4cK40tNUhmVmMDuJujy4XwYDg=
 github.com/tomarrell/wrapcheck/v2 v2.10.0/go.mod h1:g9vNIyhb5/9TQgumxQyOEqDHsmGYcGsVMOx/xGkqdMo=
 github.com/tommy-muehle/go-mnd/v2 v2.5.1 h1:NowYhSdyE/1zwK9QCLeRb6USWdoif80Ie+v+yU8u1Zw=
