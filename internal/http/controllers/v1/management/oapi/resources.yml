@@ -8534,6 +8534,9 @@ components:
           type: string
           format: date-time
           example: "2025-01-10T08:00:00Z"
+        has_pending_events:
+          type: boolean
+          description: Whether there are pending scheduled events for this schedule instance
 
     UserScheduledList:
       allOf:
