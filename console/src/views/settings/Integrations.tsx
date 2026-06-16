@@ -73,6 +73,8 @@ export default function Integrations() {
 
     const [result, , reload] = useResolver(
         useCallback(async () => {
+            const query = debouncedQuery ? { search: debouncedQuery } : {}
+
             const [{ data: providers }, { data: actions }] = await Promise.all([
                 oapiClient.GET("/api/admin/projects/{projectID}/providers", {
                     params: {
@@ -83,7 +85,7 @@ export default function Integrations() {
                 oapiClient.GET("/api/admin/projects/{projectID}/actions", {
                     params: {
                         path: { projectID: project.id },
-                        query: { limit: 50, offset: 0 },
+                        query: { limit: 50, offset: 0, ...query },
                     },
                 }),
             ])
