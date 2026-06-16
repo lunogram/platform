@@ -5454,7 +5454,7 @@ components:
       schema:
         type: boolean
         default: false
-      description: Include archived/soft-deleted items in the results
+      description: When true, return only archived (soft-deleted) items instead of active ones
 
   responses:
     Error:
