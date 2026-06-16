@@ -3,6 +3,8 @@ import type { Project } from "../../types"
 import { useTranslation } from "react-i18next"
 import type { UseFormReturn } from "react-hook-form"
 import { Controller, FormProvider, useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { projectFormSchema } from "@/validation/project/project-form"
 import { Globe, MessageSquareText } from "lucide-react"
 
 import { Input } from "@/components/ui/input"
@@ -59,6 +61,7 @@ export default function ProjectForm({ project, onSave }: ProjectFormProps) {
         locale: browserLocale,
     }
     const form = useForm<Project>({
+        resolver: zodResolver(projectFormSchema),
         defaultValues: defaults,
     })
     const handleSubmit = form.handleSubmit(
@@ -133,7 +136,6 @@ export default function ProjectForm({ project, onSave }: ProjectFormProps) {
                                     <Controller
                                         control={form.control}
                                         name="name"
-                                        rules={{ required: true }}
                                         render={({ field }) => (
                                             <Input
                                                 id="name"
@@ -153,7 +155,6 @@ export default function ProjectForm({ project, onSave }: ProjectFormProps) {
                                     <Controller
                                         control={form.control}
                                         name="locale"
-                                        rules={{ required: true }}
                                         render={({ field }) => (
                                             <LocalePicker
                                                 value={field.value}
@@ -200,7 +201,6 @@ export default function ProjectForm({ project, onSave }: ProjectFormProps) {
                                     <Controller
                                         control={form.control}
                                         name="timezone"
-                                        rules={{ required: true }}
                                         render={({ field }) => (
                                             <Select
                                                 value={field.value}
@@ -237,7 +237,6 @@ export default function ProjectForm({ project, onSave }: ProjectFormProps) {
                             <Controller
                                 control={form.control}
                                 name="name"
-                                rules={{ required: true }}
                                 render={({ field }) => (
                                     <Input
                                         id="name"
@@ -282,7 +281,6 @@ export default function ProjectForm({ project, onSave }: ProjectFormProps) {
                             <Controller
                                 control={form.control}
                                 name="locale"
-                                rules={{ required: true }}
                                 render={({ field }) => (
                                     <LocalePicker value={field.value} onChange={field.onChange} />
                                 )}
@@ -299,7 +297,6 @@ export default function ProjectForm({ project, onSave }: ProjectFormProps) {
                             <Controller
                                 control={form.control}
                                 name="timezone"
-                                rules={{ required: true }}
                                 render={({ field }) => (
                                     <Select value={field.value} onValueChange={field.onChange}>
                                         <SelectTrigger id="timezone">

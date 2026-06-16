@@ -49,18 +49,19 @@ type ScheduleOffset struct {
 
 // UserSchedule represents a user's assignment to a schedule.
 type UserSchedule struct {
-	ID          uuid.UUID       `db:"id" json:"id"`
-	UserID      uuid.UUID       `db:"user_id" json:"user_id"`
-	ScheduleID  uuid.UUID       `db:"schedule_id" json:"schedule_id"`
-	ScheduledAt *time.Time      `db:"scheduled_at" json:"scheduled_at,omitempty"` // fire time for single
-	StartAt     *time.Time      `db:"start_at" json:"start_at,omitempty"`         // start of interval for recurring (historical, never mutated after creation)
-	AnchorAt    *time.Time      `db:"anchor_at" json:"anchor_at,omitempty"`       // computation base for occurrence (scheduled_at = anchor_at + occurrence * interval)
-	Interval    *string         `db:"interval" json:"interval,omitempty"`         // duration string for recurring (e.g. "1 month", "30 days")
-	Occurrence  int             `db:"occurrence" json:"occurrence"`               // number of intervals advanced from anchor_at
-	Data        json.RawMessage `db:"data" json:"data"`
-	PausedAt    *time.Time      `db:"paused_at" json:"paused_at,omitempty"`
-	CreatedAt   time.Time       `db:"created_at" json:"created_at"`
-	UpdatedAt   time.Time       `db:"updated_at" json:"updated_at"`
+	ID               uuid.UUID       `db:"id" json:"id"`
+	UserID           uuid.UUID       `db:"user_id" json:"user_id"`
+	ScheduleID       uuid.UUID       `db:"schedule_id" json:"schedule_id"`
+	ScheduledAt      *time.Time      `db:"scheduled_at" json:"scheduled_at,omitempty"` // fire time for single
+	StartAt          *time.Time      `db:"start_at" json:"start_at,omitempty"`         // start of interval for recurring (historical, never mutated after creation)
+	AnchorAt         *time.Time      `db:"anchor_at" json:"anchor_at,omitempty"`       // computation base for occurrence (scheduled_at = anchor_at + occurrence * interval)
+	Interval         *string         `db:"interval" json:"interval,omitempty"`         // duration string for recurring (e.g. "1 month", "30 days")
+	Occurrence       int             `db:"occurrence" json:"occurrence"`               // number of intervals advanced from anchor_at
+	Data             json.RawMessage `db:"data" json:"data"`
+	PausedAt         *time.Time      `db:"paused_at" json:"paused_at,omitempty"`
+	HasPendingEvents bool            `db:"has_pending_events" json:"has_pending_events"`
+	CreatedAt        time.Time       `db:"created_at" json:"created_at"`
+	UpdatedAt        time.Time       `db:"updated_at" json:"updated_at"`
 }
 
 // ScheduledEvent represents a pre-computed event to be fired by the scheduler.
@@ -89,18 +90,19 @@ type DueScheduledEvent struct {
 
 // OrganizationSchedule represents an organization's assignment to a schedule.
 type OrganizationSchedule struct {
-	ID             uuid.UUID       `db:"id" json:"id"`
-	OrganizationID uuid.UUID       `db:"organization_id" json:"organization_id"`
-	ScheduleID     uuid.UUID       `db:"schedule_id" json:"schedule_id"`
-	ScheduledAt    *time.Time      `db:"scheduled_at" json:"scheduled_at,omitempty"`
-	StartAt        *time.Time      `db:"start_at" json:"start_at,omitempty"`
-	AnchorAt       *time.Time      `db:"anchor_at" json:"anchor_at,omitempty"` // computation base for occurrence (scheduled_at = anchor_at + occurrence * interval)
-	Interval       *string         `db:"interval" json:"interval,omitempty"`
-	Occurrence     int             `db:"occurrence" json:"occurrence"` // number of intervals advanced from anchor_at
-	Data           json.RawMessage `db:"data" json:"data"`
-	PausedAt       *time.Time      `db:"paused_at" json:"paused_at,omitempty"`
-	CreatedAt      time.Time       `db:"created_at" json:"created_at"`
-	UpdatedAt      time.Time       `db:"updated_at" json:"updated_at"`
+	ID               uuid.UUID       `db:"id" json:"id"`
+	OrganizationID   uuid.UUID       `db:"organization_id" json:"organization_id"`
+	ScheduleID       uuid.UUID       `db:"schedule_id" json:"schedule_id"`
+	ScheduledAt      *time.Time      `db:"scheduled_at" json:"scheduled_at,omitempty"`
+	StartAt          *time.Time      `db:"start_at" json:"start_at,omitempty"`
+	AnchorAt         *time.Time      `db:"anchor_at" json:"anchor_at,omitempty"` // computation base for occurrence (scheduled_at = anchor_at + occurrence * interval)
+	Interval         *string         `db:"interval" json:"interval,omitempty"`
+	Occurrence       int             `db:"occurrence" json:"occurrence"` // number of intervals advanced from anchor_at
+	Data             json.RawMessage `db:"data" json:"data"`
+	PausedAt         *time.Time      `db:"paused_at" json:"paused_at,omitempty"`
+	HasPendingEvents bool            `db:"has_pending_events" json:"has_pending_events"`
+	CreatedAt        time.Time       `db:"created_at" json:"created_at"`
+	UpdatedAt        time.Time       `db:"updated_at" json:"updated_at"`
 }
 
 // OrgScheduledEvent represents a pre-computed event for an organization schedule.
@@ -677,6 +679,10 @@ func (s *ScheduledStore) ListUserSchedules(ctx context.Context, projectID, userI
 	SELECT
 		us.id, us.user_id, us.schedule_id, us.scheduled_at, us.start_at, us.anchor_at, us.interval,
 		us.occurrence, COALESCE(us.data, '{}'::jsonb) AS data, us.paused_at, us.created_at, us.updated_at,
+		EXISTS (
+			SELECT 1 FROM user_scheduled_events use
+			WHERE use.user_schedule_id = us.id AND use.fired_at IS NULL
+		) AS has_pending_events,
 		COUNT(*) OVER () AS total_count
 	FROM user_schedules us
 	INNER JOIN schedules sc ON us.schedule_id = sc.id
@@ -744,8 +750,12 @@ func (s *ScheduledStore) ListDueScheduledEvents(ctx context.Context, limit int) 
 	return events, err
 }
 
-// ScanDueScheduledEvents iterates over due scheduled events and calls fn for each row.
-func (s *ScheduledStore) ScanDueScheduledEvents(ctx context.Context, fn func(DueScheduledEvent) error) (int, error) {
+// ScanDueScheduledEvents iterates over at most limit due user scheduled events
+// and calls fn for each row. The query uses FOR UPDATE OF se SKIP LOCKED so that
+// rows already locked by a concurrent transaction are silently skipped instead of
+// blocking. This prevents double-processing during cluster leader transitions
+// where two nodes may briefly both act as leader.
+func (s *ScheduledStore) ScanDueScheduledEvents(ctx context.Context, limit int, fn func(DueScheduledEvent) error) (int, error) {
 	stmt := `
 	SELECT
 		se.id, se.user_schedule_id, se.schedule_offset_id, se.user_id, se.schedule_id,
@@ -758,27 +768,23 @@ func (s *ScheduledStore) ScanDueScheduledEvents(ctx context.Context, fn func(Due
 	JOIN schedules sc ON se.schedule_id = sc.id
 	JOIN schedule_offsets so ON se.schedule_offset_id = so.id
 	WHERE se.fired_at IS NULL AND se.fire_at <= NOW()
-	ORDER BY se.fire_at ASC`
+	ORDER BY se.fire_at ASC
+	LIMIT $1
+	FOR UPDATE OF se SKIP LOCKED`
 
-	rows, err := s.db.QueryxContext(ctx, stmt)
+	var events []DueScheduledEvent
+	err := s.db.SelectContext(ctx, &events, stmt, limit)
 	if err != nil {
 		return 0, err
 	}
-	defer rows.Close()
 
-	var n int
-	for rows.Next() {
-		var event DueScheduledEvent
-		if err := rows.StructScan(&event); err != nil {
-			return n, err
-		}
+	for n, event := range events {
 		if err := fn(event); err != nil {
 			return n, err
 		}
-		n++
 	}
 
-	return n, rows.Err()
+	return len(events), nil
 }
 
 // MarkScheduledEventFired marks a scheduled event as fired.
@@ -866,8 +872,12 @@ func (s *ScheduledStore) generateScheduledEvents(ctx context.Context, us UserSch
 // ScanRecurringUserSchedulesWithoutPendingEvents finds recurring user_schedules whose
 // scheduled_at is in the past and that have no pending (unfired) user_scheduled_events.
 // For each match it advances scheduled_at by the interval until it is in the future,
-// updates the row, and generates the next batch of user_scheduled_events.
-func (s *ScheduledStore) ScanRecurringUserSchedulesWithoutPendingEvents(ctx context.Context, fn func(UserSchedule) error) (int, error) {
+// updates the row, and generates the next batch of user_scheduled_events. The query
+// uses FOR UPDATE OF us SKIP LOCKED so that rows already locked by a concurrent
+// transaction are silently skipped instead of blocking. This prevents
+// double-processing during cluster leader transitions where two nodes may
+// briefly both act as leader.
+func (s *ScheduledStore) ScanRecurringUserSchedulesWithoutPendingEvents(ctx context.Context, limit int, fn func(UserSchedule) error) (int, error) {
 	stmt := `
 	SELECT us.id, us.user_id, us.schedule_id, us.scheduled_at, us.start_at, us.anchor_at, us.interval, us.occurrence, COALESCE(us.data, '{}'::jsonb) AS data, us.paused_at, us.created_at, us.updated_at
 	FROM user_schedules us
@@ -879,27 +889,23 @@ func (s *ScheduledStore) ScanRecurringUserSchedulesWithoutPendingEvents(ctx cont
 	    SELECT 1 FROM user_scheduled_events use
 	    WHERE use.user_schedule_id = us.id AND use.fired_at IS NULL
 	  )
-	ORDER BY us.scheduled_at ASC`
+	ORDER BY us.scheduled_at ASC
+	LIMIT $1
+	FOR UPDATE OF us SKIP LOCKED`
 
-	rows, err := s.db.QueryxContext(ctx, stmt)
+	var schedules []UserSchedule
+	err := s.db.SelectContext(ctx, &schedules, stmt, limit)
 	if err != nil {
 		return 0, err
 	}
-	defer rows.Close()
 
-	var n int
-	for rows.Next() {
-		var us UserSchedule
-		if err := rows.StructScan(&us); err != nil {
-			return n, err
-		}
+	for n, us := range schedules {
 		if err := fn(us); err != nil {
 			return n, err
 		}
-		n++
 	}
 
-	return n, rows.Err()
+	return len(schedules), nil
 }
 
 // AdvanceAndGenerateUserScheduleEvents advances a recurring user schedule by
@@ -1280,6 +1286,10 @@ func (s *ScheduledStore) ListOrganizationSchedules(ctx context.Context, projectI
 	SELECT
 		os.id, os.organization_id, os.schedule_id, os.scheduled_at, os.start_at, os.anchor_at, os.interval,
 		os.occurrence, COALESCE(os.data, '{}'::jsonb) AS data, os.paused_at, os.created_at, os.updated_at,
+		EXISTS (
+			SELECT 1 FROM organization_scheduled_events ose
+			WHERE ose.organization_schedule_id = os.id AND ose.fired_at IS NULL
+		) AS has_pending_events,
 		COUNT(*) OVER () AS total_count
 	FROM organization_schedules os
 	INNER JOIN schedules sc ON os.schedule_id = sc.id
@@ -1347,8 +1357,12 @@ func (s *ScheduledStore) ListDueOrgScheduledEvents(ctx context.Context, limit in
 	return events, err
 }
 
-// ScanDueOrgScheduledEvents iterates over due org scheduled events and calls fn for each row.
-func (s *ScheduledStore) ScanDueOrgScheduledEvents(ctx context.Context, fn func(DueOrgScheduledEvent) error) (int, error) {
+// ScanDueOrgScheduledEvents iterates over at most limit due organization scheduled
+// events and calls fn for each row. The query uses FOR UPDATE OF se SKIP LOCKED so
+// that rows already locked by a concurrent transaction are silently skipped instead
+// of blocking. This prevents double-processing during cluster leader transitions
+// where two nodes may briefly both act as leader.
+func (s *ScheduledStore) ScanDueOrgScheduledEvents(ctx context.Context, limit int, fn func(DueOrgScheduledEvent) error) (int, error) {
 	stmt := `
 	SELECT
 		se.id, se.organization_schedule_id, se.schedule_offset_id, se.organization_id, se.schedule_id,
@@ -1361,27 +1375,23 @@ func (s *ScheduledStore) ScanDueOrgScheduledEvents(ctx context.Context, fn func(
 	JOIN schedules sc ON se.schedule_id = sc.id
 	JOIN schedule_offsets so ON se.schedule_offset_id = so.id
 	WHERE se.fired_at IS NULL AND se.fire_at <= NOW()
-	ORDER BY se.fire_at ASC`
+	ORDER BY se.fire_at ASC
+	LIMIT $1
+	FOR UPDATE OF se SKIP LOCKED`
 
-	rows, err := s.db.QueryxContext(ctx, stmt)
+	var events []DueOrgScheduledEvent
+	err := s.db.SelectContext(ctx, &events, stmt, limit)
 	if err != nil {
 		return 0, err
 	}
-	defer rows.Close()
 
-	var n int
-	for rows.Next() {
-		var event DueOrgScheduledEvent
-		if err := rows.StructScan(&event); err != nil {
-			return n, err
-		}
+	for n, event := range events {
 		if err := fn(event); err != nil {
 			return n, err
 		}
-		n++
 	}
 
-	return n, rows.Err()
+	return len(events), nil
 }
 
 // MarkOrgScheduledEventFired marks an org scheduled event as fired.
@@ -1514,8 +1524,12 @@ func (s *ScheduledStore) BackfillOrgScheduledEventsForOffset(ctx context.Context
 // ScanRecurringOrgSchedulesWithoutPendingEvents finds recurring organization_schedules whose
 // scheduled_at is in the past and that have no pending (unfired) organization_scheduled_events.
 // For each match it advances scheduled_at by the interval until it is in the future,
-// updates the row, and generates the next batch of organization_scheduled_events.
-func (s *ScheduledStore) ScanRecurringOrgSchedulesWithoutPendingEvents(ctx context.Context, fn func(OrganizationSchedule) error) (int, error) {
+// updates the row, and generates the next batch of organization_scheduled_events. The query
+// uses FOR UPDATE OF os SKIP LOCKED so that rows already locked by a concurrent
+// transaction are silently skipped instead of blocking. This prevents
+// double-processing during cluster leader transitions where two nodes may
+// briefly both act as leader.
+func (s *ScheduledStore) ScanRecurringOrgSchedulesWithoutPendingEvents(ctx context.Context, limit int, fn func(OrganizationSchedule) error) (int, error) {
 	stmt := `
 	SELECT os.id, os.organization_id, os.schedule_id, os.scheduled_at, os.start_at, os.anchor_at, os.interval, os.occurrence, COALESCE(os.data, '{}'::jsonb) AS data, os.paused_at, os.created_at, os.updated_at
 	FROM organization_schedules os
@@ -1527,27 +1541,23 @@ func (s *ScheduledStore) ScanRecurringOrgSchedulesWithoutPendingEvents(ctx conte
 	    SELECT 1 FROM organization_scheduled_events ose
 	    WHERE ose.organization_schedule_id = os.id AND ose.fired_at IS NULL
 	  )
-	ORDER BY os.scheduled_at ASC`
+	ORDER BY os.scheduled_at ASC
+	LIMIT $1
+	FOR UPDATE OF os SKIP LOCKED`
 
-	rows, err := s.db.QueryxContext(ctx, stmt)
+	var schedules []OrganizationSchedule
+	err := s.db.SelectContext(ctx, &schedules, stmt, limit)
 	if err != nil {
 		return 0, err
 	}
-	defer rows.Close()
 
-	var n int
-	for rows.Next() {
-		var os OrganizationSchedule
-		if err := rows.StructScan(&os); err != nil {
-			return n, err
-		}
+	for n, os := range schedules {
 		if err := fn(os); err != nil {
 			return n, err
 		}
-		n++
 	}
 
-	return n, rows.Err()
+	return len(schedules), nil
 }
 
 // AdvanceAndGenerateOrgScheduleEvents advances a recurring organization schedule by

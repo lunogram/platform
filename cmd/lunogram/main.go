@@ -15,6 +15,7 @@ import (
 	"github.com/lunogram/platform/internal/cluster/scheduler"
 	"github.com/lunogram/platform/internal/config"
 	v1 "github.com/lunogram/platform/internal/http/controllers/v1"
+	"github.com/lunogram/platform/internal/integrations"
 	"github.com/lunogram/platform/internal/providers"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/consumer"
@@ -117,21 +118,21 @@ func run() error {
 		return err
 	}
 
-	logger.Info("initializing provider registry")
+	logger.Info("initializing integration registry")
 
-	providersRegisrtry, err := providers.NewRegistry(ctx, conf.WASM, logger)
+	integrationRegistry, err := integrations.NewRegistry(ctx, conf.WASM, logger)
 	if err != nil {
 		return err
 	}
-	defer providersRegisrtry.Close(ctx)
+	defer integrationRegistry.Close(ctx)
 
-	logger.Info("initializing action registry")
+	logger.Info("initializing provider registry facade")
 
-	actionRegistry, err := actions.NewRegistry(ctx, conf.WASM, logger)
-	if err != nil {
-		return err
-	}
-	defer actionRegistry.Close(ctx)
+	providersRegisrtry := providers.NewRegistryFromIntegrations(integrationRegistry)
+
+	logger.Info("initializing action registry facade")
+
+	actionRegistry := actions.NewRegistryFromIntegrations(integrationRegistry)
 
 	pub := pubsub.NewPublisher(jet, conf.Nats.Namespace)
 	req := pubsub.NewCaller(jet, conf.Nats.Namespace)

@@ -1,5 +1,7 @@
 import { useCallback, useContext, useEffect, useMemo, useState } from "react"
 import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { providerFormSchema } from "@/validation/settings/integration-modal"
 import { useTranslation } from "react-i18next"
 import { ChevronLeft } from "lucide-react"
 import oapiClient from "@/oapi/client"
@@ -79,6 +81,7 @@ export function IntegrationForm({
     }, [project.id, defaultProvider])
 
     const form = useForm<ProviderFormValues>({
+        resolver: zodResolver(providerFormSchema),
         values: provider
             ? {
                   name: provider.name,
@@ -86,7 +89,7 @@ export function IntegrationForm({
                   module,
                   link_wrap: provider.link_wrap ?? true,
               }
-            : { name: "", data: {}, module, link_wrap: true },
+            : { name: "", data: {}, module, link_wrap: false },
     })
 
     const handleSubmit = async (values: ProviderFormValues) => {
@@ -166,7 +169,12 @@ export function IntegrationForm({
                 <Label className="inline-flex items-center gap-1">
                     {t("name")} <span className="text-destructive">*</span>
                 </Label>
-                <Input {...form.register("name", { required: true })} />
+                <Input {...form.register("name")} />
+                {form.formState.errors.name && (
+                    <p className="text-sm text-destructive">
+                        {form.formState.errors.name.message}
+                    </p>
+                )}
             </div>
 
             {dataSchema && <FormSchemaFields parent="data" schema={dataSchema} form={form} />}
@@ -284,7 +292,7 @@ export default function IntegrationModal({
                                     <img
                                         src={option.icon}
                                         alt={option.name}
-                                        className="h-10 w-10 rounded-md"
+                                        className="h-10 w-10 rounded-md object-contain"
                                     />
                                 )}
                                 <div>

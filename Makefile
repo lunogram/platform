@@ -27,14 +27,17 @@ M = $(shell printf "\033[34;1m▶\033[0m")
 $(BUILD_DIR):
 	@mkdir -p $@
 
-PROVIDER_MODULES := $(notdir $(wildcard ./modules/providers/*))
-ACTION_MODULES := $(notdir $(wildcard ./modules/actions/*))
+MODULES := $(notdir $(patsubst %/,%,$(dir $(wildcard modules/*/Makefile))))
 
 # Tools
 $(BIN):
 	@mkdir -p $@
 $(BIN)/%: | $(BIN) ; $(info $(M) building $(@F)…)
 	$Q GOBIN=$(BIN) $(GO) install $(shell $(GO) list tool | grep $(@F))
+
+# Pin specific tool versions to avoid generator mismatches in CI
+$(BIN)/oapi-codegen: | $(BIN) ; $(info $(M) building oapi-codegen v2.7.0…)
+	$Q GOBIN=$(BIN) $(GO) install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.7.0
 
 $(BIN)/tailwindcss: | $(BIN) ; $(info $(M) building tailwindcss…)
 	$Q ./etc/install-tailwindcss.sh $(BIN)
@@ -59,20 +62,11 @@ lunogram: ; $(info $(M) building lunogram…)
 	$Q CGO_ENABLED=0 $(GO) build -ldflags='$(LDFLAGS)' -o $(BIN)/lunogram ./cmd/lunogram
 
 .PHONY: modules
-modules: providers actions ## Build all WASM modules
-
-.PHONY: providers
-providers: ; $(info $(M) building provider modules…) @ ## Build all provider modules
-	$Q for module in $(PROVIDER_MODULES); do \
-		echo "$(M) building $$module provider…"; \
-		$(MAKE) -C modules/providers/$$module wasm TINYGO=$(TINYGO) NODE=$(NODE); \
-	done
-
-.PHONY: actions
-actions: ; $(info $(M) building action modules…) @ ## Build all action modules
-	$Q for module in $(ACTION_MODULES); do \
-		echo "$(M) building $$module action…"; \
-		$(MAKE) -C modules/actions/$$module all TINYGO=$(TINYGO) NODE=$(NODE); \
+modules: ; $(info $(M) building WASM modules…) @ ## Build all WASM modules
+	$Q mkdir -p internal/integrations/modules
+	$Q set -e; for module in $(MODULES); do \
+		printf "$(M) building %s…\n" "$$module"; \
+		$(MAKE) -C modules/$$module wasm TINYGO=$(TINYGO) NODE=$(NODE); \
 	done
 
 .PHONY: console

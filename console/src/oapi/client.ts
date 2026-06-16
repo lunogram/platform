@@ -1,10 +1,13 @@
 import createClient from "openapi-fetch"
+import { env } from "@/config/env"
 import type { paths, components } from "./management.generated"
 
+const apiBaseUrl = env.api.baseURL.replace(/\/$/, "")
+const oapiBaseUrl = apiBaseUrl.endsWith("/api") ? apiBaseUrl.slice(0, -4) : apiBaseUrl
+
 // Create the openapi-fetch client
-// Note: OpenAPI paths already include /api prefix, so we use empty baseUrl
 export const oapiClient = createClient<paths>({
-    baseUrl: "",
+    baseUrl: oapiBaseUrl,
     credentials: "include",
 })
 

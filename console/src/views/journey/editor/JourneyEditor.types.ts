@@ -1,7 +1,11 @@
-import type { Node } from "reactflow"
+import type { Edge, Node } from "@xyflow/react"
 import type { UUID } from "@/types/common"
 
-export interface JourneyNodeData {
+export interface JourneyEdgeData extends Record<string, unknown> {}
+
+export type JourneyEdge = Edge<JourneyEdgeData, "step">
+
+export interface JourneyNodeData extends Record<string, unknown> {
     stepId?: string
     type: string
     name?: string
@@ -13,11 +17,12 @@ export interface JourneyNodeData {
     active?: boolean
     editing?: boolean
     hasUnsavedChanges?: boolean
+    connectedSourceHandles?: string[]
     width?: number
     height?: number
     skipDelay?: (stepId: string) => Promise<void>
     openUserModal?: (nodeId: string) => void
-    setViewUsersStep?: (step: { stepId: UUID; stepType: string }) => void
+    setViewUsersStep?: (step: { stepId: UUID; stepType: string; stepName?: string }) => void
 }
 
-export type JourneyNode = Node<JourneyNodeData, string | undefined>
+export type JourneyNode = Node<JourneyNodeData, "step">

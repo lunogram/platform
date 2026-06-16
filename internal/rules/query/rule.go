@@ -78,11 +78,77 @@ func (qb *QueryBuilder) buildRollingPeriodInterval(period rules.Period) (string,
 
 // buildConditionFromPath builds a SQL condition using a custom path (e.g., normalized data path).
 func (qb *QueryBuilder) buildConditionFromPath(tableAlias, path string, rule *rules.Rule) (string, error) {
+	if rule.Operator == rules.OperatorEquals {
+		condition, ok, err := qb.buildJSONBContainmentCondition(tableAlias, path, rule.Value, rule.Type)
+		if err != nil {
+			return "", err
+		}
+		if ok {
+			return condition, nil
+		}
+	}
+
 	column, err := qb.buildColumnPath(tableAlias, path, rule.Type)
 	if err != nil {
 		return "", err
 	}
 	return qb.buildComparison(column, rule.Operator, rule.Value, rule.Type)
+}
+
+func (qb *QueryBuilder) buildJSONBContainmentCondition(tableAlias, path string, value any, ruleType rules.RuleType) (condition string, ok bool, err error) {
+	matches := pathSegmentRegex.FindAllStringSubmatch(path, -1)
+	if len(matches) < 2 {
+		return "", false, nil
+	}
+
+	if qb.extractKey(matches[0]) != "data" {
+		return "", false, nil
+	}
+
+	payloadValueExpr, supported := qb.buildContainmentValueExpr(value, ruleType)
+	if !supported {
+		return "", false, nil
+	}
+
+	payloadExpr := payloadValueExpr
+	for i := len(matches) - 1; i >= 1; i-- {
+		quotedKey, err := qb.quoteJSONBKey(qb.extractKey(matches[i]))
+		if err != nil {
+			return "", false, err
+		}
+		payloadExpr = fmt.Sprintf("jsonb_build_object(%s, %s)", quotedKey, payloadExpr)
+	}
+
+	return fmt.Sprintf("%s.data @> %s", tableAlias, payloadExpr), true, nil
+}
+
+func (qb *QueryBuilder) buildContainmentValueExpr(value any, ruleType rules.RuleType) (string, bool) {
+	arg := qb.arg(value)
+
+	switch ruleType {
+	case rules.RuleTypeString:
+		return fmt.Sprintf("to_jsonb(%s::text)", arg), true
+	case rules.RuleTypeBoolean:
+		return fmt.Sprintf("to_jsonb(%s::boolean)", arg), true
+	case rules.RuleTypeNumber:
+		if isNumeric(value) {
+			return fmt.Sprintf("to_jsonb(%s::numeric)", arg), true
+		}
+		return "", false
+	default:
+		return "", false
+	}
+}
+
+func isNumeric(value any) bool {
+	switch value.(type) {
+	case int, int8, int16, int32, int64,
+		uint, uint8, uint16, uint32, uint64,
+		float32, float64:
+		return true
+	default:
+		return false
+	}
 }
 
 // addJoinForUserIDs adds a JOIN clause that filters users by a subquery returning user_id.
@@ -315,12 +381,7 @@ func (qb *QueryBuilder) extractSubqueryFromJoin(joinClause string) string {
 
 // buildUserRule builds SQL for user attribute rules
 func (qb *QueryBuilder) buildUserRule(rule *rules.Rule) (string, error) {
-	column, err := qb.buildColumnPath("u", rule.Path, rule.Type)
-	if err != nil {
-		return "", err
-	}
-
-	return qb.buildComparison(column, rule.Operator, rule.Value, rule.Type)
+	return qb.buildConditionFromPath("u", rule.Path, rule)
 }
 
 // buildColumnPath converts a dot-notation or bracket-notation path to PostgreSQL column reference

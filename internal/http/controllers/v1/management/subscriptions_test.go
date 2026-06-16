@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
+	"github.com/lunogram/platform/internal/ptr"
 	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/store/management"
 	teststore "github.com/lunogram/platform/internal/store/test"
@@ -142,8 +143,8 @@ func TestListSubscriptions(t *testing.T) {
 	req = req.WithContext(actorCtx)
 
 	params := oapi.ListSubscriptionsParams{
-		Limit:  ptr(oapi.PaginationLimit(10)),
-		Offset: ptr(oapi.PaginationOffset(0)),
+		Limit:  ptr.To(oapi.PaginationLimit(10)),
+		Offset: ptr.To(oapi.PaginationOffset(0)),
 	}
 
 	subs.ListSubscriptions(res, req, projectID, params)

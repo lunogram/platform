@@ -137,6 +137,17 @@ user_003,carol@example.com,Carol,Initech,organic
 
 All other columns become custom properties on the user.
 
+<Callout type="info">
+  **Timezone auto-conversion**: Values in the `timezone` column are automatically
+  resolved to IANA timezone names. Abbreviations like `EST`, `PST`, `CET` and
+  GMT/UTC offsets like `GMT-5` or `+02:00` are resolved to a best-fit IANA
+  timezone (for example, `America/New_York`, `America/Los_Angeles`). IANA names
+  like `America/New_York` are used as-is. Note that abbreviation/offset
+  conversion is heuristic and lossy: a resolved regional timezone may observe
+  daylight saving time and therefore may not preserve the original fixed offset
+  year-round.
+</Callout>
+
 ### Updating via API
 
 For newsletter signups or other integrations, use the Admin API to add users to a static list:
