@@ -785,16 +785,17 @@ func (srv *ScheduledController) UpdateOrganizationScheduled(w http.ResponseWrite
 // userScheduleToOAPI converts a store UserSchedule to the OAPI UserScheduled type.
 func userScheduleToOAPI(us subjects.UserSchedule) oapi.UserScheduled {
 	result := oapi.UserScheduled{
-		Id:          us.ID,
-		UserId:      us.UserID,
-		ScheduledId: us.ScheduleID,
-		Data:        us.Data,
-		Interval:    us.Interval,
-		StartAt:     us.StartAt,
-		AnchorAt:    us.AnchorAt,
-		PausedAt:    us.PausedAt,
-		CreatedAt:   us.CreatedAt,
-		UpdatedAt:   us.UpdatedAt,
+		Id:               us.ID,
+		UserId:           us.UserID,
+		ScheduledId:      us.ScheduleID,
+		Data:             us.Data,
+		Interval:         us.Interval,
+		StartAt:          us.StartAt,
+		AnchorAt:         us.AnchorAt,
+		PausedAt:         us.PausedAt,
+		CreatedAt:        us.CreatedAt,
+		UpdatedAt:        us.UpdatedAt,
+		HasPendingEvents: &us.HasPendingEvents,
 	}
 	if us.ScheduledAt != nil {
 		result.ScheduledAt = *us.ScheduledAt
@@ -810,16 +811,17 @@ func userScheduleToOAPI(us subjects.UserSchedule) oapi.UserScheduled {
 // Reuses UserScheduled since the wire format is the same; UserId carries OrganizationID.
 func orgScheduleToOAPI(os subjects.OrganizationSchedule) oapi.UserScheduled {
 	result := oapi.UserScheduled{
-		Id:          os.ID,
-		UserId:      os.OrganizationID,
-		ScheduledId: os.ScheduleID,
-		Data:        os.Data,
-		Interval:    os.Interval,
-		StartAt:     os.StartAt,
-		AnchorAt:    os.AnchorAt,
-		PausedAt:    os.PausedAt,
-		CreatedAt:   os.CreatedAt,
-		UpdatedAt:   os.UpdatedAt,
+		Id:               os.ID,
+		UserId:           os.OrganizationID,
+		ScheduledId:      os.ScheduleID,
+		Data:             os.Data,
+		Interval:         os.Interval,
+		StartAt:          os.StartAt,
+		AnchorAt:         os.AnchorAt,
+		PausedAt:         os.PausedAt,
+		CreatedAt:        os.CreatedAt,
+		UpdatedAt:        os.UpdatedAt,
+		HasPendingEvents: &os.HasPendingEvents,
 	}
 	if os.ScheduledAt != nil {
 		result.ScheduledAt = *os.ScheduledAt
