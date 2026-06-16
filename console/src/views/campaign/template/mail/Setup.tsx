@@ -379,9 +379,10 @@ export function EmailContentPreview({ campaign, form, edit = false }: EmailSetup
 
     const { subject, from, replyTo } = form.watch()
 
+    // The useEffect above already clears compiledHtml when the template is not an
+    // email, so we only need to bail out of rendering the email preview here.
     if (template.type != "email") {
-        setCompiledHtml("")
-        return
+        return null
     }
 
     const rawFromName = from.name || template.data.from?.name || ""

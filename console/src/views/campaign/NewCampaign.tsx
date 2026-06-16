@@ -57,6 +57,7 @@ export default function NewCampaign() {
 
     const form = useForm<NewCampaignFormValues>({
         resolver: zodResolver(newCampaignSchema),
+        mode: "onChange",
         defaultValues: {
             name: "",
             channel: channel ?? "email",

@@ -70,6 +70,7 @@ export default function ProjectOnboardingDomain() {
 
     const form = useForm<OnboardingDomainFormValues>({
         resolver: zodResolver(onboardingDomainSchema),
+        mode: "onChange",
         defaultValues: {
             email_address: "",
             display_name: "",
