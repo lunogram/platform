@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
+	"github.com/lunogram/platform/internal/ptr"
 	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/store/management"
 	teststore "github.com/lunogram/platform/internal/store/test"
@@ -116,23 +117,23 @@ func TestListTags(t *testing.T) {
 	tests := map[string]test{
 		"list-all": {
 			params: oapi.ListTagsParams{
-				Limit:  ptr(oapi.PaginationLimit(10)),
-				Offset: ptr(oapi.PaginationOffset(0)),
+				Limit:  ptr.To(oapi.PaginationLimit(10)),
+				Offset: ptr.To(oapi.PaginationOffset(0)),
 			},
 			expected: 4,
 		},
 		"with-pagination": {
 			params: oapi.ListTagsParams{
-				Limit:  ptr(oapi.PaginationLimit(2)),
-				Offset: ptr(oapi.PaginationOffset(0)),
+				Limit:  ptr.To(oapi.PaginationLimit(2)),
+				Offset: ptr.To(oapi.PaginationOffset(0)),
 			},
 			expected: 2,
 		},
 		"with-search": {
 			params: oapi.ListTagsParams{
-				Limit:  ptr(oapi.PaginationLimit(10)),
-				Offset: ptr(oapi.PaginationOffset(0)),
-				Search: ptr(oapi.PaginationSearch("imp")),
+				Limit:  ptr.To(oapi.PaginationLimit(10)),
+				Offset: ptr.To(oapi.PaginationOffset(0)),
+				Search: ptr.To(oapi.PaginationSearch("imp")),
 			},
 			expected: 1,
 		},

@@ -1,6 +1,6 @@
 import type { ComponentType, Dispatch, Key, ReactNode, SetStateAction } from "react"
 import type { FieldPath, FieldValues, UseFormReturn } from "react-hook-form"
-import type { Node } from "reactflow"
+import type { Node } from "@xyflow/react"
 import type { UUID } from "@/types/common"
 
 export type Class<T> = new () => T
@@ -699,8 +699,7 @@ export interface EmailTemplateData {
 }
 
 export interface TextTemplateData {
-    from: string
-    text: string
+    body: string
 }
 
 export interface PushTemplateData {
@@ -710,13 +709,18 @@ export interface PushTemplateData {
     custom: Record<string, unknown>
 }
 
-export type Template = {
+export type Template<
+    DataObjectType extends EmailTemplateData | TextTemplateData | PushTemplateData =
+        | EmailTemplateData
+        | TextTemplateData
+        | PushTemplateData,
+> = {
     id: UUID
     campaign_id: UUID
     type: ChannelType
     locale: string
     sender_identity_id: UUID | null
-    data: EmailTemplateData | TextTemplateData | PushTemplateData
+    data: DataObjectType
     screenshot_url: string
     created_at: string
     updated_at: string

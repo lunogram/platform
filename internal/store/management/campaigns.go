@@ -112,12 +112,12 @@ func (s *CampaignsStore) CreateCampaign(ctx context.Context, campaign Campaign) 
 
 func (s *CampaignsStore) ListCampaigns(ctx context.Context, project uuid.UUID, pagination store.Pagination, search string) (Campaigns, int, error) {
 	query := `
-	SELECT id, project_id, name, channel, subscription_id, transactional, delivery, variables, created_at, updated_at, deleted_at,
+	SELECT id, project_id, COALESCE(name, '') AS name, channel, subscription_id, transactional, delivery, variables, created_at, updated_at, deleted_at,
 		COUNT(*) OVER () AS total_count
 	FROM campaigns
 	WHERE project_id = $1
 	AND deleted_at IS NULL
-	AND ($4 = '' OR name ILIKE '%' || $4 || '%')
+	AND ($4 = '' OR COALESCE(name, '') ILIKE '%' || $4 || '%')
 	ORDER BY created_at DESC
 	LIMIT $2 OFFSET $3`
 
@@ -145,7 +145,7 @@ func (s *CampaignsStore) ListCampaigns(ctx context.Context, project uuid.UUID, p
 
 func (s *CampaignsStore) GetCampaign(ctx context.Context, projectID, campaignID uuid.UUID) (*Campaign, error) {
 	query := `
-	SELECT id, project_id, name, channel, subscription_id, transactional, delivery, variables, created_at, updated_at, deleted_at
+	SELECT id, project_id, COALESCE(name, '') AS name, channel, subscription_id, transactional, delivery, variables, created_at, updated_at, deleted_at
 	FROM campaigns
 	WHERE project_id = $1
 	AND id = $2
@@ -259,12 +259,14 @@ func (s *CampaignsStore) GetCampaignUsers(ctx context.Context, usersDB store.DB,
 		return []CampaignUser{}, 0, nil
 	}
 
-	// Query campaign_sends from users DB
+	// Query user_inbox_messages from users DB
 	query := `
-	SELECT id, campaign_id, user_id, state, sent_at, created_at, updated_at,
+	SELECT id, campaign_id, user_id,
+		CASE WHEN sent_at IS NOT NULL THEN 'sent' ELSE 'pending' END AS state,
+		sent_at, created_at, updated_at,
 		COUNT(*) OVER () AS total_count
-	FROM campaign_sends
-	WHERE campaign_id = $1
+	FROM user_inbox_messages
+	WHERE campaign_id = $1 AND deleted_at IS NULL
 	ORDER BY created_at DESC
 	LIMIT $2 OFFSET $3`
 

@@ -1,13 +1,12 @@
 import { useEffect, useCallback, useRef, type SetStateAction, type Dispatch } from "react"
-import { type Edge } from "reactflow"
 import { cloneNodes } from "../editor/JourneyEditor.utils"
-import type { JourneyNode } from "../editor/JourneyEditor.types"
+import type { JourneyEdge, JourneyNode } from "../editor/JourneyEditor.types"
 
 interface ShortcutProps {
     nodes: JourneyNode[]
-    edges: Edge[]
+    edges: JourneyEdge[]
     setNodes: Dispatch<SetStateAction<JourneyNode[]>>
-    setEdges: Dispatch<SetStateAction<Edge[]>>
+    setEdges: Dispatch<SetStateAction<JourneyEdge[]>>
     onNodesUpdated: () => void
     enabled: boolean
 }
@@ -20,20 +19,28 @@ export function useKeyboardShortcuts({
     onNodesUpdated,
     enabled,
 }: ShortcutProps) {
-    const clipboard = useRef<{ nodes: JourneyNode[]; edges: Edge[] } | null>(null)
-    const history = useRef<{ nodes: JourneyNode[]; edges: Edge[] }[]>([])
+    const clipboard = useRef<{ nodes: JourneyNode[]; edges: JourneyEdge[] } | null>(null)
+    const history = useRef<{ nodes: JourneyNode[]; edges: JourneyEdge[] }[]>([])
 
-    const pushHistory = useCallback(() => {
-        history.current.push({ nodes, edges })
-    }, [nodes, edges])
+    const pushHistory = useCallback(
+        (snapshot?: { nodes: JourneyNode[]; edges: JourneyEdge[] }) => {
+            history.current.push(snapshot ?? { nodes, edges })
+        },
+        [nodes, edges],
+    )
 
     const undo = useCallback(() => {
         const prev = history.current.pop()
         if (prev) {
+            onNodesUpdated()
             setNodes(prev.nodes)
             setEdges(prev.edges)
         }
-    }, [setNodes, setEdges])
+    }, [setNodes, setEdges, onNodesUpdated])
+
+    const clearHistory = useCallback(() => {
+        history.current = []
+    }, [])
 
     const copy = useCallback(() => {
         const selectedNodes = nodes.filter((n) => n.selected)
@@ -60,7 +67,7 @@ export function useKeyboardShortcuts({
             ...nodeCopies.map((n) => ({ ...n, selected: true })),
         ])
 
-        setEdges((eds: Edge[]) => [...eds.map((e) => ({ ...e, selected: false })), ...edgeCopies])
+        setEdges((eds) => [...eds.map((e) => ({ ...e, selected: false })), ...edgeCopies])
 
         clipboard.current.nodes = nodeCopies
     }, [nodes, setNodes, setEdges, onNodesUpdated])
@@ -79,10 +86,7 @@ export function useKeyboardShortcuts({
                 ...nodeCopies.map((n) => ({ ...n, selected: true })),
             ])
 
-            setEdges((eds: Edge[]) => [
-                ...eds.map((e) => ({ ...e, selected: false })),
-                ...edgeCopies,
-            ])
+            setEdges((eds) => [...eds.map((e) => ({ ...e, selected: false })), ...edgeCopies])
         },
         [nodes, edges, setNodes, setEdges, onNodesUpdated],
     )
@@ -112,5 +116,5 @@ export function useKeyboardShortcuts({
         return () => window.removeEventListener("keydown", handleKeyDown)
     }, [enabled, copy, paste, duplicate, undo])
 
-    return { pushHistory }
+    return { pushHistory, clearHistory }
 }

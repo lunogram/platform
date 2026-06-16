@@ -2,11 +2,12 @@ package wasm
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 	"time"
 
 	"github.com/lunogram/platform/internal/config"
-	"github.com/lunogram/platform/pkg/modules/providers"
+	"github.com/lunogram/platform/pkg/modules"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
@@ -49,7 +50,7 @@ func TestLoadModule(t *testing.T) {
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			logger := zaptest.NewLogger(t)
-			module, err := LoadModule[providers.ProviderManifest](t.Context(), test.data, test.cfg, logger)
+			module, err := LoadModule[modules.IntegrationManifest](t.Context(), test.data, test.cfg, logger)
 
 			if test.wantErr {
 				require.Error(t, err)
@@ -79,9 +80,14 @@ func TestModuleManifest(t *testing.T) {
 	assert.Equal(t, "testprovider", manifest.Metadata.ID)
 	assert.Equal(t, "Test Provider", manifest.Metadata.Title)
 	assert.Equal(t, "1.0.0", manifest.Version)
-	assert.Contains(t, manifest.Spec.Channels, providers.ChannelEmail)
-	assert.Contains(t, manifest.Spec.Channels, providers.ChannelSMS)
-	assert.Contains(t, manifest.Spec.Channels, providers.ChannelPush)
+	require.NotEmpty(t, manifest.Capabilities)
+
+	var providerSpec modules.ProviderSpec
+	err := json.Unmarshal(manifest.Capabilities[0].Spec, &providerSpec)
+	require.NoError(t, err)
+	assert.Contains(t, providerSpec.Channels, modules.ChannelEmail)
+	assert.Contains(t, providerSpec.Channels, modules.ChannelSMS)
+	assert.Contains(t, providerSpec.Channels, modules.ChannelPush)
 }
 
 func TestModuleCall(t *testing.T) {
@@ -137,7 +143,7 @@ func TestModuleCallWithTimeout(t *testing.T) {
 	}
 
 	logger := zaptest.NewLogger(t)
-	module, err := LoadModule[providers.ProviderManifest](t.Context(), testProviderWASM, cfg, logger)
+	module, err := LoadModule[modules.IntegrationManifest](t.Context(), testProviderWASM, cfg, logger)
 	require.NoError(t, err)
 	defer module.Close(t.Context())
 
@@ -231,12 +237,12 @@ func TestNewPlugin(t *testing.T) {
 	}
 }
 
-func loadTestProviderModule(t *testing.T) *Module[providers.ProviderManifest] {
+func loadTestProviderModule(t *testing.T) *Module[modules.IntegrationManifest] {
 	t.Helper()
 
 	logger := zaptest.NewLogger(t)
 	cfg := config.WASM{CallTimeout: 30 * time.Second}
-	module, err := LoadModule[providers.ProviderManifest](t.Context(), testProviderWASM, cfg, logger)
+	module, err := LoadModule[modules.IntegrationManifest](t.Context(), testProviderWASM, cfg, logger)
 	require.NoError(t, err)
 
 	return module

@@ -21,9 +21,19 @@ type Module[T modules.Manifest] struct {
 	config   config.WASM
 }
 
+// NewModule constructs a typed module from an initialized plugin and manifest.
+func NewModule[T modules.Manifest](manifest T, plugin *extism.Plugin, cfg config.WASM) *Module[T] {
+	return &Module[T]{manifest: manifest, plugin: plugin, config: cfg}
+}
+
 // Manifest returns the module's manifest.
 func (m *Module[T]) Manifest() T {
 	return m.manifest
+}
+
+// Plugin returns the underlying Extism plugin.
+func (m *Module[T]) Plugin() *extism.Plugin {
+	return m.plugin
 }
 
 // Call invokes a function on the WASM plugin.
@@ -118,5 +128,5 @@ func LoadModule[T modules.Manifest](ctx context.Context, data []byte, cfg config
 		return nil, fmt.Errorf("failed to unmarshal manifest: %w", err)
 	}
 
-	return &Module[T]{manifest: manifest, plugin: plugin, config: cfg}, nil
+	return NewModule(manifest, plugin, cfg), nil
 }

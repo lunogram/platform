@@ -1,9 +1,10 @@
 import { useCallback, useMemo } from "react"
-import type { JourneyNode } from "../editor/JourneyEditor.types"
+import type { JourneyEdge, JourneyNode } from "../editor/JourneyEditor.types"
 
 export function useStepEditing(
     nodes: JourneyNode[],
     setNodes: React.Dispatch<React.SetStateAction<JourneyNode[]>>,
+    setEdges: React.Dispatch<React.SetStateAction<JourneyEdge[]>>,
     setHasUnsavedChanges: (val: boolean) => void,
 ) {
     const editNode = useMemo(() => nodes.find((n) => n.data.editing), [nodes])
@@ -32,8 +33,9 @@ export function useStepEditing(
     const deleteNode = useCallback(
         (id: string) => {
             updateNodes(nodes.filter((item) => item.id !== id))
+            setEdges((eds) => eds.filter((edge) => edge.source !== id && edge.target !== id))
         },
-        [nodes, updateNodes],
+        [nodes, setEdges, updateNodes],
     )
 
     const stopEditing = useCallback(() => {
