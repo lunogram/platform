@@ -99,9 +99,14 @@ func Manifest() int32 {
 			URL:   "https://lunogram.com",
 		},
 		Spec: providers.ProviderSpec{
-			Webhook:  true,
+			// Webhook support is not yet implemented for SES. Delivery/bounce
+			// notifications arrive via SNS, which requires parsing the SNS
+			// envelope around SES events (see WebhookHandler). Keep this false
+			// so the platform does not register a webhook that silently drops
+			// every event.
+			Webhook:   false,
 			Platforms: []providers.Platform{providers.PlatformEmail},
-			Channels: []providers.Channel{providers.ChannelEmail},
+			Channels:  []providers.Channel{providers.ChannelEmail},
 			Config: &modules.JSONSchema{
 				Type: "object",
 				Properties: []modules.JSONSchemaProperty{
@@ -226,10 +231,12 @@ func WebhookHandler() int32 {
 		pdk.SetError(err)
 		return ExitPermanent
 	}
-	
-	// Not fully implemented for SES yet. SNS integration requires parsing SNS notification wrapping SES events.
-	pdk.Log(pdk.LogDebug, "amazon_ses webhook handler called but not fully implemented")
-	
+
+	// Not implemented for SES yet: SNS integration requires parsing the SNS
+	// notification that wraps SES events. The manifest advertises Webhook:
+	// false, so this export should not normally be invoked.
+	pdk.Log(pdk.LogDebug, "amazon_ses webhook handler called but not implemented")
+
 	err := pdk.OutputJSON(providers.WebhookResponse{Events: []providers.WebhookEvent{}})
 	if err != nil {
 		pdk.SetError(err)
