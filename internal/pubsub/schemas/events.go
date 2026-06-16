@@ -41,6 +41,15 @@ func InboxDispatchMsgID(messageID uuid.UUID, providerID uuid.UUID) string {
 	return fmt.Sprintf("inbox-dispatch:%s:%s", messageID, providerID)
 }
 
+// InboxProcessMsgID returns the deterministic JetStream Msg-Id used to dedupe
+// inbox.process publishes for a scheduled message. The scheduler re-scans due
+// messages every tick until sent_at is set; a stable per-message ID collapses
+// those repeated re-injections so a message is dispatched at most once within
+// the stream's Duplicates window.
+func InboxProcessMsgID(messageID uuid.UUID) string {
+	return fmt.Sprintf("inbox-process:%s", messageID)
+}
+
 // ExternalID is an alias for subjects.ExternalIDParam so that pubsub messages
 // use the same type as the store layer without manual conversion.
 type ExternalID = subjects.ExternalIDParam
