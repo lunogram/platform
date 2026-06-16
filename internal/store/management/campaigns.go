@@ -50,6 +50,7 @@ func (campaign Campaign) OAPI() oapi.Campaign {
 		}
 	}
 
+	archived := campaign.DeletedAt != nil
 	result := oapi.Campaign{
 		Id:             campaign.ID,
 		ProjectId:      campaign.ProjectID,
@@ -62,6 +63,7 @@ func (campaign Campaign) OAPI() oapi.Campaign {
 		Templates:      campaign.Templates.OAPI(),
 		CreatedAt:      campaign.CreatedAt,
 		UpdatedAt:      campaign.UpdatedAt,
+		Archived:       &archived,
 	}
 
 	return result
@@ -110,13 +112,13 @@ func (s *CampaignsStore) CreateCampaign(ctx context.Context, campaign Campaign) 
 	return id, nil
 }
 
-func (s *CampaignsStore) ListCampaigns(ctx context.Context, project uuid.UUID, pagination store.Pagination, search string) (Campaigns, int, error) {
+func (s *CampaignsStore) ListCampaigns(ctx context.Context, project uuid.UUID, pagination store.Pagination, search string, archivedOnly bool) (Campaigns, int, error) {
 	query := `
 	SELECT id, project_id, COALESCE(name, '') AS name, channel, subscription_id, transactional, delivery, variables, created_at, updated_at, deleted_at,
 		COUNT(*) OVER () AS total_count
 	FROM campaigns
 	WHERE project_id = $1
-	AND deleted_at IS NULL
+	AND (($5 = false AND deleted_at IS NULL) OR ($5 = true AND deleted_at IS NOT NULL))
 	AND ($4 = '' OR COALESCE(name, '') ILIKE '%' || $4 || '%')
 	ORDER BY created_at DESC
 	LIMIT $2 OFFSET $3`
@@ -125,7 +127,7 @@ func (s *CampaignsStore) ListCampaigns(ctx context.Context, project uuid.UUID, p
 		Campaign
 		TotalCount int `db:"total_count"`
 	}
-	err := s.db.SelectContext(ctx, &results, query, project, pagination.Limit, pagination.Offset, search)
+	err := s.db.SelectContext(ctx, &results, query, project, pagination.Limit, pagination.Offset, search, archivedOnly)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -210,6 +212,28 @@ func (s *CampaignsStore) DeleteCampaign(ctx context.Context, projectID, campaign
 
 	_, err := s.db.ExecContext(ctx, query, projectID, campaignID)
 	return err
+}
+
+func (s *CampaignsStore) UnarchiveCampaign(ctx context.Context, projectID, campaignID uuid.UUID) error {
+	query := `
+	UPDATE campaigns
+	SET deleted_at = NULL
+	WHERE project_id = $1
+	AND id = $2
+	AND deleted_at IS NOT NULL`
+
+	result, err := s.db.ExecContext(ctx, query, projectID, campaignID)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return store.ErrNoRows
+	}
+	return nil
 }
 
 type CampaignUsers []CampaignUser

@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/ptr"
+	"github.com/lunogram/platform/internal/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -749,4 +750,66 @@ func TestJourneysStoreMultiExecutionSteps(t *testing.T) {
 		require.NoError(t, err)
 		assert.JSONEq(t, `{"updated": true}`, string(reloaded.Data))
 	})
+}
+
+func TestListJourneys_ArchivedFilter(t *testing.T) {
+	t.Parallel()
+
+	db, _ := NewContainerStore(t)
+	projectID := uuid.New()
+	ctx := context.Background()
+
+	activeID, err := db.CreateJourney(ctx, Journey{ProjectID: projectID, Name: "Active Journey"})
+	require.NoError(t, err)
+
+	archivedID, err := db.CreateJourney(ctx, Journey{ProjectID: projectID, Name: "Archived Journey"})
+	require.NoError(t, err)
+	require.NoError(t, db.DeleteJourney(ctx, projectID, archivedID))
+
+	page := store.Pagination{Limit: 10, Offset: 0}
+
+	// archivedOnly=false returns only active journeys, with a total that excludes archived ones.
+	active, total, err := db.ListJourneys(ctx, projectID, page, "", false)
+	require.NoError(t, err)
+	require.Equal(t, 1, total)
+	require.Len(t, active, 1)
+	require.Equal(t, activeID, active[0].ID)
+	require.Nil(t, active[0].DeletedAt)
+
+	// archivedOnly=true returns only archived journeys, with a matching total for pagination.
+	archived, total, err := db.ListJourneys(ctx, projectID, page, "", true)
+	require.NoError(t, err)
+	require.Equal(t, 1, total)
+	require.Len(t, archived, 1)
+	require.Equal(t, archivedID, archived[0].ID)
+	require.NotNil(t, archived[0].DeletedAt)
+}
+
+func TestUnarchiveJourney(t *testing.T) {
+	t.Parallel()
+
+	db, _ := NewContainerStore(t)
+	projectID := uuid.New()
+	ctx := context.Background()
+
+	journeyID, err := db.CreateJourney(ctx, Journey{ProjectID: projectID, Name: "Restore Me"})
+	require.NoError(t, err)
+	require.NoError(t, db.DeleteJourney(ctx, projectID, journeyID))
+
+	// Restoring an archived journey clears deleted_at and brings it back to the active list.
+	require.NoError(t, db.UnarchiveJourney(ctx, projectID, journeyID))
+
+	active, total, err := db.ListJourneys(ctx, projectID, store.Pagination{Limit: 10, Offset: 0}, "", false)
+	require.NoError(t, err)
+	require.Equal(t, 1, total)
+	require.Len(t, active, 1)
+	require.Equal(t, journeyID, active[0].ID)
+
+	// Unarchiving a journey that is not archived (already active) reports no rows affected.
+	err = db.UnarchiveJourney(ctx, projectID, journeyID)
+	require.ErrorIs(t, err, store.ErrNoRows)
+
+	// Unarchiving a non-existent journey reports no rows affected.
+	err = db.UnarchiveJourney(ctx, projectID, uuid.New())
+	require.ErrorIs(t, err, store.ErrNoRows)
 }
