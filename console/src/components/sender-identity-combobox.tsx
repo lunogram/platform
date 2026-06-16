@@ -1,6 +1,8 @@
 import * as React from "react"
+import { useForm } from "react-hook-form"
 import { Check, ChevronsUpDown, Loader2, Mail, Phone, Plus, ArrowLeft } from "lucide-react"
 import { useTranslation } from "react-i18next"
+import * as z from "zod"
 import { cn } from "@/utils"
 import { Button } from "@/components/ui/button"
 import {
@@ -21,6 +23,7 @@ import {
 } from "@/components/ui/select"
 import oapiClient, { type SenderIdentity } from "@/oapi/client"
 import type { components } from "@/oapi/management.generated"
+import { phoneSchema } from "@/validation/phone"
 
 type Provider = components["schemas"]["Provider"]
 
@@ -61,13 +64,14 @@ export function SenderIdentityCombobox({
 
     // Inline creation state
     const [view, setView] = React.useState<PopoverView>("list")
-    const [newAddress, setNewAddress] = React.useState("")
-    const [newName, setNewName] = React.useState("")
-    const [newProviderId, setNewProviderId] = React.useState("")
     const [providers, setProviders] = React.useState<Provider[]>([])
     const [providersLoading, setProvidersLoading] = React.useState(false)
     const [creating, setCreating] = React.useState(false)
     const [createError, setCreateError] = React.useState<string | null>(null)
+
+    const createForm = useForm<{ address: string; name: string; provider_id: string }>({
+        defaultValues: { address: "", name: "", provider_id: "" },
+    })
 
     const isEmail = channel === "email"
     const Icon = isEmail ? Mail : Phone
@@ -136,7 +140,7 @@ export function SenderIdentityCombobox({
             setProviders(filtered)
             // Auto-select the first provider if only one exists
             if (filtered.length === 1) {
-                setNewProviderId(filtered[0].id)
+                createForm.setValue("provider_id", filtered[0].id)
             }
         } finally {
             setProvidersLoading(false)
@@ -185,9 +189,7 @@ export function SenderIdentityCombobox({
     }
 
     const resetCreateForm = () => {
-        setNewAddress("")
-        setNewName("")
-        setNewProviderId("")
+        createForm.reset()
         setCreateError(null)
         setCreating(false)
     }
@@ -203,23 +205,46 @@ export function SenderIdentityCombobox({
         resetCreateForm()
     }
 
-    const handleCreate = async () => {
-        const address = newAddress.trim()
-        if (!newProviderId || !address) return
+    const handleCreate = async (formData: {
+        address: string
+        name: string
+        provider_id: string
+    }) => {
+        const address = formData.address.trim()
+        if (!formData.provider_id || !address) return
+
+        if (isEmail) {
+            const result = z.email().safeParse(address)
+            if (!result.success) {
+                setCreateError(t("invalid_email", "Please enter a valid email address."))
+                return
+            }
+        } else {
+            const result = phoneSchema.safeParse(address)
+            if (!result.success) {
+                setCreateError(
+                    t(
+                        "invalid_phone_e164",
+                        "Please enter a valid phone number in E.164 format (e.g., +1234567890).",
+                    ),
+                )
+                return
+            }
+        }
 
         setCreating(true)
         setCreateError(null)
 
         try {
             const traits: Record<string, unknown> = { address }
-            if (isEmail && newName.trim()) {
-                traits.name = newName.trim()
+            if (isEmail && formData.name.trim()) {
+                traits.name = formData.name.trim()
             }
             const { data: newIdentity, error } = await oapiClient.POST(
                 "/api/admin/projects/{projectID}/sender-identities",
                 {
                     params: { path: { projectID: projectId } },
-                    body: { provider_id: newProviderId, channel, traits },
+                    body: { provider_id: formData.provider_id, channel, traits },
                 },
             )
             if (error || !newIdentity) {
@@ -297,15 +322,15 @@ export function SenderIdentityCombobox({
                 ) : (
                     <CreateView
                         channel={channel}
-                        address={newAddress}
-                        onAddressChange={setNewAddress}
-                        name={newName}
-                        onNameChange={setNewName}
-                        providerId={newProviderId}
-                        onProviderChange={setNewProviderId}
+                        address={createForm.watch("address")}
+                        onAddressChange={(v) => createForm.setValue("address", v)}
+                        name={createForm.watch("name")}
+                        onNameChange={(v) => createForm.setValue("name", v)}
+                        providerId={createForm.watch("provider_id")}
+                        onProviderChange={(v) => createForm.setValue("provider_id", v)}
                         providers={providers}
                         providersLoading={providersLoading}
-                        onSave={handleCreate}
+                        onSave={createForm.handleSubmit(handleCreate)}
                         onCancel={handleCancelCreate}
                         creating={creating}
                         error={createError}
@@ -327,7 +352,7 @@ interface ListViewProps {
     onSearchChange: (value: string) => void
     onSelect: (id: string) => void
     onAddNew: () => void
-    t: (key: string, fallback?: string) => string
+    t: ReturnType<typeof useTranslation>["t"]
 }
 
 function ListView({
@@ -458,7 +483,7 @@ interface CreateViewProps {
     onCancel: () => void
     creating: boolean
     error: string | null
-    t: (key: string, fallback?: string) => string
+    t: ReturnType<typeof useTranslation>["t"]
 }
 
 function CreateView({

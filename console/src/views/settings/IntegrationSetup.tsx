@@ -1,6 +1,11 @@
 import { useCallback, useContext, useEffect, useMemo, useState } from "react"
 import type { FieldPath } from "react-hook-form"
 import { Controller, useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import {
+    integrationSetupSchema,
+    type IntegrationSetupFormValues,
+} from "@/validation/settings/integration-setup"
 import { useNavigate, useParams } from "react-router"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
@@ -285,7 +290,8 @@ export default function IntegrationSetup() {
     const maxRateLimit =
         activeMeta?.kind === "provider" ? activeMeta.meta.max_rate_limit : undefined
 
-    const form = useForm<IntegrationFormValues>({
+    const form = useForm<IntegrationSetupFormValues>({
+        resolver: zodResolver(integrationSetupSchema),
         values:
             kind === "action"
                 ? {
@@ -308,7 +314,7 @@ export default function IntegrationSetup() {
                         name: "",
                         data: {},
                         module: effectiveModule ?? "",
-                        link_wrap: true,
+                        link_wrap: false,
                         rate_limit: {
                             limit: manifestRateLimit?.limit ?? 0,
                             interval: manifestRateLimit?.interval ?? "1s",
@@ -316,7 +322,7 @@ export default function IntegrationSetup() {
                     },
     })
 
-    const handleSubmit = async (values: IntegrationFormValues) => {
+    const handleSubmit = async (values: IntegrationSetupFormValues) => {
         if (isReadOnlyProvider) return
         if (!effectiveModule) return
 
@@ -605,10 +611,12 @@ export default function IntegrationSetup() {
                         <FieldLabel>
                             {t("name")} <span className="text-destructive">*</span>
                         </FieldLabel>
-                        <Input
-                            {...form.register("name", { required: true })}
-                            disabled={isReadOnlyProvider}
-                        />
+                        <Input {...form.register("name")} disabled={isReadOnlyProvider} />
+                        {form.formState.errors.name && (
+                            <p className="text-sm text-destructive">
+                                {form.formState.errors.name.message}
+                            </p>
+                        )}
                     </Field>
 
                     {isReadOnlyProvider && (
