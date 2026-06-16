@@ -108,7 +108,6 @@ func Manifest() int32 {
 		},
 		Spec: providers.ProviderSpec{
 			Webhook:  true,
-			Platforms: []providers.Platform{providers.PlatformEmail},
 			Channels: []providers.Channel{providers.ChannelEmail},
 			RateLimit: &providers.RateLimit{
 				Limit:    5,

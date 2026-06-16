@@ -104,9 +104,8 @@ func Manifest() int32 {
 			// envelope around SES events (see WebhookHandler). Keep this false
 			// so the platform does not register a webhook that silently drops
 			// every event.
-			Webhook:   false,
-			Platforms: []providers.Platform{providers.PlatformEmail},
-			Channels:  []providers.Channel{providers.ChannelEmail},
+			Webhook:  false,
+			Channels: []providers.Channel{providers.ChannelEmail},
 			Config: &modules.JSONSchema{
 				Type: "object",
 				Properties: []modules.JSONSchemaProperty{

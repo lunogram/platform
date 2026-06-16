@@ -31,7 +31,6 @@ const (
 	PlatformIOS     Platform = "ios"
 	PlatformAndroid Platform = "android"
 	PlatformWeb     Platform = "web"
-	PlatformEmail   Platform = "email"
 )
 
 // String returns the string representation of the platform.
@@ -42,7 +41,7 @@ func (p Platform) String() string {
 // IsValid checks if the platform is a valid known platform type.
 func (p Platform) IsValid() bool {
 	switch p {
-	case PlatformIOS, PlatformAndroid, PlatformWeb, PlatformEmail:
+	case PlatformIOS, PlatformAndroid, PlatformWeb:
 		return true
 	default:
 		return false
