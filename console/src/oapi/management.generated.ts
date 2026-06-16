@@ -4865,7 +4865,7 @@ export interface components {
         Offset: number;
         /** @description Search query string */
         Search: string;
-        /** @description Include archived/soft-deleted items in the results */
+        /** @description When true, return only archived (soft-deleted) items instead of active ones */
         IncludeDeleted: boolean;
     };
     requestBodies: never;
@@ -4952,7 +4952,7 @@ export interface operations {
                 offset?: components["parameters"]["Offset"];
                 /** @description Search query string */
                 search?: components["parameters"]["Search"];
-                /** @description Include archived/soft-deleted items in the results */
+                /** @description When true, return only archived (soft-deleted) items instead of active ones */
                 include_deleted?: components["parameters"]["IncludeDeleted"];
             };
             header?: never;
@@ -5321,7 +5321,7 @@ export interface operations {
                 offset?: components["parameters"]["Offset"];
                 /** @description Search query string */
                 search?: components["parameters"]["Search"];
-                /** @description Include archived/soft-deleted items in the results */
+                /** @description When true, return only archived (soft-deleted) items instead of active ones */
                 include_deleted?: components["parameters"]["IncludeDeleted"];
             };
             header?: never;
@@ -5727,7 +5727,7 @@ export interface operations {
                 offset?: components["parameters"]["Offset"];
                 /** @description Search query string */
                 search?: components["parameters"]["Search"];
-                /** @description Include archived/soft-deleted items in the results */
+                /** @description When true, return only archived (soft-deleted) items instead of active ones */
                 include_deleted?: components["parameters"]["IncludeDeleted"];
             };
             header?: never;

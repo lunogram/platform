@@ -112,13 +112,13 @@ func (s *CampaignsStore) CreateCampaign(ctx context.Context, campaign Campaign) 
 	return id, nil
 }
 
-func (s *CampaignsStore) ListCampaigns(ctx context.Context, project uuid.UUID, pagination store.Pagination, search string, includeDeleted bool) (Campaigns, int, error) {
+func (s *CampaignsStore) ListCampaigns(ctx context.Context, project uuid.UUID, pagination store.Pagination, search string, archivedOnly bool) (Campaigns, int, error) {
 	query := `
 	SELECT id, project_id, COALESCE(name, '') AS name, channel, subscription_id, transactional, delivery, variables, created_at, updated_at, deleted_at,
 		COUNT(*) OVER () AS total_count
 	FROM campaigns
 	WHERE project_id = $1
-	AND ($5 = true OR deleted_at IS NULL)
+	AND (($5 = false AND deleted_at IS NULL) OR ($5 = true AND deleted_at IS NOT NULL))
 	AND ($4 = '' OR COALESCE(name, '') ILIKE '%' || $4 || '%')
 	ORDER BY created_at DESC
 	LIMIT $2 OFFSET $3`
@@ -127,7 +127,7 @@ func (s *CampaignsStore) ListCampaigns(ctx context.Context, project uuid.UUID, p
 		Campaign
 		TotalCount int `db:"total_count"`
 	}
-	err := s.db.SelectContext(ctx, &results, query, project, pagination.Limit, pagination.Offset, search, includeDeleted)
+	err := s.db.SelectContext(ctx, &results, query, project, pagination.Limit, pagination.Offset, search, archivedOnly)
 	if err != nil {
 		return nil, 0, err
 	}
