@@ -75,7 +75,7 @@ func Manifest() int32 {
 								},
 								{
 									Name:   "webhookVerificationKey",
-									Schema: &modules.JSONSchema{Type: "string", Title: "Webhook Verification Key", Description: "SendGrid signed webhook public key in PEM format (optional)"},
+									Schema: &modules.JSONSchema{Type: "string", Title: "Webhook Verification Key", Description: "SendGrid Event Webhook verification key (base64 from the dashboard; optional)"},
 								},
 							},
 							Required: []string{"apiKey"},
@@ -139,7 +139,7 @@ func Send() int32 {
 	httpReq, err := http.NewRequest(http.MethodPost, sendGridSendURL, bytes.NewReader(body))
 	if err != nil {
 		pdk.SetError(fmt.Errorf("failed to create request: %w", err))
-		return ExitTransient
+		return ExitPermanent
 	}
 	httpReq.Header.Set("Authorization", "Bearer "+req.Config.APIKey)
 	httpReq.Header.Set("Content-Type", "application/json")

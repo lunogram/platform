@@ -93,23 +93,6 @@ func TestMapWebhookEvent(t *testing.T) {
 	}
 }
 
-func TestWebhookEvents(t *testing.T) {
-	events := webhookEvents()
-
-	assert.Contains(t, events, "processed")
-	assert.Contains(t, events, "delivered")
-	assert.Contains(t, events, "bounce")
-	assert.Contains(t, events, "blocked")
-	assert.Contains(t, events, "deferred")
-	assert.Contains(t, events, "dropped")
-	assert.Contains(t, events, "open")
-	assert.Contains(t, events, "click")
-	assert.Contains(t, events, "spamreport")
-	assert.Contains(t, events, "unsubscribe")
-	assert.Contains(t, events, "group_unsubscribe")
-	assert.Len(t, events, 11)
-}
-
 func TestParseSendGridWebhookEvents(t *testing.T) {
 	body := []byte(`[
 		{"event":"processed","sg_message_id":"msg-1","timestamp":1710000000,"email":"a@example.com"},
@@ -155,6 +138,12 @@ func TestVerifySendGridWebhookSignature(t *testing.T) {
 	signatureHeader := base64.StdEncoding.EncodeToString(signature)
 
 	err = verifySendGridWebhookSignature(string(publicKeyPEM), payload, signatureHeader, timestamp)
+	assert.NoError(t, err)
+
+	// SendGrid exposes the verification key as a raw base64-encoded DER string
+	// (not PEM-armored); that form must verify as well.
+	publicKeyBase64 := base64.StdEncoding.EncodeToString(publicKeyDER)
+	err = verifySendGridWebhookSignature(publicKeyBase64, payload, signatureHeader, timestamp)
 	assert.NoError(t, err)
 
 	invalidTimestamp := strconv.FormatInt(time.Now().UTC().Unix()+1, 10)

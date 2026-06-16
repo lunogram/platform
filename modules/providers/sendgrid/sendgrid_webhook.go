@@ -9,6 +9,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/lunogram/platform/pkg/modules/providers"
@@ -38,23 +39,6 @@ func mapWebhookEvent(eventType string) (providers.WebhookEventName, bool) {
 		return providers.EventUnsubscribed, true
 	default:
 		return 0, false
-	}
-}
-
-// webhookEvents returns the list of SendGrid event types this provider maps.
-func webhookEvents() []string {
-	return []string{
-		"processed",
-		"delivered",
-		"bounce",
-		"blocked",
-		"deferred",
-		"dropped",
-		"open",
-		"click",
-		"spamreport",
-		"unsubscribe",
-		"group_unsubscribe",
 	}
 }
 
@@ -162,28 +146,47 @@ func validateSendGridWebhookTimestamp(timestampHeader string, now time.Time) err
 	return nil
 }
 
-func verifySendGridWebhookSignature(publicKeyPEM string, payload []byte, signatureHeader, timestampHeader string) error {
+// parseSendGridVerificationKey parses the SendGrid Event Webhook verification
+// key into an ECDSA public key. SendGrid exposes the key in the dashboard as a
+// base64-encoded DER (PKIX) string, so that form is accepted directly; a
+// PEM-armored key is also supported for convenience.
+func parseSendGridVerificationKey(key string) (*ecdsa.PublicKey, error) {
+	der := []byte(key)
+	if block, _ := pem.Decode(der); block != nil {
+		der = block.Bytes
+	} else {
+		decoded, err := base64.StdEncoding.DecodeString(strings.TrimSpace(key))
+		if err != nil {
+			return nil, fmt.Errorf("invalid SendGrid webhook verification key format")
+		}
+		der = decoded
+	}
+
+	publicKey, err := x509.ParsePKIXPublicKey(der)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse SendGrid webhook verification key: %w", err)
+	}
+
+	ecdsaKey, ok := publicKey.(*ecdsa.PublicKey)
+	if !ok {
+		return nil, fmt.Errorf("SendGrid webhook verification key must be an ECDSA public key")
+	}
+
+	return ecdsaKey, nil
+}
+
+func verifySendGridWebhookSignature(publicKeyVerificationKey string, payload []byte, signatureHeader, timestampHeader string) error {
 	if signatureHeader == "" || timestampHeader == "" {
 		return fmt.Errorf("missing SendGrid signature headers")
 	}
 
 	if err := validateSendGridWebhookTimestamp(timestampHeader, time.Now()); err != nil {
-		return fmt.Errorf("invalid SendGrid webhook timestamp: %w", err)
-	}
-	
-	block, _ := pem.Decode([]byte(publicKeyPEM))
-	if block == nil {
-		return fmt.Errorf("invalid SendGrid webhook verification key format")
+		return err
 	}
 
-	publicKey, err := x509.ParsePKIXPublicKey(block.Bytes)
+	ecdsaKey, err := parseSendGridVerificationKey(publicKeyVerificationKey)
 	if err != nil {
-		return fmt.Errorf("failed to parse SendGrid webhook verification key: %w", err)
-	}
-
-	ecdsaKey, ok := publicKey.(*ecdsa.PublicKey)
-	if !ok {
-		return fmt.Errorf("SendGrid webhook verification key must be an ECDSA public key")
+		return err
 	}
 
 	signature, err := base64.StdEncoding.DecodeString(signatureHeader)
