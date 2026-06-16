@@ -59,6 +59,7 @@ import {
     CommandList,
 } from "@/components/ui/command"
 import { InlineEdit } from "@/components/ui/inline-edit"
+import { optionalPhoneSchema } from "@/validation/phone"
 import type { User } from "../../types"
 
 // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -255,6 +256,7 @@ export default function UserDetail() {
                                     {/* 2. Phone */}
                                     <InlineEdit
                                         value={user.phone ?? ""}
+                                        validate={optionalPhoneSchema}
                                         onSave={async (value) => {
                                             const updatedUser = await api.users.update(
                                                 project.id,

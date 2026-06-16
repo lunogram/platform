@@ -1,1 +1,11 @@
 external_id,email,phone,timezone,locale
+user-1,user1@example.com,+1234567890,Europe/Amsterdam,en
+user-2,user2@example.com,+1234567891,America/New_York,en
+user-3,user3@example.com,+1234567892,GMT+2,en
+user-4,user4@example.com,+1234567893,GMT-5,en
+user-5,user5@example.com,+1234567894,UTC+8,en
+user-6,user6@example.com,+1234567895,EST,en
+user-7,user7@example.com,+1234567896,PST,en
+user-8,user8@example.com,+1234567897,CET,en
+user-9,user9@example.com,+1234567898,IST,en
+user-10,user10@example.com,+1234567899,Asia/Tokyo,en

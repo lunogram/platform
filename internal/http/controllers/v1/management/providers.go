@@ -248,8 +248,12 @@ func (srv *ProvidersController) CreateProvider(w http.ResponseWriter, r *http.Re
 	}
 
 	if body.RateLimit != nil {
-		provider.RateLimit = body.RateLimit.Limit
-		provider.RateInterval = body.RateLimit.Interval
+		if body.RateLimit.Limit > 0 {
+			provider.RateLimit = body.RateLimit.Limit
+		}
+		if body.RateLimit.Interval != "" {
+			provider.RateInterval = body.RateLimit.Interval
+		}
 	}
 
 	providerID, err := srv.store.ProvidersStore.CreateProvider(ctx, provider)
@@ -390,8 +394,12 @@ func (srv *ProvidersController) UpdateProvider(w http.ResponseWriter, r *http.Re
 	}
 
 	if body.RateLimit != nil {
-		update.RateLimit = &body.RateLimit.Limit
-		update.RateInterval = &body.RateLimit.Interval
+		if body.RateLimit.Limit > 0 {
+			update.RateLimit = &body.RateLimit.Limit
+		}
+		if body.RateLimit.Interval != "" {
+			update.RateInterval = &body.RateLimit.Interval
+		}
 	}
 
 	err = srv.store.ProvidersStore.UpdateProvider(ctx, projectID, providerID, update)

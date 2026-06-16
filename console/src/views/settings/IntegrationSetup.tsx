@@ -1,6 +1,11 @@
 import { useCallback, useContext, useEffect, useMemo, useState } from "react"
 import type { FieldPath } from "react-hook-form"
 import { Controller, useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import {
+    integrationSetupSchema,
+    type IntegrationSetupFormValues,
+} from "@/validation/settings/integration-setup"
 import { useNavigate, useParams } from "react-router"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
@@ -60,8 +65,10 @@ type IntegrationFormValues = {
     data?: Record<string, unknown>
     config?: Record<string, unknown>
     link_wrap?: boolean
-    rate_limit?: number | null
-    rate_interval?: string | null
+    rate_limit?: {
+        limit: number
+        interval: string
+    }
 }
 
 /** Map human-friendly interval labels to Go duration strings */
@@ -283,7 +290,8 @@ export default function IntegrationSetup() {
     const maxRateLimit =
         activeMeta?.kind === "provider" ? activeMeta.meta.max_rate_limit : undefined
 
-    const form = useForm<IntegrationFormValues>({
+    const form = useForm<IntegrationSetupFormValues>({
+        resolver: zodResolver(integrationSetupSchema),
         values:
             kind === "action"
                 ? {
@@ -299,23 +307,47 @@ export default function IntegrationSetup() {
                         data: provider.data,
                         module: effectiveModule ?? "",
                         link_wrap: provider?.link_wrap ?? false,
-                        rate_limit: provider?.rate_limit ?? null,
-                        rate_interval: provider?.rate_interval ?? "1s",
+                        rate_limit: provider?.rate_limit,
                     }
                   : {
                         kind: "provider",
                         name: "",
                         data: {},
                         module: effectiveModule ?? "",
-                        link_wrap: true,
-                        rate_limit: null,
-                        rate_interval: "1s",
+                        link_wrap: false,
+                        rate_limit: {
+                            limit: manifestRateLimit?.limit ?? 0,
+                            interval: manifestRateLimit?.interval ?? "1s",
+                        },
                     },
     })
 
-    const handleSubmit = async (values: IntegrationFormValues) => {
+    const handleSubmit = async (values: IntegrationSetupFormValues) => {
         if (isReadOnlyProvider) return
         if (!effectiveModule) return
+
+        // Validate required schema fields before submitting
+        if (dataSchema?.required && dataSchema.required.length > 0) {
+            const prefix = kind === "action" ? "config" : "data"
+            form.clearErrors(prefix)
+            let hasErrors = false
+            for (const key of dataSchema.required) {
+                const value = values[prefix]?.[key]
+                if (
+                    value === undefined ||
+                    value === null ||
+                    value === "" ||
+                    (typeof value === "string" && !value.trim())
+                ) {
+                    form.setError(`${prefix}.${key}`, {
+                        type: "required",
+                        message: t("field_required", "This field is required"),
+                    })
+                    hasErrors = true
+                }
+            }
+            if (hasErrors) return
+        }
 
         setIsSaving(true)
         try {
@@ -382,17 +414,7 @@ export default function IntegrationSetup() {
             }
 
             if (rateLimitOverride) {
-                const hasCustomRateLimit =
-                    typeof values.rate_limit === "number" &&
-                    Number.isFinite(values.rate_limit) &&
-                    values.rate_limit > 0
-
-                if (hasCustomRateLimit || isEdit) {
-                    body.rate_limit = {
-                        limit: hasCustomRateLimit ? values.rate_limit! : 0,
-                        interval: hasCustomRateLimit ? (values.rate_interval ?? "1s") : "1s",
-                    }
-                }
+                body.rate_limit = values.rate_limit
             }
 
             if (isEdit && provider?.id) {
@@ -589,10 +611,12 @@ export default function IntegrationSetup() {
                         <FieldLabel>
                             {t("name")} <span className="text-destructive">*</span>
                         </FieldLabel>
-                        <Input
-                            {...form.register("name", { required: true })}
-                            disabled={isReadOnlyProvider}
-                        />
+                        <Input {...form.register("name")} disabled={isReadOnlyProvider} />
+                        {form.formState.errors.name && (
+                            <p className="text-sm text-destructive">
+                                {form.formState.errors.name.message}
+                            </p>
+                        )}
                     </Field>
 
                     {isReadOnlyProvider && (
@@ -705,7 +729,7 @@ export default function IntegrationSetup() {
                                                             manifestRateLimit.limit,
                                                         )}
                                                         className="w-28"
-                                                        {...form.register("rate_limit", {
+                                                        {...form.register("rate_limit.limit", {
                                                             valueAsNumber: true,
                                                             min: 0,
                                                             max: maxRateLimit ?? undefined,
@@ -713,7 +737,7 @@ export default function IntegrationSetup() {
                                                     />
                                                     <Controller
                                                         control={form.control}
-                                                        name="rate_interval"
+                                                        name="rate_limit.interval"
                                                         render={({ field }) => (
                                                             <Select
                                                                 value={field.value ?? "1s"}
