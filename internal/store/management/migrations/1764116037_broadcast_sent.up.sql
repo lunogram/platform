@@ -1,0 +1,1 @@
+ALTER TABLE campaign_broadcasts ADD COLUMN sent INTEGER NOT NULL DEFAULT 0;

@@ -1,12 +1,27 @@
 import { useCallback, useContext, useEffect, useMemo, useState } from "react"
 import type { FieldPath } from "react-hook-form"
 import { Controller, useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import {
+    integrationSetupSchema,
+    type IntegrationSetupFormValues,
+} from "@/validation/settings/integration-setup"
 import { useNavigate, useParams } from "react-router"
 import { useTranslation } from "react-i18next"
+import { toast } from "sonner"
 import { ArrowLeft, Gauge } from "lucide-react"
 
 import oapiClient from "@/oapi/client"
-import type { Provider, ProviderMeta, CreateProvider, UpdateProvider } from "@/oapi/client"
+import type {
+    Action,
+    ActionMeta,
+    CreateAction,
+    CreateProvider,
+    Provider,
+    ProviderMeta,
+    UpdateAction,
+    UpdateProvider,
+} from "@/oapi/client"
 import { ProjectContext } from "../../contexts"
 import { useResolver } from "../../hooks"
 import type { SchemaProperty, Schema } from "@/components/schema-fields"
@@ -16,6 +31,7 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Field, FieldLabel, FieldDescription } from "@/components/ui/field"
 import {
     Select,
@@ -29,15 +45,30 @@ import { StaggeredMosaic } from "@/components/icon-mosaic"
 
 import { SenderIdentityList } from "@/components/sender-identity-list"
 
+type IntegrationKind = "provider" | "action"
+
 type ProviderWithExtras = Provider & {
     setup?: { name: string; value: string }[]
     external_id?: string
 }
 
-type ProviderFormValues = CreateProvider & {
+type ActionWithExtras = Action
+
+type IntegrationMeta =
+    | { kind: "provider"; meta: ProviderMeta; readOnly?: boolean }
+    | { kind: "action"; meta: ActionMeta }
+
+type IntegrationFormValues = {
+    kind: IntegrationKind
     module: string
-    rate_limit?: number | null
-    rate_interval?: string | null
+    name: string
+    data?: Record<string, unknown>
+    config?: Record<string, unknown>
+    link_wrap?: boolean
+    rate_limit?: {
+        limit: number
+        interval: string
+    }
 }
 
 /** Map human-friendly interval labels to Go duration strings */
@@ -48,27 +79,61 @@ const RATE_INTERVAL_OPTIONS = [
     { value: "24h", label: "per day" },
 ] as const
 
+function getErrorMessage(error: unknown, fallback: string) {
+    if (!error || typeof error !== "object") return fallback
+
+    const problem = error as Record<string, unknown>
+    if (typeof problem.detail === "string") return problem.detail
+    if (typeof problem.title === "string") return problem.title
+
+    return fallback
+}
+
+function normalizeKind(kind?: string, id?: string): IntegrationKind {
+    if (kind === "action" || kind === "provider") return kind
+    if (id) return "provider"
+    return "provider"
+}
+
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return undefined
+    return value as Record<string, unknown>
+}
+
+function hasExternalProviderId(provider?: ProviderWithExtras): boolean {
+    const data = asRecord(provider?.data)
+    return Boolean(
+        provider?.external_id ||
+        (typeof data?.external_id === "string" && data.external_id.length > 0),
+    )
+}
+
 /**
  * Handles both creating and editing integrations:
- * - Create: /projects/:projectId/integrations/new/:channel/:module
- * - Edit:   /projects/:projectId/integrations/:id
+ * - Create provider: /projects/:projectId/integrations/new/provider/:module
+ * - Create action:   /projects/:projectId/integrations/new/action/:module
+ * - Edit provider:   /projects/:projectId/integrations/provider/:id
+ * - Edit action:     /projects/:projectId/integrations/action/:id
  *
- * External integrations (with external_id) are shown as read-only.
- * Email-channel integrations also show a domain management section (enterprise only).
+ * Legacy routes still supported:
+ * - /projects/:projectId/integrations/new/:module (provider)
+ * - /projects/:projectId/integrations/:id (provider)
  */
 export default function IntegrationSetup() {
     const { t } = useTranslation()
     const [project] = useContext(ProjectContext)
     const navigate = useNavigate()
-    const { module: moduleName, id } = useParams()
+    const { kind: kindParam, module: moduleName, id } = useParams()
+
+    const kind = normalizeKind(kindParam, id)
     const isEdit = !!id && id !== "new"
 
     const [provider, setProvider] = useState<ProviderWithExtras | undefined>()
+    const [action, setAction] = useState<ActionWithExtras | undefined>()
     const [isSaving, setIsSaving] = useState(false)
     const [listKey] = useState(0)
 
-    // Load all provider metas to find the schema
-    const [options] = useResolver(
+    const [providerOptions] = useResolver(
         useCallback(async () => {
             const { data } = await oapiClient.GET(
                 "/api/admin/projects/{projectID}/providers/meta",
@@ -76,61 +141,117 @@ export default function IntegrationSetup() {
                     params: { path: { projectID: project.id } },
                 },
             )
-            return data
-        }, [project]),
+            return data ?? []
+        }, [project.id]),
     )
 
-    // For edit mode: load the existing provider
+    const [actionOptions] = useResolver(
+        useCallback(async () => {
+            const { data } = await oapiClient.GET("/api/admin/projects/{projectID}/actions/meta", {
+                params: { path: { projectID: project.id } },
+            })
+            return data ?? []
+        }, [project.id]),
+    )
+
     useEffect(() => {
-        if (isEdit && id) {
+        if (!isEdit || !id) return
+
+        if (kind === "action") {
             oapiClient
-                .GET("/api/admin/projects/{projectID}/providers", {
+                .GET("/api/admin/projects/{projectID}/actions/{actionID}", {
                     params: {
-                        path: { projectID: project.id },
-                        query: { limit: 100 },
+                        path: {
+                            projectID: project.id,
+                            actionID: id,
+                        },
                     },
                 })
                 .then(({ data }) => {
-                    const found = data?.results?.find((p) => p.id === id)
-                    if (found) {
-                        oapiClient
-                            .GET("/api/admin/projects/{projectID}/providers/{type}/{providerID}", {
-                                params: {
-                                    path: {
-                                        projectID: project.id,
-                                        type: found.module,
-                                        providerID: found.id,
-                                    },
-                                },
-                            })
-                            .then(({ data: full }) => setProvider(full ?? found))
-                            .catch(() => setProvider(found))
-                    } else {
+                    if (!data) {
                         navigate(`/projects/${project.id}/integrations`)
+                        return
                     }
+                    setAction(data)
                 })
                 .catch(() => navigate(`/projects/${project.id}/integrations`))
+            return
         }
-    }, [isEdit, id, project.id, navigate])
 
-    // Resolve the active meta
-    const meta = useMemo(() => {
-        if (!options) return undefined
-        if (isEdit && provider) {
-            return options.find((o: ProviderMeta) => o.type === provider.module)
+        oapiClient
+            .GET("/api/admin/projects/{projectID}/providers", {
+                params: {
+                    path: { projectID: project.id },
+                    query: { limit: 100 },
+                },
+            })
+            .then(({ data }) => {
+                const found = data?.results?.find((p) => p.id === id)
+                if (!found) {
+                    navigate(`/projects/${project.id}/integrations`)
+                    return
+                }
+
+                oapiClient
+                    .GET("/api/admin/projects/{projectID}/providers/{type}/{providerID}", {
+                        params: {
+                            path: {
+                                projectID: project.id,
+                                type: found.module,
+                                providerID: found.id,
+                            },
+                        },
+                    })
+                    .then(({ data: full }) => setProvider((full as ProviderWithExtras) ?? found))
+                    .catch(() => setProvider(found))
+            })
+            .catch(() => navigate(`/projects/${project.id}/integrations`))
+    }, [isEdit, id, kind, project.id, navigate])
+
+    const activeMeta = useMemo<IntegrationMeta | undefined>(() => {
+        if (kind === "action") {
+            if (!actionOptions) return undefined
+            const targetType = isEdit ? action?.type : moduleName
+            const meta = actionOptions.find((o: ActionMeta) => o.type === targetType)
+            return meta ? { kind: "action", meta } : undefined
         }
-        return options.find((o: ProviderMeta) => o.type === moduleName)
-    }, [options, isEdit, provider, moduleName])
 
-    const effectiveChannels = isEdit ? provider?.channels : meta?.channels
-    const effectiveModule = isEdit ? provider?.module : moduleName
-    const isExternal = !!provider?.external_id
+        if (!providerOptions) return undefined
+        const targetType = isEdit ? provider?.module : moduleName
+        const meta = providerOptions.find((o: ProviderMeta) => o.type === targetType)
+        if (meta) return { kind: "provider", meta }
+        if (!isEdit || !provider) return undefined
 
-    // Strip any legacy default_from* fields from the schema so they aren't
-    // rendered as generic form inputs — sender identity is handled by a
-    // dedicated component based on the channel.
+        return {
+            kind: "provider",
+            readOnly: true,
+            meta: {
+                type: provider.module,
+                name: provider.module,
+                channels: provider.channels ?? [],
+                schema: { type: "object", properties: [] },
+            },
+        }
+    }, [actionOptions, providerOptions, kind, isEdit, action, provider, moduleName])
+
+    const effectiveModule = useMemo(() => {
+        if (activeMeta?.kind === "action") return activeMeta.meta.type
+        if (activeMeta?.kind === "provider") return activeMeta.meta.type
+        return undefined
+    }, [activeMeta])
+
+    const isExternal = hasExternalProviderId(provider)
+    const isReadOnlyProvider =
+        kind === "provider" &&
+        (isExternal || (activeMeta?.kind === "provider" && activeMeta.readOnly))
+
     const dataSchema = useMemo((): Schema | undefined => {
-        const schema = meta?.schema as unknown as Schema | undefined
+        if (!activeMeta) return undefined
+        if (activeMeta.kind === "action") {
+            return (activeMeta.meta.config_schema as unknown as Schema | undefined) ?? undefined
+        }
+
+        const schema = activeMeta.meta.schema as unknown as Schema | undefined
         if (!schema?.properties) return undefined
 
         const rawSchema = Array.isArray(schema.properties)
@@ -151,50 +272,153 @@ export default function IntegrationSetup() {
         const filtered = props.filter((p) => !senderKeys.has(p.name))
 
         return { ...rawSchema, properties: filtered }
-    }, [meta])
+    }, [activeMeta])
+
+    const effectiveChannels =
+        activeMeta?.kind === "provider"
+            ? isEdit
+                ? provider?.channels
+                : activeMeta.meta.channels
+            : undefined
 
     const senderIdentityChannel = effectiveChannels?.find((c) => c === "email" || c === "sms")
 
-    const rateLimitOverride = meta?.rate_limit?.override === true
-    const manifestRateLimit = meta?.rate_limit
-    const maxRateLimit = meta?.max_rate_limit
+    const rateLimitOverride =
+        activeMeta?.kind === "provider" && activeMeta.meta.rate_limit?.override === true
+    const manifestRateLimit =
+        activeMeta?.kind === "provider" ? activeMeta.meta.rate_limit : undefined
+    const maxRateLimit =
+        activeMeta?.kind === "provider" ? activeMeta.meta.max_rate_limit : undefined
 
-    const form = useForm<ProviderFormValues>({
-        values: provider
-            ? {
-                  name: provider.name,
-                  data: provider.data,
-                  module: effectiveModule ?? "",
-                  link_wrap: provider?.link_wrap ?? false,
-                  rate_limit: provider?.rate_limit ?? null,
-                  rate_interval: provider?.rate_interval ?? "1s",
-              }
-            : {
-                  name: "",
-                  data: {},
-                  module: effectiveModule ?? "",
-                  link_wrap: true,
-                  rate_limit: null,
-                  rate_interval: "1s",
-              },
+    const form = useForm<IntegrationSetupFormValues>({
+        resolver: zodResolver(integrationSetupSchema),
+        values:
+            kind === "action"
+                ? {
+                      kind: "action",
+                      name: action?.name ?? "",
+                      module: effectiveModule ?? "",
+                      config: action?.config ?? {},
+                  }
+                : provider
+                  ? {
+                        kind: "provider",
+                        name: provider.name,
+                        data: provider.data,
+                        module: effectiveModule ?? "",
+                        link_wrap: provider?.link_wrap ?? false,
+                        rate_limit: provider?.rate_limit,
+                    }
+                  : {
+                        kind: "provider",
+                        name: "",
+                        data: {},
+                        module: effectiveModule ?? "",
+                        link_wrap: false,
+                        rate_limit: {
+                            limit: manifestRateLimit?.limit ?? 0,
+                            interval: manifestRateLimit?.interval ?? "1s",
+                        },
+                    },
     })
 
-    const handleSubmit = async (values: ProviderFormValues) => {
-        if (isExternal) return
+    const handleSubmit = async (values: IntegrationSetupFormValues) => {
+        if (isReadOnlyProvider) return
         if (!effectiveModule) return
+
+        // Validate required schema fields before submitting
+        if (dataSchema?.required && dataSchema.required.length > 0) {
+            const prefix = kind === "action" ? "config" : "data"
+            form.clearErrors(prefix)
+            let hasErrors = false
+            for (const key of dataSchema.required) {
+                const value = values[prefix]?.[key]
+                if (
+                    value === undefined ||
+                    value === null ||
+                    value === "" ||
+                    (typeof value === "string" && !value.trim())
+                ) {
+                    form.setError(`${prefix}.${key}`, {
+                        type: "required",
+                        message: t("field_required", "This field is required"),
+                    })
+                    hasErrors = true
+                }
+            }
+            if (hasErrors) return
+        }
+
         setIsSaving(true)
         try {
-            const { name, data, link_wrap, rate_limit, rate_interval } = values
-            const body: CreateProvider & UpdateProvider = { name, data, link_wrap }
+            if (kind === "action") {
+                const body: CreateAction & UpdateAction = {
+                    name: values.name,
+                    type: effectiveModule,
+                    config: values.config,
+                }
 
-            // Only send rate limit fields when the manifest allows overrides
+                if (isEdit && action?.id) {
+                    const { error } = await oapiClient.PATCH(
+                        "/api/admin/projects/{projectID}/actions/{actionID}",
+                        {
+                            params: {
+                                path: {
+                                    projectID: project.id,
+                                    actionID: action.id,
+                                },
+                            },
+                            body,
+                        },
+                    )
+                    if (error) {
+                        toast.error(
+                            getErrorMessage(
+                                error,
+                                t("integration_save_failed", "Failed to save integration"),
+                            ),
+                        )
+                        return
+                    }
+                } else {
+                    const { data: created, error } = await oapiClient.POST(
+                        "/api/admin/projects/{projectID}/actions",
+                        {
+                            params: { path: { projectID: project.id } },
+                            body,
+                        },
+                    )
+                    if (error) {
+                        toast.error(
+                            getErrorMessage(
+                                error,
+                                t("integration_save_failed", "Failed to save integration"),
+                            ),
+                        )
+                        return
+                    }
+                    if (created) {
+                        navigate(`/projects/${project.id}/integrations/action/${created.id}`)
+                        return
+                    }
+                }
+
+                navigate(`/projects/${project.id}/integrations`)
+                return
+            }
+
+            const body: CreateProvider & UpdateProvider = {
+                name: values.name,
+                data: values.data,
+                link_wrap: values.link_wrap,
+            }
+
             if (rateLimitOverride) {
-                body.rate_limit = rate_limit && rate_limit > 0 ? rate_limit : null
-                body.rate_interval = rate_limit && rate_limit > 0 ? (rate_interval ?? "1s") : null
+                body.rate_limit = values.rate_limit
             }
 
             if (isEdit && provider?.id) {
-                await oapiClient.PATCH(
+                const { error } = await oapiClient.PATCH(
                     "/api/admin/projects/{projectID}/providers/{type}/{providerID}",
                     {
                         params: {
@@ -207,8 +431,17 @@ export default function IntegrationSetup() {
                         body,
                     },
                 )
+                if (error) {
+                    toast.error(
+                        getErrorMessage(
+                            error,
+                            t("integration_save_failed", "Failed to save integration"),
+                        ),
+                    )
+                    return
+                }
             } else {
-                const { data: created } = await oapiClient.POST(
+                const { data: created, error } = await oapiClient.POST(
                     "/api/admin/projects/{projectID}/providers/{type}",
                     {
                         params: {
@@ -220,11 +453,22 @@ export default function IntegrationSetup() {
                         body,
                     },
                 )
+                if (error) {
+                    toast.error(
+                        getErrorMessage(
+                            error,
+                            t("integration_save_failed", "Failed to save integration"),
+                        ),
+                    )
+                    return
+                }
+
                 if (created) {
-                    navigate(`/projects/${project.id}/integrations/${created.id}`)
+                    navigate(`/projects/${project.id}/integrations/provider/${created.id}`)
                     return
                 }
             }
+
             navigate(`/projects/${project.id}/integrations`)
         } finally {
             setIsSaving(false)
@@ -235,20 +479,18 @@ export default function IntegrationSetup() {
         ? `/projects/${project.id}/integrations`
         : `/projects/${project.id}/integrations/new`
 
-    // Wait for data before rendering the form
-    if (!meta && options && !(isEdit && !provider)) {
-        // meta not found and not still loading provider — redirect back
-        navigate(backUrl)
+    const shouldRedirectMissingMeta =
+        !activeMeta && providerOptions && actionOptions && !(isEdit && !provider && !action)
+
+    useEffect(() => {
+        if (shouldRedirectMissingMeta) navigate(backUrl)
+    }, [backUrl, navigate, shouldRedirectMissingMeta])
+
+    if (shouldRedirectMissingMeta) {
         return null
     }
-    if (!meta) {
-        return (
-            <div className="flex items-center justify-center h-32 text-muted-foreground p-6">
-                <p className="text-sm">{t("loading", "Loading...")}</p>
-            </div>
-        )
-    }
-    if (isEdit && !provider) {
+
+    if (!activeMeta) {
         return (
             <div className="flex items-center justify-center h-32 text-muted-foreground p-6">
                 <p className="text-sm">{t("loading", "Loading...")}</p>
@@ -256,13 +498,52 @@ export default function IntegrationSetup() {
         )
     }
 
-    const showSenderIdentity = senderIdentityChannel === "email" || senderIdentityChannel === "sms"
+    if (isEdit && kind === "provider" && !provider) {
+        return (
+            <div className="flex items-center justify-center h-32 text-muted-foreground p-6">
+                <p className="text-sm">{t("loading", "Loading...")}</p>
+            </div>
+        )
+    }
+
+    if (isEdit && kind === "action" && !action) {
+        return (
+            <div className="flex items-center justify-center h-32 text-muted-foreground p-6">
+                <p className="text-sm">{t("loading", "Loading...")}</p>
+            </div>
+        )
+    }
+
+    const showSenderIdentity =
+        kind === "provider" &&
+        !isReadOnlyProvider &&
+        (senderIdentityChannel === "email" || senderIdentityChannel === "sms")
+
+    const title =
+        isEdit && kind === "action"
+            ? action?.name
+            : isEdit && kind === "provider"
+              ? provider?.name
+              : activeMeta.meta.name
+
+    const subtitle =
+        isEdit && kind === "action"
+            ? activeMeta.meta.name
+            : isEdit && kind === "provider"
+              ? activeMeta.meta.name
+              : kind === "action"
+                ? t(
+                      "integration_setup_action_hint",
+                      "Configure this action integration to run functions in journeys.",
+                  )
+                : t(
+                      "integration_setup_hint",
+                      "Fill out the fields below to connect this integration.",
+                  )
 
     return (
         <div className="flex flex-col min-h-full">
-            {/* Header — ambient mosaic background (same pattern as UserDetail map) */}
             <div className="border-b bg-card/50 relative overflow-hidden">
-                {/* Ambient mosaic — faded right-side background */}
                 <div
                     className="absolute top-1/2 -translate-y-1/2 left-[50%] xl:left-[30%] right-0 hidden lg:block pointer-events-none opacity-[0.8]"
                     style={{
@@ -271,16 +552,12 @@ export default function IntegrationSetup() {
                     }}
                 >
                     <StaggeredMosaic
-                        provider={
-                            meta
-                                ? {
-                                      id: meta.type,
-                                      name: meta.name,
-                                      icon: meta.icon,
-                                      color: meta.color,
-                                  }
-                                : undefined
-                        }
+                        provider={{
+                            id: activeMeta.meta.type,
+                            name: activeMeta.meta.name,
+                            icon: activeMeta.meta.icon,
+                            color: activeMeta.meta.color,
+                        }}
                         cols={12}
                         rows={4}
                     />
@@ -298,60 +575,73 @@ export default function IntegrationSetup() {
                         </Button>
                         <div className="flex items-center gap-3">
                             <div className="space-y-0.5">
-                                <h1 className="text-2xl font-semibold tracking-tight">
-                                    {isEdit ? provider?.name : meta.name}
-                                </h1>
-                                <p className="text-sm text-muted-foreground">
-                                    {isEdit
-                                        ? meta.name
-                                        : t(
-                                              "integration_setup_hint",
-                                              "Fill out the fields below to connect this integration.",
-                                          )}
-                                </p>
+                                <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+                                <p className="text-sm text-muted-foreground">{subtitle}</p>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* Form — full width below header */}
             <div className="flex-1 overflow-y-auto p-6">
                 <form
                     id="integration-form"
                     onSubmit={form.handleSubmit(handleSubmit)}
                     className="grid gap-6 max-w-2xl"
                 >
-                    {isEdit && provider?.setup && provider.setup.length > 0 && (
-                        <>
-                            <h4 className="text-sm font-medium">{t("details", "Details")}</h4>
-                            {provider.setup.map((item) => (
-                                <Field key={item.name}>
-                                    <FieldLabel className="text-muted-foreground">
-                                        {item.name}
-                                    </FieldLabel>
-                                    <Input value={item.value} disabled />
-                                </Field>
-                            ))}
-                            <Separator />
-                        </>
-                    )}
+                    {kind === "provider" &&
+                        isEdit &&
+                        provider?.setup &&
+                        provider.setup.length > 0 && (
+                            <>
+                                <h4 className="text-sm font-medium">{t("details", "Details")}</h4>
+                                {provider.setup.map((item) => (
+                                    <Field key={item.name}>
+                                        <FieldLabel className="text-muted-foreground">
+                                            {item.name}
+                                        </FieldLabel>
+                                        <Input value={item.value} disabled />
+                                    </Field>
+                                ))}
+                                <Separator />
+                            </>
+                        )}
 
                     <Field>
                         <FieldLabel>
                             {t("name")} <span className="text-destructive">*</span>
                         </FieldLabel>
-                        <Input
-                            {...form.register("name", { required: true })}
-                            disabled={isExternal}
-                        />
+                        <Input {...form.register("name")} disabled={isReadOnlyProvider} />
+                        {form.formState.errors.name && (
+                            <p className="text-sm text-destructive">
+                                {form.formState.errors.name.message}
+                            </p>
+                        )}
                     </Field>
 
-                    {!isExternal && dataSchema && (
+                    {isReadOnlyProvider && (
+                        <Alert>
+                            <AlertTitle>
+                                {t("managed_integration_title", "Managed integration")}
+                            </AlertTitle>
+                            <AlertDescription>
+                                {t(
+                                    "managed_integration_description",
+                                    "This integration is configured by Lunogram and cannot be edited in the console.",
+                                )}
+                            </AlertDescription>
+                        </Alert>
+                    )}
+
+                    {kind === "provider" && !isReadOnlyProvider && dataSchema && (
                         <FormSchemaFields parent="data" schema={dataSchema} form={form} />
                     )}
 
-                    {!isExternal && (
+                    {kind === "action" && dataSchema && (
+                        <FormSchemaFields parent="config" schema={dataSchema} form={form} />
+                    )}
+
+                    {kind === "provider" && !isReadOnlyProvider && (
                         <Controller
                             control={form.control}
                             name="link_wrap"
@@ -378,8 +668,7 @@ export default function IntegrationSetup() {
                         />
                     )}
 
-                    {/* Rate Limit Section */}
-                    {!isExternal && manifestRateLimit && (
+                    {kind === "provider" && !isReadOnlyProvider && manifestRateLimit && (
                         <>
                             <Separator />
                             <div className="space-y-4">
@@ -421,11 +710,15 @@ export default function IntegrationSetup() {
                                                 <FieldDescription>
                                                     {t(
                                                         "rate_limit_override_description",
-                                                        "Override the default rate limit for this provider. Leave empty to use the default." +
-                                                            (maxRateLimit
-                                                                ? ` Maximum: ${maxRateLimit} requests per minute.`
-                                                                : ""),
+                                                        "Override the default rate limit for this provider. Leave empty to use the default.",
                                                     )}
+                                                    {maxRateLimit
+                                                        ? ` ${t(
+                                                              "rate_limit_override_maximum",
+                                                              "Maximum: {{limit}} requests per minute.",
+                                                              { limit: maxRateLimit },
+                                                          )}`
+                                                        : ""}
                                                 </FieldDescription>
                                                 <div className="flex items-center gap-2">
                                                     <Input
@@ -436,7 +729,7 @@ export default function IntegrationSetup() {
                                                             manifestRateLimit.limit,
                                                         )}
                                                         className="w-28"
-                                                        {...form.register("rate_limit", {
+                                                        {...form.register("rate_limit.limit", {
                                                             valueAsNumber: true,
                                                             min: 0,
                                                             max: maxRateLimit ?? undefined,
@@ -444,7 +737,7 @@ export default function IntegrationSetup() {
                                                     />
                                                     <Controller
                                                         control={form.control}
-                                                        name="rate_interval"
+                                                        name="rate_limit.interval"
                                                         render={({ field }) => (
                                                             <Select
                                                                 value={field.value ?? "1s"}
@@ -478,8 +771,7 @@ export default function IntegrationSetup() {
                     )}
                 </form>
 
-                {/* Sender identity management — edit mode only */}
-                {isEdit && provider?.id && showSenderIdentity && (
+                {kind === "provider" && isEdit && provider?.id && showSenderIdentity && (
                     <div className="max-w-2xl mt-8">
                         <SenderIdentityList
                             key={listKey}
@@ -487,13 +779,13 @@ export default function IntegrationSetup() {
                             providerId={provider.id}
                             channel={senderIdentityChannel as "email" | "sms"}
                             defaultFromId={
-                                form.watch("data.default_from" as FieldPath<ProviderFormValues>) as
-                                    | string
-                                    | undefined
+                                form.watch(
+                                    "data.default_from" as FieldPath<IntegrationFormValues>,
+                                ) as string | undefined
                             }
                             onDefaultChange={(identityId) =>
                                 form.setValue(
-                                    "data.default_from" as FieldPath<ProviderFormValues>,
+                                    "data.default_from" as FieldPath<IntegrationFormValues>,
                                     identityId,
                                     {
                                         shouldDirty: true,
@@ -504,7 +796,7 @@ export default function IntegrationSetup() {
                     </div>
                 )}
 
-                {!isExternal && (
+                {(kind !== "provider" || !isReadOnlyProvider) && (
                     <div className="flex items-center gap-3 pt-8 pb-6 max-w-2xl">
                         <Button type="submit" form="integration-form" disabled={isSaving}>
                             {isSaving

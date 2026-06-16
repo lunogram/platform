@@ -238,7 +238,7 @@ export function EmailPreviewPanel({
     // on every content change.
     useEffect(() => {
         const iframe = iframeRef.current
-        if (!iframe || !preparedHtml) return
+        if (!iframe || !preparedHtml || error) return
 
         const doc = iframe.contentDocument
         if (!doc) return
@@ -246,7 +246,7 @@ export function EmailPreviewPanel({
         doc.open()
         doc.write(preparedHtml)
         doc.close()
-    }, [preparedHtml])
+    }, [error, preparedHtml])
 
     // Toggle selector mode in the iframe based on selectorActive
     useEffect(() => {

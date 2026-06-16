@@ -1,6 +1,10 @@
 import { useCallback, useState, useRef } from "react"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
 import { useParams } from "react-router"
 import { useTranslation } from "react-i18next"
+import type { OrganizationFormValues } from "@/validation/organizations/organization-form"
+import { organizationFormSchema } from "@/validation/organizations/organization-form"
 import {
     Plus,
     Building2,
@@ -55,12 +59,18 @@ export default function Organizations() {
     const [debouncedQuery, setDebouncedQuery] = useState("")
     const [isCreateOpen, setIsCreateOpen] = useState(false)
     const [isCreating, setIsCreating] = useState(false)
-    const [newOrgExternalId, setNewOrgExternalId] = useState("")
-    const [newOrgName, setNewOrgName] = useState("")
     const [newOrgData, setNewOrgData] = useState<Record<string, unknown>>({})
+
+    const orgForm = useForm<OrganizationFormValues>({
+        resolver: zodResolver(organizationFormSchema),
+        defaultValues: {
+            external_id: "",
+            name: "",
+        },
+    })
     const [page, setPage] = useState(1)
     const limit = 15
-    const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>()
+    const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
     // Debounce search
     const handleSearch = useCallback((value: string) => {
@@ -97,23 +107,20 @@ export default function Organizations() {
     const hasNextPage = page < totalPages
     const hasPrevPage = page > 1
 
-    const createOrganization = async () => {
-        if (!newOrgExternalId.trim()) return
-
+    const createOrganization = async (formData: OrganizationFormValues) => {
         setIsCreating(true)
         try {
             await oapiClient.POST("/api/admin/projects/{projectID}/subjects/organizations", {
                 params: { path: { projectID: projectId } },
                 body: {
-                    identifier: [{ source: "default", external_id: newOrgExternalId.trim() }],
-                    name: newOrgName.trim() || undefined,
+                    identifier: [{ source: "default", external_id: formData.external_id.trim() }],
+                    name: formData.name?.trim() || undefined,
                     data: Object.keys(newOrgData).length > 0 ? newOrgData : undefined,
                 } as UpsertOrganization,
             })
             await reload()
             setIsCreateOpen(false)
-            setNewOrgExternalId("")
-            setNewOrgName("")
+            orgForm.reset()
             setNewOrgData({})
         } finally {
             setIsCreating(false)
@@ -156,7 +163,10 @@ export default function Organizations() {
                 <Button
                     onClick={() => setIsCreateOpen(true)}
                     className="flex-1 sm:flex-initial"
-                    aria-label={t("create_organization_from_header", "Create Organization from header")}
+                    aria-label={t(
+                        "create_organization_from_header",
+                        "Create Organization from header",
+                    )}
                 >
                     <Plus className="mr-2 h-4 w-4" />
                     {t("create_organization")}
@@ -385,9 +395,13 @@ export default function Organizations() {
                                 <Input
                                     id="external_id"
                                     placeholder={t("enter_identifier", "e.g., org-123")}
-                                    value={newOrgExternalId}
-                                    onChange={(e) => setNewOrgExternalId(e.target.value)}
+                                    {...orgForm.register("external_id")}
                                 />
+                                {orgForm.formState.errors.external_id && (
+                                    <p className="text-sm text-destructive">
+                                        {orgForm.formState.errors.external_id.message}
+                                    </p>
+                                )}
                                 <p className="text-xs text-muted-foreground">
                                     {t("identifier_help", "A unique identifier from your system")}
                                 </p>
@@ -397,8 +411,7 @@ export default function Organizations() {
                                 <Input
                                     id="name"
                                     placeholder={t("enter_organization_name", "e.g., Acme Corp")}
-                                    value={newOrgName}
-                                    onChange={(e) => setNewOrgName(e.target.value)}
+                                    {...orgForm.register("name")}
                                 />
                             </div>
                         </div>
@@ -424,8 +437,8 @@ export default function Organizations() {
                             {t("cancel")}
                         </Button>
                         <Button
-                            onClick={createOrganization}
-                            disabled={!newOrgExternalId.trim() || isCreating}
+                            onClick={orgForm.handleSubmit(createOrganization)}
+                            disabled={isCreating}
                         >
                             {isCreating ? t("creating") : t("create")}
                         </Button>

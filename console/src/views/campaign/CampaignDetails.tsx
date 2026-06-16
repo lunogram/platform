@@ -1,9 +1,8 @@
-import { useCallback, useContext, useMemo, useState, useEffect } from "react"
+import { useCallback, useContext, useEffect, useMemo, useState } from "react"
 import { CampaignContext, ProjectContext, TemplateContext } from "@/contexts"
 import type { Campaign, Template, Subscription } from "@/types"
 import { useTranslation } from "react-i18next"
 import { Controller, useForm } from "react-hook-form"
-import { z } from "zod"
 import { zodResolver } from "@hookform/resolvers/zod"
 import api from "@/api"
 import { Radio } from "lucide-react"
@@ -29,17 +28,7 @@ import {
 } from "@/components/ui/select"
 import { CreateBroadcastDialog } from "@/views/broadcast/CreateBroadcastDialog"
 
-const campaignVariableSchema = z.object({
-    name: z.string(),
-    default: z.string().optional(),
-})
-
-const campaignSchema = z.object({
-    name: z.string().min(1, "Name is required"),
-    variables: z.array(campaignVariableSchema),
-})
-
-type CampaignReviewFormData = z.infer<typeof campaignSchema>
+import { campaignSchema, type CampaignReviewFormData } from "@/validation/campaign/campaign-details"
 
 function CampaignReview({ campaign, template }: { campaign: Campaign; template: Template }) {
     const { t } = useTranslation()
@@ -63,6 +52,16 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
         if (!subscriptions) return []
         return subscriptions.filter((s) => s.channel === campaign.channel)
     }, [subscriptions, campaign.channel])
+
+    const effectiveSubscriptionId = useMemo(() => {
+        if (isTransactional || filteredSubscriptions.length === 0) {
+            return ""
+        }
+        const hasValidSelection = filteredSubscriptions.some(
+            (subscription) => subscription.id === subscriptionId,
+        )
+        return hasValidSelection ? subscriptionId : filteredSubscriptions[0].id
+    }, [isTransactional, filteredSubscriptions, subscriptionId])
 
     const form = useForm<CampaignReviewFormData>({
         resolver: zodResolver(campaignSchema),
@@ -88,7 +87,7 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
             const updatedCampaign = await api.campaigns.update(project.id, campaign.id, {
                 name: data.name,
                 transactional: isTransactional,
-                subscription_id: isTransactional ? undefined : subscriptionId || undefined,
+                subscription_id: isTransactional ? undefined : effectiveSubscriptionId || undefined,
                 variables: data.variables.filter((v) => v.name),
             })
 
@@ -153,6 +152,7 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
                                             <CampaignVariables
                                                 variables={field.value}
                                                 onChange={field.onChange}
+                                                channel={campaign.channel}
                                             />
                                         </Field>
                                     )}
@@ -187,7 +187,10 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
                                         <FieldLabel htmlFor="subscription-select">
                                             {t("campaign.subscription", "Subscription")}
                                         </FieldLabel>
-                                        <Select value={subscriptionId} onValueChange={setSubscriptionId}>
+                                        <Select
+                                            value={effectiveSubscriptionId}
+                                            onValueChange={setSubscriptionId}
+                                        >
                                             <SelectTrigger id="subscription-select">
                                                 <SelectValue
                                                     placeholder={t(
@@ -220,11 +223,18 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
                             )}
 
                             <div className="flex items-center gap-2">
-                                <Button type="submit" disabled={isSubmitting} isLoading={isSubmitting}>
+                                <Button
+                                    type="submit"
+                                    disabled={isSubmitting}
+                                    isLoading={isSubmitting}
+                                >
                                     {t("actions.save")}
                                 </Button>
                                 {isEnterprise && (
-                                    <Button variant="outline" onClick={() => setIsBroadcastOpen(true)}>
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => setIsBroadcastOpen(true)}
+                                    >
                                         <Radio className="mr-2 h-3.5 w-3.5" />
                                         {t("send_broadcast", "Send Broadcast")}
                                     </Button>
@@ -257,14 +267,10 @@ export default function CampaignDetails() {
     const [template, setTemplate] = useState<Template | null>(null)
 
     useEffect(() => {
-        if (!campaign || campaign.templates.length === 0) {
-            return
-        }
-
-        const template =
-            campaign.templates.find((template) => template.locale === project.locale) ??
-            campaign.templates[0]
-        setTemplate(template)
+        if (!campaign || campaign.templates.length === 0) return
+        const selected =
+            campaign.templates.find((t) => t.locale === project.locale) ?? campaign.templates[0]
+        setTemplate((prev) => (prev?.id !== selected.id ? selected : prev))
     }, [campaign, project.locale])
 
     if (!campaign || !project || !template) {

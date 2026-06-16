@@ -1,5 +1,9 @@
 import React, { useCallback, useContext, useMemo, useState, useRef } from "react"
+import { useForm, Controller } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
 import { useTranslation } from "react-i18next"
+import type { EventFormValues } from "@/validation/event-form"
+import { eventFormSchema } from "@/validation/event-form"
 import {
     Activity,
     ChevronLeft,
@@ -117,13 +121,17 @@ export default function OrganizationDetailEvents() {
     const [searchQuery, setSearchQuery] = useState("")
     const [debouncedQuery, setDebouncedQuery] = useState("")
     const [expandedEventId, setExpandedEventId] = useState<string | null>(null)
-    const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>()
+    const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined)
     const limit = 25
 
     const [isCreateOpen, setIsCreateOpen] = useState(false)
     const [isCreating, setIsCreating] = useState(false)
-    const [newEventName, setNewEventName] = useState("")
     const [newEventData, setNewEventData] = useState<Record<string, unknown>>({})
+
+    const eventForm = useForm<EventFormValues>({
+        resolver: zodResolver(eventFormSchema),
+        defaultValues: { event_name: "" },
+    })
 
     const handleSearch = (value: string) => {
         setSearchQuery(value)
@@ -183,8 +191,7 @@ export default function OrganizationDetailEvents() {
         return schemasResult.map((s: { name: string }) => ({ path: s.name }))
     }, [schemasResult])
 
-    const createEvent = async () => {
-        if (!newEventName.trim()) return
+    const createEvent = async (formData: EventFormValues) => {
         setIsCreating(true)
         try {
             await oapiClient.POST(
@@ -192,7 +199,7 @@ export default function OrganizationDetailEvents() {
                 {
                     params: { path: { projectID: project.id, organizationID: organization.id } },
                     body: {
-                        name: newEventName.trim(),
+                        name: formData.event_name.trim(),
                         data: Object.keys(newEventData).length > 0 ? newEventData : undefined,
                     },
                 },
@@ -200,7 +207,7 @@ export default function OrganizationDetailEvents() {
             // Reload events after a short delay to allow async processing
             setTimeout(() => reload(), 1000)
             setIsCreateOpen(false)
-            setNewEventName("")
+            eventForm.reset()
             setNewEventData({})
             toast.success(t("event_created", "Event created"))
         } catch {
@@ -428,19 +435,30 @@ export default function OrganizationDetailEvents() {
                     <div className="grid gap-4 py-4">
                         <div className="grid gap-2">
                             <Label>{t("event_name", "Event")} *</Label>
-                            <Combobox
-                                options={eventOptions}
-                                value={newEventName}
-                                onValueChange={setNewEventName}
-                                placeholder={t(
-                                    "enter_event_name",
-                                    "Type or select an event name...",
-                                )}
-                                emptyText={t(
-                                    "no_events_found",
-                                    "No matching events. Type a name to create one.",
+                            <Controller
+                                control={eventForm.control}
+                                name="event_name"
+                                render={({ field }) => (
+                                    <Combobox
+                                        options={eventOptions}
+                                        value={field.value}
+                                        onValueChange={field.onChange}
+                                        placeholder={t(
+                                            "enter_event_name",
+                                            "Type or select an event name...",
+                                        )}
+                                        emptyText={t(
+                                            "no_events_found",
+                                            "No matching events. Type a name to create one.",
+                                        )}
+                                    />
                                 )}
                             />
+                            {eventForm.formState.errors.event_name && (
+                                <p className="text-sm text-destructive">
+                                    {eventForm.formState.errors.event_name.message}
+                                </p>
+                            )}
                         </div>
                         <div className="grid gap-2">
                             <Label>{t("data", "Data")}</Label>
@@ -463,7 +481,7 @@ export default function OrganizationDetailEvents() {
                         >
                             {t("cancel")}
                         </Button>
-                        <Button onClick={createEvent} disabled={!newEventName.trim() || isCreating}>
+                        <Button onClick={eventForm.handleSubmit(createEvent)} disabled={isCreating}>
                             {isCreating ? t("creating") : t("create")}
                         </Button>
                     </DialogFooter>

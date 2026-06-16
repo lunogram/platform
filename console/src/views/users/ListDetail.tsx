@@ -537,12 +537,12 @@ export default function ListDetail() {
                                     <TooltipTrigger asChild>
                                         <div className="relative max-w-xs flex-1">
                                             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/50" />
-                                    <Input
-                                        placeholder={t("search_users", "Search users...")}
-                                        aria-label={t("search_users", "Search users")}
-                                        disabled
-                                        className="pl-9 h-8"
-                                    />
+                                            <Input
+                                                placeholder={t("search_users", "Search users...")}
+                                                aria-label={t("search_users", "Search users")}
+                                                disabled
+                                                className="pl-9 h-8"
+                                            />
                                         </div>
                                     </TooltipTrigger>
                                     <TooltipContent>

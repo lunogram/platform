@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next"
 import { ArrowLeft, ArrowRight, Puzzle, Search } from "lucide-react"
 
 import oapiClient from "@/oapi/client"
-import type { ProviderMeta } from "@/oapi/client"
+import type { ActionMeta, ProviderMeta } from "@/oapi/client"
 import { ProjectContext } from "../../contexts"
 import { useResolver } from "../../hooks"
 import { snakeToTitle } from "../../utils"
@@ -15,23 +15,61 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { StaggeredMosaic } from "@/components/icon-mosaic"
 
+type IntegrationKind = "provider" | "action"
+
+type IntegrationOption = {
+    kind: IntegrationKind
+    type: string
+    name: string
+    description?: string
+    icon?: string
+    color?: string
+    channels?: string[]
+}
+
 export default function NewIntegration() {
     const { t } = useTranslation()
     const [project] = useContext(ProjectContext)
     const navigate = useNavigate()
     const [failedIcons, setFailedIcons] = useState<Set<string>>(new Set())
-    const [hoveredMeta, setHoveredMeta] = useState<ProviderMeta | null>(null)
+    const [hoveredMeta, setHoveredMeta] = useState<IntegrationOption | null>(null)
     const [searchQuery, setSearchQuery] = useState("")
 
     const [options] = useResolver(
         useCallback(async () => {
-            const { data } = await oapiClient.GET(
-                "/api/admin/projects/{projectID}/providers/meta",
-                {
+            const [{ data: providers }, { data: actions }] = await Promise.all([
+                oapiClient.GET("/api/admin/projects/{projectID}/providers/meta", {
                     params: { path: { projectID: project.id } },
-                },
+                }),
+                oapiClient.GET("/api/admin/projects/{projectID}/actions/meta", {
+                    params: { path: { projectID: project.id } },
+                }),
+            ])
+
+            const providerOptions: IntegrationOption[] = (providers ?? []).map(
+                (provider: ProviderMeta) => ({
+                    kind: "provider",
+                    type: provider.type,
+                    name: provider.name,
+                    description: provider.description,
+                    icon: provider.icon,
+                    color: provider.color,
+                    channels: provider.channels,
+                }),
             )
-            return data
+
+            const actionOptions: IntegrationOption[] = (actions ?? []).map(
+                (action: ActionMeta) => ({
+                    kind: "action",
+                    type: action.type,
+                    name: action.name,
+                    description: action.description,
+                    icon: action.icon,
+                    color: action.color,
+                }),
+            )
+
+            return [...providerOptions, ...actionOptions]
         }, [project]),
     )
 
@@ -40,9 +78,10 @@ export default function NewIntegration() {
         if (!searchQuery) return options
         const q = searchQuery.toLowerCase()
         return options.filter(
-            (o: ProviderMeta) =>
+            (o: IntegrationOption) =>
                 o.name.toLowerCase().includes(q) ||
                 o.type.toLowerCase().includes(q) ||
+                o.kind.toLowerCase().includes(q) ||
                 o.channels?.some((c) => c.toLowerCase().includes(q)) ||
                 o.description?.toLowerCase().includes(q),
         )
@@ -98,7 +137,7 @@ export default function NewIntegration() {
                             <p className="text-sm text-muted-foreground">
                                 {t(
                                     "pick_integration_hint",
-                                    "Choose a provider to connect to your project.",
+                                    "Choose a provider or action to connect to your project.",
                                 )}
                             </p>
                         </div>
@@ -112,7 +151,7 @@ export default function NewIntegration() {
                 <div className="relative sm:max-w-sm">
                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
-                        placeholder={t("search_providers", "Search providers...")}
+                        placeholder={t("search_integrations", "Search integrations...")}
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="pl-9"
@@ -123,76 +162,92 @@ export default function NewIntegration() {
                     <div className="flex items-center justify-center h-32 text-muted-foreground">
                         <p className="text-sm">{t("loading", "Loading...")}</p>
                     </div>
-                ) : filteredOptions.length === 0 ? (
-                    <div className="flex flex-col items-center gap-2 text-muted-foreground py-12">
-                        <Puzzle className="h-8 w-8" />
-                        <p>
-                            {searchQuery
-                                ? t("no_results")
-                                : t("no_providers", "No providers available")}
-                        </p>
-                    </div>
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {filteredOptions.map((option: ProviderMeta) => {
-                            const key = option.type
-                            const showIcon = option.icon && !failedIcons.has(key)
-                            return (
-                                <Card
-                                    key={key}
-                                    role="button"
-                                    aria-label={`Select integration ${option.type}`}
-                                    className="group flex items-center gap-4 p-4 cursor-pointer transition-colors hover:border-primary hover:bg-accent/50"
-                                    onClick={() =>
-                                        navigate(
-                                            `/projects/${project.id}/integrations/new/${option.type}`,
-                                        )
-                                    }
-                                    onMouseEnter={() => setHoveredMeta(option)}
-                                    onMouseLeave={() => setHoveredMeta(null)}
-                                >
-                                    {/* Icon */}
-                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border bg-background">
-                                        {showIcon ? (
-                                            <img
-                                                src={option.icon}
-                                                alt={option.name}
-                                                className="h-6 w-6 object-contain"
-                                                onError={() => handleIconError(key)}
-                                            />
-                                        ) : (
-                                            <Puzzle className="h-4 w-4 text-muted-foreground" />
-                                        )}
-                                    </div>
+                    <div>
+                        {filteredOptions.length === 0 ? (
+                            <div className="flex flex-col items-center gap-2 text-muted-foreground py-12">
+                                <Puzzle className="h-8 w-8" />
+                                <p>
+                                    {searchQuery
+                                        ? t("no_results")
+                                        : t(
+                                              "no_integrations_available",
+                                              "No integrations available",
+                                          )}
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                {filteredOptions.map((option: IntegrationOption) => {
+                                    const key = `${option.kind}:${option.type}`
+                                    const showIcon = option.icon && !failedIcons.has(key)
+                                    return (
+                                        <Card
+                                            key={key}
+                                            role="button"
+                                            aria-label={`Select integration ${option.name}`}
+                                            className="group flex items-center gap-4 p-4 cursor-pointer transition-colors hover:border-primary hover:bg-accent/50"
+                                            onClick={() =>
+                                                navigate(
+                                                    `/projects/${project.id}/integrations/new/${option.kind}/${option.type}`,
+                                                )
+                                            }
+                                            onMouseEnter={() => setHoveredMeta(option)}
+                                            onMouseLeave={() => setHoveredMeta(null)}
+                                        >
+                                            {/* Icon */}
+                                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border bg-background">
+                                                {showIcon ? (
+                                                    <img
+                                                        src={option.icon}
+                                                        alt={option.name}
+                                                        className="h-6 w-6 object-contain"
+                                                        onError={() => handleIconError(key)}
+                                                    />
+                                                ) : (
+                                                    <Puzzle className="h-4 w-4 text-muted-foreground" />
+                                                )}
+                                            </div>
 
-                                    {/* Content */}
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-sm font-medium">
-                                                {option.name}
-                                            </span>
-                                            {option.channels?.map((ch) => (
-                                                <Badge
-                                                    key={ch}
-                                                    variant="secondary"
-                                                    className="text-[10px] px-1.5 py-0"
-                                                >
-                                                    {snakeToTitle(ch)}
-                                                </Badge>
-                                            ))}
-                                        </div>
-                                        {option.description && (
-                                            <p className="text-sm text-muted-foreground mt-0.5 line-clamp-1">
-                                                {option.description}
-                                            </p>
-                                        )}
-                                    </div>
+                                            {/* Content */}
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-sm font-medium">
+                                                        {option.name}
+                                                    </span>
+                                                    {option.kind === "provider" &&
+                                                        option.channels?.map((ch) => (
+                                                            <Badge
+                                                                key={ch}
+                                                                variant="secondary"
+                                                                className="text-[10px] px-1.5 py-0"
+                                                            >
+                                                                {snakeToTitle(ch)}
+                                                            </Badge>
+                                                        ))}
+                                                    {option.kind === "action" && (
+                                                        <Badge
+                                                            variant="secondary"
+                                                            className="text-[10px] px-1.5 py-0"
+                                                        >
+                                                            {t("action")}
+                                                        </Badge>
+                                                    )}
+                                                </div>
+                                                {option.description && (
+                                                    <p className="text-sm text-muted-foreground mt-0.5 line-clamp-1">
+                                                        {option.description}
+                                                    </p>
+                                                )}
+                                            </div>
 
-                                    {/* Arrow */}
-                                    <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-                                </Card>
-                            )
-                        })}
+                                            {/* Arrow */}
+                                            <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                                        </Card>
+                                    )
+                                })}
+                            </div>
+                        )}
                     </div>
                 )}
             </div>

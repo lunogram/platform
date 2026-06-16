@@ -23,25 +23,13 @@ func NewEventsController(client *ClientController) *EventsController {
 }
 
 func (srv *EventsController) PostUserEvents(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	actor := rbac.FromContext(ctx)
-	if actor == nil {
-		oapi.WriteProblem(w, problem.ErrUnauthorized())
-		return
-	}
-
-	projectID := actor.ProjectID
-	if projectID == uuid.Nil {
-		srv.logger.Warn("project_id is required")
-		oapi.WriteProblem(w, problem.ErrUnauthorized())
-		return
-	}
-
-	err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("events", projectID))
+	projectID, err := srv.engine.AllowedProject(r.Context(), "events", rbac.Create)
 	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
+
+	ctx := r.Context()
 
 	var events oapi.PostEventsRequest
 	err = json.Decode(r.Body, &events)
@@ -97,25 +85,13 @@ func (srv *EventsController) PostUserEvents(w http.ResponseWriter, r *http.Reque
 }
 
 func (srv *EventsController) PostOrganizationEventsClient(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	actor := rbac.FromContext(ctx)
-	if actor == nil {
-		oapi.WriteProblem(w, problem.ErrUnauthorized())
-		return
-	}
-
-	projectID := actor.ProjectID
-	if projectID == uuid.Nil {
-		srv.logger.Warn("project_id is required")
-		oapi.WriteProblem(w, problem.ErrUnauthorized())
-		return
-	}
-
-	err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("events", projectID))
+	projectID, err := srv.engine.AllowedProject(r.Context(), "events", rbac.Create)
 	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
+
+	ctx := r.Context()
 
 	var events oapi.PostOrganizationEventsRequest
 	err = json.Decode(r.Body, &events)

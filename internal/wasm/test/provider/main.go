@@ -11,7 +11,8 @@ import (
 
 //go:export manifest
 func Manifest() int32 {
-	manifest := providers.ProviderManifest{
+	manifest := modules.IntegrationManifest{
+		APIVersion: "v1",
 		Metadata: modules.Metadata{
 			ID:          "testprovider",
 			Title:       "Test Provider",
@@ -25,29 +26,35 @@ func Manifest() int32 {
 			Email: "dev@lunogram.io",
 			URL:   "https://lunogram.com",
 		},
-		Spec: providers.ProviderSpec{
-			Webhook: true,
-			Channels: []providers.Channel{
-				providers.ChannelEmail,
-				providers.ChannelSMS,
-				providers.ChannelPush,
-			},
-			Platforms: []providers.Platform{
-				providers.PlatformIOS,
-				providers.PlatformAndroid,
-				providers.PlatformWeb,
-			},
-			Config: &modules.JSONSchema{
-				Type: "object",
-				Properties: []modules.JSONSchemaProperty{
-					{
-						Name: "api_key",
-						Schema: &modules.JSONSchema{
-							Type:        "string",
-							Description: "Test API key",
-						},
+		Config: &modules.JSONSchema{
+			Type: "object",
+			Properties: []modules.JSONSchemaProperty{
+				{
+					Name: "api_key",
+					Schema: &modules.JSONSchema{
+						Type:        "string",
+						Description: "Test API key",
 					},
 				},
+			},
+		},
+		Capabilities: []modules.Capability{
+			{
+				Type:    "provider",
+				Version: "v1",
+				Spec: mustMarshalJSON(modules.ProviderSpec{
+					Webhook: true,
+					Channels: []modules.Channel{
+						modules.ChannelEmail,
+						modules.ChannelSMS,
+						modules.ChannelPush,
+					},
+					Platforms: []modules.Platform{
+						modules.PlatformIOS,
+						modules.PlatformAndroid,
+						modules.PlatformWeb,
+					},
+				}),
 			},
 		},
 	}
@@ -65,7 +72,7 @@ type Config struct {
 	APIKey string `json:"api_key"`
 }
 
-//go:export send
+//go:export provider_send
 func Send() int32 {
 	var req providers.SendRequest[Config]
 	err := pdk.InputJSON(&req)
@@ -126,7 +133,7 @@ type testWebhookPayload struct {
 	Timestamp   string `json:"timestamp"`
 }
 
-//go:export webhook
+//go:export provider_webhook
 func WebhookHandler() int32 {
 	var req providers.WebhookRequest
 	if err := pdk.InputJSON(&req); err != nil {
@@ -182,3 +189,12 @@ func WebhookHandler() int32 {
 }
 
 func main() {}
+
+func mustMarshalJSON(v any) json.RawMessage {
+	spec, err := json.Marshal(v)
+	if err != nil {
+		panic(err)
+	}
+
+	return spec
+}

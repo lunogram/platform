@@ -15,6 +15,7 @@ import (
 	"github.com/lunogram/platform/internal/config"
 	"github.com/lunogram/platform/internal/container"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
+	"github.com/lunogram/platform/internal/ptr"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/consumer"
 	"github.com/lunogram/platform/internal/rbac"
@@ -996,7 +997,7 @@ func TestUpdateListPublish(t *testing.T) {
 	// Now publish the list
 	updateBody := oapi.UpdateListJSONRequestBody{
 		Name:      "Publishable List",
-		Published: ptr(true),
+		Published: ptr.To(true),
 	}
 
 	bb, err = json.Marshal(updateBody)
@@ -1044,13 +1045,13 @@ func TestPreviewListUsers(t *testing.T) {
 
 	// Create users with different data
 	usersStore := subjects.NewUsersStore(usrs)
-	_, err = usersStore.CreateUser(ctx, projectID, ptr("alice@example.com"), nil, []byte(`{"name":"Alice","age":30}`), nil, nil, []subjects.ExternalIDParam{{Source: "default", ExternalID: "alice"}})
+	_, err = usersStore.CreateUser(ctx, projectID, ptr.To("alice@example.com"), nil, []byte(`{"name":"Alice","age":30}`), nil, nil, []subjects.ExternalIDParam{{Source: "default", ExternalID: "alice"}})
 	require.NoError(t, err)
 
-	_, err = usersStore.CreateUser(ctx, projectID, ptr("bob@example.com"), nil, []byte(`{"name":"Bob","age":17}`), nil, nil, []subjects.ExternalIDParam{{Source: "default", ExternalID: "bob"}})
+	_, err = usersStore.CreateUser(ctx, projectID, ptr.To("bob@example.com"), nil, []byte(`{"name":"Bob","age":17}`), nil, nil, []subjects.ExternalIDParam{{Source: "default", ExternalID: "bob"}})
 	require.NoError(t, err)
 
-	_, err = usersStore.CreateUser(ctx, projectID, ptr("carol@example.com"), nil, []byte(`{"name":"Carol","age":25}`), nil, nil, []subjects.ExternalIDParam{{Source: "default", ExternalID: "carol"}})
+	_, err = usersStore.CreateUser(ctx, projectID, ptr.To("carol@example.com"), nil, []byte(`{"name":"Carol","age":25}`), nil, nil, []subjects.ExternalIDParam{{Source: "default", ExternalID: "carol"}})
 	require.NoError(t, err)
 
 	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
@@ -1256,7 +1257,7 @@ func TestDuplicatePublishedList_CreatesDraft(t *testing.T) {
 	// Publish the list
 	publishBody := oapi.UpdateListJSONRequestBody{
 		Name:      "Original Published List",
-		Published: ptr(true),
+		Published: ptr.To(true),
 	}
 
 	bb, err = json.Marshal(publishBody)

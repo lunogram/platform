@@ -239,7 +239,10 @@ export default function OrganizationEventRuleEdit({
                         <SelectTrigger
                             elevation="flat"
                             className="h-8 w-auto min-w-[180px] text-xs"
-                            aria-label={t("organization_event_member_scope", "Organization event member scope")}
+                            aria-label={t(
+                                "organization_event_member_scope",
+                                "Organization event member scope",
+                            )}
                         >
                             <SelectValue />
                         </SelectTrigger>

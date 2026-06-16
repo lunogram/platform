@@ -5,15 +5,12 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/lunogram/platform/internal/ptr"
 	"github.com/lunogram/platform/internal/store/management"
 	"github.com/lunogram/platform/internal/store/subjects"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-func ptr[T any](v T) *T {
-	return &v
-}
 
 func TestComposeEmail(t *testing.T) {
 	t.Parallel()
@@ -55,7 +52,7 @@ func TestComposeEmail(t *testing.T) {
 					"html": "<p>Test</p>"
 				}`),
 			},
-			user:     &subjects.User{Email: ptr("user@example.com")},
+			user:     &subjects.User{Email: ptr.To("user@example.com")},
 			wantFrom: "custom@example.com",
 			wantName: "Custom Name",
 			wantErr:  false,
@@ -74,7 +71,7 @@ func TestComposeEmail(t *testing.T) {
 					"html": "<p>Test</p>"
 				}`),
 			},
-			user:     &subjects.User{Email: ptr("user@example.com")},
+			user:     &subjects.User{Email: ptr.To("user@example.com")},
 			wantFrom: "default@example.com",
 			wantName: "Default Name",
 			wantErr:  false,
@@ -93,7 +90,7 @@ func TestComposeEmail(t *testing.T) {
 					"html": "<p>Test</p>"
 				}`),
 			},
-			user:        &subjects.User{Email: ptr("user@example.com")},
+			user:        &subjects.User{Email: ptr.To("user@example.com")},
 			wantErr:     true,
 			errContains: "no from address specified",
 		},
@@ -128,7 +125,7 @@ func TestComposeEmail(t *testing.T) {
 					"html": "<p>Test</p>"
 				}`),
 			},
-			user:     &subjects.User{Email: ptr("user@example.com")},
+			user:     &subjects.User{Email: ptr.To("user@example.com")},
 			wantFrom: "custom@example.com",
 			wantName: "",
 			wantErr:  false,
@@ -147,7 +144,7 @@ func TestComposeEmail(t *testing.T) {
 					"html": "<p>Test</p>"
 				}`),
 			},
-			user:     &subjects.User{Email: ptr("user@example.com")},
+			user:     &subjects.User{Email: ptr.To("user@example.com")},
 			wantFrom: "custom@example.com",
 			wantName: "Fallback Name",
 			wantErr:  false,
@@ -164,7 +161,7 @@ func TestComposeEmail(t *testing.T) {
 					"html": "<p>Test</p>"
 				}`),
 			},
-			user:     &subjects.User{Email: ptr("user@example.com")},
+			user:     &subjects.User{Email: ptr.To("user@example.com")},
 			wantFrom: "sender@example.com",
 			wantName: "Sender",
 			wantErr:  false,

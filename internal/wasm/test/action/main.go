@@ -1,9 +1,11 @@
 package main
 
 import (
+	"encoding/json"
+
 	"github.com/extism/go-pdk"
 	"github.com/lunogram/platform/pkg/modules"
-	"github.com/lunogram/platform/pkg/modules/actions"
+	actiontypes "github.com/lunogram/platform/pkg/modules/actions"
 )
 
 // Config is the action-specific configuration.
@@ -13,7 +15,8 @@ type Config struct {
 
 //go:export manifest
 func Manifest() int32 {
-	manifest := actions.ActionManifest{
+	manifest := modules.IntegrationManifest{
+		APIVersion: "v1",
 		Metadata: modules.Metadata{
 			ID:          "test",
 			Title:       "Test Action",
@@ -39,23 +42,31 @@ func Manifest() int32 {
 				},
 			},
 		},
-		Functions: []actions.ActionFunction{
+		Capabilities: []modules.Capability{
 			{
-				ID:          "run",
-				Title:       "Run Test",
-				Description: "Execute test action",
-				Input: &modules.JSONSchema{
-					Type: "object",
-					Properties: []modules.JSONSchemaProperty{
+				Type:    "actions",
+				Version: "v1",
+				Spec: mustMarshalJSON(modules.ActionsSpec{
+					Functions: []modules.ActionFunction{
 						{
-							Name: "message",
-							Schema: &modules.JSONSchema{
-								Type:        "string",
-								Description: "Test message",
+							ID:          "run",
+							Title:       "Run Test",
+							Description: "Execute test action",
+							Input: &modules.JSONSchema{
+								Type: "object",
+								Properties: []modules.JSONSchemaProperty{
+									{
+										Name: "message",
+										Schema: &modules.JSONSchema{
+											Type:        "string",
+											Description: "Test message",
+										},
+									},
+								},
 							},
 						},
 					},
-				},
+				}),
 			},
 		},
 	}
@@ -71,9 +82,15 @@ func Manifest() int32 {
 
 //go:export validate
 func Validate() int32 {
-	var req actions.ValidateRequest[Config]
+	var req modules.ValidateRequest
 	err := pdk.InputJSON(&req)
 	if err != nil {
+		pdk.SetError(err)
+		return -1
+	}
+
+	var config Config
+	if err := json.Unmarshal(req.Config, &config); err != nil {
 		pdk.SetError(err)
 		return -1
 	}
@@ -81,14 +98,14 @@ func Validate() int32 {
 	statusCode := 200
 	message := "Configuration is valid"
 
-	if req.Config.APIKey == "" {
+	if config.APIKey == "" {
 		statusCode = 400
 		message = "API key is required"
 	}
 
-	response := actions.ValidateResponse{
-		StatusCode: statusCode,
-		Message:    message,
+	response := modules.ValidateResponse{
+		Valid:   statusCode < 400,
+		Message: message,
 	}
 
 	err = pdk.OutputJSON(response)
@@ -100,16 +117,16 @@ func Validate() int32 {
 	return 0
 }
 
-//go:export run
+//go:export action_run
 func Run() int32 {
-	var req actions.ExecuteRequest[Config]
+	var req actiontypes.ExecuteRequest[Config]
 	err := pdk.InputJSON(&req)
 	if err != nil {
 		pdk.SetError(err)
 		return -1
 	}
 
-	response := actions.ExecuteResponse{
+	response := actiontypes.ExecuteResponse{
 		StatusCode: 200,
 		Metadata: map[string]any{
 			"action":  "test",
@@ -127,10 +144,19 @@ func Run() int32 {
 	return 0
 }
 
-//go:export preview
+//go:export action_preview_run
 func Preview() int32 {
 	pdk.OutputString("<p>test</p>")
 	return 0
 }
 
 func main() {}
+
+func mustMarshalJSON(v any) json.RawMessage {
+	spec, err := json.Marshal(v)
+	if err != nil {
+		panic(err)
+	}
+
+	return spec
+}
