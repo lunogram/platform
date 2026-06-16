@@ -461,11 +461,16 @@ func (s *InboxStore) CountOrganizationInboxMessages(ctx context.Context, project
 }
 
 // ScanDueUserInboxMessages iterates over at most limit user inbox messages whose
-// scheduled_at is in the past and that have not been deleted or expired. The query
-// uses FOR UPDATE SKIP LOCKED so that rows already locked by a concurrent
-// transaction are silently skipped instead of blocking. This prevents
-// double-processing during cluster leader transitions where two nodes may
-// briefly both act as leader.
+// scheduled_at is in the past and that have not been sent, deleted, or expired.
+//
+// FOR UPDATE SKIP LOCKED lets concurrent scanners avoid handing each other the
+// same rows without blocking. Note the scan runs as its own statement (not an
+// open transaction held across fn), so the row locks are released as soon as
+// the SELECT returns; SKIP LOCKED reduces contention but is not by itself a
+// guarantee against double-processing. Idempotency is provided downstream: the
+// scheduler re-injects each due message with a stable Msg-Id (deduped by
+// JetStream) and the consumer's sent_at guard ensures a message is dispatched
+// at most once.
 func (s *InboxStore) ScanDueUserInboxMessages(ctx context.Context, limit int, fn func(InboxMessage) error) (int, error) {
 	stmt := `
 	SELECT id, project_id, user_id, external_id, channel,
@@ -497,11 +502,14 @@ func (s *InboxStore) ScanDueUserInboxMessages(ctx context.Context, limit int, fn
 }
 
 // ScanDueOrganizationInboxMessages iterates over at most limit organization inbox
-// messages whose scheduled_at is in the past and that have not been deleted or
-// expired. The query uses FOR UPDATE SKIP LOCKED so that rows already locked by a
-// concurrent transaction are silently skipped instead of blocking. This prevents
-// double-processing during cluster leader transitions where two nodes may
-// briefly both act as leader.
+// messages whose scheduled_at is in the past and that have not been sent,
+// deleted, or expired.
+//
+// FOR UPDATE SKIP LOCKED lets concurrent scanners avoid handing each other the
+// same rows without blocking. As with ScanDueUserInboxMessages, the scan is not
+// held in a transaction across fn, so SKIP LOCKED reduces contention but does
+// not by itself prevent double-processing; idempotency comes from the
+// scheduler's stable Msg-Id and the consumer's sent_at guard.
 func (s *InboxStore) ScanDueOrganizationInboxMessages(ctx context.Context, limit int, fn func(InboxMessage) error) (int, error) {
 	stmt := `
 	SELECT id, project_id, organization_id, external_id, channel,
