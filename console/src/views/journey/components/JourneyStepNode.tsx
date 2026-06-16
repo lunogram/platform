@@ -1,17 +1,79 @@
 import { memo, useCallback, useContext, Fragment, createElement, useEffect, useRef } from "react"
-import type { Connection, NodeProps } from "reactflow"
-import { Handle, Position, useReactFlow, getConnectedEdges, NodeResizer, useStore } from "reactflow"
+import type { NodeProps } from "@xyflow/react"
+import { Handle, Position, useReactFlow, NodeResizer, useStore } from "@xyflow/react"
 import { useTranslation } from "react-i18next"
-import { FastForward, Play, User } from "lucide-react"
+import { ChevronDown, FastForward, Play, User } from "lucide-react"
 import { ProjectContext, JourneyContext } from "@/contexts"
 import { cn } from "@/utils"
 import { KeyIcon } from "@/components/icons"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 import { getStepType } from "../editor/JourneyEditor.utils"
+import { useJourneyHints } from "../editor/JourneyHints"
 import { stepCategoryColors, stepCategoryBorderColors } from "../hooks/JourneyEditor.constants"
+import type { JourneyNode } from "../editor/JourneyEditor.types"
 
-import "reactflow/dist/style.css"
 import "./JourneyStepNode.css"
+
+// Hint-pill palette per category, mirroring the icon container on the step
+// card. Values are surfaced as CSS custom properties so the styling stays in
+// `JourneyEditor.css` while colors stay in lockstep with the rest of the
+// step's visual language.
+const stepCategoryHintStyles: Record<string, React.CSSProperties> = {
+    entrance: {
+        ["--hint-bg" as string]: "var(--color-emerald-100)",
+        ["--hint-bg-dark" as string]: "var(--color-emerald-950)",
+        ["--hint-fg" as string]: "var(--color-emerald-700)",
+        ["--hint-fg-dark" as string]: "var(--color-emerald-300)",
+        ["--hint-border" as string]: "var(--color-emerald-400)",
+        ["--hint-border-dark" as string]: "var(--color-emerald-700)",
+        ["--hint-ring" as string]: "var(--color-emerald-500)",
+    },
+    action: {
+        ["--hint-bg" as string]: "var(--color-blue-100)",
+        ["--hint-bg-dark" as string]: "var(--color-blue-950)",
+        ["--hint-fg" as string]: "var(--color-blue-700)",
+        ["--hint-fg-dark" as string]: "var(--color-blue-300)",
+        ["--hint-border" as string]: "var(--color-blue-400)",
+        ["--hint-border-dark" as string]: "var(--color-blue-700)",
+        ["--hint-ring" as string]: "var(--color-blue-500)",
+    },
+    flow: {
+        ["--hint-bg" as string]: "var(--color-orange-100)",
+        ["--hint-bg-dark" as string]: "var(--color-orange-950)",
+        ["--hint-fg" as string]: "var(--color-orange-700)",
+        ["--hint-fg-dark" as string]: "var(--color-orange-300)",
+        ["--hint-border" as string]: "var(--color-orange-400)",
+        ["--hint-border-dark" as string]: "var(--color-orange-700)",
+        ["--hint-ring" as string]: "var(--color-orange-500)",
+    },
+    delay: {
+        ["--hint-bg" as string]: "var(--color-amber-100)",
+        ["--hint-bg-dark" as string]: "var(--color-amber-950)",
+        ["--hint-fg" as string]: "var(--color-amber-700)",
+        ["--hint-fg-dark" as string]: "var(--color-amber-300)",
+        ["--hint-border" as string]: "var(--color-amber-400)",
+        ["--hint-border-dark" as string]: "var(--color-amber-700)",
+        ["--hint-ring" as string]: "var(--color-amber-500)",
+    },
+    exit: {
+        ["--hint-bg" as string]: "var(--color-red-100)",
+        ["--hint-bg-dark" as string]: "var(--color-red-950)",
+        ["--hint-fg" as string]: "var(--color-red-700)",
+        ["--hint-fg-dark" as string]: "var(--color-red-300)",
+        ["--hint-border" as string]: "var(--color-red-400)",
+        ["--hint-border-dark" as string]: "var(--color-red-700)",
+        ["--hint-ring" as string]: "var(--color-red-500)",
+    },
+    info: {
+        ["--hint-bg" as string]: "var(--color-purple-100)",
+        ["--hint-bg-dark" as string]: "var(--color-purple-950)",
+        ["--hint-fg" as string]: "var(--color-purple-700)",
+        ["--hint-fg-dark" as string]: "var(--color-purple-300)",
+        ["--hint-border" as string]: "var(--color-purple-400)",
+        ["--hint-border-dark" as string]: "var(--color-purple-700)",
+        ["--hint-ring" as string]: "var(--color-purple-500)",
+    },
+}
 
 export const JourneyStepNode = memo(
     ({
@@ -26,16 +88,17 @@ export const JourneyStepNode = memo(
             skipDelay,
             openUserModal,
             hasUnsavedChanges = false,
+            connectedSourceHandles = [],
             visited = false,
             active = false,
-        } = {},
+        },
         selected,
-    }: NodeProps & { active?: boolean }) => {
+    }: NodeProps<JourneyNode>) => {
         const { t } = useTranslation()
         const [project] = useContext(ProjectContext)
         const [journey] = useContext(JourneyContext)
 
-        const { getNode, getEdges, setNodes } = useReactFlow()
+        const { setNodes } = useReactFlow<JourneyNode>()
 
         const type = getStepType(typeName)
         const isExit = typeName === "exit" || name?.toLowerCase() === "exit"
@@ -58,18 +121,6 @@ export const JourneyStepNode = memo(
                 return () => clearTimeout(timer)
             }
         }, [active, isExit, setNodes])
-
-        const validateConnection = useCallback(
-            (conn: Connection) => {
-                if (!type) return false
-                if (type.multiChildSources) return true
-                const sourceNode = conn.source && getNode(conn.source)
-                if (!sourceNode) return true
-                const existing = getConnectedEdges([sourceNode], getEdges())
-                return existing.filter((e) => e.sourceHandle === conn.sourceHandle).length < 1
-            },
-            [type, getNode, getEdges],
-        )
 
         const isInfoStep = type?.category === "info"
 
@@ -114,8 +165,10 @@ export const JourneyStepNode = memo(
                                           : typeof n.style?.height === "string"
                                             ? Number.parseFloat(n.style.height)
                                             : undefined
+                                  const dataHeight =
+                                      typeof n.data?.height === "number" ? n.data.height : undefined
                                   const currentHeight =
-                                      styleHeight ?? n.data?.height ?? nodeEl?.offsetHeight ?? 0
+                                      dataHeight ?? styleHeight ?? nodeEl?.offsetHeight ?? 0
 
                                   if (neededHeight <= currentHeight) return n
 
@@ -143,6 +196,9 @@ export const JourneyStepNode = memo(
         const zoom = useStore((s) => s.transform[2])
         const handleSize = Math.min(24, Math.max(8, 10 / zoom))
 
+        const connectedHandles = new Set(connectedSourceHandles)
+        const { showConnectHint } = useJourneyHints()
+
         if (!type)
             return (
                 <div className="rounded-lg border border-red-300 bg-red-50 dark:bg-red-950/30 dark:border-red-800 px-3 py-2 text-sm text-red-600 dark:text-red-400">
@@ -154,6 +210,11 @@ export const JourneyStepNode = memo(
         const categoryColorClass = stepCategoryColors[category] ?? ""
         const categoryBorderClass = stepCategoryBorderColors[category] ?? ""
         const isValid = isExit ? true : type.validate ? type.validate(data) : true
+
+        // Hint pill colors mirror the icon container on the step card so the
+        // affordance reads as belonging to this step. Values are passed in as
+        // CSS custom properties so we can keep all visual rules in CSS.
+        const hintStyle = stepCategoryHintStyles[category]
 
         return (
             <>
@@ -185,7 +246,12 @@ export const JourneyStepNode = memo(
                 )}
 
                 {!type.hideTopHandle && (
-                    <Handle type="target" position={Position.Top} id={"t-" + id} />
+                    <Handle
+                        type="target"
+                        position={Position.Top}
+                        id={"t-" + id}
+                        className="journey-handle journey-handle-target"
+                    />
                 )}
 
                 <div
@@ -309,6 +375,9 @@ export const JourneyStepNode = memo(
                 {!type.hideBottomHandle &&
                     (Array.isArray(type.sources) ? type.sources : [""]).map((key, index, arr) => {
                         const left = ((index + 1) / (arr.length + 1)) * 100 + "%"
+                        const handleId = key + "-s-" + id
+                        const isConnected = connectedHandles.has(handleId)
+                        const showHint = showConnectHint && !isConnected
                         return (
                             <Fragment key={key}>
                                 {key && (
@@ -316,7 +385,7 @@ export const JourneyStepNode = memo(
                                         className="absolute text-xs text-muted-foreground font-medium"
                                         style={{
                                             left,
-                                            bottom: -20,
+                                            bottom: showHint ? -36 : -20,
                                             transform: "translate(-50%, 0)",
                                         }}
                                     >
@@ -326,10 +395,30 @@ export const JourneyStepNode = memo(
                                 <Handle
                                     type="source"
                                     position={Position.Bottom}
-                                    id={key + "-s-" + id}
-                                    isValidConnection={validateConnection}
-                                    style={{ left }}
-                                />
+                                    id={handleId}
+                                    className={cn(
+                                        "journey-handle journey-handle-source",
+                                        showHint && "journey-handle-suggest",
+                                    )}
+                                    aria-label={
+                                        key
+                                            ? t("connect_step_path", "Connect {{path}} path", {
+                                                  path: key,
+                                              })
+                                            : t("connect_step", "Connect step")
+                                    }
+                                    style={{ left, ...(showHint ? hintStyle : null) }}
+                                >
+                                    {showHint && (
+                                        <span className="journey-handle-suggest-inner">
+                                            <ChevronDown
+                                                size={14}
+                                                strokeWidth={2.5}
+                                                aria-hidden="true"
+                                            />
+                                        </span>
+                                    )}
+                                </Handle>
                             </Fragment>
                         )
                     })}

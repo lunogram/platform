@@ -54,7 +54,7 @@ func (controller *Controller) ReconcileJourneyResumptions(ctx context.Context) f
 			return nil
 		}
 
-		processed, err := controller.journeys.ScanResumeableUserJourneys(ctx, scanner)
+		processed, err := controller.journeys.ScanResumeableUserJourneys(ctx, controller.reconciliationBatchSize, scanner)
 		if err != nil {
 			controller.logger.Error("failed to scan resumeable user journeys", zap.Error(err))
 		}

@@ -6,6 +6,7 @@ import { cn } from "@/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import type { ZodSchema } from "zod/v4"
 
 interface InlineEditProps {
     /** Current value to display and edit */
@@ -22,6 +23,8 @@ interface InlineEditProps {
     inputPlaceholder?: string
     /** Whether the input is required */
     required?: boolean
+    /** Zod schema to validate the value before saving */
+    validate?: ZodSchema
     /** Alignment of the popover */
     align?: "start" | "center" | "end"
     /** Additional class name for the trigger button */
@@ -44,6 +47,7 @@ export function InlineEdit({
     type = "text",
     inputPlaceholder,
     required,
+    validate,
     align = "start",
     triggerClassName,
     textClassName,
@@ -55,6 +59,7 @@ export function InlineEdit({
     const [isOpen, setIsOpen] = useState(false)
     const [editValue, setEditValue] = useState(value)
     const [isSaving, setIsSaving] = useState(false)
+    const [validationError, setValidationError] = useState<string | null>(null)
 
     const handleSave = async () => {
         const trimmed = editValue.trim()
@@ -62,6 +67,16 @@ export function InlineEdit({
             setIsOpen(false)
             return
         }
+
+        if (validate) {
+            const result = validate.safeParse(trimmed)
+            if (!result.success) {
+                setValidationError(result.error.issues[0]?.message || "Invalid value")
+                return
+            }
+        }
+
+        setValidationError(null)
         setIsSaving(true)
         try {
             await onSave(trimmed)
@@ -116,12 +131,19 @@ export function InlineEdit({
                     <Input
                         type={type}
                         value={editValue}
-                        onChange={(e) => setEditValue(e.target.value)}
+                        onChange={(e) => {
+                            setEditValue(e.target.value)
+                            if (validationError) setValidationError(null)
+                        }}
                         placeholder={inputPlaceholder}
                         autoFocus
                         required={required}
                         disabled={isSaving}
+                        aria-invalid={!!validationError}
                     />
+                    {validationError && (
+                        <p className="text-sm text-destructive">{validationError}</p>
+                    )}
                     <div className="flex justify-end gap-2">
                         <Button
                             type="button"

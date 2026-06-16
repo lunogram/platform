@@ -1,4 +1,6 @@
 import React, { useContext, useState } from "react"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
 import { useTranslation } from "react-i18next"
 import { ChevronDown, ChevronRight, Trash2, Fingerprint, Plus, Save } from "lucide-react"
 import { toast } from "sonner"
@@ -7,6 +9,8 @@ import { PreferencesContext } from "@/contexts/PreferencesContext"
 import { formatDate, cn } from "../../utils"
 import oapiClient from "../../oapi/client"
 import api from "../../api"
+import type { IdentifierFormValues } from "@/validation/identifier-form"
+import { identifierFormSchema } from "@/validation/identifier-form"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -47,9 +51,15 @@ export default function UserDetailIdentifiers() {
     // Add identifier dialog state
     const [isAddOpen, setIsAddOpen] = useState(false)
     const [isAdding, setIsAdding] = useState(false)
-    const [newSource, setNewSource] = useState("default")
-    const [newExternalId, setNewExternalId] = useState("")
     const [newMetadata, setNewMetadata] = useState<Record<string, unknown>>({})
+
+    const identifierForm = useForm<IdentifierFormValues>({
+        resolver: zodResolver(identifierFormSchema),
+        defaultValues: {
+            source: "default",
+            external_id: "",
+        },
+    })
 
     const identifiers = user.identifier ?? []
 
@@ -166,9 +176,7 @@ export default function UserDetailIdentifiers() {
         }
     }
 
-    const handleAdd = async () => {
-        if (!newSource.trim() || !newExternalId.trim()) return
-
+    const handleAdd = async (formData: IdentifierFormValues) => {
         setIsAdding(true)
         try {
             const response = await oapiClient.POST(
@@ -187,8 +195,8 @@ export default function UserDetailIdentifiers() {
                                 external_id: id.external_id,
                             })),
                             {
-                                source: newSource.trim(),
-                                external_id: newExternalId.trim(),
+                                source: formData.source.trim(),
+                                external_id: formData.external_id.trim(),
                                 metadata:
                                     Object.keys(newMetadata).length > 0 ? newMetadata : undefined,
                             },
@@ -205,8 +213,7 @@ export default function UserDetailIdentifiers() {
                 setUser(updatedUser)
             }
             setIsAddOpen(false)
-            setNewSource("default")
-            setNewExternalId("")
+            identifierForm.reset()
             setNewMetadata({})
             toast.success(t("identifier_added", "Identifier added"))
         } catch {
@@ -531,9 +538,13 @@ export default function UserDetailIdentifiers() {
                                         "source_placeholder",
                                         "e.g., default, stripe, hubspot",
                                     )}
-                                    value={newSource}
-                                    onChange={(e) => setNewSource(e.target.value)}
+                                    {...identifierForm.register("source")}
                                 />
+                                {identifierForm.formState.errors.source && (
+                                    <p className="text-sm text-destructive">
+                                        {identifierForm.formState.errors.source.message}
+                                    </p>
+                                )}
                             </div>
                             <div className="grid gap-2 content-start">
                                 <Label htmlFor="new-external-id">
@@ -545,9 +556,13 @@ export default function UserDetailIdentifiers() {
                                         "external_id_placeholder",
                                         "e.g., usr_123, cus_abc",
                                     )}
-                                    value={newExternalId}
-                                    onChange={(e) => setNewExternalId(e.target.value)}
+                                    {...identifierForm.register("external_id")}
                                 />
+                                {identifierForm.formState.errors.external_id && (
+                                    <p className="text-sm text-destructive">
+                                        {identifierForm.formState.errors.external_id.message}
+                                    </p>
+                                )}
                             </div>
                         </div>
                         <div className="grid gap-2">
@@ -572,8 +587,8 @@ export default function UserDetailIdentifiers() {
                             {t("cancel", "Cancel")}
                         </Button>
                         <Button
-                            onClick={handleAdd}
-                            disabled={!newSource.trim() || !newExternalId.trim() || isAdding}
+                            onClick={identifierForm.handleSubmit(handleAdd)}
+                            disabled={isAdding}
                         >
                             {isAdding
                                 ? t("adding", "Adding...")

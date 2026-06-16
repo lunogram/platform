@@ -3,13 +3,12 @@ import api from "@/api"
 import { toast } from "sonner"
 import { useTranslation } from "react-i18next"
 import { stepsToNodes, nodesToSteps } from "../editor/JourneyEditor.utils"
-import type { JourneyNode } from "../editor/JourneyEditor.types"
-import type { Edge } from "reactflow"
+import type { JourneyEdge, JourneyNode } from "../editor/JourneyEditor.types"
 import type { Journey, Project } from "@/types"
 import type { UUID } from "@/types/common"
 
 type Actions = {
-    setViewUsersStep?: (step: { stepId: UUID; stepType: string }) => void
+    setViewUsersStep?: (step: { stepId: UUID; stepType: string; stepName?: string }) => void
     skipDelay?: (stepId: string) => Promise<void>
     openUserModal?: (nodeId: string) => void
 }
@@ -19,15 +18,16 @@ export function useJourneyPersistence(
     journey: Journey,
     setJourney: Dispatch<SetStateAction<Journey>>,
     setNodes: Dispatch<SetStateAction<JourneyNode[]>>,
-    setEdges: Dispatch<SetStateAction<Edge[]>>,
+    setEdges: Dispatch<SetStateAction<JourneyEdge[]>>,
+    hasUnsavedChanges: boolean,
+    setHasUnsavedChanges: Dispatch<SetStateAction<boolean>>,
 ) {
     const { t } = useTranslation()
     const [saving, setSaving] = useState(false)
     const [publishing, setPublishing] = useState(false)
-    const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
 
     const saveDraft = useCallback(
-        async (nodes: JourneyNode[], edges: Edge[], actions: Actions) => {
+        async (nodes: JourneyNode[], edges: JourneyEdge[], actions: Actions) => {
             const stepMap = await api.journeys.steps.set(
                 project.id,
                 journey.id,
@@ -39,7 +39,7 @@ export function useJourneyPersistence(
     )
 
     const saveSteps = useCallback(
-        async (nodes: JourneyNode[], edges: Edge[], actions: Actions) => {
+        async (nodes: JourneyNode[], edges: JourneyEdge[], actions: Actions) => {
             setSaving(true)
             try {
                 const refreshed = await saveDraft(nodes, edges, actions)
@@ -54,30 +54,58 @@ export function useJourneyPersistence(
                 toast.success(t("journey_saved"))
             } catch (e) {
                 toast.error(`Error: ${e}`)
+                throw e
             } finally {
                 setSaving(false)
             }
         },
-        [saveDraft, setNodes, setEdges, setJourney, project.id, journey.id, t],
+        [
+            saveDraft,
+            setNodes,
+            setEdges,
+            setJourney,
+            setHasUnsavedChanges,
+            project.id,
+            journey.id,
+            t,
+        ],
     )
 
     const publishJourney = useCallback(
-        async (nodes: JourneyNode[], edges: Edge[], actions: Actions) => {
+        async (nodes: JourneyNode[], edges: JourneyEdge[], actions: Actions) => {
             if (!confirm(t("journey_publish_confirmation"))) return
-            if (hasUnsavedChanges) await saveDraft(nodes, edges, actions)
             setPublishing(true)
             try {
+                if (hasUnsavedChanges) {
+                    const refreshed = await saveDraft(nodes, edges, actions)
+                    setNodes(refreshed.nodes)
+                    setEdges(refreshed.edges)
+                }
                 await api.journeys.publish(project.id, journey.id)
 
                 // Refresh journey state to reflect published status
                 const updated = await api.journeys.get(project.id, journey.id)
                 setJourney(updated)
                 setHasUnsavedChanges(false)
+                toast.success(t("journey_published", "Journey published"))
+            } catch (e) {
+                toast.error(`Error: ${e}`)
+                throw e
             } finally {
                 setPublishing(false)
             }
         },
-        [project.id, journey.id, hasUnsavedChanges, saveDraft, setJourney, t],
+        [
+            project.id,
+            journey.id,
+            hasUnsavedChanges,
+            saveDraft,
+            setNodes,
+            setEdges,
+            setJourney,
+            setHasUnsavedChanges,
+            t,
+        ],
     )
 
     return {

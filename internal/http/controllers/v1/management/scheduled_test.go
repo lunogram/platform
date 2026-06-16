@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
+	"github.com/lunogram/platform/internal/ptr"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/rules"
@@ -78,7 +79,7 @@ func (tc *testScheduledController) createOrg(t *testing.T) uuid.UUID {
 	t.Helper()
 	orgID, err := tc.store.UpsertOrganization(context.Background(), tc.projectID, subjects.UpsertOrganizationParams{
 		Identifiers: []subjects.ExternalIDParam{{Source: "default", ExternalID: uuid.New().String()}},
-		Name:        ptr("Test Org"),
+		Name:        ptr.To("Test Org"),
 	})
 	require.NoError(t, err)
 	return orgID

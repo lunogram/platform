@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/lunogram/platform/internal/ptr"
 	"github.com/lunogram/platform/internal/rules"
 	"github.com/lunogram/platform/internal/store"
 	"github.com/stretchr/testify/require"
@@ -964,7 +965,7 @@ func TestListLists(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	lists, total, err := db.ListLists(ctx, projectID, store.Pagination{Limit: 10, Offset: 0}, "")
+	lists, total, err := db.ListLists(ctx, projectID, store.Pagination{Limit: 10, Offset: 0}, "", false)
 	require.NoError(t, err)
 	require.Equal(t, 3, total)
 	require.Len(t, lists, 3)
@@ -1012,13 +1013,13 @@ func TestPreviewListUsers(t *testing.T) {
 	ctx := context.Background()
 
 	// Create users with different data
-	_, err := db.CreateUser(ctx, projectID, ptr("alice@example.com"), nil, []byte(`{"name":"Alice","age":30}`), nil, nil, []ExternalIDParam{{Source: "default", ExternalID: "alice"}})
+	_, err := db.CreateUser(ctx, projectID, ptr.To("alice@example.com"), nil, []byte(`{"name":"Alice","age":30}`), nil, nil, []ExternalIDParam{{Source: "default", ExternalID: "alice"}})
 	require.NoError(t, err)
 
-	_, err = db.CreateUser(ctx, projectID, ptr("bob@example.com"), nil, []byte(`{"name":"Bob","age":17}`), nil, nil, []ExternalIDParam{{Source: "default", ExternalID: "bob"}})
+	_, err = db.CreateUser(ctx, projectID, ptr.To("bob@example.com"), nil, []byte(`{"name":"Bob","age":17}`), nil, nil, []ExternalIDParam{{Source: "default", ExternalID: "bob"}})
 	require.NoError(t, err)
 
-	_, err = db.CreateUser(ctx, projectID, ptr("carol@example.com"), nil, []byte(`{"name":"Carol","age":25}`), nil, nil, []ExternalIDParam{{Source: "default", ExternalID: "carol"}})
+	_, err = db.CreateUser(ctx, projectID, ptr.To("carol@example.com"), nil, []byte(`{"name":"Carol","age":25}`), nil, nil, []ExternalIDParam{{Source: "default", ExternalID: "carol"}})
 	require.NoError(t, err)
 
 	// Rule: age >= 18 — should match Alice (30) and Carol (25) but not Bob (17)
@@ -1163,4 +1164,66 @@ func TestListOAPI_Rules(t *testing.T) {
 	o2 := l2.OAPI()
 	require.Nil(t, o2.Rule)
 	require.Nil(t, o2.DraftRule)
+}
+
+func TestListLists_ArchivedFilter(t *testing.T) {
+	t.Parallel()
+
+	db := NewContainerStore(t)
+	projectID := uuid.New()
+	ctx := context.Background()
+
+	activeID, err := db.CreateList(ctx, List{ProjectID: projectID, Name: "Active List", Type: ListTypeDynamic})
+	require.NoError(t, err)
+
+	archivedID, err := db.CreateList(ctx, List{ProjectID: projectID, Name: "Archived List", Type: ListTypeDynamic})
+	require.NoError(t, err)
+	require.NoError(t, db.DeleteList(ctx, projectID, archivedID))
+
+	page := store.Pagination{Limit: 10, Offset: 0}
+
+	// archivedOnly=false returns only active lists, with a total that excludes archived ones.
+	active, total, err := db.ListLists(ctx, projectID, page, "", false)
+	require.NoError(t, err)
+	require.Equal(t, 1, total)
+	require.Len(t, active, 1)
+	require.Equal(t, activeID, active[0].ID)
+	require.Nil(t, active[0].DeletedAt)
+
+	// archivedOnly=true returns only archived lists, with a matching total for pagination.
+	archived, total, err := db.ListLists(ctx, projectID, page, "", true)
+	require.NoError(t, err)
+	require.Equal(t, 1, total)
+	require.Len(t, archived, 1)
+	require.Equal(t, archivedID, archived[0].ID)
+	require.NotNil(t, archived[0].DeletedAt)
+}
+
+func TestUnarchiveList(t *testing.T) {
+	t.Parallel()
+
+	db := NewContainerStore(t)
+	projectID := uuid.New()
+	ctx := context.Background()
+
+	listID, err := db.CreateList(ctx, List{ProjectID: projectID, Name: "Restore Me", Type: ListTypeDynamic})
+	require.NoError(t, err)
+	require.NoError(t, db.DeleteList(ctx, projectID, listID))
+
+	// Restoring an archived list clears deleted_at and brings it back to the active list.
+	require.NoError(t, db.UnarchiveList(ctx, projectID, listID))
+
+	active, total, err := db.ListLists(ctx, projectID, store.Pagination{Limit: 10, Offset: 0}, "", false)
+	require.NoError(t, err)
+	require.Equal(t, 1, total)
+	require.Len(t, active, 1)
+	require.Equal(t, listID, active[0].ID)
+
+	// Unarchiving a list that is not archived (already active) reports no rows affected.
+	err = db.UnarchiveList(ctx, projectID, listID)
+	require.ErrorIs(t, err, sql.ErrNoRows)
+
+	// Unarchiving a non-existent list reports no rows affected.
+	err = db.UnarchiveList(ctx, projectID, uuid.New())
+	require.ErrorIs(t, err, sql.ErrNoRows)
 }

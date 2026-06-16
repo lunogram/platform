@@ -5,7 +5,6 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/http/controllers/v1/client/oapi"
 	"github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/http/problem"
@@ -53,24 +52,13 @@ func (srv *DevicesController) GetVapidPublicKey(w http.ResponseWriter, r *http.R
 }
 
 func (srv *DevicesController) RegisterDevice(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	actor := rbac.FromContext(ctx)
-	if actor == nil {
-		oapi.WriteProblem(w, problem.ErrUnauthorized())
-		return
-	}
-
-	projectID := actor.ProjectID
-	if projectID == uuid.Nil {
-		oapi.WriteProblem(w, problem.ErrUnauthorized())
-		return
-	}
-
-	err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("devices", projectID))
+	projectID, err := srv.engine.AllowedProject(r.Context(), "devices", rbac.Create)
 	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
+
+	ctx := r.Context()
 
 	var req oapi.DeviceRegistration
 	if err := json.Decode(r.Body, &req); err != nil {
