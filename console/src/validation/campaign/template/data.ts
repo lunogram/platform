@@ -30,8 +30,7 @@ export const emailTemplateDataSchema = z.object({
 })
 
 export const textTemplateDataSchema = z.object({
-    from: z.string().default(""),
-    text: z.string().default(""),
+    body: z.string().default(""),
 })
 
 export const pushTemplateDataSchema = z.object({

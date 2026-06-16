@@ -134,13 +134,13 @@ export default function Users() {
         setIsCreating(true)
         try {
             const newUser: User = {
-                identifier: data.external_id.trim()
+                identifier: data.external_id?.trim()
                     ? [{ source: "default", external_id: data.external_id.trim() }]
                     : [{ source: "anonymous", external_id: crypto.randomUUID() }],
-                email: data.email.trim() || undefined,
-                phone: data.phone.trim() || undefined,
-                timezone: data.timezone.trim() || undefined,
-                locale: data.locale.trim() || undefined,
+                email: data.email?.trim() || undefined,
+                phone: data.phone?.trim() || undefined,
+                timezone: data.timezone?.trim() || undefined,
+                locale: data.locale?.trim() || undefined,
                 data: newUserData,
             } as User
 
