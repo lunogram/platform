@@ -812,7 +812,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/admin/projects/{projectID}/subjects/users/{userID}/inbox/{messageID}/open": {
+    "/api/admin/projects/{projectID}/subjects/users/{userID}/inbox/{messageID}/read": {
         parameters: {
             query?: never;
             header?: never;
@@ -822,10 +822,10 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Open user inbox message
-         * @description Marks a user inbox message as opened
+         * Read user inbox message
+         * @description Marks a user inbox message as read
          */
-        post: operations["openUserInboxMessage"];
+        post: operations["readUserInboxMessage"];
         delete?: never;
         options?: never;
         head?: never;
@@ -883,7 +883,7 @@ export interface paths {
         put?: never;
         /**
          * Mark user inbox message as unread
-         * @description Removes the opened status from a user inbox message, marking it as unread
+         * @description Removes the read status from a user inbox message, marking it as unread
          */
         post: operations["unreadUserInboxMessage"];
         delete?: never;
@@ -1224,7 +1224,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/inbox/{messageID}/open": {
+    "/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/inbox/{messageID}/read": {
         parameters: {
             query?: never;
             header?: never;
@@ -1234,10 +1234,10 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Open organization inbox message
-         * @description Marks an organization inbox message as opened
+         * Read organization inbox message
+         * @description Marks an organization inbox message as read
          */
-        post: operations["openOrganizationInboxMessage"];
+        post: operations["readOrganizationInboxMessage"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1295,7 +1295,7 @@ export interface paths {
         put?: never;
         /**
          * Mark organization inbox message as unread
-         * @description Removes the opened status from an organization inbox message, marking it as unread
+         * @description Removes the read status from an organization inbox message, marking it as unread
          */
         post: operations["unreadOrganizationInboxMessage"];
         delete?: never;
@@ -3774,7 +3774,7 @@ export interface components {
             /** Format: date-time */
             expires_at?: string | null;
             /** Format: date-time */
-            opened_at?: string | null;
+            read_at?: string | null;
             /** Format: date-time */
             archived_at?: string | null;
             /** Format: date-time */
@@ -6767,7 +6767,7 @@ export interface operations {
     getUserInboxMessages: {
         parameters: {
             query?: {
-                status?: "unread" | "opened" | "archived";
+                status?: "unread" | "read" | "archived";
                 /** @description Comma-separated tag filter. All listed tags must be present. */
                 tags?: string;
                 message_source?: string;
@@ -6835,7 +6835,7 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
-    openUserInboxMessage: {
+    readUserInboxMessage: {
         parameters: {
             query?: never;
             header?: never;
@@ -6851,7 +6851,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description User inbox message opened successfully */
+            /** @description User inbox message read successfully */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -7531,7 +7531,7 @@ export interface operations {
     getOrganizationInboxMessages: {
         parameters: {
             query?: {
-                status?: "unread" | "opened" | "archived";
+                status?: "unread" | "read" | "archived";
                 /** @description Comma-separated tag filter. All listed tags must be present. */
                 tags?: string;
                 message_source?: string;
@@ -7599,7 +7599,7 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
-    openOrganizationInboxMessage: {
+    readOrganizationInboxMessage: {
         parameters: {
             query?: never;
             header?: never;
@@ -7615,7 +7615,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Organization inbox message opened successfully */
+            /** @description Organization inbox message read successfully */
             200: {
                 headers: {
                     [name: string]: unknown;
