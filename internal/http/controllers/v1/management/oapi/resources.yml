@@ -4558,8 +4558,6 @@ paths:
                 $ref: "#/components/schemas/Provider"
         default:
           $ref: "#/components/responses/Error"
-
-  /api/admin/projects/{projectID}/providers/{providerID}:
     delete:
       summary: Delete provider
       description: Soft deletes a provider
@@ -4576,6 +4574,12 @@ paths:
             type: string
             format: uuid
           description: The project ID
+        - name: type
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The provider module type
         - name: providerID
           in: path
           required: true
@@ -8530,6 +8534,9 @@ components:
           type: string
           format: date-time
           example: "2025-01-10T08:00:00Z"
+        has_pending_events:
+          type: boolean
+          description: Whether there are pending scheduled events for this schedule instance
 
     UserScheduledList:
       allOf:

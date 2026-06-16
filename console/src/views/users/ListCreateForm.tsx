@@ -55,10 +55,10 @@ export function ListCreateForm({ onCreated }: ListCreateFormProps) {
                 <Label className="text-sm font-medium">{t("type")}</Label>
                 <Tabs value={type} onValueChange={(v) => setType(v as "dynamic" | "static")}>
                     <TabsList className="w-full">
-                        <TabsTrigger value="dynamic" className="flex-1">
+                        <TabsTrigger value="dynamic" className="flex-1 cursor-pointer">
                             {t("dynamic")}
                         </TabsTrigger>
-                        <TabsTrigger value="static" className="flex-1">
+                        <TabsTrigger value="static" className="flex-1 cursor-pointer">
                             {t("static")}
                         </TabsTrigger>
                     </TabsList>
