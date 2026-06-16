@@ -145,5 +145,3 @@ CREATE INDEX organization_inbox_messages_content_subject_trgm_idx ON organizatio
 CREATE TRIGGER set_updated_at_organization_inbox_messages
     BEFORE UPDATE ON organization_inbox_messages
     FOR EACH ROW EXECUTE PROCEDURE set_updated_at();
-
-DROP TABLE IF EXISTS campaign_sends CASCADE;
