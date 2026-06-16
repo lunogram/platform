@@ -20,7 +20,6 @@ import (
 	"github.com/lunogram/platform/internal/wasm"
 	wasmProviders "github.com/lunogram/platform/internal/wasm/providers"
 	"github.com/lunogram/platform/pkg/modules"
-	"github.com/lunogram/platform/pkg/modules/providers"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
@@ -231,7 +230,7 @@ func TestDeleteProvider(t *testing.T) {
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("DELETE", "/v1/providers/"+test.providerID.String(), nil)
 			req = req.WithContext(actorCtx)
-			controller.DeleteProvider(res, req, projectID, test.providerID)
+			controller.DeleteProvider(res, req, projectID, "test", test.providerID)
 
 			require.Equal(t, test.code, res.Code, res.Body.String())
 		})
@@ -360,30 +359,42 @@ func newTestProviderRegistry(t *testing.T) *internalProviders.Registry {
 
 	registry := wasmProviders.NewRegistry(wasmCfg, logger)
 
+	lockedSpec, err := json.Marshal(modules.ProviderSpec{
+		Channels: []modules.Channel{modules.ChannelEmail},
+		Locked:   true,
+	})
+	require.NoError(t, err)
+
+	unlockedSpec, err := json.Marshal(modules.ProviderSpec{
+		Channels: []modules.Channel{modules.ChannelEmail},
+		Locked:   false,
+	})
+	require.NoError(t, err)
+
 	// Register a locked module
-	lockedModule := wasm.NewTestModule(providers.ProviderManifest{
+	lockedModule := wasm.NewTestModule(modules.IntegrationManifest{
+		APIVersion: "v1",
 		Metadata: modules.Metadata{
 			ID:    "locked-provider",
 			Title: "Locked Provider",
 		},
 		Version: "1.0.0",
-		Spec: providers.ProviderSpec{
-			Channels: []providers.Channel{providers.ChannelEmail},
-			Locked:   true,
+		Capabilities: []modules.Capability{
+			{Type: "provider", Version: "v1", Spec: lockedSpec},
 		},
 	}, wasmCfg)
 	require.NoError(t, registry.Registry.Register(lockedModule))
 
 	// Register a non-locked module
-	unlockedModule := wasm.NewTestModule(providers.ProviderManifest{
+	unlockedModule := wasm.NewTestModule(modules.IntegrationManifest{
+		APIVersion: "v1",
 		Metadata: modules.Metadata{
 			ID:    "unlocked-provider",
 			Title: "Unlocked Provider",
 		},
 		Version: "1.0.0",
-		Spec: providers.ProviderSpec{
-			Channels: []providers.Channel{providers.ChannelEmail},
-			Locked:   false,
+		Capabilities: []modules.Capability{
+			{Type: "provider", Version: "v1", Spec: unlockedSpec},
 		},
 	}, wasmCfg)
 	require.NoError(t, registry.Registry.Register(unlockedModule))
@@ -438,7 +449,7 @@ func TestDeleteLockedProvider(t *testing.T) {
 		res := httptest.NewRecorder()
 		req := httptest.NewRequest("DELETE", "/v1/providers/"+lockedProviderID.String(), nil)
 		req = req.WithContext(actorCtx)
-		controller.DeleteProvider(res, req, projectID, lockedProviderID)
+		controller.DeleteProvider(res, req, projectID, "locked-provider", lockedProviderID)
 
 		require.Equal(t, http.StatusForbidden, res.Code, res.Body.String())
 	})
@@ -447,7 +458,7 @@ func TestDeleteLockedProvider(t *testing.T) {
 		res := httptest.NewRecorder()
 		req := httptest.NewRequest("DELETE", "/v1/providers/"+unlockedProviderID.String(), nil)
 		req = req.WithContext(actorCtx)
-		controller.DeleteProvider(res, req, projectID, unlockedProviderID)
+		controller.DeleteProvider(res, req, projectID, "unlocked-provider", unlockedProviderID)
 
 		require.Equal(t, http.StatusNoContent, res.Code, res.Body.String())
 	})

@@ -68,7 +68,7 @@ export default function ProjectOnboardingIntegration() {
                                     <img
                                         src={option.icon}
                                         alt={option.name}
-                                        className="h-10 w-10 rounded-md"
+                                        className="h-10 w-10 rounded-md object-contain"
                                     />
                                 )}
                                 <div>

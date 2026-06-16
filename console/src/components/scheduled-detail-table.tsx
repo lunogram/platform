@@ -77,6 +77,7 @@ interface ScheduledItem {
     anchor_at: string | null
     interval: string | null
     paused_at: string | null
+    has_pending_events: boolean | null
     data: Record<string, unknown> | null
     created_at: string
     updated_at: string
@@ -128,9 +129,7 @@ function ScheduledExpandedRow({ item, patchUrl, onSaved }: ScheduledExpandedRowP
                                         {formatDate(preferences, item.scheduled_at, "PPpp")}
                                     </span>
                                 </DateTimeEdit>
-                                {!item.paused_at &&
-                                    item.scheduled_at &&
-                                    new Date(item.scheduled_at) <= new Date() && (
+                                {!item.paused_at && item.has_pending_events && (
                                         <Tooltip>
                                             <TooltipTrigger asChild>
                                                 <span className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400">
@@ -484,10 +483,7 @@ export default function ScheduledDetailTable({
                                                             {t("paused", "Paused")}
                                                         </Badge>
                                                     )}
-                                                    {!item.paused_at &&
-                                                        item.scheduled_at &&
-                                                        new Date(item.scheduled_at) <=
-                                                            new Date() && (
+                                                    {!item.paused_at && item.has_pending_events && (
                                                             <Tooltip>
                                                                 <TooltipTrigger asChild>
                                                                     <Badge

@@ -99,14 +99,15 @@ export default function Campaigns({ create = false }: CampaignsProps) {
                 },
             })
 
-            return (
-                response.data ?? {
-                    results: [],
-                    total: 0,
-                    limit: pageSize,
-                    offset,
-                }
-            )
+            if (response.error) {
+                throw response.error
+            }
+
+            if (!response.data) {
+                throw new Error("Failed to load campaigns")
+            }
+
+            return response.data
         }, [project.id, debouncedQuery, offset]),
     )
 

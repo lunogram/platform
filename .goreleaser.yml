@@ -6,7 +6,7 @@ before:
     # Verify that pre-built embedded assets exist.
     # WASM modules and console SPA are built by the CI workflow
     # before goreleaser runs.
-    - sh -c 'test -f internal/providers/modules/resend.wasm || (echo "WASM modules not found — run build-assets first" && exit 1)'
+    - sh -c 'test -f internal/integrations/modules/logger.wasm || (echo "WASM modules not found — run build-assets first" && exit 1)'
     - sh -c 'test -f internal/http/console/dist/index.html || (echo "Console dist not found — run build-assets first" && exit 1)'
 
 builds:

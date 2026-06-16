@@ -187,6 +187,10 @@
     transform-origin: top left;
 }
 
+.preview.small .email-frame {
+    overflow: hidden;
+}
+
 .preview.small .email-frame .email-frame-header {
     padding: 10px 15px;
 }
