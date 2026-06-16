@@ -162,6 +162,15 @@ func composePayload(channel providers.Channel, content json.RawMessage, senderId
 		return content, nil
 	}
 
+	// The generic format requires a recipient address to compose a provider
+	// payload. Organization email/SMS dispatch passes an empty "to" and relies
+	// on the content already carrying channel-specific recipient fields (which
+	// would have been passed through above). Reaching here with no recipient is
+	// a misconfiguration that will never succeed, so fail permanently.
+	if to == "" && (channel == providers.ChannelEmail || channel == providers.ChannelSMS) {
+		return nil, fmt.Errorf("generic %s content has no recipient address", channel)
+	}
+
 	switch channel {
 	case providers.ChannelEmail:
 		fromAddress := senderIdentity.Address()

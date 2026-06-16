@@ -104,6 +104,14 @@ func (h *OrganizationInboxHandler) Messages() HandlerFunc {
 			}
 		}
 
+		// A message scheduled for the future is persisted but not dispatched
+		// here. The cluster scheduler re-injects it onto this subject once
+		// scheduled_at has passed, at which point it flows through to dispatch.
+		if !created.IsDue() {
+			h.logger.Debug("organization inbox message not yet due, awaiting scheduler", zap.Stringer("message_id", created.ID), zap.Time("scheduled_at", created.ScheduledAt))
+			return nil
+		}
+
 		if created.Channel != modules.ChannelInbox {
 			switch providers.Channel(created.Channel) {
 			case providers.ChannelEmail, providers.ChannelSMS:
