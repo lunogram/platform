@@ -103,7 +103,9 @@ export default function Login() {
     if (selectedDriver === AUTH_DRIVERS.CLERK) {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center bg-muted/40 p-4 gap-4">
-                <SignIn forceRedirectUrl={`/login/clerk/callback?r=${redirect}`} />
+                <SignIn
+                    forceRedirectUrl={`/login/clerk/callback?r=${encodeURIComponent(redirect)}`}
+                />
                 {drivers.length > 1 && (
                     <Button variant="ghost" onClick={() => setSelectedDriver(undefined)}>
                         <ArrowLeft className="mr-2 h-4 w-4" />

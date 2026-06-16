@@ -39,13 +39,12 @@ func (n Node) PublicBaseURL() string {
 }
 
 type Auth struct {
-	Driver              string        `env:"DRIVER"`
-	JWTSecret           string        `env:"JWT_SECRET"`
-	JWKS                claim.JWKS    `env:"JWKS_URL"`
-	TokenLife           time.Duration `env:"TOKEN_LIFE" envDefault:"24h"`
-	AllowedRedirectHosts []string     `env:"ALLOWED_REDIRECT_HOSTS"`
-	Basic               BasicAuth     `envPrefix:"BASIC_"`
-	Clerk               ClerkAuth     `envPrefix:"CLERK_"`
+	Driver    string        `env:"DRIVER"`
+	JWTSecret string        `env:"JWT_SECRET"`
+	JWKS      claim.JWKS    `env:"JWKS_URL"`
+	TokenLife time.Duration `env:"TOKEN_LIFE" envDefault:"24h"`
+	Basic     BasicAuth     `envPrefix:"BASIC_"`
+	Clerk     ClerkAuth     `envPrefix:"CLERK_"`
 }
 
 type BasicAuth struct {

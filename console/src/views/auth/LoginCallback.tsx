@@ -31,7 +31,7 @@ export default function LoginCallback() {
                             return
                         }
                         // Call our backend to complete the auth flow
-                        await api.auth.clerkAuth(token, redirect)
+                        await api.auth.clerkAuth(token)
                         break
                     }
                     default:
