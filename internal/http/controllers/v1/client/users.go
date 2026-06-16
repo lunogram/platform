@@ -4,7 +4,6 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/http/controllers/v1/client/oapi"
 	"github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/http/problem"
@@ -23,25 +22,13 @@ func NewUsersController(client *ClientController) *UsersController {
 }
 
 func (srv *UsersController) DeleteUserClient(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	actor := rbac.FromContext(ctx)
-	if actor == nil {
-		oapi.WriteProblem(w, problem.ErrUnauthorized())
-		return
-	}
-
-	projectID := actor.ProjectID
-	if projectID == uuid.Nil {
-		srv.logger.Warn("project_id is required")
-		oapi.WriteProblem(w, problem.ErrUnauthorized())
-		return
-	}
-
-	err := srv.engine.Allowed(ctx, rbac.Delete, rbac.ProjectResourceScope("users", projectID))
+	projectID, err := srv.engine.AllowedProject(r.Context(), "users", rbac.Delete)
 	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
+
+	ctx := r.Context()
 
 	var req oapi.DeleteUserRequest
 	err = json.Decode(r.Body, &req)
@@ -84,25 +71,13 @@ func (srv *UsersController) DeleteUserClient(w http.ResponseWriter, r *http.Requ
 }
 
 func (srv *UsersController) UpsertUserClient(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	actor := rbac.FromContext(ctx)
-	if actor == nil {
-		oapi.WriteProblem(w, problem.ErrUnauthorized())
-		return
-	}
-
-	projectID := actor.ProjectID
-	if projectID == uuid.Nil {
-		srv.logger.Warn("project_id is required")
-		oapi.WriteProblem(w, problem.ErrUnauthorized())
-		return
-	}
-
-	err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("users", projectID))
+	projectID, err := srv.engine.AllowedProject(r.Context(), "users", rbac.Create)
 	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
+
+	ctx := r.Context()
 
 	logger := srv.logger.With(zap.String("path", r.URL.Path), zap.Stringer("project_id", projectID))
 	logger.Info("identifying user")

@@ -16,6 +16,7 @@ import (
 	"github.com/lunogram/platform/internal/config"
 	"github.com/lunogram/platform/internal/container"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
+	"github.com/lunogram/platform/internal/ptr"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/consumer"
 	"github.com/lunogram/platform/internal/rbac"
@@ -116,8 +117,8 @@ func TestIdentifyUser(t *testing.T) {
 	controller, projectID, actorCtx := TNewUsersController(t)
 
 	body := oapi.IdentifyUser{
-		Identifier: []oapi.ExternalID{{Source: ptr("default"), ExternalId: "user_new_123"}},
-		Email:      ptr("new@example.com"),
+		Identifier: []oapi.ExternalID{{Source: ptr.To("default"), ExternalId: "user_new_123"}},
+		Email:      ptr.To("new@example.com"),
 	}
 
 	bodyBytes, err := json.Marshal(body)
@@ -148,7 +149,7 @@ func TestGetUser(t *testing.T) {
 	ctx := context.Background()
 
 	usersStore := controller.users.UsersStore
-	userID, err := usersStore.CreateUser(ctx, projectID, ptr("get@example.com"), nil, json.RawMessage(`{}`), nil, nil, []subjects.ExternalIDParam{{Source: "anonymous", ExternalID: "anon_get"}})
+	userID, err := usersStore.CreateUser(ctx, projectID, ptr.To("get@example.com"), nil, json.RawMessage(`{}`), nil, nil, []subjects.ExternalIDParam{{Source: "anonymous", ExternalID: "anon_get"}})
 	require.NoError(t, err)
 
 	res := httptest.NewRecorder()
@@ -180,12 +181,12 @@ func TestUpdateUser(t *testing.T) {
 	ctx := context.Background()
 
 	usersStore := controller.users.UsersStore
-	userID, err := usersStore.CreateUser(ctx, projectID, ptr("old@example.com"), nil, json.RawMessage(`{"old":"value"}`), nil, nil, []subjects.ExternalIDParam{{Source: "anonymous", ExternalID: "anon_update"}})
+	userID, err := usersStore.CreateUser(ctx, projectID, ptr.To("old@example.com"), nil, json.RawMessage(`{"old":"value"}`), nil, nil, []subjects.ExternalIDParam{{Source: "anonymous", ExternalID: "anon_update"}})
 	require.NoError(t, err)
 
 	updateBody := oapi.UpdateUser{
-		Email: ptr("updated@example.com"),
-		Data:  ptr(json.RawMessage(`{"new":"field"}`)),
+		Email: ptr.To("updated@example.com"),
+		Data:  ptr.To(json.RawMessage(`{"new":"field"}`)),
 	}
 
 	bodyBytes, err := json.Marshal(updateBody)
@@ -249,7 +250,7 @@ func TestVersionIncrementsOnUpdate(t *testing.T) {
 	initialVersion := user.Version
 
 	bodyBytes, err := json.Marshal(oapi.UpdateUser{
-		Email: ptr("version@example.com"),
+		Email: ptr.To("version@example.com"),
 	})
 	require.NoError(t, err)
 
@@ -771,14 +772,14 @@ func TestCreateUserDevice(t *testing.T) {
 
 	body := oapi.CreateUserDevice{
 		DeviceId:   "device-1",
-		Data:       ptr(json.RawMessage(`{"app_channel":"beta"}`)),
+		Data:       ptr.To(json.RawMessage(`{"app_channel":"beta"}`)),
 		Os:         oapi.CreateUserDeviceOsIos,
-		OsVersion:  ptr("18.1"),
-		Model:      ptr("iPhone 15"),
-		AppBuild:   ptr("101"),
-		AppVersion: ptr("1.0.1"),
+		OsVersion:  ptr.To("18.1"),
+		Model:      ptr.To("iPhone 15"),
+		AppBuild:   ptr.To("101"),
+		AppVersion: ptr.To("1.0.1"),
 	}
-	body.Config.Token = ptr("token-1")
+	body.Config.Token = ptr.To("token-1")
 
 	bodyBytes, err := json.Marshal(body)
 	require.NoError(t, err)
@@ -814,7 +815,7 @@ func TestCreateUserDeviceUserNotFound(t *testing.T) {
 		DeviceId: "device-404",
 		Os:       oapi.CreateUserDeviceOsAndroid,
 	}
-	body.Config.Token = ptr("token-404")
+	body.Config.Token = ptr.To("token-404")
 
 	bodyBytes, err := json.Marshal(body)
 	require.NoError(t, err)
@@ -850,8 +851,8 @@ func TestCreateUserDeviceTokenConflict(t *testing.T) {
 			Type:  subjects.PushConfigTypeAPNs,
 			Token: "shared-token",
 		},
-		OS:    ptr("ios"),
-		Model: ptr("iPhone"),
+		OS:    ptr.To("ios"),
+		Model: ptr.To("iPhone"),
 	})
 	require.NoError(t, err)
 
@@ -859,7 +860,7 @@ func TestCreateUserDeviceTokenConflict(t *testing.T) {
 		DeviceId: "new-device",
 		Os:       oapi.CreateUserDeviceOsAndroid,
 	}
-	body.Config.Token = ptr("shared-token")
+	body.Config.Token = ptr.To("shared-token")
 
 	bodyBytes, err := json.Marshal(body)
 	require.NoError(t, err)
@@ -893,8 +894,8 @@ func TestGetUserDevicesDoesNotExposeToken(t *testing.T) {
 			Type:  subjects.PushConfigTypeAPNs,
 			Token: token,
 		},
-		OS:    ptr("ios"),
-		Model: ptr("iPhone"),
+		OS:    ptr.To("ios"),
+		Model: ptr.To("iPhone"),
 	})
 	require.NoError(t, err)
 

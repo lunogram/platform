@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
+	"github.com/lunogram/platform/internal/ptr"
 	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/storage"
 	"github.com/lunogram/platform/internal/store/management"
@@ -176,36 +177,36 @@ func TestListDocuments(t *testing.T) {
 	tests := map[string]test{
 		"list-all": {
 			params: oapi.ListDocumentsParams{
-				Limit:  ptr(oapi.PaginationLimit(10)),
-				Offset: ptr(oapi.PaginationOffset(0)),
+				Limit:  ptr.To(oapi.PaginationLimit(10)),
+				Offset: ptr.To(oapi.PaginationOffset(0)),
 			},
 			expected: 3,
 		},
 		"with-pagination": {
 			params: oapi.ListDocumentsParams{
-				Limit:  ptr(oapi.PaginationLimit(2)),
-				Offset: ptr(oapi.PaginationOffset(0)),
+				Limit:  ptr.To(oapi.PaginationLimit(2)),
+				Offset: ptr.To(oapi.PaginationOffset(0)),
 			},
 			expected: 2,
 		},
 		"offset-beyond-total": {
 			params: oapi.ListDocumentsParams{
-				Limit:  ptr(oapi.PaginationLimit(10)),
-				Offset: ptr(oapi.PaginationOffset(100)),
+				Limit:  ptr.To(oapi.PaginationLimit(10)),
+				Offset: ptr.To(oapi.PaginationOffset(100)),
 			},
 			expected: 0,
 		},
 		"limit-exceeds-available": {
 			params: oapi.ListDocumentsParams{
-				Limit:  ptr(oapi.PaginationLimit(100)),
-				Offset: ptr(oapi.PaginationOffset(0)),
+				Limit:  ptr.To(oapi.PaginationLimit(100)),
+				Offset: ptr.To(oapi.PaginationOffset(0)),
 			},
 			expected: 3,
 		},
 		"offset-at-boundary": {
 			params: oapi.ListDocumentsParams{
-				Limit:  ptr(oapi.PaginationLimit(10)),
-				Offset: ptr(oapi.PaginationOffset(2)),
+				Limit:  ptr.To(oapi.PaginationLimit(10)),
+				Offset: ptr.To(oapi.PaginationOffset(2)),
 			},
 			expected: 1,
 		},

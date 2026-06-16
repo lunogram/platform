@@ -77,6 +77,157 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
+  /api/client/users/inbox:
+    post:
+      summary: Create user inbox messages
+      description: Creates one or more inbox messages for users identified by external identifiers. Messages are processed asynchronously.
+      operationId: postUserInboxMessages
+      tags:
+        - Client
+      security:
+        - HttpBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PostUserInboxMessagesRequest"
+      responses:
+        "202":
+          description: Inbox messages accepted for asynchronous processing
+        default:
+          $ref: "#/components/responses/Error"
+    get:
+      summary: Query user inbox messages
+      description: Returns visible, non-expired inbox messages for a user identified by source and external_id.
+      operationId: getUserInbox
+      tags:
+        - Client
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: source
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: external_id
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [unread, read, archived]
+        - name: tags
+          in: query
+          schema:
+            type: string
+          description: Comma-separated tag filter. All listed tags must be present.
+        - name: message_source
+          in: query
+          schema:
+            type: string
+        - name: priority
+          in: query
+          schema:
+            type: integer
+        - name: channel
+          in: query
+          required: true
+          schema:
+            $ref: "#/components/schemas/Channel"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: User inbox messages retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxMessageList"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/client/users/inbox/count:
+    get:
+      summary: Count user inbox messages
+      description: Returns unread and total visible inbox message counts for a user.
+      operationId: getUserInboxCount
+      tags:
+        - Client
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: source
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: external_id
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: channel
+          in: query
+          required: true
+          schema:
+            $ref: "#/components/schemas/Channel"
+      responses:
+        "200":
+          description: User inbox count retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxCount"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/client/users/inbox/read:
+    post:
+      summary: Mark user inbox messages read
+      description: Marks one or more user inbox messages as read. Processed asynchronously.
+      operationId: postUserInboxRead
+      tags:
+        - Client
+      security:
+        - HttpBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserInboxMessageEvents"
+      responses:
+        "202":
+          description: Inbox read events accepted for asynchronous processing
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/client/users/inbox/archived:
+    post:
+      summary: Mark user inbox messages archived
+      description: Marks one or more user inbox messages as archived. Processed asynchronously.
+      operationId: postUserInboxArchived
+      tags:
+        - Client
+      security:
+        - HttpBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserInboxMessageEvents"
+      responses:
+        "202":
+          description: Inbox archived events accepted for asynchronous processing
+        default:
+          $ref: "#/components/responses/Error"
+
   /api/client/organizations:
     post:
       summary: Upsert organization
@@ -302,6 +453,157 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
+  /api/client/organizations/inbox:
+    post:
+      summary: Create organization inbox messages
+      description: Creates one or more inbox messages for organizations identified by external identifiers. Messages are processed asynchronously.
+      operationId: postOrganizationInboxMessages
+      tags:
+        - Client
+      security:
+        - HttpBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PostOrganizationInboxMessagesRequest"
+      responses:
+        "202":
+          description: Inbox messages accepted for asynchronous processing
+        default:
+          $ref: "#/components/responses/Error"
+    get:
+      summary: Query organization inbox messages
+      description: Returns visible, non-expired inbox messages for an organization identified by source and external_id.
+      operationId: getOrganizationInbox
+      tags:
+        - Client
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: source
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: external_id
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [unread, read, archived]
+        - name: tags
+          in: query
+          schema:
+            type: string
+          description: Comma-separated tag filter. All listed tags must be present.
+        - name: message_source
+          in: query
+          schema:
+            type: string
+        - name: priority
+          in: query
+          schema:
+            type: integer
+        - name: channel
+          in: query
+          required: true
+          schema:
+            $ref: "#/components/schemas/Channel"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: Organization inbox messages retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxMessageList"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/client/organizations/inbox/count:
+    get:
+      summary: Count organization inbox messages
+      description: Returns unread and total visible inbox message counts for an organization.
+      operationId: getOrganizationInboxCount
+      tags:
+        - Client
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: source
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: external_id
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: channel
+          in: query
+          required: true
+          schema:
+            $ref: "#/components/schemas/Channel"
+      responses:
+        "200":
+          description: Organization inbox count retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxCount"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/client/organizations/inbox/read:
+    post:
+      summary: Mark organization inbox messages read
+      description: Marks one or more organization inbox messages as read. Processed asynchronously.
+      operationId: postOrganizationInboxRead
+      tags:
+        - Client
+      security:
+        - HttpBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrganizationInboxMessageEvents"
+      responses:
+        "202":
+          description: Inbox read events accepted for asynchronous processing
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/client/organizations/inbox/archived:
+    post:
+      summary: Mark organization inbox messages archived
+      description: Marks one or more organization inbox messages as archived. Processed asynchronously.
+      operationId: postOrganizationInboxArchived
+      tags:
+        - Client
+      security:
+        - HttpBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrganizationInboxMessageEvents"
+      responses:
+        "202":
+          description: Inbox archived events accepted for asynchronous processing
+        default:
+          $ref: "#/components/responses/Error"
+
   /unsubscribe/email:
     get:
       summary: Email unsubscribe page
@@ -445,6 +747,30 @@ paths:
           $ref: "#/components/responses/Error"
 
 components:
+  parameters:
+    Limit:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+        x-go-type: PaginationLimit
+      description: Maximum number of items to return
+
+    Offset:
+      name: offset
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+        x-go-type: PaginationOffset
+      description: Number of items to skip
+
   responses:
     Error:
       description: Error response
@@ -454,6 +780,10 @@ components:
             $ref: "#/components/schemas/Problem"
 
   schemas:
+    Channel:
+      type: string
+      enum: [email, sms, push, inbox]
+
     Problem:
       type: object
       required:
@@ -484,6 +814,7 @@ components:
           description: Source of the identifier (e.g. "default", "anonymous", or a custom source). Defaults to "default" if not provided.
         external_id:
           type: string
+          minLength: 1
           example: "user_12345"
           description: The external identifier value
         metadata:
@@ -740,6 +1071,298 @@ components:
             product_id: "prod_789"
             amount: 99.99
           description: Event-specific data
+
+    InboxMessageCreate:
+      type: object
+      required:
+        - target
+        - channel
+        - identifier
+      properties:
+        target:
+          $ref: "#/components/schemas/UserIdentifier"
+        identifier:
+          $ref: "#/components/schemas/ExternalID"
+          description: External identifier for the message. Required for idempotency and traceability back to the origin source.
+        channel:
+          $ref: "#/components/schemas/Channel"
+        sender_identity_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Required for email and sms messages. Push uses project push provider settings.
+        campaign_id:
+          type: string
+          format: uuid
+          nullable: true
+        broadcast_id:
+          type: string
+          format: uuid
+          nullable: true
+        content:
+          type: object
+          additionalProperties: true
+          nullable: true
+          x-go-type: json.RawMessage
+          description: Channel-specific payload content.
+        data:
+          type: object
+          additionalProperties: true
+          nullable: true
+          x-go-type: map[string]any
+        tags:
+          type: array
+          items:
+            type: string
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 5
+          default: 3
+          x-go-type: int16
+        source:
+          type: string
+          nullable: true
+        scheduled_at:
+          type: string
+          format: date-time
+          nullable: true
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    OrganizationInboxMessageCreate:
+      type: object
+      required:
+        - target
+        - channel
+        - identifier
+      properties:
+        target:
+          $ref: "#/components/schemas/OrganizationIdentifier"
+        identifier:
+          $ref: "#/components/schemas/ExternalID"
+          description: External identifier for the message. Required for idempotency and traceability back to the origin source.
+        channel:
+          $ref: "#/components/schemas/Channel"
+        sender_identity_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Required for email and sms messages. Push uses project push provider settings.
+        campaign_id:
+          type: string
+          format: uuid
+          nullable: true
+        broadcast_id:
+          type: string
+          format: uuid
+          nullable: true
+        content:
+          type: object
+          additionalProperties: true
+          nullable: true
+          x-go-type: json.RawMessage
+          description: Channel-specific payload content.
+        data:
+          type: object
+          additionalProperties: true
+          nullable: true
+          x-go-type: map[string]any
+        tags:
+          type: array
+          items:
+            type: string
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 5
+          default: 3
+          x-go-type: int16
+        source:
+          type: string
+          nullable: true
+        scheduled_at:
+          type: string
+          format: date-time
+          nullable: true
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    PostUserInboxMessagesRequest:
+      type: array
+      minItems: 1
+      maxItems: 100
+      items:
+        $ref: "#/components/schemas/InboxMessageCreate"
+
+    PostOrganizationInboxMessagesRequest:
+      type: array
+      minItems: 1
+      maxItems: 100
+      items:
+        $ref: "#/components/schemas/OrganizationInboxMessageCreate"
+
+    UserInboxMessageRef:
+      type: object
+      required:
+        - target
+        - message_id
+      properties:
+        target:
+          $ref: "#/components/schemas/UserIdentifier"
+        message_id:
+          type: string
+          format: uuid
+
+    OrganizationInboxMessageRef:
+      type: object
+      required:
+        - target
+        - message_id
+      properties:
+        target:
+          $ref: "#/components/schemas/OrganizationIdentifier"
+        message_id:
+          type: string
+          format: uuid
+
+    UserInboxMessageEvents:
+      type: array
+      minItems: 1
+      maxItems: 100
+      items:
+        $ref: "#/components/schemas/UserInboxMessageRef"
+
+    OrganizationInboxMessageEvents:
+      type: array
+      minItems: 1
+      maxItems: 100
+      items:
+        $ref: "#/components/schemas/OrganizationInboxMessageRef"
+
+    InboxMessage:
+      type: object
+      required:
+        - id
+        - project_id
+        - channel
+        - content
+        - data
+        - tags
+        - priority
+        - scheduled_at
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        organization_id:
+          type: string
+          format: uuid
+        external_id:
+          type: string
+          nullable: true
+          description: External identifier for the message, if one was provided at creation time.
+        channel:
+          $ref: "#/components/schemas/Channel"
+        sender_identity_id:
+          type: string
+          format: uuid
+          nullable: true
+        campaign_id:
+          type: string
+          format: uuid
+          nullable: true
+        broadcast_id:
+          type: string
+          format: uuid
+          nullable: true
+        content:
+          type: object
+          additionalProperties: true
+          x-go-type: json.RawMessage
+        data:
+          type: object
+          additionalProperties: true
+          x-go-type: json.RawMessage
+        tags:
+          type: array
+          items:
+            type: string
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 5
+          x-go-type: int16
+        source:
+          type: string
+          nullable: true
+        scheduled_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+        read_at:
+          type: string
+          format: date-time
+          nullable: true
+        archived_at:
+          type: string
+          format: date-time
+          nullable: true
+        sent_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    InboxMessageList:
+      type: object
+      required:
+        - results
+        - total
+        - limit
+        - offset
+      properties:
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/InboxMessage"
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+
+    InboxCount:
+      type: object
+      required:
+        - unread
+        - total
+      properties:
+        unread:
+          type: integer
+        total:
+          type: integer
 
     Organization:
       type: object

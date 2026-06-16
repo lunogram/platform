@@ -22,6 +22,7 @@ import (
 	"github.com/lunogram/platform/internal/store/subjects"
 	"github.com/lunogram/platform/internal/webhook"
 	webhookoapi "github.com/lunogram/platform/oapi"
+	"github.com/lunogram/platform/pkg/modules"
 	"go.uber.org/zap"
 	"golang.org/x/text/language"
 	"golang.org/x/text/language/display"
@@ -207,15 +208,15 @@ func (srv *ProjectsController) CreateProject(w http.ResponseWriter, r *http.Requ
 	}
 
 	// Create default subscriptions for each channel
-	for _, channel := range []string{"email", "sms", "push"} {
+	for _, channel := range []modules.Channel{modules.ChannelEmail, modules.ChannelSMS, modules.ChannelPush} {
 		_, err = subscriptions.CreateSubscription(ctx, management.Subscription{
 			ProjectID: projectID,
-			Name:      "Default " + channel,
-			Channel:   channel,
+			Name:      "Default " + string(channel),
+			Channel:   string(channel),
 			IsPublic:  true,
 		})
 		if err != nil {
-			logger.Error("failed to create default subscription", zap.Error(err), zap.String("channel", channel))
+			logger.Error("failed to create default subscription", zap.Error(err), zap.String("channel", string(channel)))
 			oapi.WriteProblem(w, err)
 			return
 		}

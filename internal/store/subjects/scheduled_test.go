@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lunogram/platform/internal/ptr"
 	"github.com/lunogram/platform/internal/rules"
 	"github.com/lunogram/platform/internal/store"
 	"github.com/stretchr/testify/require"
@@ -391,7 +392,7 @@ func createTestOrgForSchedules(t *testing.T, db *State, ctx context.Context, pro
 	t.Helper()
 	orgID, err := db.UpsertOrganization(ctx, projectID, UpsertOrganizationParams{
 		Identifiers: []ExternalIDParam{{Source: "default", ExternalID: uuid.New().String()}},
-		Name:        ptr("Test Org"),
+		Name:        ptr.To("Test Org"),
 	})
 	require.NoError(t, err)
 	return orgID
@@ -801,7 +802,7 @@ func TestScanDueScheduledEvents(t *testing.T) {
 	require.NoError(t, err)
 
 	var scanned []DueScheduledEvent
-	_, err = db.ScanDueScheduledEvents(ctx, func(e DueScheduledEvent) error {
+	_, err = db.ScanDueScheduledEvents(ctx, 1000, func(e DueScheduledEvent) error {
 		scanned = append(scanned, e)
 		return nil
 	})
@@ -915,7 +916,7 @@ func TestScanRecurringUserSchedulesWithoutPendingEvents(t *testing.T) {
 	require.NoError(t, err)
 
 	var found []UserSchedule
-	_, err = db.ScanRecurringUserSchedulesWithoutPendingEvents(ctx, func(us UserSchedule) error {
+	_, err = db.ScanRecurringUserSchedulesWithoutPendingEvents(ctx, 1000, func(us UserSchedule) error {
 		found = append(found, us)
 		return nil
 	})
@@ -1334,7 +1335,7 @@ func TestScanDueOrgScheduledEvents(t *testing.T) {
 	require.NoError(t, err)
 
 	var scanned []DueOrgScheduledEvent
-	_, err = db.ScanDueOrgScheduledEvents(ctx, func(e DueOrgScheduledEvent) error {
+	_, err = db.ScanDueOrgScheduledEvents(ctx, 1000, func(e DueOrgScheduledEvent) error {
 		scanned = append(scanned, e)
 		return nil
 	})
@@ -1443,7 +1444,7 @@ func TestScanRecurringOrgSchedulesWithoutPendingEvents(t *testing.T) {
 	require.NoError(t, err)
 
 	var found []OrganizationSchedule
-	_, err = db.ScanRecurringOrgSchedulesWithoutPendingEvents(ctx, func(os OrganizationSchedule) error {
+	_, err = db.ScanRecurringOrgSchedulesWithoutPendingEvents(ctx, 1000, func(os OrganizationSchedule) error {
 		found = append(found, os)
 		return nil
 	})
@@ -1569,8 +1570,8 @@ func TestScheduleSchemaRowsToSchedules(t *testing.T) {
 	pid := uuid.New()
 
 	rows := scheduleSchemaRows{
-		{ID: id1, ProjectID: pid, Name: "a", Type: "single", Path: ptr(".foo"), Types: []string{"string"}},
-		{ID: id1, ProjectID: pid, Name: "a", Type: "single", Path: ptr(".bar"), Types: []string{"number"}},
+		{ID: id1, ProjectID: pid, Name: "a", Type: "single", Path: ptr.To(".foo"), Types: []string{"string"}},
+		{ID: id1, ProjectID: pid, Name: "a", Type: "single", Path: ptr.To(".bar"), Types: []string{"number"}},
 		{ID: id2, ProjectID: pid, Name: "b", Type: "recurring", Path: nil, Types: nil},
 	}
 

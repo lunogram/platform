@@ -1122,36 +1122,37 @@ func (s *JourneysStore) ListResumeableUserJourneys(ctx context.Context) ([]Journ
 	return states, nil
 }
 
-// ScanResumeableUserJourneys iterates over resumeable user journey states and
-// calls fn for each row. Rows are read via a cursor so large result sets do not
-// need to be held entirely in memory.
-func (s *JourneysStore) ScanResumeableUserJourneys(ctx context.Context, fn func(JourneyUserState) error) (int, error) {
+// ScanResumeableUserJourneys iterates over at most limit resumeable user journey
+// states whose resume_at is in the past. The query uses FOR UPDATE ... SKIP LOCKED
+// so that rows already locked by a concurrent transaction are silently skipped
+// instead of blocking. This is important because the method is called by the
+// cluster leader scheduler's reconciliation tick; during leader transitions two
+// nodes may briefly both act as leader and SKIP LOCKED prevents them from
+// double-processing the same rows.
+func (s *JourneysStore) ScanResumeableUserJourneys(ctx context.Context, limit int, fn func(JourneyUserState) error) (int, error) {
 	query := `
 	SELECT jus.id, j.project_id, jus.journey_id, jus.user_id, jus.pinned_version_id, jus.occurrence, jus.entered_at, jus.resume_at, jus.completed_at, COALESCE(jus.data, '{}'::jsonb) AS data, jus.updated_at, jus.journey_entry_id, jus.external_step_id
 	FROM journey_user_state jus
 	JOIN journeys j ON j.id = jus.journey_id
 	WHERE jus.completed_at IS NULL
-	AND jus.resume_at <= NOW()`
+	AND jus.resume_at <= NOW()
+	ORDER BY jus.resume_at ASC
+	LIMIT $1
+	FOR UPDATE OF jus SKIP LOCKED`
 
-	rows, err := s.db.QueryxContext(ctx, query)
+	var states []JourneyUserState
+	err := s.db.SelectContext(ctx, &states, query, limit)
 	if err != nil {
 		return 0, err
 	}
-	defer rows.Close()
 
-	var n int
-	for rows.Next() {
-		var state JourneyUserState
-		if err := rows.StructScan(&state); err != nil {
-			return n, err
-		}
+	for n, state := range states {
 		if err := fn(state); err != nil {
 			return n, err
 		}
-		n++
 	}
 
-	return n, rows.Err()
+	return len(states), nil
 }
 
 func (s *JourneysStore) GetJourneyStateByID(ctx context.Context, stateID uuid.UUID) (*JourneyUserState, error) {

@@ -2,12 +2,24 @@ package providers
 
 import "encoding/json"
 
+// MetadataKeyInboxMessageID is the canonical metadata key used to carry the
+// inbox-message UUID through to the provider's native custom-metadata
+// mechanism. Providers forward this so delivery webhooks can be correlated
+// back to the originating inbox message.
+const MetadataKeyInboxMessageID = "inbox_message_id"
+
 // SendRequest is the input to the provider's send() function.
 // The Payload field contains channel-specific data.
 type SendRequest[T any] struct {
 	Channel Channel         `json:"channel"`
 	Config  T               `json:"config"`
 	Payload json.RawMessage `json:"payload"`
+	// Metadata is an arbitrary set of key/value strings that the caller wants
+	// forwarded to the provider's native custom-metadata mechanism (e.g.
+	// SendGrid custom_args, Mailgun v: variables, APNs/FCM custom payload
+	// keys, Twilio StatusCallback query params). Providers should treat an
+	// unset/nil map as "no metadata".
+	Metadata map[string]string `json:"metadata,omitempty"`
 }
 
 // SendResponse is the output from the provider's send() function.

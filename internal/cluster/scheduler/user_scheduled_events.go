@@ -94,7 +94,7 @@ func (controller *Controller) ReconcileUserScheduledEvents(ctx context.Context) 
 			return nil
 		}
 
-		processed, err := controller.scheduled.ScanDueScheduledEvents(ctx, scanner)
+		processed, err := controller.scheduled.ScanDueScheduledEvents(ctx, controller.reconciliationBatchSize, scanner)
 		if err != nil {
 			controller.logger.Error("failed to scan due scheduled events", zap.Error(err))
 		}
@@ -148,7 +148,7 @@ func (controller *Controller) ReconcileUserSchedules(ctx context.Context) func()
 			return nil
 		}
 
-		processed, err := controller.scheduled.ScanRecurringUserSchedulesWithoutPendingEvents(ctx, scanner)
+		processed, err := controller.scheduled.ScanRecurringUserSchedulesWithoutPendingEvents(ctx, controller.reconciliationBatchSize, scanner)
 		if err != nil {
 			controller.logger.Error("failed to scan recurring user schedules", zap.Error(err))
 		}
