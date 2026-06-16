@@ -35,6 +35,10 @@ $(BIN):
 $(BIN)/%: | $(BIN) ; $(info $(M) building $(@F)…)
 	$Q GOBIN=$(BIN) $(GO) install $(shell $(GO) list tool | grep $(@F))
 
+# Pin specific tool versions to avoid generator mismatches in CI
+$(BIN)/oapi-codegen: | $(BIN) ; $(info $(M) building oapi-codegen v2.7.0…)
+	$Q GOBIN=$(BIN) $(GO) install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.7.0
+
 $(BIN)/tailwindcss: | $(BIN) ; $(info $(M) building tailwindcss…)
 	$Q ./etc/install-tailwindcss.sh $(BIN)
 

@@ -62,10 +62,10 @@ export function ListCreateForm({ onCreated }: ListCreateFormProps) {
                     render={({ field }) => (
                         <Tabs value={field.value} onValueChange={(v) => field.onChange(v)}>
                             <TabsList className="w-full">
-                                <TabsTrigger value="dynamic" className="flex-1">
+                                <TabsTrigger value="dynamic" className="flex-1 cursor-pointer">
                                     {t("dynamic")}
                                 </TabsTrigger>
-                                <TabsTrigger value="static" className="flex-1">
+                                <TabsTrigger value="static" className="flex-1 cursor-pointer">
                                     {t("static")}
                                 </TabsTrigger>
                             </TabsList>
