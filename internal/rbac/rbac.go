@@ -10,8 +10,9 @@ import (
 type ActorType string
 
 const (
-	ActorAdmin  ActorType = "admin"
-	ActorAPIKey ActorType = "api_key"
+	ActorAdmin   ActorType = "admin"
+	ActorAPIKey  ActorType = "api_key"
+	ActorEndUser ActorType = "end_user"
 )
 
 const (
@@ -35,6 +36,17 @@ type Actor struct {
 	ID             string
 	OrganizationID uuid.UUID
 	ProjectID      uuid.UUID
+
+	// SubjectID is the resolved internal Lunogram user (subject) id for
+	// end-user actors ([ActorEndUser]). It is the zero UUID for admins and API
+	// keys.
+	//
+	// Authorization is always decided in OpenFGA against the policy identity
+	// ([Actor.UserKey]); SubjectID never participates in the permission check.
+	// It exists so handlers can scope queries to the verified user's own rows
+	// (e.g. WHERE user_id = SubjectID) once the policy has authorized the
+	// resource and verb.
+	SubjectID uuid.UUID
 }
 
 // ActorOption configures optional fields on an [Actor].
@@ -51,6 +63,15 @@ func WithOrganizationID(id uuid.UUID) ActorOption {
 func WithProjectID(id uuid.UUID) ActorOption {
 	return func(a *Actor) {
 		a.ProjectID = id
+	}
+}
+
+// WithSubjectID sets the resolved internal user (subject) id on the actor. Use
+// this for end-user actors so handlers can scope queries to the verified user's
+// own rows. See [Actor.SubjectID].
+func WithSubjectID(id uuid.UUID) ActorOption {
+	return func(a *Actor) {
+		a.SubjectID = id
 	}
 }
 
