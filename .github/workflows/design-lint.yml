@@ -1,0 +1,26 @@
+name: Design Lint
+
+on:
+  pull_request:
+    paths:
+      - "console/DESIGN.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  design-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Set-up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ vars.NODEJS_VERSION }}
+      # Validate DESIGN.md against the design.md spec. The CLI exits non-zero
+      # only on errors; warnings (custom token groups, palette-as-context
+      # colors) are advisory and do not fail the build. Pinned to a known
+      # version since the tool is pre-1.0.
+      - name: Lint DESIGN.md
+        run: npx -y @google/design.md@0.3.0 lint console/DESIGN.md
