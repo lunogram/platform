@@ -1892,44 +1892,10 @@ paths:
         default:
           $ref: "#/components/responses/Error"
   
-  /api/admin/projects/{projectID}/invites/accept/{token}:
-    post:
-      summary: Accept a project invite
-      description: Accepts a project invite using the invite token and nonce, associating the authenticated admin with the project
-      operationId: AcceptProjectInvite
-      tags:
-        - Admins
-      security:
-        - HttpBearerAuth: []
-      parameters:
-        - name: token
-          in: path
-          required: true
-          schema:
-            type: string
-          description: The project invite token with nonce
-          example: "some_nonce_valueabc123def456"
-        - name: projectID
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          description: The project ID
-      responses:
-        "200":
-          description: Project invite accepted successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Project"
-        default:
-          $ref: "#/components/responses/Error"
-
-  /api/admin/projects/{projectID}/invites/{tokenNouncePair}:
+  /api/admin/projects/{projectID}/invites/{inviteID}:
     delete:
       summary: Revoke a project invite
-      description: Revokes a project invite using the invite token and nonce, preventing it from being accepted
+      description: Revokes a pending project invite, preventing it from being accepted
       operationId: RevokeProjectInvite
       tags:
         - Admins
@@ -1943,41 +1909,69 @@ paths:
             type: string
             format: uuid
           description: The project ID
-        - name: tokenNouncePair
+        - name: inviteID
           in: path
           required: true
           schema:
             type: string
-          description: The project invite token with nonce
-          example: "some_nonce_valueabc123def456"
+            format: uuid
+          description: The invite ID
       responses:
         "204":
           description: Project invite revoked successfully
         default:
           $ref: "#/components/responses/Error"
-    
-  /api/invites/{token}:
+
+  /api/invites/mine:
     get:
-      summary: Get invite details
-      description: Retrieves the details of a project invite using the invite token, without requiring authentication
-      operationId: GetInviteDetails
+      summary: List my invites
+      description: Lists the pending project invites addressed to the authenticated admin's email
+      operationId: ListMyInvites
       tags:
         - Admins
+      security:
+        - HttpBearerAuth: []
+      responses:
+        "200":
+          description: Pending invites retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - results
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ProjectInvite"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/invites/{inviteID}/accept:
+    post:
+      summary: Accept a project invite
+      description: Accepts a pending project invite addressed to the authenticated admin's email, adding them to the invite's project
+      operationId: AcceptProjectInvite
+      tags:
+        - Admins
+      security:
+        - HttpBearerAuth: []
       parameters:
-        - name: token
+        - name: inviteID
           in: path
           required: true
           schema:
             type: string
-          description: The project invite token
-          example: "abc123def456"
+            format: uuid
+          description: The invite ID
       responses:
         "200":
-          description: Project invite details retrieved successfully
+          description: Project invite accepted successfully
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ProjectInvite"
+                $ref: "#/components/schemas/Project"
         default:
           $ref: "#/components/responses/Error"
 
@@ -10046,9 +10040,14 @@ components:
           type: string
           format: uuid
           example: "4c9d3163-7b64-4f9e-9068-d2e4b96be56b"
+        project_name:
+          type: string
+          example: "My Project"
+          description: Name of the project the invite grants access to
         inviter_admin_id:
           type: string
           format: uuid
+          nullable: true
           example: "5143f27c-cca9-4dc4-9059-e1dbb08144ad"
         inviter_admin_email:
           type: string
@@ -10058,18 +10057,16 @@ components:
           type: string
           format: email
           example: "user@example.com"
+        invitee_admin_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Id of the existing admin that owns the invitee email, if any
+          example: "7d2c1b0a-0000-4000-8000-000000000000"
         role:
           type: string
           enum: [owner, admin, editor, support]
           example: admin
-        token:
-          type: string
-          example: "a1b2c3d4e5f6a1b2c3d4"
-          description: Unique token for the invite link
-        nonce:
-          type: string
-          example: "random_nonce_value"
-          description: Random nonce to prevent token reuse
         expires_at:
           type: string
           format: date-time
@@ -10084,6 +10081,10 @@ components:
           format: date-time
           nullable: true
           example: null
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-12-31T23:59:59Z"
 
   securitySchemes:
     HttpBearerAuth:

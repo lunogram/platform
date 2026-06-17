@@ -756,27 +756,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/admin/projects/{projectID}/invites/accept/{token}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Accept a project invite
-         * @description Accepts a project invite using the invite token and nonce, associating the authenticated admin with the project
-         */
-        post: operations["AcceptProjectInvite"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/projects/{projectID}/invites/{tokenNouncePair}": {
+    "/api/admin/projects/{projectID}/invites/{inviteID}": {
         parameters: {
             query?: never;
             header?: never;
@@ -788,7 +768,7 @@ export interface paths {
         post?: never;
         /**
          * Revoke a project invite
-         * @description Revokes a project invite using the invite token and nonce, preventing it from being accepted
+         * @description Revokes a pending project invite, preventing it from being accepted
          */
         delete: operations["RevokeProjectInvite"];
         options?: never;
@@ -796,7 +776,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/invites/{token}": {
+    "/api/invites/mine": {
         parameters: {
             query?: never;
             header?: never;
@@ -804,12 +784,32 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Get invite details
-         * @description Retrieves the details of a project invite using the invite token, without requiring authentication
+         * List my invites
+         * @description Lists the pending project invites addressed to the authenticated admin's email
          */
-        get: operations["GetInviteDetails"];
+        get: operations["ListMyInvites"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/invites/{inviteID}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept a project invite
+         * @description Accepts a pending project invite addressed to the authenticated admin's email, adding them to the invite's project
+         */
+        post: operations["AcceptProjectInvite"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5131,10 +5131,15 @@ export interface components {
              */
             project_id?: string;
             /**
+             * @description Name of the project the invite grants access to
+             * @example My Project
+             */
+            project_name?: string;
+            /**
              * Format: uuid
              * @example 5143f27c-cca9-4dc4-9059-e1dbb08144ad
              */
-            inviter_admin_id?: string;
+            inviter_admin_id?: string | null;
             /** @example admin@example.com */
             inviter_admin_email?: string | null;
             /**
@@ -5143,20 +5148,16 @@ export interface components {
              */
             invitee_email?: string;
             /**
+             * Format: uuid
+             * @description Id of the existing admin that owns the invitee email, if any
+             * @example 7d2c1b0a-0000-4000-8000-000000000000
+             */
+            invitee_admin_id?: string | null;
+            /**
              * @example admin
              * @enum {string}
              */
             role?: "owner" | "admin" | "editor" | "support";
-            /**
-             * @description Unique token for the invite link
-             * @example a1b2c3d4e5f6a1b2c3d4
-             */
-            token?: string;
-            /**
-             * @description Random nonce to prevent token reuse
-             * @example random_nonce_value
-             */
-            nonce?: string;
             /**
              * Format: date-time
              * @example 2025-12-31T23:59:59Z
@@ -5172,6 +5173,11 @@ export interface components {
              * @example null
              */
             revoked_at?: string | null;
+            /**
+             * Format: date-time
+             * @example 2025-12-31T23:59:59Z
+             */
+            created_at?: string;
         };
     };
     responses: {
@@ -6882,35 +6888,6 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
-    AcceptProjectInvite: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /**
-                 * @description The project invite token with nonce
-                 * @example some_nonce_valueabc123def456
-                 */
-                token: string;
-                /** @description The project ID */
-                projectID: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Project invite accepted successfully */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Project"];
-                };
-            };
-            default: components["responses"]["Error"];
-        };
-    };
     RevokeProjectInvite: {
         parameters: {
             query?: never;
@@ -6918,11 +6895,8 @@ export interface operations {
             path: {
                 /** @description The project ID */
                 projectID: string;
-                /**
-                 * @description The project invite token with nonce
-                 * @example some_nonce_valueabc123def456
-                 */
-                tokenNouncePair: string;
+                /** @description The invite ID */
+                inviteID: string;
             };
             cookie?: never;
         };
@@ -6938,28 +6912,48 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
-    GetInviteDetails: {
+    ListMyInvites: {
         parameters: {
             query?: never;
             header?: never;
-            path: {
-                /**
-                 * @description The project invite token
-                 * @example abc123def456
-                 */
-                token: string;
-            };
+            path?: never;
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Project invite details retrieved successfully */
+            /** @description Pending invites retrieved successfully */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ProjectInvite"];
+                    "application/json": {
+                        results: components["schemas"]["ProjectInvite"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    AcceptProjectInvite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The invite ID */
+                inviteID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Project invite accepted successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Project"];
                 };
             };
             default: components["responses"]["Error"];

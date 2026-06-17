@@ -336,15 +336,16 @@ export const projectRoles = ["support", "client", "editor", "admin"] as const
 export interface ProjectInvite {
     id: UUID
     project_id: UUID
-    inviter_admin_id: UUID
+    project_name?: string | null
+    inviter_admin_id: UUID | null
     inviter_admin_email: string | null
     invitee_email: string
+    invitee_admin_id: UUID | null
     role: ProjectRole
-    token: string
-    nonce: string
     expires_at: string
     accepted_at: string | null
     revoked_at: string | null
+    created_at: string
 }
 
 export type ProjectRole = (typeof projectRoles)[number]

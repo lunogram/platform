@@ -3,19 +3,14 @@
 package v1
 
 import (
-	"crypto/aes"
-	"crypto/cipher"
-	"crypto/rand"
 	"database/sql"
-	"encoding/base64"
 	"errors"
-	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
-	"github.com/lunogram/platform/internal/config"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/http/problem"
@@ -31,126 +26,21 @@ type InviteController struct {
 	mgmt   *management.State
 	engine *rbac.Engine
 	db     *sqlx.DB
-	cfg    config.Invites
 }
 
-func NewInviteController(logger *zap.Logger, mgmt *management.State, engine *rbac.Engine, db *sqlx.DB, cfg config.Invites) *InviteController {
+func NewInviteController(logger *zap.Logger, mgmt *management.State, engine *rbac.Engine, db *sqlx.DB) *InviteController {
 	return &InviteController{
 		logger: logger,
 		mgmt:   mgmt,
 		engine: engine,
 		db:     db,
-		cfg:    cfg,
 	}
 }
 
-func randomString(n int) (string, error) {
-	b := make([]byte, n)
-	_, err := rand.Read(b)
-	if err != nil {
-		return "", err
-	}
-	return base64.RawURLEncoding.EncodeToString(b), nil
-}
-
-func getAesGCM(secretKey []byte) (cipher.AEAD, error) {
-	block, err := aes.NewCipher(secretKey)
-	if err != nil {
-		return nil, err
-	}
-
-	aesgcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return nil, err
-	}
-
-	return aesgcm, nil
-}
-
-func encryptToken(token string, secretKey string, nonce *string, logger zap.Logger) (string, string, error) {
-	if secretKey == "none" {
-		logger.Warn("Invite token encryption is disabled. This should only be used for testing and development.")
-		return token, "", nil
-	}
-
-	// StdEncoding for the secret key (openssl rand -base64 32 speaks standard, not url).
-	// RawURLEncoding for everything that touches a URL (because "/" in a nonce or token will make your
-	// router throw a fit). mixing these up will ruin your day, as proven
-	// by the developer who wrote this comment after 2 hours of "illegal base64 data at input byte 17".
-	keyBytes, err := base64.StdEncoding.DecodeString(secretKey)
-	if err != nil {
-		return "", "", err
-	}
-
-	aesgcm, err := getAesGCM(keyBytes)
-	if err != nil {
-		return "", "", err
-	}
-
-	var nonceBytes []byte
-	if nonce == nil {
-		nonceBytes = make([]byte, aesgcm.NonceSize())
-		if _, err = io.ReadFull(rand.Reader, nonceBytes); err != nil {
-			return "", "", err
-		}
-	} else {
-		nonceBytes, err = base64.RawURLEncoding.DecodeString(*nonce)
-		if err != nil {
-			return "", "", err
-		}
-	}
-
-	ciphertext := aesgcm.Seal(nil, nonceBytes, []byte(token), nil)
-	return base64.RawURLEncoding.EncodeToString(ciphertext), base64.RawURLEncoding.EncodeToString(nonceBytes), nil
-}
-
-func decryptToken(ciphertext string, nonce string, secretKey string, logger zap.Logger) (string, error) {
-	if secretKey == "none" {
-		logger.Warn("Invite token decryption is disabled. This should only be used for testing and development.")
-		return ciphertext, nil
-	}
-
-	keyBytes, err := base64.StdEncoding.DecodeString(secretKey)
-	if err != nil {
-		return "", err
-	}
-
-	aesgcm, err := getAesGCM(keyBytes)
-	if err != nil {
-		return "", err
-	}
-
-	ciphertextBytes, err := base64.RawURLEncoding.DecodeString(ciphertext)
-	if err != nil {
-		return "", err
-	}
-
-	nonceBytes, err := base64.RawURLEncoding.DecodeString(nonce)
-	if err != nil {
-		return "", err
-	}
-
-	plaintext, err := aesgcm.Open(nil, nonceBytes, ciphertextBytes, nil)
-	if err != nil {
-		return "", err
-	}
-
-	return string(plaintext), nil
-}
-
-func unpackToken(mashed string, secretKey string, logger *zap.Logger) (string, string, error) {
-	if secretKey == "none" {
-		logger.Warn("Invite token unpacking is disabled. This should only be used for testing and development.")
-		return mashed, "", nil
-	}
-
-	if len(mashed) < 16 {
-		return "", "", errors.New("mashed token too short")
-	}
-
-	nonce := mashed[:16]
-	ciphertext := mashed[16:]
-	return ciphertext, nonce, nil
+// myInvitesResponse is the body returned by ListMyInvites. The spec models it as
+// an inline object, so it has no dedicated generated type.
+type myInvitesResponse struct {
+	Results []oapi.ProjectInvite `json:"results"`
 }
 
 func isRoleHigher(role1, role2 string) bool {
@@ -180,46 +70,65 @@ func (srv *InviteController) CreateProjectInvite(w http.ResponseWriter, r *http.
 		return
 	}
 
-	logger := srv.logger.With(zap.String("project_id", projectID.String()), zap.String("email", string(body.Email)))
+	inviteeEmail := strings.ToLower(strings.TrimSpace(string(body.Email)))
+	logger := srv.logger.With(zap.String("project_id", projectID.String()), zap.String("email", inviteeEmail))
 	logger.Info("creating project invite")
 
 	actor := rbac.FromContext(ctx)
-	InviterAdminID := actor.ID
-
-	actorAdmin, err := srv.mgmt.GetAdmin(ctx, uuid.MustParse(InviterAdminID))
+	inviterAdminID, err := uuid.Parse(actor.ID)
 	if err != nil {
-		logger.Error("failed to get inviter admin details", zap.String("admin_id", InviterAdminID), zap.Error(err))
+		logger.Error("actor is not an admin", zap.String("actor_id", actor.ID), zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrForbidden(problem.Describe("only admins can create invites")))
+		return
+	}
+
+	actorAdmin, err := srv.mgmt.GetAdmin(ctx, inviterAdminID)
+	if err != nil {
+		logger.Error("failed to get inviter admin details", zap.String("admin_id", inviterAdminID.String()), zap.Error(err))
 		oapi.WriteProblem(w, err)
 		return
 	}
 
-	if actorAdmin.Email == string(body.Email) {
-		logger.Debug("inviter email matches invitee email, cannot create invite", zap.String("email", string(body.Email)))
+	if strings.EqualFold(actorAdmin.Email, inviteeEmail) {
+		logger.Debug("inviter email matches invitee email, cannot create invite")
 		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("you cannot invite yourself to a project")))
 		return
 	}
 
 	actorRole := actorAdmin.Role
 	if actorRole != "" && isRoleHigher(string(body.Role), actorRole) {
-		logger.Debug("invite role is higher than existing admin role, cannot create invite", zap.String("email", string(body.Email)), zap.String("invite_role", string(body.Role)), zap.String("existing_role", actorRole))
-		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("the role assigned by this invite must be equal to or lower than the existing global role of the admin with the same email")))
+		logger.Debug("invite role is higher than inviter role, cannot create invite", zap.String("invite_role", string(body.Role)), zap.String("inviter_role", actorRole))
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("the role assigned by this invite must be equal to or lower than your own global role")))
 		return
 	}
 
-	// at 1 billion invite tokens (~200GB of data), the probability of a collision
-	// is 10^-102%, a decimal point followed by 101 zeroes and a 1. if every atom
-	// in the observable universe (2^266) was an invite token, it'd still only be
-	// ~10^-21%. At that point we're also storing 2^266 * 200 bytes of data, which is a number so
-	// large it doesn't have a name. if this ever fires, forget the bug, go buy a lottery ticket.
-	token, err := randomString(50)
+	project, err := srv.mgmt.GetProject(ctx, projectID, nil)
 	if err != nil {
-		logger.Error("failed to generate random token", zap.Error(err))
+		logger.Error("failed to get project", zap.Error(err))
 		oapi.WriteProblem(w, err)
 		return
 	}
-	encryptedToken, nonce, err := encryptToken(token, srv.cfg.SecretKey, nil, *logger)
-	if err != nil {
-		logger.Error("failed to encrypt invite token", zap.Error(err))
+
+	// Same-org / new-email guard. An invite may target a brand-new email (no
+	// admin account yet) or an existing admin that already belongs to the
+	// project's organization. Inviting an email that belongs to a *different*
+	// organization is rejected until admin↔organization many-to-many membership
+	// lands. When the invitee already has an account we denormalize its id so
+	// "my invites" can be matched even before the email column is touched.
+	var inviteeAdminID *uuid.UUID
+	inviteeAdmin, err := srv.mgmt.GetAdminByEmail(ctx, inviteeEmail)
+	switch {
+	case err == nil:
+		if project.OrganizationID == nil || inviteeAdmin.OrganizationID != *project.OrganizationID {
+			logger.Debug("invitee belongs to a different organization", zap.String("invitee_admin_id", inviteeAdmin.ID.String()))
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("this email belongs to another organization; multi-organization membership is coming soon")))
+			return
+		}
+		inviteeAdminID = &inviteeAdmin.ID
+	case errors.Is(err, sql.ErrNoRows):
+		// Brand-new invitee — resolved by email when they sign up.
+	default:
+		logger.Error("failed to look up invitee admin", zap.Error(err))
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -229,112 +138,107 @@ func (srv *InviteController) CreateProjectInvite(w http.ResponseWriter, r *http.
 		expiresIn = *body.ExpiresIn
 	}
 
-	invite, err := srv.mgmt.CreateProjectInvite(ctx, projectID, InviterAdminID, string(body.Email), body.Role, encryptedToken, nonce, expiresIn)
+	invite, err := srv.mgmt.CreateProjectInvite(ctx, projectID, inviterAdminID, inviteeEmail, inviteeAdminID, body.Role, expiresIn)
 	if err != nil {
 		logger.Error("failed to create project invite", zap.Error(err))
 		oapi.WriteProblem(w, err)
 		return
 	}
 
-	logger.Info("Created project invite", zap.String("invite_id", invite.ID.String()))
-
-	invite.Token = token
-	response := invite.OAPI()
-	json.Write(w, http.StatusOK, response)
+	logger.Info("created project invite", zap.String("invite_id", invite.ID.String()))
+	json.Write(w, http.StatusCreated, invite.OAPI())
 }
 
-func (srv *InviteController) GetInviteDetails(w http.ResponseWriter, r *http.Request, encryptionPair string) {
+// ListMyInvites returns the pending invites addressed to the authenticated
+// admin's email. This is how an invitee discovers invites — there is no token,
+// the invite is bound to their (IdP-verified) email.
+func (srv *InviteController) ListMyInvites(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	actor := rbac.FromContext(ctx)
 
-	encryptedToken, nonce, err := unpackToken(encryptionPair, srv.cfg.SecretKey, srv.logger)
+	adminID, err := uuid.Parse(actor.ID)
 	if err != nil {
-		srv.logger.Error("failed to expand token and nonce", zap.String("token_nounce_pair", encryptionPair), zap.Error(err))
-		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("invite not found")))
+		srv.logger.Error("actor is not an admin", zap.String("actor_id", actor.ID), zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrForbidden(problem.Describe("only admins have invites")))
 		return
 	}
 
-	// yes, we're encrypting here to query, not decrypting. the DB stores the encrypted token,
-	// so we re-encrypt the plain token from the URL with the same nonce to reproduce the
-	// ciphertext we can actually look up. deterministic encryption is a feature, not a bug.
-	token, _, err := encryptToken(encryptedToken, srv.cfg.SecretKey, &nonce, *srv.logger)
+	admin, err := srv.mgmt.GetAdmin(ctx, adminID)
 	if err != nil {
-		srv.logger.Error("failed to decrypt token", zap.String("encrypted_token", encryptedToken), zap.String("nonce", string(nonce)), zap.Error(err))
-		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("invite not found")))
+		srv.logger.Error("failed to get admin", zap.String("admin_id", adminID.String()), zap.Error(err))
+		oapi.WriteProblem(w, err)
 		return
 	}
 
-	invite, err := srv.mgmt.GetInviteByToken(ctx, token)
+	invites, err := srv.mgmt.ListInvitesForEmail(ctx, admin.Email)
+	if err != nil {
+		srv.logger.Error("failed to list invites for email", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	results := make([]oapi.ProjectInvite, len(invites))
+	for i := range invites {
+		results[i] = invites[i].OAPI()
+	}
+
+	json.Write(w, http.StatusOK, myInvitesResponse{Results: results})
+}
+
+func (srv *InviteController) AcceptProjectInvite(w http.ResponseWriter, r *http.Request, inviteID uuid.UUID) {
+	ctx := r.Context()
+	actor := rbac.FromContext(ctx)
+
+	adminID, err := uuid.Parse(actor.ID)
+	if err != nil {
+		srv.logger.Error("actor is not an admin", zap.String("actor_id", actor.ID), zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrForbidden(problem.Describe("only admins can accept invites")))
+		return
+	}
+
+	logger := srv.logger.With(zap.String("invite_id", inviteID.String()), zap.String("admin_id", adminID.String()))
+
+	admin, err := srv.mgmt.GetAdmin(ctx, adminID)
+	if err != nil {
+		logger.Error("failed to get admin", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	invite, err := srv.mgmt.GetInviteByID(ctx, inviteID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			srv.logger.Debug("invite not found", zap.String("token", token))
 			oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("invite not found")))
 		} else {
-			srv.logger.Error("failed to get invite details", zap.String("token", token), zap.Error(err))
+			logger.Error("failed to get invite", zap.Error(err))
 			oapi.WriteProblem(w, err)
 		}
 		return
 	}
 
-	response := invite.OAPI()
-	resToken, err := decryptToken(*response.Token, nonce, srv.cfg.SecretKey, *srv.logger)
-	if err != nil {
-		srv.logger.Error("failed to decrypt invite token", zap.String("encrypted_token", *response.Token), zap.String("nonce", string(nonce)), zap.Error(err))
-		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid invite token")))
+	// The invite is bound to an email; only the admin who owns that (verified)
+	// email may accept it.
+	if !strings.EqualFold(admin.Email, invite.InviteeEmail) {
+		logger.Debug("admin email does not match invitee email", zap.String("invitee_email", invite.InviteeEmail))
+		oapi.WriteProblem(w, problem.ErrForbidden(problem.Describe("this invite was not sent to your account")))
 		return
 	}
 
-	response.Token = &resToken
-	json.Write(w, http.StatusOK, response)
-}
-
-func (srv *InviteController) AcceptProjectInvite(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, token string) {
-	ctx := r.Context()
-	actor := rbac.FromContext(ctx)
-
-	encryptedToken, nonce, err := unpackToken(token, srv.cfg.SecretKey, srv.logger)
-	if err != nil {
-		srv.logger.Error("failed to expand token and nonce", zap.String("token", token), zap.Error(err))
-		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid invite token")))
+	switch {
+	case invite.RevokedAt != nil:
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("this invite has been revoked")))
 		return
-	}
-
-	token, _, err = encryptToken(encryptedToken, srv.cfg.SecretKey, &nonce, *srv.logger)
-	if err != nil {
-		srv.logger.Error("failed to decrypt token", zap.String("encrypted_token", encryptedToken), zap.String("nonce", string(nonce)), zap.Error(err))
-		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid invite token")))
+	case invite.AcceptedAt != nil:
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("this invite has already been accepted")))
 		return
-	}
-
-	invite, err := srv.mgmt.GetInviteByToken(ctx, token)
-	if err != nil {
-		srv.logger.Debug("invite not found", zap.String("token", token), zap.Error(err))
-		oapi.WriteProblem(w, err)
-		return
-	}
-
-	adminId, err := uuid.Parse(actor.ID)
-	if err != nil {
-		srv.logger.Error("invalid admin ID in token", zap.String("admin_id", actor.ID), zap.Error(err))
-		oapi.WriteProblem(w, err)
-		return
-	}
-
-	admin, err := srv.mgmt.GetAdmin(ctx, adminId)
-	if err != nil {
-		srv.logger.Error("failed to get admin", zap.String("admin_id", adminId.String()), zap.Error(err))
-		oapi.WriteProblem(w, err)
-		return
-	}
-
-	if admin.Email != invite.InviteeEmail {
-		srv.logger.Debug("admin email does not match invitee email", zap.String("admin_email", admin.Email), zap.String("invitee_email", invite.InviteeEmail))
-		oapi.WriteProblem(w, problem.ErrForbidden(problem.Describe("you do not have permission to accept this invite")))
+	case invite.ExpiresAt.Before(time.Now()):
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("this invite has expired")))
 		return
 	}
 
 	tx, err := srv.db.BeginTxx(ctx, nil)
 	if err != nil {
-		srv.logger.Error("failed to begin transaction", zap.Error(err))
+		logger.Error("failed to begin transaction", zap.Error(err))
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -342,89 +246,79 @@ func (srv *InviteController) AcceptProjectInvite(w http.ResponseWriter, r *http.
 
 	managementStore := management.NewState(tx)
 
-	existingProjectAdmin, err := managementStore.GetProjectAdmin(ctx, projectID, adminId)
+	existingProjectAdmin, err := managementStore.GetProjectAdmin(ctx, invite.ProjectID, adminID)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		srv.logger.Error("failed to check existing project admin", zap.Error(err))
+		logger.Error("failed to check existing project admin", zap.Error(err))
 		oapi.WriteProblem(w, err)
 		return
 	}
 
+	roleUpgraded := false
 	if existingProjectAdmin != nil {
 		if isRoleHigher(invite.Role, existingProjectAdmin.Role) {
-			err = managementStore.UpdateProjectAdminRole(ctx, projectID, adminId, invite.Role)
+			err = managementStore.UpdateProjectAdminRole(ctx, invite.ProjectID, adminID, invite.Role)
 			if err != nil {
-				srv.logger.Error("failed to update admin project role", zap.Error(err))
+				logger.Error("failed to update admin project role", zap.Error(err))
 				oapi.WriteProblem(w, err)
 				return
 			}
-			srv.logger.Info("upgraded admin project role", zap.String("admin_id", adminId.String()), zap.String("old_role", existingProjectAdmin.Role), zap.String("new_role", invite.Role))
+			roleUpgraded = true
 		}
 	} else {
-		err = managementStore.AddAdminToProject(ctx, projectID, adminId, invite.Role)
+		err = managementStore.AddAdminToProject(ctx, invite.ProjectID, adminID, invite.Role)
 		if err != nil {
-			srv.logger.Error("failed to add admin to project", zap.Error(err))
+			logger.Error("failed to add admin to project", zap.Error(err))
 			oapi.WriteProblem(w, err)
 			return
 		}
 	}
 
-	//TODO: When the more more relation of the organizations x Admins is implemented, we should also add the user to the organization that the project belongs to.
+	// TODO: once admin↔organization many-to-many membership lands, also add the
+	// admin to the organization that owns this project.
 
-	invite, err = managementStore.AcceptProjectInvite(ctx, token)
-	if err != nil {
-		srv.logger.Error("failed to accept project invite", zap.Error(err))
+	if _, err = managementStore.AcceptProjectInvite(ctx, inviteID); err != nil {
+		logger.Error("failed to accept project invite", zap.Error(err))
 		oapi.WriteProblem(w, err)
 		return
 	}
 
-	if existingProjectAdmin != nil && isRoleHigher(invite.Role, existingProjectAdmin.Role) {
-		oldTuples := access.ProjectRoleTuples(adminId, projectID, existingProjectAdmin.Role)
-		err = srv.engine.DeleteTuples(ctx, oldTuples)
-		if err != nil {
-			srv.logger.Error("failed to delete old RBAC tuples", zap.Error(err))
+	project, err := managementStore.GetProject(ctx, invite.ProjectID, &adminID)
+	if err != nil {
+		logger.Error("failed to load project after accept", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	if err = tx.Commit(); err != nil {
+		logger.Error("failed to commit transaction", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	// RBAC tuples are written to OpenFGA, which is not part of the Postgres
+	// transaction, so they are applied only after the membership is durably
+	// committed. This avoids granting access for a membership that rolled back.
+	if roleUpgraded {
+		oldTuples := access.ProjectRoleTuples(adminID, invite.ProjectID, existingProjectAdmin.Role)
+		if err = srv.engine.DeleteTuples(ctx, oldTuples); err != nil {
+			logger.Error("failed to delete old RBAC tuples", zap.Error(err))
 			oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("failed to update project role")))
 			return
 		}
 	}
 
-	projectTuples := access.ProjectRoleTuples(adminId, projectID, invite.Role)
-	err = srv.engine.WriteTuples(ctx, projectTuples)
-	if err != nil {
-		srv.logger.Error("failed to write RBAC tuples for project admin", zap.String("admin_id", adminId.String()), zap.String("project_id", invite.ProjectID.String()), zap.Error(err))
+	projectTuples := access.ProjectRoleTuples(adminID, invite.ProjectID, invite.Role)
+	if err = srv.engine.WriteTuples(ctx, projectTuples); err != nil {
+		logger.Error("failed to write RBAC tuples for project admin", zap.Error(err))
 		oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("failed to assign project role")))
 		return
 	}
 
-	err = access.BackfillProjectTuples(ctx, srv.logger, srv.engine, srv.db)
-	if err != nil {
-		srv.logger.Error("failed to write RBAC tuples for new project admin", zap.String("admin_id", adminId.String()), zap.String("project_id", invite.ProjectID.String()), zap.Error(err))
-		oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("failed to assign project role")))
-		return
-	}
-
-	err = tx.Commit()
-	if err != nil {
-		srv.logger.Error("failed to commit transaction", zap.Error(err))
-		oapi.WriteProblem(w, err)
-		return
-	}
-
-	logger := srv.logger.With(zap.String("project_id", projectID.String()), zap.String("admin_id", adminId.String()))
-	logger.Info("accepted project invite and added admin to project")
-
-	response := invite.OAPI()
-	resToken, err := decryptToken(*response.Token, nonce, srv.cfg.SecretKey, *srv.logger)
-	if err != nil {
-		srv.logger.Error("failed to decrypt invite token", zap.String("encrypted_token", *response.Token), zap.String("nonce", string(nonce)), zap.Error(err))
-		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid invite token")))
-		return
-	}
-
-	response.Token = &resToken
-	json.Write(w, http.StatusOK, response)
+	logger.Info("accepted project invite and added admin to project", zap.String("project_id", invite.ProjectID.String()))
+	json.Write(w, http.StatusOK, project.OAPI())
 }
 
-func (srv *InviteController) RevokeProjectInvite(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, tokenNouncePair string) {
+func (srv *InviteController) RevokeProjectInvite(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, inviteID uuid.UUID) {
 	ctx := r.Context()
 	err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("invites", projectID))
 	if err != nil {
@@ -432,37 +326,36 @@ func (srv *InviteController) RevokeProjectInvite(w http.ResponseWriter, r *http.
 		return
 	}
 
-	encryptedToken, nonce, err := unpackToken(tokenNouncePair, srv.cfg.SecretKey, srv.logger)
+	invite, err := srv.mgmt.GetInviteByID(ctx, inviteID)
 	if err != nil {
-		srv.logger.Error("failed to expand token and nonce", zap.String("token_nounce_pair", tokenNouncePair), zap.Error(err))
-		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid invite token")))
+		if errors.Is(err, sql.ErrNoRows) {
+			oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("invite not found")))
+		} else {
+			srv.logger.Error("failed to get invite", zap.Error(err))
+			oapi.WriteProblem(w, err)
+		}
 		return
 	}
 
-	token, _, err := encryptToken(encryptedToken, srv.cfg.SecretKey, &nonce, *srv.logger)
-	if err != nil {
-		srv.logger.Error("failed to decrypt token", zap.String("encrypted_token", encryptedToken), zap.String("nonce", string(nonce)), zap.Error(err))
-		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid invite token")))
+	// The permission was checked against projectID; make sure the invite really
+	// belongs to that project before mutating it.
+	if invite.ProjectID != projectID {
+		srv.logger.Warn("invite project mismatch on revoke", zap.String("invite_id", inviteID.String()), zap.String("project_id", projectID.String()))
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("invite not found")))
 		return
 	}
 
-	invite, err := srv.mgmt.RevokeProjectInvite(ctx, token)
-	if err != nil {
-		srv.logger.Debug("invite not found or already revoked/accepted", zap.String("token", token), zap.Error(err))
-		oapi.WriteProblem(w, err)
+	if _, err = srv.mgmt.RevokeProjectInvite(ctx, inviteID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("invite not found or already resolved")))
+		} else {
+			srv.logger.Error("failed to revoke invite", zap.Error(err))
+			oapi.WriteProblem(w, err)
+		}
 		return
 	}
 
-	response := invite.OAPI()
-	resToken, err := decryptToken(*response.Token, nonce, srv.cfg.SecretKey, *srv.logger)
-	if err != nil {
-		srv.logger.Error("failed to decrypt invite token", zap.String("encrypted_token", *response.Token), zap.String("nonce", string(nonce)), zap.Error(err))
-		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid invite token")))
-		return
-	}
-
-	response.Token = &resToken
-	json.Write(w, http.StatusOK, response)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (srv *InviteController) ListProjectInvites(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, params oapi.ListProjectInvitesParams) {
@@ -500,16 +393,8 @@ func (srv *InviteController) ListProjectInvites(w http.ResponseWriter, r *http.R
 
 	logger.Info("listed project invites", zap.Int("count", len(invites)))
 	response := make([]oapi.ProjectInvite, len(invites))
-	for i, invite := range invites {
-		resToken, err := decryptToken(invite.Token, *invite.Nonce, srv.cfg.SecretKey, *srv.logger)
-		if err != nil {
-			srv.logger.Error("failed to decrypt invite token", zap.String("encrypted_token", *response[i].Token), zap.Error(err))
-			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid invite token")))
-			return
-		}
-
-		response[i] = invite.OAPI()
-		response[i].Token = &resToken
+	for i := range invites {
+		response[i] = invites[i].OAPI()
 	}
 
 	json.Write(w, http.StatusOK, oapi.ProjectInviteListResponse{

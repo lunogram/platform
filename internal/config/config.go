@@ -30,7 +30,6 @@ type Node struct {
 	HTTP       http.Config
 	Store      store.Config
 	Storage    storage.Config
-	Invites    Invites `envPrefix:"INVITES_"`
 }
 
 // PublicBaseURL returns the public URL with any trailing slash removed,
@@ -103,13 +102,6 @@ type Webhook struct {
 	// MaxBodySize is the maximum allowed request body size in bytes for
 	// inbound provider webhook payloads. Defaults to 1 MB.
 	MaxBodySize int64 `env:"MAX_BODY_SIZE" envDefault:"1048576"`
-}
-
-type Invites struct {
-	// SecretKey is the secret used to sign invite tokens. It should be a
-	// secure random string in production, but can be a hardcoded value for
-	// development and testing.
-	SecretKey string `env:"SECRET_KEY" envDefault:"none"`
 }
 
 // Link holds the configuration for self-hosted click tracking.

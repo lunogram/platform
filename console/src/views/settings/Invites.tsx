@@ -68,7 +68,7 @@ export default function Invites() {
     const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>(setTimeout(() => {}, 0))
     const [isCreating, setIsCreating] = useState(false)
     const [isSaving, setIsSaving] = useState(false)
-    const [createdInviteToken, setCreatedInviteToken] = useState<string | null>(null)
+    const [createdInviteEmail, setCreatedInviteEmail] = useState<string | null>(null)
 
     const handleSearch = useCallback((value: string) => {
         setSearchQuery(value)
@@ -152,18 +152,18 @@ export default function Invites() {
     const hasNextPage = page < totalPages
     const hasPrevPage = page > 1
 
-    const handleRevoke = async (token: string) => {
+    const handleRevoke = async (invite: ProjectInvite) => {
         if (
             confirm(t("revoke_invite_confirmation", "Are you sure you want to revoke this invite?"))
         ) {
-            await api.invites.revoke(project.id, token)
+            await api.invites.revoke(project.id, invite.id)
             toast.success(t("invite_revoked", "Invite revoked"))
             await reload()
         }
     }
 
-    const handleCopyLink = async (token: string) => {
-        const inviteLink = `${window.location.origin}/invites/${token}`
+    const handleCopyLink = async () => {
+        const inviteLink = `${window.location.origin}/invites`
         await navigator.clipboard.writeText(inviteLink)
         toast.success(t("copied_invite_link", "Copied invite link"))
     }
@@ -485,9 +485,7 @@ export default function Invites() {
                                                     <DropdownMenuItem
                                                         onClick={async (e) => {
                                                             e.stopPropagation()
-                                                            await handleCopyLink(
-                                                                `${invite.nonce}${invite.token}`,
-                                                            )
+                                                            await handleCopyLink()
                                                         }}
                                                     >
                                                         <Copy className="mr-2 h-4 w-4" />
@@ -500,9 +498,7 @@ export default function Invites() {
                                                                 className="text-destructive"
                                                                 onClick={async (e) => {
                                                                     e.stopPropagation()
-                                                                    await handleRevoke(
-                                                                        `${invite.nonce}${invite.token}`,
-                                                                    )
+                                                                    await handleRevoke(invite)
                                                                 }}
                                                             >
                                                                 <XCircle className="mr-2 h-4 w-4" />
@@ -556,47 +552,36 @@ export default function Invites() {
             </div>
 
             <Dialog
-                open={!!createdInviteToken}
+                open={!!createdInviteEmail}
                 onOpenChange={(open) => {
-                    if (!open) setCreatedInviteToken(null)
+                    if (!open) setCreatedInviteEmail(null)
                 }}
             >
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>
                         <DialogTitle>{t("invite_created", "Invite created")}</DialogTitle>
                         <DialogDescription>
+                            <span className="font-medium text-foreground">
+                                {createdInviteEmail}
+                            </span>{" "}
                             {t(
-                                "invite_link_description",
-                                "Share this link with the person you're inviting.",
+                                "invite_created_description",
+                                "will see this invite when they sign in with their email.",
                             )}
                         </DialogDescription>
                     </DialogHeader>
-                    <div className="flex items-center gap-2">
-                        <Input
-                            readOnly
-                            value={
-                                createdInviteToken
-                                    ? `${window.location.origin}/invites/${createdInviteToken}`
-                                    : ""
-                            }
-                            className="flex-1 text-sm"
-                            onClick={(e) => (e.target as HTMLInputElement).select()}
-                        />
+                    <DialogFooter className="sm:justify-between">
                         <Button
                             type="button"
-                            size="icon"
                             variant="outline"
                             onClick={async () => {
-                                if (!createdInviteToken) return
-                                await handleCopyLink(createdInviteToken)
+                                await handleCopyLink()
                             }}
-                            aria-label={t("copy_link")}
                         >
-                            <Copy className="h-4 w-4" />
+                            <Copy className="mr-2 h-4 w-4" />
+                            {t("copy_link")}
                         </Button>
-                    </div>
-                    <DialogFooter>
-                        <Button onClick={() => setCreatedInviteToken(null)}>
+                        <Button onClick={() => setCreatedInviteEmail(null)}>
                             {t("done", "Done")}
                         </Button>
                     </DialogFooter>
@@ -612,7 +597,7 @@ export default function Invites() {
                         const invite = await api.invites.create(project.id, data)
                         await reload()
                         setIsCreating(false)
-                        setCreatedInviteToken(`${invite.nonce}${invite.token}`)
+                        setCreatedInviteEmail(invite.invitee_email)
                     } finally {
                         setIsSaving(false)
                     }

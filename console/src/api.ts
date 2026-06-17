@@ -86,9 +86,7 @@ export const client = Axios.create({
 client.interceptors.response.use(
     (response) => response,
     async (error) => {
-        const isPublicPage =
-            window.location.pathname.startsWith("/login") ||
-            window.location.pathname.startsWith("/invites/")
+        const isPublicPage = window.location.pathname.startsWith("/login")
         const isUserNotAuthenticated = error.response?.status === 401
         const skipRedirect = error.config?.skipAuthRedirect
 
@@ -194,15 +192,15 @@ const api = {
     },
 
     invites: {
-        accept: async (token: string) => {
-            await client.post(
-                "/auth/invites/accept",
-                { token },
-                {
+        // mine lists the pending invites addressed to the logged-in admin's email.
+        mine: async () =>
+            await client.get<SearchResult<ProjectInvite>>(`/invites/mine`).then((r) => r.data),
+        accept: async (inviteId: UUID) =>
+            await client
+                .post<Project>(`/invites/${inviteId}/accept`, undefined, {
                     skipAuthRedirect: true, // "I'm a big boy, I'll handle this myself"
-                },
-            )
-        },
+                })
+                .then((r) => r.data),
         list: async (
             projectId: UUID,
             params?: {
@@ -226,8 +224,8 @@ const api = {
             await client
                 .post<ProjectInvite>(`${projectUrl(projectId)}/invites`, params)
                 .then((r) => r.data),
-        revoke: async (projectId: UUID, token: string) =>
-            await client.delete(`${projectUrl(projectId)}/invites/${token}`).then((r) => r.data),
+        revoke: async (projectId: UUID, inviteId: UUID) =>
+            await client.delete(`${projectUrl(projectId)}/invites/${inviteId}`).then((r) => r.data),
     },
 
     profile: {

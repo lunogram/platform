@@ -48,7 +48,7 @@ import IntegrationSetup from "./settings/IntegrationSetup"
 import Login from "./auth/Login"
 import LoginCallback from "./auth/LoginCallback"
 import Register from "./auth/Register"
-import AcceptInvite from "./invites/AcceptInvite"
+import MyInvites from "./invites/MyInvites"
 import Onboarding from "./auth/Onboarding"
 import OnboardingProject from "./auth/OnboardingProject"
 import {
@@ -117,8 +117,8 @@ export const createRouter = ({
                 element: <Register />,
             },
             {
-                path: "/invites/:token",
-                element: <AcceptInvite />,
+                path: "/invites",
+                element: <MyInvites />,
             },
             {
                 path: "*",
