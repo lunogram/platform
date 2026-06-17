@@ -97,3 +97,33 @@ func (s *AuthStore) GetTrustedIssuerByIssuer(ctx context.Context, issuer string)
 	}
 	return &result, nil
 }
+
+// SessionAuthMethod is a session auth method resolved when verifying a minted
+// session token: its RBAC identity (the scope the session confers) plus its
+// project/org.
+type SessionAuthMethod struct {
+	ID             uuid.UUID `db:"id"`
+	OrganizationID uuid.UUID `db:"organization_id"`
+	ProjectID      uuid.UUID `db:"project_id"`
+	SubjectScope   string    `db:"subject_scope"`
+	TTLSeconds     int       `db:"ttl_seconds"`
+}
+
+// GetSessionAuthMethod resolves a session auth method (the "policy") by id. It is
+// used both when minting a session (to read its TTL) and when verifying a minted
+// token (to scope the resulting actor). Soft-deleted methods are not returned.
+func (s *AuthStore) GetSessionAuthMethod(methodID uuid.UUID) (*SessionAuthMethod, error) {
+	query := `
+	SELECT m.id, p.organization_id, m.project_id, m.subject_scope, sess.ttl_seconds
+	FROM auth_method_sessions sess
+	JOIN auth_methods m ON m.id = sess.auth_method_id
+	JOIN projects p ON p.id = m.project_id
+	WHERE m.id = $1 AND m.deleted_at IS NULL`
+
+	result := SessionAuthMethod{}
+	if err := s.db.Get(&result, query, methodID); err != nil {
+		return nil, err
+	}
+
+	return &result, nil
+}

@@ -9,7 +9,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func NewController(logger *zap.Logger, mgmtDB, usersDB *sqlx.DB, mgmt *management.State, usrs *subjects.State, pub pubsub.Publisher, engine *rbac.Engine) (*Controller, error) {
+func NewController(logger *zap.Logger, mgmtDB, usersDB *sqlx.DB, mgmt *management.State, usrs *subjects.State, pub pubsub.Publisher, engine *rbac.Engine, sessionSigningKey string) (*Controller, error) {
 	clientController := NewClientController(logger, usersDB, mgmtDB, usrs, pub, engine)
 
 	subsController, err := NewSubscriptionsController(clientController, mgmtDB, mgmt)
@@ -25,6 +25,7 @@ func NewController(logger *zap.Logger, mgmtDB, usersDB *sqlx.DB, mgmt *managemen
 		InboxController:         NewInboxController(clientController),
 		DevicesController:       NewDevicesController(clientController),
 		SubscriptionsController: subsController,
+		SessionsController:      NewSessionsController(clientController, sessionSigningKey),
 	}, nil
 }
 
@@ -36,4 +37,5 @@ type Controller struct {
 	*InboxController
 	*DevicesController
 	*SubscriptionsController
+	*SessionsController
 }

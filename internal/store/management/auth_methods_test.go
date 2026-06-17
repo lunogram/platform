@@ -120,13 +120,27 @@ func TestAuthMethodsStore(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, got.Session)
 		assert.Equal(t, 600, got.Session.TTLSeconds)
+
+		// Resolvable as a session policy for minting/verifying tokens.
+		sess, err := db.GetSessionAuthMethod(created.ID)
+		require.NoError(t, err)
+		assert.Equal(t, created.ID, sess.ID)
+		assert.Equal(t, projectID, sess.ProjectID)
+		assert.Equal(t, orgID, sess.OrganizationID)
+		assert.Equal(t, 600, sess.TTLSeconds)
+
+		// An api_key method is not a session method.
+		apiKeyMethod, err := db.CreateAuthMethod(ctx, projectID, CreateAuthMethodInput{Type: MethodTypeAPIKey, Name: "k", Role: "support"})
+		require.NoError(t, err)
+		_, err = db.GetSessionAuthMethod(apiKeyMethod.ID)
+		assert.Error(t, err)
 	})
 
 	t.Run("lists, updates role + grants, soft deletes", func(t *testing.T) {
 		methods, total, err := db.ListAuthMethods(ctx, projectID, store.Pagination{Limit: 10})
 		require.NoError(t, err)
-		assert.Equal(t, 4, total)
-		assert.Len(t, methods, 4)
+		assert.Equal(t, 5, total)
+		assert.Len(t, methods, 5)
 
 		// Find the api_key method and rewrite its scope.
 		var target AuthMethod

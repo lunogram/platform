@@ -1,0 +1,65 @@
+package v1
+
+import (
+	"net/http"
+	"time"
+
+	"github.com/lunogram/platform/internal/http/auth"
+	"github.com/lunogram/platform/internal/http/controllers/v1/client/oapi"
+	"github.com/lunogram/platform/internal/http/json"
+	"github.com/lunogram/platform/internal/http/problem"
+	"github.com/lunogram/platform/internal/rbac"
+	"go.uber.org/zap"
+)
+
+func NewSessionsController(client *ClientController, signingKey string) *SessionsController {
+	return &SessionsController{client: client, signingKey: signingKey}
+}
+
+type SessionsController struct {
+	client     *ClientController
+	signingKey string
+}
+
+// CreateSession mints a short-lived session token for an end user under a
+// session policy. It is a privileged backend operation: only an authorized API
+// key may call it (API keys are private/backend-only), and the named session
+// auth method must belong to the key's project. The session's permissions come
+// from the policy.
+func (srv *SessionsController) CreateSession(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	actor := rbac.FromContext(ctx)
+
+	if actor == nil || actor.Type != rbac.ActorAPIKey {
+		oapi.WriteProblem(w, problem.ErrForbidden(problem.Describe("an API key is required to mint sessions")))
+		return
+	}
+
+	if srv.signingKey == "" {
+		oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("session signing is not configured")))
+		return
+	}
+
+	var body oapi.CreateSessionJSONRequestBody
+	if err := json.Decode(r.Body, &body); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	// The policy must exist, be a session method, and live in the key's project.
+	method, err := srv.client.mgmt.GetSessionAuthMethod(body.AuthMethodId)
+	if err != nil || method.ProjectID != actor.ProjectID {
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("session auth method not found")))
+		return
+	}
+
+	ttl := time.Duration(method.TTLSeconds) * time.Second
+	token, expiresAt, err := auth.MintSession(srv.signingKey, method.ID, body.UserId, ttl)
+	if err != nil {
+		srv.client.logger.Error("failed to mint session", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	json.Write(w, http.StatusCreated, oapi.SessionToken{Token: token, ExpiresAt: expiresAt})
+}

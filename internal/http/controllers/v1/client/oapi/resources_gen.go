@@ -114,6 +114,15 @@ func (e GetUserInboxParamsStatus) Valid() bool {
 // Channel defines model for Channel.
 type Channel string
 
+// CreateSession Request to mint a session token for an end user.
+type CreateSession struct {
+	// AuthMethodId The session auth method (policy) that defines what the session may do.
+	AuthMethodId openapi_types.UUID `json:"auth_method_id"`
+
+	// UserId The end user's external identifier (the session subject).
+	UserId string `json:"user_id"`
+}
+
 // DeleteOrganizationRequest defines model for DeleteOrganizationRequest.
 type DeleteOrganizationRequest struct {
 	// Identifier One or more external identifiers to identify the organization
@@ -429,6 +438,14 @@ type ScheduledAccepted struct {
 	ScheduledAt time.Time `json:"scheduled_at"`
 }
 
+// SessionToken defines model for SessionToken.
+type SessionToken struct {
+	ExpiresAt time.Time `json:"expires_at"`
+
+	// Token The signed session token (a bearer token for the Client API).
+	Token string `json:"token"`
+}
+
 // UpsertOrganizationScheduledRequest defines model for UpsertOrganizationScheduledRequest.
 type UpsertOrganizationScheduledRequest struct {
 	// Data Scheduled resource data
@@ -623,6 +640,9 @@ type RemoveOrganizationUserClientJSONRequestBody = RemoveOrganizationUserRequest
 // AddOrganizationUserClientJSONRequestBody defines body for AddOrganizationUserClient for application/json ContentType.
 type AddOrganizationUserClientJSONRequestBody = OrganizationUserRequest
 
+// CreateSessionJSONRequestBody defines body for CreateSession for application/json ContentType.
+type CreateSessionJSONRequestBody = CreateSession
+
 // DeleteUserClientJSONRequestBody defines body for DeleteUserClient for application/json ContentType.
 type DeleteUserClientJSONRequestBody = DeleteUserRequest
 
@@ -784,6 +804,11 @@ type ClientInterface interface {
 
 	// GetVapidPublicKey request
 	GetVapidPublicKey(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateSessionWithBody request with any body
+	CreateSessionWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateSession(ctx context.Context, body CreateSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteUserClientWithBody request with any body
 	DeleteUserClientWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1114,6 +1139,30 @@ func (c *Client) AddOrganizationUserClient(ctx context.Context, body AddOrganiza
 
 func (c *Client) GetVapidPublicKey(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetVapidPublicKeyRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateSessionWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateSessionRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateSession(ctx context.Context, body CreateSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateSessionRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2043,6 +2092,46 @@ func NewGetVapidPublicKeyRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewCreateSessionRequest calls the generic CreateSession builder with application/json body
+func NewCreateSessionRequest(server string, body CreateSessionJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateSessionRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreateSessionRequestWithBody generates requests for CreateSession with any type of body
+func NewCreateSessionRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/client/sessions")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewDeleteUserClientRequest calls the generic DeleteUserClient builder with application/json body
 func NewDeleteUserClientRequest(server string, body DeleteUserClientJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -2854,6 +2943,11 @@ type ClientWithResponsesInterface interface {
 	// GetVapidPublicKeyWithResponse request
 	GetVapidPublicKeyWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetVapidPublicKeyResponse, error)
 
+	// CreateSessionWithBodyWithResponse request with any body
+	CreateSessionWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateSessionResponse, error)
+
+	CreateSessionWithResponse(ctx context.Context, body CreateSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateSessionResponse, error)
+
 	// DeleteUserClientWithBodyWithResponse request with any body
 	DeleteUserClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteUserClientResponse, error)
 
@@ -3306,6 +3400,37 @@ func (r GetVapidPublicKeyResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r GetVapidPublicKeyResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateSessionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *SessionToken
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateSessionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateSessionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateSessionResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -3930,6 +4055,23 @@ func (c *ClientWithResponses) GetVapidPublicKeyWithResponse(ctx context.Context,
 	return ParseGetVapidPublicKeyResponse(rsp)
 }
 
+// CreateSessionWithBodyWithResponse request with arbitrary body returning *CreateSessionResponse
+func (c *ClientWithResponses) CreateSessionWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateSessionResponse, error) {
+	rsp, err := c.CreateSessionWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateSessionResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateSessionWithResponse(ctx context.Context, body CreateSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateSessionResponse, error) {
+	rsp, err := c.CreateSession(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateSessionResponse(rsp)
+}
+
 // DeleteUserClientWithBodyWithResponse request with arbitrary body returning *DeleteUserClientResponse
 func (c *ClientWithResponses) DeleteUserClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteUserClientResponse, error) {
 	rsp, err := c.DeleteUserClientWithBody(ctx, contentType, body, reqEditors...)
@@ -4509,6 +4651,39 @@ func ParseGetVapidPublicKeyResponse(rsp *http.Response) (*GetVapidPublicKeyRespo
 	return response, nil
 }
 
+// ParseCreateSessionResponse parses an HTTP response from a CreateSessionWithResponse call
+func ParseCreateSessionResponse(rsp *http.Response) (*CreateSessionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateSessionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest SessionToken
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseDeleteUserClientResponse parses an HTTP response from a DeleteUserClientWithResponse call
 func ParseDeleteUserClientResponse(rsp *http.Response) (*DeleteUserClientResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -4912,6 +5087,9 @@ type ServerInterface interface {
 	// Get VAPID public key
 	// (GET /api/client/push/vapid)
 	GetVapidPublicKey(w http.ResponseWriter, r *http.Request)
+	// Mint a session token
+	// (POST /api/client/sessions)
+	CreateSession(w http.ResponseWriter, r *http.Request)
 	// Delete user
 	// (DELETE /api/client/users)
 	DeleteUserClient(w http.ResponseWriter, r *http.Request)
@@ -5035,6 +5213,12 @@ func (_ Unimplemented) AddOrganizationUserClient(w http.ResponseWriter, r *http.
 // Get VAPID public key
 // (GET /api/client/push/vapid)
 func (_ Unimplemented) GetVapidPublicKey(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Mint a session token
+// (POST /api/client/sessions)
+func (_ Unimplemented) CreateSession(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -5550,6 +5734,26 @@ func (siw *ServerInterfaceWrapper) GetVapidPublicKey(w http.ResponseWriter, r *h
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetVapidPublicKey(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateSession operation middleware
+func (siw *ServerInterfaceWrapper) CreateSession(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateSession(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -6201,6 +6405,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/client/push/vapid", wrapper.GetVapidPublicKey)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/client/sessions", wrapper.CreateSession)
 	})
 	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/api/client/users", wrapper.DeleteUserClient)

@@ -68,7 +68,7 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *st
 	}
 
 	// Create client controller
-	clientController, err := clientv1.NewController(logger, db.Management, db.Subjects, mgmtStores, usersStore, pub, rbacEngine)
+	clientController, err := clientv1.NewController(logger, db.Management, db.Subjects, mgmtStores, usersStore, pub, rbacEngine, cfg.Auth.SessionSigningKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create client controller: %w", err)
 	}
@@ -107,6 +107,7 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *st
 				clientoapi.Validator(clientSpec, openapi3filter.Options{
 					AuthenticationFunc: auth.Middleware(
 						auth.WithKey(mgmtStores, auth.SurfaceClient),
+						auth.WithSession(mgmtStores, cfg.Auth.SessionSigningKey),
 						auth.WithTrustedIssuer(mgmtStores, jwksCache),
 					),
 				}),

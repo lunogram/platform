@@ -47,6 +47,11 @@ type Auth struct {
 	TokenLife time.Duration `env:"TOKEN_LIFE" envDefault:"24h"`
 	Basic     BasicAuth     `envPrefix:"BASIC_"`
 	Clerk     ClerkAuth     `envPrefix:"CLERK_"`
+
+	// SessionSigningKey is the server secret used to mint and verify short-lived
+	// client session tokens (HMAC). When empty, session minting and verification
+	// are disabled.
+	SessionSigningKey string `env:"SESSION_SIGNING_KEY"`
 }
 
 type BasicAuth struct {
