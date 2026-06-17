@@ -163,12 +163,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - data
-                properties:
-                  data:
-                    $ref: "#/components/schemas/Campaign"
+                $ref: "#/components/schemas/Campaign"
         default:
           $ref: "#/components/responses/Error"
 

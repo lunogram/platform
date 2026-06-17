@@ -5331,9 +5331,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        data: components["schemas"]["Campaign"];
-                    };
+                    "application/json": components["schemas"]["Campaign"];
                 };
             };
             default: components["responses"]["Error"];

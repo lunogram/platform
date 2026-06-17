@@ -17298,10 +17298,8 @@ func (r DeleteCampaignResponse) ContentType() string {
 type GetCampaignResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *struct {
-		Data Campaign `json:"data"`
-	}
-	JSONDefault *Error
+	JSON200      *Campaign
+	JSONDefault  *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -24657,9 +24655,7 @@ func ParseGetCampaignResponse(rsp *http.Response) (*GetCampaignResponse, error) 
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest struct {
-			Data Campaign `json:"data"`
-		}
+		var dest Campaign
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
