@@ -36,9 +36,11 @@ Every SDK provides the same set of capabilities:
 
 ## Authentication
 
-All SDKs authenticate with a public API key (prefixed `pk_`). These keys are safe to use in client-side code as they only allow data ingestion.
+SDKs authenticate with a **public API key** (prefixed `pk_`), which is safe to embed in client-side code: it can ingest data (users, events) but cannot read or modify anything.
 
-You can [create API keys](/settings/api-keys) in your project settings.
+For logged-in users who need to read their own data (inbox, preferences, profile), authenticate as a verified end user instead — either with a JWT from your own identity provider (a **trusted issuer**) or a short-lived **session** token minted by your backend. Each is scoped to that user's own data.
+
+See [Access](/settings/access) to configure any of these auth methods in your project settings.
 
 ## Direct API access
 

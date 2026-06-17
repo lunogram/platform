@@ -1,0 +1,142 @@
+---
+title: Access
+description: Configure how clients authenticate to your project — API keys, trusted issuers, and sessions
+---
+
+import { Tabs, Tab } from 'fumadocs-ui/components/tabs';
+import { Cards, Card } from 'fumadocs-ui/components/card';
+
+An **auth method** is a configured way for a client to authenticate to the Lunogram APIs. Every auth method is bound to a single project and only grants access to that project's data. Manage them under **Settings → Access**.
+
+There are three types:
+
+<Cards>
+  <Card title="API key">
+    A Lunogram-issued key. Use a <strong>public</strong> key in client-side code and a <strong>secret</strong> key from your backend.
+  </Card>
+  <Card title="Trusted issuer">
+    Validate JWTs minted by your own identity provider (Bring Your Own IdP). No key to distribute.
+  </Card>
+  <Card title="Session">
+    Mint short-lived, user-scoped tokens from your backend for use in the browser.
+  </Card>
+</Cards>
+
+The authorization an auth method grants — its **role** (and optional custom permission set) — is independent of how it authenticates, so the roles below apply to every type.
+
+---
+
+## API keys
+
+API keys carry a **scope** that determines where they are safe to use:
+
+| Scope | Prefix | Use it | Notes |
+|-------|--------|--------|-------|
+| **public** | `pk_` | Browser / mobile, client-side | Write-only — can never be granted read access. Safe to ship in public code. |
+| **secret** | `sk_` | Backend only | Full access per its role. Rejected on browser-originated requests. |
+
+<Callout type="warn">
+The full key is shown **once**, right after creation — copy it then. Afterwards only a short prefix is displayed; the secret is stored hashed and cannot be recovered. If you lose it, delete the key and create a new one.
+</Callout>
+
+Public keys are the only credential safe to embed in front-end code: they can ingest data (users, events) but cannot read or modify anything.
+
+---
+
+## Trusted issuers (Bring Your Own IdP)
+
+A trusted issuer lets your end users call the Client API directly with a JWT minted by **your own** identity provider — no Lunogram key in the browser.
+
+Configure it with either a **JWKS URL** or a **PEM public certificate**, the expected **issuer** (`iss`), an optional **audience** (`aud`), and which claim carries the user id (**subject claim**, defaults to `sub`). Lunogram verifies each token's signature (RS/ES/PS algorithms only — HMAC and `none` are rejected), enforces `exp`/`iss`/`aud`, and resolves the subject to a user.
+
+By default a request authenticated this way reads and writes only **its own** user's data — see [Data access](#data-access).
+
+---
+
+## Sessions
+
+A session auth method lets your backend mint a short-lived, user-scoped token that the browser then uses against the Client API.
+
+Your backend calls `POST /api/client/sessions` with a **secret** API key, naming the session method and the `user_id`. Lunogram returns a token whose lifetime and permissions come from the **session policy**. Like trusted-issuer requests, a session defaults to its own user's data — see [Data access](#data-access).
+
+---
+
+## Data access
+
+Because trusted issuers and sessions carry a **verified subject** (the end user behind the token), they also choose a **data boundary** — whose records a request may touch, within its role:
+
+| Data access | Behaviour |
+|-------------|-----------|
+| **Own data only** (default) | The request is bound to the verified subject. Any client-supplied identifier is ignored, so the caller can only ever read and write its own records. Use this for end-user apps. |
+| **All data** | The verified subject authenticates the request, but it acts across every user's records (like a backend key). Use this for an internal or support tool that signs in through your IdP yet needs to see other users' data. |
+
+API keys have no verified subject, so they always act across all data; their reach is bounded by their role and scope instead.
+
+---
+
+## Roles
+
+Every auth method is assigned a role that determines what it can access. Roles are additive — each higher level includes the permissions below it.
+
+<Tabs items={['Client', 'Support', 'Editor', 'Admin']}>
+  <Tab value="Client">
+    **Write-only** access designed for client-side ingestion. The default for public keys.
+
+    | Permission | |
+    |------------|---|
+    | Create & update users, events, and organizations | ✅ |
+    | Read any resource | ❌ |
+    | Modify campaigns, journeys, or settings | ❌ |
+  </Tab>
+  <Tab value="Support">
+    **Read-only** access across all project resources. Ideal for dashboards and reporting.
+
+    | Permission | |
+    |------------|---|
+    | View users, campaigns, journeys, templates | ✅ |
+    | View events, lists, tags, and documents | ✅ |
+    | Create, update, or delete any resource | ❌ |
+  </Tab>
+  <Tab value="Editor">
+    **Full content management.** Includes everything in Support and Client.
+
+    | Permission | |
+    |------------|---|
+    | Everything in Support and Client | ✅ |
+    | Create & manage campaigns, templates, journeys | ✅ |
+    | Manage lists, tags, documents, locales, and actions | ✅ |
+    | Manage providers / destructive operations | ❌ |
+  </Tab>
+  <Tab value="Admin">
+    **Full project access** including providers and destructive operations.
+
+    | Permission | |
+    |------------|---|
+    | Everything in Editor | ✅ |
+    | Manage providers and integrations | ✅ |
+    | Delete subscriptions, actions, and organizations | ✅ |
+
+    <Callout type="warn">
+    Admin grants unrestricted access. Only ever use it with a secret key, never in client-side code.
+    </Callout>
+  </Tab>
+</Tabs>
+
+---
+
+## Which should I use?
+
+<Cards>
+  <Card title="Frontend app, pre-login tracking">
+    A **public API key** (`pk_`) with the Client role — anonymous, write-only event/user ingestion.
+  </Card>
+  <Card title="Frontend app, logged-in users">
+    A **trusted issuer** (reuse your IdP's JWTs) or **sessions** (mint from your backend) — each user reads/writes only their own data.
+  </Card>
+  <Card title="Backend integration">
+    A **secret API key** (`sk_`) with Editor or Admin, kept in environment variables.
+  </Card>
+  <Card title="Analytics / reporting">
+    A **secret key** with the Support (read-only) role.
+  </Card>
+</Cards>
