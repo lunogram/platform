@@ -70,6 +70,7 @@ func Manifest() int32 {
 									Type:        "string",
 									Title:       "Key ID",
 									Description: "APNs authentication key ID (10 characters).",
+									Format:      "password",
 								},
 							},
 							{
