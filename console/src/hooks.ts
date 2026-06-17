@@ -2,17 +2,25 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 export function useResolver<T>(resolver: () => Promise<T>) {
     const [value, setValue] = useState<null | T>(null)
-    const reload = useCallback(
-        async () =>
-            await resolver()
-                .then(setValue)
-                .catch((err) => console.error(err)),
-        [resolver],
-    )
+    // loading tracks whether a request is in flight. It starts true so the first
+    // render shows a loading state, and — crucially — flips to false once the
+    // request settles even when it resolves empty or rejects, so callers never
+    // get stuck on a skeleton when there is no data or the request fails.
+    const [loading, setLoading] = useState(true)
+    const reload = useCallback(async () => {
+        setLoading(true)
+        try {
+            setValue(await resolver())
+        } catch (err) {
+            console.error(err)
+        } finally {
+            setLoading(false)
+        }
+    }, [resolver])
     useEffect(() => {
         reload().catch((err) => console.error(err))
     }, [reload])
-    return useMemo(() => [value, setValue, reload] as const, [value, reload])
+    return useMemo(() => [value, setValue, reload, loading] as const, [value, reload, loading])
 }
 
 export function useDebounceControl<T>(value: T, onChange: (value: T) => void, ms = 400) {

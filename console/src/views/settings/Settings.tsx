@@ -23,12 +23,17 @@ export default function Settings() {
     const basePath = `/projects/${project.id}/settings`
     const location = useLocation()
     const currentPath = location.pathname
-    const activeTab = currentPath === basePath ? "general" : currentPath.split("/").pop()
+    // The active tab is the first path segment after the settings base — so a
+    // nested route like /settings/access/:id/permissions still maps to "access".
+    const relative = currentPath.startsWith(basePath)
+        ? currentPath.slice(basePath.length).replace(/^\//, "")
+        : ""
+    const activeTab = relative === "" ? "general" : relative.split("/")[0]
 
     const tabs = [
         { key: "general", to: "", label: t("general"), icon: SettingsLucideIcon },
         { key: "locales", to: "locales", label: t("locales"), icon: Globe },
-        { key: "api-keys", to: "api-keys", label: t("api_keys"), icon: Key },
+        { key: "access", to: "access", label: t("api_and_clients", "API & Clients"), icon: Key },
         { key: "subscriptions", to: "subscriptions", label: t("subscriptions"), icon: Bell },
         {
             key: "event-schemas",
