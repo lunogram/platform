@@ -660,6 +660,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/organizations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List my organizations
+         * @description Lists the organizations the authenticated admin is a member of, with the active one flagged
+         */
+        get: operations["ListMyOrganizations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/active-organization": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set active organization
+         * @description Switches the authenticated admin's active organization, which scopes subsequent requests
+         */
+        post: operations["SetActiveOrganization"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/tenant/admins": {
         parameters: {
             query?: never;
@@ -5102,6 +5142,32 @@ export interface components {
                 channel?: string;
             };
         };
+        AdminOrganization: {
+            /**
+             * Format: uuid
+             * @example 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
+             */
+            id: string;
+            /** @example Acme Inc */
+            name: string;
+            /**
+             * @description The admin's role within this organization
+             * @example owner
+             */
+            role: string;
+            /**
+             * @description Whether this is the admin's currently active organization
+             * @example true
+             */
+            is_active: boolean;
+        };
+        SetActiveOrganization: {
+            /**
+             * Format: uuid
+             * @example 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
+             */
+            organization_id: string;
+        };
         CreateProjectInvite: {
             /**
              * Format: email
@@ -6678,6 +6744,52 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Admin"];
                 };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    ListMyOrganizations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Organizations retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        results: components["schemas"]["AdminOrganization"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    SetActiveOrganization: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetActiveOrganization"];
+            };
+        };
+        responses: {
+            /** @description Active organization updated successfully */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             default: components["responses"]["Error"];
         };

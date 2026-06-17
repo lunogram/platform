@@ -11,6 +11,7 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/config"
 	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/store/management"
@@ -113,11 +114,39 @@ func WithJWT(config config.Auth, mgmt *management.State) Handler {
 		actor := rbac.NewActor(
 			rbac.ActorAdmin,
 			admin.ID.String(),
-			rbac.WithOrganizationID(admin.OrganizationID),
+			rbac.WithOrganizationID(resolveActiveOrganization(ctx, mgmt, admin)),
 		)
 
 		return rbac.WithActor(ctx, actor), nil
 	}
+}
+
+// resolveActiveOrganization determines which organization scopes the request.
+// An admin may belong to several organizations; the session is scoped to their
+// active organization. The stored active organization is validated against
+// current membership on every request so that revoking a membership (or a stale
+// active_organization_id) cannot leak access to an organization the admin no
+// longer belongs to. It falls back to the home organization, then to any
+// remaining membership.
+func resolveActiveOrganization(ctx context.Context, mgmt *management.State, admin *management.Admin) uuid.UUID {
+	active := admin.OrganizationID
+	if admin.ActiveOrganizationID != nil {
+		active = *admin.ActiveOrganizationID
+	}
+
+	if ok, err := mgmt.IsMember(ctx, active, admin.ID); err == nil && ok {
+		return active
+	}
+
+	if ok, err := mgmt.IsMember(ctx, admin.OrganizationID, admin.ID); err == nil && ok {
+		return admin.OrganizationID
+	}
+
+	if orgs, err := mgmt.ListOrganizationsForAdmin(ctx, admin.ID); err == nil && len(orgs) > 0 {
+		return orgs[0].ID
+	}
+
+	return admin.OrganizationID
 }
 
 func WithKey(mgmt *management.State) Handler {

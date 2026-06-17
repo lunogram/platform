@@ -11,6 +11,7 @@ import (
 	"github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/http/problem"
 	"github.com/lunogram/platform/internal/rbac"
+	"github.com/lunogram/platform/internal/rbac/access"
 	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/management"
 	"go.uber.org/zap"
@@ -256,6 +257,20 @@ func (srv *AdminsController) CreateAdmin(w http.ResponseWriter, r *http.Request)
 			return
 		}
 
+		// Ensure the existing admin is a member of this organization, so adding
+		// an already-registered person to the org actually grants access (and
+		// they show up in the members list).
+		if err := srv.store.AddMember(ctx, actor.OrganizationID, existingAdmin.ID, string(body.Role)); err != nil {
+			logger.Error("failed to add organization membership", zap.Error(err))
+			oapi.WriteProblem(w, err)
+			return
+		}
+		if err := srv.engine.WriteTuples(ctx, access.OrganizationRoleTuples(existingAdmin.ID, actor.OrganizationID, string(body.Role))); err != nil {
+			logger.Error("failed to write RBAC tuples for admin", zap.Error(err))
+			oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("failed to assign organization role")))
+			return
+		}
+
 		logger.Info("admin updated")
 		json.Write(w, http.StatusCreated, updatedAdmin.OAPI())
 		return
@@ -276,6 +291,20 @@ func (srv *AdminsController) CreateAdmin(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// Record the organization membership and grant the role in the RBAC engine,
+	// otherwise the new admin cannot pass any organization-scoped permission
+	// check.
+	if err := srv.store.AddMember(ctx, actor.OrganizationID, adminID, string(body.Role)); err != nil {
+		logger.Error("failed to add organization membership", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+	if err := srv.engine.WriteTuples(ctx, access.OrganizationRoleTuples(adminID, actor.OrganizationID, string(body.Role))); err != nil {
+		logger.Error("failed to write RBAC tuples for new admin", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("failed to assign organization role")))
+		return
+	}
+
 	createdAdmin, err := srv.store.GetAdmin(ctx, adminID)
 	if err != nil {
 		logger.Error("failed to get created admin", zap.Error(err))
@@ -285,6 +314,78 @@ func (srv *AdminsController) CreateAdmin(w http.ResponseWriter, r *http.Request)
 
 	logger.Info("admin created", zap.String("admin_id", adminID.String()))
 	json.Write(w, http.StatusCreated, createdAdmin.OAPI())
+}
+
+// ListMyOrganizations returns the organizations the authenticated admin belongs
+// to, flagging the one that currently scopes their session.
+func (srv *AdminsController) ListMyOrganizations(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	actor := rbac.FromContext(ctx)
+
+	adminID, err := uuid.Parse(actor.ID)
+	if err != nil {
+		oapi.WriteProblem(w, problem.ErrForbidden(problem.Describe("only admins have organizations")))
+		return
+	}
+
+	orgs, err := srv.store.ListOrganizationsForAdmin(ctx, adminID)
+	if err != nil {
+		srv.logger.Error("failed to list organizations for admin", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	results := make([]oapi.AdminOrganization, len(orgs))
+	for i, o := range orgs {
+		results[i] = oapi.AdminOrganization{
+			Id:       o.ID,
+			Name:     o.Name,
+			Role:     o.Role,
+			IsActive: o.ID == actor.OrganizationID,
+		}
+	}
+
+	json.Write(w, http.StatusOK, struct {
+		Results []oapi.AdminOrganization `json:"results"`
+	}{Results: results})
+}
+
+// SetActiveOrganization switches the authenticated admin's active organization,
+// which scopes subsequent requests. The admin must be a member of the target.
+func (srv *AdminsController) SetActiveOrganization(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	actor := rbac.FromContext(ctx)
+
+	adminID, err := uuid.Parse(actor.ID)
+	if err != nil {
+		oapi.WriteProblem(w, problem.ErrForbidden(problem.Describe("only admins have organizations")))
+		return
+	}
+
+	var body oapi.SetActiveOrganizationJSONRequestBody
+	if err := json.Decode(r.Body, &body); err != nil {
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid request body")))
+		return
+	}
+
+	isMember, err := srv.store.IsMember(ctx, body.OrganizationId, adminID)
+	if err != nil {
+		srv.logger.Error("failed to check organization membership", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+	if !isMember {
+		oapi.WriteProblem(w, problem.ErrForbidden(problem.Describe("you are not a member of this organization")))
+		return
+	}
+
+	if err := srv.store.SetActiveOrganization(ctx, adminID, body.OrganizationId); err != nil {
+		srv.logger.Error("failed to set active organization", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (srv *AdminsController) GetAdmin(w http.ResponseWriter, r *http.Request, adminID uuid.UUID) {
@@ -316,7 +417,13 @@ func (srv *AdminsController) GetAdmin(w http.ResponseWriter, r *http.Request, ad
 		return
 	}
 
-	if admin.OrganizationID != actor.OrganizationID {
+	inOrg, err := srv.store.IsMember(ctx, actor.OrganizationID, admin.ID)
+	if err != nil {
+		logger.Error("failed to check organization membership", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+	if !inOrg {
 		logger.Info("admin not in organization")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("admin not found")))
 		return
@@ -348,7 +455,13 @@ func (srv *AdminsController) UpdateAdmin(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
-	if admin.OrganizationID != actor.OrganizationID {
+	inOrg, err := srv.store.IsMember(ctx, actor.OrganizationID, admin.ID)
+	if err != nil {
+		srv.logger.Error("failed to check organization membership", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+	if !inOrg {
 		srv.logger.Info("admin not in organization")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("admin not found")))
 		return
@@ -415,22 +528,15 @@ func (srv *AdminsController) DeleteAdmin(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
-	admin, err := srv.store.GetAdmin(ctx, adminID)
+	member, err := srv.store.GetMember(ctx, actor.OrganizationID, adminID)
 	if errors.Is(err, sql.ErrNoRows) {
-		srv.logger.Info("admin not found")
-		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("admin not found")))
-		return
-	}
-
-	if err != nil {
-		srv.logger.Error("failed to get admin", zap.Error(err))
-		oapi.WriteProblem(w, err)
-		return
-	}
-
-	if admin.OrganizationID != actor.OrganizationID {
 		srv.logger.Info("admin not in organization")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("admin not found")))
+		return
+	}
+	if err != nil {
+		srv.logger.Error("failed to check organization membership", zap.Error(err))
+		oapi.WriteProblem(w, err)
 		return
 	}
 
@@ -439,16 +545,24 @@ func (srv *AdminsController) DeleteAdmin(w http.ResponseWriter, r *http.Request,
 		zap.String("admin_id", adminID.String()),
 	)
 
-	logger.Info("deleting admin")
+	logger.Info("removing admin from organization")
 
-	err = srv.store.DeleteAdmin(ctx, adminID)
-	if err != nil {
-		logger.Error("failed to delete admin", zap.Error(err))
+	// Membership is the unit of removal now that an admin can belong to several
+	// organizations; the admin record is preserved so their other memberships
+	// keep working.
+	if err := srv.store.RemoveMember(ctx, actor.OrganizationID, adminID); err != nil {
+		logger.Error("failed to remove organization membership", zap.Error(err))
 		oapi.WriteProblem(w, err)
 		return
 	}
 
-	logger.Info("admin deleted")
+	if err := srv.engine.DeleteTuples(ctx, access.OrganizationRoleTuples(adminID, actor.OrganizationID, member.Role)); err != nil {
+		logger.Error("failed to delete RBAC tuples", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("failed to revoke organization role")))
+		return
+	}
+
+	logger.Info("admin removed from organization")
 	w.WriteHeader(http.StatusNoContent)
 }
 

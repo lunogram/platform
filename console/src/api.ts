@@ -6,6 +6,7 @@ import type {
     ActionCreateParams,
     ActionUpdateParams,
     Admin,
+    AdminOrganization,
     AuthDriver,
     Campaign,
     CampaignCreateParams,
@@ -240,6 +241,19 @@ const api = {
     admins: {
         ...createEntityPath<Admin>("/admin/tenant/admins"),
         whoami: async () => await client.get<Admin>("/admin/tenant/whoami").then((r) => r.data),
+    },
+
+    // adminOrganizations are the organizations the logged-in admin belongs to
+    // (distinct from `organizations`, which is end-user CRM data).
+    adminOrganizations: {
+        mine: async () =>
+            await client
+                .get<SearchResult<AdminOrganization>>("/admin/organizations")
+                .then((r) => r.data),
+        setActive: async (organizationId: UUID) =>
+            await client.post("/admin/active-organization", {
+                organization_id: organizationId,
+            }),
     },
 
     projects: {
