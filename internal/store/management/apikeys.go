@@ -22,22 +22,34 @@ func (keys ApiKeys) OAPI() []oapi.ApiKey {
 }
 
 type ApiKey struct {
-	ID          uuid.UUID `db:"id"`
-	ProjectID   uuid.UUID `db:"project_id"`
-	Value       string    `db:"value"`
-	Scope       *string   `db:"scope"`
-	Name        string    `db:"name"`
-	Description *string   `db:"description"`
-	Role        string    `db:"role"`
-	CreatedAt   time.Time `db:"created_at"`
-	UpdatedAt   time.Time `db:"updated_at"`
+	ID           uuid.UUID `db:"id"`
+	ProjectID    uuid.UUID `db:"project_id"`
+	SecretHash   *string   `db:"secret_hash"`
+	SecretPrefix *string   `db:"secret_prefix"`
+	Scope        *string   `db:"scope"`
+	Name         string    `db:"name"`
+	Description  *string   `db:"description"`
+	Role         string    `db:"role"`
+	CreatedAt    time.Time `db:"created_at"`
+	UpdatedAt    time.Time `db:"updated_at"`
+
+	// Plaintext holds the full secret and is populated only by CreateApiKey, so
+	// the value is shown to the caller exactly once on creation.
+	Plaintext string `db:"-"`
 }
 
 func (k *ApiKey) OAPI() oapi.ApiKey {
+	// The full secret is returned only on creation (Plaintext); afterwards only
+	// the display prefix is exposed.
+	value := k.Plaintext
+	if value == "" && k.SecretPrefix != nil {
+		value = *k.SecretPrefix
+	}
+
 	result := oapi.ApiKey{
 		Id:        k.ID,
 		ProjectId: k.ProjectID,
-		Value:     k.Value,
+		Value:     value,
 		Name:      k.Name,
 		Role:      oapi.ProjectRole(k.Role),
 		CreatedAt: k.CreatedAt,
@@ -73,28 +85,29 @@ func generateKeyValue() (string, error) {
 }
 
 func (s *ApiKeysStore) CreateApiKey(ctx context.Context, projectID uuid.UUID, name string, scope string, role string, description *string) (*ApiKey, error) {
-	keyValue, err := generateKeyValue()
+	plaintext, prefix, hash, err := newSecret(scope)
 	if err != nil {
 		return nil, err
 	}
 
 	stmt := `
-	INSERT INTO project_api_keys (project_id, value, scope, name, description, role)
-	VALUES ($1, $2, $3, $4, $5, $6)
-	RETURNING id, project_id, value, scope, name, description, role, created_at, updated_at`
+	INSERT INTO project_api_keys (project_id, secret_hash, secret_prefix, scope, name, description, role)
+	VALUES ($1, $2, $3, $4, $5, $6, $7)
+	RETURNING id, project_id, secret_hash, secret_prefix, scope, name, description, role, created_at, updated_at`
 
 	var apiKey ApiKey
-	err = s.db.GetContext(ctx, &apiKey, stmt, projectID, keyValue, scope, name, description, role)
+	err = s.db.GetContext(ctx, &apiKey, stmt, projectID, hash, prefix, scope, name, description, role)
 	if err != nil {
 		return nil, err
 	}
 
+	apiKey.Plaintext = plaintext // shown to the caller exactly once
 	return &apiKey, nil
 }
 
 func (s *ApiKeysStore) GetApiKey(ctx context.Context, projectID, keyID uuid.UUID) (*ApiKey, error) {
 	stmt := `
-	SELECT id, project_id, value, scope, name, description, role, created_at, updated_at
+	SELECT id, project_id, secret_hash, secret_prefix, scope, name, description, role, created_at, updated_at
 	FROM project_api_keys
 	WHERE id = $1 AND project_id = $2 AND deleted_at IS NULL`
 
@@ -112,7 +125,8 @@ func (s *ApiKeysStore) ListApiKeys(ctx context.Context, projectID uuid.UUID, pag
 	SELECT
 		id,
 		project_id,
-		value,
+		secret_hash,
+		secret_prefix,
 		scope,
 		name,
 		description,

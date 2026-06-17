@@ -3,6 +3,7 @@ package management
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -30,17 +31,19 @@ func TestAccessPoliciesStore(t *testing.T) {
 
 	t.Run("creates and reads back an api_key policy", func(t *testing.T) {
 		created, err := db.CreateAccessPolicy(ctx, projectID, CreateAccessPolicyInput{
-			Type:   PolicyTypeAPIKey,
-			Name:   "public ingest key",
-			Scope:  ptr.To("public"),
-			Role:   "client",
-			Secret: ptr.To("pk_secretvalue"),
+			Type:  PolicyTypeAPIKey,
+			Name:  "public ingest key",
+			Scope: ptr.To("public"),
+			Role:  "client",
 		})
 		require.NoError(t, err)
 		assert.NotEqual(t, uuid.Nil, created.ID)
 		assert.Equal(t, PolicyTypeAPIKey, created.Type)
 		assert.Equal(t, "client", created.Role)
-		assert.Equal(t, "pk_secretvalue", *created.Secret)
+		// The full secret is generated and shown exactly once, prefixed pk_.
+		require.NotNil(t, created.Secret)
+		assert.True(t, strings.HasPrefix(*created.Secret, "pk_"), "public key should be prefixed pk_")
+		require.NotNil(t, created.SecretPrefix)
 		assert.Empty(t, created.Grants)
 		assert.Nil(t, created.IssuerConfig)
 
@@ -48,6 +51,9 @@ func TestAccessPoliciesStore(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, created.ID, got.ID)
 		assert.Equal(t, "public ingest key", got.Name)
+		// Reads never expose the plaintext, only the prefix.
+		assert.Nil(t, got.Secret)
+		require.NotNil(t, got.SecretPrefix)
 
 		// The api_key policy must surface through the backward-compatible
 		// project_api_keys view that the legacy ApiKeysStore reads.

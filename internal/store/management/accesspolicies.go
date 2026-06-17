@@ -65,9 +65,15 @@ type AccessPolicy struct {
 	Scope       *string
 	Role        string
 
-	// Secret is the raw key value for api_key policies. It is nil for policy
-	// types that carry no Lunogram-held secret (e.g. trusted_issuer).
+	// Secret is the full plaintext key. It is set only on the AccessPolicy
+	// returned by CreateAccessPolicy (shown to the caller exactly once) and is
+	// never read back from storage.
 	Secret *string
+
+	// SecretPrefix is the non-sensitive leading portion of the secret, used to
+	// identify an api_key policy in list views. It is nil for policy types that
+	// carry no secret.
+	SecretPrefix *string
 
 	// Grants is the custom permission set. Nil/empty means the policy resolves
 	// through its Role preset.
@@ -85,7 +91,7 @@ type accessPolicyRow struct {
 	ID            uuid.UUID `db:"id"`
 	ProjectID     uuid.UUID `db:"project_id"`
 	Type          string    `db:"type"`
-	Value         *string   `db:"value"`
+	SecretPrefix  *string   `db:"secret_prefix"`
 	Scope         *string   `db:"scope"`
 	Name          string    `db:"name"`
 	Description   *string   `db:"description"`
@@ -99,16 +105,16 @@ type accessPolicyRow struct {
 
 func (r accessPolicyRow) toPolicy() (*AccessPolicy, error) {
 	p := AccessPolicy{
-		ID:          r.ID,
-		ProjectID:   r.ProjectID,
-		Type:        PolicyType(r.Type),
-		Name:        r.Name,
-		Description: r.Description,
-		Scope:       r.Scope,
-		Role:        r.Role,
-		Secret:      r.Value,
-		CreatedAt:   r.CreatedAt,
-		UpdatedAt:   r.UpdatedAt,
+		ID:           r.ID,
+		ProjectID:    r.ProjectID,
+		Type:         PolicyType(r.Type),
+		Name:         r.Name,
+		Description:  r.Description,
+		Scope:        r.Scope,
+		Role:         r.Role,
+		SecretPrefix: r.SecretPrefix,
+		CreatedAt:    r.CreatedAt,
+		UpdatedAt:    r.UpdatedAt,
 	}
 	if err := decodeJSONB(r.Grants, &p.Grants); err != nil {
 		return nil, fmt.Errorf("management: decode grants for policy %s: %w", r.ID, err)
@@ -165,7 +171,6 @@ type CreateAccessPolicyInput struct {
 	Description   *string
 	Scope         *string
 	Role          string
-	Secret        *string
 	Grants        []Grant
 	IssuerConfig  *IssuerConfig
 	SessionConfig *SessionConfig
@@ -180,16 +185,6 @@ type AccessPoliciesStore struct {
 }
 
 func (s *AccessPoliciesStore) CreateAccessPolicy(ctx context.Context, projectID uuid.UUID, in CreateAccessPolicyInput) (*AccessPolicy, error) {
-	// API-key policies carry a Lunogram-issued secret; generate one when the
-	// caller did not supply it.
-	if in.Type == PolicyTypeAPIKey && in.Secret == nil {
-		value, err := generateKeyValue()
-		if err != nil {
-			return nil, err
-		}
-		in.Secret = &value
-	}
-
 	grants, err := encodeJSONB(in.Grants)
 	if err != nil {
 		return nil, err
@@ -203,24 +198,45 @@ func (s *AccessPoliciesStore) CreateAccessPolicy(ctx context.Context, projectID 
 		return nil, err
 	}
 
+	// API-key policies carry a Lunogram-issued secret. We store only its hash
+	// and display prefix; the plaintext is surfaced once on the returned policy.
+	var secretHash, secretPrefix, plaintext *string
+	if in.Type == PolicyTypeAPIKey {
+		scope := ScopeSecret
+		if in.Scope != nil {
+			scope = *in.Scope
+		}
+		pt, prefix, hash, err := newSecret(scope)
+		if err != nil {
+			return nil, err
+		}
+		plaintext, secretPrefix, secretHash = &pt, &prefix, &hash
+	}
+
 	const stmt = `
 	INSERT INTO access_policies
-		(project_id, type, value, scope, name, description, role, grants, issuer_config, session_config)
-	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-	RETURNING id, project_id, type, value, scope, name, description, role, grants, issuer_config, session_config, created_at, updated_at`
+		(project_id, type, secret_hash, secret_prefix, scope, name, description, role, grants, issuer_config, session_config)
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+	RETURNING id, project_id, type, secret_prefix, scope, name, description, role, grants, issuer_config, session_config, created_at, updated_at`
 
 	var row accessPolicyRow
 	err = s.db.GetContext(ctx, &row, stmt,
-		projectID, string(in.Type), in.Secret, in.Scope, in.Name, in.Description, in.Role, grants, issuer, session)
+		projectID, string(in.Type), secretHash, secretPrefix, in.Scope, in.Name, in.Description, in.Role, grants, issuer, session)
 	if err != nil {
 		return nil, err
 	}
-	return row.toPolicy()
+
+	policy, err := row.toPolicy()
+	if err != nil {
+		return nil, err
+	}
+	policy.Secret = plaintext // shown to the caller exactly once
+	return policy, nil
 }
 
 func (s *AccessPoliciesStore) GetAccessPolicy(ctx context.Context, projectID, policyID uuid.UUID) (*AccessPolicy, error) {
 	const stmt = `
-	SELECT id, project_id, type, value, scope, name, description, role, grants, issuer_config, session_config, created_at, updated_at
+	SELECT id, project_id, type, secret_prefix, scope, name, description, role, grants, issuer_config, session_config, created_at, updated_at
 	FROM access_policies
 	WHERE id = $1 AND project_id = $2 AND deleted_at IS NULL`
 
@@ -233,7 +249,7 @@ func (s *AccessPoliciesStore) GetAccessPolicy(ctx context.Context, projectID, po
 
 func (s *AccessPoliciesStore) ListAccessPolicies(ctx context.Context, projectID uuid.UUID, pagination store.Pagination) ([]AccessPolicy, int, error) {
 	const stmt = `
-	SELECT id, project_id, type, value, scope, name, description, role, grants, issuer_config, session_config,
+	SELECT id, project_id, type, secret_prefix, scope, name, description, role, grants, issuer_config, session_config,
 	       created_at, updated_at, COUNT(*) OVER () AS total_count
 	FROM access_policies
 	WHERE project_id = $1 AND deleted_at IS NULL
