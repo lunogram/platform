@@ -33,10 +33,22 @@ colors:
   purple: "#8729C1"
   purple-soft: "#F7D8FF"
   purple-hard: "#4E0C77"
-  # Dark mode anchors
-  surface-dark: "#121721"
-  surface-dark-soft: "#1A1F2B"
-  border-dark: "#2B3245"
+# Dark theme. Lists only the tokens that differ from the light palette; everything
+# else (status base hues, rounded, typography, spacing) carries over unchanged.
+# Defined ahead of a shipping theme toggle so new components are built theme-aware.
+colors-dark:
+  primary: "#FFFFFF"
+  ink-soft: "#919496"
+  surface: "#121721"
+  surface-soft: "#1A1F2B"
+  surface-muted: "#252B3A"
+  surface-editor: "#0D121E"
+  border: "#2B3245"
+  border-strong: "#3A4358"
+  # Status soft/hard roles invert on dark: the soft tint deepens (badge fill) and
+  # the hard shade lightens (badge text). Purple is the example already in the CSS.
+  purple-soft: "#4E0C77"
+  purple-hard: "#D1A7EA"
 typography:
   display:
     fontFamily: Inter
@@ -212,9 +224,40 @@ color from the entity's name — hashed to a hue, then desaturated 30% and
 darkened 10%. The desaturation is intentional: it keeps a wall of avatars from
 turning into a candy box and holds them inside the muted, professional register.
 
-A dark theme exists, anchored on **Surface Dark** {colors.surface-dark} with
-softened borders {colors.border-dark}; it inverts ink and surface while keeping
-the same status palette.
+A **dark theme** is fully defined (see [Dark Mode](#dark-mode)) but not yet
+shipped in the product; it inverts ink and surface while keeping the same status
+hues.
+
+## Dark Mode
+
+A dark theme is **defined but not yet shipped** — there is no theme toggle in the
+product today. It is specified now so new components are built theme-aware from
+the start (referencing semantic tokens, never literal `#fff`/`#000`), making the
+eventual switch a token swap rather than a rewrite. The dark values live under
+`colors-dark` and list only what changes; status base hues, radius, type, and
+spacing carry over from the light palette.
+
+Dark mode is an **inversion, not a second design.** The same calm,
+near-monochrome, border-led character holds — only the polarity flips.
+
+- **Ink and surface swap.** White (`#FFFFFF`) becomes the type and icon color; a
+  dark ink-navy (`#121721`) becomes the canvas. The "never pure black" rule still
+  holds — the dark canvas is navy-tinged, not `#000`.
+- **The surface ladder inverts.** In light mode raised surfaces get *whiter*; in
+  dark mode they get *lighter than the canvas* — canvas `#121721`, then
+  `#1A1F2B`, then `#252B3A`. A card lifts by becoming a step lighter, not by
+  casting a shadow.
+- **Borders soften** to a low-contrast `#2B3245`, with `#3A4358` for the
+  emphasized input border.
+- **Status hues keep their base values** ({colors.red}, {colors.blue}, and the
+  rest read fine on dark) but their **soft/hard roles invert**: the soft tint
+  deepens into the badge *background* and the hard shade lightens into the badge
+  *text*. Purple is the worked example already in the CSS — soft `#4E0C77` (deep)
+  as the fill, hard `#D1A7EA` (light) as the text.
+- **The editor is unchanged** (`#0D121E`); already dark in both themes, in dark
+  mode it nearly merges with the canvas, set apart only by a hairline.
+- **Ambient map and icon mosaics** stay just as low-contrast — faint light marks
+  against the dark canvas instead of faint dark ones.
 
 ## Typography
 
@@ -278,7 +321,9 @@ shadows, no glows, no glassmorphism.
 When more separation is needed, the system reaches for a **tonal step** —
 placing content on Surface Muted instead of Surface — before it reaches for a
 shadow. The promo/"automate via API" cards are the clearest example: a muted
-fill with a hairline border, no elevation at all.
+fill with a hairline border, no elevation at all. This tonal-first approach is
+what lets the system carry over to dark mode, where shadows all but vanish and
+separation comes entirely from stepping the surface lighter plus the hairline.
 
 ## Shapes
 
@@ -370,3 +415,9 @@ Motion is functional and brief — feedback, not choreography.
   intentional dark surface.
 - **Don't** use pure black {colors.primary} as `#000000` or pure-white borders.
   Ink is navy-tinged; borders are soft grey.
+- **Do** build new components against semantic tokens (`surface`, `primary`,
+  `border`, `ink-soft`) even though dark mode isn't shipped — a hardcoded
+  `#fff`/`#000` is a future dark-mode bug.
+- **Don't** carry light-mode drop shadows into dark or darken raised surfaces in
+  dark; in dark the surface ladder runs the other way (raised = lighter) and
+  separation is tonal plus hairline.
