@@ -69,7 +69,7 @@ func (srv *InboxController) GetUserInbox(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
-	userID, err := srv.users.LookupUserID(r.Context(), projectID, []subjects.ExternalIDParam{{Source: params.Source, ExternalID: params.ExternalId}})
+	userID, err := srv.users.LookupUserID(r.Context(), projectID, boundUserIdentifiers(r.Context(), []subjects.ExternalIDParam{{Source: params.Source, ExternalID: params.ExternalId}}))
 	if errors.Is(err, subjects.ErrUserNotFound) {
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
 		return
@@ -103,7 +103,7 @@ func (srv *InboxController) GetUserInboxCount(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	userID, err := srv.users.LookupUserID(r.Context(), projectID, []subjects.ExternalIDParam{{Source: params.Source, ExternalID: params.ExternalId}})
+	userID, err := srv.users.LookupUserID(r.Context(), projectID, boundUserIdentifiers(r.Context(), []subjects.ExternalIDParam{{Source: params.Source, ExternalID: params.ExternalId}}))
 	if errors.Is(err, subjects.ErrUserNotFound) {
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
 		return

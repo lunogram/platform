@@ -74,7 +74,7 @@ func (srv *ScheduledController) UpsertUserScheduledClient(w http.ResponseWriter,
 		data = *req.Data
 	}
 
-	userIDParams := oapi.ToParams(*req.Identifier)
+	userIDParams := boundUserIdentifiers(r.Context(), oapi.ToParams(*req.Identifier))
 	msg := schemas.ScheduledMsg{
 		ID:          uuid.New(),
 		ProjectID:   projectID,
@@ -141,7 +141,7 @@ func (srv *ScheduledController) DeleteUserScheduledClient(w http.ResponseWriter,
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.String("scheduled_name", req.Name))
 	logger.Info("deleting user scheduled")
 
-	userID, err := srv.users.LookupUserID(ctx, projectID, oapi.ToParams(*req.Identifier))
+	userID, err := srv.users.LookupUserID(ctx, projectID, boundUserIdentifiers(ctx, oapi.ToParams(*req.Identifier)))
 	if errors.Is(err, subjects.ErrUserNotFound) {
 		logger.Info("user not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))

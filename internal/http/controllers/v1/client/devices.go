@@ -72,7 +72,7 @@ func (srv *DevicesController) RegisterDevice(w http.ResponseWriter, r *http.Requ
 	)
 	logger.Info("registering device")
 
-	userID, err := srv.users.LookupUserID(ctx, projectID, oapi.ToParams(req.Identifier))
+	userID, err := srv.users.LookupUserID(ctx, projectID, boundUserIdentifiers(ctx, oapi.ToParams(req.Identifier)))
 	if errors.Is(err, subjects.ErrUserNotFound) {
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
 		return
