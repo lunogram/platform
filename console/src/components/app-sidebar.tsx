@@ -21,7 +21,7 @@ import type { SidebarLink } from "@/types/sidebar"
 import { useContext } from "react"
 import { AdminContext, ProjectContext } from "@/contexts"
 import { useResolver } from "@/hooks"
-import api from "@/api"
+import { oapiClient } from "@/oapi/client"
 import { UserDropdown } from "./user-dropdown"
 import { getUserDisplayName } from "@/lib/name"
 import { BookIcon } from "./icons"
@@ -43,7 +43,8 @@ export function AppSidebar({
     const [allProjects] = useResolver(
         React.useCallback(async () => {
             try {
-                return (await api.projects.all()).results
+                const { data } = await oapiClient.GET("/api/admin/projects")
+                return data?.results ?? []
             } catch (error) {
                 console.error("Failed to fetch projects:", error)
                 return []
