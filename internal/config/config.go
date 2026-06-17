@@ -18,6 +18,7 @@ type Node struct {
 
 	PublicURL  string      `env:"PUBLIC_URL" envDefault:"http://localhost:8080"`
 	Redis      Redis       `envPrefix:"REDIS_"`
+	RateLimit  RateLimit   `envPrefix:"RATE_LIMIT_"`
 	Cluster    Cluster     `envPrefix:"CLUSTER_"`
 	Auth       Auth        `envPrefix:"AUTH_"`
 	Nats       Nats        `envPrefix:"NATS_"`
@@ -60,6 +61,13 @@ type ClerkAuth struct {
 type Redis struct {
 	Address   string `env:"ADDRESS" envDefault:"redis://127.0.0.1:6379"`
 	KeyPrefix string `env:"KEY_PREFIX" envDefault:""`
+}
+
+// RateLimit configures request rate limiting for the client API.
+type RateLimit struct {
+	// ClientPerMinute is the number of client API requests permitted per minute
+	// per access policy (or per IP for unauthenticated requests).
+	ClientPerMinute int `env:"CLIENT_PER_MINUTE" envDefault:"600"`
 }
 
 type Nats struct {

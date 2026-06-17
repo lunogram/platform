@@ -184,7 +184,7 @@ func run() error {
 
 	logger.Info("starting http server")
 
-	server, err := v1.NewServer(ctx, logger, conf, db, bucket, jet, pub, req, providersRegisrtry, actionRegistry, rbacEngine)
+	server, err := v1.NewServer(ctx, logger, conf, db, bucket, jet, pub, req, providersRegisrtry, actionRegistry, rbacEngine, limiter)
 	if err != nil {
 		return err
 	}

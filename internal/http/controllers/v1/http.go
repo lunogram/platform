@@ -8,6 +8,7 @@ import (
 	"mime"
 	nethttp "net/http"
 	"path/filepath"
+	"time"
 
 	"github.com/cloudproud/graceful"
 	"github.com/getkin/kin-openapi/openapi3filter"
@@ -24,6 +25,7 @@ import (
 	"github.com/lunogram/platform/internal/http/scalar"
 	"github.com/lunogram/platform/internal/providers"
 	"github.com/lunogram/platform/internal/pubsub"
+	"github.com/lunogram/platform/internal/ratelimit"
 	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/storage"
 	"github.com/lunogram/platform/internal/store"
@@ -39,7 +41,7 @@ var staticFiles embed.FS
 // NewServer constructs a unified HTTP server combining both management and client
 // API endpoints. Management endpoints use JWT+API Key auth, while client endpoints
 // use API Key only authentication.
-func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *store.Connections, storageDriver storage.Storage, jet jetstream.JetStream, pub pubsub.Publisher, req pubsub.Caller, registry *providers.Registry, actionRegistry *actions.Registry, rbacEngine *rbac.Engine) (*http.Server, error) {
+func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *store.Connections, storageDriver storage.Storage, jet jetstream.JetStream, pub pubsub.Publisher, req pubsub.Caller, registry *providers.Registry, actionRegistry *actions.Registry, rbacEngine *rbac.Engine, limiter *ratelimit.Limiter) (*http.Server, error) {
 	mgmtStores := management.NewState(db.Management)
 	usersStore := subjects.NewState(db.Subjects, logger)
 
@@ -81,7 +83,7 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *st
 		Middlewares: []mgmtoapi.MiddlewareFunc{mgmtoapi.Validator(mgmtSpec, openapi3filter.Options{
 			AuthenticationFunc: auth.Middleware(
 				auth.WithJWT(cfg.Auth, mgmtStores),
-				auth.WithKey(mgmtStores),
+				auth.WithKey(mgmtStores, auth.SurfaceManagement),
 			),
 		})},
 	})
@@ -95,9 +97,12 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *st
 			Middlewares: []clientoapi.MiddlewareFunc{
 				clientoapi.Validator(clientSpec, openapi3filter.Options{
 					AuthenticationFunc: auth.Middleware(
-						auth.WithKey(mgmtStores),
+						auth.WithKey(mgmtStores, auth.SurfaceClient),
 					),
 				}),
+				// Runs after the validator (and thus after authentication) so
+				// the limiter can key on the authenticated access policy.
+				clientoapi.RateLimit(limiter, cfg.RateLimit.ClientPerMinute, time.Minute),
 			},
 		})
 	})
