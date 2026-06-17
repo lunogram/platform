@@ -53,15 +53,12 @@ export function LocaleSelect({ onChange }: LocaleSelectProps) {
         const fetchFilteredLocales = async () => {
             setIsLoading(true)
 
-            const { data } = await oapiClient.GET(
-                "/api/admin/projects/{projectID}/locales",
-                {
-                    params: {
-                        path: { projectID: project.id },
-                        query: { search: searchQuery, limit: 5 },
-                    },
+            const { data } = await oapiClient.GET("/api/admin/projects/{projectID}/locales", {
+                params: {
+                    path: { projectID: project.id },
+                    query: { search: searchQuery, limit: 5 },
                 },
-            )
+            })
 
             setLocales(data?.results ?? [])
             setIsLoading(false)

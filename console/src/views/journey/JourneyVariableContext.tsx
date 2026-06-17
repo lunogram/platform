@@ -12,7 +12,7 @@ import type { JourneyNodeData } from "./editor/JourneyEditor.types"
 import type { VariableSuggestions } from "@/types"
 import { getUpstreamDataKeys } from "./editor/JourneyEditor.utils"
 import { ProjectContext } from "@/contexts"
-import api from "@/api"
+import { fetchPathSuggestions } from "@/lib/path-suggestions"
 
 export interface Variable {
     /** Liquid-compatible path, e.g. "user.email" or "journey.my_key.amount" */
@@ -61,8 +61,7 @@ export function JourneyVariableProvider({
     // Fetch user/event path suggestions once per project
     useEffect(() => {
         let cancelled = false
-        api.projects
-            .pathSuggestions(project.id)
+        fetchPathSuggestions(project.id)
             .then((s) => {
                 if (!cancelled) setSuggestions(s)
             })

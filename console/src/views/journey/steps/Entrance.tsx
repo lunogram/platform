@@ -14,7 +14,7 @@ import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { Combobox } from "@/components/ui/combobox"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import api from "../../../api"
+import { fetchPathSuggestions } from "@/lib/path-suggestions"
 import { Button } from "@/components/ui/button"
 import { Command, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { env } from "../../../config/env"
@@ -531,7 +531,7 @@ export const entranceStep: JourneyStepType<EntranceConfig> = {
 
         const ensureSuggestionsLoaded = useCallback(async () => {
             if (cacheRef.current && scheduledCacheRef.current) return
-            const suggestions = await api.projects.pathSuggestions(projectId)
+            const suggestions = await fetchPathSuggestions(projectId)
             if (!cacheRef.current) {
                 cacheRef.current = Array.isArray(suggestions?.eventPaths)
                     ? suggestions.eventPaths.map((event, index) => ({

@@ -21,7 +21,7 @@ import oapiClient from "../../oapi/client"
 import { ListContext, ProjectContext } from "../../contexts"
 import { PreferencesContext } from "@/contexts/PreferencesContext"
 import { isEnterprise } from "@/config/enterprise"
-import type { DynamicList, ListUpdateParams, Rule, WrapperRule } from "../../types"
+import type { DynamicList, List, ListUpdateParams, Rule, WrapperRule } from "../../types"
 
 /** Subset of user fields used by the list detail view, compatible with both the local User type and the OAPI-generated User type. */
 interface ListUser {
@@ -200,13 +200,21 @@ export default function ListDetail() {
                 setUsers((data?.results as ListUser[]) ?? [])
                 setTotal(data?.total ?? data?.results?.length ?? 0)
             } else {
-                const result = await api.lists.users(project.id, list.id, {
-                    limit: pageSize,
-                    offset,
-                    search: debouncedQuery || undefined,
-                })
-                setUsers(result.results)
-                setTotal(result.total ?? null)
+                const { data } = await oapiClient.GET(
+                    "/api/admin/projects/{projectID}/lists/{listID}/users",
+                    {
+                        params: {
+                            path: { projectID: project.id, listID: list.id },
+                            query: {
+                                limit: pageSize,
+                                offset,
+                                search: debouncedQuery || undefined,
+                            },
+                        },
+                    },
+                )
+                setUsers((data?.results as ListUser[]) ?? [])
+                setTotal(data?.total ?? null)
             }
         } catch {
             setUsers([])
@@ -219,9 +227,13 @@ export default function ListDetail() {
     }, [loadUsers])
 
     const refreshList = useCallback(() => {
-        api.lists
-            .get(project.id, list.id)
-            .then(setList)
+        oapiClient
+            .GET("/api/admin/projects/{projectID}/lists/{listID}", {
+                params: { path: { projectID: project.id, listID: list.id } },
+            })
+            .then(({ data }) => {
+                if (data) setList(data as List)
+            })
             .then(() => loadUsers())
             .catch(() => {})
     }, [project.id, list.id, setList, loadUsers])
@@ -283,14 +295,23 @@ export default function ListDetail() {
         setIsSaving(true)
         setSavingAction(action)
         try {
-            const value = await api.lists.update(project.id, list.id, {
-                name,
-                rule,
-                published,
-                tags,
-            })
+            const { data: value, error: updateError } = await oapiClient.PATCH(
+                "/api/admin/projects/{projectID}/lists/{listID}",
+                {
+                    params: { path: { projectID: project.id, listID: list.id } },
+                    body: {
+                        name: name ?? list.name,
+                        rule: rule as { [key: string]: unknown } | undefined,
+                        published,
+                        tags,
+                    },
+                },
+            )
+            if (updateError || !value) {
+                throw updateError ?? new Error("An unexpected error occurred")
+            }
             setError(undefined)
-            setList(value)
+            setList(value as List)
             setHasUnsavedChanges(false)
             loadUsers()
         } catch (error: unknown) {
@@ -310,7 +331,9 @@ export default function ListDetail() {
     }
 
     const handleArchiveList = async () => {
-        await api.lists.delete(project.id, list.id)
+        await oapiClient.DELETE("/api/admin/projects/{projectID}/lists/{listID}", {
+            params: { path: { projectID: project.id, listID: list.id } },
+        })
         await navigate(`/projects/${project.id}/lists`)
     }
 

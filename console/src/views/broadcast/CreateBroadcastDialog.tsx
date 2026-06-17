@@ -6,8 +6,7 @@ import { Radio, Mail, Smartphone, MessageSquareDot, Info, Calendar } from "lucid
 
 import { toast } from "sonner"
 
-import api from "../../api"
-import oapiClient from "../../oapi/client"
+import { oapiClient } from "../../oapi/client"
 import { useResolver } from "../../hooks"
 import { ProjectContext } from "../../contexts"
 
@@ -95,14 +94,20 @@ export function CreateBroadcastDialog({
     // Load campaigns
     const [campaignsResult] = useResolver(
         useCallback(async () => {
-            return await api.campaigns.search(project.id, { limit: 100 })
+            const { data } = await oapiClient.GET("/api/admin/projects/{projectID}/campaigns", {
+                params: { path: { projectID: project.id }, query: { limit: 100 } },
+            })
+            return data ?? null
         }, [project.id]),
     )
 
     // Load lists (only ready/published)
     const [listsResult] = useResolver(
         useCallback(async () => {
-            return await api.lists.search(project.id, { limit: 100 })
+            const { data } = await oapiClient.GET("/api/admin/projects/{projectID}/lists", {
+                params: { path: { projectID: project.id }, query: { limit: 100 } },
+            })
+            return data ?? null
         }, [project.id]),
     )
 

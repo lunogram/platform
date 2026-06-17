@@ -3,7 +3,8 @@ import { TemplateWorkflowContext } from "../../../contexts"
 import { CampaignContext, ProjectContext, TemplateContext } from "@/contexts"
 import type { EmailDocument } from "../codeEditor/hooks/useEditorMode"
 import type { EditorMode } from "../codeEditor/hooks/useEditorMode"
-import api from "@/api"
+import { oapiClient } from "@/oapi/client"
+import type { Template } from "@/types"
 
 interface UseTemplatePersistenceOptions {
     editorMode: EditorMode
@@ -33,30 +34,41 @@ export function useTemplatePersistence({
 
     useEffect(() => {
         const unsubscribe = onSubmit(async () => {
-            const updated = await api.campaigns.templates.update(
-                project.id,
-                campaign.id,
-                template.id,
+            const { data: updated } = await oapiClient.PATCH(
+                "/api/admin/projects/{projectID}/campaigns/{campaignID}/templates/{templateID}",
                 {
-                    data: {
-                        ...template.data,
-                        type: "react-email",
-                        editorMode,
-                        code: {
-                            source: code,
+                    params: {
+                        path: {
+                            projectID: project.id,
+                            campaignID: campaign.id,
+                            templateID: template.id,
                         },
-                        ...(blocksData ? { blocks: blocksData } : { blocks: undefined }),
-                        plaintext: {
-                            generated: autoPlainText,
-                            ...(useCustomPlainText && customPlainText
-                                ? { custom: customPlainText }
-                                : {}),
+                    },
+                    body: {
+                        data: {
+                            ...template.data,
+                            type: "react-email",
+                            editorMode,
+                            code: {
+                                source: code,
+                            },
+                            ...(blocksData ? { blocks: blocksData } : { blocks: undefined }),
+                            plaintext: {
+                                generated: autoPlainText,
+                                ...(useCustomPlainText && customPlainText
+                                    ? { custom: customPlainText }
+                                    : {}),
+                            },
                         },
                     },
                 },
             )
 
-            setTemplate(updated)
+            if (!updated) {
+                return false
+            }
+
+            setTemplate(updated as Template)
             return true
         })
         return unsubscribe

@@ -25,6 +25,7 @@ import { getUserDisplayName, getUserInitials, getPrimaryExternalId } from "@/lib
 import { PreferencesContext } from "@/contexts/PreferencesContext"
 import { UsersIcon as UsersPageIcon } from "@/components/icons"
 import api from "../../api"
+import { oapiClient } from "@/oapi/client"
 import type { UUID } from "@/types/common"
 import type { User } from "../../types"
 import { createUserSchema, type CreateUserFormValues } from "@/validation/users/create-user"
@@ -126,11 +127,20 @@ export default function Users() {
 
     const [result, , reload] = useResolver(
         useCallback(async () => {
-            return await api.users.search(projectId, {
-                limit,
-                offset: (page - 1) * limit,
-                search: debouncedQuery || undefined,
-            })
+            const { data } = await oapiClient.GET(
+                "/api/admin/projects/{projectID}/subjects/users",
+                {
+                    params: {
+                        path: { projectID: projectId },
+                        query: {
+                            limit,
+                            offset: (page - 1) * limit,
+                            search: debouncedQuery || undefined,
+                        },
+                    },
+                },
+            )
+            return data ?? null
         }, [projectId, debouncedQuery, page]),
     )
 
@@ -145,18 +155,19 @@ export default function Users() {
 
         setIsCreating(true)
         try {
-            const newUser: User = {
-                identifier: data.external_id?.trim()
-                    ? [{ source: "default", external_id: data.external_id.trim() }]
-                    : [{ source: "anonymous", external_id: crypto.randomUUID() }],
-                email: data.email?.trim() || undefined,
-                phone: data.phone?.trim() || undefined,
-                timezone: data.timezone?.trim() || undefined,
-                locale: data.locale?.trim() || undefined,
-                data: newUserData,
-            } as User
-
-            await api.users.create(projectId, newUser)
+            await oapiClient.POST("/api/admin/projects/{projectID}/subjects/users", {
+                params: { path: { projectID: projectId } },
+                body: {
+                    identifier: data.external_id?.trim()
+                        ? [{ source: "default", external_id: data.external_id.trim() }]
+                        : [{ source: "anonymous", external_id: crypto.randomUUID() }],
+                    email: data.email?.trim() || undefined,
+                    phone: data.phone?.trim() || undefined,
+                    timezone: data.timezone?.trim() || undefined,
+                    locale: data.locale?.trim() || undefined,
+                    data: newUserData,
+                },
+            })
             await reload()
             setIsCreateOpen(false)
             form.reset()

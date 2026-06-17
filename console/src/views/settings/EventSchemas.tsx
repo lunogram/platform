@@ -3,8 +3,7 @@ import { useTranslation } from "react-i18next"
 import { Search, Zap, MoreHorizontal, Trash2, ChevronRight } from "lucide-react"
 import { ProjectContext } from "../../contexts"
 import { useResolver } from "../../hooks"
-import oapiClient from "../../oapi/client"
-import { client } from "../../api"
+import { oapiClient } from "../../oapi/client"
 import type { components } from "../../oapi/management.generated"
 
 import { Input } from "@/components/ui/input"
@@ -82,14 +81,11 @@ export default function EventSchemas() {
 
     const [scheduledResult, , reloadScheduled] = useResolver(
         useCallback(async () => {
-            try {
-                const { data } = await client.get<{ results: EventWithSchema[] }>(
-                    `/admin/projects/${project.id}/subjects/user/scheduled/schema`,
-                )
-                return data
-            } catch {
-                return { results: [] as EventWithSchema[] }
-            }
+            const { data } = await oapiClient.GET(
+                "/api/admin/projects/{projectID}/subjects/user/scheduled/schema",
+                { params: { path: { projectID: project.id } } },
+            )
+            return data ?? { results: [] as EventWithSchema[] }
         }, [project.id]),
     )
 
@@ -152,8 +148,13 @@ export default function EventSchemas() {
                 },
             )
         } else {
-            await client.delete(
-                `/admin/projects/${project.id}/subjects/user/scheduled/schema/${event.id}`,
+            await oapiClient.DELETE(
+                "/api/admin/projects/{projectID}/subjects/user/scheduled/schema/{scheduledID}",
+                {
+                    params: {
+                        path: { projectID: project.id, scheduledID: event.id },
+                    },
+                },
             )
         }
         await reload()

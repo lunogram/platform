@@ -2,7 +2,7 @@ import { useContext, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Bell, Ellipsis, Loader2, UserRound } from "lucide-react"
 
-import api from "@/api"
+import { oapiClient } from "@/oapi/client"
 import { ProjectContext } from "@/contexts"
 import type { Campaign, Template, User } from "@/types"
 import type { UUID } from "@/types/common"
@@ -41,16 +41,26 @@ export function BroadcastMessagePreview({ campaignId, defaultUser }: BroadcastMe
         setLoading(true)
         setError(null)
 
-        api.campaigns
-            .get(project.id, campaignId)
-            .then((data) => {
+        oapiClient
+            .GET("/api/admin/projects/{projectID}/campaigns/{campaignID}", {
+                params: { path: { projectID: project.id, campaignID: campaignId } },
+            })
+            .then(({ data, error }) => {
                 if (cancelled) return
-                setCampaign(data)
+                if (error || !data) {
+                    setError(t("failed_to_load_campaign", "Failed to load campaign"))
+                    return
+                }
+
+                // The spec types this response as { data: Campaign }, but the
+                // backend returns the Campaign directly; read it as such.
+                const campaign = data as unknown as Campaign
+                setCampaign(campaign)
 
                 // Pick template matching project locale, fallback to first
                 const tpl =
-                    data.templates.find((t) => t.locale === project.locale) ??
-                    data.templates[0] ??
+                    campaign.templates.find((t) => t.locale === project.locale) ??
+                    campaign.templates[0] ??
                     null
                 setTemplate(tpl)
             })

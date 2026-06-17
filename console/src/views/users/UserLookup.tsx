@@ -4,7 +4,7 @@ import { Search, User, Mail } from "lucide-react"
 import type { User as UserType } from "../../types"
 import { getUserDisplayName, getUserInitials } from "@/lib/name"
 import { ProjectContext } from "../../contexts"
-import api from "../../api"
+import { oapiClient } from "@/oapi/client"
 import { useResolver } from "../../hooks"
 
 import { Button } from "@/components/ui/button"
@@ -45,11 +45,16 @@ export const UserLookup = ({ open, onClose, onSelected }: UserLookupProps) => {
             if (!open) return []
             setIsSearching(true)
             try {
-                const result = await api.users.search(project.id, {
-                    search: debouncedQuery || undefined,
-                    limit: 20,
-                })
-                return result.results
+                const { data } = await oapiClient.GET(
+                    "/api/admin/projects/{projectID}/subjects/users",
+                    {
+                        params: {
+                            path: { projectID: project.id },
+                            query: { search: debouncedQuery || undefined, limit: 20 },
+                        },
+                    },
+                )
+                return (data?.results as UserType[]) ?? []
             } finally {
                 setIsSearching(false)
             }

@@ -8,8 +8,8 @@ import { ProjectContext, UserContext } from "../../contexts"
 import { PreferencesContext } from "@/contexts/PreferencesContext"
 import { formatDate, cn } from "../../utils"
 import oapiClient from "../../oapi/client"
-import api from "../../api"
 import type { IdentifierFormValues } from "@/validation/identifier-form"
+import type { User } from "../../types"
 import { identifierFormSchema } from "@/validation/identifier-form"
 
 import { Button } from "@/components/ui/button"
@@ -124,9 +124,14 @@ export default function UserDetailIdentifiers() {
                 toast.error(t("identifier_save_error", "Failed to save identifier metadata"))
                 return
             }
-            const updatedUser = await api.users.get(project.id, user.id)
+            const { data: updatedUser } = await oapiClient.GET(
+                "/api/admin/projects/{projectID}/subjects/users/{userID}",
+                {
+                    params: { path: { projectID: project.id, userID: user.id } },
+                },
+            )
             if (updatedUser) {
-                setUser(updatedUser)
+                setUser(updatedUser as User)
             }
             handleDiscard(identifierId)
             toast.success(t("identifier_saved", "Identifier metadata saved"))
@@ -163,9 +168,14 @@ export default function UserDetailIdentifiers() {
                 setExpandedIdentifierId(null)
             }
             handleDiscard(identifierId)
-            const updatedUser = await api.users.get(project.id, user.id)
+            const { data: updatedUser } = await oapiClient.GET(
+                "/api/admin/projects/{projectID}/subjects/users/{userID}",
+                {
+                    params: { path: { projectID: project.id, userID: user.id } },
+                },
+            )
             if (updatedUser) {
-                setUser(updatedUser)
+                setUser(updatedUser as User)
             }
             toast.success(t("identifier_deleted", "Identifier deleted"))
         } catch {
@@ -208,9 +218,14 @@ export default function UserDetailIdentifiers() {
                 toast.error(t("identifier_add_error", "Failed to add identifier"))
                 return
             }
-            const updatedUser = await api.users.get(project.id, user.id)
+            const { data: updatedUser } = await oapiClient.GET(
+                "/api/admin/projects/{projectID}/subjects/users/{userID}",
+                {
+                    params: { path: { projectID: project.id, userID: user.id } },
+                },
+            )
             if (updatedUser) {
-                setUser(updatedUser)
+                setUser(updatedUser as User)
             }
             setIsAddOpen(false)
             identifierForm.reset()

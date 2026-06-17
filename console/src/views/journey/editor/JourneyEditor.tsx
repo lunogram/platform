@@ -1,7 +1,6 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate, useSearchParams as useRouterSearchParams } from "react-router"
 import { JourneyContext, ProjectContext } from "../../../contexts"
-import api from "../../../api"
 import oapiClient from "@/oapi/client"
 import { useResolver } from "@/hooks"
 import { useIsMobile } from "@/hooks/use-mobile"
@@ -151,19 +150,28 @@ export default function JourneyEditor() {
 
         const restore = async () => {
             try {
-                const states = await api.journeys.users.getState(
-                    project.id,
-                    journey.id,
-                    userId,
-                    entranceId ?? undefined,
+                const { data: states } = await oapiClient.GET(
+                    "/api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID}/state",
+                    {
+                        params: {
+                            path: {
+                                projectID: project.id,
+                                journeyID: journey.id,
+                                userID: userId,
+                            },
+                            // entrance_id scopes the state to a single entrance; it is
+                            // supported by the backend but not described in the spec.
+                            query: (entranceId ? { entrance_id: entranceId } : undefined) as never,
+                        },
+                    },
                 )
-                for (const state of states) {
+                for (const state of states ?? []) {
                     // Entrance steps complete instantly — treat them as
                     // visited even if legacy data has is_completed=false.
                     if (state.is_completed || state.step_type === "entrance") {
-                        onStepExecuted(state.external_step_id)
+                        onStepExecuted(state.external_step_id ?? "")
                     } else {
-                        onUserEnteredNode(state.external_step_id)
+                        onUserEnteredNode(state.external_step_id ?? "")
                     }
                 }
             } catch (e) {
@@ -185,17 +193,24 @@ export default function JourneyEditor() {
 
         const restore = async () => {
             try {
-                const states = await api.journeys.users.getState(
-                    project.id,
-                    journey.id,
-                    replayUserId,
-                    entranceId,
+                const { data: states } = await oapiClient.GET(
+                    "/api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID}/state",
+                    {
+                        params: {
+                            path: {
+                                projectID: project.id,
+                                journeyID: journey.id,
+                                userID: replayUserId,
+                            },
+                            query: { entrance_id: entranceId } as never,
+                        },
+                    },
                 )
-                for (const state of states) {
+                for (const state of states ?? []) {
                     if (state.is_completed || state.step_type === "entrance") {
-                        onStepExecuted(state.external_step_id)
+                        onStepExecuted(state.external_step_id ?? "")
                     } else {
-                        onUserEnteredNode(state.external_step_id)
+                        onUserEnteredNode(state.external_step_id ?? "")
                     }
                 }
             } catch (e) {
@@ -212,7 +227,15 @@ export default function JourneyEditor() {
         if (stepsLoaded || stepsLoadError) return
         const load = async () => {
             try {
-                const steps = await api.journeys.steps.get(project.id, journey.id)
+                const { data: steps, error } = await oapiClient.GET(
+                    "/api/admin/projects/{projectID}/journeys/{journeyID}/steps",
+                    {
+                        params: {
+                            path: { projectID: project.id, journeyID: journey.id },
+                        },
+                    },
+                )
+                if (error || !steps) throw error ?? new Error("Failed to load journey steps")
                 const { edges, nodes } = stepsToNodes(steps, nodeActions)
                 setNodes(nodes)
                 setEdges(edges)

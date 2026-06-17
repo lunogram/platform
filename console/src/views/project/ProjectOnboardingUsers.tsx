@@ -13,8 +13,8 @@ import {
 } from "@/components/ui/card"
 import { UserImportForm } from "@/components/ui/user-import-dialog"
 import api from "../../api"
+import { oapiClient } from "@/oapi/client"
 import type { UUID } from "@/types/common"
-import type { User } from "../../types"
 import { useContext, useState } from "react"
 import { NIL } from "uuid"
 import { ProjectContext } from "@/contexts"
@@ -29,7 +29,7 @@ export default function ProjectOnboardingUsers() {
     const [skipLoading, setSkipLoading] = useState(false)
 
     async function createInitialUser() {
-        const admin = await api.admins.whoami()
+        const { data: admin } = await oapiClient.GET("/api/admin/tenant/whoami")
         if (!admin) return
 
         let fullName
@@ -37,16 +37,17 @@ export default function ProjectOnboardingUsers() {
             fullName = admin.last_name ? admin.first_name + " " + admin.last_name : admin.first_name
         }
 
-        await api.users.create(projectId, {
-            identifier: [
-                { source: "admin", external_id: admin.id },
-            ] as unknown as User["identifier"],
-            data: {
-                full_name: fullName,
-                admin: true,
+        await oapiClient.POST("/api/admin/projects/{projectID}/subjects/users", {
+            params: { path: { projectID: projectId } },
+            body: {
+                identifier: [{ source: "admin", external_id: admin.id }],
+                data: {
+                    full_name: fullName,
+                    admin: true,
+                },
+                email: admin.email,
+                timezone: project.timezone,
             },
-            email: admin.email,
-            timezone: project.timezone,
         })
     }
 

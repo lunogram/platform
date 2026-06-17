@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from "react"
 import type { User } from "@/types"
 import { cn } from "@/utils"
-import api from "@/api"
+import { oapiClient } from "@/oapi/client"
 
 import { Check, ChevronsUpDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -42,12 +42,14 @@ export function UserSelection({
     const [users, setUsers] = useState<User[]>([])
 
     const fetchUsers = useCallback(async () => {
-        const users = await api.users.search(projectId, {
-            search: search || undefined,
-            limit: 50,
+        const { data } = await oapiClient.GET("/api/admin/projects/{projectID}/subjects/users", {
+            params: {
+                path: { projectID: projectId },
+                query: { search: search || undefined, limit: 50 },
+            },
         })
 
-        setUsers(users.results)
+        setUsers((data?.results ?? []) as User[])
     }, [projectId, search])
 
     useEffect(() => {

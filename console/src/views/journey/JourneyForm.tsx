@@ -2,7 +2,8 @@ import { useContext } from "react"
 import { Controller, useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { toast } from "sonner"
-import api from "../../api"
+import { oapiClient } from "@/oapi/client"
+import type { components } from "@/oapi/management.generated"
 import { ProjectContext } from "../../contexts"
 import type { Journey } from "../../types"
 import { useTranslation } from "react-i18next"
@@ -36,21 +37,32 @@ export function JourneyForm({ journey, onSaved }: JourneyFormProps) {
 
     const handleSubmit = form.handleSubmit(async (data) => {
         try {
-            const saved = journey?.id
-                ? await api.journeys.update(project.id, journey.id, {
-                      name: data.name,
-                      description: data.description,
-                      status: data.status,
-                      tags: journey.tags,
+            const { data: saved } = journey?.id
+                ? await oapiClient.PATCH("/api/admin/projects/{projectID}/journeys/{journeyID}", {
+                      params: {
+                          path: { projectID: project.id, journeyID: journey.id },
+                      },
+                      // status/tags are accepted by the backend but not yet in
+                      // the OpenAPI spec; cast to the documented schema shape.
+                      body: {
+                          name: data.name,
+                          description: data.description,
+                          status: data.status,
+                          tags: journey.tags,
+                      } as components["schemas"]["UpdateJourney"],
                   })
-                : await api.journeys.create(project.id, {
-                      name: data.name,
-                      description: data.description,
-                      status: data.status,
-                      tags: journey?.tags,
+                : await oapiClient.POST("/api/admin/projects/{projectID}/journeys", {
+                      params: { path: { projectID: project.id } },
+                      body: {
+                          name: data.name,
+                          description: data.description,
+                          status: data.status,
+                          tags: journey?.tags,
+                      } as components["schemas"]["CreateJourney"],
                   })
+            if (!saved) return
             toast.success(t("journey_saved"))
-            onSaved?.(saved)
+            onSaved?.(saved as Journey)
         } catch {
             // form handleSubmit catches errors
         }

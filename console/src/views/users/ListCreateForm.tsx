@@ -1,7 +1,8 @@
 import { useContext } from "react"
 import { Controller, useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import api from "../../api"
+import { oapiClient } from "@/oapi/client"
+import type { components } from "@/oapi/management.generated"
 import { ProjectContext } from "../../contexts"
 import type { List } from "../../types"
 import { useTranslation } from "react-i18next"
@@ -33,13 +34,19 @@ export function ListCreateForm({ onCreated }: ListCreateFormProps) {
 
     const handleSubmit = form.handleSubmit(async (data) => {
         const rule = createWrapperRule()
-        const created = await api.lists.create(project.id, {
+        const body: components["schemas"]["CreateList"] = {
             name: data.name,
             type: data.type,
             rule: data.type === "dynamic" ? rule : undefined,
-            is_visible: true,
+        }
+        const { data: created } = await oapiClient.POST("/api/admin/projects/{projectID}/lists", {
+            params: { path: { projectID: project.id } },
+            // is_visible is not part of the generated CreateList schema but is
+            // accepted by the API; include it on the wire while keeping the
+            // typed body for the known fields.
+            body: { ...body, is_visible: true } as typeof body,
         })
-        onCreated?.(created)
+        if (created) onCreated?.(created as List)
     })
 
     return (

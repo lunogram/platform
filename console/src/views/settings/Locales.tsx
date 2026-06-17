@@ -45,10 +45,9 @@ export default function Locales() {
 
     const [result, , reload] = useResolver(
         useCallback(async () => {
-            const { data } = await oapiClient.GET(
-                "/api/admin/projects/{projectID}/locales",
-                { params: { path: { projectID: project.id }, query: { limit: 100 } } },
-            )
+            const { data } = await oapiClient.GET("/api/admin/projects/{projectID}/locales", {
+                params: { path: { projectID: project.id }, query: { limit: 100 } },
+            })
             return data ?? null
         }, [project.id]),
     )

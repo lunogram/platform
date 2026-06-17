@@ -3,7 +3,7 @@ import { useCallback, useContext, useState, useRef } from "react"
 import { useTranslation } from "react-i18next"
 import { Plus, Search, Key, MoreHorizontal, Copy } from "lucide-react"
 import { toast } from "sonner"
-import api from "../../api"
+import { oapiClient } from "@/oapi/client"
 import { ProjectContext } from "../../contexts"
 import { useResolver } from "../../hooks"
 import { snakeToTitle } from "../../utils"
@@ -49,10 +49,16 @@ export default function ProjectApiKeys() {
 
     const [result, , reload] = useResolver(
         useCallback(async () => {
-            return await api.apiKeys.search(project.id, {
-                limit: 50,
-                search: debouncedQuery || undefined,
+            const { data } = await oapiClient.GET("/api/admin/projects/{projectID}/keys", {
+                params: {
+                    path: { projectID: project.id },
+                    query: {
+                        limit: 50,
+                        search: debouncedQuery || undefined,
+                    } as { limit: number; search?: string },
+                },
             })
+            return data ?? null
         }, [project.id, debouncedQuery]),
     )
 
@@ -60,7 +66,9 @@ export default function ProjectApiKeys() {
 
     const handleArchive = async (id: UUID) => {
         if (confirm(t("delete_key_confirmation"))) {
-            await api.apiKeys.delete(project.id, id)
+            await oapiClient.DELETE("/api/admin/projects/{projectID}/keys/{keyID}", {
+                params: { path: { projectID: project.id, keyID: id } },
+            })
             await reload()
         }
     }
@@ -242,17 +250,23 @@ export default function ProjectApiKeys() {
                     try {
                         const { id, name, description, role } = data
                         if (id) {
-                            await api.apiKeys.update(project.id, id, {
-                                name: name as string,
-                                description,
-                                role,
+                            await oapiClient.PATCH("/api/admin/projects/{projectID}/keys/{keyID}", {
+                                params: { path: { projectID: project.id, keyID: id } },
+                                body: {
+                                    name: name as string,
+                                    description,
+                                    role,
+                                },
                             })
                         } else {
-                            await api.apiKeys.create(project.id, {
-                                name: name as string,
-                                description,
-                                scope: "secret",
-                                role,
+                            await oapiClient.POST("/api/admin/projects/{projectID}/keys", {
+                                params: { path: { projectID: project.id } },
+                                body: {
+                                    name: name as string,
+                                    description,
+                                    scope: "secret",
+                                    role,
+                                },
                             })
                         }
                         await reload()

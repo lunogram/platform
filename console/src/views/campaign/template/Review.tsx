@@ -7,6 +7,7 @@ import {
 import type { User } from "@/types"
 import { useTranslation } from "react-i18next"
 import api from "@/api"
+import { oapiClient } from "@/oapi/client"
 import { Radio } from "lucide-react"
 import { isEnterprise } from "@/config/enterprise"
 
@@ -29,11 +30,16 @@ export default function TemplateReview() {
 
     useEffect(() => {
         if (!selectedUser && project?.id) {
-            api.users.search(project.id, { limit: 1 }).then((result) => {
-                if (result.results && result.results.length > 0) {
-                    setSelectedUser(result.results[0])
-                }
-            })
+            oapiClient
+                .GET("/api/admin/projects/{projectID}/subjects/users", {
+                    params: { path: { projectID: project.id }, query: { limit: 1 } },
+                })
+                .then(({ data }) => {
+                    const results = data?.results ?? []
+                    if (results.length > 0) {
+                        setSelectedUser(results[0] as User)
+                    }
+                })
         }
     }, [project?.id, selectedUser])
 
@@ -47,6 +53,9 @@ export default function TemplateReview() {
                 return false
             }
 
+            // NOTE: kept on the legacy client — `state` is not part of the
+            // UpdateCampaign schema in the management spec, so this cannot be
+            // expressed through the typed oapiClient.
             await api.campaigns.update(project.id, campaign.id, {
                 state: "running",
             })

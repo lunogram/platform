@@ -4,7 +4,6 @@ import { Save, Monitor, Trash2, Braces, Plus } from "lucide-react"
 import { toast } from "sonner"
 import { ProjectContext, UserContext } from "../../contexts"
 import { useResolver } from "../../hooks"
-import api from "../../api"
 import oapiClient from "../../oapi/client"
 import { Controller, useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -110,9 +109,15 @@ export default function UserDetailAttrs() {
     const handleSave = async () => {
         setIsSaving(true)
         try {
-            const updatedUser = await api.users.update(project.id, user.id, { data } as User)
+            const { data: updatedUser } = await oapiClient.PATCH(
+                "/api/admin/projects/{projectID}/subjects/users/{userID}",
+                {
+                    params: { path: { projectID: project.id, userID: user.id } },
+                    body: { data },
+                },
+            )
             if (updatedUser) {
-                setUser(updatedUser)
+                setUser(updatedUser as User)
                 setIsDirty(false)
                 toast.success(t("save_success", "Attributes saved successfully"))
             }
@@ -491,7 +496,10 @@ export default function UserDetailAttrs() {
                                                 />
                                                 {deviceForm.formState.errors.auth_key && (
                                                     <p className="text-sm text-destructive">
-                                                        {deviceForm.formState.errors.auth_key.message}
+                                                        {
+                                                            deviceForm.formState.errors.auth_key
+                                                                .message
+                                                        }
                                                     </p>
                                                 )}
                                             </div>
@@ -511,7 +519,10 @@ export default function UserDetailAttrs() {
                                                 />
                                                 {deviceForm.formState.errors.p256dh_key && (
                                                     <p className="text-sm text-destructive">
-                                                        {deviceForm.formState.errors.p256dh_key.message}
+                                                        {
+                                                            deviceForm.formState.errors.p256dh_key
+                                                                .message
+                                                        }
                                                     </p>
                                                 )}
                                             </div>

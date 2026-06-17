@@ -6,7 +6,6 @@ import { useTranslation } from "react-i18next"
 import { Mail, MessageSquareDot, Smartphone } from "lucide-react"
 import { toast } from "sonner"
 
-import api from "@/api"
 import { ProjectContext } from "@/contexts"
 import { useResolver } from "@/hooks"
 import { oapiClient } from "@/oapi/client"
@@ -72,8 +71,10 @@ export default function NewCampaign() {
     const [subscriptions] = useResolver(
         useCallback(async (): Promise<Subscription[]> => {
             if (!project?.id) return []
-            const response = await api.subscriptions.search(project.id, { limit: 100 })
-            return response.results ?? []
+            const { data } = await oapiClient.GET("/api/admin/projects/{projectID}/subscriptions", {
+                params: { path: { projectID: project.id }, query: { limit: 100 } },
+            })
+            return data?.results ?? []
         }, [project?.id]),
     )
 
@@ -182,15 +183,27 @@ export default function NewCampaign() {
                 .filter((variable) => variable.name)
 
             if (cleanedVariables.length > 0) {
-                await api.campaigns.update(project.id, campaignId, {
-                    variables: cleanedVariables,
+                await oapiClient.PATCH("/api/admin/projects/{projectID}/campaigns/{campaignID}", {
+                    params: { path: { projectID: project.id, campaignID: campaignId } },
+                    body: { variables: cleanedVariables },
                 })
             }
 
-            const template = await api.campaigns.templates.create(project.id, campaignId, {
-                locale: project.locale,
-                data: templateSchemaMap[channel].parse({}),
-            })
+            const { data: template } = await oapiClient.POST(
+                "/api/admin/projects/{projectID}/campaigns/{campaignID}/templates",
+                {
+                    params: { path: { projectID: project.id, campaignID: campaignId } },
+                    body: {
+                        locale: project.locale,
+                        data: templateSchemaMap[channel].parse({}),
+                    },
+                },
+            )
+
+            if (!template) {
+                toast.error(t("campaign.create.error", "Failed to create campaign"))
+                return
+            }
 
             navigate(`/projects/${project.id}/campaigns/${campaignId}/templates/${template.id}`)
         } catch {

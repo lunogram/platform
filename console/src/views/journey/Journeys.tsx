@@ -16,7 +16,6 @@ import {
     ArchiveRestore,
 } from "lucide-react"
 
-import api from "../../api"
 import { oapiClient } from "@/oapi/client"
 import { useResolver } from "../../hooks"
 import { formatDate } from "../../utils"
@@ -26,7 +25,7 @@ import { PreferencesContext } from "@/contexts/PreferencesContext"
 import { JourneyForm } from "./JourneyForm"
 import { JourneysIcon } from "@/components/icons"
 
-import type { Journey } from "../../types"
+import type { Journey, SearchResult } from "../../types"
 import type { UUID } from "@/types/common"
 
 import { Button } from "@/components/ui/button"
@@ -103,12 +102,20 @@ export default function Journeys() {
 
     const [result, , reload] = useResolver(
         useCallback(async () => {
-            return await api.journeys.search(project.id, {
-                limit: 15,
-                cursor,
-                page: pageDirection,
-                search: debouncedQuery || undefined,
+            const { data } = await oapiClient.GET("/api/admin/projects/{projectID}/journeys", {
+                params: {
+                    path: { projectID: project.id },
+                    // cursor/page are cursor-pagination params supported by the
+                    // backend but not yet described in the OpenAPI spec.
+                    query: {
+                        limit: 15,
+                        cursor,
+                        page: pageDirection,
+                        search: debouncedQuery || undefined,
+                    } as never,
+                },
             })
+            return (data ?? null) as SearchResult<Journey> | null
         }, [project.id, debouncedQuery, cursor, pageDirection]),
     )
 
@@ -178,13 +185,20 @@ export default function Journeys() {
 
     const handleDuplicateJourney = async (e: React.MouseEvent, id: UUID) => {
         e.stopPropagation()
-        const journey = await api.journeys.duplicate(project.id, id)
-        await navigate(journey.id.toString())
+        const { data: journey } = await oapiClient.POST(
+            "/api/admin/projects/{projectID}/journeys/{journeyID}/duplicate",
+            {
+                params: { path: { projectID: project.id, journeyID: id } },
+            },
+        )
+        if (journey) await navigate(journey.id.toString())
     }
 
     const handleArchiveJourney = async (e: React.MouseEvent, id: UUID) => {
         e.stopPropagation()
-        await api.journeys.delete(project.id, id)
+        await oapiClient.DELETE("/api/admin/projects/{projectID}/journeys/{journeyID}", {
+            params: { path: { projectID: project.id, journeyID: id } },
+        })
         await reload()
     }
 
@@ -313,10 +327,7 @@ export default function Journeys() {
                                         <GitBranch className="h-8 w-8" />
                                         <p>
                                             {isArchivedView
-                                                ? t(
-                                                      "no_archived_journeys",
-                                                      "No archived journeys",
-                                                  )
+                                                ? t("no_archived_journeys", "No archived journeys")
                                                 : debouncedQuery
                                                   ? t("no_journeys_found", "No journeys found")
                                                   : t("no_journeys_yet", "No journeys yet")}
@@ -427,10 +438,7 @@ export default function Journeys() {
                                                     ) : (
                                                         <DropdownMenuItem
                                                             onClick={(e) =>
-                                                                handleArchiveJourney(
-                                                                    e,
-                                                                    journey.id,
-                                                                )
+                                                                handleArchiveJourney(e, journey.id)
                                                             }
                                                             className="text-destructive"
                                                         >
@@ -526,7 +534,6 @@ export default function Journeys() {
                     </div>
                 </div>
             </div>
-
 
             {/* Create Journey Dialog */}
             <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>

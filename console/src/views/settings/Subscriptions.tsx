@@ -55,10 +55,9 @@ export default function Subscriptions() {
 
     const [result, , reload] = useResolver(
         useCallback(async () => {
-            const { data } = await oapiClient.GET(
-                "/api/admin/projects/{projectID}/subscriptions",
-                { params: { path: { projectID: project.id }, query: { limit: 50 } } },
-            )
+            const { data } = await oapiClient.GET("/api/admin/projects/{projectID}/subscriptions", {
+                params: { path: { projectID: project.id }, query: { limit: 50 } },
+            })
             return data ?? null
         }, [project.id]),
     )
@@ -223,13 +222,10 @@ export default function Subscriptions() {
                             },
                         )
                     } else {
-                        await oapiClient.POST(
-                            "/api/admin/projects/{projectID}/subscriptions",
-                            {
-                                params: { path: { projectID: project.id } },
-                                body: { name, channel, is_public },
-                            },
-                        )
+                        await oapiClient.POST("/api/admin/projects/{projectID}/subscriptions", {
+                            params: { path: { projectID: project.id } },
+                            body: { name, channel, is_public },
+                        })
                     }
                     await reload()
                     setEditing(null)

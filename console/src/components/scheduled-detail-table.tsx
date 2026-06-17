@@ -25,8 +25,7 @@ import { PreferencesContext } from "@/contexts/PreferencesContext"
 import { useResolver } from "../hooks"
 import { formatDate, cn, getPageNumbers } from "../utils"
 import { getRandomColor } from "@/lib/colors"
-import { client } from "../api"
-import oapiClient from "../oapi/client"
+import { oapiClient } from "../oapi/client"
 import type { ScheduledSchema } from "../types"
 
 import { Badge } from "@/components/ui/badge"
@@ -89,17 +88,53 @@ interface ScheduledItem {
 
 interface ScheduledExpandedRowProps {
     item: ScheduledItem
-    patchUrl: string
+    projectId: string
+    subjectId: string
+    subjectType: "users" | "organizations"
     onSaved: () => void
 }
 
-function ScheduledExpandedRow({ item, patchUrl, onSaved }: ScheduledExpandedRowProps) {
+function ScheduledExpandedRow({
+    item,
+    projectId,
+    subjectId,
+    subjectType,
+    onSaved,
+}: ScheduledExpandedRowProps) {
     const { t } = useTranslation()
     const [preferences] = useContext(PreferencesContext)
 
     const handleScheduledAtSave = async (newIso: string) => {
         try {
-            await client.patch(patchUrl, { scheduled_at: newIso })
+            const { error } =
+                subjectType === "users"
+                    ? await oapiClient.PATCH(
+                          "/api/admin/projects/{projectID}/subjects/users/{userID}/scheduled/{scheduledInstanceID}",
+                          {
+                              params: {
+                                  path: {
+                                      projectID: projectId,
+                                      userID: subjectId,
+                                      scheduledInstanceID: item.id,
+                                  },
+                              },
+                              body: { scheduled_at: newIso },
+                          },
+                      )
+                    : await oapiClient.PATCH(
+                          "/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/scheduled/{scheduledInstanceID}",
+                          {
+                              params: {
+                                  path: {
+                                      projectID: projectId,
+                                      organizationID: subjectId,
+                                      scheduledInstanceID: item.id,
+                                  },
+                              },
+                              body: { scheduled_at: newIso },
+                          },
+                      )
+            if (error) throw error
             toast.success(t("scheduled_updated", "Scheduled time updated"))
             onSaved()
         } catch (error) {
@@ -134,20 +169,20 @@ function ScheduledExpandedRow({ item, patchUrl, onSaved }: ScheduledExpandedRowP
                                     </span>
                                 </DateTimeEdit>
                                 {!item.paused_at && item.has_pending_events && (
-                                        <Tooltip>
-                                            <TooltipTrigger asChild>
-                                                <span className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400">
-                                                    <Loader2 className="h-3 w-3 animate-spin" />
-                                                </span>
-                                            </TooltipTrigger>
-                                            <TooltipContent>
-                                                {t(
-                                                    "scheduled_sending_tooltip",
-                                                    "This message is scheduled to be sent out. It could take up to 1 minute to process.",
-                                                )}
-                                            </TooltipContent>
-                                        </Tooltip>
-                                    )}
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <span className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400">
+                                                <Loader2 className="h-3 w-3 animate-spin" />
+                                            </span>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            {t(
+                                                "scheduled_sending_tooltip",
+                                                "This message is scheduled to be sent out. It could take up to 1 minute to process.",
+                                            )}
+                                        </TooltipContent>
+                                    </Tooltip>
+                                )}
                             </div>
                         </div>
                         <div className="space-y-1">
@@ -232,14 +267,11 @@ export default function ScheduledDetailTable({
     // Fetch scheduled schemas to get id→name mapping
     const [schemasResult] = useResolver(
         useCallback(async () => {
-            try {
-                const { data } = await client.get<{ results: ScheduledSchema[] }>(
-                    `/admin/projects/${project.id}/subjects/user/scheduled/schema`,
-                )
-                return data.results
-            } catch {
-                return [] as ScheduledSchema[]
-            }
+            const { data } = await oapiClient.GET(
+                "/api/admin/projects/{projectID}/subjects/user/scheduled/schema",
+                { params: { path: { projectID: project.id } } },
+            )
+            return (data?.results ?? []) as ScheduledSchema[]
         }, [project.id]),
     )
 
@@ -260,24 +292,36 @@ export default function ScheduledDetailTable({
 
     const [result, , reloadScheduled] = useResolver(
         useCallback(async () => {
-            const params: Record<string, unknown> = {
+            const query = {
                 limit,
                 offset: (page - 1) * limit,
                 search: debouncedQuery || undefined,
-            }
-            const { data } = await client.get<{
-                results: ScheduledItem[]
-                total: number
-                limit: number
-                offset: number
-            }>(`/admin/projects/${project.id}/subjects/${subjectType}/${subjectId}/scheduled`, {
-                params,
-            })
-            return data
+            } as { limit: number; offset: number; search?: string }
+            const { data } =
+                subjectType === "users"
+                    ? await oapiClient.GET(
+                          "/api/admin/projects/{projectID}/subjects/users/{userID}/scheduled",
+                          {
+                              params: {
+                                  path: { projectID: project.id, userID: subjectId },
+                                  query,
+                              },
+                          },
+                      )
+                    : await oapiClient.GET(
+                          "/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/scheduled",
+                          {
+                              params: {
+                                  path: { projectID: project.id, organizationID: subjectId },
+                                  query,
+                              },
+                          },
+                      )
+            return data ?? null
         }, [project.id, subjectId, subjectType, page, debouncedQuery]),
     )
 
-    const items = result?.results
+    const items = result?.results as ScheduledItem[] | undefined
     const total = result?.total ?? 0
     const totalPages = Math.ceil(total / limit)
     const hasNextPage = page < totalPages
@@ -329,9 +373,33 @@ export default function ScheduledDetailTable({
         const item = deleteTarget
         setDeleteTarget(null)
         try {
-            await client.delete(
-                `/admin/projects/${project.id}/subjects/${subjectType}/${subjectId}/scheduled/${item.id}`,
-            )
+            const { error } =
+                subjectType === "users"
+                    ? await oapiClient.DELETE(
+                          "/api/admin/projects/{projectID}/subjects/users/{userID}/scheduled/{scheduledInstanceID}",
+                          {
+                              params: {
+                                  path: {
+                                      projectID: project.id,
+                                      userID: subjectId,
+                                      scheduledInstanceID: item.id,
+                                  },
+                              },
+                          },
+                      )
+                    : await oapiClient.DELETE(
+                          "/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/scheduled/{scheduledInstanceID}",
+                          {
+                              params: {
+                                  path: {
+                                      projectID: project.id,
+                                      organizationID: subjectId,
+                                      scheduledInstanceID: item.id,
+                                  },
+                              },
+                          },
+                      )
+            if (error) throw error
             await reloadScheduled()
         } catch {
             toast.error(t("failed_to_delete_scheduled", "Failed to delete scheduled item"))
@@ -343,10 +411,35 @@ export default function ScheduledDetailTable({
         const item = pauseTarget
         setPauseTarget(null)
         try {
-            await client.patch(
-                `/admin/projects/${project.id}/subjects/${subjectType}/${subjectId}/scheduled/${item.id}`,
-                { pause: pauseMode },
-            )
+            const { error } =
+                subjectType === "users"
+                    ? await oapiClient.PATCH(
+                          "/api/admin/projects/{projectID}/subjects/users/{userID}/scheduled/{scheduledInstanceID}",
+                          {
+                              params: {
+                                  path: {
+                                      projectID: project.id,
+                                      userID: subjectId,
+                                      scheduledInstanceID: item.id,
+                                  },
+                              },
+                              body: { pause: pauseMode },
+                          },
+                      )
+                    : await oapiClient.PATCH(
+                          "/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/scheduled/{scheduledInstanceID}",
+                          {
+                              params: {
+                                  path: {
+                                      projectID: project.id,
+                                      organizationID: subjectId,
+                                      scheduledInstanceID: item.id,
+                                  },
+                              },
+                              body: { pause: pauseMode },
+                          },
+                      )
+            if (error) throw error
             toast.success(t("scheduled_paused", "Schedule paused"))
             await reloadScheduled()
         } catch {
@@ -359,10 +452,35 @@ export default function ScheduledDetailTable({
         const item = resumeTarget
         setResumeTarget(null)
         try {
-            await client.patch(
-                `/admin/projects/${project.id}/subjects/${subjectType}/${subjectId}/scheduled/${item.id}`,
-                { resume: resumeMode },
-            )
+            const { error } =
+                subjectType === "users"
+                    ? await oapiClient.PATCH(
+                          "/api/admin/projects/{projectID}/subjects/users/{userID}/scheduled/{scheduledInstanceID}",
+                          {
+                              params: {
+                                  path: {
+                                      projectID: project.id,
+                                      userID: subjectId,
+                                      scheduledInstanceID: item.id,
+                                  },
+                              },
+                              body: { resume: resumeMode },
+                          },
+                      )
+                    : await oapiClient.PATCH(
+                          "/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/scheduled/{scheduledInstanceID}",
+                          {
+                              params: {
+                                  path: {
+                                      projectID: project.id,
+                                      organizationID: subjectId,
+                                      scheduledInstanceID: item.id,
+                                  },
+                              },
+                              body: { resume: resumeMode },
+                          },
+                      )
+            if (error) throw error
             toast.success(t("scheduled_resumed", "Schedule resumed"))
             await reloadScheduled()
         } catch {
@@ -489,24 +607,24 @@ export default function ScheduledDetailTable({
                                                         </Badge>
                                                     )}
                                                     {!item.paused_at && item.has_pending_events && (
-                                                            <Tooltip>
-                                                                <TooltipTrigger asChild>
-                                                                    <Badge
-                                                                        variant="outline"
-                                                                        className="border-0 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 gap-1"
-                                                                    >
-                                                                        <Loader2 className="h-3 w-3 animate-spin" />
-                                                                        {t("sending", "Sending")}
-                                                                    </Badge>
-                                                                </TooltipTrigger>
-                                                                <TooltipContent>
-                                                                    {t(
-                                                                        "scheduled_sending_tooltip",
-                                                                        "This message is scheduled to be sent out. It could take up to 1 minute to process.",
-                                                                    )}
-                                                                </TooltipContent>
-                                                            </Tooltip>
-                                                        )}
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <Badge
+                                                                    variant="outline"
+                                                                    className="border-0 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 gap-1"
+                                                                >
+                                                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                                                    {t("sending", "Sending")}
+                                                                </Badge>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>
+                                                                {t(
+                                                                    "scheduled_sending_tooltip",
+                                                                    "This message is scheduled to be sent out. It could take up to 1 minute to process.",
+                                                                )}
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    )}
                                                 </div>
                                             </TableCell>
                                             <TableCell className="text-muted-foreground">
@@ -585,7 +703,9 @@ export default function ScheduledDetailTable({
                                             <ScheduledExpandedRow
                                                 key={`${item.id}-expanded`}
                                                 item={item}
-                                                patchUrl={`/admin/projects/${project.id}/subjects/${subjectType}/${subjectId}/scheduled/${item.id}`}
+                                                projectId={project.id}
+                                                subjectId={subjectId}
+                                                subjectType={subjectType}
                                                 onSaved={() => reloadScheduled()}
                                             />
                                         )}

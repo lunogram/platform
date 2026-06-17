@@ -20,9 +20,8 @@ import { useResolver } from "../../hooks"
 import { formatDate, cn } from "../../utils"
 import { getRandomColor } from "@/lib/colors"
 import { toast } from "sonner"
-import api from "../../api"
 import oapiClient from "../../oapi/client"
-import type { SearchParams, UserEvent } from "../../types"
+import type { UserEvent } from "../../types"
 import Iframe from "@/components/iframe"
 
 import { Button } from "@/components/ui/button"
@@ -143,16 +142,24 @@ export default function UserDetailEvents() {
 
     const [result, , reload] = useResolver(
         useCallback(async () => {
-            const params: SearchParams = {
-                limit,
-                offset: (page - 1) * limit,
-                search: debouncedQuery || undefined,
-            }
-            return await api.users.events(project.id, user.id, params)
+            const { data } = await oapiClient.GET(
+                "/api/admin/projects/{projectID}/subjects/users/{userID}/events",
+                {
+                    params: {
+                        path: { projectID: project.id, userID: user.id },
+                        query: {
+                            limit,
+                            offset: (page - 1) * limit,
+                            search: debouncedQuery || undefined,
+                        },
+                    },
+                },
+            )
+            return data ?? null
         }, [project.id, user.id, page, debouncedQuery]),
     )
 
-    const events: UserEvent[] | undefined = result?.results
+    const events: UserEvent[] | undefined = result?.results as UserEvent[] | undefined
     const total = result?.total ?? 0
     const totalPages = Math.ceil(total / limit)
     const hasNextPage = page < totalPages

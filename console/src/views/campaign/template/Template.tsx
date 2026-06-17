@@ -3,7 +3,8 @@ import { Link, Outlet, useLocation, useNavigate, useParams } from "react-router"
 import { useCallback, useContext, useMemo, memo, useState, useEffect, useRef } from "react"
 import { CampaignContext, LocaleContext, ProjectContext, type LocaleSelection } from "@/contexts"
 import { CampaignVariableProvider } from "../CampaignVariableContext"
-import api from "@/api"
+import { oapiClient } from "@/oapi/client"
+import type { Template as TemplateModel } from "@/types"
 
 import { Pagination, PaginationContent, PaginationItem } from "@/components/ui/pagination"
 
@@ -156,14 +157,25 @@ export default function Template() {
             }
 
             setPageLoading(true)
-            const template = await api.campaigns.templates.create(project.id, campaign.id, {
-                locale: localeKey,
-                data: {},
-            })
+            const { data: template } = await oapiClient.POST(
+                "/api/admin/projects/{projectID}/campaigns/{campaignID}/templates",
+                {
+                    params: { path: { projectID: project.id, campaignID: campaign.id } },
+                    body: {
+                        locale: localeKey,
+                        data: {},
+                    },
+                },
+            )
+
+            if (!template) {
+                setPageLoading(false)
+                return
+            }
 
             setCampaign({
                 ...campaign,
-                templates: [...campaign.templates, template],
+                templates: [...campaign.templates, template as TemplateModel],
             })
 
             navigateToTemplate(template.id)
@@ -179,31 +191,37 @@ export default function Template() {
 
             setPageLoading(true)
 
-            const allLocalesResult = await api.locales.search(project.id, {
-                limit: 5,
-            })
+            const { data: allLocalesResult } = await oapiClient.GET(
+                "/api/admin/projects/{projectID}/locales",
+                { params: { path: { projectID: project.id }, query: { limit: 5 } } },
+            )
+            const allLocales = allLocalesResult?.results ?? []
             if (currentTemplate) {
-                try {
-                    const selectedLocale = await api.locales.getByKey(
-                        project.id,
-                        currentTemplate.locale,
-                    )
+                const { data: selectedLocale, error } = await oapiClient.GET(
+                    "/api/admin/projects/{projectID}/locales/{localeID}",
+                    {
+                        params: {
+                            path: { projectID: project.id, localeID: currentTemplate.locale },
+                        },
+                    },
+                )
+                if (selectedLocale && !error) {
                     setLocaleSelection({
                         currentLocale: selectedLocale,
-                        allLocales: allLocalesResult.results,
+                        allLocales,
                     })
-                } catch {
+                } else {
                     // Locale not found, use default or first available locale
                     console.warn(`Locale ${currentTemplate.locale} not found, using default`)
                     setLocaleSelection({
-                        currentLocale: allLocalesResult.results[0],
-                        allLocales: allLocalesResult.results,
+                        currentLocale: allLocales[0],
+                        allLocales,
                     })
                 }
             } else {
                 setLocaleSelection({
                     currentLocale: undefined,
-                    allLocales: allLocalesResult.results,
+                    allLocales,
                 })
             }
 

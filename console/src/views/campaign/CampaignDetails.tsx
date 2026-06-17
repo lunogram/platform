@@ -4,7 +4,7 @@ import type { Campaign, Template, Subscription } from "@/types"
 import { useTranslation } from "react-i18next"
 import { Controller, useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import api from "@/api"
+import { oapiClient } from "@/oapi/client"
 import { Radio } from "lucide-react"
 import { isEnterprise } from "@/config/enterprise"
 import { useResolver } from "@/hooks"
@@ -43,8 +43,10 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
     const [subscriptions] = useResolver(
         useCallback(async (): Promise<Subscription[]> => {
             if (!project?.id) return []
-            const result = await api.subscriptions.search(project.id, { limit: 100 })
-            return result.results ?? []
+            const { data } = await oapiClient.GET("/api/admin/projects/{projectID}/subscriptions", {
+                params: { path: { projectID: project.id }, query: { limit: 100 } },
+            })
+            return data?.results ?? []
         }, [project?.id]),
     )
 
@@ -84,14 +86,22 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
 
         setIsSubmitting(true)
         try {
-            const updatedCampaign = await api.campaigns.update(project.id, campaign.id, {
-                name: data.name,
-                transactional: isTransactional,
-                subscription_id: isTransactional ? undefined : effectiveSubscriptionId || undefined,
-                variables: data.variables.filter((v) => v.name),
-            })
+            const { data: updatedCampaign } = await oapiClient.PATCH(
+                "/api/admin/projects/{projectID}/campaigns/{campaignID}",
+                {
+                    params: { path: { projectID: project.id, campaignID: campaign.id } },
+                    body: {
+                        name: data.name,
+                        transactional: isTransactional,
+                        subscription_id: isTransactional
+                            ? undefined
+                            : effectiveSubscriptionId || undefined,
+                        variables: data.variables.filter((v) => v.name),
+                    },
+                },
+            )
 
-            setCampaign(updatedCampaign)
+            if (updatedCampaign) setCampaign(updatedCampaign as Campaign)
         } finally {
             setIsSubmitting(false)
         }

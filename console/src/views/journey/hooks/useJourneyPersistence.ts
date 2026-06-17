@@ -1,5 +1,5 @@
 import { useState, useCallback, type SetStateAction, type Dispatch } from "react"
-import api from "@/api"
+import { oapiClient } from "@/oapi/client"
 import { toast } from "sonner"
 import { useTranslation } from "react-i18next"
 import { stepsToNodes, nodesToSteps } from "../editor/JourneyEditor.utils"
@@ -28,11 +28,16 @@ export function useJourneyPersistence(
 
     const saveDraft = useCallback(
         async (nodes: JourneyNode[], edges: JourneyEdge[], actions: Actions) => {
-            const stepMap = await api.journeys.steps.set(
-                project.id,
-                journey.id,
-                nodesToSteps(nodes, edges),
+            const { data: stepMap, error } = await oapiClient.PUT(
+                "/api/admin/projects/{projectID}/journeys/{journeyID}/steps",
+                {
+                    params: {
+                        path: { projectID: project.id, journeyID: journey.id },
+                    },
+                    body: nodesToSteps(nodes, edges),
+                },
             )
+            if (error || !stepMap) throw error ?? new Error("Failed to save journey steps")
             return stepsToNodes(stepMap, actions)
         },
         [project.id, journey.id],
@@ -48,8 +53,15 @@ export function useJourneyPersistence(
                 setHasUnsavedChanges(false)
 
                 // Refresh journey state so status reflects the draft
-                const updated = await api.journeys.get(project.id, journey.id)
-                setJourney(updated)
+                const { data: updated } = await oapiClient.GET(
+                    "/api/admin/projects/{projectID}/journeys/{journeyID}",
+                    {
+                        params: {
+                            path: { projectID: project.id, journeyID: journey.id },
+                        },
+                    },
+                )
+                if (updated) setJourney(updated as Journey)
 
                 toast.success(t("journey_saved"))
             } catch (e) {
@@ -81,11 +93,26 @@ export function useJourneyPersistence(
                     setNodes(refreshed.nodes)
                     setEdges(refreshed.edges)
                 }
-                await api.journeys.publish(project.id, journey.id)
+                const { error } = await oapiClient.POST(
+                    "/api/admin/projects/{projectID}/journeys/{journeyID}/publish",
+                    {
+                        params: {
+                            path: { projectID: project.id, journeyID: journey.id },
+                        },
+                    },
+                )
+                if (error) throw error
 
                 // Refresh journey state to reflect published status
-                const updated = await api.journeys.get(project.id, journey.id)
-                setJourney(updated)
+                const { data: updated } = await oapiClient.GET(
+                    "/api/admin/projects/{projectID}/journeys/{journeyID}",
+                    {
+                        params: {
+                            path: { projectID: project.id, journeyID: journey.id },
+                        },
+                    },
+                )
+                if (updated) setJourney(updated as Journey)
                 setHasUnsavedChanges(false)
                 toast.success(t("journey_published", "Journey published"))
             } catch (e) {

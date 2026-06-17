@@ -1,5 +1,6 @@
 import { useState } from "react"
-import api from "../../api"
+import { oapiClient } from "@/oapi/client"
+import type { components } from "@/oapi/management.generated"
 import type { Project } from "../../types"
 import { useTranslation } from "react-i18next"
 import type { UseFormReturn } from "react-hook-form"
@@ -95,10 +96,15 @@ export default function ProjectForm({ project, onSave }: ProjectFormProps) {
             }
 
             try {
-                const updatedProject = id
-                    ? await api.projects.update(id, params)
-                    : await api.projects.create(params)
-                onSave?.(updatedProject)
+                const { data: updatedProject } = id
+                    ? await oapiClient.PATCH("/api/admin/projects/{projectID}", {
+                          params: { path: { projectID: id } },
+                          body: params,
+                      })
+                    : await oapiClient.POST("/api/admin/projects", {
+                          body: params as components["schemas"]["CreateProject"],
+                      })
+                if (updatedProject) onSave?.(updatedProject as Project)
             } catch (error) {
                 console.error("Failed to save project", error)
                 setSaveError(t("project.saveError", "Unable to save project. Please try again."))

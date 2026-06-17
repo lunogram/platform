@@ -1,5 +1,5 @@
 import { useCallback } from "react"
-import api from "../../../api"
+import { oapiClient } from "@/oapi/client"
 import type { Campaign, CampaignVariable, JourneyStepType } from "../../../types"
 import type { VariableGroup } from "../JourneyVariableContext"
 import { Combobox } from "@/components/ui/combobox"
@@ -34,7 +34,15 @@ export const campaignStep: JourneyStepType<CampaignConfig> = {
         const [campaign] = useResolver(
             useCallback(async () => {
                 if (campaign_id) {
-                    return await api.campaigns.get(projectId, campaign_id)
+                    const { data } = await oapiClient.GET(
+                        "/api/admin/projects/{projectID}/campaigns/{campaignID}",
+                        {
+                            params: {
+                                path: { projectID: projectId, campaignID: campaign_id },
+                            },
+                        },
+                    )
+                    return (data ?? null) as Campaign | null
                 }
                 return null
             }, [projectId, campaign_id]),
@@ -72,7 +80,18 @@ export const campaignStep: JourneyStepType<CampaignConfig> = {
         const [campaign] = useResolver(
             useCallback(async () => {
                 if (value.campaign_id && value.campaign_id !== NIL) {
-                    return await api.campaigns.get(projectId, value.campaign_id)
+                    const { data } = await oapiClient.GET(
+                        "/api/admin/projects/{projectID}/campaigns/{campaignID}",
+                        {
+                            params: {
+                                path: {
+                                    projectID: projectId,
+                                    campaignID: value.campaign_id,
+                                },
+                            },
+                        },
+                    )
+                    return (data ?? null) as Campaign | null
                 }
                 return null
             }, [projectId, value.campaign_id]),
@@ -80,11 +99,13 @@ export const campaignStep: JourneyStepType<CampaignConfig> = {
 
         const handleSearch = useCallback(
             async (query: string): Promise<CampaignOption[]> => {
-                const result = await api.campaigns.search(projectId, {
-                    search: query || undefined,
-                    limit: 50,
+                const { data } = await oapiClient.GET("/api/admin/projects/{projectID}/campaigns", {
+                    params: {
+                        path: { projectID: projectId },
+                        query: { search: query || undefined, limit: 50 },
+                    },
                 })
-                return result.results.map((c) => ({ ...c, path: c.id }))
+                return ((data?.results ?? []) as Campaign[]).map((c) => ({ ...c, path: c.id }))
             },
             [projectId],
         )

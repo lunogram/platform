@@ -17,7 +17,6 @@ import {
 } from "lucide-react"
 import { NIL } from "uuid"
 
-import api from "../../api"
 import { oapiClient } from "@/oapi/client"
 import { useResolver } from "../../hooks"
 import { formatDate, snakeToTitle } from "../../utils"
@@ -96,11 +95,17 @@ export default function Lists() {
 
     const [result, , reload] = useResolver(
         useCallback(async () => {
-            return await api.lists.search(projectId, {
-                limit: pageSize,
-                offset,
-                search: debouncedQuery || undefined,
+            const { data } = await oapiClient.GET("/api/admin/projects/{projectID}/lists", {
+                params: {
+                    path: { projectID: projectId },
+                    query: {
+                        limit: pageSize,
+                        offset,
+                        search: debouncedQuery || undefined,
+                    },
+                },
             })
+            return data ?? null
         }, [projectId, debouncedQuery, offset]),
     )
 
@@ -149,13 +154,20 @@ export default function Lists() {
 
     const handleDuplicateList = async (e: React.MouseEvent, id: UUID) => {
         e.stopPropagation()
-        const list = await api.lists.duplicate(projectId, id)
-        await navigate(list.id.toString())
+        const { data: list } = await oapiClient.POST(
+            "/api/admin/projects/{projectID}/lists/{listID}/duplicate",
+            {
+                params: { path: { projectID: projectId, listID: id } },
+            },
+        )
+        if (list) await navigate(list.id.toString())
     }
 
     const handleArchiveList = async (e: React.MouseEvent, id: UUID) => {
         e.stopPropagation()
-        await api.lists.delete(projectId, id)
+        await oapiClient.DELETE("/api/admin/projects/{projectID}/lists/{listID}", {
+            params: { path: { projectID: projectId, listID: id } },
+        })
         await reload()
     }
 
@@ -292,10 +304,7 @@ export default function Lists() {
                                         <ListFilter className="h-8 w-8" />
                                         <p>
                                             {isArchivedView
-                                                ? t(
-                                                      "no_archived_lists",
-                                                      "No archived lists",
-                                                  )
+                                                ? t("no_archived_lists", "No archived lists")
                                                 : debouncedQuery
                                                   ? t("no_lists_found", "No lists found")
                                                   : t("no_lists_yet", "No lists yet")}
@@ -490,7 +499,6 @@ export default function Lists() {
                     </div>
                 </div>
             </div>
-
 
             {/* Create List Dialog */}
             <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>

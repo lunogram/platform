@@ -1,7 +1,8 @@
 import { ChevronLeft, PenLine } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
-import api from "@/api"
+import { oapiClient } from "@/oapi/client"
+import type { components } from "@/oapi/management.generated"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { InlineEdit } from "@/components/ui/inline-edit"
@@ -55,13 +56,23 @@ export function JourneyEditorToolbar({
                 <InlineEdit
                     value={journey.name}
                     onSave={async (name) => {
-                        const updated = await api.journeys.update(projectId, journey.id, {
-                            name,
-                            description: journey.description,
-                            status: journey.status,
-                            tags: journey.tags,
-                        })
-                        onJourneyChange(updated)
+                        const { data: updated } = await oapiClient.PATCH(
+                            "/api/admin/projects/{projectID}/journeys/{journeyID}",
+                            {
+                                params: {
+                                    path: { projectID: projectId, journeyID: journey.id },
+                                },
+                                // status/tags are accepted by the backend but not yet
+                                // in the OpenAPI spec; cast to the documented schema.
+                                body: {
+                                    name,
+                                    description: journey.description,
+                                    status: journey.status,
+                                    tags: journey.tags,
+                                } as components["schemas"]["UpdateJourney"],
+                            },
+                        )
+                        if (updated) onJourneyChange(updated as Journey)
                     }}
                     required
                     triggerClassName="gap-1.5 max-w-full"
