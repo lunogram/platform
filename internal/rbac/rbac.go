@@ -10,8 +10,9 @@ import (
 type ActorType string
 
 const (
-	ActorAdmin  ActorType = "admin"
-	ActorAPIKey ActorType = "api_key"
+	ActorAdmin   ActorType = "admin"
+	ActorAPIKey  ActorType = "api_key"
+	ActorEndUser ActorType = "end_user"
 )
 
 const (
@@ -35,6 +36,25 @@ type Actor struct {
 	ID             string
 	OrganizationID uuid.UUID
 	ProjectID      uuid.UUID
+
+	// SubjectID is the resolved internal Lunogram user (subject) id for
+	// end-user actors ([ActorEndUser]). It is the zero UUID for admins and API
+	// keys.
+	//
+	// Authorization is always decided in OpenFGA against the policy identity
+	// ([Actor.UserKey]); SubjectID never participates in the permission check.
+	// It exists so handlers can scope queries to the verified user's own rows
+	// (e.g. WHERE user_id = SubjectID) once the policy has authorized the
+	// resource and verb.
+	SubjectID uuid.UUID
+
+	// OwnData reports whether the actor is confined to its own records. It is
+	// set only for verified end-user actors ([ActorEndUser]) whose auth method
+	// carries the "own" subject scope; such actors are bound to their verified
+	// subject regardless of any client-supplied identifier. A verified end user
+	// configured for "all" data acts across subjects (like a backend key), so
+	// OwnData is false. See [Actor.SubjectID].
+	OwnData bool
 }
 
 // ActorOption configures optional fields on an [Actor].
@@ -51,6 +71,24 @@ func WithOrganizationID(id uuid.UUID) ActorOption {
 func WithProjectID(id uuid.UUID) ActorOption {
 	return func(a *Actor) {
 		a.ProjectID = id
+	}
+}
+
+// WithSubjectID sets the resolved internal user (subject) id on the actor. Use
+// this for end-user actors so handlers can scope queries to the verified user's
+// own rows. See [Actor.SubjectID].
+func WithSubjectID(id uuid.UUID) ActorOption {
+	return func(a *Actor) {
+		a.SubjectID = id
+	}
+}
+
+// WithOwnData confines the actor to its own records. Use this for verified
+// end-user actors whose auth method has the "own" subject scope. See
+// [Actor.OwnData].
+func WithOwnData(own bool) ActorOption {
+	return func(a *Actor) {
+		a.OwnData = own
 	}
 }
 
