@@ -330,9 +330,6 @@ type AuthCallbackRequest struct {
 
 	// Password Password (required for basic auth)
 	Password *string `json:"password,omitempty"`
-
-	// Redirect URL to redirect after successful auth
-	Redirect *string `json:"redirect,omitempty"`
 }
 
 // Broadcast defines model for Broadcast.
