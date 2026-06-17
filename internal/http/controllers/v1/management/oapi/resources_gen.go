@@ -25,6 +25,27 @@ const (
 	HttpBearerAuthScopes httpBearerAuthContextKey = "HttpBearerAuth.Scopes"
 )
 
+// Defines values for AccessPolicyType.
+const (
+	AccessPolicyTypeApiKey        AccessPolicyType = "api_key"
+	AccessPolicyTypeSession       AccessPolicyType = "session"
+	AccessPolicyTypeTrustedIssuer AccessPolicyType = "trusted_issuer"
+)
+
+// Valid indicates whether the value is a known member of the AccessPolicyType enum.
+func (e AccessPolicyType) Valid() bool {
+	switch e {
+	case AccessPolicyTypeApiKey:
+		return true
+	case AccessPolicyTypeSession:
+		return true
+	case AccessPolicyTypeTrustedIssuer:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ApiKeyScope.
 const (
 	Public ApiKeyScope = "public"
@@ -331,6 +352,30 @@ func (e OrganizationRole) Valid() bool {
 	}
 }
 
+// Defines values for PermissionGrantVerb.
+const (
+	PermissionGrantVerbCreate PermissionGrantVerb = "create"
+	PermissionGrantVerbDelete PermissionGrantVerb = "delete"
+	PermissionGrantVerbRead   PermissionGrantVerb = "read"
+	PermissionGrantVerbUpdate PermissionGrantVerb = "update"
+)
+
+// Valid indicates whether the value is a known member of the PermissionGrantVerb enum.
+func (e PermissionGrantVerb) Valid() bool {
+	switch e {
+	case PermissionGrantVerbCreate:
+		return true
+	case PermissionGrantVerbDelete:
+		return true
+	case PermissionGrantVerbRead:
+		return true
+	case PermissionGrantVerbUpdate:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ProjectPushProviderPlatform.
 const (
 	ProjectPushProviderPlatformAndroid ProjectPushProviderPlatform = "android"
@@ -595,6 +640,43 @@ func (e AuthWebhookParamsDriver) Valid() bool {
 	}
 }
 
+// AccessPolicy defines model for AccessPolicy.
+type AccessPolicy struct {
+	CreatedAt   time.Time          `json:"created_at"`
+	Description *string            `json:"description,omitempty"`
+	Grants      *[]PermissionGrant `json:"grants,omitempty"`
+	Id          openapi_types.UUID `json:"id"`
+
+	// IssuerConfig Verification settings for a trusted_issuer policy. Exactly one of jwks_url or public_cert is set.
+	IssuerConfig *TrustedIssuerConfig `json:"issuer_config,omitempty"`
+	Name         string               `json:"name"`
+	ProjectId    openapi_types.UUID   `json:"project_id"`
+
+	// Role Role within a project
+	Role ProjectRole `json:"role"`
+
+	// Scope API key scope - public keys are safe to expose in client-side code
+	Scope *ApiKeyScope `json:"scope,omitempty"`
+
+	// Secret The full secret value. Returned only once, in the response to
+	// creating an api_key policy, and never again.
+	Secret *string `json:"secret,omitempty"`
+
+	// SessionConfig Settings for a session policy.
+	SessionConfig *SessionPolicyConfig `json:"session_config,omitempty"`
+
+	// Type How an access policy authenticates a client. `api_key` is a
+	// Lunogram-issued key; `trusted_issuer` validates external JWTs against a
+	// configured JWKS/PEM; `session` mints short-lived user-scoped tokens.
+	Type      AccessPolicyType `json:"type"`
+	UpdatedAt time.Time        `json:"updated_at"`
+}
+
+// AccessPolicyType How an access policy authenticates a client. `api_key` is a
+// Lunogram-issued key; `trusted_issuer` validates external JWTs against a
+// configured JWKS/PEM; `session` mints short-lived user-scoped tokens.
+type AccessPolicyType string
+
 // Action defines model for Action.
 type Action struct {
 	// Config Action configuration (varies by type)
@@ -820,6 +902,32 @@ type CampaignVariable struct {
 
 // Channel Communication channel type
 type Channel string
+
+// CreateAccessPolicy defines model for CreateAccessPolicy.
+type CreateAccessPolicy struct {
+	Description *string `json:"description,omitempty"`
+
+	// Grants Custom permission set. When set, takes precedence over the role preset.
+	Grants *[]PermissionGrant `json:"grants,omitempty"`
+
+	// IssuerConfig Verification settings for a trusted_issuer policy. Exactly one of jwks_url or public_cert is set.
+	IssuerConfig *TrustedIssuerConfig `json:"issuer_config,omitempty"`
+	Name         string               `json:"name"`
+
+	// Role Role within a project
+	Role *ProjectRole `json:"role,omitempty"`
+
+	// Scope API key scope - public keys are safe to expose in client-side code
+	Scope *ApiKeyScope `json:"scope,omitempty"`
+
+	// SessionConfig Settings for a session policy.
+	SessionConfig *SessionPolicyConfig `json:"session_config,omitempty"`
+
+	// Type How an access policy authenticates a client. `api_key` is a
+	// Lunogram-issued key; `trusted_issuer` validates external JWTs against a
+	// configured JWKS/PEM; `session` mints short-lived user-scoped tokens.
+	Type AccessPolicyType `json:"type"`
+}
 
 // CreateAction defines model for CreateAction.
 type CreateAction struct {
@@ -1484,6 +1592,15 @@ type PaginatedResponse struct {
 	Total int `json:"total"`
 }
 
+// PermissionGrant A single (resource, verb) entry in a custom permission set.
+type PermissionGrant struct {
+	Resource string              `json:"resource"`
+	Verb     PermissionGrantVerb `json:"verb"`
+}
+
+// PermissionGrantVerb defines model for PermissionGrant.Verb.
+type PermissionGrantVerb string
+
 // Problem defines model for Problem.
 type Problem struct {
 	// Detail A human readable explanation specific to this occurrence of the problem that is helpful to locate the problem and give advice on how to proceed. Written in English and readable for engineers, usually not suited for non technical stakeholders and not localized.
@@ -1726,6 +1843,15 @@ type SenderIdentity struct {
 // SenderIdentityChannel Channel type (email or sms)
 type SenderIdentityChannel string
 
+// SessionPolicyConfig Settings for a session policy.
+type SessionPolicyConfig struct {
+	// Role Role within a project
+	Role *ProjectRole `json:"role,omitempty"`
+
+	// TtlSeconds Lifetime of minted session tokens, in seconds.
+	TtlSeconds *int `json:"ttl_seconds,omitempty"`
+}
+
 // SmsProviderData defines model for SmsProviderData.
 type SmsProviderData = map[string]interface{}
 
@@ -1809,6 +1935,29 @@ type TestActionResult struct {
 
 	// StatusCode Status code returned by the validation (e.g. 200 for success, 400/401/500 for errors)
 	StatusCode int `json:"status_code"`
+}
+
+// TrustedIssuerConfig Verification settings for a trusted_issuer policy. Exactly one of jwks_url or public_cert is set.
+type TrustedIssuerConfig struct {
+	Aud     *string `json:"aud,omitempty"`
+	Iss     *string `json:"iss,omitempty"`
+	JwksUrl *string `json:"jwks_url,omitempty"`
+
+	// PublicCert PEM-encoded public certificate (alternative to jwks_url).
+	PublicCert *string `json:"public_cert,omitempty"`
+
+	// SubjectClaim JWT claim carrying the external user id (defaults to "sub").
+	SubjectClaim *string `json:"subject_claim,omitempty"`
+}
+
+// UpdateAccessPolicy defines model for UpdateAccessPolicy.
+type UpdateAccessPolicy struct {
+	Description *string            `json:"description,omitempty"`
+	Grants      *[]PermissionGrant `json:"grants,omitempty"`
+	Name        *string            `json:"name,omitempty"`
+
+	// Role Role within a project
+	Role *ProjectRole `json:"role,omitempty"`
 }
 
 // UpdateAction defines model for UpdateAction.
@@ -2206,6 +2355,19 @@ type Offset = PaginationOffset
 // Search defines model for Search.
 type Search = PaginationSearch
 
+// AccessPolicyListResponse defines model for AccessPolicyListResponse.
+type AccessPolicyListResponse struct {
+	// Limit Maximum number of items returned
+	Limit int `json:"limit"`
+
+	// Offset Number of items skipped
+	Offset  int            `json:"offset"`
+	Results []AccessPolicy `json:"results"`
+
+	// Total Total number of items matching the filters
+	Total int `json:"total"`
+}
+
 // ActionListResponse defines model for ActionListResponse.
 type ActionListResponse struct {
 	// Limit Maximum number of items returned
@@ -2375,6 +2537,15 @@ type ListProjectsParams struct {
 
 	// Search Search query string
 	Search *Search `form:"search,omitempty" json:"search,omitempty"`
+}
+
+// ListAccessPoliciesParams defines parameters for ListAccessPolicies.
+type ListAccessPoliciesParams struct {
+	// Limit Maximum number of items to return
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Offset Number of items to skip
+	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
 }
 
 // ListActionsParams defines parameters for ListActions.
@@ -2811,6 +2982,12 @@ type CreateProjectJSONRequestBody = CreateProject
 // UpdateProjectJSONRequestBody defines body for UpdateProject for application/json ContentType.
 type UpdateProjectJSONRequestBody = UpdateProject
 
+// CreateAccessPolicyJSONRequestBody defines body for CreateAccessPolicy for application/json ContentType.
+type CreateAccessPolicyJSONRequestBody = CreateAccessPolicy
+
+// UpdateAccessPolicyJSONRequestBody defines body for UpdateAccessPolicy for application/json ContentType.
+type UpdateAccessPolicyJSONRequestBody = UpdateAccessPolicy
+
 // CreateActionJSONRequestBody defines body for CreateAction for application/json ContentType.
 type CreateActionJSONRequestBody = CreateAction
 
@@ -3067,6 +3244,25 @@ type ClientInterface interface {
 	UpdateProjectWithBody(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	UpdateProject(ctx context.Context, projectID openapi_types.UUID, body UpdateProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListAccessPolicies request
+	ListAccessPolicies(ctx context.Context, projectID openapi_types.UUID, params *ListAccessPoliciesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateAccessPolicyWithBody request with any body
+	CreateAccessPolicyWithBody(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateAccessPolicy(ctx context.Context, projectID openapi_types.UUID, body CreateAccessPolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteAccessPolicy request
+	DeleteAccessPolicy(ctx context.Context, projectID openapi_types.UUID, policyID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetAccessPolicy request
+	GetAccessPolicy(ctx context.Context, projectID openapi_types.UUID, policyID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateAccessPolicyWithBody request with any body
+	UpdateAccessPolicyWithBody(ctx context.Context, projectID openapi_types.UUID, policyID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateAccessPolicy(ctx context.Context, projectID openapi_types.UUID, policyID openapi_types.UUID, body UpdateAccessPolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListActions request
 	ListActions(ctx context.Context, projectID openapi_types.UUID, params *ListActionsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -3755,6 +3951,90 @@ func (c *Client) UpdateProjectWithBody(ctx context.Context, projectID openapi_ty
 
 func (c *Client) UpdateProject(ctx context.Context, projectID openapi_types.UUID, body UpdateProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateProjectRequest(c.Server, projectID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListAccessPolicies(ctx context.Context, projectID openapi_types.UUID, params *ListAccessPoliciesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListAccessPoliciesRequest(c.Server, projectID, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateAccessPolicyWithBody(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateAccessPolicyRequestWithBody(c.Server, projectID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateAccessPolicy(ctx context.Context, projectID openapi_types.UUID, body CreateAccessPolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateAccessPolicyRequest(c.Server, projectID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteAccessPolicy(ctx context.Context, projectID openapi_types.UUID, policyID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteAccessPolicyRequest(c.Server, projectID, policyID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetAccessPolicy(ctx context.Context, projectID openapi_types.UUID, policyID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetAccessPolicyRequest(c.Server, projectID, policyID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateAccessPolicyWithBody(ctx context.Context, projectID openapi_types.UUID, policyID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateAccessPolicyRequestWithBody(c.Server, projectID, policyID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateAccessPolicy(ctx context.Context, projectID openapi_types.UUID, policyID openapi_types.UUID, body UpdateAccessPolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateAccessPolicyRequest(c.Server, projectID, policyID, body)
 	if err != nil {
 		return nil, err
 	}
@@ -6610,6 +6890,262 @@ func NewUpdateProjectRequestWithBody(server string, projectID openapi_types.UUID
 	}
 
 	operationPath := fmt.Sprintf("/api/admin/projects/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListAccessPoliciesRequest generates requests for ListAccessPolicies
+func NewListAccessPoliciesRequest(server string, projectID openapi_types.UUID, params *ListAccessPoliciesParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/access-policies", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Offset != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "offset", *params.Offset, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateAccessPolicyRequest calls the generic CreateAccessPolicy builder with application/json body
+func NewCreateAccessPolicyRequest(server string, projectID openapi_types.UUID, body CreateAccessPolicyJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateAccessPolicyRequestWithBody(server, projectID, "application/json", bodyReader)
+}
+
+// NewCreateAccessPolicyRequestWithBody generates requests for CreateAccessPolicy with any type of body
+func NewCreateAccessPolicyRequestWithBody(server string, projectID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/access-policies", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteAccessPolicyRequest generates requests for DeleteAccessPolicy
+func NewDeleteAccessPolicyRequest(server string, projectID openapi_types.UUID, policyID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "policyID", policyID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/access-policies/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetAccessPolicyRequest generates requests for GetAccessPolicy
+func NewGetAccessPolicyRequest(server string, projectID openapi_types.UUID, policyID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "policyID", policyID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/access-policies/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateAccessPolicyRequest calls the generic UpdateAccessPolicy builder with application/json body
+func NewUpdateAccessPolicyRequest(server string, projectID openapi_types.UUID, policyID openapi_types.UUID, body UpdateAccessPolicyJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateAccessPolicyRequestWithBody(server, projectID, policyID, "application/json", bodyReader)
+}
+
+// NewUpdateAccessPolicyRequestWithBody generates requests for UpdateAccessPolicy with any type of body
+func NewUpdateAccessPolicyRequestWithBody(server string, projectID openapi_types.UUID, policyID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "policyID", policyID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/access-policies/%s", pathParam0, pathParam1)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -15726,6 +16262,25 @@ type ClientWithResponsesInterface interface {
 
 	UpdateProjectWithResponse(ctx context.Context, projectID openapi_types.UUID, body UpdateProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateProjectResponse, error)
 
+	// ListAccessPoliciesWithResponse request
+	ListAccessPoliciesWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListAccessPoliciesParams, reqEditors ...RequestEditorFn) (*ListAccessPoliciesResponse, error)
+
+	// CreateAccessPolicyWithBodyWithResponse request with any body
+	CreateAccessPolicyWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateAccessPolicyResponse, error)
+
+	CreateAccessPolicyWithResponse(ctx context.Context, projectID openapi_types.UUID, body CreateAccessPolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateAccessPolicyResponse, error)
+
+	// DeleteAccessPolicyWithResponse request
+	DeleteAccessPolicyWithResponse(ctx context.Context, projectID openapi_types.UUID, policyID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteAccessPolicyResponse, error)
+
+	// GetAccessPolicyWithResponse request
+	GetAccessPolicyWithResponse(ctx context.Context, projectID openapi_types.UUID, policyID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetAccessPolicyResponse, error)
+
+	// UpdateAccessPolicyWithBodyWithResponse request with any body
+	UpdateAccessPolicyWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, policyID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateAccessPolicyResponse, error)
+
+	UpdateAccessPolicyWithResponse(ctx context.Context, projectID openapi_types.UUID, policyID openapi_types.UUID, body UpdateAccessPolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateAccessPolicyResponse, error)
+
 	// ListActionsWithResponse request
 	ListActionsWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListActionsParams, reqEditors ...RequestEditorFn) (*ListActionsResponse, error)
 
@@ -16506,6 +17061,160 @@ func (r UpdateProjectResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r UpdateProjectResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListAccessPoliciesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *AccessPolicyListResponse
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListAccessPoliciesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListAccessPoliciesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListAccessPoliciesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateAccessPolicyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *AccessPolicy
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateAccessPolicyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateAccessPolicyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateAccessPolicyResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteAccessPolicyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteAccessPolicyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteAccessPolicyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteAccessPolicyResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetAccessPolicyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *AccessPolicy
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetAccessPolicyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetAccessPolicyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetAccessPolicyResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdateAccessPolicyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *AccessPolicy
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateAccessPolicyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateAccessPolicyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateAccessPolicyResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -21746,6 +22455,67 @@ func (c *ClientWithResponses) UpdateProjectWithResponse(ctx context.Context, pro
 	return ParseUpdateProjectResponse(rsp)
 }
 
+// ListAccessPoliciesWithResponse request returning *ListAccessPoliciesResponse
+func (c *ClientWithResponses) ListAccessPoliciesWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListAccessPoliciesParams, reqEditors ...RequestEditorFn) (*ListAccessPoliciesResponse, error) {
+	rsp, err := c.ListAccessPolicies(ctx, projectID, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListAccessPoliciesResponse(rsp)
+}
+
+// CreateAccessPolicyWithBodyWithResponse request with arbitrary body returning *CreateAccessPolicyResponse
+func (c *ClientWithResponses) CreateAccessPolicyWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateAccessPolicyResponse, error) {
+	rsp, err := c.CreateAccessPolicyWithBody(ctx, projectID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateAccessPolicyResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateAccessPolicyWithResponse(ctx context.Context, projectID openapi_types.UUID, body CreateAccessPolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateAccessPolicyResponse, error) {
+	rsp, err := c.CreateAccessPolicy(ctx, projectID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateAccessPolicyResponse(rsp)
+}
+
+// DeleteAccessPolicyWithResponse request returning *DeleteAccessPolicyResponse
+func (c *ClientWithResponses) DeleteAccessPolicyWithResponse(ctx context.Context, projectID openapi_types.UUID, policyID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteAccessPolicyResponse, error) {
+	rsp, err := c.DeleteAccessPolicy(ctx, projectID, policyID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteAccessPolicyResponse(rsp)
+}
+
+// GetAccessPolicyWithResponse request returning *GetAccessPolicyResponse
+func (c *ClientWithResponses) GetAccessPolicyWithResponse(ctx context.Context, projectID openapi_types.UUID, policyID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetAccessPolicyResponse, error) {
+	rsp, err := c.GetAccessPolicy(ctx, projectID, policyID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetAccessPolicyResponse(rsp)
+}
+
+// UpdateAccessPolicyWithBodyWithResponse request with arbitrary body returning *UpdateAccessPolicyResponse
+func (c *ClientWithResponses) UpdateAccessPolicyWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, policyID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateAccessPolicyResponse, error) {
+	rsp, err := c.UpdateAccessPolicyWithBody(ctx, projectID, policyID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateAccessPolicyResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateAccessPolicyWithResponse(ctx context.Context, projectID openapi_types.UUID, policyID openapi_types.UUID, body UpdateAccessPolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateAccessPolicyResponse, error) {
+	rsp, err := c.UpdateAccessPolicy(ctx, projectID, policyID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateAccessPolicyResponse(rsp)
+}
+
 // ListActionsWithResponse request returning *ListActionsResponse
 func (c *ClientWithResponses) ListActionsWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListActionsParams, reqEditors ...RequestEditorFn) (*ListActionsResponse, error) {
 	rsp, err := c.ListActions(ctx, projectID, params, reqEditors...)
@@ -23822,6 +24592,164 @@ func ParseUpdateProjectResponse(rsp *http.Response) (*UpdateProjectResponse, err
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest Project
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListAccessPoliciesResponse parses an HTTP response from a ListAccessPoliciesWithResponse call
+func ParseListAccessPoliciesResponse(rsp *http.Response) (*ListAccessPoliciesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListAccessPoliciesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AccessPolicyListResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateAccessPolicyResponse parses an HTTP response from a CreateAccessPolicyWithResponse call
+func ParseCreateAccessPolicyResponse(rsp *http.Response) (*CreateAccessPolicyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateAccessPolicyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest AccessPolicy
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteAccessPolicyResponse parses an HTTP response from a DeleteAccessPolicyWithResponse call
+func ParseDeleteAccessPolicyResponse(rsp *http.Response) (*DeleteAccessPolicyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteAccessPolicyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetAccessPolicyResponse parses an HTTP response from a GetAccessPolicyWithResponse call
+func ParseGetAccessPolicyResponse(rsp *http.Response) (*GetAccessPolicyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetAccessPolicyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AccessPolicy
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateAccessPolicyResponse parses an HTTP response from a UpdateAccessPolicyWithResponse call
+func ParseUpdateAccessPolicyResponse(rsp *http.Response) (*UpdateAccessPolicyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateAccessPolicyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AccessPolicy
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -29091,6 +30019,21 @@ type ServerInterface interface {
 	// Update project
 	// (PATCH /api/admin/projects/{projectID})
 	UpdateProject(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID)
+	// List access policies
+	// (GET /api/admin/projects/{projectID}/access-policies)
+	ListAccessPolicies(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListAccessPoliciesParams)
+	// Create access policy
+	// (POST /api/admin/projects/{projectID}/access-policies)
+	CreateAccessPolicy(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID)
+	// Delete access policy
+	// (DELETE /api/admin/projects/{projectID}/access-policies/{policyID})
+	DeleteAccessPolicy(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, policyID openapi_types.UUID)
+	// Get access policy by ID
+	// (GET /api/admin/projects/{projectID}/access-policies/{policyID})
+	GetAccessPolicy(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, policyID openapi_types.UUID)
+	// Update access policy
+	// (PATCH /api/admin/projects/{projectID}/access-policies/{policyID})
+	UpdateAccessPolicy(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, policyID openapi_types.UUID)
 	// List actions
 	// (GET /api/admin/projects/{projectID}/actions)
 	ListActions(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListActionsParams)
@@ -29628,6 +30571,36 @@ func (_ Unimplemented) GetProject(w http.ResponseWriter, r *http.Request, projec
 // Update project
 // (PATCH /api/admin/projects/{projectID})
 func (_ Unimplemented) UpdateProject(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// List access policies
+// (GET /api/admin/projects/{projectID}/access-policies)
+func (_ Unimplemented) ListAccessPolicies(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListAccessPoliciesParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Create access policy
+// (POST /api/admin/projects/{projectID}/access-policies)
+func (_ Unimplemented) CreateAccessPolicy(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Delete access policy
+// (DELETE /api/admin/projects/{projectID}/access-policies/{policyID})
+func (_ Unimplemented) DeleteAccessPolicy(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, policyID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Get access policy by ID
+// (GET /api/admin/projects/{projectID}/access-policies/{policyID})
+func (_ Unimplemented) GetAccessPolicy(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, policyID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Update access policy
+// (PATCH /api/admin/projects/{projectID}/access-policies/{policyID})
+func (_ Unimplemented) UpdateAccessPolicy(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, policyID openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -30828,6 +31801,222 @@ func (siw *ServerInterfaceWrapper) UpdateProject(w http.ResponseWriter, r *http.
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UpdateProject(w, r, projectID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListAccessPolicies operation middleware
+func (siw *ServerInterfaceWrapper) ListAccessPolicies(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListAccessPoliciesParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "offset", r.URL.Query(), &params.Offset, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "offset"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAccessPolicies(w, r, projectID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateAccessPolicy operation middleware
+func (siw *ServerInterfaceWrapper) CreateAccessPolicy(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateAccessPolicy(w, r, projectID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteAccessPolicy operation middleware
+func (siw *ServerInterfaceWrapper) DeleteAccessPolicy(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "policyID" -------------
+	var policyID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "policyID", chi.URLParam(r, "policyID"), &policyID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "policyID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteAccessPolicy(w, r, projectID, policyID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAccessPolicy operation middleware
+func (siw *ServerInterfaceWrapper) GetAccessPolicy(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "policyID" -------------
+	var policyID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "policyID", chi.URLParam(r, "policyID"), &policyID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "policyID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAccessPolicy(w, r, projectID, policyID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateAccessPolicy operation middleware
+func (siw *ServerInterfaceWrapper) UpdateAccessPolicy(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "policyID" -------------
+	var policyID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "policyID", chi.URLParam(r, "policyID"), &policyID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "policyID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateAccessPolicy(w, r, projectID, policyID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -38979,6 +40168,21 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Patch(options.BaseURL+"/api/admin/projects/{projectID}", wrapper.UpdateProject)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/access-policies", wrapper.ListAccessPolicies)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/access-policies", wrapper.CreateAccessPolicy)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/admin/projects/{projectID}/access-policies/{policyID}", wrapper.DeleteAccessPolicy)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/access-policies/{policyID}", wrapper.GetAccessPolicy)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/admin/projects/{projectID}/access-policies/{policyID}", wrapper.UpdateAccessPolicy)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/actions", wrapper.ListActions)

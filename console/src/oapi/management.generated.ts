@@ -1914,6 +1914,58 @@ export interface paths {
         patch: operations["updateApiKey"];
         trace?: never;
     };
+    "/api/admin/projects/{projectID}/access-policies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List access policies
+         * @description Retrieves a paginated list of access policies for a project
+         */
+        get: operations["listAccessPolicies"];
+        put?: never;
+        /**
+         * Create access policy
+         * @description Creates a new access policy for a project. For api_key policies the secret is returned only in this response.
+         */
+        post: operations["createAccessPolicy"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/access-policies/{policyID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get access policy by ID
+         * @description Retrieves a specific access policy. The secret is never included.
+         */
+        get: operations["getAccessPolicy"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete access policy
+         * @description Deletes an access policy, revoking access.
+         */
+        delete: operations["deleteAccessPolicy"];
+        options?: never;
+        head?: never;
+        /**
+         * Update access policy
+         * @description Updates an access policy's name, description, role or grants.
+         */
+        patch: operations["updateAccessPolicy"];
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/actions": {
         parameters: {
             query?: never;
@@ -4463,6 +4515,90 @@ export interface components {
             /** @example Updated description */
             description?: string;
         };
+        /**
+         * @description How an access policy authenticates a client. `api_key` is a
+         *     Lunogram-issued key; `trusted_issuer` validates external JWTs against a
+         *     configured JWKS/PEM; `session` mints short-lived user-scoped tokens.
+         * @example api_key
+         * @enum {string}
+         */
+        AccessPolicyType: "api_key" | "trusted_issuer" | "session";
+        /** @description A single (resource, verb) entry in a custom permission set. */
+        PermissionGrant: {
+            /** @example inbox */
+            resource: string;
+            /**
+             * @example read
+             * @enum {string}
+             */
+            verb: "read" | "create" | "update" | "delete";
+        };
+        /** @description Verification settings for a trusted_issuer policy. Exactly one of jwks_url or public_cert is set. */
+        TrustedIssuerConfig: {
+            /** @example https://acme.example/.well-known/jwks.json */
+            jwks_url?: string;
+            /** @description PEM-encoded public certificate (alternative to jwks_url). */
+            public_cert?: string;
+            /** @example https://acme.example */
+            iss?: string;
+            /** @example lunogram */
+            aud?: string;
+            /**
+             * @description JWT claim carrying the external user id (defaults to "sub").
+             * @example sub
+             */
+            subject_claim?: string;
+        };
+        /** @description Settings for a session policy. */
+        SessionPolicyConfig: {
+            /**
+             * @description Lifetime of minted session tokens, in seconds.
+             * @example 900
+             */
+            ttl_seconds?: number;
+            role?: components["schemas"]["ProjectRole"];
+        };
+        AccessPolicy: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            project_id: string;
+            type: components["schemas"]["AccessPolicyType"];
+            /** @example Production key */
+            name: string;
+            description?: string;
+            scope?: components["schemas"]["ApiKeyScope"];
+            role: components["schemas"]["ProjectRole"];
+            grants?: components["schemas"]["PermissionGrant"][];
+            issuer_config?: components["schemas"]["TrustedIssuerConfig"];
+            session_config?: components["schemas"]["SessionPolicyConfig"];
+            /**
+             * @description The full secret value. Returned only once, in the response to
+             *     creating an api_key policy, and never again.
+             */
+            secret?: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        CreateAccessPolicy: {
+            type: components["schemas"]["AccessPolicyType"];
+            name: string;
+            description?: string;
+            scope?: components["schemas"]["ApiKeyScope"];
+            role?: components["schemas"]["ProjectRole"];
+            /** @description Custom permission set. When set, takes precedence over the role preset. */
+            grants?: components["schemas"]["PermissionGrant"][];
+            issuer_config?: components["schemas"]["TrustedIssuerConfig"];
+            session_config?: components["schemas"]["SessionPolicyConfig"];
+        };
+        UpdateAccessPolicy: {
+            name?: string;
+            description?: string;
+            role?: components["schemas"]["ProjectRole"];
+            grants?: components["schemas"]["PermissionGrant"][];
+        };
         ClientEvent: {
             /**
              * @description The name of the event
@@ -5147,6 +5283,17 @@ export interface components {
             content: {
                 "application/json": components["schemas"]["PaginatedResponse"] & {
                     results: components["schemas"]["ApiKey"][];
+                };
+            };
+        };
+        /** @description Access policies retrieved successfully */
+        AccessPolicyListResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["PaginatedResponse"] & {
+                    results: components["schemas"]["AccessPolicy"][];
                 };
             };
         };
@@ -8958,6 +9105,135 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiKey"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listAccessPolicies: {
+        parameters: {
+            query?: {
+                /** @description Maximum number of items to return */
+                limit?: components["parameters"]["Limit"];
+                /** @description Number of items to skip */
+                offset?: components["parameters"]["Offset"];
+            };
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["AccessPolicyListResponse"];
+            default: components["responses"]["Error"];
+        };
+    };
+    createAccessPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateAccessPolicy"];
+            };
+        };
+        responses: {
+            /** @description Access policy created successfully */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccessPolicy"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getAccessPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The access policy ID */
+                policyID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Access policy retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccessPolicy"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteAccessPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The access policy ID */
+                policyID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Access policy deleted successfully */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateAccessPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The access policy ID */
+                policyID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateAccessPolicy"];
+            };
+        };
+        responses: {
+            /** @description Access policy updated successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccessPolicy"];
                 };
             };
             default: components["responses"]["Error"];

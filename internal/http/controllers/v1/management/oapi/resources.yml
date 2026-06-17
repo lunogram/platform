@@ -4770,6 +4770,165 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
+  /api/admin/projects/{projectID}/access-policies:
+    get:
+      summary: List access policies
+      description: Retrieves a paginated list of access policies for a project
+      operationId: listAccessPolicies
+      tags:
+        - Access Policies
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          $ref: "#/components/responses/AccessPolicyListResponse"
+        default:
+          $ref: "#/components/responses/Error"
+
+    post:
+      summary: Create access policy
+      description: Creates a new access policy for a project. For api_key policies the secret is returned only in this response.
+      operationId: createAccessPolicy
+      tags:
+        - Access Policies
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAccessPolicy"
+      responses:
+        "201":
+          description: Access policy created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccessPolicy"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/access-policies/{policyID}:
+    get:
+      summary: Get access policy by ID
+      description: Retrieves a specific access policy. The secret is never included.
+      operationId: getAccessPolicy
+      tags:
+        - Access Policies
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: policyID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The access policy ID
+      responses:
+        "200":
+          description: Access policy retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccessPolicy"
+        default:
+          $ref: "#/components/responses/Error"
+
+    patch:
+      summary: Update access policy
+      description: Updates an access policy's name, description, role or grants.
+      operationId: updateAccessPolicy
+      tags:
+        - Access Policies
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: policyID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The access policy ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAccessPolicy"
+      responses:
+        "200":
+          description: Access policy updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccessPolicy"
+        default:
+          $ref: "#/components/responses/Error"
+
+    delete:
+      summary: Delete access policy
+      description: Deletes an access policy, revoking access.
+      operationId: deleteAccessPolicy
+      tags:
+        - Access Policies
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: policyID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The access policy ID
+      responses:
+        "204":
+          description: Access policy deleted successfully
+        default:
+          $ref: "#/components/responses/Error"
+
   /api/admin/projects/{projectID}/actions:
     get:
       summary: List actions
@@ -6275,6 +6434,22 @@ components:
                     type: array
                     items:
                       $ref: "#/components/schemas/ApiKey"
+
+    AccessPolicyListResponse:
+      description: Access policies retrieved successfully
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: "#/components/schemas/PaginatedResponse"
+              - type: object
+                required:
+                  - results
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AccessPolicy"
 
     ActionListResponse:
       description: Actions retrieved successfully
@@ -9147,6 +9322,150 @@ components:
         description:
           type: string
           example: "Updated description"
+
+    AccessPolicyType:
+      type: string
+      enum: [api_key, trusted_issuer, session]
+      description: |
+        How an access policy authenticates a client. `api_key` is a
+        Lunogram-issued key; `trusted_issuer` validates external JWTs against a
+        configured JWKS/PEM; `session` mints short-lived user-scoped tokens.
+      example: api_key
+
+    PermissionGrant:
+      type: object
+      description: A single (resource, verb) entry in a custom permission set.
+      required:
+        - resource
+        - verb
+      properties:
+        resource:
+          type: string
+          example: inbox
+        verb:
+          type: string
+          enum: [read, create, update, delete]
+          example: read
+
+    TrustedIssuerConfig:
+      type: object
+      description: Verification settings for a trusted_issuer policy. Exactly one of jwks_url or public_cert is set.
+      properties:
+        jwks_url:
+          type: string
+          example: "https://acme.example/.well-known/jwks.json"
+        public_cert:
+          type: string
+          description: PEM-encoded public certificate (alternative to jwks_url).
+        iss:
+          type: string
+          example: "https://acme.example"
+        aud:
+          type: string
+          example: "lunogram"
+        subject_claim:
+          type: string
+          description: JWT claim carrying the external user id (defaults to "sub").
+          example: sub
+
+    SessionPolicyConfig:
+      type: object
+      description: Settings for a session policy.
+      properties:
+        ttl_seconds:
+          type: integer
+          description: Lifetime of minted session tokens, in seconds.
+          example: 900
+        role:
+          $ref: "#/components/schemas/ProjectRole"
+
+    AccessPolicy:
+      type: object
+      required:
+        - id
+        - project_id
+        - type
+        - name
+        - role
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        type:
+          $ref: "#/components/schemas/AccessPolicyType"
+        name:
+          type: string
+          example: "Production key"
+        description:
+          type: string
+        scope:
+          $ref: "#/components/schemas/ApiKeyScope"
+        role:
+          $ref: "#/components/schemas/ProjectRole"
+        grants:
+          type: array
+          items:
+            $ref: "#/components/schemas/PermissionGrant"
+        issuer_config:
+          $ref: "#/components/schemas/TrustedIssuerConfig"
+        session_config:
+          $ref: "#/components/schemas/SessionPolicyConfig"
+        secret:
+          type: string
+          description: |
+            The full secret value. Returned only once, in the response to
+            creating an api_key policy, and never again.
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateAccessPolicy:
+      type: object
+      required:
+        - type
+        - name
+      properties:
+        type:
+          $ref: "#/components/schemas/AccessPolicyType"
+        name:
+          type: string
+        description:
+          type: string
+        scope:
+          $ref: "#/components/schemas/ApiKeyScope"
+        role:
+          $ref: "#/components/schemas/ProjectRole"
+        grants:
+          type: array
+          description: Custom permission set. When set, takes precedence over the role preset.
+          items:
+            $ref: "#/components/schemas/PermissionGrant"
+        issuer_config:
+          $ref: "#/components/schemas/TrustedIssuerConfig"
+        session_config:
+          $ref: "#/components/schemas/SessionPolicyConfig"
+
+    UpdateAccessPolicy:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        role:
+          $ref: "#/components/schemas/ProjectRole"
+        grants:
+          type: array
+          items:
+            $ref: "#/components/schemas/PermissionGrant"
 
     ClientEvent:
       type: object

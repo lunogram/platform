@@ -21,6 +21,13 @@ const (
 	PolicyTypeSession       PolicyType = "session"
 )
 
+// Scope values recorded on an access policy's secret. Public keys are safe to
+// expose in client-side code; secret keys are backend-only.
+const (
+	ScopePublic = "public"
+	ScopeSecret = "secret"
+)
+
 // Grant is one (resource, verb) entry in a policy's custom permission set. It
 // mirrors access.Grant and is persisted in the access_policies.grants JSONB
 // column. An empty set means the policy uses its role preset instead.
@@ -173,6 +180,16 @@ type AccessPoliciesStore struct {
 }
 
 func (s *AccessPoliciesStore) CreateAccessPolicy(ctx context.Context, projectID uuid.UUID, in CreateAccessPolicyInput) (*AccessPolicy, error) {
+	// API-key policies carry a Lunogram-issued secret; generate one when the
+	// caller did not supply it.
+	if in.Type == PolicyTypeAPIKey && in.Secret == nil {
+		value, err := generateKeyValue()
+		if err != nil {
+			return nil, err
+		}
+		in.Secret = &value
+	}
+
 	grants, err := encodeJSONB(in.Grants)
 	if err != nil {
 		return nil, err
