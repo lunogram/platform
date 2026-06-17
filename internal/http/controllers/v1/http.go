@@ -23,6 +23,7 @@ import (
 	managementv1 "github.com/lunogram/platform/internal/http/controllers/v1/management"
 	mgmtoapi "github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/http/scalar"
+	"github.com/lunogram/platform/internal/jwks"
 	"github.com/lunogram/platform/internal/providers"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/ratelimit"
@@ -41,7 +42,7 @@ var staticFiles embed.FS
 // NewServer constructs a unified HTTP server combining both management and client
 // API endpoints. Management endpoints use JWT+API Key auth, while client endpoints
 // use API Key only authentication.
-func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *store.Connections, storageDriver storage.Storage, jet jetstream.JetStream, pub pubsub.Publisher, req pubsub.Caller, registry *providers.Registry, actionRegistry *actions.Registry, rbacEngine *rbac.Engine, limiter *ratelimit.Limiter) (*http.Server, error) {
+func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *store.Connections, storageDriver storage.Storage, jet jetstream.JetStream, pub pubsub.Publisher, req pubsub.Caller, registry *providers.Registry, actionRegistry *actions.Registry, rbacEngine *rbac.Engine, limiter *ratelimit.Limiter, jwksCache *jwks.Cache) (*http.Server, error) {
 	mgmtStores := management.NewState(db.Management)
 	usersStore := subjects.NewState(db.Subjects, logger)
 
@@ -105,6 +106,7 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *st
 				clientoapi.Validator(clientSpec, openapi3filter.Options{
 					AuthenticationFunc: auth.Middleware(
 						auth.WithKey(mgmtStores, auth.SurfaceClient),
+						auth.WithTrustedIssuer(mgmtStores, jwksCache),
 					),
 				}),
 				// Runs after the validator (and thus after authentication) so

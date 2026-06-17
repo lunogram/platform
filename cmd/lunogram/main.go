@@ -16,6 +16,7 @@ import (
 	"github.com/lunogram/platform/internal/config"
 	v1 "github.com/lunogram/platform/internal/http/controllers/v1"
 	"github.com/lunogram/platform/internal/integrations"
+	"github.com/lunogram/platform/internal/jwks"
 	"github.com/lunogram/platform/internal/providers"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/consumer"
@@ -184,7 +185,13 @@ func run() error {
 
 	logger.Info("starting http server")
 
-	server, err := v1.NewServer(ctx, logger, conf, db, bucket, jet, pub, req, providersRegisrtry, actionRegistry, rbacEngine, limiter)
+	jwksCache := jwks.New(jwks.Config{
+		TTL:          conf.JWKSCache.TTL,
+		FetchTimeout: conf.JWKSCache.FetchTimeout,
+		ErrorTTL:     conf.JWKSCache.ErrorTTL,
+	}, jwks.NewRedisStore(rclient, conf.Redis.KeyPrefix), nil, logger)
+
+	server, err := v1.NewServer(ctx, logger, conf, db, bucket, jet, pub, req, providersRegisrtry, actionRegistry, rbacEngine, limiter, jwksCache)
 	if err != nil {
 		return err
 	}
