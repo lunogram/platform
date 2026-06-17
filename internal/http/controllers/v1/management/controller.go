@@ -41,7 +41,7 @@ func NewController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB
 		DocumentsController:        NewDocumentsController(logger, managementDB, storage, cfg.Storage.MaxUploadSize, urlResolver, engine),
 		ProvidersController:        NewProvidersController(logger, managementDB, registry, engine, cfg.PublicBaseURL()),
 		SubscriptionsController:    NewSubscriptionsController(logger, managementDB, engine),
-		ApiKeysController:          NewApiKeysController(logger, managementDB, engine),
+		AuthMethodsController:      NewAuthMethodsController(logger, managementDB, engine),
 		EmailTemplatesController:   NewEmailTemplatesController(logger, webhookCaller, engine),
 		SenderIdentitiesController: NewSenderIdentitiesController(logger, managementDB, engine),
 		PushProvidersController:    NewPushProvidersController(logger, managementDB, registry, engine),
@@ -73,7 +73,7 @@ type Controller struct {
 	*ProvidersController
 	*SubscriptionsController
 	*AuthController
-	*ApiKeysController
+	*AuthMethodsController
 	*ActionsController
 	*EmailTemplatesController
 	*SenderIdentitiesController
