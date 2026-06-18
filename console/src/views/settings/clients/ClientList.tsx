@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { useNavigate, useParams } from "react-router"
 import { toast } from "sonner"
 import {
@@ -30,6 +31,16 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 const identityIcon: Record<IdentityType, typeof KeyRound> = {
     api_key: KeyRound,
@@ -43,13 +54,17 @@ export default function ClientList() {
     const { projectId = "" } = useParams()
     const { clients, loading, reload } = useClients(projectId)
     const navigate = useNavigate()
+    const [pendingDelete, setPendingDelete] = useState<{ id: string; name: string } | null>(null)
 
-    const onDelete = async (id: string) => {
+    const confirmDelete = async () => {
+        if (!pendingDelete) return
         try {
-            await removeClient(projectId, id)
+            await removeClient(projectId, pendingDelete.id)
             reload()
         } catch {
             toast.error("Couldn't delete the client. Please try again.")
+        } finally {
+            setPendingDelete(null)
         }
     }
 
@@ -180,7 +195,12 @@ export default function ClientList() {
                                                 <DropdownMenuContent align="end">
                                                     <DropdownMenuItem
                                                         className="text-destructive focus:text-destructive"
-                                                        onClick={() => onDelete(client.id)}
+                                                        onClick={() =>
+                                                            setPendingDelete({
+                                                                id: client.id,
+                                                                name: client.name,
+                                                            })
+                                                        }
                                                     >
                                                         <Trash2 className="mr-2 h-4 w-4" />
                                                         Delete
@@ -200,6 +220,31 @@ export default function ClientList() {
                     </div>
                 )}
             </div>
+
+            <AlertDialog
+                open={pendingDelete !== null}
+                onOpenChange={(open) => !open && setPendingDelete(null)}
+            >
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete this client?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {pendingDelete?.name
+                                ? `"${pendingDelete.name}" will lose access immediately. This cannot be undone.`
+                                : "This client will lose access immediately. This cannot be undone."}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            className="bg-destructive text-white hover:bg-destructive/90"
+                            onClick={confirmDelete}
+                        >
+                            Delete client
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     )
 }

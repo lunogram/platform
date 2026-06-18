@@ -112,7 +112,7 @@ function exampleHint(type: IdentityType): string {
         return "A secret key is generated on creation — send it as a Bearer token."
     if (type === "trusted_issuer")
         return "Your identity provider issues tokens; Lunogram verifies them."
-    return "A signing key is generated on creation — your backend mints short-lived tokens with it."
+    return "Your backend mints short-lived tokens for this client by calling the sessions endpoint with a secret API key."
 }
 
 // ReadOnlyIdentity shows how an existing client authenticates without letting it
@@ -164,8 +164,12 @@ function IdentityConfig({
                 <Field label="Token lifetime (seconds)">
                     <Input
                         type="number"
+                        min={1}
                         value={identity.ttlSeconds ?? 900}
-                        onChange={(e) => onChange({ ttlSeconds: Number(e.target.value) })}
+                        onChange={(e) => {
+                            const n = Number(e.target.value)
+                            onChange({ ttlSeconds: Number.isFinite(n) && n > 0 ? n : undefined })
+                        }}
                     />
                 </Field>
             </div>

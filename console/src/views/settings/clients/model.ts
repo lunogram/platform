@@ -151,12 +151,13 @@ function identityOf(m: AuthMethod): Identity {
 }
 
 // permissionParams splits a permission selection into the role/grants fields the
-// API expects: a preset sends a role, a custom set sends explicit grants.
+// API expects: a preset sends a role and clears any custom grants (they are
+// mutually exclusive effective scopes), a custom set sends explicit grants.
 function permissionParams(p: PermissionSelection): {
     role?: ProjectRole
     grants?: PermissionGrant[]
 } {
-    return p.kind === "role" ? { role: p.role } : { grants: p.grants }
+    return p.kind === "role" ? { role: p.role, grants: [] } : { grants: p.grants }
 }
 
 // clientToCreateParams maps a draft to a create request. Only the identity's own

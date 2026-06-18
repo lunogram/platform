@@ -27,7 +27,12 @@ export function ClientCreated({
         window.setTimeout(() => setCopied(false), 1500)
     }
 
-    const secretLabel = client.identity.type === "session" ? "Signing key" : "Secret key"
+    // A secret is only ever issued for API keys. Trusted issuers and sessions
+    // authenticate without a per-client secret, so explain how each is used.
+    const noSecretMessage =
+        client.identity.type === "session"
+            ? "Sessions are minted from your backend by calling the sessions endpoint with a secret API key — there's no separate secret for this client."
+            : "This client verifies tokens from your identity provider, so there's no secret to store."
 
     return (
         <div className="mx-auto flex max-w-2xl flex-col gap-8 py-4">
@@ -47,7 +52,7 @@ export function ClientCreated({
             {secret ? (
                 <div className="grid gap-2">
                     <div className="flex items-center gap-1.5 text-sm font-medium">
-                        {secretLabel}
+                        Secret key
                     </div>
                     <div className="flex items-center gap-2 rounded-lg border bg-surface-muted px-3 py-2.5">
                         <code className="flex-1 truncate font-mono text-sm">{secret}</code>
@@ -75,8 +80,7 @@ export function ClientCreated({
                 </div>
             ) : (
                 <p className="rounded-lg border bg-surface-soft px-4 py-3 text-sm text-ink-soft">
-                    This client verifies tokens from your identity provider, so there's no secret to
-                    store.
+                    {noSecretMessage}
                 </p>
             )}
 
