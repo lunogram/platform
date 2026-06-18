@@ -3,13 +3,13 @@ package management
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
-	"github.com/lib/pq"
 	"github.com/lunogram/platform/internal/http/problem"
 	"github.com/lunogram/platform/internal/ptr"
 	"github.com/lunogram/platform/internal/store"
@@ -24,19 +24,21 @@ const (
 	MethodTypeSession       MethodType = "session"
 )
 
-// Subject-scope values recorded on an auth method. They define the data
-// boundary: SubjectScopeAll acts across every subject's records (the only valid
-// value for api_key), while SubjectScopeOwn confines a verified end user to
-// their own records.
+// SubjectScope is the data boundary an auth method acts within: SubjectScopeAll
+// acts across every subject's records (the only valid value for api_key), while
+// SubjectScopeOwn confines a verified end user to their own records.
+type SubjectScope string
+
 const (
-	SubjectScopeAll = "all"
-	SubjectScopeOwn = "own"
+	SubjectScopeAll SubjectScope = "all"
+	SubjectScopeOwn SubjectScope = "own"
 )
 
 // Grant is one (resource, verb) entry in an auth method's custom permission set.
+// The json tags match the aggregate built in the read queries.
 type Grant struct {
-	Resource string
-	Verb     string
+	Resource string `json:"resource"`
+	Verb     string `json:"verb"`
 }
 
 // TrustedIssuer holds the external-JWT validation config for a trusted_issuer
@@ -66,13 +68,12 @@ type AuthMethod struct {
 	Role        string
 	Grants      []Grant
 
-	// SubjectScope is the data boundary ("all" or "own"). See [SubjectScopeAll].
-	SubjectScope string
+	// SubjectScope is the data boundary. See [SubjectScope].
+	SubjectScope SubjectScope
 
-	// API key (set for MethodTypeAPIKey).
-	Secret       *string // full plaintext; set only by Create (shown once)
-	SecretPrefix *string
-	Scope        *string
+	// Secret holds the full plaintext for an api_key method; it is set only by
+	// CreateAuthMethod (shown once) and never populated by reads.
+	Secret *string
 
 	TrustedIssuer *TrustedIssuer // MethodTypeTrustedIssuer
 	Session       *Session       // MethodTypeSession
@@ -89,39 +90,29 @@ type AuthMethodsStore struct {
 	db store.DB
 }
 
-// withinTx runs fn inside a transaction when db is a real *sqlx.DB. When db is
-// already a transaction (e.g. a State built over a *sqlx.Tx), fn runs directly
-// on it so the caller's transaction is reused. Either way fn's writes are
-// atomic.
-func withinTx(ctx context.Context, db store.DB, fn func(sqlx.ExtContext) error) error {
-	beginner, ok := db.(interface {
-		BeginTxx(context.Context, *sql.TxOptions) (*sqlx.Tx, error)
-	})
+// txBeginner is the subset of *sqlx.DB used to start a write transaction. Writes
+// require a real connection pool (not an existing transaction); auth-method
+// writes are never issued through a transaction-backed State.
+type txBeginner interface {
+	BeginTxx(context.Context, *sql.TxOptions) (*sqlx.Tx, error)
+}
+
+func (s *AuthMethodsStore) begin(ctx context.Context) (*sqlx.Tx, error) {
+	db, ok := s.db.(txBeginner)
 	if !ok {
-		return fn(db)
+		return nil, errors.New("management: auth methods store requires a *sqlx.DB for writes")
 	}
-
-	tx, err := beginner.BeginTxx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback() //nolint:errcheck // no-op once committed
-
-	if err := fn(tx); err != nil {
-		return err
-	}
-	return tx.Commit()
+	return db.BeginTxx(ctx, nil)
 }
 
 // CreateAuthMethodInput carries the fields to create an auth method. The
-// type-specific block (Scope, TrustedIssuer, Session) must match Type.
+// type-specific block (TrustedIssuer, Session) must match Type.
 type CreateAuthMethodInput struct {
 	Type          MethodType
 	Name          string
 	Description   *string
 	Role          string
-	SubjectScope  string
-	Scope         *string
+	SubjectScope  SubjectScope
 	Grants        []Grant
 	TrustedIssuer *TrustedIssuer
 	Session       *Session
@@ -131,88 +122,43 @@ type CreateAuthMethodInput struct {
 // its grants in a single transaction. For api_key methods the generated secret
 // is returned once on the result's Secret field.
 func (s *AuthMethodsStore) CreateAuthMethod(ctx context.Context, projectID uuid.UUID, in CreateAuthMethodInput) (*AuthMethod, error) {
-	id := uuid.New()
-	var secret *string
-
-	err := withinTx(ctx, s.db, func(q sqlx.ExtContext) error {
-		subjectScope := in.SubjectScope
-		if subjectScope == "" {
-			subjectScope = SubjectScopeAll
-		}
-		if _, err := q.ExecContext(ctx,
-			`INSERT INTO auth_methods (id, project_id, type, name, description, role, subject_scope) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-			id, projectID, string(in.Type), in.Name, in.Description, in.Role, subjectScope); err != nil {
-			return err
-		}
-
-		switch in.Type {
-		case MethodTypeAPIKey:
-			scope := ptr.FromOr(in.Scope, ScopeSecret)
-			plaintext, prefix, hash, err := newSecret(scope)
-			if err != nil {
-				return err
-			}
-			secret = &plaintext
-			if _, err := q.ExecContext(ctx,
-				`INSERT INTO auth_method_api_keys (auth_method_id, secret_hash, secret_prefix, scope) VALUES ($1, $2, $3, $4)`,
-				id, hash, prefix, scope); err != nil {
-				return err
-			}
-
-		case MethodTypeTrustedIssuer:
-			ti := ptr.FromOr(in.TrustedIssuer, TrustedIssuer{})
-			subjectClaim := ti.SubjectClaim
-			if subjectClaim == "" {
-				subjectClaim = "sub"
-			}
-
-			// A trusted issuer is resolved at auth time by `iss` alone, with no
-			// project context, so the active issuer must be globally unique;
-			// otherwise a token could authenticate against the wrong project.
-			// (Soft-deleted methods keep their child row, so this is enforced
-			// here rather than via a DB constraint that would block re-adding a
-			// deleted issuer.)
-			var existing uuid.UUID
-			err := sqlx.GetContext(ctx, q, &existing,
-				`SELECT m.id FROM auth_method_trusted_issuers t
-				 JOIN auth_methods m ON m.id = t.auth_method_id
-				 WHERE t.issuer = $1 AND m.deleted_at IS NULL LIMIT 1`, ti.Issuer)
-			if err == nil {
-				return problem.ErrConflict(problem.Describe("a trusted issuer is already registered for this iss"))
-			}
-			if !errors.Is(err, sql.ErrNoRows) {
-				return err
-			}
-			if _, err := q.ExecContext(ctx,
-				`INSERT INTO auth_method_trusted_issuers (auth_method_id, jwks_url, public_cert, issuer, audience, subject_claim)
-				 VALUES ($1, $2, $3, $4, $5, $6)`,
-				id,
-				sql.NullString{String: ti.JWKSURL, Valid: ti.JWKSURL != ""},
-				sql.NullString{String: ti.PublicCert, Valid: ti.PublicCert != ""},
-				ti.Issuer,
-				sql.NullString{String: ti.Audience, Valid: ti.Audience != ""},
-				subjectClaim); err != nil {
-				return err
-			}
-
-		case MethodTypeSession:
-			ttl := 900
-			if in.Session != nil && in.Session.TTLSeconds > 0 {
-				ttl = in.Session.TTLSeconds
-			}
-			if _, err := q.ExecContext(ctx,
-				`INSERT INTO auth_method_sessions (auth_method_id, ttl_seconds) VALUES ($1, $2)`,
-				id, ttl); err != nil {
-				return err
-			}
-
-		default:
-			return fmt.Errorf("management: unknown auth method type %q", in.Type)
-		}
-
-		return insertGrants(ctx, q, id, in.Grants)
-	})
+	tx, err := s.begin(ctx)
 	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback() //nolint:errcheck // no-op once committed
+
+	id := uuid.New()
+	subjectScope := in.SubjectScope
+	if subjectScope == "" {
+		subjectScope = SubjectScopeAll
+	}
+	if _, err := tx.ExecContext(ctx,
+		`INSERT INTO auth_methods (id, project_id, type, name, description, role, subject_scope) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		id, projectID, string(in.Type), in.Name, in.Description, in.Role, string(subjectScope)); err != nil {
+		return nil, err
+	}
+
+	var secret *string
+	switch in.Type {
+	case MethodTypeAPIKey:
+		secret, err = insertAPIKey(ctx, tx, id)
+	case MethodTypeTrustedIssuer:
+		err = insertTrustedIssuer(ctx, tx, id, in.TrustedIssuer)
+	case MethodTypeSession:
+		err = insertSession(ctx, tx, id, in.Session)
+	default:
+		err = fmt.Errorf("management: unknown auth method type %q", in.Type)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	if err := insertGrants(ctx, tx, id, in.Grants); err != nil {
+		return nil, err
+	}
+
+	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
 
@@ -222,6 +168,70 @@ func (s *AuthMethodsStore) CreateAuthMethod(ctx context.Context, projectID uuid.
 	}
 	method.Secret = secret // shown to the caller exactly once
 	return method, nil
+}
+
+// insertAPIKey mints a fresh sk_ secret for an api_key method, persists its hash
+// and display prefix, and returns the plaintext to show the caller once.
+func insertAPIKey(ctx context.Context, q sqlx.ExecerContext, methodID uuid.UUID) (*string, error) {
+	plaintext, prefix, hash, err := newSecret()
+	if err != nil {
+		return nil, err
+	}
+	if _, err := q.ExecContext(ctx,
+		`INSERT INTO auth_method_api_keys (auth_method_id, secret_hash, secret_prefix) VALUES ($1, $2, $3)`,
+		methodID, hash, prefix); err != nil {
+		return nil, err
+	}
+	return &plaintext, nil
+}
+
+// insertTrustedIssuer persists a trusted_issuer method's validation config. A
+// trusted issuer is resolved at auth time by `iss` alone, with no project
+// context, so the active issuer must be globally unique; otherwise a token could
+// authenticate against the wrong project. (Soft-deleted methods keep their child
+// row, so this is enforced here rather than via a DB constraint that would block
+// re-adding a deleted issuer.)
+func insertTrustedIssuer(ctx context.Context, q sqlx.ExtContext, methodID uuid.UUID, in *TrustedIssuer) error {
+	ti := ptr.FromOr(in, TrustedIssuer{})
+	subjectClaim := ti.SubjectClaim
+	if subjectClaim == "" {
+		subjectClaim = "sub"
+	}
+
+	var existing uuid.UUID
+	err := sqlx.GetContext(ctx, q, &existing,
+		`SELECT m.id FROM auth_method_trusted_issuers t
+		 JOIN auth_methods m ON m.id = t.auth_method_id
+		 WHERE t.issuer = $1 AND m.deleted_at IS NULL LIMIT 1`, ti.Issuer)
+	if err == nil {
+		return problem.ErrConflict(problem.Describe("a trusted issuer is already registered for this iss"))
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return err
+	}
+
+	_, err = q.ExecContext(ctx,
+		`INSERT INTO auth_method_trusted_issuers (auth_method_id, jwks_url, public_cert, issuer, audience, subject_claim)
+		 VALUES ($1, $2, $3, $4, $5, $6)`,
+		methodID,
+		sql.NullString{String: ti.JWKSURL, Valid: ti.JWKSURL != ""},
+		sql.NullString{String: ti.PublicCert, Valid: ti.PublicCert != ""},
+		ti.Issuer,
+		sql.NullString{String: ti.Audience, Valid: ti.Audience != ""},
+		subjectClaim)
+	return err
+}
+
+// insertSession persists a session method's config.
+func insertSession(ctx context.Context, q sqlx.ExecerContext, methodID uuid.UUID, in *Session) error {
+	ttl := 900
+	if in != nil && in.TTLSeconds > 0 {
+		ttl = in.TTLSeconds
+	}
+	_, err := q.ExecContext(ctx,
+		`INSERT INTO auth_method_sessions (auth_method_id, ttl_seconds) VALUES ($1, $2)`,
+		methodID, ttl)
+	return err
 }
 
 // insertGrants writes a method's permission set. It runs on a transaction (or
@@ -237,9 +247,11 @@ func insertGrants(ctx context.Context, q sqlx.ExecerContext, methodID uuid.UUID,
 	return nil
 }
 
-// authMethodRow is the flattened projection joining an auth method to all three
-// optional credential tables; only the columns for the row's type are non-NULL.
-type authMethodRow struct {
+// row is the flattened projection of an auth method joined to its optional
+// credential tables, with its grants aggregated as JSON so a method and its
+// permission set load in a single round-trip. Only the columns for the row's
+// type are non-NULL.
+type row struct {
 	ID           uuid.UUID `db:"id"`
 	ProjectID    uuid.UUID `db:"project_id"`
 	Type         string    `db:"type"`
@@ -250,9 +262,6 @@ type authMethodRow struct {
 	CreatedAt    time.Time `db:"created_at"`
 	UpdatedAt    time.Time `db:"updated_at"`
 
-	SecretPrefix *string `db:"secret_prefix"`
-	Scope        *string `db:"scope"`
-
 	JWKSURL      *string `db:"jwks_url"`
 	PublicCert   *string `db:"public_cert"`
 	Issuer       *string `db:"issuer"`
@@ -260,9 +269,16 @@ type authMethodRow struct {
 	SubjectClaim *string `db:"subject_claim"`
 
 	TTLSeconds *int `db:"ttl_seconds"`
+
+	// Grants is a JSON array of {resource, verb} aggregated in the query.
+	Grants []byte `db:"grants"`
+
+	// TotalCount is the window count returned by List; it is absent (zero) for
+	// single-row reads.
+	TotalCount int `db:"total_count"`
 }
 
-func (r authMethodRow) toMethod() *AuthMethod {
+func (r row) toMethod() (*AuthMethod, error) {
 	m := &AuthMethod{
 		ID:           r.ID,
 		ProjectID:    r.ProjectID,
@@ -270,11 +286,14 @@ func (r authMethodRow) toMethod() *AuthMethod {
 		Name:         r.Name,
 		Description:  r.Description,
 		Role:         r.Role,
-		SubjectScope: r.SubjectScope,
-		SecretPrefix: r.SecretPrefix,
-		Scope:        r.Scope,
+		SubjectScope: SubjectScope(r.SubjectScope),
 		CreatedAt:    r.CreatedAt,
 		UpdatedAt:    r.UpdatedAt,
+	}
+	if len(r.Grants) > 0 {
+		if err := json.Unmarshal(r.Grants, &m.Grants); err != nil {
+			return nil, err
+		}
 	}
 	switch m.Type {
 	case MethodTypeTrustedIssuer:
@@ -290,104 +309,69 @@ func (r authMethodRow) toMethod() *AuthMethod {
 			m.Session = &Session{TTLSeconds: *r.TTLSeconds}
 		}
 	}
-	return m
+	return m, nil
 }
 
-// authMethodColumns is the shared projection; authMethodFrom is the join graph.
-// They are kept separate so List can add a window column to the SELECT list
-// without it landing in the FROM clause.
-const authMethodColumns = `m.id, m.project_id, m.type, m.name, m.description, m.role, m.subject_scope, m.created_at, m.updated_at,
-	       k.secret_prefix, k.scope,
-	       t.jwks_url, t.public_cert, t.issuer, t.audience, t.subject_claim,
-	       s.ttl_seconds`
+// The read queries are written out in full (rather than composed from shared
+// fragments) so each is a single, greppable static string. Grants are folded in
+// as a JSON aggregate so a method loads in one round-trip.
+const getAuthMethodQuery = `
+SELECT m.id, m.project_id, m.type, m.name, m.description, m.role, m.subject_scope, m.created_at, m.updated_at,
+       t.jwks_url, t.public_cert, t.issuer, t.audience, t.subject_claim,
+       s.ttl_seconds,
+       COALESCE((
+           SELECT json_agg(json_build_object('resource', g.resource, 'verb', g.verb) ORDER BY g.resource, g.verb)
+           FROM auth_method_grants g
+           WHERE g.auth_method_id = m.id
+       ), '[]') AS grants
+FROM auth_methods m
+LEFT JOIN auth_method_trusted_issuers t ON t.auth_method_id = m.id
+LEFT JOIN auth_method_sessions s ON s.auth_method_id = m.id
+WHERE m.id = $1 AND m.project_id = $2 AND m.deleted_at IS NULL`
 
-const authMethodFrom = `
-	FROM auth_methods m
-	LEFT JOIN auth_method_api_keys k ON k.auth_method_id = m.id
-	LEFT JOIN auth_method_trusted_issuers t ON t.auth_method_id = m.id
-	LEFT JOIN auth_method_sessions s ON s.auth_method_id = m.id`
+const listAuthMethodsQuery = `
+SELECT m.id, m.project_id, m.type, m.name, m.description, m.role, m.subject_scope, m.created_at, m.updated_at,
+       t.jwks_url, t.public_cert, t.issuer, t.audience, t.subject_claim,
+       s.ttl_seconds,
+       COALESCE((
+           SELECT json_agg(json_build_object('resource', g.resource, 'verb', g.verb) ORDER BY g.resource, g.verb)
+           FROM auth_method_grants g
+           WHERE g.auth_method_id = m.id
+       ), '[]') AS grants,
+       COUNT(*) OVER () AS total_count
+FROM auth_methods m
+LEFT JOIN auth_method_trusted_issuers t ON t.auth_method_id = m.id
+LEFT JOIN auth_method_sessions s ON s.auth_method_id = m.id
+WHERE m.project_id = $1 AND m.deleted_at IS NULL
+ORDER BY m.created_at DESC
+LIMIT $2 OFFSET $3`
 
 func (s *AuthMethodsStore) GetAuthMethod(ctx context.Context, projectID, methodID uuid.UUID) (*AuthMethod, error) {
-	stmt := `SELECT ` + authMethodColumns + authMethodFrom + `
-	WHERE m.id = $1 AND m.project_id = $2 AND m.deleted_at IS NULL`
-
-	var row authMethodRow
-	if err := s.db.GetContext(ctx, &row, stmt, methodID, projectID); err != nil {
+	var r row
+	if err := s.db.GetContext(ctx, &r, getAuthMethodQuery, methodID, projectID); err != nil {
 		return nil, err
 	}
-	method := row.toMethod()
-
-	grants, err := s.grantsFor(ctx, []uuid.UUID{methodID})
-	if err != nil {
-		return nil, err
-	}
-	method.Grants = grants[methodID]
-	return method, nil
+	return r.toMethod()
 }
 
 func (s *AuthMethodsStore) ListAuthMethods(ctx context.Context, projectID uuid.UUID, pagination store.Pagination) ([]AuthMethod, int, error) {
-	stmt := `SELECT ` + authMethodColumns + `,
-	       COUNT(*) OVER () AS total_count` + authMethodFrom + `
-	WHERE m.project_id = $1 AND m.deleted_at IS NULL
-	ORDER BY m.created_at DESC
-	LIMIT $2 OFFSET $3`
-
-	type listRow struct {
-		authMethodRow
-		TotalCount int `db:"total_count"`
-	}
-
-	var rows []listRow
-	if err := s.db.SelectContext(ctx, &rows, stmt, projectID, pagination.Limit, pagination.Offset); err != nil {
+	var rows []row
+	if err := s.db.SelectContext(ctx, &rows, listAuthMethodsQuery, projectID, pagination.Limit, pagination.Offset); err != nil {
 		return nil, 0, err
 	}
 	if len(rows) == 0 {
 		return []AuthMethod{}, 0, nil
 	}
 
-	ids := make([]uuid.UUID, len(rows))
-	for i, r := range rows {
-		ids[i] = r.ID
-	}
-	grants, err := s.grantsFor(ctx, ids)
-	if err != nil {
-		return nil, 0, err
-	}
-
 	methods := make([]AuthMethod, len(rows))
-	for i, r := range rows {
-		m := r.toMethod()
-		m.Grants = grants[m.ID]
+	for i := range rows {
+		m, err := rows[i].toMethod()
+		if err != nil {
+			return nil, 0, err
+		}
 		methods[i] = *m
 	}
 	return methods, rows[0].TotalCount, nil
-}
-
-// grantsFor loads grants for the given auth methods, keyed by method id.
-func (s *AuthMethodsStore) grantsFor(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID][]Grant, error) {
-	out := make(map[uuid.UUID][]Grant, len(ids))
-	if len(ids) == 0 {
-		return out, nil
-	}
-
-	const stmt = `
-	SELECT auth_method_id, resource, verb
-	FROM auth_method_grants
-	WHERE auth_method_id = ANY($1::uuid[])
-	ORDER BY resource, verb`
-
-	var rows []struct {
-		AuthMethodID uuid.UUID `db:"auth_method_id"`
-		Resource     string    `db:"resource"`
-		Verb         string    `db:"verb"`
-	}
-	if err := s.db.SelectContext(ctx, &rows, stmt, pq.Array(ids)); err != nil {
-		return nil, err
-	}
-	for _, r := range rows {
-		out[r.AuthMethodID] = append(out[r.AuthMethodID], Grant{Resource: r.Resource, Verb: r.Verb})
-	}
-	return out, nil
 }
 
 // UpdateAuthMethodInput carries the mutable fields. Nil fields are unchanged;
@@ -396,33 +380,41 @@ type UpdateAuthMethodInput struct {
 	Name         *string
 	Description  *string
 	Role         *string
-	SubjectScope *string
+	SubjectScope *SubjectScope
 	Grants       []Grant
 }
 
 func (s *AuthMethodsStore) UpdateAuthMethod(ctx context.Context, projectID, methodID uuid.UUID, in UpdateAuthMethodInput) error {
-	return withinTx(ctx, s.db, func(q sqlx.ExtContext) error {
-		if _, err := q.ExecContext(ctx,
-			`UPDATE auth_methods
-			 SET name = COALESCE($1, name), description = COALESCE($2, description),
-			     role = COALESCE($3, role), subject_scope = COALESCE($4, subject_scope)
-			 WHERE id = $5 AND project_id = $6 AND deleted_at IS NULL`,
-			in.Name, in.Description, in.Role, in.SubjectScope, methodID, projectID); err != nil {
+	tx, err := s.begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback() //nolint:errcheck // no-op once committed
+
+	var subjectScope *string
+	if in.SubjectScope != nil {
+		subjectScope = ptr.To(string(*in.SubjectScope))
+	}
+	if _, err := tx.ExecContext(ctx,
+		`UPDATE auth_methods
+		 SET name = COALESCE($1, name), description = COALESCE($2, description),
+		     role = COALESCE($3, role), subject_scope = COALESCE($4, subject_scope)
+		 WHERE id = $5 AND project_id = $6 AND deleted_at IS NULL`,
+		in.Name, in.Description, in.Role, subjectScope, methodID, projectID); err != nil {
+		return err
+	}
+
+	// Replace the whole grant set when provided.
+	if in.Grants != nil {
+		if _, err := tx.ExecContext(ctx, `DELETE FROM auth_method_grants WHERE auth_method_id = $1`, methodID); err != nil {
 			return err
 		}
-
-		// Replace the whole grant set when provided.
-		if in.Grants != nil {
-			if _, err := q.ExecContext(ctx, `DELETE FROM auth_method_grants WHERE auth_method_id = $1`, methodID); err != nil {
-				return err
-			}
-			if err := insertGrants(ctx, q, methodID, in.Grants); err != nil {
-				return err
-			}
+		if err := insertGrants(ctx, tx, methodID, in.Grants); err != nil {
+			return err
 		}
+	}
 
-		return nil
-	})
+	return tx.Commit()
 }
 
 func (s *AuthMethodsStore) DeleteAuthMethod(ctx context.Context, projectID, methodID uuid.UUID) error {

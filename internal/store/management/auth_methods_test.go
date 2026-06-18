@@ -29,10 +29,9 @@ func TestAuthMethodsStore(t *testing.T) {
 
 	t.Run("creates an api_key method with grants, secret shown once", func(t *testing.T) {
 		created, err := db.CreateAuthMethod(ctx, projectID, CreateAuthMethodInput{
-			Type:  MethodTypeAPIKey,
-			Name:  "web key",
-			Role:  "client",
-			Scope: ptr.To(ScopePublic),
+			Type: MethodTypeAPIKey,
+			Name: "web key",
+			Role: "client",
 			Grants: []Grant{
 				{Resource: "events", Verb: "create"},
 				{Resource: "users", Verb: "update"},
@@ -40,14 +39,11 @@ func TestAuthMethodsStore(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.NotNil(t, created.Secret)
-		assert.True(t, strings.HasPrefix(*created.Secret, "pk_"))
+		assert.True(t, strings.HasPrefix(*created.Secret, "sk_"))
 
 		got, err := db.GetAuthMethod(ctx, projectID, created.ID)
 		require.NoError(t, err)
 		assert.Nil(t, got.Secret, "reads never expose the plaintext")
-		require.NotNil(t, got.SecretPrefix)
-		require.NotNil(t, got.Scope)
-		assert.Equal(t, ScopePublic, *got.Scope)
 		assert.Equal(t, SubjectScopeAll, got.SubjectScope, "defaults to all")
 		assert.ElementsMatch(t, created.Grants, got.Grants)
 		assert.Len(t, got.Grants, 2)
