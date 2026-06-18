@@ -68,6 +68,11 @@ type RateLimit struct {
 	// ClientPerMinute is the number of client API requests permitted per minute
 	// per access policy (or per IP for unauthenticated requests).
 	ClientPerMinute int `env:"CLIENT_PER_MINUTE" envDefault:"600"`
+	// TrustedProxyHops is the number of reverse proxies in front of the server.
+	// X-Forwarded-For is honored only up to this many hops when deriving the
+	// client IP for unauthenticated rate limiting; 0 (the default) ignores the
+	// spoofable header and uses the connection's remote address.
+	TrustedProxyHops int `env:"TRUSTED_PROXY_HOPS" envDefault:"0"`
 }
 
 type Nats struct {

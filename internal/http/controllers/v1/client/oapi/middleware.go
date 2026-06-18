@@ -33,8 +33,11 @@ func Validator(spec *openapi3.T, options openapi3filter.Options) func(next http.
 // strictly bearer-authenticated (no cookies), so credentials are disabled and a
 // wildcard origin is safe: a bearer token is never sent ambiently by the
 // browser, so a wildcard cannot be abused the way it can with cookie auth.
-// Per-policy origin allow-listing is enforced after authentication, against the
-// resolved access policy, rather than here.
+//
+// Public keys are intentionally usable from any origin (they are embedded in
+// browser apps, like a publishable key); they are constrained by being
+// write-only, event-allow-listed and own-data scoped, not by origin. There is
+// deliberately no per-policy origin allow-list.
 func CORS() func(next http.Handler) http.Handler {
 	return cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"*"},
@@ -50,12 +53,15 @@ func CORS() func(next http.Handler) http.Handler {
 // budget) and falls back to the client IP for unauthenticated traffic. It must
 // run after authentication so the actor is available on the context.
 //
+// trustedProxyHops is the number of reverse proxies in front of the server; it
+// controls how the client IP is derived from X-Forwarded-For (see clientIP).
+//
 // The limiter fails open on Redis errors (see ratelimit.Limiter), so an
 // unavailable Redis never blocks legitimate traffic.
-func RateLimit(limiter *ratelimit.Limiter, limit int, window time.Duration) func(next http.Handler) http.Handler {
+func RateLimit(limiter *ratelimit.Limiter, limit int, window time.Duration, trustedProxyHops int) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			allowed, retryAfter, _ := limiter.Allow(r.Context(), rateLimitKey(r), limit, window)
+			allowed, retryAfter, _ := limiter.Allow(r.Context(), rateLimitKey(r, trustedProxyHops), limit, window)
 			if !allowed {
 				w.Header().Set("Retry-After", strconv.Itoa(int(math.Ceil(retryAfter.Seconds()))))
 				WriteProblem(w, problem.ErrTooManyRequests())
@@ -66,25 +72,46 @@ func RateLimit(limiter *ratelimit.Limiter, limit int, window time.Duration) func
 	}
 }
 
-// rateLimitKey identifies the rate-limit bucket for a request: the access
-// policy id when authenticated, otherwise the client IP.
-func rateLimitKey(r *http.Request) string {
+// rateLimitKey identifies the rate-limit bucket for a request: the access policy
+// id when authenticated, otherwise the client IP.
+func rateLimitKey(r *http.Request, trustedProxyHops int) string {
 	if actor := rbac.FromContext(r.Context()); actor != nil && actor.ID != "" {
 		return "client:key:" + actor.ID
 	}
-	return "client:ip:" + clientIP(r)
+	return "client:ip:" + clientIP(r, trustedProxyHops)
 }
 
-// clientIP returns the originating client IP, preferring the first hop in
-// X-Forwarded-For and falling back to the connection's remote address.
-func clientIP(r *http.Request) string {
+// clientIP returns the originating client IP. X-Forwarded-For is attacker-
+// controlled, so it is only trusted up to trustedProxyHops entries (the reverse
+// proxies the operator runs): the client IP is the hop immediately to the left
+// of those trusted proxies in the chain [XFF..., RemoteAddr]. When
+// trustedProxyHops is 0 the header is ignored entirely and the connection's
+// remote address is used.
+func clientIP(r *http.Request, trustedProxyHops int) string {
+	remote := r.RemoteAddr
+	if host, _, err := net.SplitHostPort(remote); err == nil {
+		remote = host
+	}
+	if trustedProxyHops <= 0 {
+		return remote
+	}
+
+	// Chain runs originator → … → closest proxy: the X-Forwarded-For entries in
+	// order, then the direct peer (the right-most, most-trusted hop).
+	var chain []string
 	if fwd := r.Header.Get("X-Forwarded-For"); fwd != "" {
-		if first := strings.TrimSpace(strings.SplitN(fwd, ",", 2)[0]); first != "" {
-			return first
+		for _, hop := range strings.Split(fwd, ",") {
+			if hop = strings.TrimSpace(hop); hop != "" {
+				chain = append(chain, hop)
+			}
 		}
 	}
-	if host, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
-		return host
+	chain = append(chain, remote)
+
+	// Strip the trusted proxies from the right; the next hop is the client.
+	idx := len(chain) - 1 - trustedProxyHops
+	if idx < 0 {
+		idx = 0
 	}
-	return r.RemoteAddr
+	return chain[idx]
 }

@@ -102,7 +102,7 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *st
 				}),
 				// Runs after the validator (and thus after authentication) so
 				// the limiter can key on the authenticated access policy.
-				clientoapi.RateLimit(limiter, cfg.RateLimit.ClientPerMinute, time.Minute),
+				clientoapi.RateLimit(limiter, cfg.RateLimit.ClientPerMinute, time.Minute, cfg.RateLimit.TrustedProxyHops),
 			},
 		})
 	})
