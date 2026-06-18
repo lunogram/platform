@@ -185,6 +185,11 @@ func (srv *ScheduledController) UpsertOrganizationScheduledClient(w http.Respons
 
 	ctx := r.Context()
 
+	if err := requireCrossSubjectAccess(ctx); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	var req oapi.UpsertOrganizationScheduledRequest
 	err = json.Decode(r.Body, &req)
 	if err != nil {
@@ -282,6 +287,11 @@ func (srv *ScheduledController) DeleteOrganizationScheduledClient(w http.Respons
 	}
 
 	ctx := r.Context()
+
+	if err := requireCrossSubjectAccess(ctx); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
 
 	var req oapi.DeleteOrganizationScheduledRequest
 	err = json.Decode(r.Body, &req)

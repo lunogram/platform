@@ -3,6 +3,7 @@ package v1
 import (
 	"context"
 
+	"github.com/lunogram/platform/internal/http/problem"
 	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/store/subjects"
 )
@@ -28,4 +29,16 @@ func boundUserIdentifiers(ctx context.Context, supplied []subjects.ExternalIDPar
 func isOwnDataScoped(ctx context.Context) bool {
 	actor := rbac.FromContext(ctx)
 	return actor != nil && actor.OwnData
+}
+
+// requireCrossSubjectAccess returns a problem when an own-data actor targets an
+// endpoint that acts beyond a single verified subject (e.g. anything
+// organization-scoped). "Own data" has no meaning for an organization, so rather
+// than silently letting a confined end user act across a whole organization
+// these requests fail closed.
+func requireCrossSubjectAccess(ctx context.Context) error {
+	if isOwnDataScoped(ctx) {
+		return problem.ErrForbidden(problem.Describe("end users may only access their own data"))
+	}
+	return nil
 }

@@ -30,6 +30,11 @@ func (srv *OrganizationsController) UpsertOrganizationClient(w http.ResponseWrit
 
 	ctx := r.Context()
 
+	if err := requireCrossSubjectAccess(ctx); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	var req oapi.OrganizationRequest
 	err = json.Decode(r.Body, &req)
 	if err != nil {
@@ -116,6 +121,11 @@ func (srv *OrganizationsController) DeleteOrganizationClient(w http.ResponseWrit
 
 	ctx := r.Context()
 
+	if err := requireCrossSubjectAccess(ctx); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	var req oapi.DeleteOrganizationRequest
 	err = json.Decode(r.Body, &req)
 	if err != nil {
@@ -161,6 +171,11 @@ func (srv *OrganizationsController) AddOrganizationUserClient(w http.ResponseWri
 	}
 
 	ctx := r.Context()
+
+	if err := requireCrossSubjectAccess(ctx); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
 
 	var req oapi.OrganizationUserRequest
 	err = json.Decode(r.Body, &req)
@@ -259,6 +274,11 @@ func (srv *OrganizationsController) RemoveOrganizationUserClient(w http.Response
 	}
 
 	ctx := r.Context()
+
+	if err := requireCrossSubjectAccess(ctx); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
 
 	var req oapi.RemoveOrganizationUserRequest
 	err = json.Decode(r.Body, &req)
