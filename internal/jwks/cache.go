@@ -109,7 +109,7 @@ type Cache struct {
 func New(cfg Config, store Store, fetcher Fetcher, logger *zap.Logger) *Cache {
 	cfg = cfg.withDefaults()
 	if fetcher == nil {
-		fetcher = &httpFetcher{timeout: cfg.FetchTimeout}
+		fetcher = &httpFetcher{timeout: cfg.FetchTimeout, client: safeHTTPClient(cfg.FetchTimeout)}
 	}
 	return &Cache{
 		cfg:     cfg,
@@ -257,9 +257,11 @@ func boolKey(b bool) string {
 	return ""
 }
 
-// httpFetcher fetches JWKS over HTTP with a per-request timeout.
+// httpFetcher fetches JWKS over HTTP with a per-request timeout, using an
+// SSRF-hardened client (see safeHTTPClient).
 type httpFetcher struct {
 	timeout time.Duration
+	client  *http.Client
 }
 
 func (f *httpFetcher) Fetch(ctx context.Context, url string) ([]byte, error) {
@@ -270,7 +272,7 @@ func (f *httpFetcher) Fetch(ctx context.Context, url string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := f.client.Do(req)
 	if err != nil {
 		return nil, err
 	}
