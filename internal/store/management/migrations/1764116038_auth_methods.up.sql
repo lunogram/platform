@@ -20,14 +20,16 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 CREATE TABLE auth_methods (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-    type VARCHAR(32) NOT NULL,
+    type VARCHAR(32) NOT NULL CHECK (type IN ('api_key', 'trusted_issuer', 'session')),
     name VARCHAR(255) NOT NULL,
     description VARCHAR(2048),
     role VARCHAR(64) NOT NULL DEFAULT 'support',
     -- Data boundary: 'all' acts across every subject's records (backend keys),
     -- 'own' confines a verified end-user to their own records. Only meaningful
     -- for verified-subject types (trusted_issuer, session); api_key is 'all'.
-    subject_scope VARCHAR(8) NOT NULL DEFAULT 'all',
+    -- Constrained because an out-of-band value other than 'own' would silently
+    -- fail open to acting across all subjects.
+    subject_scope VARCHAR(8) NOT NULL DEFAULT 'all' CHECK (subject_scope IN ('all', 'own')),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at TIMESTAMPTZ
