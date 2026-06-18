@@ -74,6 +74,20 @@ API keys have no verified subject, so they always act across all data; their rea
 
 ---
 
+## Client event allow-list
+
+Each project can restrict which event names untrusted clients may emit. It applies to **public API keys** and **verified end users** (trusted-issuer and session requests) calling `POST /api/client/events` and the organization events endpoint; trusted **secret** keys are exempt.
+
+| Allow-list | Behaviour |
+|------------|-----------|
+| **Not set** (default) | Untrusted clients may emit any event name. |
+| **Configured** | Only the listed event names are accepted; any other name is rejected with `403`. |
+| **Empty** | Untrusted clients may emit no events at all. |
+
+Enforcement is server-side and fails closed. The allow-list is configured through the Management API on the project; there is no console UI for it yet.
+
+---
+
 ## Roles
 
 Every auth method is assigned a role that determines what it can access. Roles are additive — each higher level includes the permissions below it.
