@@ -9070,12 +9070,6 @@ components:
               items:
                 $ref: "#/components/schemas/ProjectAdmin"
 
-    ApiKeyScope:
-      type: string
-      enum: [public, secret]
-      description: API key scope - public keys are safe to expose in client-side code
-      example: secret
-
     SubjectScope:
       type: string
       enum: [all, own]
@@ -9110,6 +9104,17 @@ components:
           enum: [read, create, update, delete]
           example: read
 
+    ClaimMapping:
+      type: object
+      description: >-
+        Maps identity fields to the JWT claims that carry them. Each field names
+        the claim to read; values follow the JWT spec (e.g. `sub`).
+      properties:
+        sub:
+          type: string
+          description: JWT claim carrying the external user id (defaults to "sub").
+          example: sub
+
     TrustedIssuer:
       type: object
       description: External-JWT validation config for a trusted_issuer method. Exactly one of jwks_url or public_cert is set.
@@ -9126,10 +9131,8 @@ components:
         aud:
           type: string
           example: "lunogram"
-        subject_claim:
-          type: string
-          description: JWT claim carrying the external user id (defaults to "sub").
-          example: sub
+        claim:
+          $ref: "#/components/schemas/ClaimMapping"
 
     SessionConfig:
       type: object
@@ -9172,8 +9175,6 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/PermissionGrant"
-        scope:
-          $ref: "#/components/schemas/ApiKeyScope"
         trusted_issuer:
           $ref: "#/components/schemas/TrustedIssuer"
         session:
@@ -9211,8 +9212,6 @@ components:
           description: Custom permission set. When set, takes precedence over the role preset.
           items:
             $ref: "#/components/schemas/PermissionGrant"
-        scope:
-          $ref: "#/components/schemas/ApiKeyScope"
         trusted_issuer:
           $ref: "#/components/schemas/TrustedIssuer"
         session:

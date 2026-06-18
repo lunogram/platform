@@ -4410,12 +4410,6 @@ export interface components {
             results: components["schemas"]["ProjectAdmin"][];
         };
         /**
-         * @description API key scope - public keys are safe to expose in client-side code
-         * @example secret
-         * @enum {string}
-         */
-        ApiKeyScope: "public" | "secret";
-        /**
          * @description Data boundary for an auth method. "all" acts across every subject's records; "own" confines a verified end user to their own records. Only meaningful for verified-subject types (trusted_issuer, session); api_key is always "all".
          * @example own
          * @enum {string}
@@ -4439,6 +4433,14 @@ export interface components {
              */
             verb: "read" | "create" | "update" | "delete";
         };
+        /** @description Maps identity fields to the JWT claims that carry them. Each field names the claim to read; values follow the JWT spec (e.g. `sub`). */
+        ClaimMapping: {
+            /**
+             * @description JWT claim carrying the external user id (defaults to "sub").
+             * @example sub
+             */
+            sub?: string;
+        };
         /** @description External-JWT validation config for a trusted_issuer method. Exactly one of jwks_url or public_cert is set. */
         TrustedIssuer: {
             /** @example https://acme.example/.well-known/jwks.json */
@@ -4449,11 +4451,7 @@ export interface components {
             iss?: string;
             /** @example lunogram */
             aud?: string;
-            /**
-             * @description JWT claim carrying the external user id (defaults to "sub").
-             * @example sub
-             */
-            subject_claim?: string;
+            claim?: components["schemas"]["ClaimMapping"];
         };
         /** @description Config for a session method. */
         SessionConfig: {
@@ -4475,7 +4473,6 @@ export interface components {
             role: components["schemas"]["ProjectRole"];
             subject_scope?: components["schemas"]["SubjectScope"];
             grants?: components["schemas"]["PermissionGrant"][];
-            scope?: components["schemas"]["ApiKeyScope"];
             trusted_issuer?: components["schemas"]["TrustedIssuer"];
             session?: components["schemas"]["SessionConfig"];
             /**
@@ -4496,7 +4493,6 @@ export interface components {
             subject_scope?: components["schemas"]["SubjectScope"];
             /** @description Custom permission set. When set, takes precedence over the role preset. */
             grants?: components["schemas"]["PermissionGrant"][];
-            scope?: components["schemas"]["ApiKeyScope"];
             trusted_issuer?: components["schemas"]["TrustedIssuer"];
             session?: components["schemas"]["SessionConfig"];
         };

@@ -25,24 +25,6 @@ const (
 	HttpBearerAuthScopes httpBearerAuthContextKey = "HttpBearerAuth.Scopes"
 )
 
-// Defines values for ApiKeyScope.
-const (
-	Public ApiKeyScope = "public"
-	Secret ApiKeyScope = "secret"
-)
-
-// Valid indicates whether the value is a known member of the ApiKeyScope enum.
-func (e ApiKeyScope) Valid() bool {
-	switch e {
-	case Public:
-		return true
-	case Secret:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for AuthMethodType.
 const (
 	AuthMethodTypeApiKey        AuthMethodType = "api_key"
@@ -760,9 +742,6 @@ type AdminList struct {
 	Total int `json:"total"`
 }
 
-// ApiKeyScope API key scope - public keys are safe to expose in client-side code
-type ApiKeyScope string
-
 // AuthCallbackRequest defines model for AuthCallbackRequest.
 type AuthCallbackRequest struct {
 	// Email Email address (required for basic auth)
@@ -786,9 +765,6 @@ type AuthMethod struct {
 
 	// Role Role within a project
 	Role ProjectRole `json:"role"`
-
-	// Scope API key scope - public keys are safe to expose in client-side code
-	Scope *ApiKeyScope `json:"scope,omitempty"`
 
 	// Secret The full secret value. Returned only once, in the response to
 	// creating an api_key method, and never again.
@@ -905,6 +881,12 @@ type CampaignVariable struct {
 // Channel Communication channel type
 type Channel string
 
+// ClaimMapping Maps identity fields to the JWT claims that carry them. Each field names the claim to read; values follow the JWT spec (e.g. `sub`).
+type ClaimMapping struct {
+	// Sub JWT claim carrying the external user id (defaults to "sub").
+	Sub *string `json:"sub,omitempty"`
+}
+
 // CreateAction defines model for CreateAction.
 type CreateAction struct {
 	// Config Action configuration (varies by type)
@@ -935,9 +917,6 @@ type CreateAuthMethod struct {
 
 	// Role Role within a project
 	Role *ProjectRole `json:"role,omitempty"`
-
-	// Scope API key scope - public keys are safe to expose in client-side code
-	Scope *ApiKeyScope `json:"scope,omitempty"`
 
 	// Session Config for a session method.
 	Session *SessionConfig `json:"session,omitempty"`
@@ -1932,15 +1911,15 @@ type TestActionResult struct {
 
 // TrustedIssuer External-JWT validation config for a trusted_issuer method. Exactly one of jwks_url or public_cert is set.
 type TrustedIssuer struct {
-	Aud     *string `json:"aud,omitempty"`
-	Iss     *string `json:"iss,omitempty"`
-	JwksUrl *string `json:"jwks_url,omitempty"`
+	Aud *string `json:"aud,omitempty"`
+
+	// Claim Maps identity fields to the JWT claims that carry them. Each field names the claim to read; values follow the JWT spec (e.g. `sub`).
+	Claim   *ClaimMapping `json:"claim,omitempty"`
+	Iss     *string       `json:"iss,omitempty"`
+	JwksUrl *string       `json:"jwks_url,omitempty"`
 
 	// PublicCert PEM-encoded public certificate (alternative to jwks_url).
 	PublicCert *string `json:"public_cert,omitempty"`
-
-	// SubjectClaim JWT claim carrying the external user id (defaults to "sub").
-	SubjectClaim *string `json:"subject_claim,omitempty"`
 }
 
 // UpdateAction defines model for UpdateAction.

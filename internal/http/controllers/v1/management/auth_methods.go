@@ -164,11 +164,6 @@ func (srv *AuthMethodsController) UpdateAuthMethod(w http.ResponseWriter, r *htt
 		in.SubjectScope = ptr.To(subjectScope)
 	}
 
-	if err := enforcePublicWriteOnly(existing.Scope, in.Role, in.Grants); err != nil {
-		oapi.WriteProblem(w, err)
-		return
-	}
-
 	if err := srv.store.UpdateAuthMethod(ctx, projectID, methodID, in); err != nil {
 		srv.logger.Error("failed to update auth method", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -298,15 +293,12 @@ func (srv *AuthMethodsController) reprovision(ctx context.Context, old, updated 
 }
 
 // buildCreateAuthMethodInput validates a create request and maps it to a store
-// input, enforcing the public-key write-only invariant.
+// input.
 func buildCreateAuthMethodInput(body oapi.CreateAuthMethod) (management.CreateAuthMethodInput, error) {
 	in := management.CreateAuthMethodInput{
 		Type:        management.MethodType(body.Type),
 		Name:        body.Name,
 		Description: body.Description,
-	}
-	if body.Scope != nil {
-		in.Scope = ptr.To(string(*body.Scope))
 	}
 	if body.Grants != nil {
 		in.Grants = toStoreGrants(*body.Grants)
@@ -317,7 +309,7 @@ func buildCreateAuthMethodInput(body oapi.CreateAuthMethod) (management.CreateAu
 			PublicCert:   ptr.From(body.TrustedIssuer.PublicCert),
 			Issuer:       ptr.From(body.TrustedIssuer.Iss),
 			Audience:     ptr.From(body.TrustedIssuer.Aud),
-			SubjectClaim: ptr.From(body.TrustedIssuer.SubjectClaim),
+			SubjectClaim: claimSub(body.TrustedIssuer.Claim),
 		}
 	}
 	if body.Session != nil {
@@ -327,11 +319,6 @@ func buildCreateAuthMethodInput(body oapi.CreateAuthMethod) (management.CreateAu
 	role := rbac.ProjectSupport
 	if body.Role != nil {
 		role = string(*body.Role)
-	}
-	// Public keys are browser-exposed: default to the write-only client preset
-	// and reject any read access.
-	if in.Scope != nil && *in.Scope == management.ScopePublic && body.Role == nil {
-		role = rbac.ProjectClient
 	}
 	in.Role = role
 
@@ -347,11 +334,17 @@ func buildCreateAuthMethodInput(body oapi.CreateAuthMethod) (management.CreateAu
 	if err := validateGrants(in.Grants); err != nil {
 		return in, err
 	}
-	if err := enforcePublicWriteOnly(in.Scope, &role, in.Grants); err != nil {
-		return in, err
-	}
 
 	return in, nil
+}
+
+// claimSub reads the subject claim from the API claim mapping; empty lets the
+// store apply its "sub" default.
+func claimSub(claim *oapi.ClaimMapping) string {
+	if claim == nil {
+		return ""
+	}
+	return ptr.From(claim.Sub)
 }
 
 // validateTypeConfig rejects a create request whose credential config does not
@@ -446,7 +439,7 @@ func validateGrants(grants []management.Grant) error {
 // subjectScopeFor resolves and validates the data boundary for a method. An
 // api_key has no verified subject to confine, so it is always "all"; verified
 // types (trusted_issuer, session) default to "own" and may opt into "all".
-func subjectScopeFor(t management.MethodType, requested *oapi.SubjectScope) (string, error) {
+func subjectScopeFor(t management.MethodType, requested *oapi.SubjectScope) (management.SubjectScope, error) {
 	apiKey := t == management.MethodTypeAPIKey
 	if requested == nil {
 		if apiKey {
@@ -454,29 +447,11 @@ func subjectScopeFor(t management.MethodType, requested *oapi.SubjectScope) (str
 		}
 		return management.SubjectScopeOwn, nil
 	}
-	scope := string(*requested)
+	scope := management.SubjectScope(*requested)
 	if apiKey && scope != management.SubjectScopeAll {
 		return "", problem.ErrBadRequest(problem.Describe(`api_key methods must use the "all" subject scope`))
 	}
 	return scope, nil
-}
-
-// enforcePublicWriteOnly rejects a public-scoped method that would gain any read
-// access, keeping browser-exposed keys write-only. role/grants are the values
-// being applied (nil = unchanged).
-func enforcePublicWriteOnly(scope *string, role *string, grants []management.Grant) error {
-	if scope == nil || *scope != management.ScopePublic {
-		return nil
-	}
-	if role != nil && *role != rbac.ProjectClient {
-		return problem.ErrBadRequest(problem.Describe("public methods must use the write-only client role"))
-	}
-	for _, g := range grants {
-		if g.Verb == string(rbac.Read) {
-			return problem.ErrBadRequest(problem.Describe("public methods may not be granted read access"))
-		}
-	}
-	return nil
 }
 
 func toStoreGrants(grants []oapi.PermissionGrant) []management.Grant {
@@ -516,9 +491,6 @@ func toOAPIAuthMethod(m *management.AuthMethod, withSecret bool) oapi.AuthMethod
 		}
 		out.Grants = &grants
 	}
-	if m.Scope != nil {
-		out.Scope = ptr.To(oapi.ApiKeyScope(*m.Scope))
-	}
 	if ti := m.TrustedIssuer; ti != nil {
 		issuer := &oapi.TrustedIssuer{}
 		if ti.JWKSURL != "" {
@@ -534,7 +506,7 @@ func toOAPIAuthMethod(m *management.AuthMethod, withSecret bool) oapi.AuthMethod
 			issuer.Aud = ptr.To(ti.Audience)
 		}
 		if ti.SubjectClaim != "" {
-			issuer.SubjectClaim = ptr.To(ti.SubjectClaim)
+			issuer.Claim = &oapi.ClaimMapping{Sub: ptr.To(ti.SubjectClaim)}
 		}
 		out.TrustedIssuer = issuer
 	}

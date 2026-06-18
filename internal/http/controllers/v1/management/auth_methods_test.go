@@ -12,65 +12,32 @@ import (
 func TestBuildCreateAuthMethodInput(t *testing.T) {
 	t.Parallel()
 
-	scope := func(s oapi.ApiKeyScope) *oapi.ApiKeyScope { return &s }
-	role := func(r oapi.ProjectRole) *oapi.ProjectRole { return &r }
 	subjectScope := func(s oapi.SubjectScope) *oapi.SubjectScope { return &s }
 
-	t.Run("defaults secret keys to support", func(t *testing.T) {
+	t.Run("defaults api keys to the support role", func(t *testing.T) {
 		in, err := buildCreateAuthMethodInput(oapi.CreateAuthMethod{
-			Type:  "api_key",
-			Name:  "backend",
-			Scope: scope("secret"),
+			Type: "api_key",
+			Name: "backend",
 		})
 		require.NoError(t, err)
 		assert.Equal(t, "support", in.Role)
 	})
 
-	t.Run("defaults public keys to the write-only client role", func(t *testing.T) {
-		in, err := buildCreateAuthMethodInput(oapi.CreateAuthMethod{
-			Type:  "api_key",
-			Name:  "web",
-			Scope: scope("public"),
-		})
-		require.NoError(t, err)
-		assert.Equal(t, "client", in.Role)
-	})
-
-	t.Run("rejects a public key with a readable role", func(t *testing.T) {
-		_, err := buildCreateAuthMethodInput(oapi.CreateAuthMethod{
-			Type:  "api_key",
-			Name:  "web",
-			Scope: scope("public"),
-			Role:  role("editor"),
-		})
-		assert.Error(t, err)
-	})
-
-	t.Run("rejects a public key granted read access", func(t *testing.T) {
-		_, err := buildCreateAuthMethodInput(oapi.CreateAuthMethod{
-			Type:  "api_key",
-			Name:  "web",
-			Scope: scope("public"),
-			Grants: &[]oapi.PermissionGrant{
-				{Resource: "inbox", Verb: "read"},
-			},
-		})
-		assert.Error(t, err)
-	})
-
-	t.Run("maps trusted-issuer config", func(t *testing.T) {
+	t.Run("maps trusted-issuer config including the subject claim", func(t *testing.T) {
 		in, err := buildCreateAuthMethodInput(oapi.CreateAuthMethod{
 			Type: "trusted_issuer",
 			Name: "idp",
 			TrustedIssuer: &oapi.TrustedIssuer{
 				JwksUrl: ptr.To("https://idp.example/jwks.json"),
 				Iss:     ptr.To("https://idp.example"),
+				Claim:   &oapi.ClaimMapping{Sub: ptr.To("user_id")},
 			},
 		})
 		require.NoError(t, err)
 		require.NotNil(t, in.TrustedIssuer)
 		assert.Equal(t, "https://idp.example/jwks.json", in.TrustedIssuer.JWKSURL)
 		assert.Equal(t, "https://idp.example", in.TrustedIssuer.Issuer)
+		assert.Equal(t, "user_id", in.TrustedIssuer.SubjectClaim)
 	})
 
 	t.Run("api keys default to the all subject scope", func(t *testing.T) {
@@ -79,7 +46,7 @@ func TestBuildCreateAuthMethodInput(t *testing.T) {
 			Name: "backend",
 		})
 		require.NoError(t, err)
-		assert.Equal(t, "all", in.SubjectScope)
+		assert.Equal(t, "all", string(in.SubjectScope))
 	})
 
 	t.Run("verified types default to the own subject scope", func(t *testing.T) {
@@ -89,7 +56,7 @@ func TestBuildCreateAuthMethodInput(t *testing.T) {
 			Session: &oapi.SessionConfig{TtlSeconds: ptr.To(900)},
 		})
 		require.NoError(t, err)
-		assert.Equal(t, "own", in.SubjectScope)
+		assert.Equal(t, "own", string(in.SubjectScope))
 	})
 
 	t.Run("a verified type may opt into the all subject scope", func(t *testing.T) {
@@ -103,7 +70,7 @@ func TestBuildCreateAuthMethodInput(t *testing.T) {
 			},
 		})
 		require.NoError(t, err)
-		assert.Equal(t, "all", in.SubjectScope)
+		assert.Equal(t, "all", string(in.SubjectScope))
 	})
 
 	t.Run("rejects an api key confined to own data", func(t *testing.T) {
