@@ -3,7 +3,9 @@ package v1
 import (
 	"context"
 	"errors"
+	"net"
 	"net/http"
+	"net/url"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -34,9 +36,7 @@ type AuthMethodsController struct {
 
 func (srv *AuthMethodsController) CreateAuthMethod(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
 	ctx := r.Context()
-	actor := rbac.FromContext(ctx)
-	if err := srv.engine.Allowed(ctx, rbac.Create, rbac.OrganizationScope(actor.OrganizationID)); err != nil {
-		oapi.WriteProblem(w, err)
+	if !srv.authorizeProject(ctx, w, projectID, rbac.Create) {
 		return
 	}
 
@@ -62,8 +62,14 @@ func (srv *AuthMethodsController) CreateAuthMethod(w http.ResponseWriter, r *htt
 		return
 	}
 
+	// RBAC tuples live in OpenFGA, outside the store transaction. If
+	// provisioning fails, roll the method back so we never leave a usable
+	// credential without its authorization.
 	if err := srv.provision(ctx, method); err != nil {
-		logger.Error("failed to provision RBAC for auth method", zap.Error(err))
+		logger.Error("failed to provision RBAC for auth method, rolling back", zap.Error(err))
+		if delErr := srv.store.DeleteAuthMethod(ctx, projectID, method.ID); delErr != nil {
+			logger.Error("failed to roll back auth method after provisioning error", zap.Stringer("method_id", method.ID), zap.Error(delErr))
+		}
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -74,9 +80,7 @@ func (srv *AuthMethodsController) CreateAuthMethod(w http.ResponseWriter, r *htt
 
 func (srv *AuthMethodsController) ListAuthMethods(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, params oapi.ListAuthMethodsParams) {
 	ctx := r.Context()
-	actor := rbac.FromContext(ctx)
-	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.OrganizationScope(actor.OrganizationID)); err != nil {
-		oapi.WriteProblem(w, err)
+	if !srv.authorizeProject(ctx, w, projectID, rbac.Read) {
 		return
 	}
 
@@ -103,9 +107,7 @@ func (srv *AuthMethodsController) ListAuthMethods(w http.ResponseWriter, r *http
 
 func (srv *AuthMethodsController) GetAuthMethod(w http.ResponseWriter, r *http.Request, projectID, methodID uuid.UUID) {
 	ctx := r.Context()
-	actor := rbac.FromContext(ctx)
-	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.OrganizationScope(actor.OrganizationID)); err != nil {
-		oapi.WriteProblem(w, err)
+	if !srv.authorizeProject(ctx, w, projectID, rbac.Read) {
 		return
 	}
 
@@ -119,9 +121,7 @@ func (srv *AuthMethodsController) GetAuthMethod(w http.ResponseWriter, r *http.R
 
 func (srv *AuthMethodsController) UpdateAuthMethod(w http.ResponseWriter, r *http.Request, projectID, methodID uuid.UUID) {
 	ctx := r.Context()
-	actor := rbac.FromContext(ctx)
-	if err := srv.engine.Allowed(ctx, rbac.Update, rbac.OrganizationScope(actor.OrganizationID)); err != nil {
-		oapi.WriteProblem(w, err)
+	if !srv.authorizeProject(ctx, w, projectID, rbac.Update) {
 		return
 	}
 
@@ -141,7 +141,19 @@ func (srv *AuthMethodsController) UpdateAuthMethod(w http.ResponseWriter, r *htt
 		in.Role = ptr.To(string(*body.Role))
 	}
 	if body.Grants != nil {
-		in.Grants = toStoreGrants(*body.Grants)
+		grants := toStoreGrants(*body.Grants)
+		if err := validateGrants(grants); err != nil {
+			oapi.WriteProblem(w, err)
+			return
+		}
+		in.Grants = grants
+	}
+	// A role preset and a custom grant set are mutually exclusive effective
+	// scopes. Selecting a role without an explicit grant set clears any existing
+	// grants so the role actually takes effect ([]Grant{} clears, nil leaves
+	// unchanged).
+	if body.Role != nil && body.Grants == nil {
+		in.Grants = []management.Grant{}
 	}
 	if body.SubjectScope != nil {
 		subjectScope, err := subjectScopeFor(existing.Type, body.SubjectScope)
@@ -170,13 +182,8 @@ func (srv *AuthMethodsController) UpdateAuthMethod(w http.ResponseWriter, r *htt
 
 	// Re-provision RBAC only when the effective scope changed.
 	if body.Role != nil || body.Grants != nil {
-		if err := srv.deprovision(ctx, existing); err != nil {
-			srv.logger.Error("failed to deprovision old auth method scope", zap.Error(err))
-			oapi.WriteProblem(w, err)
-			return
-		}
-		if err := srv.provision(ctx, updated); err != nil {
-			srv.logger.Error("failed to provision new auth method scope", zap.Error(err))
+		if err := srv.reprovision(ctx, existing, updated); err != nil {
+			srv.logger.Error("failed to re-provision RBAC for auth method", zap.Stringer("method_id", methodID), zap.Error(err))
 			oapi.WriteProblem(w, err)
 			return
 		}
@@ -187,9 +194,7 @@ func (srv *AuthMethodsController) UpdateAuthMethod(w http.ResponseWriter, r *htt
 
 func (srv *AuthMethodsController) DeleteAuthMethod(w http.ResponseWriter, r *http.Request, projectID, methodID uuid.UUID) {
 	ctx := r.Context()
-	actor := rbac.FromContext(ctx)
-	if err := srv.engine.Allowed(ctx, rbac.Delete, rbac.OrganizationScope(actor.OrganizationID)); err != nil {
-		oapi.WriteProblem(w, err)
+	if !srv.authorizeProject(ctx, w, projectID, rbac.Delete) {
 		return
 	}
 
@@ -204,13 +209,43 @@ func (srv *AuthMethodsController) DeleteAuthMethod(w http.ResponseWriter, r *htt
 		return
 	}
 
+	// The method is soft-deleted and can no longer authenticate, so any tuples
+	// left behind are inert (its UUID is never reused). Log a deprovision
+	// failure for cleanup rather than failing an otherwise-successful delete.
 	if err := srv.deprovision(ctx, method); err != nil {
-		srv.logger.Error("failed to deprovision RBAC for auth method", zap.Error(err))
-		oapi.WriteProblem(w, err)
-		return
+		srv.logger.Error("failed to deprovision RBAC for deleted auth method", zap.Stringer("method_id", methodID), zap.Error(err))
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// authorizeProject verifies the actor may perform verb within its organization
+// and that projectID belongs to that organization, closing cross-organization
+// access via a guessed project id. It writes a problem response and returns
+// false when access is denied. A missing or foreign project returns 404 so its
+// existence is not revealed.
+func (srv *AuthMethodsController) authorizeProject(ctx context.Context, w http.ResponseWriter, projectID uuid.UUID, verb rbac.Permission) bool {
+	actor := rbac.FromContext(ctx)
+	if err := srv.engine.Allowed(ctx, verb, rbac.OrganizationScope(actor.OrganizationID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return false
+	}
+
+	project, err := srv.store.GetProject(ctx, projectID)
+	if errors.Is(err, store.ErrNoRows) {
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("project not found")))
+		return false
+	}
+	if err != nil {
+		srv.logger.Error("failed to load project for authorization", zap.Stringer("project_id", projectID), zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return false
+	}
+	if project.OrganizationID == nil || *project.OrganizationID != actor.OrganizationID {
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("project not found")))
+		return false
+	}
+	return true
 }
 
 // fetch loads a method, writing a problem response and returning nil when it is
@@ -243,6 +278,23 @@ func (srv *AuthMethodsController) deprovision(ctx context.Context, method *manag
 		return access.DeprovisionPolicyGrants(ctx, srv.engine, method.ID, method.ProjectID, toAccessGrants(method.Grants))
 	}
 	return access.DeprovisionApiKey(ctx, srv.engine, method.ID, method.ProjectID, method.Role)
+}
+
+// reprovision moves a method's RBAC tuples from its previous effective scope
+// (old) to the new one (updated). If provisioning the new scope fails it
+// restores the previous one, so a failed update never leaves the method without
+// authorization.
+func (srv *AuthMethodsController) reprovision(ctx context.Context, old, updated *management.AuthMethod) error {
+	if err := srv.deprovision(ctx, old); err != nil {
+		return err
+	}
+	if err := srv.provision(ctx, updated); err != nil {
+		if restoreErr := srv.provision(ctx, old); restoreErr != nil {
+			srv.logger.Error("failed to restore RBAC scope after provisioning error", zap.Stringer("method_id", old.ID), zap.Error(restoreErr))
+		}
+		return err
+	}
+	return nil
 }
 
 // buildCreateAuthMethodInput validates a create request and maps it to a store
@@ -289,11 +341,106 @@ func buildCreateAuthMethodInput(body oapi.CreateAuthMethod) (management.CreateAu
 	}
 	in.SubjectScope = subjectScope
 
+	if err := validateTypeConfig(in); err != nil {
+		return in, err
+	}
+	if err := validateGrants(in.Grants); err != nil {
+		return in, err
+	}
 	if err := enforcePublicWriteOnly(in.Scope, &role, in.Grants); err != nil {
 		return in, err
 	}
 
 	return in, nil
+}
+
+// validateTypeConfig rejects a create request whose credential config does not
+// match its type, and validates the trusted-issuer config (exactly one of
+// jwks_url / public_cert, a non-empty issuer, and a safe jwks_url).
+func validateTypeConfig(in management.CreateAuthMethodInput) error {
+	switch in.Type {
+	case management.MethodTypeAPIKey:
+		if in.TrustedIssuer != nil || in.Session != nil {
+			return problem.ErrBadRequest(problem.Describe("api_key methods must not include trusted_issuer or session config"))
+		}
+	case management.MethodTypeTrustedIssuer:
+		if in.Session != nil {
+			return problem.ErrBadRequest(problem.Describe("trusted_issuer methods must not include session config"))
+		}
+		if in.TrustedIssuer == nil {
+			return problem.ErrBadRequest(problem.Describe("trusted_issuer methods require trusted_issuer config"))
+		}
+		return validateTrustedIssuer(in.TrustedIssuer)
+	case management.MethodTypeSession:
+		if in.TrustedIssuer != nil {
+			return problem.ErrBadRequest(problem.Describe("session methods must not include trusted_issuer config"))
+		}
+	default:
+		return problem.ErrBadRequest(problem.Describe("unknown auth method type: " + string(in.Type)))
+	}
+	return nil
+}
+
+func validateTrustedIssuer(ti *management.TrustedIssuer) error {
+	if ti.Issuer == "" {
+		return problem.ErrBadRequest(problem.Describe("trusted_issuer requires iss"))
+	}
+	hasJWKS, hasCert := ti.JWKSURL != "", ti.PublicCert != ""
+	if hasJWKS == hasCert {
+		return problem.ErrBadRequest(problem.Describe("trusted_issuer requires exactly one of jwks_url or public_cert"))
+	}
+	if hasJWKS {
+		if err := validateJWKSURL(ti.JWKSURL); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// validateJWKSURL is a cheap up-front guard rejecting an obviously-unsafe JWKS
+// URL at configuration time: it must be an https URL whose host is not a
+// private/loopback/link-local literal. The authoritative SSRF protection (which
+// also covers DNS rebinding) is the dial-time guard in the jwks fetcher.
+func validateJWKSURL(raw string) error {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return problem.ErrBadRequest(problem.Describe("invalid jwks_url"))
+	}
+	if u.Scheme != "https" {
+		return problem.ErrBadRequest(problem.Describe("jwks_url must use https"))
+	}
+	host := u.Hostname()
+	if host == "" {
+		return problem.ErrBadRequest(problem.Describe("jwks_url must have a host"))
+	}
+	if ip := net.ParseIP(host); ip != nil &&
+		(ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsUnspecified()) {
+		return problem.ErrBadRequest(problem.Describe("jwks_url host is not a public address"))
+	}
+	return nil
+}
+
+// validateGrants rejects a custom permission set referencing an unknown resource
+// or verb, which would otherwise write a tuple that silently never resolves.
+func validateGrants(grants []management.Grant) error {
+	if len(grants) == 0 {
+		return nil
+	}
+	resources := make(map[string]struct{}, len(rbac.Resources()))
+	for _, r := range rbac.Resources() {
+		resources[r] = struct{}{}
+	}
+	for _, g := range grants {
+		if _, ok := resources[g.Resource]; !ok {
+			return problem.ErrBadRequest(problem.Describe("unknown grant resource: " + g.Resource))
+		}
+		switch rbac.Permission(g.Verb) {
+		case rbac.Read, rbac.Create, rbac.Update, rbac.Delete:
+		default:
+			return problem.ErrBadRequest(problem.Describe("unknown grant verb: " + g.Verb))
+		}
+	}
+	return nil
 }
 
 // subjectScopeFor resolves and validates the data boundary for a method. An

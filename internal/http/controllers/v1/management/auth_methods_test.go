@@ -114,4 +114,69 @@ func TestBuildCreateAuthMethodInput(t *testing.T) {
 		})
 		assert.Error(t, err)
 	})
+
+	t.Run("rejects an api key carrying trusted-issuer config", func(t *testing.T) {
+		_, err := buildCreateAuthMethodInput(oapi.CreateAuthMethod{
+			Type:          "api_key",
+			Name:          "backend",
+			TrustedIssuer: &oapi.TrustedIssuer{Iss: ptr.To("https://idp.example")},
+		})
+		assert.Error(t, err)
+	})
+
+	t.Run("rejects a trusted issuer with no jwks_url or public_cert", func(t *testing.T) {
+		_, err := buildCreateAuthMethodInput(oapi.CreateAuthMethod{
+			Type:          "trusted_issuer",
+			Name:          "idp",
+			TrustedIssuer: &oapi.TrustedIssuer{Iss: ptr.To("https://idp.example")},
+		})
+		assert.Error(t, err)
+	})
+
+	t.Run("rejects a trusted issuer with both jwks_url and public_cert", func(t *testing.T) {
+		_, err := buildCreateAuthMethodInput(oapi.CreateAuthMethod{
+			Type: "trusted_issuer",
+			Name: "idp",
+			TrustedIssuer: &oapi.TrustedIssuer{
+				Iss:        ptr.To("https://idp.example"),
+				JwksUrl:    ptr.To("https://idp.example/jwks.json"),
+				PublicCert: ptr.To("-----BEGIN CERTIFICATE-----"),
+			},
+		})
+		assert.Error(t, err)
+	})
+
+	t.Run("rejects a trusted issuer with an unsafe jwks_url", func(t *testing.T) {
+		_, err := buildCreateAuthMethodInput(oapi.CreateAuthMethod{
+			Type: "trusted_issuer",
+			Name: "idp",
+			TrustedIssuer: &oapi.TrustedIssuer{
+				Iss:     ptr.To("https://idp.example"),
+				JwksUrl: ptr.To("http://169.254.169.254/jwks.json"),
+			},
+		})
+		assert.Error(t, err)
+	})
+
+	t.Run("rejects a grant referencing an unknown resource", func(t *testing.T) {
+		_, err := buildCreateAuthMethodInput(oapi.CreateAuthMethod{
+			Type: "api_key",
+			Name: "backend",
+			Grants: &[]oapi.PermissionGrant{
+				{Resource: "not_a_resource", Verb: "read"},
+			},
+		})
+		assert.Error(t, err)
+	})
+
+	t.Run("accepts a grant referencing a known resource and verb", func(t *testing.T) {
+		_, err := buildCreateAuthMethodInput(oapi.CreateAuthMethod{
+			Type: "api_key",
+			Name: "backend",
+			Grants: &[]oapi.PermissionGrant{
+				{Resource: "inbox", Verb: "read"},
+			},
+		})
+		require.NoError(t, err)
+	})
 }
