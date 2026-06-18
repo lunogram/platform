@@ -25,7 +25,6 @@ type ApiKey struct {
 	ID           uuid.UUID `db:"id"`
 	ProjectID    uuid.UUID `db:"project_id"`
 	SecretPrefix string    `db:"secret_prefix"`
-	Scope        *string   `db:"scope"`
 	Name         string    `db:"name"`
 	Description  *string   `db:"description"`
 	Role         string    `db:"role"`
@@ -55,10 +54,6 @@ func (k *ApiKey) OAPI() oapi.ApiKey {
 		UpdatedAt: k.UpdatedAt,
 	}
 
-	if k.Scope != nil {
-		result.Scope = oapi.ApiKeyScope(*k.Scope)
-	}
-
 	if k.Description != nil {
 		result.Description = k.Description
 	}
@@ -77,12 +72,12 @@ type ApiKeysStore struct {
 // apiKeySelect is the shared projection joining an auth method to its api-key
 // credential. Callers append their own WHERE clause.
 const apiKeySelect = `
-	SELECT m.id, m.project_id, k.secret_prefix, k.scope, m.name, m.description, m.role, m.created_at, m.updated_at
+	SELECT m.id, m.project_id, k.secret_prefix, m.name, m.description, m.role, m.created_at, m.updated_at
 	FROM auth_methods m
 	JOIN auth_method_api_keys k ON k.auth_method_id = m.id`
 
-func (s *ApiKeysStore) CreateApiKey(ctx context.Context, projectID uuid.UUID, name string, scope string, role string, description *string) (*ApiKey, error) {
-	plaintext, prefix, hash, err := newSecret(scope)
+func (s *ApiKeysStore) CreateApiKey(ctx context.Context, projectID uuid.UUID, name string, role string, description *string) (*ApiKey, error) {
+	plaintext, prefix, hash, err := newSecret()
 	if err != nil {
 		return nil, err
 	}
@@ -96,10 +91,10 @@ func (s *ApiKeysStore) CreateApiKey(ctx context.Context, projectID uuid.UUID, na
 		VALUES ($1, $2, 'api_key', $3, $4, $5)
 		RETURNING id
 	)
-	INSERT INTO auth_method_api_keys (auth_method_id, secret_hash, secret_prefix, scope)
-	SELECT id, $6, $7, $8 FROM m`
+	INSERT INTO auth_method_api_keys (auth_method_id, secret_hash, secret_prefix)
+	SELECT id, $6, $7 FROM m`
 
-	if _, err := s.db.ExecContext(ctx, stmt, id, projectID, name, description, role, hash, prefix, scope); err != nil {
+	if _, err := s.db.ExecContext(ctx, stmt, id, projectID, name, description, role, hash, prefix); err != nil {
 		return nil, err
 	}
 
@@ -124,7 +119,7 @@ func (s *ApiKeysStore) GetApiKey(ctx context.Context, projectID, keyID uuid.UUID
 
 func (s *ApiKeysStore) ListApiKeys(ctx context.Context, projectID uuid.UUID, pagination store.Pagination) (ApiKeys, int, error) {
 	stmt := `
-	SELECT m.id, m.project_id, k.secret_prefix, k.scope, m.name, m.description, m.role, m.created_at, m.updated_at,
+	SELECT m.id, m.project_id, k.secret_prefix, m.name, m.description, m.role, m.created_at, m.updated_at,
 	       COUNT(*) OVER () AS total_count
 	FROM auth_methods m
 	JOIN auth_method_api_keys k ON k.auth_method_id = m.id

@@ -47,12 +47,13 @@ CREATE TABLE auth_method_grants (
 );
 
 -- API key credential. The plaintext secret is never stored: only its SHA-256
--- hash (the lookup key) and a short display prefix.
+-- hash (the lookup key) and a short display prefix. API keys are always private
+-- (backend-only); browser/mobile clients authenticate via a trusted issuer or a
+-- short-lived session instead.
 CREATE TABLE auth_method_api_keys (
     auth_method_id UUID PRIMARY KEY REFERENCES auth_methods(id) ON DELETE CASCADE,
     secret_hash TEXT NOT NULL,
-    secret_prefix TEXT NOT NULL,
-    scope VARCHAR(20) NOT NULL DEFAULT 'secret'
+    secret_prefix TEXT NOT NULL
 );
 CREATE UNIQUE INDEX auth_method_api_keys_secret_hash_uniq ON auth_method_api_keys(secret_hash);
 
@@ -82,8 +83,8 @@ INSERT INTO auth_methods (id, project_id, type, name, description, role, created
 SELECT id, project_id, 'api_key', name, description, role, created_at, updated_at, deleted_at
 FROM project_api_keys;
 
-INSERT INTO auth_method_api_keys (auth_method_id, secret_hash, secret_prefix, scope)
-SELECT id, encode(digest(value, 'sha256'), 'hex'), left(value, 11), COALESCE(scope, 'secret')
+INSERT INTO auth_method_api_keys (auth_method_id, secret_hash, secret_prefix)
+SELECT id, encode(digest(value, 'sha256'), 'hex'), left(value, 11)
 FROM project_api_keys;
 
 DROP TABLE project_api_keys;

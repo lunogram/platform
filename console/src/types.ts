@@ -377,12 +377,11 @@ export interface ProjectApiKey {
     id: UUID
     value: string
     name: string
-    scope: "public" | "secret"
     role?: ProjectRole
     description?: string
 }
 
-export type ProjectApiKeyParams = Pick<ProjectApiKey, "name" | "description" | "scope" | "role">
+export type ProjectApiKeyParams = Pick<ProjectApiKey, "name" | "description" | "role">
 
 export interface ExternalIDResponse {
     id: UUID

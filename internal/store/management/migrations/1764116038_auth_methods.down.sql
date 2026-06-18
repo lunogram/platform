@@ -6,7 +6,6 @@ CREATE TABLE project_api_keys (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     value VARCHAR(255) NOT NULL,
-    scope VARCHAR(20),
     name VARCHAR(255) NOT NULL,
     description VARCHAR(2048),
     role VARCHAR(64) NOT NULL DEFAULT 'support',
@@ -15,8 +14,8 @@ CREATE TABLE project_api_keys (
     deleted_at TIMESTAMPTZ
 );
 
-INSERT INTO project_api_keys (id, project_id, value, scope, name, description, role, created_at, updated_at, deleted_at)
-SELECT m.id, m.project_id, k.secret_hash, k.scope, m.name, m.description, m.role, m.created_at, m.updated_at, m.deleted_at
+INSERT INTO project_api_keys (id, project_id, value, name, description, role, created_at, updated_at, deleted_at)
+SELECT m.id, m.project_id, k.secret_hash, m.name, m.description, m.role, m.created_at, m.updated_at, m.deleted_at
 FROM auth_methods m
 JOIN auth_method_api_keys k ON k.auth_method_id = m.id
 WHERE m.type = 'api_key';

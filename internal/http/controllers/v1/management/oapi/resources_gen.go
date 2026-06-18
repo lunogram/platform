@@ -25,24 +25,6 @@ const (
 	HttpBearerAuthScopes httpBearerAuthContextKey = "HttpBearerAuth.Scopes"
 )
 
-// Defines values for ApiKeyScope.
-const (
-	Public ApiKeyScope = "public"
-	Secret ApiKeyScope = "secret"
-)
-
-// Valid indicates whether the value is a known member of the ApiKeyScope enum.
-func (e ApiKeyScope) Valid() bool {
-	switch e {
-	case Public:
-		return true
-	case Secret:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for BroadcastState.
 const (
 	BroadcastStateCancelled BroadcastState = "cancelled"
@@ -706,18 +688,12 @@ type ApiKey struct {
 	ProjectId   openapi_types.UUID `json:"project_id"`
 
 	// Role Role within a project
-	Role ProjectRole `json:"role"`
-
-	// Scope API key scope - public keys are safe to expose in client-side code
-	Scope     ApiKeyScope `json:"scope"`
+	Role      ProjectRole `json:"role"`
 	UpdatedAt time.Time   `json:"updated_at"`
 
 	// Value The API key value
 	Value string `json:"value"`
 }
-
-// ApiKeyScope API key scope - public keys are safe to expose in client-side code
-type ApiKeyScope string
 
 // AuthCallbackRequest defines model for AuthCallbackRequest.
 type AuthCallbackRequest struct {
@@ -848,9 +824,6 @@ type CreateApiKey struct {
 
 	// Role Role within a project
 	Role *ProjectRole `json:"role,omitempty"`
-
-	// Scope API key scope - public keys are safe to expose in client-side code
-	Scope ApiKeyScope `json:"scope"`
 }
 
 // CreateBroadcast defines model for CreateBroadcast.

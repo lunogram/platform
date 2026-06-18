@@ -28,12 +28,10 @@ func TestApiKeysStore(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("creates an api key across auth_methods + auth_method_api_keys", func(t *testing.T) {
-		created, err := db.CreateApiKey(ctx, projectID, "web key", ScopePublic, "client", ptr.To("desc"))
+		created, err := db.CreateApiKey(ctx, projectID, "web key", "client", ptr.To("desc"))
 		require.NoError(t, err)
-		assert.True(t, strings.HasPrefix(created.Plaintext, "pk_"), "public key should be pk_ prefixed")
+		assert.True(t, strings.HasPrefix(created.Plaintext, "sk_"), "api keys are sk_ prefixed")
 		assert.Equal(t, created.Plaintext[:secretPrefixLen], created.SecretPrefix)
-		require.NotNil(t, created.Scope)
-		assert.Equal(t, ScopePublic, *created.Scope)
 
 		// Reads never expose the plaintext, only the prefix.
 		got, err := db.GetApiKey(ctx, projectID, created.ID)
@@ -56,7 +54,7 @@ func TestApiKeysStore(t *testing.T) {
 	})
 
 	t.Run("lists, updates, and soft deletes", func(t *testing.T) {
-		created, err := db.CreateApiKey(ctx, projectID, "backend key", ScopeSecret, "support", nil)
+		created, err := db.CreateApiKey(ctx, projectID, "backend key", "support", nil)
 		require.NoError(t, err)
 		assert.True(t, strings.HasPrefix(created.Plaintext, "sk_"))
 

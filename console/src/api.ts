@@ -306,11 +306,9 @@ const api = {
             await client.post(`${projectUrl(projectId)}/data/paths/sync`).then((r) => r.data),
     },
 
-    apiKeys: createProjectEntityPath<
-        ProjectApiKey,
-        ProjectApiKeyParams,
-        Omit<ProjectApiKeyParams, "scope">
-    >("keys"),
+    apiKeys: createProjectEntityPath<ProjectApiKey, ProjectApiKeyParams, ProjectApiKeyParams>(
+        "keys",
+    ),
 
     actions: createProjectEntityPath<Action, ActionCreateParams, ActionUpdateParams>("actions"),
 

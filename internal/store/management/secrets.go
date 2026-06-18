@@ -7,15 +7,8 @@ import (
 )
 
 // secretPrefixLen is the number of leading characters of a secret retained for
-// display/identification (e.g. "pk_" plus 8 hex characters).
+// display/identification (e.g. "sk_" plus 8 hex characters).
 const secretPrefixLen = 11
-
-// Scope values recorded on an API-key credential. Public keys are safe to expose
-// in client-side code; secret keys are backend-only.
-const (
-	ScopePublic = "public"
-	ScopeSecret = "secret"
-)
 
 // generateRandomHex returns a cryptographically secure 32-byte random value,
 // hex-encoded.
@@ -43,21 +36,16 @@ func secretPrefix(secret string) string {
 	return secret[:secretPrefixLen]
 }
 
-// newSecret generates a fresh API secret for the given scope, returning the full
-// plaintext (shown to the caller exactly once), its display prefix, and the hash
-// to persist. Public keys are prefixed "pk_" and secret keys "sk_" so they are
-// recognisable and detectable by secret scanners.
-func newSecret(scope string) (plaintext, prefix, hash string, err error) {
+// newSecret generates a fresh API secret, returning the full plaintext (shown to
+// the caller exactly once), its display prefix, and the hash to persist. Keys are
+// prefixed "sk_" so they are recognisable and detectable by secret scanners. API
+// keys are always private (backend-only); there is no browser-safe key variant.
+func newSecret() (plaintext, prefix, hash string, err error) {
 	raw, err := generateRandomHex()
 	if err != nil {
 		return "", "", "", err
 	}
 
-	tag := "sk_"
-	if scope == ScopePublic {
-		tag = "pk_"
-	}
-
-	plaintext = tag + raw
+	plaintext = "sk_" + raw
 	return plaintext, secretPrefix(plaintext), hashSecret(plaintext), nil
 }

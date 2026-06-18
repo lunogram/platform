@@ -57,7 +57,7 @@ func (srv *ApiKeysController) CreateApiKey(w http.ResponseWriter, r *http.Reques
 		role = string(*body.Role)
 	}
 
-	apiKey, err := srv.store.ApiKeysStore.CreateApiKey(ctx, projectID, body.Name, string(body.Scope), role, body.Description)
+	apiKey, err := srv.store.ApiKeysStore.CreateApiKey(ctx, projectID, body.Name, role, body.Description)
 	if err != nil {
 		logger.Error("failed to create API key", zap.Error(err))
 		oapi.WriteProblem(w, err)
