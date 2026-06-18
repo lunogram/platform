@@ -3,12 +3,14 @@ package management
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
+	"github.com/lunogram/platform/internal/http/problem"
 	"github.com/lunogram/platform/internal/ptr"
 	"github.com/lunogram/platform/internal/store"
 )
@@ -162,6 +164,24 @@ func (s *AuthMethodsStore) CreateAuthMethod(ctx context.Context, projectID uuid.
 			subjectClaim := ti.SubjectClaim
 			if subjectClaim == "" {
 				subjectClaim = "sub"
+			}
+
+			// A trusted issuer is resolved at auth time by `iss` alone, with no
+			// project context, so the active issuer must be globally unique;
+			// otherwise a token could authenticate against the wrong project.
+			// (Soft-deleted methods keep their child row, so this is enforced
+			// here rather than via a DB constraint that would block re-adding a
+			// deleted issuer.)
+			var existing uuid.UUID
+			err := sqlx.GetContext(ctx, q, &existing,
+				`SELECT m.id FROM auth_method_trusted_issuers t
+				 JOIN auth_methods m ON m.id = t.auth_method_id
+				 WHERE t.issuer = $1 AND m.deleted_at IS NULL LIMIT 1`, ti.Issuer)
+			if err == nil {
+				return problem.ErrConflict(problem.Describe("a trusted issuer is already registered for this iss"))
+			}
+			if !errors.Is(err, sql.ErrNoRows) {
+				return err
 			}
 			if _, err := q.ExecContext(ctx,
 				`INSERT INTO auth_method_trusted_issuers (auth_method_id, jwks_url, public_cert, issuer, audience, subject_claim)
