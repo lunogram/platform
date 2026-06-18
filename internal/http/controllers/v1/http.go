@@ -80,12 +80,19 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *st
 	// Mount management routes with JWT+API Key auth
 	mgmtoapi.HandlerWithOptions(mgmtController, mgmtoapi.ChiServerOptions{
 		BaseRouter: router,
-		Middlewares: []mgmtoapi.MiddlewareFunc{mgmtoapi.Validator(mgmtSpec, openapi3filter.Options{
-			AuthenticationFunc: auth.Middleware(
-				auth.WithJWT(cfg.Auth, mgmtStores),
-				auth.WithKey(mgmtStores, auth.SurfaceManagement),
-			),
-		})},
+		Middlewares: []mgmtoapi.MiddlewareFunc{
+			mgmtoapi.Validator(mgmtSpec, openapi3filter.Options{
+				AuthenticationFunc: auth.Middleware(
+					auth.WithJWT(cfg.Auth, mgmtStores),
+					auth.WithKey(mgmtStores, auth.SurfaceManagement),
+				),
+			}),
+			// Runs after the validator (and thus after authentication) so the
+			// limiter keys on the resolved auth method. The budget is shared
+			// with the client API, so a key cannot get a separate allowance per
+			// surface.
+			http.RateLimit(limiter, cfg.RateLimit.PerMinute, time.Minute, cfg.RateLimit.TrustedProxyHops, mgmtoapi.WriteProblem),
+		},
 	})
 
 	// Mount client routes with API Key only auth
@@ -101,8 +108,8 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *st
 					),
 				}),
 				// Runs after the validator (and thus after authentication) so
-				// the limiter can key on the authenticated access policy.
-				clientoapi.RateLimit(limiter, cfg.RateLimit.ClientPerMinute, time.Minute, cfg.RateLimit.TrustedProxyHops),
+				// the limiter keys on the resolved auth method.
+				http.RateLimit(limiter, cfg.RateLimit.PerMinute, time.Minute, cfg.RateLimit.TrustedProxyHops, clientoapi.WriteProblem),
 			},
 		})
 	})

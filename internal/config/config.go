@@ -63,11 +63,13 @@ type Redis struct {
 	KeyPrefix string `env:"KEY_PREFIX" envDefault:""`
 }
 
-// RateLimit configures request rate limiting for the client API.
+// RateLimit configures request rate limiting across the API.
 type RateLimit struct {
-	// ClientPerMinute is the number of client API requests permitted per minute
-	// per access policy (or per IP for unauthenticated requests).
-	ClientPerMinute int `env:"CLIENT_PER_MINUTE" envDefault:"600"`
+	// PerMinute is the number of API requests permitted per minute per auth
+	// method (or per IP for unauthenticated requests). The budget is shared
+	// across the client and management APIs — a key is not given a separate
+	// allowance per surface.
+	PerMinute int `env:"PER_MINUTE" envDefault:"600"`
 	// TrustedProxyHops is the number of reverse proxies in front of the server.
 	// X-Forwarded-For is honored only up to this many hops when deriving the
 	// client IP for unauthenticated rate limiting; 0 (the default) ignores the

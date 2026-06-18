@@ -125,21 +125,11 @@ func WithJWT(config config.Auth, mgmt *management.State) Handler {
 	}
 }
 
-// Scope values recorded on an API key. A missing scope is treated as secret
-// (the conservative default for keys created before scopes were enforced).
-const (
-	ScopePublic = "public"
-	ScopeSecret = "secret"
-)
-
-// WithKey authenticates an API-key request for the given surface and enforces
-// the key's scope:
-//
-//   - public-scoped keys are rejected on the management surface — they exist
-//     only for the client API;
-//   - secret-scoped keys are rejected on the client surface when the request is
-//     browser-originated (carries an Origin header), since secret keys must
-//     never be embedded in client-side code.
+// WithKey authenticates an API-key request for the given surface. API keys are
+// private (backend-only) credentials, so on the client surface a key is rejected
+// when the request is browser-originated (carries an Origin header); browser and
+// mobile clients authenticate via a trusted issuer or a short-lived session
+// instead. The management surface accepts any valid key.
 func WithKey(mgmt *management.State, surface Surface) Handler {
 	return func(ctx context.Context, tokenString string) (context.Context, error) {
 		if tokenString == "" {
@@ -151,7 +141,7 @@ func WithKey(mgmt *management.State, surface Surface) Handler {
 			return ctx, ErrUnauthorized
 		}
 
-		if err := enforceScope(ctx, surface, key); err != nil {
+		if err := enforceSurface(ctx, surface); err != nil {
 			return ctx, err
 		}
 
@@ -166,26 +156,14 @@ func WithKey(mgmt *management.State, surface Surface) Handler {
 	}
 }
 
-// enforceScope applies the per-surface scope rules. It returns ErrUnauthorized
-// (rather than a distinct error) so callers cannot use the response to probe
-// whether a given key exists.
-func enforceScope(ctx context.Context, surface Surface, key *management.APIKey) error {
-	scope := ScopeSecret
-	if key.Scope != nil && *key.Scope != "" {
-		scope = *key.Scope
+// enforceSurface rejects API-key auth where it must not be used: a private key
+// presented to the browser-facing client API (a request carrying an Origin
+// header). It returns ErrUnauthorized (rather than a distinct error) so callers
+// cannot use the response to probe whether a given key exists.
+func enforceSurface(ctx context.Context, surface Surface) error {
+	if surface == SurfaceClient && browserOriginated(ctx) {
+		return ErrUnauthorized
 	}
-
-	switch surface {
-	case SurfaceManagement:
-		if scope == ScopePublic {
-			return ErrUnauthorized
-		}
-	case SurfaceClient:
-		if scope == ScopeSecret && browserOriginated(ctx) {
-			return ErrUnauthorized
-		}
-	}
-
 	return nil
 }
 
