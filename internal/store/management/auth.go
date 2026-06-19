@@ -49,16 +49,16 @@ func (s *AuthStore) GetAPIKeyBySecret(key string) (*APIKey, error) {
 // authenticating an external JWT: the RBAC identity (ID/org/project/role) plus
 // the verification config.
 type TrustedIssuerAuthMethod struct {
-	ID             uuid.UUID `db:"id"`
-	OrganizationID uuid.UUID `db:"organization_id"`
-	ProjectID      uuid.UUID `db:"project_id"`
-	Role           string    `db:"role"`
-	SubjectScope   string    `db:"subject_scope"`
-	JWKSURL        *string   `db:"jwks_url"`
-	PublicCert     *string   `db:"public_cert"`
-	Issuer         string    `db:"issuer"`
-	Audience       *string   `db:"audience"`
-	SubjectClaim   string    `db:"subject_claim"`
+	ID             uuid.UUID    `db:"id"`
+	OrganizationID uuid.UUID    `db:"organization_id"`
+	ProjectID      uuid.UUID    `db:"project_id"`
+	Role           string       `db:"role"`
+	SubjectScope   SubjectScope `db:"subject_scope"`
+	JWKSURL        *string      `db:"jwks_url"`
+	PublicCert     *string      `db:"public_cert"`
+	Issuer         string       `db:"issuer"`
+	Audience       *string      `db:"audience"`
+	SubjectClaim   string       `db:"subject_claim"`
 }
 
 // GetTrustedIssuerByIssuer resolves the trusted_issuer auth method registered
