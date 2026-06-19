@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -185,13 +186,13 @@ func run() error {
 
 	logger.Info("starting http server")
 
+	jwksL2 := iredis.NewCache[json.RawMessage](rclient, conf.Redis.KeyPrefix+"jwks:", conf.JWKSCache.TTL, logger)
 	jwksCache := jwks.New(jwks.Config{
-		TTL:          conf.JWKSCache.TTL,
 		FetchTimeout: conf.JWKSCache.FetchTimeout,
 		ErrorTTL:     conf.JWKSCache.ErrorTTL,
-	}, jwks.NewRedisStore(rclient, conf.Redis.KeyPrefix), nil, logger)
+	}, jwksL2, nil, logger)
 
-	server, err := v1.NewServer(ctx, logger, conf, db, bucket, jet, pub, req, providersRegisrtry, actionRegistry, rbacEngine, limiter, jwksCache)
+	server, err := v1.NewServer(ctx, logger, conf, db, bucket, jet, pub, req, providersRegisrtry, actionRegistry, rbacEngine, limiter, jwksCache, rclient)
 	if err != nil {
 		return err
 	}

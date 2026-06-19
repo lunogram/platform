@@ -61,7 +61,7 @@ func TestAuthMethodsStore(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		resolved, err := db.GetTrustedIssuerByIssuer("https://lookup.example")
+		resolved, err := db.GetTrustedIssuerByIssuer(ctx, "https://lookup.example")
 		require.NoError(t, err)
 		assert.Equal(t, created.ID, resolved.ID)
 		assert.Equal(t, projectID, resolved.ProjectID)
@@ -70,7 +70,7 @@ func TestAuthMethodsStore(t *testing.T) {
 		assert.Equal(t, "https://lookup.example/jwks.json", *resolved.JWKSURL)
 		assert.Equal(t, "sub", resolved.SubjectClaim)
 
-		_, err = db.GetTrustedIssuerByIssuer("https://unknown.example")
+		_, err = db.GetTrustedIssuerByIssuer(ctx, "https://unknown.example")
 		assert.Error(t, err)
 	})
 

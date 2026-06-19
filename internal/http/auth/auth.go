@@ -136,7 +136,7 @@ func WithKey(mgmt *management.State, surface Surface) Handler {
 			return ctx, ErrUnauthorized
 		}
 
-		key, err := mgmt.GetAPIKeyBySecret(tokenString)
+		key, err := mgmt.GetAPIKeyBySecret(ctx, tokenString)
 		if err != nil {
 			return ctx, ErrUnauthorized
 		}

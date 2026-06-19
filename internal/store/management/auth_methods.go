@@ -12,6 +12,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/lunogram/platform/internal/http/problem"
 	"github.com/lunogram/platform/internal/ptr"
+	iredis "github.com/lunogram/platform/internal/redis"
 	"github.com/lunogram/platform/internal/store"
 )
 
@@ -82,12 +83,47 @@ type AuthMethod struct {
 	UpdatedAt time.Time
 }
 
-func NewAuthMethodsStore(db store.DB) *AuthMethodsStore {
-	return &AuthMethodsStore{db: db}
+// NewAuthMethodsStore builds the auth-method write store. The caches may be nil;
+// when set, writes invalidate the cached auth lookups they affect so the read
+// path (AuthStore) does not serve a stale credential.
+func NewAuthMethodsStore(db store.DB, apiKeys *iredis.Cache[APIKey], issuers *iredis.Cache[TrustedIssuerAuthMethod]) *AuthMethodsStore {
+	return &AuthMethodsStore{db: db, apiKeys: apiKeys, issuers: issuers}
 }
 
 type AuthMethodsStore struct {
-	db store.DB
+	db      store.DB
+	apiKeys *iredis.Cache[APIKey]
+	issuers *iredis.Cache[TrustedIssuerAuthMethod]
+}
+
+// invalidateCaches drops the cached auth lookups for a method after it changes,
+// so a role/scope edit or a delete is observed immediately rather than at TTL.
+// It is keyed on the credential the read path uses (api-key secret hash, trusted
+// issuer iss), looked up from the child rows. Best-effort: a cache miss to clear
+// is harmless and errors only mean the entry lapses at its TTL.
+func (s *AuthMethodsStore) invalidateCaches(ctx context.Context, methodID uuid.UUID) {
+	if s.apiKeys == nil && s.issuers == nil {
+		return
+	}
+	var row struct {
+		SecretHash *string `db:"secret_hash"`
+		Issuer     *string `db:"issuer"`
+	}
+	const q = `
+	SELECT k.secret_hash, t.issuer
+	FROM auth_methods m
+	LEFT JOIN auth_method_api_keys k ON k.auth_method_id = m.id
+	LEFT JOIN auth_method_trusted_issuers t ON t.auth_method_id = m.id
+	WHERE m.id = $1`
+	if err := s.db.GetContext(ctx, &row, q, methodID); err != nil {
+		return
+	}
+	if row.SecretHash != nil {
+		_ = s.apiKeys.Invalidate(ctx, *row.SecretHash)
+	}
+	if row.Issuer != nil {
+		_ = s.issuers.Invalidate(ctx, *row.Issuer)
+	}
 }
 
 // txBeginner is the subset of *sqlx.DB used to start a write transaction. Writes
@@ -414,7 +450,11 @@ func (s *AuthMethodsStore) UpdateAuthMethod(ctx context.Context, projectID, meth
 		}
 	}
 
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	s.invalidateCaches(ctx, methodID)
+	return nil
 }
 
 func (s *AuthMethodsStore) DeleteAuthMethod(ctx context.Context, projectID, methodID uuid.UUID) error {
@@ -423,6 +463,9 @@ func (s *AuthMethodsStore) DeleteAuthMethod(ctx context.Context, projectID, meth
 	SET deleted_at = NOW()
 	WHERE id = $1 AND project_id = $2 AND deleted_at IS NULL`
 
-	_, err := s.db.ExecContext(ctx, stmt, methodID, projectID)
-	return err
+	if _, err := s.db.ExecContext(ctx, stmt, methodID, projectID); err != nil {
+		return err
+	}
+	s.invalidateCaches(ctx, methodID)
+	return nil
 }

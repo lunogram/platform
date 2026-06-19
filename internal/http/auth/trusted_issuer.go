@@ -34,7 +34,7 @@ func WithTrustedIssuer(mgmt *management.State, cache *jwks.Cache) Handler {
 			return ctx, ErrUnauthorized
 		}
 
-		method, err := mgmt.GetTrustedIssuerByIssuer(issuer)
+		method, err := mgmt.GetTrustedIssuerByIssuer(ctx, issuer)
 		if err != nil {
 			return ctx, ErrUnauthorized
 		}
