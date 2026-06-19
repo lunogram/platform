@@ -1,4 +1,4 @@
-package jwks
+package ssrf
 
 import "testing"
 

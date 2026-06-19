@@ -1,4 +1,7 @@
-package jwks
+// Package ssrf provides SSRF guards for outbound requests to operator-supplied
+// URLs (e.g. a trusted issuer's JWKS endpoint): an up-front URL validator and an
+// HTTP client that refuses to connect to non-public addresses at dial time.
+package ssrf
 
 import (
 	"fmt"
@@ -9,25 +12,25 @@ import (
 	"time"
 )
 
-// ValidateSourceURL reports whether raw is safe to register as a JWKS source: it
-// must be an absolute https URL whose host is not an obviously-internal address.
-// It is a cheap up-front guard run when a trusted issuer is configured. The
-// authoritative protection against DNS rebinding is the dialer in
-// [safeHTTPClient], which re-checks the resolved IP at connection time.
+// ValidateSourceURL reports whether raw is safe to register as an outbound
+// source: it must be an absolute https URL whose host is not an obviously-
+// internal address. It is a cheap up-front guard run when a URL is configured.
+// The authoritative protection against DNS rebinding is the dialer in
+// [SafeHTTPClient], which re-checks the resolved IP at connection time.
 func ValidateSourceURL(raw string) error {
 	u, err := neturl.Parse(raw)
 	if err != nil {
-		return fmt.Errorf("jwks: invalid url: %w", err)
+		return fmt.Errorf("ssrf: invalid url: %w", err)
 	}
 	if u.Scheme != "https" {
-		return fmt.Errorf("jwks: url must use https")
+		return fmt.Errorf("ssrf: url must use https")
 	}
 	host := u.Hostname()
 	if host == "" {
-		return fmt.Errorf("jwks: url must have a host")
+		return fmt.Errorf("ssrf: url must have a host")
 	}
 	if ip := net.ParseIP(host); ip != nil && !isPublicIP(ip) {
-		return fmt.Errorf("jwks: url host is not a public address")
+		return fmt.Errorf("ssrf: url host is not a public address")
 	}
 	return nil
 }
@@ -46,11 +49,11 @@ func isPublicIP(ip net.IP) bool {
 	return true
 }
 
-// safeHTTPClient returns a client that refuses to connect to non-public
+// SafeHTTPClient returns a client that refuses to connect to non-public
 // addresses and does not follow redirects. The IP is checked at dial time —
 // after DNS resolution — which closes the DNS-rebinding gap a URL-string check
 // alone cannot.
-func safeHTTPClient(timeout time.Duration) *http.Client {
+func SafeHTTPClient(timeout time.Duration) *http.Client {
 	dialer := &net.Dialer{
 		Timeout: timeout,
 		Control: func(_, address string, _ syscall.RawConn) error {
@@ -60,7 +63,7 @@ func safeHTTPClient(timeout time.Duration) *http.Client {
 			}
 			ip := net.ParseIP(host)
 			if ip == nil || !isPublicIP(ip) {
-				return fmt.Errorf("jwks: refusing to connect to non-public address %q", host)
+				return fmt.Errorf("ssrf: refusing to connect to non-public address %q", host)
 			}
 			return nil
 		},

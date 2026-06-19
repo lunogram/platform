@@ -2,16 +2,19 @@
 // externally-issued JWTs (the trusted-issuer access policy).
 //
 // The hot path never touches the network: a per-process L1 cache holds parsed
-// verification keys, backed by an optional shared L2 (Redis) holding the raw
-// JWKS JSON so a fleet hits each issuer at most ~once per TTL. Fetches are
-// coalesced with singleflight, an unknown key id triggers an immediate refresh
-// (so key rotation is picked up regardless of TTL), and fetch failures fail open
-// to the last-known-good keys with a short negative-cache backoff so a flapping
-// issuer can neither block authentication nor be hammered.
+// verification keys (short TTL), backed by a shared L2 (the centralised
+// Redis-backed [redis.Cache]) holding the raw JWKS JSON (long TTL) so a fleet
+// hits each issuer at most ~once per L2 TTL. The parsed keys cannot live in
+// Redis, so the L1 is unavoidable; it is kept short because key rotation is
+// picked up out-of-band (an unknown key id triggers an immediate refresh)
+// rather than by L1 expiry. Fetches are coalesced with singleflight and a fetch
+// failure fails open to the last-known-good keys with a short negative-cache
+// backoff, so a flapping issuer can neither block authentication nor be hammered.
 package jwks
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -20,6 +23,8 @@ import (
 
 	"github.com/MicahParks/keyfunc/v3"
 	"github.com/golang-jwt/jwt/v5"
+	iredis "github.com/lunogram/platform/internal/redis"
+	"github.com/lunogram/platform/internal/ssrf"
 	"go.uber.org/zap"
 	"golang.org/x/sync/singleflight"
 )
@@ -41,11 +46,10 @@ func readAll(r io.Reader, limit int64) ([]byte, error) {
 }
 
 // Config tunes the cache. Zero values fall back to sane defaults via withDefaults.
+// The L2 (Redis) TTL is configured on the [redis.Cache] passed to New, not here.
 type Config struct {
-	// TTL is how long raw JWKS are kept in the shared L2 cache.
-	TTL time.Duration
 	// L1TTL is how long parsed keys are kept in-process. It should be short so
-	// L2/issuer updates propagate quickly; it defaults to min(TTL, 30s).
+	// L2/issuer updates propagate quickly; it defaults to 5m.
 	L1TTL time.Duration
 	// FetchTimeout bounds a single issuer fetch.
 	FetchTimeout time.Duration
@@ -55,14 +59,8 @@ type Config struct {
 }
 
 func (c Config) withDefaults() Config {
-	if c.TTL <= 0 {
-		c.TTL = 5 * time.Minute
-	}
 	if c.L1TTL <= 0 {
-		c.L1TTL = 30 * time.Second
-		if c.TTL < c.L1TTL {
-			c.L1TTL = c.TTL
-		}
+		c.L1TTL = 5 * time.Minute
 	}
 	if c.FetchTimeout <= 0 {
 		c.FetchTimeout = 5 * time.Second
@@ -78,25 +76,19 @@ type Fetcher interface {
 	Fetch(ctx context.Context, url string) ([]byte, error)
 }
 
-// Store is the shared L2 cache (e.g. Redis). A nil Store disables L2 and the
-// cache operates L1-only.
-type Store interface {
-	Get(ctx context.Context, key string) (value []byte, ok bool, err error)
-	Set(ctx context.Context, key string, value []byte, ttl time.Duration) error
-}
-
 type entry struct {
 	kf        keyfunc.Keyfunc // parsed verification keys; nil until first success
 	expires   time.Time       // L1 freshness deadline
 	lastError time.Time       // most recent fetch failure (negative-cache marker)
 }
 
-// Cache resolves a JWKS URL to a jwt.Keyfunc, fronting the network with L1/L2
-// caches. It is safe for concurrent use.
+// Cache resolves a JWKS URL to a jwt.Keyfunc, fronting the network with an L1
+// (parsed keys) and a shared L2 (raw JWKS JSON in Redis). It is safe for
+// concurrent use.
 type Cache struct {
 	cfg     Config
 	fetcher Fetcher
-	store   Store
+	l2      *iredis.Cache[json.RawMessage]
 	logger  *zap.Logger
 
 	group singleflight.Group
@@ -104,17 +96,18 @@ type Cache struct {
 	l1    map[string]*entry
 }
 
-// New constructs a cache. store may be nil (L1-only). When fetcher is nil a
-// default HTTP fetcher bounded by cfg.FetchTimeout is used.
-func New(cfg Config, store Store, fetcher Fetcher, logger *zap.Logger) *Cache {
+// New constructs a cache. l2 is the shared Redis-backed L2 (a nil-client cache
+// is fine and yields L1-only operation). When fetcher is nil a default
+// SSRF-hardened HTTP fetcher bounded by cfg.FetchTimeout is used.
+func New(cfg Config, l2 *iredis.Cache[json.RawMessage], fetcher Fetcher, logger *zap.Logger) *Cache {
 	cfg = cfg.withDefaults()
 	if fetcher == nil {
-		fetcher = &httpFetcher{timeout: cfg.FetchTimeout, client: safeHTTPClient(cfg.FetchTimeout)}
+		fetcher = &httpFetcher{timeout: cfg.FetchTimeout, client: ssrf.SafeHTTPClient(cfg.FetchTimeout)}
 	}
 	return &Cache{
 		cfg:     cfg,
 		fetcher: fetcher,
-		store:   store,
+		l2:      l2,
 		logger:  logger,
 		l1:      make(map[string]*entry),
 	}
@@ -161,7 +154,7 @@ func (c *Cache) load(ctx context.Context, url string, force bool) (jwt.Keyfunc, 
 				return nil, fmt.Errorf("jwks: issuer %s recently failed, backing off", url)
 			}
 
-			if raw, ok := c.l2Get(ctx, url); ok {
+			if raw, ok := c.l2.Get(ctx, url); ok {
 				if kf, err := keyfunc.NewJWKSetJSON(raw); err == nil {
 					c.storeL1(url, kf)
 					return kf, nil
@@ -174,12 +167,12 @@ func (c *Cache) load(ctx context.Context, url string, force bool) (jwt.Keyfunc, 
 			return c.handleFetchError(url, err)
 		}
 
-		kf, err := keyfunc.NewJWKSetJSON(raw)
+		kf, err := keyfunc.NewJWKSetJSON(json.RawMessage(raw))
 		if err != nil {
 			return c.handleFetchError(url, fmt.Errorf("parse jwks: %w", err))
 		}
 
-		c.l2Set(ctx, url, raw)
+		c.l2.Set(ctx, url, json.RawMessage(raw))
 		c.storeL1(url, kf)
 		return kf, nil
 	})
@@ -225,31 +218,6 @@ func (c *Cache) storeL1(url string, kf keyfunc.Keyfunc) {
 	c.l1[url] = &entry{kf: kf, expires: time.Now().Add(c.cfg.L1TTL)}
 }
 
-func (c *Cache) l2Get(ctx context.Context, url string) ([]byte, bool) {
-	if c.store == nil {
-		return nil, false
-	}
-	v, ok, err := c.store.Get(ctx, l2Key(url))
-	if err != nil {
-		if c.logger != nil {
-			c.logger.Warn("jwks L2 get failed", zap.String("url", url), zap.Error(err))
-		}
-		return nil, false
-	}
-	return v, ok
-}
-
-func (c *Cache) l2Set(ctx context.Context, url string, raw []byte) {
-	if c.store == nil {
-		return
-	}
-	if err := c.store.Set(ctx, l2Key(url), raw, c.cfg.TTL); err != nil && c.logger != nil {
-		c.logger.Warn("jwks L2 set failed", zap.String("url", url), zap.Error(err))
-	}
-}
-
-func l2Key(url string) string { return "jwks:" + url }
-
 func boolKey(b bool) string {
 	if b {
 		return "\x00refresh"
@@ -258,7 +226,7 @@ func boolKey(b bool) string {
 }
 
 // httpFetcher fetches JWKS over HTTP with a per-request timeout, using an
-// SSRF-hardened client (see safeHTTPClient).
+// SSRF-hardened client (see ssrf.SafeHTTPClient).
 type httpFetcher struct {
 	timeout time.Duration
 	client  *http.Client

@@ -1,16 +1,22 @@
 package jwks
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/MicahParks/jwkset"
+	"github.com/lunogram/platform/internal/container"
+	iredis "github.com/lunogram/platform/internal/redis"
+	goredis "github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -58,28 +64,6 @@ func (f *fakeFetcher) setErr(err error) {
 	f.err = err
 }
 
-// memStore is an in-memory [Store] shared across cache instances in tests.
-type memStore struct {
-	mu sync.Mutex
-	m  map[string][]byte
-}
-
-func newMemStore() *memStore { return &memStore{m: map[string][]byte{}} }
-
-func (s *memStore) Get(_ context.Context, key string) ([]byte, bool, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	v, ok := s.m[key]
-	return v, ok, nil
-}
-
-func (s *memStore) Set(_ context.Context, key string, value []byte, _ time.Duration) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.m[key] = value
-	return nil
-}
-
 const url = "https://issuer.example/.well-known/jwks.json"
 
 func TestCacheServesFromL1(t *testing.T) {
@@ -97,18 +81,24 @@ func TestCacheServesFromL1(t *testing.T) {
 
 func TestCacheSharesViaL2(t *testing.T) {
 	t.Parallel()
-	store := newMemStore()
+	client := testRedis(t)
+	// Distinct cache instances over the same Redis (same prefix) stand in for two
+	// processes sharing the L2.
+	prefix := fmt.Sprintf("jwkstest:%d:", time.Now().UnixNano())
+	l2a := iredis.NewCache[json.RawMessage](client, prefix, time.Hour, nil)
+	l2b := iredis.NewCache[json.RawMessage](client, prefix, time.Hour, nil)
+
 	f1 := &fakeFetcher{raw: testJWKS(t, "k1")}
 	f2 := &fakeFetcher{raw: testJWKS(t, "k2")}
 
 	// First instance fetches and populates the shared L2.
-	c1 := New(Config{}, store, f1, nil)
+	c1 := New(Config{}, l2a, f1, nil)
 	_, err := c1.Keyfunc(context.Background(), url)
 	require.NoError(t, err)
 	assert.Equal(t, int32(1), f1.calls.Load())
 
 	// Second instance (cold L1) resolves from L2 without fetching.
-	c2 := New(Config{}, store, f2, nil)
+	c2 := New(Config{}, l2b, f2, nil)
 	_, err = c2.Keyfunc(context.Background(), url)
 	require.NoError(t, err)
 	assert.Equal(t, int32(0), f2.calls.Load(), "L2 hit should avoid an issuer fetch")
@@ -171,4 +161,26 @@ func TestCacheRefreshForcesFetch(t *testing.T) {
 	_, err = c.Refresh(context.Background(), url)
 	require.NoError(t, err)
 	assert.Equal(t, int32(2), f.calls.Load())
+}
+
+func TestReadAllRejectsOversizedDocument(t *testing.T) {
+	t.Parallel()
+	// At the limit is accepted.
+	at, err := readAll(bytes.NewReader(make([]byte, maxJWKSBytes)), maxJWKSBytes)
+	require.NoError(t, err)
+	require.Len(t, at, maxJWKSBytes)
+
+	// One byte over is rejected.
+	_, err = readAll(bytes.NewReader(make([]byte, maxJWKSBytes+1)), maxJWKSBytes)
+	require.Error(t, err)
+}
+
+// testRedis starts (or reuses) a Redis test container and returns a client.
+func testRedis(t *testing.T) *goredis.Client {
+	t.Helper()
+	opts, err := goredis.ParseURL(container.RunRedis(t))
+	require.NoError(t, err)
+	client := goredis.NewClient(opts)
+	t.Cleanup(func() { _ = client.Close() })
+	return client
 }
