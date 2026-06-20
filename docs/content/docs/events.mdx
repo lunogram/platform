@@ -71,7 +71,7 @@ Send events through the [JavaScript SDK](/sdks/javascript) or the client API. Ev
     ```bash
     # Target a specific user by identifier
     curl -X POST https://your-instance.com/api/client/users/events \
-      -H "Authorization: Bearer pk_..." \
+      -H "Authorization: Bearer sk_..." \
       -H "Content-Type: application/json" \
       -d '[
         {
@@ -88,7 +88,7 @@ Send events through the [JavaScript SDK](/sdks/javascript) or the client API. Ev
 
     # Target all users whose data matches a filter
     curl -X POST https://your-instance.com/api/client/users/events \
-      -H "Authorization: Bearer pk_..." \
+      -H "Authorization: Bearer sk_..." \
       -H "Content-Type: application/json" \
       -d '[
         {
@@ -175,7 +175,7 @@ The example above sends the `feature.announcement` event to every user whose dat
     ```bash
     # Target a specific organization by identifier
     curl -X POST https://your-instance.com/api/client/organizations/events \
-      -H "Authorization: Bearer pk_..." \
+      -H "Authorization: Bearer sk_..." \
       -H "Content-Type: application/json" \
       -d '[
         {
@@ -191,7 +191,7 @@ The example above sends the `feature.announcement` event to every user whose dat
 
     # Target all organizations whose data matches a filter
     curl -X POST https://your-instance.com/api/client/organizations/events \
-      -H "Authorization: Bearer pk_..." \
+      -H "Authorization: Bearer sk_..." \
       -H "Content-Type: application/json" \
       -d '[
         {

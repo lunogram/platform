@@ -12,7 +12,7 @@ There are three types:
 
 <Cards>
   <Card title="API key">
-    A Lunogram-issued key. Use a <strong>public</strong> key in client-side code and a <strong>secret</strong> key from your backend.
+    A Lunogram-issued <strong>private</strong> key (<code>sk_</code>) your backend sends as a Bearer token. Backend-only — never ship it in client-side code.
   </Card>
   <Card title="Trusted issuer">
     Validate JWTs minted by your own identity provider (Bring Your Own IdP). No key to distribute.
@@ -28,18 +28,11 @@ The authorization an auth method grants — its **role** (and optional custom pe
 
 ## API keys
 
-API keys carry a **scope** that determines where they are safe to use:
-
-| Scope | Prefix | Use it | Notes |
-|-------|--------|--------|-------|
-| **public** | `pk_` | Browser / mobile, client-side | Write-only — can never be granted read access. Safe to ship in public code. |
-| **secret** | `sk_` | Backend only | Full access per its role. Rejected on browser-originated requests. |
+API keys are **private** (`sk_`) and **backend-only**. Your server sends one as a Bearer token, with full access per its role. A key presented from a browser — a request carrying an `Origin` header — is rejected, so a key can never be safely embedded in client-side code. For browser and mobile clients, use a [trusted issuer](#trusted-issuers-bring-your-own-idp) or a [session](#sessions) instead.
 
 <Callout type="warn">
 The full key is shown **once**, right after creation — copy it then. Afterwards only a short prefix is displayed; the secret is stored hashed and cannot be recovered. If you lose it, delete the key and create a new one.
 </Callout>
-
-Public keys are the only credential safe to embed in front-end code: they can ingest data (users, events) but cannot read or modify anything.
 
 ---
 
@@ -57,7 +50,7 @@ By default a request authenticated this way reads and writes only **its own** us
 
 A session auth method lets your backend mint a short-lived, user-scoped token that the browser then uses against the Client API.
 
-Your backend calls `POST /api/client/sessions` with a **secret** API key, naming the session method and the `user_id`. Lunogram returns a token whose lifetime and permissions come from the **session policy**. Like trusted-issuer requests, a session defaults to its own user's data — see [Data access](#data-access).
+Your backend calls `POST /api/client/sessions` with an API key, naming the session method and the `user_id`. Lunogram returns a token whose lifetime and permissions come from the **session policy**. Like trusted-issuer requests, a session defaults to its own user's data — see [Data access](#data-access).
 
 ---
 
@@ -70,13 +63,13 @@ Because trusted issuers and sessions carry a **verified subject** (the end user 
 | **Own data only** (default) | The request is bound to the verified subject. Any client-supplied identifier is ignored, so the caller can only ever read and write its own records. Use this for end-user apps. |
 | **All data** | The verified subject authenticates the request, but it acts across every user's records (like a backend key). Use this for an internal or support tool that signs in through your IdP yet needs to see other users' data. |
 
-API keys have no verified subject, so they always act across all data; their reach is bounded by their role and scope instead.
+API keys have no verified subject, so they always act across all data; their reach is bounded by their role instead.
 
 ---
 
 ## Client event allow-list
 
-Each project can restrict which event names untrusted clients may emit. It applies to **public API keys** and **verified end users** (trusted-issuer and session requests) calling `POST /api/client/events` and the organization events endpoint; trusted **secret** keys are exempt.
+Each project can restrict which event names untrusted clients may emit. It applies to **verified end users** (trusted-issuer and session requests) calling `POST /api/client/events` and the organization events endpoint; API keys are private/backend-only and exempt.
 
 | Allow-list | Behaviour |
 |------------|-----------|
@@ -94,7 +87,7 @@ Every auth method is assigned a role that determines what it can access. Roles a
 
 <Tabs items={['Client', 'Support', 'Editor', 'Admin']}>
   <Tab value="Client">
-    **Write-only** access designed for client-side ingestion. The default for public keys.
+    **Write-only** access designed for client-side ingestion (events and user data).
 
     | Permission | |
     |------------|---|
@@ -131,7 +124,7 @@ Every auth method is assigned a role that determines what it can access. Roles a
     | Delete subscriptions, actions, and organizations | ✅ |
 
     <Callout type="warn">
-    Admin grants unrestricted access. Only ever use it with a secret key, never in client-side code.
+    Admin grants unrestricted access. Only ever use it from your backend, never in client-side code.
     </Callout>
   </Tab>
 </Tabs>
@@ -141,16 +134,16 @@ Every auth method is assigned a role that determines what it can access. Roles a
 ## Which should I use?
 
 <Cards>
-  <Card title="Frontend app, pre-login tracking">
-    A **public API key** (`pk_`) with the Client role — anonymous, write-only event/user ingestion.
-  </Card>
   <Card title="Frontend app, logged-in users">
     A **trusted issuer** (reuse your IdP's JWTs) or **sessions** (mint from your backend) — each user reads/writes only their own data.
   </Card>
+  <Card title="Frontend app, anonymous tracking">
+    Mint a **session** from your backend for the visitor (assign a device or anonymous id); the browser then ingests events and users with that short-lived token. Browsers cannot use an embeddable key.
+  </Card>
   <Card title="Backend integration">
-    A **secret API key** (`sk_`) with Editor or Admin, kept in environment variables.
+    An **API key** (`sk_`) with Editor or Admin, kept in environment variables.
   </Card>
   <Card title="Analytics / reporting">
-    A **secret key** with the Support (read-only) role.
+    An **API key** with the Support (read-only) role.
   </Card>
 </Cards>

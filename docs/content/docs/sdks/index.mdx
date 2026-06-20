@@ -36,9 +36,9 @@ Every SDK provides the same set of capabilities:
 
 ## Authentication
 
-SDKs authenticate with a **public API key** (prefixed `pk_`), which is safe to embed in client-side code: it can ingest data (users, events) but cannot read or modify anything.
+Browser and mobile SDKs authenticate as a **verified end user** — there is no key to embed in client-side code. Use either a JWT from your own identity provider (a **trusted issuer**) or a short-lived **session** token minted by your backend. Each is scoped to that user's own data (events, users, and their own inbox, preferences and profile).
 
-For logged-in users who need to read their own data (inbox, preferences, profile), authenticate as a verified end user instead — either with a JWT from your own identity provider (a **trusted issuer**) or a short-lived **session** token minted by your backend. Each is scoped to that user's own data.
+From a server you can instead send a private **API key** (`sk_`) as a Bearer token — see the `Client` class in the [JavaScript SDK](/sdks/javascript). API keys are backend-only and are rejected on browser-originated requests.
 
 See [Access](/settings/access) to configure any of these auth methods in your project settings.
 
