@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/lunogram/platform/internal/http/auth"
 	"github.com/lunogram/platform/internal/http/controllers/v1/client/oapi"
 	"github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/http/problem"
@@ -30,7 +31,7 @@ func (srv *OrganizationsController) UpsertOrganizationClient(w http.ResponseWrit
 
 	ctx := r.Context()
 
-	if err := requireCrossSubjectAccess(ctx); err != nil {
+	if err := auth.RequireCrossSubjectAccess(ctx); err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -121,7 +122,7 @@ func (srv *OrganizationsController) DeleteOrganizationClient(w http.ResponseWrit
 
 	ctx := r.Context()
 
-	if err := requireCrossSubjectAccess(ctx); err != nil {
+	if err := auth.RequireCrossSubjectAccess(ctx); err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -172,7 +173,7 @@ func (srv *OrganizationsController) AddOrganizationUserClient(w http.ResponseWri
 
 	ctx := r.Context()
 
-	if err := requireCrossSubjectAccess(ctx); err != nil {
+	if err := auth.RequireCrossSubjectAccess(ctx); err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -275,7 +276,7 @@ func (srv *OrganizationsController) RemoveOrganizationUserClient(w http.Response
 
 	ctx := r.Context()
 
-	if err := requireCrossSubjectAccess(ctx); err != nil {
+	if err := auth.RequireCrossSubjectAccess(ctx); err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}

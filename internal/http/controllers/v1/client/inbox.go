@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
+	"github.com/lunogram/platform/internal/http/auth"
 	"github.com/lunogram/platform/internal/http/controllers/v1/client/oapi"
 	"github.com/lunogram/platform/internal/http/json"
 	httpparams "github.com/lunogram/platform/internal/http/params"
@@ -69,7 +70,7 @@ func (srv *InboxController) GetUserInbox(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
-	userID, err := srv.users.LookupUserID(r.Context(), projectID, boundUserIdentifiers(r.Context(), []subjects.ExternalIDParam{{Source: params.Source, ExternalID: params.ExternalId}}))
+	userID, err := srv.users.LookupUserID(r.Context(), projectID, auth.BoundUserIdentifiers(r.Context(), []subjects.ExternalIDParam{{Source: params.Source, ExternalID: params.ExternalId}}))
 	if errors.Is(err, subjects.ErrUserNotFound) {
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
 		return
@@ -103,7 +104,7 @@ func (srv *InboxController) GetUserInboxCount(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	userID, err := srv.users.LookupUserID(r.Context(), projectID, boundUserIdentifiers(r.Context(), []subjects.ExternalIDParam{{Source: params.Source, ExternalID: params.ExternalId}}))
+	userID, err := srv.users.LookupUserID(r.Context(), projectID, auth.BoundUserIdentifiers(r.Context(), []subjects.ExternalIDParam{{Source: params.Source, ExternalID: params.ExternalId}}))
 	if errors.Is(err, subjects.ErrUserNotFound) {
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
 		return
@@ -176,7 +177,7 @@ func (srv *InboxController) GetOrganizationInbox(w http.ResponseWriter, r *http.
 		return
 	}
 
-	if err := requireCrossSubjectAccess(r.Context()); err != nil {
+	if err := auth.RequireCrossSubjectAccess(r.Context()); err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -215,7 +216,7 @@ func (srv *InboxController) GetOrganizationInboxCount(w http.ResponseWriter, r *
 		return
 	}
 
-	if err := requireCrossSubjectAccess(r.Context()); err != nil {
+	if err := auth.RequireCrossSubjectAccess(r.Context()); err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -275,7 +276,7 @@ func (srv *InboxController) publishUserInboxStateEvents(w http.ResponseWriter, r
 		msg := schemas.InboxStateEvent{
 			ProjectID:   projectID,
 			MessageID:   item.MessageId,
-			Identifiers: boundUserIdentifiers(r.Context(), oapi.ToParams(item.Target)),
+			Identifiers: auth.BoundUserIdentifiers(r.Context(), oapi.ToParams(item.Target)),
 		}
 		if err := srv.pubsub.Publish(r.Context(), subject, msg); err != nil {
 			srv.logger.Error("failed to publish user inbox event", zap.String("action", action), zap.Error(err))
@@ -296,7 +297,7 @@ func (srv *InboxController) publishOrganizationInboxStateEvents(w http.ResponseW
 		return
 	}
 
-	if err := requireCrossSubjectAccess(r.Context()); err != nil {
+	if err := auth.RequireCrossSubjectAccess(r.Context()); err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}

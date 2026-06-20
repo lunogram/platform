@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
+	"github.com/lunogram/platform/internal/http/auth"
 	"github.com/lunogram/platform/internal/http/controllers/v1/client/oapi"
 	"github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/http/problem"
@@ -41,7 +42,7 @@ func (srv *EventsController) PostUserEvents(w http.ResponseWriter, r *http.Reque
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Int("events", len(events)))
 	logger.Info("posting events")
 
-	ownScoped := isOwnDataScoped(ctx)
+	ownScoped := auth.OwnDataScoped(ctx)
 
 	for _, event := range events {
 		// An own-data actor may only emit events about itself: attribute
@@ -80,7 +81,7 @@ func (srv *EventsController) PostUserEvents(w http.ResponseWriter, r *http.Reque
 			}
 			switch {
 			case ownScoped:
-				msg.Identifiers = boundUserIdentifiers(ctx, nil)
+				msg.Identifiers = auth.BoundUserIdentifiers(ctx, nil)
 			case event.Identifier != nil:
 				msg.Identifiers = oapi.ToParams(*event.Identifier)
 			}

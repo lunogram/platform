@@ -1,4 +1,4 @@
-package v1
+package auth
 
 import (
 	"context"
@@ -21,9 +21,9 @@ func TestBoundUserIdentifiers(t *testing.T) {
 			rbac.WithScope(rbac.DataScopeOwn))
 		ctx := rbac.WithActor(context.Background(), actor)
 
-		got := boundUserIdentifiers(ctx, supplied)
+		got := BoundUserIdentifiers(ctx, supplied)
 		assert.Equal(t, []subjects.ExternalIDParam{{Source: "https://idp.example", ExternalID: "verified-user"}}, got)
-		assert.True(t, isOwnDataScoped(ctx))
+		assert.True(t, OwnDataScoped(ctx))
 	})
 
 	t.Run("all-data end user acts across users with client-supplied identifiers", func(t *testing.T) {
@@ -33,21 +33,21 @@ func TestBoundUserIdentifiers(t *testing.T) {
 			rbac.WithSubject("verified-user", "https://idp.example"))
 		ctx := rbac.WithActor(context.Background(), actor)
 
-		assert.Equal(t, supplied, boundUserIdentifiers(ctx, supplied))
-		assert.False(t, isOwnDataScoped(ctx))
+		assert.Equal(t, supplied, BoundUserIdentifiers(ctx, supplied))
+		assert.False(t, OwnDataScoped(ctx))
 	})
 
 	t.Run("api key uses the client-supplied identifiers", func(t *testing.T) {
 		actor := rbac.NewActor(rbac.ActorAPIKey, uuid.NewString())
 		ctx := rbac.WithActor(context.Background(), actor)
 
-		assert.Equal(t, supplied, boundUserIdentifiers(ctx, supplied))
-		assert.False(t, isOwnDataScoped(ctx))
+		assert.Equal(t, supplied, BoundUserIdentifiers(ctx, supplied))
+		assert.False(t, OwnDataScoped(ctx))
 	})
 
 	t.Run("no actor falls back to client-supplied identifiers", func(t *testing.T) {
-		assert.Equal(t, supplied, boundUserIdentifiers(context.Background(), supplied))
-		assert.False(t, isOwnDataScoped(context.Background()))
+		assert.Equal(t, supplied, BoundUserIdentifiers(context.Background(), supplied))
+		assert.False(t, OwnDataScoped(context.Background()))
 	})
 }
 
@@ -60,7 +60,7 @@ func TestRequireCrossSubjectAccess(t *testing.T) {
 			rbac.WithScope(rbac.DataScopeOwn))
 		ctx := rbac.WithActor(context.Background(), actor)
 
-		assert.Error(t, requireCrossSubjectAccess(ctx))
+		assert.Error(t, RequireCrossSubjectAccess(ctx))
 	})
 
 	t.Run("all-data end user is allowed cross-subject access", func(t *testing.T) {
@@ -68,11 +68,11 @@ func TestRequireCrossSubjectAccess(t *testing.T) {
 			rbac.WithSubject("verified-user", "https://idp.example"))
 		ctx := rbac.WithActor(context.Background(), actor)
 
-		assert.NoError(t, requireCrossSubjectAccess(ctx))
+		assert.NoError(t, RequireCrossSubjectAccess(ctx))
 	})
 
 	t.Run("api key is allowed cross-subject access", func(t *testing.T) {
 		ctx := rbac.WithActor(context.Background(), rbac.NewActor(rbac.ActorAPIKey, uuid.NewString()))
-		assert.NoError(t, requireCrossSubjectAccess(ctx))
+		assert.NoError(t, RequireCrossSubjectAccess(ctx))
 	})
 }
