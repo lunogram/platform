@@ -48,14 +48,27 @@ type Actor struct {
 	// resource and verb.
 	SubjectID uuid.UUID
 
-	// OwnData reports whether the actor is confined to its own records. It is
-	// set only for verified end-user actors ([ActorEndUser]) whose auth method
-	// carries the "own" subject scope; such actors are bound to their verified
-	// subject regardless of any client-supplied identifier. A verified end user
-	// configured for "all" data acts across subjects (like a backend key), so
-	// OwnData is false. See [Actor.SubjectID].
-	OwnData bool
+	// Scope is the data boundary the actor acts within. The zero value (and
+	// [DataScopeAll]) acts across every subject's records, like a backend key;
+	// [DataScopeOwn] is set only for verified end-user actors ([ActorEndUser])
+	// whose auth method carries the "own" subject scope, binding them to their
+	// verified subject regardless of any client-supplied identifier. See
+	// [Actor.SubjectID].
+	Scope DataScope
 }
+
+// DataScope is the data boundary an actor acts within. It is a small enum rather
+// than a bool so the boundary can grow new values without changing the actor
+// option signature.
+type DataScope string
+
+const (
+	// DataScopeAll acts across every subject's records (the default: backend
+	// keys and admins).
+	DataScopeAll DataScope = "all"
+	// DataScopeOwn confines a verified end user to its own records.
+	DataScopeOwn DataScope = "own"
+)
 
 // ActorOption configures optional fields on an [Actor].
 type ActorOption func(*Actor)
@@ -83,12 +96,12 @@ func WithSubjectID(id uuid.UUID) ActorOption {
 	}
 }
 
-// WithOwnData confines the actor to its own records. Use this for verified
-// end-user actors whose auth method has the "own" subject scope. See
-// [Actor.OwnData].
-func WithOwnData(own bool) ActorOption {
+// WithScope sets the data boundary the actor acts within. Use [DataScopeOwn]
+// for verified end-user actors whose auth method has the "own" subject scope.
+// See [Actor.Scope].
+func WithScope(scope DataScope) ActorOption {
 	return func(a *Actor) {
-		a.OwnData = own
+		a.Scope = scope
 	}
 }
 
