@@ -9,24 +9,25 @@ import (
 	"github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/http/problem"
 	"github.com/lunogram/platform/internal/rbac"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 	"go.uber.org/zap"
 )
 
-func NewSessionsController(client *ClientController, signingKey string) *SessionsController {
-	return &SessionsController{client: client, signingKey: signingKey}
+func NewSessionsController(client *ClientController, signer *auth.SessionSigner) *SessionsController {
+	return &SessionsController{client: client, signer: signer}
 }
 
 type SessionsController struct {
-	client     *ClientController
-	signingKey string
+	client *ClientController
+	signer *auth.SessionSigner
 }
 
 // CreateSession mints a short-lived session token for an end user under a
 // session policy. It is a privileged backend operation: only an authorized API
-// key may call it (API keys are private/backend-only), and the named session
-// auth method must belong to the key's project. The session's permissions come
-// from the policy.
-func (srv *SessionsController) CreateSession(w http.ResponseWriter, r *http.Request) {
+// key may call it (API keys are private/backend-only), and the session auth
+// method named in the path must belong to the key's project. The session's
+// permissions come from the policy.
+func (srv *SessionsController) CreateSession(w http.ResponseWriter, r *http.Request, authMethodID openapi_types.UUID) {
 	ctx := r.Context()
 	actor := rbac.FromContext(ctx)
 
@@ -35,7 +36,7 @@ func (srv *SessionsController) CreateSession(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	if srv.signingKey == "" {
+	if srv.signer == nil {
 		oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("session signing is not configured")))
 		return
 	}
@@ -47,14 +48,14 @@ func (srv *SessionsController) CreateSession(w http.ResponseWriter, r *http.Requ
 	}
 
 	// The policy must exist, be a session method, and live in the key's project.
-	method, err := srv.client.mgmt.GetSessionAuthMethod(body.AuthMethodId)
+	method, err := srv.client.mgmt.GetSessionAuthMethod(authMethodID)
 	if err != nil || method.ProjectID != actor.ProjectID {
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("session auth method not found")))
 		return
 	}
 
 	ttl := time.Duration(method.TTLSeconds) * time.Second
-	token, expiresAt, err := auth.MintSession(srv.signingKey, method.ID, body.UserId, ttl)
+	token, expiresAt, err := srv.signer.Mint(method.ID, body.UserId, ttl)
 	if err != nil {
 		srv.client.logger.Error("failed to mint session", zap.Error(err))
 		oapi.WriteProblem(w, err)

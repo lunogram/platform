@@ -48,10 +48,12 @@ type Auth struct {
 	Basic     BasicAuth     `envPrefix:"BASIC_"`
 	Clerk     ClerkAuth     `envPrefix:"CLERK_"`
 
-	// SessionSigningKey is the server secret used to mint and verify short-lived
-	// client session tokens (HMAC). When empty, session minting and verification
-	// are disabled.
+	// SessionSigningKey is a PEM-encoded EC (P-256) private key used to sign and
+	// verify short-lived client session tokens (ES256). When empty, session
+	// minting and verification are disabled.
 	SessionSigningKey string `env:"SESSION_SIGNING_KEY"`
+	// SessionIssuer is the `iss` stamped on (and required of) session tokens.
+	SessionIssuer string `env:"SESSION_ISSUER" envDefault:"https://lunogram.com"`
 }
 
 type BasicAuth struct {

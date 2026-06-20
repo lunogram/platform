@@ -72,7 +72,7 @@ func setupClientController(t *testing.T) *testClientController {
 	usersState := subjects.NewState(usrs, zap.NewNop())
 
 	// Start with a bare engine; tests that need permissions call actorContext.
-	controller, err := NewController(logger, mgmt, usrs, management.NewState(mgmt), usersState, pub, rbac.NewTestEngine(t), "test-session-signing-key")
+	controller, err := NewController(logger, mgmt, usrs, management.NewState(mgmt), usersState, pub, rbac.NewTestEngine(t), nil)
 	require.NoError(t, err)
 
 	return &testClientController{

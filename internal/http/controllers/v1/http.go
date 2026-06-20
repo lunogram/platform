@@ -67,8 +67,15 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *st
 		return nil, fmt.Errorf("failed to create management controller: %w", err)
 	}
 
+	// Session signer (ES256). Nil when no signing key is configured, which
+	// disables session minting and verification.
+	sessionSigner, err := auth.NewSessionSigner(cfg.Auth.SessionSigningKey, cfg.Auth.SessionIssuer)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build session signer: %w", err)
+	}
+
 	// Create client controller
-	clientController, err := clientv1.NewController(logger, db.Management, db.Subjects, mgmtStores, usersStore, pub, rbacEngine, cfg.Auth.SessionSigningKey)
+	clientController, err := clientv1.NewController(logger, db.Management, db.Subjects, mgmtStores, usersStore, pub, rbacEngine, sessionSigner)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create client controller: %w", err)
 	}
@@ -107,7 +114,7 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *st
 				clientoapi.Validator(clientSpec, openapi3filter.Options{
 					AuthenticationFunc: auth.Middleware(
 						auth.WithKey(mgmtStores, auth.SurfaceClient),
-						auth.WithSession(mgmtStores, cfg.Auth.SessionSigningKey),
+						auth.WithSession(mgmtStores, sessionSigner),
 						auth.WithTrustedIssuer(mgmtStores, jwksCache),
 					),
 				}),

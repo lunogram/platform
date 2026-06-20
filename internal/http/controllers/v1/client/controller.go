@@ -2,6 +2,7 @@ package v1
 
 import (
 	"github.com/jmoiron/sqlx"
+	"github.com/lunogram/platform/internal/http/auth"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/store/management"
@@ -9,7 +10,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func NewController(logger *zap.Logger, mgmtDB, usersDB *sqlx.DB, mgmt *management.State, usrs *subjects.State, pub pubsub.Publisher, engine *rbac.Engine, sessionSigningKey string) (*Controller, error) {
+func NewController(logger *zap.Logger, mgmtDB, usersDB *sqlx.DB, mgmt *management.State, usrs *subjects.State, pub pubsub.Publisher, engine *rbac.Engine, sessionSigner *auth.SessionSigner) (*Controller, error) {
 	clientController := NewClientController(logger, usersDB, mgmtDB, usrs, pub, engine)
 
 	subsController, err := NewSubscriptionsController(clientController, mgmtDB, mgmt)
@@ -25,7 +26,7 @@ func NewController(logger *zap.Logger, mgmtDB, usersDB *sqlx.DB, mgmt *managemen
 		InboxController:         NewInboxController(clientController),
 		DevicesController:       NewDevicesController(clientController),
 		SubscriptionsController: subsController,
-		SessionsController:      NewSessionsController(clientController, sessionSigningKey),
+		SessionsController:      NewSessionsController(clientController, sessionSigner),
 	}, nil
 }
 
