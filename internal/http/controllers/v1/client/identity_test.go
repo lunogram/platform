@@ -18,7 +18,7 @@ func TestBoundUserIdentifiers(t *testing.T) {
 	t.Run("own-data end user is bound to the verified subject, ignoring client input", func(t *testing.T) {
 		actor := rbac.NewActor(rbac.ActorEndUser, uuid.NewString(),
 			rbac.WithSubject("verified-user", "https://idp.example"),
-			rbac.WithOwnData(true))
+			rbac.WithScope(rbac.DataScopeOwn))
 		ctx := rbac.WithActor(context.Background(), actor)
 
 		got := boundUserIdentifiers(ctx, supplied)
@@ -57,7 +57,7 @@ func TestRequireCrossSubjectAccess(t *testing.T) {
 	t.Run("own-data end user is denied cross-subject access", func(t *testing.T) {
 		actor := rbac.NewActor(rbac.ActorEndUser, uuid.NewString(),
 			rbac.WithSubject("verified-user", "https://idp.example"),
-			rbac.WithOwnData(true))
+			rbac.WithScope(rbac.DataScopeOwn))
 		ctx := rbac.WithActor(context.Background(), actor)
 
 		assert.Error(t, requireCrossSubjectAccess(ctx))

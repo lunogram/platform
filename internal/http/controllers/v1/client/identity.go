@@ -18,7 +18,7 @@ import (
 // users configured for "all" data use the supplied identifiers as-is, which is
 // what lets a trusted integration act across users.
 func boundUserIdentifiers(ctx context.Context, supplied []subjects.ExternalIDParam) []subjects.ExternalIDParam {
-	if actor := rbac.FromContext(ctx); actor != nil && actor.OwnData {
+	if actor := rbac.FromContext(ctx); actor != nil && actor.Scope == rbac.DataScopeOwn {
 		return []subjects.ExternalIDParam{{Source: actor.SubjectSource, ExternalID: actor.Subject}}
 	}
 	return supplied
@@ -28,7 +28,7 @@ func boundUserIdentifiers(ctx context.Context, supplied []subjects.ExternalIDPar
 // verified end user whose auth method carries the "own" subject scope.
 func isOwnDataScoped(ctx context.Context) bool {
 	actor := rbac.FromContext(ctx)
-	return actor != nil && actor.OwnData
+	return actor != nil && actor.Scope == rbac.DataScopeOwn
 }
 
 // requireCrossSubjectAccess returns a problem when an own-data actor targets an
