@@ -62,6 +62,14 @@ type EntranceStepData struct {
 	UserRule         *rules.RuleSet `json:"user_rule,omitempty"`
 	Concurrent       *bool          `json:"concurrent,omitempty"`
 	Multiple         *bool          `json:"multiple,omitempty"`
+
+	// List trigger ("list"): the user enters the journey when they join (or
+	// leave) the referenced list. ListDirection is "joins" (default) or
+	// "leaves". When ExitOnLeave is true (only meaningful for the "joins"
+	// direction) the user is exited from the journey when they leave the list.
+	ListID        *uuid.UUID `json:"list_id,omitempty"`
+	ListDirection *string    `json:"list_direction,omitempty"`
+	ExitOnLeave   *bool      `json:"exit_on_leave,omitempty"`
 }
 
 // ExitStepData represents data for exit step - exits user from journey

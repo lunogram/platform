@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -77,6 +78,7 @@ func UserEventsHandler(logger *zap.Logger, usrs *subjects.State, jrny *journey.S
 		wg.Go(PublishUserEventSchema(ctx, logger, pub, event, schemaCache))
 		wg.Go(PublishUserEventListDependencies(ctx, logger, usrs, pub, event))
 		wg.Go(PublishUserEventJourneyDependencies(ctx, logger, jrny, pub, event))
+		wg.Go(CompleteUserEventJourneyExits(ctx, logger, jrny, event))
 
 		err = wg.Wait()
 		if err != nil {
@@ -163,6 +165,19 @@ func PublishUserEventJourneyDependencies(ctx context.Context, logger *zap.Logger
 				}
 			}
 
+			// List triggers reuse the list membership events but must only
+			// enrol users for their own list. The list match is authoritative
+			// in the backend rather than relying on a generated rule.
+			if entrance.Trigger != nil && *entrance.Trigger == "list" {
+				if entrance.ListID == nil {
+					continue
+				}
+				listID, _ := event.Data["list_id"].(string)
+				if !strings.EqualFold(listID, entrance.ListID.String()) {
+					continue
+				}
+			}
+
 			if entrance.Rule != nil {
 				data := map[string]any{
 					"data": event.Data,
@@ -209,6 +224,57 @@ func PublishUserEventJourneyDependencies(ctx context.Context, logger *zap.Logger
 			}
 
 			metrics.EventsJourneyTriggersTotal.WithLabelValues("user").Inc()
+		}
+
+		return nil
+	}
+}
+
+// CompleteUserEventJourneyExits returns a function that exits the user from any
+// journey whose list-trigger entrance is configured to exit on list leave when
+// the matching list membership event fires. It completes the user's active runs
+// started from that entrance rather than routing through an in-flow exit step.
+func CompleteUserEventJourneyExits(ctx context.Context, logger *zap.Logger, jrny *journey.State, event schemas.UserEvent) func() error {
+	return func() error {
+		deps, err := jrny.ListEventJourneyExitDependencies(ctx, event.ID)
+		if err != nil {
+			logger.Error("failed to list journey exit dependencies", zap.Error(err))
+			return err
+		}
+
+		if len(deps) == 0 {
+			return nil
+		}
+
+		eventListID, _ := event.Data["list_id"].(string)
+		now := time.Now()
+
+		for _, dep := range deps {
+			entrance := oapi.EntranceStepData{}
+			if dep.Data != nil {
+				if err := json.Unmarshal(*dep.Data, &entrance); err != nil {
+					return err
+				}
+			}
+
+			if entrance.ListID == nil || !strings.EqualFold(eventListID, entrance.ListID.String()) {
+				continue
+			}
+
+			affected, err := jrny.CompleteUserJourneyEntryStates(ctx, dep.JourneyID, event.UserID, dep.ExternalID, now)
+			if err != nil {
+				logger.Error("failed to complete journey entry states on list leave", zap.Error(err))
+				return err
+			}
+
+			if affected > 0 {
+				logger.Info("exited user from journey on list leave",
+					zap.Stringer("journey_id", dep.JourneyID),
+					zap.Stringer("user_id", event.UserID),
+					zap.Int64("states_completed", affected),
+				)
+				metrics.JourneyExitsTotal.WithLabelValues(event.ProjectID.String()).Inc()
+			}
 		}
 
 		return nil

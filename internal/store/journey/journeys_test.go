@@ -321,7 +321,7 @@ func TestJourneysStoreEventDependencies(t *testing.T) {
 		_, err := store.SetJourneySteps(ctx, versionID, stepMap)
 		require.NoError(t, err)
 
-		err = store.SetJourneyStepEventDependencies(ctx, versionID, "entrance-1", []uuid.UUID{eventID})
+		err = store.SetJourneyStepEventDependencies(ctx, versionID, "entrance-1", []StepEventDependency{{EventID: eventID, Kind: StepEventKindEnter}})
 		require.NoError(t, err)
 
 		var count int

@@ -796,15 +796,28 @@ func (srv *JourneysController) SetJourneySteps(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	for externalID, eventName := range eventDependencies {
-		eventID, err := events.UpsertEvent(ctx, projectID, eventName, subjects.SubjectTypeUser)
+	for externalID, dep := range eventDependencies {
+		var deps []journey.StepEventDependency
+
+		enterID, err := events.UpsertEvent(ctx, projectID, dep.Enter, subjects.SubjectTypeUser)
 		if err != nil {
-			logger.Error("failed to upsert event", zap.String("event", eventName), zap.Error(err))
+			logger.Error("failed to upsert event", zap.String("event", dep.Enter), zap.Error(err))
 			oapi.WriteProblem(w, err)
 			return
 		}
+		deps = append(deps, journey.StepEventDependency{EventID: enterID, Kind: journey.StepEventKindEnter})
 
-		err = journeys.SetJourneyStepEventDependencies(ctx, versionID, externalID, []uuid.UUID{eventID})
+		if dep.Exit != "" {
+			exitID, err := events.UpsertEvent(ctx, projectID, dep.Exit, subjects.SubjectTypeUser)
+			if err != nil {
+				logger.Error("failed to upsert exit event", zap.String("event", dep.Exit), zap.Error(err))
+				oapi.WriteProblem(w, err)
+				return
+			}
+			deps = append(deps, journey.StepEventDependency{EventID: exitID, Kind: journey.StepEventKindExit})
+		}
+
+		err = journeys.SetJourneyStepEventDependencies(ctx, versionID, externalID, deps)
 		if err != nil {
 			logger.Error("failed to set journey step event dependencies", zap.Error(err))
 			oapi.WriteProblem(w, err)
@@ -1073,9 +1086,36 @@ func (srv *JourneysController) PublishJourney(w http.ResponseWriter, r *http.Req
 	json.Write(w, http.StatusOK, updated.OAPI(versionInfo))
 }
 
+// entranceEventDeps describes the events an entrance step depends on. Enter is
+// the event that enrolls a user; Exit (optional) is the event that exits a user
+// from the journey, used by list triggers configured to exit on list leave.
+type entranceEventDeps struct {
+	Enter string
+	Exit  string
+}
+
+// listTriggerEvents resolves the enter/exit list membership events for a list
+// trigger entrance from its direction and exit-on-leave setting.
+func listTriggerEvents(data oapi.EntranceStepData) entranceEventDeps {
+	enter := schemas.EventListUserAdded
+	if data.ListDirection != nil && *data.ListDirection == "leaves" {
+		enter = schemas.EventListUserRemoved
+	}
+
+	deps := entranceEventDeps{Enter: enter}
+
+	// Exiting the journey when the user leaves the list only makes sense when
+	// they entered by joining it; the opposite event closes the run.
+	if enter == schemas.EventListUserAdded && data.ExitOnLeave != nil && *data.ExitOnLeave {
+		deps.Exit = schemas.EventListUserRemoved
+	}
+
+	return deps
+}
+
 // journeyEntranceEventDependencies extracts event dependencies from entrance steps
-func journeyEntranceEventDependencies(steps oapi.JourneyStepMap) (map[string]string, error) {
-	events := make(map[string]string)
+func journeyEntranceEventDependencies(steps oapi.JourneyStepMap) (map[string]entranceEventDeps, error) {
+	events := make(map[string]entranceEventDeps)
 	for id, step := range steps {
 		if step.Type != oapi.JourneyStepTypeEntrance {
 			continue
@@ -1087,8 +1127,19 @@ func journeyEntranceEventDependencies(steps oapi.JourneyStepMap) (map[string]str
 			return nil, err
 		}
 
-		if data.Trigger != nil && (*data.Trigger == "event" || *data.Trigger == "scheduled") && data.EventName != nil {
-			events[id] = *data.EventName
+		if data.Trigger == nil {
+			continue
+		}
+
+		switch *data.Trigger {
+		case "event", "scheduled":
+			if data.EventName != nil {
+				events[id] = entranceEventDeps{Enter: *data.EventName}
+			}
+		case "list":
+			if data.ListID != nil {
+				events[id] = listTriggerEvents(data)
+			}
 		}
 	}
 
