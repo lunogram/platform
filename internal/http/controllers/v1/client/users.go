@@ -22,7 +22,7 @@ func NewUsersController(client *ClientController) *UsersController {
 	return &UsersController{ClientController: client}
 }
 
-func (srv *UsersController) DeleteUserClient(w http.ResponseWriter, r *http.Request) {
+func (srv *UsersController) DeleteUserClient(w http.ResponseWriter, r *http.Request, _ oapi.ProjectID) {
 	projectID, err := srv.engine.AllowedProject(r.Context(), "users", rbac.Delete)
 	if err != nil {
 		oapi.WriteProblem(w, err)
@@ -71,7 +71,7 @@ func (srv *UsersController) DeleteUserClient(w http.ResponseWriter, r *http.Requ
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (srv *UsersController) UpsertUserClient(w http.ResponseWriter, r *http.Request) {
+func (srv *UsersController) UpsertUserClient(w http.ResponseWriter, r *http.Request, _ oapi.ProjectID) {
 	projectID, err := srv.engine.AllowedProject(r.Context(), "users", rbac.Create)
 	if err != nil {
 		oapi.WriteProblem(w, err)

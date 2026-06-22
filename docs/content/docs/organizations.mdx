@@ -55,7 +55,7 @@ Create organizations through the client API. If an organization with a matching 
   </Tab>
   <Tab value="API">
     ```bash
-    curl -X POST https://your-instance.com/api/client/organizations \
+    curl -X POST https://your-instance.com/api/client/projects/{projectID}/organizations \
       -H "Authorization: Bearer sk_..." \
       -H "Content-Type: application/json" \
       -d '{
@@ -111,7 +111,7 @@ Pass custom data as a JSON object when creating or updating an organization:
   </Tab>
   <Tab value="API">
     ```bash
-    curl -X POST https://your-instance.com/api/client/organizations \
+    curl -X POST https://your-instance.com/api/client/projects/{projectID}/organizations \
       -H "Authorization: Bearer sk_..." \
       -H "Content-Type: application/json" \
       -d '{
@@ -216,7 +216,7 @@ Delete an organization by its identifier. This also removes all memberships.
   </Tab>
   <Tab value="API">
     ```bash
-    curl -X DELETE https://your-instance.com/api/client/organizations \
+    curl -X DELETE https://your-instance.com/api/client/projects/{projectID}/organizations \
       -H "Authorization: Bearer sk_..." \
       -H "Content-Type: application/json" \
       -d '{
@@ -256,7 +256,7 @@ Add a user to an organization using their identifiers:
   </Tab>
   <Tab value="API">
     ```bash
-    curl -X POST https://your-instance.com/api/client/organizations/users \
+    curl -X POST https://your-instance.com/api/client/projects/{projectID}/organizations/users \
       -H "Authorization: Bearer sk_..." \
       -H "Content-Type: application/json" \
       -d '{
@@ -315,7 +315,7 @@ Remove a user from an organization:
   </Tab>
   <Tab value="API">
     ```bash
-    curl -X DELETE https://your-instance.com/api/client/organizations/users \
+    curl -X DELETE https://your-instance.com/api/client/projects/{projectID}/organizations/users \
       -H "Authorization: Bearer sk_..." \
       -H "Content-Type: application/json" \
       -d '{
@@ -358,7 +358,7 @@ Organizations have their own event timeline, separate from user events. Organiza
   </Tab>
   <Tab value="API">
     ```bash
-    curl -X POST https://your-instance.com/api/client/organizations/events \
+    curl -X POST https://your-instance.com/api/client/projects/{projectID}/organizations/events \
       -H "Authorization: Bearer sk_..." \
       -H "Content-Type: application/json" \
       -d '[
@@ -450,14 +450,14 @@ Organization member has role = "admin"
 
 ## API Reference
 
-All organization endpoints use the client API and authenticate with your project API key:
+All organization endpoints use the client API and authenticate with an API key authorized for your project. The project is now part of the URL path — every endpoint lives under `/api/client/projects/{projectID}/...`, where `{projectID}` is your project's UUID:
 
-| Method   | Endpoint                              | Description                   |
-| -------- | ------------------------------------- | ----------------------------- |
-| `POST`   | `/api/client/organizations`           | Create or update organization |
-| `DELETE` | `/api/client/organizations`           | Delete organization           |
-| `POST`   | `/api/client/organizations/users`     | Add member                    |
-| `DELETE` | `/api/client/organizations/users`     | Remove member                 |
-| `POST`   | `/api/client/organizations/events`    | Send organization events      |
-| `POST`   | `/api/client/organizations/scheduled` | Create or update schedule     |
-| `DELETE` | `/api/client/organizations/scheduled` | Delete schedule               |
+| Method   | Endpoint                                                  | Description                   |
+| -------- | -------------------------------------------------------- | ----------------------------- |
+| `POST`   | `/api/client/projects/{projectID}/organizations`           | Create or update organization |
+| `DELETE` | `/api/client/projects/{projectID}/organizations`           | Delete organization           |
+| `POST`   | `/api/client/projects/{projectID}/organizations/users`     | Add member                    |
+| `DELETE` | `/api/client/projects/{projectID}/organizations/users`     | Remove member                 |
+| `POST`   | `/api/client/projects/{projectID}/organizations/events`    | Send organization events      |
+| `POST`   | `/api/client/projects/{projectID}/organizations/scheduled` | Create or update schedule     |
+| `DELETE` | `/api/client/projects/{projectID}/organizations/scheduled` | Delete schedule               |

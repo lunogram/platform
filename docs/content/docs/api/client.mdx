@@ -17,6 +17,8 @@ Authorization: Bearer YOUR_API_KEY
 
 You can [create and manage API keys](/settings/access) in your project settings.
 
+Every client endpoint is namespaced under `/api/client/projects/{projectID}/...`, where `{projectID}` is your project's UUID. The project is now an explicit part of the URL rather than being derived from the API key, and the API key you use must be authorized for that project.
+
 <Callout type="info">
   Client keys can ingest data but cannot read or modify existing resources. See
   [Access](/settings/access) for a full breakdown of roles and permissions.
@@ -26,16 +28,16 @@ You can [create and manage API keys](/settings/access) in your project settings.
 
 | Method | Endpoint | Description |
 | ------ | -------- | ----------- |
-| `POST` | `/api/client/users` | Create or update a user |
-| `POST` | `/api/client/users/events` | Track user events |
-| `DELETE` | `/api/client/users` | Delete a user |
-| `POST` | `/api/client/organizations` | Create or update an organization |
-| `POST` | `/api/client/organizations/events` | Track organization events |
-| `POST` | `/api/client/users/scheduled` | Create or update a user schedule |
-| `DELETE` | `/api/client/users/scheduled` | Delete a user schedule |
-| `POST` | `/api/client/organizations/scheduled` | Create or update an org schedule |
-| `DELETE` | `/api/client/organizations/scheduled` | Delete an org schedule |
-| `POST` | `/api/client/users/devices` | Register a device for push notifications |
+| `POST` | `/api/client/projects/{projectID}/users` | Create or update a user |
+| `POST` | `/api/client/projects/{projectID}/users/events` | Track user events |
+| `DELETE` | `/api/client/projects/{projectID}/users` | Delete a user |
+| `POST` | `/api/client/projects/{projectID}/organizations` | Create or update an organization |
+| `POST` | `/api/client/projects/{projectID}/organizations/events` | Track organization events |
+| `POST` | `/api/client/projects/{projectID}/users/scheduled` | Create or update a user schedule |
+| `DELETE` | `/api/client/projects/{projectID}/users/scheduled` | Delete a user schedule |
+| `POST` | `/api/client/projects/{projectID}/organizations/scheduled` | Create or update an org schedule |
+| `DELETE` | `/api/client/projects/{projectID}/organizations/scheduled` | Delete an org schedule |
+| `POST` | `/api/client/projects/{projectID}/users/devices` | Register a device for push notifications |
 
 ## SDKs
 

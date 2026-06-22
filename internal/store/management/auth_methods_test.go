@@ -62,7 +62,7 @@ func TestAuthMethodsStore(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		resolved, err := db.GetTrustedIssuerByIssuer(ctx, "https://lookup.example")
+		resolved, err := db.GetTrustedIssuer(ctx, projectID, "https://lookup.example")
 		require.NoError(t, err)
 		assert.Equal(t, created.ID, resolved.ID)
 		assert.Equal(t, projectID, resolved.ProjectID)
@@ -71,8 +71,22 @@ func TestAuthMethodsStore(t *testing.T) {
 		assert.Equal(t, "https://lookup.example/jwks.json", *resolved.JWKSURL)
 		assert.Equal(t, "sub", resolved.SubjectClaim)
 
-		_, err = db.GetTrustedIssuerByIssuer(ctx, "https://unknown.example")
+		_, err = db.GetTrustedIssuer(ctx, projectID, "https://unknown.example")
 		assert.Error(t, err)
+
+		// Resolution is project-scoped: the same issuer does not resolve under a
+		// different project.
+		otherOrg, err := db.CreateOrganization(ctx, "Other Org")
+		require.NoError(t, err)
+		otherProject, err := db.CreateProject(ctx, Project{
+			OrganizationID: &otherOrg,
+			Name:           "Other Project",
+			Timezone:       "UTC",
+			Locale:         "en",
+		})
+		require.NoError(t, err)
+		_, err = db.GetTrustedIssuer(ctx, otherProject, "https://lookup.example")
+		assert.Error(t, err, "an issuer registered for one project must not resolve under another")
 	})
 
 	t.Run("creates a trusted_issuer method", func(t *testing.T) {
@@ -215,5 +229,71 @@ func TestAuthMethodsStore(t *testing.T) {
 		_, restricted, err = db.CreateGrantInstances(ctx, created.ID, "events")
 		require.NoError(t, err)
 		assert.False(t, restricted, "a cleared allow-list is unrestricted")
+	})
+
+	t.Run("enforces a unique active issuer per project and frees it on delete", func(t *testing.T) {
+		// A fresh project keeps this independent of the count assertions above.
+		uniqOrg, err := db.CreateOrganization(ctx, "Uniq Org")
+		require.NoError(t, err)
+		uniqProject, err := db.CreateProject(ctx, Project{
+			OrganizationID: &uniqOrg,
+			Name:           "Uniq Project",
+			Timezone:       "UTC",
+			Locale:         "en",
+		})
+		require.NoError(t, err)
+
+		const issuer = "https://uniq.example"
+		first, err := db.CreateAuthMethod(ctx, uniqProject, CreateAuthMethodInput{
+			Type:          MethodTypeTrustedIssuer,
+			Name:          "uniq idp",
+			Role:          "support",
+			TrustedIssuer: &TrustedIssuer{JWKSURL: "https://uniq.example/jwks.json", Issuer: issuer},
+		})
+		require.NoError(t, err)
+
+		// A second active registration of the same issuer in the same project is rejected.
+		_, err = db.CreateAuthMethod(ctx, uniqProject, CreateAuthMethodInput{
+			Type:          MethodTypeTrustedIssuer,
+			Name:          "dup idp",
+			Role:          "support",
+			TrustedIssuer: &TrustedIssuer{JWKSURL: "https://uniq.example/jwks.json", Issuer: issuer},
+		})
+		require.Error(t, err, "a duplicate active issuer in the same project must be rejected")
+
+		// The same issuer is allowed in a different project.
+		otherOrg, err := db.CreateOrganization(ctx, "Uniq Org 2")
+		require.NoError(t, err)
+		otherProject, err := db.CreateProject(ctx, Project{
+			OrganizationID: &otherOrg,
+			Name:           "Uniq Project 2",
+			Timezone:       "UTC",
+			Locale:         "en",
+		})
+		require.NoError(t, err)
+		_, err = db.CreateAuthMethod(ctx, otherProject, CreateAuthMethodInput{
+			Type:          MethodTypeTrustedIssuer,
+			Name:          "uniq idp p2",
+			Role:          "support",
+			TrustedIssuer: &TrustedIssuer{JWKSURL: "https://uniq.example/jwks.json", Issuer: issuer},
+		})
+		require.NoError(t, err, "the same issuer is allowed under a different project")
+
+		// Deleting the method frees the issuer slot so it can be re-registered.
+		require.NoError(t, db.DeleteAuthMethod(ctx, uniqProject, first.ID))
+		_, err = db.GetTrustedIssuer(ctx, uniqProject, issuer)
+		assert.Error(t, err, "a deleted issuer no longer resolves")
+
+		reAdded, err := db.CreateAuthMethod(ctx, uniqProject, CreateAuthMethodInput{
+			Type:          MethodTypeTrustedIssuer,
+			Name:          "uniq idp again",
+			Role:          "support",
+			TrustedIssuer: &TrustedIssuer{JWKSURL: "https://uniq.example/jwks.json", Issuer: issuer},
+		})
+		require.NoError(t, err, "re-registration after delete must succeed")
+
+		resolved, err := db.GetTrustedIssuer(ctx, uniqProject, issuer)
+		require.NoError(t, err)
+		assert.Equal(t, reAdded.ID, resolved.ID)
 	})
 }

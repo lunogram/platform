@@ -111,11 +111,12 @@ func (s *AuthMethodsStore) invalidateCaches(ctx context.Context, methodID uuid.U
 		return
 	}
 	var row struct {
-		SecretHash *string `db:"secret_hash"`
-		Issuer     *string `db:"issuer"`
+		ProjectID  uuid.UUID `db:"project_id"`
+		SecretHash *string   `db:"secret_hash"`
+		Issuer     *string   `db:"issuer"`
 	}
 	const q = `
-	SELECT k.secret_hash, t.issuer
+	SELECT m.project_id, k.secret_hash, t.issuer
 	FROM auth_methods m
 	LEFT JOIN auth_method_api_keys k ON k.auth_method_id = m.id
 	LEFT JOIN auth_method_trusted_issuers t ON t.auth_method_id = m.id
@@ -127,7 +128,7 @@ func (s *AuthMethodsStore) invalidateCaches(ctx context.Context, methodID uuid.U
 		_ = s.apiKeys.Invalidate(ctx, *row.SecretHash)
 	}
 	if row.Issuer != nil {
-		_ = s.issuers.Invalidate(ctx, *row.Issuer)
+		_ = s.issuers.Invalidate(ctx, trustedIssuerCacheKey(row.ProjectID, *row.Issuer))
 	}
 }
 
@@ -185,7 +186,7 @@ func (s *AuthMethodsStore) CreateAuthMethod(ctx context.Context, projectID uuid.
 	case MethodTypeAPIKey:
 		secret, err = insertAPIKey(ctx, tx, id)
 	case MethodTypeTrustedIssuer:
-		err = insertTrustedIssuer(ctx, tx, id, in.TrustedIssuer)
+		err = insertTrustedIssuer(ctx, tx, projectID, id, in.TrustedIssuer)
 	case MethodTypeSession:
 		err = insertSession(ctx, tx, id, in.Session)
 	default:
@@ -227,12 +228,13 @@ func insertAPIKey(ctx context.Context, q sqlx.ExecerContext, methodID uuid.UUID)
 }
 
 // insertTrustedIssuer persists a trusted_issuer method's validation config. A
-// trusted issuer is resolved at auth time by `iss` alone, with no project
-// context, so the active issuer must be globally unique; otherwise a token could
-// authenticate against the wrong project. (Soft-deleted methods keep their child
-// row, so this is enforced here rather than via a DB constraint that would block
-// re-adding a deleted issuer.)
-func insertTrustedIssuer(ctx context.Context, q sqlx.ExtContext, methodID uuid.UUID, in *TrustedIssuer) error {
+// trusted issuer is resolved at auth time by (project, `iss`), so the active
+// issuer must be unique per project; otherwise a token could authenticate against
+// the wrong method within the project. The app-level pre-check yields a clean 409
+// (the DB UNIQUE(project_id, issuer) is the backstop). Soft-deleting a method
+// hard-deletes its child row (see DeleteAuthMethod), so a deleted issuer is
+// re-registerable.
+func insertTrustedIssuer(ctx context.Context, q sqlx.ExtContext, projectID, methodID uuid.UUID, in *TrustedIssuer) error {
 	ti := ptr.FromOr(in, TrustedIssuer{})
 	subjectClaim := ti.SubjectClaim
 	if subjectClaim == "" {
@@ -243,18 +245,19 @@ func insertTrustedIssuer(ctx context.Context, q sqlx.ExtContext, methodID uuid.U
 	err := sqlx.GetContext(ctx, q, &existing,
 		`SELECT m.id FROM auth_method_trusted_issuers t
 		 JOIN auth_methods m ON m.id = t.auth_method_id
-		 WHERE t.issuer = $1 AND m.deleted_at IS NULL LIMIT 1`, ti.Issuer)
+		 WHERE t.project_id = $1 AND t.issuer = $2 AND m.deleted_at IS NULL LIMIT 1`, projectID, ti.Issuer)
 	if err == nil {
-		return problem.ErrConflict(problem.Describe("a trusted issuer is already registered for this iss"))
+		return problem.ErrConflict(problem.Describe("a trusted issuer is already registered for this iss in this project"))
 	}
 	if !errors.Is(err, sql.ErrNoRows) {
 		return err
 	}
 
 	_, err = q.ExecContext(ctx,
-		`INSERT INTO auth_method_trusted_issuers (auth_method_id, jwks_url, public_cert, issuer, audience, subject_claim)
-		 VALUES ($1, $2, $3, $4, $5, $6)`,
+		`INSERT INTO auth_method_trusted_issuers (auth_method_id, project_id, jwks_url, public_cert, issuer, audience, subject_claim)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
 		methodID,
+		projectID,
 		sql.NullString{String: ti.JWKSURL, Valid: ti.JWKSURL != ""},
 		sql.NullString{String: ti.PublicCert, Valid: ti.PublicCert != ""},
 		ti.Issuer,
@@ -524,15 +527,38 @@ func replaceGrants(ctx context.Context, q sqlx.ExtContext, methodID uuid.UUID, g
 	return insertGrants(ctx, q, methodID, grants)
 }
 
+// DeleteAuthMethod soft-deletes an auth method. For trusted_issuer methods the
+// child row is hard-deleted so its (project_id, issuer) is freed for
+// re-registration: the issuer uniqueness constraint applies to live child rows
+// only, and a soft-deleted parent must not keep occupying an issuer slot. Other
+// credential children are kept (their soft-deleted parent excludes them from
+// resolution). Cache invalidation runs first because it reads the child row.
 func (s *AuthMethodsStore) DeleteAuthMethod(ctx context.Context, projectID, methodID uuid.UUID) error {
-	const stmt = `
-	UPDATE auth_methods
-	SET deleted_at = NOW()
-	WHERE id = $1 AND project_id = $2 AND deleted_at IS NULL`
+	// Invalidate before the child row is gone — invalidateCaches resolves the
+	// credential keys (secret hash, issuer) from the child rows.
+	s.invalidateCaches(ctx, methodID)
 
-	if _, err := s.db.ExecContext(ctx, stmt, methodID, projectID); err != nil {
+	tx, err := s.begin(ctx)
+	if err != nil {
 		return err
 	}
-	s.invalidateCaches(ctx, methodID)
-	return nil
+	defer tx.Rollback() //nolint:errcheck // no-op once committed
+
+	res, err := tx.ExecContext(ctx,
+		`UPDATE auth_methods SET deleted_at = NOW()
+		 WHERE id = $1 AND project_id = $2 AND deleted_at IS NULL`,
+		methodID, projectID)
+	if err != nil {
+		return err
+	}
+	// Only free the issuer slot when this call actually deleted the method, so a
+	// no-op delete (already gone / wrong project) leaves nothing to clean up.
+	if n, err := res.RowsAffected(); err == nil && n > 0 {
+		if _, err := tx.ExecContext(ctx,
+			`DELETE FROM auth_method_trusted_issuers WHERE auth_method_id = $1`, methodID); err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit()
 }

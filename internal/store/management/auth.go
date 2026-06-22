@@ -73,21 +73,23 @@ type TrustedIssuerAuthMethod struct {
 	SubjectClaim   string       `db:"subject_claim"`
 }
 
-// GetTrustedIssuerByIssuer resolves the trusted_issuer auth method registered
-// for the given JWT `iss`. It is used to pick the verification keys and expected
-// claims for an incoming external token. The result is cached by issuer
-// (read-through); auth-method writes invalidate it.
-func (s *AuthStore) GetTrustedIssuerByIssuer(ctx context.Context, issuer string) (*TrustedIssuerAuthMethod, error) {
-	result, err := s.issuers.GetOrLoad(ctx, issuer, func(ctx context.Context) (TrustedIssuerAuthMethod, error) {
+// GetTrustedIssuer resolves the trusted_issuer auth method registered for the
+// given JWT `iss` within projectID. Resolution is project-scoped so a
+// self-asserted issuer can never be served to a different project. It is used to
+// pick the verification keys and expected claims for an incoming external token.
+// The result is cached by (projectID, issuer) (read-through); auth-method writes
+// invalidate it.
+func (s *AuthStore) GetTrustedIssuer(ctx context.Context, projectID uuid.UUID, issuer string) (*TrustedIssuerAuthMethod, error) {
+	result, err := s.issuers.GetOrLoad(ctx, trustedIssuerCacheKey(projectID, issuer), func(ctx context.Context) (TrustedIssuerAuthMethod, error) {
 		const query = `
 		SELECT m.id, p.organization_id, m.project_id, m.role, m.subject_scope,
 		       t.jwks_url, t.public_cert, t.issuer, t.audience, t.subject_claim
 		FROM auth_method_trusted_issuers t
 		JOIN auth_methods m ON m.id = t.auth_method_id
 		JOIN projects p ON p.id = m.project_id
-		WHERE t.issuer = $1 AND m.deleted_at IS NULL`
+		WHERE m.project_id = $1 AND t.issuer = $2 AND m.deleted_at IS NULL`
 		var r TrustedIssuerAuthMethod
-		if err := s.db.GetContext(ctx, &r, query, issuer); err != nil {
+		if err := s.db.GetContext(ctx, &r, query, projectID, issuer); err != nil {
 			return TrustedIssuerAuthMethod{}, err
 		}
 		return r, nil
@@ -96,6 +98,12 @@ func (s *AuthStore) GetTrustedIssuerByIssuer(ctx context.Context, issuer string)
 		return nil, err
 	}
 	return &result, nil
+}
+
+// trustedIssuerCacheKey namespaces the issuer cache by project so a method
+// registered for project A can never be served to project B from the cache.
+func trustedIssuerCacheKey(projectID uuid.UUID, issuer string) string {
+	return projectID.String() + ":" + issuer
 }
 
 // SessionAuthMethod is a session auth method resolved when verifying a minted

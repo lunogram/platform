@@ -25,9 +25,13 @@ type SessionsController struct {
 // CreateSession mints a short-lived session token for an end user under a
 // session policy. It is a privileged backend operation: only an authorized API
 // key may call it (API keys are private/backend-only), and the session auth
-// method named in the path must belong to the key's project. The session's
-// permissions come from the policy.
-func (srv *SessionsController) CreateSession(w http.ResponseWriter, r *http.Request, authMethodID openapi_types.UUID) {
+// method named in the path must belong to the project named in the URL. The
+// session's permissions come from the policy.
+//
+// The URL projectID is authoritative: the auth layer already bound the API key
+// to it, so actor.ProjectID equals projectID here, but the session method is
+// validated against the URL project directly.
+func (srv *SessionsController) CreateSession(w http.ResponseWriter, r *http.Request, projectID oapi.ProjectID, authMethodID openapi_types.UUID) {
 	ctx := r.Context()
 	actor := rbac.FromContext(ctx)
 
@@ -47,9 +51,9 @@ func (srv *SessionsController) CreateSession(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// The policy must exist, be a session method, and live in the key's project.
+	// The policy must exist, be a session method, and live in the URL project.
 	method, err := srv.client.mgmt.GetSessionAuthMethod(authMethodID)
-	if err != nil || method.ProjectID != actor.ProjectID {
+	if err != nil || method.ProjectID != projectID {
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("session auth method not found")))
 		return
 	}

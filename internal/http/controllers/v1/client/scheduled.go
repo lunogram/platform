@@ -25,7 +25,7 @@ func NewScheduledController(client *ClientController) *ScheduledController {
 	return &ScheduledController{ClientController: client}
 }
 
-func (srv *ScheduledController) UpsertUserScheduledClient(w http.ResponseWriter, r *http.Request) {
+func (srv *ScheduledController) UpsertUserScheduledClient(w http.ResponseWriter, r *http.Request, _ oapi.ProjectID) {
 	projectID, err := srv.engine.AllowedProject(r.Context(), "scheduled", rbac.Create)
 	if err != nil {
 		oapi.WriteProblem(w, err)
@@ -116,7 +116,7 @@ func (srv *ScheduledController) UpsertUserScheduledClient(w http.ResponseWriter,
 	})
 }
 
-func (srv *ScheduledController) DeleteUserScheduledClient(w http.ResponseWriter, r *http.Request) {
+func (srv *ScheduledController) DeleteUserScheduledClient(w http.ResponseWriter, r *http.Request, _ oapi.ProjectID) {
 	projectID, err := srv.engine.AllowedProject(r.Context(), "scheduled", rbac.Delete)
 	if err != nil {
 		oapi.WriteProblem(w, err)
@@ -177,7 +177,7 @@ func (srv *ScheduledController) DeleteUserScheduledClient(w http.ResponseWriter,
 	w.WriteHeader(http.StatusOK)
 }
 
-func (srv *ScheduledController) UpsertOrganizationScheduledClient(w http.ResponseWriter, r *http.Request) {
+func (srv *ScheduledController) UpsertOrganizationScheduledClient(w http.ResponseWriter, r *http.Request, _ oapi.ProjectID) {
 	projectID, err := srv.engine.AllowedProject(r.Context(), "scheduled", rbac.Create)
 	if err != nil {
 		oapi.WriteProblem(w, err)
@@ -280,7 +280,7 @@ func (srv *ScheduledController) UpsertOrganizationScheduledClient(w http.Respons
 	})
 }
 
-func (srv *ScheduledController) DeleteOrganizationScheduledClient(w http.ResponseWriter, r *http.Request) {
+func (srv *ScheduledController) DeleteOrganizationScheduledClient(w http.ResponseWriter, r *http.Request, _ oapi.ProjectID) {
 	projectID, err := srv.engine.AllowedProject(r.Context(), "scheduled", rbac.Delete)
 	if err != nil {
 		oapi.WriteProblem(w, err)
