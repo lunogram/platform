@@ -1,5 +1,5 @@
 import type { ChannelType } from "../../types"
-import { EmailIcon, PushIcon, TextIcon } from "../../components/icons"
+import { EmailIcon, InboxIcon, PushIcon, TextIcon } from "../../components/icons"
 import { Badge, type BadgeProps } from "@/components/ui/badge"
 import { useTranslation } from "react-i18next"
 
@@ -13,6 +13,7 @@ export function ChannelIcon({ channel }: Pick<ChannelTagParams, "channel">) {
         email: EmailIcon,
         sms: TextIcon,
         push: PushIcon,
+        inbox: InboxIcon,
     }
     const Icon = icons[channel]
     return <Icon />
@@ -29,6 +30,7 @@ export default function ChannelTag({
         email: t("email"),
         sms: t("sms"),
         push: t("push"),
+        inbox: t("inbox"),
     }
 
     return (

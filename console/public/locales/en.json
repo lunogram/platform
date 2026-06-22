@@ -109,6 +109,25 @@
                     },
                     "preview_disclaimer": "Preview only, notifications may display differently."
                 },
+                "inbox": {
+                    "title": {
+                        "label": "Title",
+                        "placeholder": "Message title"
+                    },
+                    "body": {
+                        "label": "Body",
+                        "placeholder": "Message body shown to the recipient"
+                    },
+                    "new": "new",
+                    "no_title": "No title",
+                    "sample": {
+                        "title_1": "Welcome aboard",
+                        "body_1": "Thanks for joining. Here are a few tips to get you started.",
+                        "title_2": "Your weekly summary",
+                        "body_2": "A recap of everything that happened this week."
+                    },
+                    "preview_disclaimer": "Preview only, the in-app inbox may display differently."
+                },
                 "webhook": {
                     "headers": {
                         "label": "Headers",
@@ -185,6 +204,10 @@
         "push": {
             "title": "Push Notification",
             "description": "Send push notifications to mobile devices for instant engagement."
+        },
+        "inbox": {
+            "title": "Inbox",
+            "description": "Send messages to your users' in-app inbox for persistent, in-product communication."
         },
         "webhook": {
             "title": "Webhook",
@@ -602,6 +625,7 @@
     "publish": "Publish",
     "published": "Published",
     "push": "Push",
+    "inbox": "Inbox",
     "queue_start": "Start Queue",
     "queue_pause": "Pause Queue",
     "rate_interval": "Rate Interval",

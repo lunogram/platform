@@ -10,6 +10,7 @@ import {
     Mail,
     Smartphone,
     MessageSquareDot,
+    Inbox,
     CalendarClock,
 } from "lucide-react"
 
@@ -39,8 +40,9 @@ import { Badge } from "@/components/ui/badge"
 
 const channelIcons: Record<ChannelType, typeof Mail> = {
     email: Mail,
-    text: Smartphone,
+    sms: Smartphone,
     push: MessageSquareDot,
+    inbox: Inbox,
 }
 
 function getStateBadge(state: BroadcastState, t: (key: string, fallback?: string) => string) {

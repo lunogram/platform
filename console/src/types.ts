@@ -369,7 +369,7 @@ export interface Project {
     lists_count?: number
 }
 
-export type ChannelType = "email" | "push" | "sms"
+export type ChannelType = "email" | "push" | "sms" | "inbox"
 
 export type ProjectCreate = Omit<Project, "id" | AuditFields>
 
@@ -711,11 +711,21 @@ export interface PushTemplateData {
     custom: Record<string, unknown>
 }
 
+export interface InboxTemplateData {
+    title: string
+    body: string
+}
+
 export type Template<
-    DataObjectType extends EmailTemplateData | TextTemplateData | PushTemplateData =
+    DataObjectType extends
         | EmailTemplateData
         | TextTemplateData
-        | PushTemplateData,
+        | PushTemplateData
+        | InboxTemplateData =
+        | EmailTemplateData
+        | TextTemplateData
+        | PushTemplateData
+        | InboxTemplateData,
 > = {
     id: UUID
     campaign_id: UUID
@@ -738,6 +748,10 @@ export type Template<
     | {
           type: "push"
           data: PushTemplateData
+      }
+    | {
+          type: "inbox"
+          data: InboxTemplateData
       }
 )
 
