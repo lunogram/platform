@@ -162,7 +162,7 @@ func renderCampaignInboxMessages(ctx context.Context, logger *zap.Logger, mgmt *
 		if err != nil {
 			return nil, Permanent(err)
 		}
-	case providers.ChannelSMS, providers.ChannelPush:
+	case providers.ChannelSMS, providers.ChannelPush, providers.ChannelInbox:
 		var err error
 		template.Data, err = render.RenderJSON(template.Data, data)
 		if err != nil {
@@ -170,6 +170,18 @@ func renderCampaignInboxMessages(ctx context.Context, logger *zap.Logger, mgmt *
 		}
 	default:
 		return nil, Permanentf("unsupported campaign channel: %s", campaign.Channel)
+	}
+
+	// Inbox campaigns have no external provider dispatch and no sender
+	// identity. The rendered template data ({title, body}) is stored directly
+	// as the inbox message content, mirroring how a message created from the
+	// user inbox tab is shaped.
+	if channel == providers.ChannelInbox {
+		return []renderedCampaignInboxMessage{{
+			Channel:         channel,
+			TemplateID:      template.ID,
+			RenderedPayload: template.Data,
+		}}, nil
 	}
 
 	if channel == providers.ChannelPush {

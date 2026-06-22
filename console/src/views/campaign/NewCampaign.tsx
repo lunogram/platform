@@ -3,7 +3,7 @@ import { Controller, useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useNavigate, useParams } from "react-router"
 import { useTranslation } from "react-i18next"
-import { Mail, MessageSquareDot, Smartphone } from "lucide-react"
+import { Inbox, Info, Mail, MessageSquareDot, Smartphone } from "lucide-react"
 import { toast } from "sonner"
 
 import api from "@/api"
@@ -31,6 +31,7 @@ import {
     emailTemplateDataSchema,
     textTemplateDataSchema,
     pushTemplateDataSchema,
+    inboxTemplateDataSchema,
 } from "@/validation/campaign/template/data"
 
 type ChannelConfig = {
@@ -41,7 +42,7 @@ type ChannelConfig = {
 }
 
 function isChannelType(value?: string): value is ChannelType {
-    return value === "email" || value === "sms" || value === "push"
+    return value === "email" || value === "sms" || value === "push" || value === "inbox"
 }
 
 export default function NewCampaign() {
@@ -54,6 +55,8 @@ export default function NewCampaign() {
     const [isCreating, setIsCreating] = useState(false)
 
     const channel = isChannelType(channelParam) ? channelParam : null
+    // Inbox campaigns have no subscription model — they are always transactional.
+    const isInbox = channel === "inbox"
 
     const form = useForm<NewCampaignFormValues>({
         resolver: zodResolver(newCampaignSchema),
@@ -61,7 +64,7 @@ export default function NewCampaign() {
         defaultValues: {
             name: "",
             channel: channel ?? "email",
-            transactional: false,
+            transactional: isInbox,
             subscription_id: "",
         },
     })
@@ -130,6 +133,12 @@ export default function NewCampaign() {
                 icon: <MessageSquareDot className="h-4 w-4" />,
                 colorClass: "bg-purple-50 text-purple-600",
             },
+            inbox: {
+                title: t("channels.inbox.title"),
+                description: t("channels.inbox.description"),
+                icon: <Inbox className="h-4 w-4" />,
+                colorClass: "bg-amber-50 text-amber-600",
+            },
         }
 
         return config[channel]
@@ -141,6 +150,7 @@ export default function NewCampaign() {
         email: emailTemplateDataSchema,
         sms: textTemplateDataSchema,
         push: pushTemplateDataSchema,
+        inbox: inboxTemplateDataSchema,
     } as const
 
     async function createCampaign(data: NewCampaignFormValues) {
@@ -162,8 +172,9 @@ export default function NewCampaign() {
                     body: {
                         name: data.name.trim(),
                         channel,
-                        transactional: data.transactional,
-                        subscription_id: data.transactional ? undefined : data.subscription_id,
+                        transactional: isInbox ? true : data.transactional,
+                        subscription_id:
+                            isInbox || data.transactional ? undefined : data.subscription_id,
                     },
                 },
             )
@@ -277,37 +288,51 @@ export default function NewCampaign() {
                         </Field>
                     </FieldGroup>
 
-                    <Controller
-                        control={form.control}
-                        name="transactional"
-                        render={({ field }) => (
-                            <div className="flex items-center justify-between rounded-md border p-3">
-                                <div className="space-y-1">
-                                    <Label htmlFor="transactional-toggle">
-                                        {t("campaign.transactional", "Transactional")}
-                                    </Label>
-                                    <p className="text-sm text-muted-foreground">
-                                        {t(
-                                            "campaign.transactional.help",
-                                            "When enabled, subscription preference is ignored.",
-                                        )}
-                                    </p>
-                                </div>
-                                <Switch
-                                    id="transactional-toggle"
-                                    checked={field.value}
-                                    onCheckedChange={(checked) => {
-                                        field.onChange(checked)
-                                        if (checked) {
-                                            form.setValue("subscription_id", "")
-                                        }
-                                    }}
-                                />
-                            </div>
-                        )}
-                    />
+                    {isInbox && (
+                        <div className="flex items-start gap-2 rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground">
+                            <Info aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
+                            <span>
+                                {t(
+                                    "campaign.inbox.transactional_note",
+                                    "Inbox campaigns are always delivered to the recipient's inbox and do not use subscription preferences.",
+                                )}
+                            </span>
+                        </div>
+                    )}
 
-                    {!isTransactional && (
+                    {!isInbox && (
+                        <Controller
+                            control={form.control}
+                            name="transactional"
+                            render={({ field }) => (
+                                <div className="flex items-center justify-between rounded-md border p-3">
+                                    <div className="space-y-1">
+                                        <Label htmlFor="transactional-toggle">
+                                            {t("campaign.transactional", "Transactional")}
+                                        </Label>
+                                        <p className="text-sm text-muted-foreground">
+                                            {t(
+                                                "campaign.transactional.help",
+                                                "When enabled, subscription preference is ignored.",
+                                            )}
+                                        </p>
+                                    </div>
+                                    <Switch
+                                        id="transactional-toggle"
+                                        checked={field.value}
+                                        onCheckedChange={(checked) => {
+                                            field.onChange(checked)
+                                            if (checked) {
+                                                form.setValue("subscription_id", "")
+                                            }
+                                        }}
+                                    />
+                                </div>
+                            )}
+                        />
+                    )}
+
+                    {!isInbox && !isTransactional && (
                         <FieldGroup>
                             <Field className="gap-2">
                                 <FieldLabel htmlFor="subscription-select">

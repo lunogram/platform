@@ -2,7 +2,7 @@ import { useCallback, useContext, useEffect, useState } from "react"
 import { Controller, useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useTranslation } from "react-i18next"
-import { Radio, Mail, Smartphone, MessageSquareDot, Info, Calendar } from "lucide-react"
+import { Radio, Mail, Smartphone, MessageSquareDot, Inbox, Info, Calendar } from "lucide-react"
 
 import { toast } from "sonner"
 
@@ -44,6 +44,7 @@ const channelIcons: Record<ChannelType, typeof Mail> = {
     email: Mail,
     sms: Smartphone,
     push: MessageSquareDot,
+    inbox: Inbox,
 }
 
 interface CreateBroadcastDialogProps {

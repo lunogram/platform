@@ -10,6 +10,7 @@ import {
     Mail,
     Smartphone,
     MessageSquareDot,
+    Inbox,
     MoreHorizontal,
     Copy,
     Archive,
@@ -51,6 +52,7 @@ const channelIcons: Record<ChannelType, typeof Mail> = {
     email: Mail,
     sms: Smartphone,
     push: MessageSquareDot,
+    inbox: Inbox,
 }
 
 function formatDelivery(delivery: CampaignDelivery) {

@@ -39,3 +39,8 @@ export const pushTemplateDataSchema = z.object({
     url: z.string().default(""),
     custom: z.record(z.string(), z.unknown()).default({}),
 })
+
+export const inboxTemplateDataSchema = z.object({
+    title: z.string().default(""),
+    body: z.string().default(""),
+})

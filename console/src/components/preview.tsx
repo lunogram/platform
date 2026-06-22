@@ -8,6 +8,7 @@ import { ProjectContext } from "../contexts"
 import clsx from "clsx"
 import { compileEmail } from "@/views/campaign/template/mail/editor/codeEditor/compileEmail"
 import { getSystemPreviewProps } from "@/views/campaign/template/mail/editor/variableScope"
+import { InboxNotificationCenter } from "@/views/campaign/template/inbox/InboxNotificationCenter"
 
 interface PreviewProps {
     template: Pick<Template, "type" | "data">
@@ -102,6 +103,12 @@ export default function Preview({ template, size = "large" }: PreviewProps) {
                     </div>
                     <span className="notification-body">{data.body}</span>
                 </div>
+            </div>
+        )
+    } else if (type === "inbox") {
+        preview = (
+            <div className="p-4">
+                <InboxNotificationCenter title={data.title} body={data.body} />
             </div>
         )
     }
