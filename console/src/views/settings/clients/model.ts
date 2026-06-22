@@ -11,6 +11,7 @@ import { presetGrants } from "@/lib/rbac-presets"
 import type {
     AuthMethod,
     CreateAuthMethodParams,
+    GrantConstraints,
     PermissionGrant,
     ProjectRole,
     SubjectScope,
@@ -49,7 +50,19 @@ export interface Client {
     identity: Identity
     permissions: PermissionSelection
     subjectScope: SubjectScope
+    // constraints narrow what the client may create within a resource it already
+    // has create access to (e.g. specific event names). A resource present with a
+    // non-empty list is restricted to those names; absent means unrestricted.
+    // Kept even when a resource falls out of scope so toggling permissions doesn't
+    // lose typed names; activeConstraints() prunes it to what applies on save.
+    constraints: GrantConstraints
 }
+
+// restrictableResources are the create-grant resources whose individual
+// instances a client can be limited to. Mirrors the backend's per-grant
+// constraint map (auth_methods.grant_constraints), keyed by resource name.
+export const restrictableResources = ["events", "subscriptions", "scheduled"] as const
+export type RestrictableResource = (typeof restrictableResources)[number]
 
 export const identityMeta: Record<IdentityType, { label: string; blurb: string }> = {
     api_key: { label: "API key", blurb: "A secret key your backend sends as a Bearer token." },
@@ -91,6 +104,27 @@ export function grantsFor(p: PermissionSelection): PermissionGrant[] {
     return p.kind === "role" ? presetGrants(p.role) : p.grants
 }
 
+// restrictableGrants returns the restrictable resources this client has create
+// access to — the resources whose create scope the editor lets you narrow.
+// Applies to every auth method; the cap is a property of the grant itself.
+export function restrictableGrants(client: Client): RestrictableResource[] {
+    const granted = new Set(grantsFor(client.permissions).map((g) => `${g.resource}:${g.verb}`))
+    return restrictableResources.filter((r) => granted.has(`${r}:create`))
+}
+
+// activeConstraints prunes a client's constraints to resources currently in
+// scope with a non-empty list, so flipping permissions never persists a stale or
+// empty (allow-nothing) allow-list.
+export function activeConstraints(client: Client): GrantConstraints {
+    const scope = new Set<string>(restrictableGrants(client))
+    const out: GrantConstraints = {}
+    for (const resource of restrictableResources) {
+        const names = client.constraints[resource]
+        if (scope.has(resource) && names && names.length > 0) out[resource] = names
+    }
+    return out
+}
+
 export function newIdentity(type: IdentityType): Identity {
     switch (type) {
         case "api_key":
@@ -111,6 +145,7 @@ export function newClient(): Client {
         identity: newIdentity("api_key"),
         permissions: { kind: "role", role: "support" },
         subjectScope: "all",
+        constraints: {},
     }
 }
 
@@ -126,6 +161,7 @@ export function authMethodToClient(m: AuthMethod): Client {
                 ? { kind: "custom", grants: m.grants }
                 : { kind: "role", role: m.role },
         subjectScope: m.subject_scope ?? "all",
+        constraints: m.grant_constraints ?? {},
     }
 }
 
@@ -168,6 +204,7 @@ export function clientToCreateParams(c: Client): CreateAuthMethodParams {
         name: c.name.trim(),
         description: c.description?.trim() || undefined,
         subject_scope: c.subjectScope,
+        grant_constraints: activeConstraints(c),
         ...permissionParams(c.permissions),
     }
     switch (c.identity.type) {
@@ -198,6 +235,7 @@ export function clientToUpdateParams(c: Client): UpdateAuthMethodParams {
         name: c.name.trim(),
         description: c.description?.trim() || "",
         subject_scope: c.subjectScope,
+        grant_constraints: activeConstraints(c),
         ...permissionParams(c.permissions),
     }
 }

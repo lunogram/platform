@@ -4,10 +4,12 @@ import { toast } from "sonner"
 import { ArrowLeft, Check, ChevronDown } from "lucide-react"
 
 import {
+    activeConstraints,
     hasVerifiedSubject,
     identityMeta,
     newClient,
     permissionSummary,
+    restrictableResources,
     type Client,
     type Identity,
 } from "./model"
@@ -114,11 +116,17 @@ function ClientEditorLayout({ isNew, clientId }: { isNew: boolean; clientId: str
             if (verified) chips.push(client.subjectScope === "own" ? "Own data" : "All data")
             return chips
         }
-        return [
+        const chips = [
             client.permissions.kind === "role"
                 ? snakeToTitle(client.permissions.role)
                 : permissionSummary(client.permissions),
         ]
+        const constraints = activeConstraints(client)
+        for (const resource of restrictableResources) {
+            const names = constraints[resource]
+            if (names) chips.push(`${snakeToTitle(resource)}: ${names.length}`)
+        }
+        return chips
     }
 
     const bodyFor = (id: SectionId) => {

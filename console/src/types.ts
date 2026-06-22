@@ -391,6 +391,13 @@ export interface PermissionGrant {
     verb: GrantVerb
 }
 
+// GrantConstraints narrows which named instances a client may create within a
+// resource it already has create access to (e.g. specific event names). Keyed by
+// resource name; a resource present with a non-empty list is restricted to those
+// names, and an absent resource is unrestricted. (To deny creation entirely,
+// don't grant create — there is no "allow nothing" state.)
+export type GrantConstraints = Partial<Record<string, string[]>>
+
 // grantableResources mirrors rbac.Resources() in internal/rbac/model.go and must
 // stay in sync with it. It drives the custom-permission matrix in the Access UI.
 // Client-facing resources are listed first so the common cases surface at the top.
@@ -441,6 +448,7 @@ export interface AuthMethod {
     role: ProjectRole
     subject_scope?: SubjectScope
     grants?: PermissionGrant[]
+    grant_constraints?: GrantConstraints
     trusted_issuer?: TrustedIssuerConfig
     session?: SessionConfig
     // secret is present only in the response to creating an api_key method.
@@ -456,12 +464,16 @@ export interface CreateAuthMethodParams {
     role?: ProjectRole
     subject_scope?: SubjectScope
     grants?: PermissionGrant[]
+    grant_constraints?: GrantConstraints
     trusted_issuer?: TrustedIssuerConfig
     session?: SessionConfig
 }
 
 export type UpdateAuthMethodParams = Partial<
-    Pick<CreateAuthMethodParams, "name" | "description" | "role" | "subject_scope" | "grants">
+    Pick<
+        CreateAuthMethodParams,
+        "name" | "description" | "role" | "subject_scope" | "grants" | "grant_constraints"
+    >
 >
 
 export interface ExternalIDResponse {

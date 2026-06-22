@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useMemo, useState, type ReactNode } from "react"
 import { useTranslation } from "react-i18next"
 import { ChevronDown, ChevronRight, SlidersHorizontal } from "lucide-react"
 import { snakeToTitle } from "@/utils"
@@ -22,9 +22,17 @@ const allResources = resourceGroups.flatMap((g) => g.resources)
 export interface PermissionSelectorProps {
     selection: PermissionSelection
     onChange: (selection: PermissionSelection) => void
+    // renderResourceAside, when provided, may return a node rendered inline in a
+    // resource's label cell, after its name (e.g. a per-resource create-scope
+    // pill). Return null/undefined for resources with no aside.
+    renderResourceAside?: (resource: string) => ReactNode
 }
 
-export default function PermissionSelector({ selection, onChange }: PermissionSelectorProps) {
+export default function PermissionSelector({
+    selection,
+    onChange,
+    renderResourceAside,
+}: PermissionSelectorProps) {
     const { t } = useTranslation()
 
     // The granted (resource, verb) cells for the current selection: the expanded
@@ -160,6 +168,7 @@ export default function PermissionSelector({ selection, onChange }: PermissionSe
                                 onToggleExpand={() => toggleGroup(group.label)}
                                 onToggle={toggle}
                                 onSetGroup={setMany}
+                                renderResourceAside={renderResourceAside}
                             />
                         ))}
                     </tbody>
@@ -177,6 +186,7 @@ function GroupRows({
     onToggleExpand,
     onToggle,
     onSetGroup,
+    renderResourceAside,
 }: {
     label: string
     resources: string[]
@@ -185,6 +195,7 @@ function GroupRows({
     onToggleExpand: () => void
     onToggle: (resource: string, verb: GrantVerb) => void
     onSetGroup: (resources: string[], verb: GrantVerb, value: boolean) => void
+    renderResourceAside?: (resource: string) => ReactNode
 }) {
     const grantedCount = resources.reduce(
         (n, r) => n + grantVerbs.filter((v) => granted.has(grantKey(r, v))).length,
@@ -229,7 +240,12 @@ function GroupRows({
             {expanded &&
                 resources.map((resource) => (
                     <tr key={resource} className="border-b last:border-0">
-                        <td className="py-2 pl-8 pr-3">{snakeToTitle(resource)}</td>
+                        <td className="py-2 pl-8 pr-3">
+                            <div className="flex items-center gap-2">
+                                <span>{snakeToTitle(resource)}</span>
+                                {renderResourceAside?.(resource)}
+                            </div>
+                        </td>
                         {grantVerbs.map((verb) => (
                             <td key={verb} className="px-2 py-2 text-center">
                                 <Checkbox
