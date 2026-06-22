@@ -67,17 +67,16 @@ API keys have no verified subject, so they always act across all data; their rea
 
 ---
 
-## Client event allow-list
+## Create constraints
 
-Each project can restrict which event names untrusted clients may emit. It applies to **verified end users** (trusted-issuer and session requests) calling `POST /api/client/events` and the organization events endpoint; API keys are private/backend-only and exempt.
+A create grant — `events:create`, `subscriptions:create`, or `scheduled:create` — can be narrowed to an allow-list of names, so the client may only create the instances you name (for example, only emit the event names you list). The constraint is set per auth method, alongside its permissions, and travels with the credential — so it applies to every type: API key, trusted issuer, or session.
 
-| Allow-list | Behaviour |
+| Constraint | Behaviour |
 |------------|-----------|
-| **Not set** (default) | Untrusted clients may emit any event name. |
-| **Configured** | Only the listed event names are accepted; any other name is rejected with `403`. |
-| **Empty** | Untrusted clients may emit no events at all. |
+| **Not set** (default) | The client may create any instance the grant allows. |
+| **Configured** | Only the listed names are accepted; any other is rejected with `403`. |
 
-Enforcement is server-side and fails closed. The allow-list is configured through the Management API on the project; there is no console UI for it yet.
+There is no "allow nothing" state: to deny creation entirely, don't grant create. Enforcement is server-side and fails closed. Configure it under **Settings → Access** on the auth method, or through the Management API via `grant_constraints`.
 
 ---
 
