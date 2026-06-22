@@ -93,6 +93,7 @@ export function InboxFormControl({ form, disabled = false }: InboxFormControlPro
                         </FieldLabel>
                         <TemplateInput
                             id="inbox-body"
+                            multiline
                             value={field.value}
                             onChange={field.onChange}
                             placeholder={t(

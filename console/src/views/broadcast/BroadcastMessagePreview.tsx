@@ -120,10 +120,6 @@ export function BroadcastMessagePreview({ campaignId, defaultUser }: BroadcastMe
     )
 }
 
-// ---------------------------------------------------------------------------
-// Email Preview
-// ---------------------------------------------------------------------------
-
 function EmailBroadcastPreview({
     campaign: _campaign,
     template,
@@ -237,10 +233,6 @@ function EmailBroadcastPreview({
     )
 }
 
-// ---------------------------------------------------------------------------
-// SMS Preview
-// ---------------------------------------------------------------------------
-
 function SmsBroadcastPreview({
     template,
     user,
@@ -300,10 +292,6 @@ function SmsBroadcastPreview({
     )
 }
 
-// ---------------------------------------------------------------------------
-// Push Preview
-// ---------------------------------------------------------------------------
-
 function PushBroadcastPreview({ template, user }: { template: Template; user: User | null }) {
     const rawTitle = template.data.title ?? ""
     const rawBody = template.data.body ?? ""
@@ -335,10 +323,6 @@ function PushBroadcastPreview({ template, user }: { template: Template; user: Us
         </div>
     )
 }
-
-// ---------------------------------------------------------------------------
-// Inbox Preview
-// ---------------------------------------------------------------------------
 
 function InboxBroadcastPreview({
     template,

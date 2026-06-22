@@ -1,5 +1,5 @@
 import type { ChannelType } from "../../types"
-import { EmailIcon, InboxIcon, PushIcon, TextIcon } from "../../components/icons"
+import { Mail, Smartphone, MessageSquareDot, Inbox } from "lucide-react"
 import { Badge, type BadgeProps } from "@/components/ui/badge"
 import { useTranslation } from "react-i18next"
 
@@ -8,15 +8,19 @@ interface ChannelTagParams {
     showIcon?: boolean
 }
 
-export function ChannelIcon({ channel }: Pick<ChannelTagParams, "channel">) {
-    const icons = {
-        email: EmailIcon,
-        sms: TextIcon,
-        push: PushIcon,
-        inbox: InboxIcon,
-    }
-    const Icon = icons[channel]
-    return <Icon />
+const channelIcons: Record<ChannelType, typeof Mail> = {
+    email: Mail,
+    sms: Smartphone,
+    push: MessageSquareDot,
+    inbox: Inbox,
+}
+
+export function ChannelIcon({
+    channel,
+    className = "h-4 w-4",
+}: Pick<ChannelTagParams, "channel"> & { className?: string }) {
+    const Icon = channelIcons[channel]
+    return <Icon className={className} />
 }
 
 export default function ChannelTag({
@@ -34,8 +38,8 @@ export default function ChannelTag({
     }
 
     return (
-        <Badge variant="secondary" {...params}>
-            {showIcon && <ChannelIcon channel={channel} />}
+        <Badge variant="secondary" className="gap-1" {...params}>
+            {showIcon && <ChannelIcon channel={channel} className="h-3.5 w-3.5" />}
             {title[channel]}
         </Badge>
     )
