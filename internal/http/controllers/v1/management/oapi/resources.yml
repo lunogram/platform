@@ -9104,6 +9104,22 @@ components:
           enum: [read, create, update, delete]
           example: read
 
+    GrantConstraints:
+      type: object
+      nullable: true
+      description: >-
+        Narrows which named instances a method may create within a resource it
+        already has create access to, keyed by resource name (e.g. event names
+        for `events`). A resource present with a non-empty list is restricted to
+        those names; an absent resource is unrestricted. There is no "allow
+        nothing" state — to deny creation, omit the create grant.
+      additionalProperties:
+        type: array
+        items:
+          type: string
+      example:
+        events: [purchase, signup]
+
     ClaimMapping:
       type: object
       description: >-
@@ -9175,6 +9191,8 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/PermissionGrant"
+        grant_constraints:
+          $ref: "#/components/schemas/GrantConstraints"
         trusted_issuer:
           $ref: "#/components/schemas/TrustedIssuer"
         session:
@@ -9212,6 +9230,8 @@ components:
           description: Custom permission set. When set, takes precedence over the role preset.
           items:
             $ref: "#/components/schemas/PermissionGrant"
+        grant_constraints:
+          $ref: "#/components/schemas/GrantConstraints"
         trusted_issuer:
           $ref: "#/components/schemas/TrustedIssuer"
         session:
@@ -9232,6 +9252,8 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/PermissionGrant"
+        grant_constraints:
+          $ref: "#/components/schemas/GrantConstraints"
 
     ClientEvent:
       type: object

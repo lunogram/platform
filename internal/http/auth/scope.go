@@ -46,12 +46,3 @@ func RequireCrossSubjectAccess(ctx context.Context) error {
 	}
 	return nil
 }
-
-// IsClientContext reports whether the request comes from an untrusted client
-// context — a verified end user (trusted issuer or session) — as opposed to a
-// trusted backend API key. API keys are private/backend-only, so they are never
-// a client context. The event allow-list applies only to client contexts.
-func IsClientContext(ctx context.Context) bool {
-	actor := rbac.FromContext(ctx)
-	return actor != nil && actor.Type == rbac.ActorEndUser
-}

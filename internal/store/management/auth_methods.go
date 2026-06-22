@@ -3,9 +3,11 @@ package management
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -42,6 +44,53 @@ type Grant struct {
 	Verb     string `json:"verb"`
 }
 
+// GrantConstraints narrows which named instances a method may create within a
+// resource it already has create access to, keyed by resource name (e.g. event
+// names for "events"). A resource present with a non-empty list is restricted to
+// those names; an absent resource is unrestricted. There is no "allow nothing"
+// state — to deny creation entirely, omit the create grant. Empty lists are
+// pruned on write.
+type GrantConstraints map[string][]string
+
+// Permits reports whether name may be created within resource. A resource with
+// no constraint (absent, or an empty list) is unrestricted, so any name passes.
+func (c GrantConstraints) Permits(resource, name string) bool {
+	allowed, ok := c[resource]
+	if !ok || len(allowed) == 0 {
+		return true
+	}
+	return slices.Contains(allowed, name)
+}
+
+// Value implements [driver.Valuer]: it prunes empty allow-lists (which carry no
+// restriction) and stores the remainder as JSONB, or SQL NULL — meaning
+// unrestricted — when nothing remains.
+func (c GrantConstraints) Value() (driver.Value, error) {
+	pruned := make(GrantConstraints, len(c))
+	for resource, names := range c {
+		if len(names) > 0 {
+			pruned[resource] = names
+		}
+	}
+	if len(pruned) == 0 {
+		return nil, nil
+	}
+	return json.Marshal(pruned)
+}
+
+// Scan implements [sql.Scanner]: SQL NULL decodes to a nil map (no constraints).
+func (c *GrantConstraints) Scan(src any) error {
+	if src == nil {
+		*c = nil
+		return nil
+	}
+	b, ok := src.([]byte)
+	if !ok {
+		return fmt.Errorf("management: cannot scan %T into GrantConstraints", src)
+	}
+	return json.Unmarshal(b, c)
+}
+
 // TrustedIssuer holds the external-JWT validation config for a trusted_issuer
 // method. Exactly one of JWKSURL or PublicCert is set.
 type TrustedIssuer struct {
@@ -68,6 +117,10 @@ type AuthMethod struct {
 	Description *string
 	Role        string
 	Grants      []Grant
+
+	// GrantConstraints narrows the method's create grants to specific instance
+	// names. Nil/empty means no constraints. See [GrantConstraints].
+	GrantConstraints GrantConstraints
 
 	// SubjectScope is the data boundary. See [SubjectScope].
 	SubjectScope SubjectScope
@@ -144,14 +197,15 @@ func (s *AuthMethodsStore) begin(ctx context.Context) (*sqlx.Tx, error) {
 // CreateAuthMethodInput carries the fields to create an auth method. The
 // type-specific block (TrustedIssuer, Session) must match Type.
 type CreateAuthMethodInput struct {
-	Type          MethodType
-	Name          string
-	Description   *string
-	Role          string
-	SubjectScope  SubjectScope
-	Grants        []Grant
-	TrustedIssuer *TrustedIssuer
-	Session       *Session
+	Type             MethodType
+	Name             string
+	Description      *string
+	Role             string
+	SubjectScope     SubjectScope
+	Grants           []Grant
+	GrantConstraints GrantConstraints
+	TrustedIssuer    *TrustedIssuer
+	Session          *Session
 }
 
 // CreateAuthMethod inserts an auth method, its type-specific credential row, and
@@ -170,8 +224,8 @@ func (s *AuthMethodsStore) CreateAuthMethod(ctx context.Context, projectID uuid.
 		subjectScope = SubjectScopeAll
 	}
 	if _, err := tx.ExecContext(ctx,
-		`INSERT INTO auth_methods (id, project_id, type, name, description, role, subject_scope) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-		id, projectID, string(in.Type), in.Name, in.Description, in.Role, string(subjectScope)); err != nil {
+		`INSERT INTO auth_methods (id, project_id, type, name, description, role, subject_scope, grant_constraints) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+		id, projectID, string(in.Type), in.Name, in.Description, in.Role, string(subjectScope), in.GrantConstraints); err != nil {
 		return nil, err
 	}
 
@@ -309,6 +363,10 @@ type row struct {
 	// Grants is a JSON array of {resource, verb} aggregated in the query.
 	Grants []byte `db:"grants"`
 
+	// GrantConstraints scans the JSONB grant-constraint column via its Scanner;
+	// NULL decodes to a nil map.
+	GrantConstraints GrantConstraints `db:"grant_constraints"`
+
 	// TotalCount is the window count returned by List; it is absent (zero) for
 	// single-row reads.
 	TotalCount int `db:"total_count"`
@@ -331,6 +389,7 @@ func (r row) toMethod() (*AuthMethod, error) {
 			return nil, err
 		}
 	}
+	m.GrantConstraints = r.GrantConstraints
 	switch m.Type {
 	case MethodTypeTrustedIssuer:
 		m.TrustedIssuer = &TrustedIssuer{
@@ -352,7 +411,7 @@ func (r row) toMethod() (*AuthMethod, error) {
 // fragments) so each is a single, greppable static string. Grants are folded in
 // as a JSON aggregate so a method loads in one round-trip.
 const getAuthMethodQuery = `
-SELECT m.id, m.project_id, m.type, m.name, m.description, m.role, m.subject_scope, m.created_at, m.updated_at,
+SELECT m.id, m.project_id, m.type, m.name, m.description, m.role, m.subject_scope, m.grant_constraints, m.created_at, m.updated_at,
        t.jwks_url, t.public_cert, t.issuer, t.audience, t.subject_claim,
        s.ttl_seconds,
        COALESCE((
@@ -366,7 +425,7 @@ LEFT JOIN auth_method_sessions s ON s.auth_method_id = m.id
 WHERE m.id = $1 AND m.project_id = $2 AND m.deleted_at IS NULL`
 
 const listAuthMethodsQuery = `
-SELECT m.id, m.project_id, m.type, m.name, m.description, m.role, m.subject_scope, m.created_at, m.updated_at,
+SELECT m.id, m.project_id, m.type, m.name, m.description, m.role, m.subject_scope, m.grant_constraints, m.created_at, m.updated_at,
        t.jwks_url, t.public_cert, t.issuer, t.audience, t.subject_claim,
        s.ttl_seconds,
        COALESCE((
@@ -388,6 +447,23 @@ func (s *AuthMethodsStore) GetAuthMethod(ctx context.Context, projectID, methodI
 		return nil, err
 	}
 	return r.toMethod()
+}
+
+// GrantConstraints returns a method's create-constraint map. A nil map means no
+// constraints (creation is unrestricted, subject to the grants themselves). It
+// reads only the grant_constraints column via its Scanner, so it stays cheap on
+// the per-request enforcement path.
+func (s *AuthMethodsStore) GrantConstraints(ctx context.Context, methodID uuid.UUID) (GrantConstraints, error) {
+	var c GrantConstraints
+	if err := s.db.GetContext(ctx, &c, `SELECT grant_constraints FROM auth_methods WHERE id = $1 AND deleted_at IS NULL`, methodID); err != nil {
+		// A missing method (e.g. deleted mid-request) carries no constraint; the
+		// request was already authenticated and authorized before reaching here.
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return c, nil
 }
 
 func (s *AuthMethodsStore) ListAuthMethods(ctx context.Context, projectID uuid.UUID, pagination store.Pagination) ([]AuthMethod, int, error) {
@@ -418,6 +494,9 @@ type UpdateAuthMethodInput struct {
 	Role         *string
 	SubjectScope *SubjectScope
 	Grants       []Grant
+	// GrantConstraints, when non-nil, replaces the whole constraint map (an empty
+	// map clears all constraints). Nil leaves it unchanged.
+	GrantConstraints *GrantConstraints
 }
 
 func (s *AuthMethodsStore) UpdateAuthMethod(ctx context.Context, projectID, methodID uuid.UUID, in UpdateAuthMethodInput) error {
@@ -427,25 +506,19 @@ func (s *AuthMethodsStore) UpdateAuthMethod(ctx context.Context, projectID, meth
 	}
 	defer tx.Rollback() //nolint:errcheck // no-op once committed
 
-	var subjectScope *string
-	if in.SubjectScope != nil {
-		subjectScope = ptr.To(string(*in.SubjectScope))
-	}
-	if _, err := tx.ExecContext(ctx,
-		`UPDATE auth_methods
-		 SET name = COALESCE($1, name), description = COALESCE($2, description),
-		     role = COALESCE($3, role), subject_scope = COALESCE($4, subject_scope)
-		 WHERE id = $5 AND project_id = $6 AND deleted_at IS NULL`,
-		in.Name, in.Description, in.Role, subjectScope, methodID, projectID); err != nil {
+	// One transaction so the field, grant, and constraint writes commit together
+	// — a partial update (e.g. new grants without their constraints) is never
+	// observable. Each step is a no-op when its input is absent.
+	if err := updateMethodFields(ctx, tx, projectID, methodID, in); err != nil {
 		return err
 	}
-
-	// Replace the whole grant set when provided.
 	if in.Grants != nil {
-		if _, err := tx.ExecContext(ctx, `DELETE FROM auth_method_grants WHERE auth_method_id = $1`, methodID); err != nil {
+		if err := replaceGrants(ctx, tx, methodID, in.Grants); err != nil {
 			return err
 		}
-		if err := insertGrants(ctx, tx, methodID, in.Grants); err != nil {
+	}
+	if in.GrantConstraints != nil {
+		if err := setGrantConstraints(ctx, tx, projectID, methodID, *in.GrantConstraints); err != nil {
 			return err
 		}
 	}
@@ -455,6 +528,42 @@ func (s *AuthMethodsStore) UpdateAuthMethod(ctx context.Context, projectID, meth
 	}
 	s.invalidateCaches(ctx, methodID)
 	return nil
+}
+
+// The three steps below compose UpdateAuthMethod. Each runs on the caller's
+// transaction (any sqlx executor) and changes only its own slice of the method.
+
+// updateMethodFields applies the scalar field changes; a nil field is left
+// unchanged. It is always run — with no changes it is a harmless no-op UPDATE.
+func updateMethodFields(ctx context.Context, q sqlx.ExtContext, projectID, methodID uuid.UUID, in UpdateAuthMethodInput) error {
+	var subjectScope *string
+	if in.SubjectScope != nil {
+		subjectScope = ptr.To(string(*in.SubjectScope))
+	}
+	_, err := q.ExecContext(ctx,
+		`UPDATE auth_methods
+		 SET name = COALESCE($1, name), description = COALESCE($2, description),
+		     role = COALESCE($3, role), subject_scope = COALESCE($4, subject_scope)
+		 WHERE id = $5 AND project_id = $6 AND deleted_at IS NULL`,
+		in.Name, in.Description, in.Role, subjectScope, methodID, projectID)
+	return err
+}
+
+// replaceGrants swaps a method's whole permission set for the given grants.
+func replaceGrants(ctx context.Context, q sqlx.ExtContext, methodID uuid.UUID, grants []Grant) error {
+	if _, err := q.ExecContext(ctx, `DELETE FROM auth_method_grants WHERE auth_method_id = $1`, methodID); err != nil {
+		return err
+	}
+	return insertGrants(ctx, q, methodID, grants)
+}
+
+// setGrantConstraints replaces a method's whole create-constraint map; an empty
+// map clears it (see [GrantConstraints.Value]).
+func setGrantConstraints(ctx context.Context, q sqlx.ExtContext, projectID, methodID uuid.UUID, constraints GrantConstraints) error {
+	_, err := q.ExecContext(ctx,
+		`UPDATE auth_methods SET grant_constraints = $1 WHERE id = $2 AND project_id = $3 AND deleted_at IS NULL`,
+		constraints, methodID, projectID)
+	return err
 }
 
 func (s *AuthMethodsStore) DeleteAuthMethod(ctx context.Context, projectID, methodID uuid.UUID) error {

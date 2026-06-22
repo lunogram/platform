@@ -42,6 +42,15 @@ func (srv *EventsController) PostUserEvents(w http.ResponseWriter, r *http.Reque
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Int("events", len(events)))
 	logger.Info("posting events")
 
+	names := make([]string, len(events))
+	for i, event := range events {
+		names[i] = event.Name
+	}
+	if err := srv.constraints.Enforce(ctx, rbac.ResourceEvents, names); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	ownScoped := auth.OwnDataScoped(ctx)
 
 	for _, event := range events {
@@ -108,6 +117,13 @@ func (srv *EventsController) PostOrganizationEventsClient(w http.ResponseWriter,
 
 	ctx := r.Context()
 
+	// Organization events act across a whole organization, which an own-data end
+	// user is never entitled to do.
+	if err := auth.RequireCrossSubjectAccess(ctx); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	var events oapi.PostOrganizationEventsRequest
 	err = json.Decode(r.Body, &events)
 	if err != nil {
@@ -118,6 +134,15 @@ func (srv *EventsController) PostOrganizationEventsClient(w http.ResponseWriter,
 
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Int("events", len(events)))
 	logger.Info("posting organization events")
+
+	names := make([]string, len(events))
+	for i, event := range events {
+		names[i] = event.Name
+	}
+	if err := srv.constraints.Enforce(ctx, rbac.ResourceEvents, names); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
 
 	for _, event := range events {
 		if event.Match != nil && event.Identifier != nil {

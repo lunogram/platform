@@ -155,6 +155,14 @@ func (srv *AuthMethodsController) UpdateAuthMethod(w http.ResponseWriter, r *htt
 	if body.Role != nil && body.Grants == nil {
 		in.Grants = []management.Grant{}
 	}
+	if body.GrantConstraints != nil {
+		gc := management.GrantConstraints(*body.GrantConstraints)
+		if err := validateGrantConstraints(gc); err != nil {
+			oapi.WriteProblem(w, err)
+			return
+		}
+		in.GrantConstraints = &gc
+	}
 	if body.SubjectScope != nil {
 		subjectScope, err := subjectScopeFor(existing.Type, body.SubjectScope)
 		if err != nil {
@@ -303,6 +311,9 @@ func buildCreateAuthMethodInput(body oapi.CreateAuthMethod) (management.CreateAu
 	if body.Grants != nil {
 		in.Grants = toStoreGrants(*body.Grants)
 	}
+	if body.GrantConstraints != nil {
+		in.GrantConstraints = management.GrantConstraints(*body.GrantConstraints)
+	}
 	if body.TrustedIssuer != nil {
 		in.TrustedIssuer = &management.TrustedIssuer{
 			JWKSURL:      ptr.From(body.TrustedIssuer.JwksUrl),
@@ -332,6 +343,9 @@ func buildCreateAuthMethodInput(body oapi.CreateAuthMethod) (management.CreateAu
 		return in, err
 	}
 	if err := validateGrants(in.Grants); err != nil {
+		return in, err
+	}
+	if err := validateGrantConstraints(in.GrantConstraints); err != nil {
 		return in, err
 	}
 
@@ -419,12 +433,9 @@ func validateGrants(grants []management.Grant) error {
 	if len(grants) == 0 {
 		return nil
 	}
-	resources := make(map[string]struct{}, len(rbac.Resources()))
-	for _, r := range rbac.Resources() {
-		resources[r] = struct{}{}
-	}
+	known := grantableResources()
 	for _, g := range grants {
-		if _, ok := resources[g.Resource]; !ok {
+		if _, ok := known[g.Resource]; !ok {
 			return problem.ErrBadRequest(problem.Describe("unknown grant resource: " + g.Resource))
 		}
 		switch rbac.Permission(g.Verb) {
@@ -434,6 +445,30 @@ func validateGrants(grants []management.Grant) error {
 		}
 	}
 	return nil
+}
+
+// validateGrantConstraints rejects a constraint keyed by an unknown resource,
+// which would otherwise be stored but silently never apply.
+func validateGrantConstraints(constraints management.GrantConstraints) error {
+	if len(constraints) == 0 {
+		return nil
+	}
+	known := grantableResources()
+	for resource := range constraints {
+		if _, ok := known[resource]; !ok {
+			return problem.ErrBadRequest(problem.Describe("unknown grant constraint resource: " + resource))
+		}
+	}
+	return nil
+}
+
+// grantableResources is the set of resources a grant or constraint may name.
+func grantableResources() map[string]struct{} {
+	known := make(map[string]struct{}, len(rbac.Resources()))
+	for _, r := range rbac.Resources() {
+		known[r] = struct{}{}
+	}
+	return known
 }
 
 // subjectScopeFor resolves and validates the data boundary for a method. An
@@ -490,6 +525,10 @@ func toOAPIAuthMethod(m *management.AuthMethod, withSecret bool) oapi.AuthMethod
 			grants[i] = oapi.PermissionGrant{Resource: g.Resource, Verb: oapi.PermissionGrantVerb(g.Verb)}
 		}
 		out.Grants = &grants
+	}
+	if len(m.GrantConstraints) > 0 {
+		gc := oapi.GrantConstraints(m.GrantConstraints)
+		out.GrantConstraints = &gc
 	}
 	if ti := m.TrustedIssuer; ti != nil {
 		issuer := &oapi.TrustedIssuer{}
