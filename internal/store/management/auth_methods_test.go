@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/ptr"
 	"github.com/lunogram/platform/internal/store"
 	"github.com/stretchr/testify/assert"
@@ -184,13 +185,18 @@ func TestAuthMethodsStore(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, GrantConstraints{"events": {"purchase", "signup"}}, got.GrantConstraints)
 
-		// The focused enforcement read surfaces the stored (pruned) map.
+		// The focused enforcement read surfaces the constrained resources.
 		constraints, err := db.GrantConstraints(ctx, created.ID)
 		require.NoError(t, err)
-		assert.Equal(t, GrantConstraints{"events": {"purchase", "signup"}}, constraints)
+		assert.Equal(t, []string{"purchase", "signup"}, constraints["events"])
 		assert.True(t, constraints.Permits("events", "purchase"))
-		assert.False(t, constraints.Permits("events", "refund"))
+		assert.False(t, constraints.Permits("events", "refund"), "a name off the allow-list is rejected")
 		assert.True(t, constraints.Permits("subscriptions", "anything"), "an unconstrained resource is unrestricted")
+
+		// A missing method (revoked mid-request) must fail closed: the read
+		// returns ErrNoRows rather than an empty (unrestricted) constraint set.
+		_, err = db.GrantConstraints(ctx, uuid.New())
+		assert.True(t, errors.Is(err, store.ErrNoRows), "a vanished method surfaces an error, not unrestricted")
 
 		// A non-nil constraint map replaces the whole set; an empty map clears it.
 		require.NoError(t, db.UpdateAuthMethod(ctx, projectID, created.ID, UpdateAuthMethodInput{
@@ -202,7 +208,6 @@ func TestAuthMethodsStore(t *testing.T) {
 
 		constraints, err = db.GrantConstraints(ctx, created.ID)
 		require.NoError(t, err)
-		assert.Nil(t, constraints)
-		assert.True(t, constraints.Permits("events", "purchase"), "no constraints = unrestricted")
+		assert.True(t, constraints.Permits("events", "purchase"), "a cleared constraint set is unrestricted")
 	})
 }

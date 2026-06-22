@@ -456,11 +456,11 @@ func (s *AuthMethodsStore) GetAuthMethod(ctx context.Context, projectID, methodI
 func (s *AuthMethodsStore) GrantConstraints(ctx context.Context, methodID uuid.UUID) (GrantConstraints, error) {
 	var c GrantConstraints
 	if err := s.db.GetContext(ctx, &c, `SELECT grant_constraints FROM auth_methods WHERE id = $1 AND deleted_at IS NULL`, methodID); err != nil {
-		// A missing method (e.g. deleted mid-request) carries no constraint; the
-		// request was already authenticated and authorized before reaching here.
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, nil
-		}
+		// A missing row means the method was revoked/deleted (possibly between
+		// authentication, which is cached, and this check). Propagate the error so
+		// the enforcement site fails closed rather than treating a vanished method
+		// as unconstrained. A live method with no constraints scans the NULL
+		// column to a nil map here, which is distinct from ErrNoRows.
 		return nil, err
 	}
 	return c, nil

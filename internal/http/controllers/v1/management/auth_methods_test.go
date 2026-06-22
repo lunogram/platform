@@ -5,9 +5,31 @@ import (
 
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/ptr"
+	"github.com/lunogram/platform/internal/store/management"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestValidateGrantConstraints(t *testing.T) {
+	t.Parallel()
+
+	t.Run("accepts no constraints", func(t *testing.T) {
+		require.NoError(t, validateGrantConstraints(nil))
+	})
+
+	t.Run("accepts a constraint on an enforced resource", func(t *testing.T) {
+		require.NoError(t, validateGrantConstraints(management.GrantConstraints{"events": {"purchase"}}))
+	})
+
+	t.Run("rejects a constraint on an unenforced resource", func(t *testing.T) {
+		// A constraint on a resource with no request-time enforcement would be
+		// stored but never applied — a false sense of restriction. It must be
+		// rejected at configuration time, even though the resource is a valid
+		// grant target.
+		err := validateGrantConstraints(management.GrantConstraints{"users": {"alice"}})
+		require.Error(t, err)
+	})
+}
 
 func TestBuildCreateAuthMethodInput(t *testing.T) {
 	t.Parallel()

@@ -56,6 +56,12 @@ type Config struct {
 	// ErrorTTL is the backoff after a failed fetch before the issuer is hit
 	// again (the negative cache window).
 	ErrorTTL time.Duration
+	// MaxStale bounds how long last-known-good keys may be served while the
+	// issuer is unreachable. Past this window the cache fails closed rather than
+	// trusting indefinitely-stale keys, so an issuer that rotates away a
+	// compromised key (or an attacker who disrupts the JWKS endpoint) cannot pin
+	// the old key set forever. Defaults to 1h.
+	MaxStale time.Duration
 }
 
 func (c Config) withDefaults() Config {
@@ -68,6 +74,9 @@ func (c Config) withDefaults() Config {
 	if c.ErrorTTL <= 0 {
 		c.ErrorTTL = 30 * time.Second
 	}
+	if c.MaxStale <= 0 {
+		c.MaxStale = time.Hour
+	}
 	return c
 }
 
@@ -77,9 +86,10 @@ type Fetcher interface {
 }
 
 type entry struct {
-	kf        keyfunc.Keyfunc // parsed verification keys; nil until first success
-	expires   time.Time       // L1 freshness deadline
-	lastError time.Time       // most recent fetch failure (negative-cache marker)
+	kf          keyfunc.Keyfunc // parsed verification keys; nil until first success
+	expires     time.Time       // L1 freshness deadline
+	lastError   time.Time       // most recent fetch failure (negative-cache marker)
+	refreshedAt time.Time       // last successful fetch (staleness deadline anchor)
 }
 
 // Cache resolves a JWKS URL to a jwt.Keyfunc, fronting the network with an L1
@@ -194,12 +204,23 @@ func (c *Cache) handleFetchError(url string, err error) (keyfunc.Keyfunc, error)
 		e = &entry{}
 		c.l1[url] = e
 	}
-	e.lastError = time.Now()
+	now := time.Now()
+	e.lastError = now
 
 	if e.kf != nil {
+		// Stop trusting keys that have gone stale past the bound: fail closed
+		// rather than serving an indefinitely-old key set the issuer may have
+		// rotated away.
+		if now.Sub(e.refreshedAt) > c.cfg.MaxStale {
+			if c.logger != nil {
+				c.logger.Error("jwks fetch failed and keys exceeded max staleness, failing closed",
+					zap.String("url", url), zap.Duration("stale_for", now.Sub(e.refreshedAt)), zap.Error(err))
+			}
+			return nil, fmt.Errorf("jwks: keys for %s exceeded max staleness (%s): %w", url, c.cfg.MaxStale, err)
+		}
 		// Serve stale keys; extend their L1 freshness briefly so we don't refetch
 		// on every request while the issuer is down.
-		e.expires = time.Now().Add(c.cfg.ErrorTTL)
+		e.expires = now.Add(c.cfg.ErrorTTL)
 		if c.logger != nil {
 			c.logger.Warn("jwks fetch failed, serving last-known-good keys", zap.String("url", url), zap.Error(err))
 		}
@@ -215,7 +236,8 @@ func (c *Cache) handleFetchError(url string, err error) (keyfunc.Keyfunc, error)
 func (c *Cache) storeL1(url string, kf keyfunc.Keyfunc) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.l1[url] = &entry{kf: kf, expires: time.Now().Add(c.cfg.L1TTL)}
+	now := time.Now()
+	c.l1[url] = &entry{kf: kf, expires: now.Add(c.cfg.L1TTL), refreshedAt: now}
 }
 
 func boolKey(b bool) string {
