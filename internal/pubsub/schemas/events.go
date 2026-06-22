@@ -32,6 +32,12 @@ const (
 	EventInboxMessageSent        = "inbox.message.sent"
 
 	EventProjectCreated = "project.created"
+
+	// EventJourneyStepEntered is the tracked user event emitted whenever a user
+	// enters a journey step. It flows through the standard user-event pipeline so
+	// it is registered, stored, and countable by rules — enabling gate steps such
+	// as "continue if the user has entered step X at least N times".
+	EventJourneyStepEntered = "journey.step.entered"
 )
 
 // InboxDispatchMsgID returns the deterministic JetStream Msg-Id used to dedupe
@@ -48,6 +54,17 @@ func InboxDispatchMsgID(messageID uuid.UUID, providerID uuid.UUID) string {
 // the stream's Duplicates window.
 func InboxProcessMsgID(messageID uuid.UUID) string {
 	return fmt.Sprintf("inbox-process:%s", messageID)
+}
+
+// JourneyStepEnteredMsgID returns the deterministic JetStream Msg-Id used to
+// dedupe the journey.step.entered event for a single step entry. The source
+// stream sequence of the inbound step message is stable across redeliveries but
+// unique per distinct step entry (a re-entry on a journey loop is a separate
+// inbound message with its own sequence), so the count stays accurate while
+// redeliveries collapse within the user-events stream's Duplicates window. The
+// entry and step identifiers are included for readability and namespacing.
+func JourneyStepEnteredMsgID(journeyEntryID uuid.UUID, externalStepID string, sourceSeq uint64) string {
+	return fmt.Sprintf("journey-step-entered:%s:%s:%d", journeyEntryID, externalStepID, sourceSeq)
 }
 
 // ExternalID is an alias for subjects.ExternalIDParam so that pubsub messages
@@ -152,6 +169,34 @@ type JourneyStep struct {
 	ExternalStepID string     `json:"external_step_id"`
 	StepType       string     `json:"step_type"`
 	StateID        *uuid.UUID `json:"state_id,omitempty"`
+}
+
+// JourneyStepEntered builds the tracked user event emitted when a user enters a
+// journey step. It is published as a regular UserEvent (to UserEventsProcess) so
+// it is registered, stored in user_events, and countable by the rules engine —
+// letting gate steps reason about how often a user has reached a given step. The
+// step descriptor lives under Data alongside the journey and entry identifiers so
+// gate rules can filter on data.journey_id, data.step_id, etc.
+func JourneyStepEntered(projectID, journeyID, journeyEntryID, userID uuid.UUID, versionID *uuid.UUID, stepID, stepType string, stepName *string) UserEvent {
+	data := map[string]any{
+		"journey_id":       journeyID,
+		"journey_entry_id": journeyEntryID,
+		"step_id":          stepID,
+		"step_type":        stepType,
+	}
+	if versionID != nil {
+		data["version_id"] = *versionID
+	}
+	if stepName != nil {
+		data["step_name"] = *stepName
+	}
+
+	return UserEvent{
+		Name:      EventJourneyStepEntered,
+		ProjectID: projectID,
+		UserID:    userID,
+		Data:      data,
+	}
 }
 
 // JourneyStepExecuted is published when a user completes their final step in a journey.
