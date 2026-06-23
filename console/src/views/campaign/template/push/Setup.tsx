@@ -9,7 +9,7 @@ import { useNavigate } from "react-router"
 import { Button } from "@/components/ui/button"
 import { oapiClient } from "@/oapi/client"
 import api from "@/api"
-import * as z from "zod"
+import type { z } from "zod"
 
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { TemplateInput } from "@/components/ui/template-input"
@@ -26,22 +26,26 @@ import { useSendTestPush } from "./useSendTestPush"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { PushFrame } from "@/components/preview/PushFrame"
 
-const pushSetupFormSchema = z.object({
-    title: z.string("Title is required").min(1, "Title is required"),
-    body: z.string("Body is required").min(1, "Body is required"),
-    custom: z.record(z.string(), z.unknown()).optional(),
-})
+import { pushSetupFormSchema } from "@/validation/campaign/template/push/setup"
 
 export function PushForm(_campaign: Campaign, template?: Template) {
     const formSchema = pushSetupFormSchema.extend({})
 
+    const defaultValues: z.infer<typeof pushSetupFormSchema> = {
+        title: "",
+        body: "",
+        custom: undefined,
+    }
+
+    if (template && template.type == "push") {
+        defaultValues.title = template.data.title
+        defaultValues.body = template.data.body
+        defaultValues.custom = template.data.custom
+    }
+
     return useForm({
         resolver: zodResolver(formSchema),
-        defaultValues: {
-            title: template?.data.title,
-            body: template?.data.body,
-            custom: template?.data.custom,
-        },
+        defaultValues,
     })
 }
 

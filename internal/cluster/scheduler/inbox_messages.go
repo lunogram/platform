@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/lunogram/platform/internal/node/metrics"
+	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
 	"github.com/lunogram/platform/internal/store/subjects"
 	"go.uber.org/zap"
@@ -23,15 +24,17 @@ func (controller *Controller) ReconcileUserInboxMessages(ctx context.Context) fu
 				return nil
 			}
 
-			// Delegate the full lifecycle (inbox.message.created event,
-			// provider dispatch, sent_at tracking, inbox.message.sent
-			// event) to the inbox handler.
+			// Route the due message through the inbox processing pipeline so it
+			// is dispatched and its sent_at is set. A stable Msg-Id dedupes the
+			// repeated re-injections that happen every tick until sent_at is
+			// persisted, ensuring at-most-once dispatch within the stream's
+			// Duplicates window.
 			err := controller.pub.Publish(ctx, schemas.UserInboxProcess(message.ProjectID), schemas.InboxMessage{
 				ProjectID: message.ProjectID,
 				MessageID: message.ID,
 				SubjectID: *message.UserID,
 				Channel:   string(message.Channel),
-			})
+			}, pubsub.WithMsgID(schemas.InboxProcessMsgID(message.ID)))
 			if err != nil {
 				failed++
 				controller.logger.Error("failed to publish scheduled user inbox event", zap.Error(err), zap.Stringer("message_id", message.ID))
@@ -70,15 +73,17 @@ func (controller *Controller) ReconcileOrganizationInboxMessages(ctx context.Con
 				return nil
 			}
 
-			// Delegate the full lifecycle (inbox.message.created event,
-			// provider dispatch, sent_at tracking, inbox.message.sent
-			// event) to the inbox handler.
+			// Route the due message through the inbox processing pipeline so it
+			// is dispatched and its sent_at is set. A stable Msg-Id dedupes the
+			// repeated re-injections that happen every tick until sent_at is
+			// persisted, ensuring at-most-once dispatch within the stream's
+			// Duplicates window.
 			err := controller.pub.Publish(ctx, schemas.OrganizationInboxProcess(message.ProjectID), schemas.InboxMessage{
 				ProjectID: message.ProjectID,
 				MessageID: message.ID,
 				SubjectID: *message.OrganizationID,
 				Channel:   string(message.Channel),
-			})
+			}, pubsub.WithMsgID(schemas.InboxProcessMsgID(message.ID)))
 			if err != nil {
 				failed++
 				controller.logger.Error("failed to publish scheduled organization inbox event", zap.Error(err), zap.Stringer("message_id", message.ID))

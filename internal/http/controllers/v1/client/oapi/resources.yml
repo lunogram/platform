@@ -746,6 +746,42 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
+  /api/client/auth-methods/{authMethodID}/sessions:
+    post:
+      summary: Mint a session token
+      description: |
+        Mints a short-lived session token for an end user, to be used from the
+        client. Called server-side with an API key; the session's permissions are
+        defined by the session auth method (policy) named in the path.
+      operationId: createSession
+      tags:
+        - Client
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: authMethodID
+          in: path
+          required: true
+          description: The session auth method (policy) that defines what the session may do.
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSession"
+      responses:
+        "201":
+          description: Session token minted successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionToken"
+        default:
+          $ref: "#/components/responses/Error"
+
 components:
   parameters:
     Limit:
@@ -780,6 +816,30 @@ components:
             $ref: "#/components/schemas/Problem"
 
   schemas:
+    CreateSession:
+      type: object
+      description: Request to mint a session token for an end user.
+      required:
+        - user_id
+      properties:
+        user_id:
+          type: string
+          description: The end user's external identifier (the session subject).
+          example: "user_12345"
+
+    SessionToken:
+      type: object
+      required:
+        - token
+        - expires_at
+      properties:
+        token:
+          type: string
+          description: The signed session token (a bearer token for the Client API).
+        expires_at:
+          type: string
+          format: date-time
+
     Channel:
       type: string
       enum: [email, sms, push, inbox]

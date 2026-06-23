@@ -14,6 +14,7 @@ import { EmailFrame } from "@/components/preview/EmailFrame"
 import { PhoneFrame } from "@/components/preview/PhoneFrame"
 import { PushFrame } from "@/components/preview/PushFrame"
 import { InboxFrame } from "@/components/preview/InboxFrame"
+import { InboxNotificationCenter } from "@/views/campaign/template/inbox/InboxNotificationCenter"
 
 type InboxMessage = components["schemas"]["InboxMessage"]
 
@@ -127,6 +128,16 @@ export default function Preview({
                     body={data.body ?? ""}
                     time={t("now", "now")}
                 />
+            )
+        } else if (type === "inbox") {
+            preview = (
+                <div className="p-4">
+                    <InboxNotificationCenter
+                        title={data.title}
+                        body={data.body}
+                        appName={project.name}
+                    />
+                </div>
             )
         }
     } else if (message) {

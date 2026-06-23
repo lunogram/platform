@@ -94,6 +94,7 @@ paths:
         - $ref: "#/components/parameters/Limit"
         - $ref: "#/components/parameters/Offset"
         - $ref: "#/components/parameters/Search"
+        - $ref: "#/components/parameters/IncludeDeleted"
       responses:
         "200":
           $ref: "#/components/responses/CampaignListResponse"
@@ -236,6 +237,36 @@ paths:
       responses:
         "204":
           description: Campaign deleted successfully
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/campaigns/{campaignID}/unarchive:
+    post:
+      summary: Unarchive campaign
+      description: Restores an archived campaign by clearing its deleted_at timestamp
+      operationId: unarchiveCampaign
+      tags:
+        - Campaigns
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: campaignID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The campaign ID
+      responses:
+        "204":
+          description: Campaign unarchived successfully
         default:
           $ref: "#/components/responses/Error"
 
@@ -557,6 +588,7 @@ paths:
         - $ref: "#/components/parameters/Limit"
         - $ref: "#/components/parameters/Offset"
         - $ref: "#/components/parameters/Search"
+        - $ref: "#/components/parameters/IncludeDeleted"
       responses:
         "200":
           $ref: "#/components/responses/ListListResponse"
@@ -694,6 +726,36 @@ paths:
       responses:
         "204":
           description: List deleted successfully
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/lists/{listID}/unarchive:
+    post:
+      summary: Unarchive list
+      description: Restores an archived list by clearing its deleted_at timestamp
+      operationId: unarchiveList
+      tags:
+        - Lists
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: listID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The list ID
+      responses:
+        "204":
+          description: List unarchived successfully
         default:
           $ref: "#/components/responses/Error"
 
@@ -993,6 +1055,7 @@ paths:
         - $ref: "#/components/parameters/Limit"
         - $ref: "#/components/parameters/Offset"
         - $ref: "#/components/parameters/Search"
+        - $ref: "#/components/parameters/IncludeDeleted"
       responses:
         "200":
           $ref: "#/components/responses/JourneyListResponse"
@@ -1470,6 +1533,36 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Journey"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/journeys/{journeyID}/unarchive:
+    post:
+      summary: Unarchive journey
+      description: Restores an archived journey by clearing its deleted_at timestamp
+      operationId: unarchiveJourney
+      tags:
+        - Journeys
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: journeyID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The journey ID
+      responses:
+        "204":
+          description: Journey unarchived successfully
         default:
           $ref: "#/components/responses/Error"
 
@@ -4518,13 +4611,13 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
-  /api/admin/projects/{projectID}/keys:
+  /api/admin/projects/{projectID}/auth-methods:
     get:
-      summary: List API keys
-      description: Retrieves a paginated list of API keys for a project
-      operationId: listApiKeys
+      summary: List auth methods
+      description: Retrieves a paginated list of auth methods for a project
+      operationId: listAuthMethods
       tags:
-        - API Keys
+        - Auth Methods
       security:
         - HttpBearerAuth: []
       parameters:
@@ -4539,16 +4632,16 @@ paths:
         - $ref: "#/components/parameters/Offset"
       responses:
         "200":
-          $ref: "#/components/responses/ApiKeyListResponse"
+          $ref: "#/components/responses/AuthMethodListResponse"
         default:
           $ref: "#/components/responses/Error"
 
     post:
-      summary: Create API key
-      description: Creates a new API key for a project
-      operationId: createApiKey
+      summary: Create auth method
+      description: Creates a new auth method for a project. For api_key methods the secret is returned only in this response.
+      operationId: createAuthMethod
       tags:
-        - API Keys
+        - Auth Methods
       security:
         - HttpBearerAuth: []
       parameters:
@@ -4564,24 +4657,24 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/CreateApiKey"
+              $ref: "#/components/schemas/CreateAuthMethod"
       responses:
         "201":
-          description: API key created successfully
+          description: Auth method created successfully
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ApiKey"
+                $ref: "#/components/schemas/AuthMethod"
         default:
           $ref: "#/components/responses/Error"
 
-  /api/admin/projects/{projectID}/keys/{keyID}:
+  /api/admin/projects/{projectID}/auth-methods/{methodID}:
     get:
-      summary: Get API key by ID
-      description: Retrieves a specific API key
-      operationId: getApiKey
+      summary: Get auth method by ID
+      description: Retrieves a specific auth method. The secret is never included.
+      operationId: getAuthMethod
       tags:
-        - API Keys
+        - Auth Methods
       security:
         - HttpBearerAuth: []
       parameters:
@@ -4592,29 +4685,29 @@ paths:
             type: string
             format: uuid
           description: The project ID
-        - name: keyID
+        - name: methodID
           in: path
           required: true
           schema:
             type: string
             format: uuid
-          description: The API key ID
+          description: The auth method ID
       responses:
         "200":
-          description: API key retrieved successfully
+          description: Auth method retrieved successfully
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ApiKey"
+                $ref: "#/components/schemas/AuthMethod"
         default:
           $ref: "#/components/responses/Error"
 
     patch:
-      summary: Update API key
-      description: Updates an API key's name or description (scope cannot be changed)
-      operationId: updateApiKey
+      summary: Update auth method
+      description: Updates an auth method's name, description, role or grants.
+      operationId: updateAuthMethod
       tags:
-        - API Keys
+        - Auth Methods
       security:
         - HttpBearerAuth: []
       parameters:
@@ -4625,35 +4718,35 @@ paths:
             type: string
             format: uuid
           description: The project ID
-        - name: keyID
+        - name: methodID
           in: path
           required: true
           schema:
             type: string
             format: uuid
-          description: The API key ID
+          description: The auth method ID
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/UpdateApiKey"
+              $ref: "#/components/schemas/UpdateAuthMethod"
       responses:
         "200":
-          description: API key updated successfully
+          description: Auth method updated successfully
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ApiKey"
+                $ref: "#/components/schemas/AuthMethod"
         default:
           $ref: "#/components/responses/Error"
 
     delete:
-      summary: Delete API key
-      description: Deletes an API key, revoking access
-      operationId: deleteApiKey
+      summary: Delete auth method
+      description: Deletes an auth method, revoking access.
+      operationId: deleteAuthMethod
       tags:
-        - API Keys
+        - Auth Methods
       security:
         - HttpBearerAuth: []
       parameters:
@@ -4664,16 +4757,16 @@ paths:
             type: string
             format: uuid
           description: The project ID
-        - name: keyID
+        - name: methodID
           in: path
           required: true
           schema:
             type: string
             format: uuid
-          description: The API key ID
+          description: The auth method ID
       responses:
         "204":
-          description: API key deleted successfully
+          description: Auth method deleted successfully
         default:
           $ref: "#/components/responses/Error"
 
@@ -5994,6 +6087,15 @@ components:
         x-go-type: PaginationSearch
       description: Search query string
 
+    IncludeDeleted:
+      name: include_deleted
+      in: query
+      required: false
+      schema:
+        type: boolean
+        default: false
+      description: When true, return only archived (soft-deleted) items instead of active ones
+
   responses:
     Error:
       description: Error response
@@ -6158,8 +6260,8 @@ components:
                     items:
                       $ref: "#/components/schemas/Provider"
 
-    ApiKeyListResponse:
-      description: API keys retrieved successfully
+    AuthMethodListResponse:
+      description: Auth methods retrieved successfully
       content:
         application/json:
           schema:
@@ -6172,7 +6274,7 @@ components:
                   results:
                     type: array
                     items:
-                      $ref: "#/components/schemas/ApiKey"
+                      $ref: "#/components/schemas/AuthMethod"
 
     ActionListResponse:
       description: Actions retrieved successfully
@@ -6420,33 +6522,98 @@ components:
 
     EntranceStepData:
       type: object
-      description: Data for entrance step - entry point into journey
+      description: >
+        Data for entrance step - entry point into journey. Tagged union:
+        `trigger` selects the kind and the matching sub-object (event, scheduled
+        or list) carries its fields. `concurrent` and `multiple` apply to every
+        kind. `none` is an API/manually triggered entrance with no sub-object.
       additionalProperties: false
+      required:
+        - trigger
       properties:
         trigger:
           type: string
-          enum: [none, event]
-          description: Trigger type for entrance
+          enum: [none, event, scheduled, list]
+          description: Selects which trigger sub-object is active
           example: "event"
-        event_name:
+        concurrent:
+          type: boolean
+          description: Allow concurrent journey runs
+          example: false
+        multiple:
+          type: boolean
+          description: Allow re-entry after a previous run completed
+          example: false
+        event:
+          $ref: "#/components/schemas/EntranceEventTrigger"
+        scheduled:
+          $ref: "#/components/schemas/EntranceScheduledTrigger"
+        list:
+          $ref: "#/components/schemas/EntranceListTrigger"
+
+    EntranceEventTrigger:
+      type: object
+      description: Enters the user when a matching custom event is received
+      additionalProperties: false
+      required:
+        - name
+      properties:
+        name:
           type: string
           description: Event name that triggers entrance
           example: "user_signup"
         rule:
           type: object
-          description: Rule for filtering events
+          description: Optional condition evaluated against the event data
           additionalProperties: true
         user_rule:
           type: object
-          description: Rule for filtering users (used with organization events)
+          description: Optional filter for organization members
           additionalProperties: true
-        multiple:
+
+    EntranceScheduledTrigger:
+      type: object
+      description: Enters the user when a schedule offset fires
+      additionalProperties: false
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: Scheduled event name that triggers entrance
+          example: "scheduled.weekly_digest"
+        offset_id:
+          type: string
+          format: uuid
+          description: Schedule offset that fires the entrance
+        rule:
+          type: object
+          description: Optional condition evaluated against the event data
+          additionalProperties: true
+        user_rule:
+          type: object
+          description: Optional filter for organization members
+          additionalProperties: true
+
+    EntranceListTrigger:
+      type: object
+      description: Enters the user when they join or leave the referenced list
+      additionalProperties: false
+      required:
+        - id
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: List whose membership changes trigger entrance
+        direction:
+          type: string
+          enum: [joins, leaves]
+          description: Membership change that fires the trigger (default joins)
+          example: "joins"
+        exit_on_leave:
           type: boolean
-          description: Allow multiple entries
-          example: false
-        concurrent:
-          type: boolean
-          description: Allow concurrent journey runs
+          description: Exit the user when they leave the list (joins direction only)
           example: false
 
     ExitStepData:
@@ -7057,6 +7224,10 @@ components:
             $ref: "#/components/schemas/CampaignVariable"
         delivery:
           $ref: "#/components/schemas/Delivery"
+        archived:
+          type: boolean
+          example: false
+          description: "Whether the campaign has been archived"
 
     Delivery:
       type: object
@@ -7224,6 +7395,10 @@ components:
           type: string
           format: date-time
           example: "2025-11-23T17:20:00.021Z"
+        archived:
+          type: boolean
+          example: false
+          description: "Whether the list has been archived"
 
     Provider:
       type: object
@@ -8960,20 +9135,97 @@ components:
               items:
                 $ref: "#/components/schemas/ProjectAdmin"
 
-    ApiKeyScope:
+    SubjectScope:
       type: string
-      enum: [public, secret]
-      description: API key scope - public keys are safe to expose in client-side code
-      example: secret
+      enum: [all, own]
+      description: >-
+        Data boundary for an auth method. "all" acts across every subject's
+        records; "own" confines a verified end user to their own records. Only
+        meaningful for verified-subject types (trusted_issuer, session); api_key
+        is always "all".
+      example: own
 
-    ApiKey:
+    AuthMethodType:
+      type: string
+      enum: [api_key, trusted_issuer, session]
+      description: |
+        How an auth method authenticates a client. `api_key` is a
+        Lunogram-issued key; `trusted_issuer` validates external JWTs against a
+        configured JWKS/PEM; `session` mints short-lived user-scoped tokens.
+      example: api_key
+
+    PermissionGrant:
+      type: object
+      description: A single (resource, verb) entry in a custom permission set.
+      required:
+        - resource
+        - verb
+      properties:
+        resource:
+          type: string
+          example: inbox
+        verb:
+          type: string
+          enum: [read, create, update, delete]
+          example: read
+        instances:
+          type: array
+          nullable: true
+          items:
+            type: string
+          description: >-
+            Optional allow-list of named instances this grant is scoped to. For
+            a create grant the method may only create instances with these names
+            (e.g. event names); omitted/empty = unrestricted. Only meaningful
+            for create today.
+          example: [purchase, signup]
+
+    ClaimMapping:
+      type: object
+      description: >-
+        Maps identity fields to the JWT claims that carry them. Each field names
+        the claim to read; values follow the JWT spec (e.g. `sub`).
+      properties:
+        sub:
+          type: string
+          description: JWT claim carrying the external user id (defaults to "sub").
+          example: sub
+
+    TrustedIssuer:
+      type: object
+      description: External-JWT validation config for a trusted_issuer method. Exactly one of jwks_url or public_cert is set.
+      properties:
+        jwks_url:
+          type: string
+          example: "https://acme.example/.well-known/jwks.json"
+        public_cert:
+          type: string
+          description: PEM-encoded public certificate (alternative to jwks_url).
+        iss:
+          type: string
+          example: "https://acme.example"
+        aud:
+          type: string
+          example: "lunogram"
+        claim:
+          $ref: "#/components/schemas/ClaimMapping"
+
+    SessionConfig:
+      type: object
+      description: Config for a session method.
+      properties:
+        ttl_seconds:
+          type: integer
+          description: Lifetime of minted session tokens, in seconds.
+          example: 900
+
+    AuthMethod:
       type: object
       required:
         - id
         - project_id
+        - type
         - name
-        - value
-        - scope
         - role
         - created_at
         - updated_at
@@ -8981,62 +9233,81 @@ components:
         id:
           type: string
           format: uuid
-          example: "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d"
         project_id:
           type: string
           format: uuid
-          example: "4c9d3163-7b64-4f9e-9068-d2e4b96be56b"
+        type:
+          $ref: "#/components/schemas/AuthMethodType"
         name:
           type: string
-          example: "Production API Key"
-        value:
-          type: string
-          example: "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2"
-          description: The API key value
-        scope:
-          $ref: "#/components/schemas/ApiKeyScope"
-        role:
-          $ref: "#/components/schemas/ProjectRole"
+          example: "Production key"
         description:
           type: string
-          example: "API key for production environment"
+        role:
+          $ref: "#/components/schemas/ProjectRole"
+        subject_scope:
+          $ref: "#/components/schemas/SubjectScope"
+        grants:
+          type: array
+          items:
+            $ref: "#/components/schemas/PermissionGrant"
+        trusted_issuer:
+          $ref: "#/components/schemas/TrustedIssuer"
+        session:
+          $ref: "#/components/schemas/SessionConfig"
+        secret:
+          type: string
+          description: |
+            The full secret value. Returned only once, in the response to
+            creating an api_key method, and never again.
         created_at:
           type: string
           format: date-time
-          example: "2025-11-19T14:18:42.960Z"
         updated_at:
           type: string
           format: date-time
-          example: "2025-11-23T17:20:00.021Z"
 
-    CreateApiKey:
+    CreateAuthMethod:
       type: object
       required:
+        - type
         - name
-        - scope
       properties:
+        type:
+          $ref: "#/components/schemas/AuthMethodType"
         name:
           type: string
-          example: "Production API Key"
-        scope:
-          $ref: "#/components/schemas/ApiKeyScope"
-        role:
-          $ref: "#/components/schemas/ProjectRole"
         description:
           type: string
-          example: "API key for production environment"
+        role:
+          $ref: "#/components/schemas/ProjectRole"
+        subject_scope:
+          $ref: "#/components/schemas/SubjectScope"
+        grants:
+          type: array
+          description: Custom permission set. When set, takes precedence over the role preset.
+          items:
+            $ref: "#/components/schemas/PermissionGrant"
+        trusted_issuer:
+          $ref: "#/components/schemas/TrustedIssuer"
+        session:
+          $ref: "#/components/schemas/SessionConfig"
 
-    UpdateApiKey:
+    UpdateAuthMethod:
       type: object
       properties:
         name:
           type: string
-          example: "Updated API Key Name"
-        role:
-          $ref: "#/components/schemas/ProjectRole"
         description:
           type: string
-          example: "Updated description"
+        role:
+          $ref: "#/components/schemas/ProjectRole"
+        subject_scope:
+          $ref: "#/components/schemas/SubjectScope"
+        grants:
+          type: array
+          items:
+            $ref: "#/components/schemas/PermissionGrant"
 
     ClientEvent:
       type: object
@@ -9339,6 +9610,9 @@ components:
           type: string
           format: date-time
           example: "2025-01-10T08:00:00Z"
+        has_pending_events:
+          type: boolean
+          description: Whether there are pending scheduled events for this schedule instance
 
     UserScheduledList:
       allOf:

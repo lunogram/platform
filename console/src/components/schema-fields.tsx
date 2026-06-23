@@ -1,5 +1,4 @@
 import { useEffect, useMemo } from "react"
-import type { UseFormReturn } from "react-hook-form"
 import { snakeToTitle } from "@/utils"
 
 import { Input } from "@/components/ui/input"
@@ -84,6 +83,8 @@ export interface SchemaFieldsProps {
     onChange: (v: Record<string, unknown>) => void
     /** Optional variable groups for TemplateInput / CodeEditor pickers. */
     variables?: VariableGroup[]
+    /** Optional field-level error messages keyed by property name. */
+    errors?: Record<string, string | undefined>
 }
 
 export function SchemaFields({
@@ -93,6 +94,7 @@ export function SchemaFields({
     value,
     onChange,
     variables,
+    errors,
 }: SchemaFieldsProps) {
     const entries = normalizeProperties(schema?.properties)
 
@@ -110,6 +112,21 @@ export function SchemaFields({
         if (Object.keys(defaults).length > 0) {
             onChange({ ...value, ...defaults })
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [entryKeys])
+
+    // Initialize missing boolean fields to false.
+    useEffect(() => {
+        if (!entries.length) return
+        let changed = false
+        const next = { ...value }
+        for (const [key, item] of entries) {
+            if (item.type === "boolean" && next[key] === undefined) {
+                next[key] = false
+                changed = true
+            }
+        }
+        if (changed) onChange(next)
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [entryKeys])
 
@@ -151,8 +168,11 @@ export function SchemaFields({
                                     }
                                 }}
                             />
-                            {value[key] && (
+                            {Boolean(value[key]) && (
                                 <p className="text-xs text-muted-foreground">File configured</p>
+                            )}
+                            {errors?.[key] && (
+                                <p className="text-xs text-destructive">{errors[key]}</p>
                             )}
                         </div>
                     )
@@ -176,6 +196,9 @@ export function SchemaFields({
                                 maxHeight={300}
                                 variables={variables}
                             />
+                            {errors?.[key] && (
+                                <p className="text-xs text-destructive">{errors[key]}</p>
+                            )}
                         </div>
                     )
                 }
@@ -196,6 +219,9 @@ export function SchemaFields({
                                 onChange={(val) => set(key, val)}
                                 variables={variables}
                             />
+                            {errors?.[key] && (
+                                <p className="text-xs text-destructive">{errors[key]}</p>
+                            )}
                         </div>
                     )
                 }
@@ -226,6 +252,9 @@ export function SchemaFields({
                                     ))}
                                 </SelectContent>
                             </Select>
+                            {errors?.[key] && (
+                                <p className="text-xs text-destructive">{errors[key]}</p>
+                            )}
                         </div>
                     )
                 }
@@ -262,7 +291,13 @@ export function SchemaFields({
                                 />
                             ) : (
                                 <Input
-                                    type={item.type === "number" ? "number" : "text"}
+                                    type={
+                                        item.type === "number"
+                                            ? "number"
+                                            : item.format === "password"
+                                              ? "password"
+                                              : "text"
+                                    }
                                     value={(value[key] as string | number) ?? ""}
                                     onChange={(e) =>
                                         set(
@@ -276,6 +311,9 @@ export function SchemaFields({
                                     }
                                     placeholder={item.preview}
                                 />
+                            )}
+                            {errors?.[key] && (
+                                <p className="text-xs text-destructive">{errors[key]}</p>
                             )}
                         </div>
                     )
@@ -300,6 +338,9 @@ export function SchemaFields({
                                 checked={(value[key] as boolean) ?? false}
                                 onCheckedChange={(checked) => set(key, checked)}
                             />
+                            {errors?.[key] && (
+                                <p className="text-xs text-destructive">{errors[key]}</p>
+                            )}
                         </div>
                     )
                 }
@@ -317,7 +358,11 @@ export function SchemaFields({
                                 value={(value[key] as Record<string, unknown>) ?? {}}
                                 onChange={(nested) => set(key, nested)}
                                 variables={variables}
+                                errors={errors}
                             />
+                            {errors?.[key] && (
+                                <p className="text-xs text-destructive">{errors[key]}</p>
+                            )}
                         </div>
                     )
                 }
@@ -326,6 +371,13 @@ export function SchemaFields({
             })}
         </div>
     )
+}
+
+interface FormAdapter {
+    watch(name: string): Record<string, unknown> | undefined
+    setValue(name: string, value: unknown, options?: { shouldDirty?: boolean }): void
+    clearErrors(name?: string | string[] | readonly string[]): void
+    formState: { errors: Record<string, unknown> }
 }
 
 export interface FormSchemaFieldsProps {
@@ -338,8 +390,7 @@ export interface FormSchemaFieldsProps {
     /** The JSON schema describing the fields. */
     schema: Schema
     /** The react-hook-form instance. */
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    form: UseFormReturn<any>
+    form: FormAdapter
 }
 
 /**
@@ -356,6 +407,7 @@ export function FormSchemaFields({
     schema,
 }: FormSchemaFieldsProps) {
     const watched = form.watch(parent) ?? {}
+    const formErrors = form.formState.errors
 
     // Derive valid keys from the current schema so we can clean up stale ones
     const schemaKeys = useMemo(() => {
@@ -363,12 +415,28 @@ export function FormSchemaFields({
         return new Set(entries.map(([k]) => k))
     }, [schema])
 
+    // Extract field-level errors from react-hook-form for the parent path
+    const errors = useMemo(() => {
+        const parentErrors = formErrors[parent]
+        if (!parentErrors || typeof parentErrors !== "object") return undefined
+        const result: Record<string, string | undefined> = {}
+        for (const [key, err] of Object.entries(
+            parentErrors as Record<string, { message?: string }>,
+        )) {
+            if (err?.message) {
+                result[key] = err.message
+            }
+        }
+        return Object.keys(result).length > 0 ? result : undefined
+    }, [formErrors, parent])
+
     return (
         <SchemaFields
             title={title}
             description={description}
             schema={schema}
             value={watched}
+            errors={errors}
             onChange={(next) => {
                 // Diff and set only the keys that changed so we don't
                 // unnecessarily mark untouched fields as dirty.
@@ -376,6 +444,7 @@ export function FormSchemaFields({
                     const fieldName = `${parent}.${key}`
                     if (next[key] !== watched[key]) {
                         form.setValue(fieldName, next[key], { shouldDirty: true })
+                        form.clearErrors(fieldName)
                     }
                 }
                 // Remove stale keys that no longer exist in the current schema

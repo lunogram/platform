@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/lunogram/platform/internal/http/auth"
 	"github.com/lunogram/platform/internal/http/controllers/v1/client/oapi"
 	"github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/http/problem"
@@ -72,7 +73,7 @@ func (srv *DevicesController) RegisterDevice(w http.ResponseWriter, r *http.Requ
 	)
 	logger.Info("registering device")
 
-	userID, err := srv.users.LookupUserID(ctx, projectID, oapi.ToParams(req.Identifier))
+	userID, err := srv.users.LookupUserID(ctx, projectID, auth.BoundUserIdentifiers(ctx, oapi.ToParams(req.Identifier)))
 	if errors.Is(err, subjects.ErrUserNotFound) {
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
 		return

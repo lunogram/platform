@@ -321,22 +321,29 @@ func TestReserveSpacingMatchesRate(t *testing.T) {
 	window := time.Second
 	key := "reserve-spacing"
 
+	// Reservations are scheduled relative to the first request's timestamp, so the
+	// returned delay shrinks by however long the preceding calls took (Redis
+	// round-trips, CI load). Comparing delay + elapsed-since-start against the
+	// target keeps the assertion independent of that wall-clock jitter, which the
+	// raw-delay check was sensitive to (and which accumulates across requests).
+	start := time.Now()
+
 	// First request: immediate.
 	delay, err := limiter.Reserve(ctx, key, limit, window)
 	require.NoError(t, err)
 	require.Zero(t, delay)
 
-	// Second request: should be ~1s away (one window / one slot).
+	// Second request: its slot lands about one window after the first.
 	delay, err = limiter.Reserve(ctx, key, limit, window)
 	require.NoError(t, err)
-	require.InDelta(t, window.Seconds(), delay.Seconds(), 0.1,
-		"delay should be approximately one window period")
+	require.InDelta(t, window.Seconds(), delay.Seconds()+time.Since(start).Seconds(), 0.25,
+		"second slot should land about one window after the first")
 
-	// Third request: should be ~2s away.
+	// Third request: about two windows after the first.
 	delay, err = limiter.Reserve(ctx, key, limit, window)
 	require.NoError(t, err)
-	require.InDelta(t, 2*window.Seconds(), delay.Seconds(), 0.1,
-		"delay should be approximately two window periods")
+	require.InDelta(t, 2*window.Seconds(), delay.Seconds()+time.Since(start).Seconds(), 0.25,
+		"third slot should land about two windows after the first")
 }
 
 func TestReserveSeparateKeysIndependent(t *testing.T) {

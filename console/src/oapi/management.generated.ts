@@ -116,6 +116,26 @@ export interface paths {
         patch: operations["updateCampaign"];
         trace?: never;
     };
+    "/api/admin/projects/{projectID}/campaigns/{campaignID}/unarchive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Unarchive campaign
+         * @description Restores an archived campaign by clearing its deleted_at timestamp
+         */
+        post: operations["unarchiveCampaign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/campaigns/{campaignID}/templates": {
         parameters: {
             query?: never;
@@ -274,6 +294,26 @@ export interface paths {
          * @description Updates list properties such as name, rule, and tags
          */
         patch: operations["updateList"];
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/lists/{listID}/unarchive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Unarchive list
+         * @description Restores an archived list by clearing its deleted_at timestamp
+         */
+        post: operations["unarchiveList"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/admin/projects/{projectID}/lists/{listID}/duplicate": {
@@ -534,6 +574,26 @@ export interface paths {
          * @description Creates a new version of a journey as a child, keeping the same step UUIDs
          */
         post: operations["versionJourney"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/journeys/{journeyID}/unarchive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Unarchive journey
+         * @description Restores an archived journey by clearing its deleted_at timestamp
+         */
+        post: operations["unarchiveJourney"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1802,7 +1862,7 @@ export interface paths {
         patch: operations["updateProjectAdmin"];
         trace?: never;
     };
-    "/api/admin/projects/{projectID}/keys": {
+    "/api/admin/projects/{projectID}/auth-methods": {
         parameters: {
             query?: never;
             header?: never;
@@ -1810,23 +1870,23 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * List API keys
-         * @description Retrieves a paginated list of API keys for a project
+         * List auth methods
+         * @description Retrieves a paginated list of auth methods for a project
          */
-        get: operations["listApiKeys"];
+        get: operations["listAuthMethods"];
         put?: never;
         /**
-         * Create API key
-         * @description Creates a new API key for a project
+         * Create auth method
+         * @description Creates a new auth method for a project. For api_key methods the secret is returned only in this response.
          */
-        post: operations["createApiKey"];
+        post: operations["createAuthMethod"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/admin/projects/{projectID}/keys/{keyID}": {
+    "/api/admin/projects/{projectID}/auth-methods/{methodID}": {
         parameters: {
             query?: never;
             header?: never;
@@ -1834,24 +1894,24 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Get API key by ID
-         * @description Retrieves a specific API key
+         * Get auth method by ID
+         * @description Retrieves a specific auth method. The secret is never included.
          */
-        get: operations["getApiKey"];
+        get: operations["getAuthMethod"];
         put?: never;
         post?: never;
         /**
-         * Delete API key
-         * @description Deletes an API key, revoking access
+         * Delete auth method
+         * @description Deletes an auth method, revoking access.
          */
-        delete: operations["deleteApiKey"];
+        delete: operations["deleteAuthMethod"];
         options?: never;
         head?: never;
         /**
-         * Update API key
-         * @description Updates an API key's name or description (scope cannot be changed)
+         * Update auth method
+         * @description Updates an auth method's name, description, role or grants.
          */
-        patch: operations["updateApiKey"];
+        patch: operations["updateAuthMethod"];
         trace?: never;
     };
     "/api/admin/projects/{projectID}/actions": {
@@ -2521,37 +2581,83 @@ export interface components {
          * @enum {string}
          */
         JourneyStepType: "entrance" | "exit" | "delay" | "action" | "campaign" | "gate" | "experiment" | "sticky" | "balancer" | "update" | "event" | "schedule";
-        /** @description Data for entrance step - entry point into journey */
+        /** @description Data for entrance step - entry point into journey. Tagged union: `trigger` selects the kind and the matching sub-object (event, scheduled or list) carries its fields. `concurrent` and `multiple` apply to every kind. `none` is an API/manually triggered entrance with no sub-object. */
         EntranceStepData: {
             /**
-             * @description Trigger type for entrance
+             * @description Selects which trigger sub-object is active
              * @example event
              * @enum {string}
              */
-            trigger?: "none" | "event";
-            /**
-             * @description Event name that triggers entrance
-             * @example user_signup
-             */
-            event_name?: string;
-            /** @description Rule for filtering events */
-            rule?: {
-                [key: string]: unknown;
-            };
-            /** @description Rule for filtering users (used with organization events) */
-            user_rule?: {
-                [key: string]: unknown;
-            };
-            /**
-             * @description Allow multiple entries
-             * @example false
-             */
-            multiple?: boolean;
+            trigger: "none" | "event" | "scheduled" | "list";
             /**
              * @description Allow concurrent journey runs
              * @example false
              */
             concurrent?: boolean;
+            /**
+             * @description Allow re-entry after a previous run completed
+             * @example false
+             */
+            multiple?: boolean;
+            event?: components["schemas"]["EntranceEventTrigger"];
+            scheduled?: components["schemas"]["EntranceScheduledTrigger"];
+            list?: components["schemas"]["EntranceListTrigger"];
+        };
+        /** @description Enters the user when a matching custom event is received */
+        EntranceEventTrigger: {
+            /**
+             * @description Event name that triggers entrance
+             * @example user_signup
+             */
+            name: string;
+            /** @description Optional condition evaluated against the event data */
+            rule?: {
+                [key: string]: unknown;
+            };
+            /** @description Optional filter for organization members */
+            user_rule?: {
+                [key: string]: unknown;
+            };
+        };
+        /** @description Enters the user when a schedule offset fires */
+        EntranceScheduledTrigger: {
+            /**
+             * @description Scheduled event name that triggers entrance
+             * @example scheduled.weekly_digest
+             */
+            name: string;
+            /**
+             * Format: uuid
+             * @description Schedule offset that fires the entrance
+             */
+            offset_id?: string;
+            /** @description Optional condition evaluated against the event data */
+            rule?: {
+                [key: string]: unknown;
+            };
+            /** @description Optional filter for organization members */
+            user_rule?: {
+                [key: string]: unknown;
+            };
+        };
+        /** @description Enters the user when they join or leave the referenced list */
+        EntranceListTrigger: {
+            /**
+             * Format: uuid
+             * @description List whose membership changes trigger entrance
+             */
+            id: string;
+            /**
+             * @description Membership change that fires the trigger (default joins)
+             * @example joins
+             * @enum {string}
+             */
+            direction?: "joins" | "leaves";
+            /**
+             * @description Exit the user when they leave the list (joins direction only)
+             * @example false
+             */
+            exit_on_leave?: boolean;
         };
         /** @description Data for exit step - exits user from journey */
         ExitStepData: {
@@ -2980,6 +3086,11 @@ export interface components {
             templates: components["schemas"]["Template"][];
             variables?: components["schemas"]["CampaignVariable"][];
             delivery: components["schemas"]["Delivery"];
+            /**
+             * @description Whether the campaign has been archived
+             * @example false
+             */
+            archived?: boolean;
         };
         Delivery: {
             /** @example 0 */
@@ -3102,6 +3213,11 @@ export interface components {
              * @example 2025-11-23T17:20:00.021Z
              */
             updated_at: string;
+            /**
+             * @description Whether the list has been archived
+             * @example false
+             */
+            archived?: boolean;
         };
         Provider: {
             /**
@@ -4340,58 +4456,106 @@ export interface components {
             results: components["schemas"]["ProjectAdmin"][];
         };
         /**
-         * @description API key scope - public keys are safe to expose in client-side code
-         * @example secret
+         * @description Data boundary for an auth method. "all" acts across every subject's records; "own" confines a verified end user to their own records. Only meaningful for verified-subject types (trusted_issuer, session); api_key is always "all".
+         * @example own
          * @enum {string}
          */
-        ApiKeyScope: "public" | "secret";
-        ApiKey: {
+        SubjectScope: "all" | "own";
+        /**
+         * @description How an auth method authenticates a client. `api_key` is a
+         *     Lunogram-issued key; `trusted_issuer` validates external JWTs against a
+         *     configured JWKS/PEM; `session` mints short-lived user-scoped tokens.
+         * @example api_key
+         * @enum {string}
+         */
+        AuthMethodType: "api_key" | "trusted_issuer" | "session";
+        /** @description A single (resource, verb) entry in a custom permission set. */
+        PermissionGrant: {
+            /** @example inbox */
+            resource: string;
             /**
-             * Format: uuid
-             * @example 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
+             * @example read
+             * @enum {string}
              */
+            verb: "read" | "create" | "update" | "delete";
+            /**
+             * @description Optional allow-list of named instances this grant is scoped to. For a create grant the method may only create instances with these names (e.g. event names); omitted/empty = unrestricted. Only meaningful for create today.
+             * @example [
+             *       "purchase",
+             *       "signup"
+             *     ]
+             */
+            instances?: string[] | null;
+        };
+        /** @description Maps identity fields to the JWT claims that carry them. Each field names the claim to read; values follow the JWT spec (e.g. `sub`). */
+        ClaimMapping: {
+            /**
+             * @description JWT claim carrying the external user id (defaults to "sub").
+             * @example sub
+             */
+            sub?: string;
+        };
+        /** @description External-JWT validation config for a trusted_issuer method. Exactly one of jwks_url or public_cert is set. */
+        TrustedIssuer: {
+            /** @example https://acme.example/.well-known/jwks.json */
+            jwks_url?: string;
+            /** @description PEM-encoded public certificate (alternative to jwks_url). */
+            public_cert?: string;
+            /** @example https://acme.example */
+            iss?: string;
+            /** @example lunogram */
+            aud?: string;
+            claim?: components["schemas"]["ClaimMapping"];
+        };
+        /** @description Config for a session method. */
+        SessionConfig: {
+            /**
+             * @description Lifetime of minted session tokens, in seconds.
+             * @example 900
+             */
+            ttl_seconds?: number;
+        };
+        AuthMethod: {
+            /** Format: uuid */
             id: string;
-            /**
-             * Format: uuid
-             * @example 4c9d3163-7b64-4f9e-9068-d2e4b96be56b
-             */
+            /** Format: uuid */
             project_id: string;
-            /** @example Production API Key */
+            type: components["schemas"]["AuthMethodType"];
+            /** @example Production key */
             name: string;
-            /**
-             * @description The API key value
-             * @example a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2
-             */
-            value: string;
-            scope: components["schemas"]["ApiKeyScope"];
-            role: components["schemas"]["ProjectRole"];
-            /** @example API key for production environment */
             description?: string;
+            role: components["schemas"]["ProjectRole"];
+            subject_scope?: components["schemas"]["SubjectScope"];
+            grants?: components["schemas"]["PermissionGrant"][];
+            trusted_issuer?: components["schemas"]["TrustedIssuer"];
+            session?: components["schemas"]["SessionConfig"];
             /**
-             * Format: date-time
-             * @example 2025-11-19T14:18:42.960Z
+             * @description The full secret value. Returned only once, in the response to
+             *     creating an api_key method, and never again.
              */
+            secret?: string;
+            /** Format: date-time */
             created_at: string;
-            /**
-             * Format: date-time
-             * @example 2025-11-23T17:20:00.021Z
-             */
+            /** Format: date-time */
             updated_at: string;
         };
-        CreateApiKey: {
-            /** @example Production API Key */
+        CreateAuthMethod: {
+            type: components["schemas"]["AuthMethodType"];
             name: string;
-            scope: components["schemas"]["ApiKeyScope"];
-            role?: components["schemas"]["ProjectRole"];
-            /** @example API key for production environment */
             description?: string;
+            role?: components["schemas"]["ProjectRole"];
+            subject_scope?: components["schemas"]["SubjectScope"];
+            /** @description Custom permission set. When set, takes precedence over the role preset. */
+            grants?: components["schemas"]["PermissionGrant"][];
+            trusted_issuer?: components["schemas"]["TrustedIssuer"];
+            session?: components["schemas"]["SessionConfig"];
         };
-        UpdateApiKey: {
-            /** @example Updated API Key Name */
+        UpdateAuthMethod: {
             name?: string;
-            role?: components["schemas"]["ProjectRole"];
-            /** @example Updated description */
             description?: string;
+            role?: components["schemas"]["ProjectRole"];
+            subject_scope?: components["schemas"]["SubjectScope"];
+            grants?: components["schemas"]["PermissionGrant"][];
         };
         ClientEvent: {
             /**
@@ -4633,6 +4797,8 @@ export interface components {
              * @example 2025-01-10T08:00:00Z
              */
             updated_at: string;
+            /** @description Whether there are pending scheduled events for this schedule instance */
+            has_pending_events?: boolean;
         };
         UserScheduledList: components["schemas"]["PaginatedResponse"] & {
             results: components["schemas"]["UserScheduled"][];
@@ -5067,14 +5233,14 @@ export interface components {
                 };
             };
         };
-        /** @description API keys retrieved successfully */
-        ApiKeyListResponse: {
+        /** @description Auth methods retrieved successfully */
+        AuthMethodListResponse: {
             headers: {
                 [name: string]: unknown;
             };
             content: {
                 "application/json": components["schemas"]["PaginatedResponse"] & {
-                    results: components["schemas"]["ApiKey"][];
+                    results: components["schemas"]["AuthMethod"][];
                 };
             };
         };
@@ -5108,6 +5274,8 @@ export interface components {
         Offset: number;
         /** @description Search query string */
         Search: string;
+        /** @description When true, return only archived (soft-deleted) items instead of active ones */
+        IncludeDeleted: boolean;
     };
     requestBodies: never;
     headers: never;
@@ -5193,6 +5361,8 @@ export interface operations {
                 offset?: components["parameters"]["Offset"];
                 /** @description Search query string */
                 search?: components["parameters"]["Search"];
+                /** @description When true, return only archived (soft-deleted) items instead of active ones */
+                include_deleted?: components["parameters"]["IncludeDeleted"];
             };
             header?: never;
             path: {
@@ -5313,6 +5483,30 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Campaign"];
                 };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    unarchiveCampaign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The campaign ID */
+                campaignID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Campaign unarchived successfully */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             default: components["responses"]["Error"];
         };
@@ -5536,6 +5730,8 @@ export interface operations {
                 offset?: components["parameters"]["Offset"];
                 /** @description Search query string */
                 search?: components["parameters"]["Search"];
+                /** @description When true, return only archived (soft-deleted) items instead of active ones */
+                include_deleted?: components["parameters"]["IncludeDeleted"];
             };
             header?: never;
             path: {
@@ -5654,6 +5850,30 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["List"];
                 };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    unarchiveList: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The list ID */
+                listID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List unarchived successfully */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             default: components["responses"]["Error"];
         };
@@ -5916,6 +6136,8 @@ export interface operations {
                 offset?: components["parameters"]["Offset"];
                 /** @description Search query string */
                 search?: components["parameters"]["Search"];
+                /** @description When true, return only archived (soft-deleted) items instead of active ones */
+                include_deleted?: components["parameters"]["IncludeDeleted"];
             };
             header?: never;
             path: {
@@ -6281,6 +6503,30 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Journey"];
                 };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    unarchiveJourney: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The journey ID */
+                journeyID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Journey unarchived successfully */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             default: components["responses"]["Error"];
         };
@@ -8682,7 +8928,7 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
-    listApiKeys: {
+    listAuthMethods: {
         parameters: {
             query?: {
                 /** @description Maximum number of items to return */
@@ -8699,11 +8945,11 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            200: components["responses"]["ApiKeyListResponse"];
+            200: components["responses"]["AuthMethodListResponse"];
             default: components["responses"]["Error"];
         };
     };
-    createApiKey: {
+    createAuthMethod: {
         parameters: {
             query?: never;
             header?: never;
@@ -8715,63 +8961,63 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CreateApiKey"];
+                "application/json": components["schemas"]["CreateAuthMethod"];
             };
         };
         responses: {
-            /** @description API key created successfully */
+            /** @description Auth method created successfully */
             201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ApiKey"];
+                    "application/json": components["schemas"]["AuthMethod"];
                 };
             };
             default: components["responses"]["Error"];
         };
     };
-    getApiKey: {
+    getAuthMethod: {
         parameters: {
             query?: never;
             header?: never;
             path: {
                 /** @description The project ID */
                 projectID: string;
-                /** @description The API key ID */
-                keyID: string;
+                /** @description The auth method ID */
+                methodID: string;
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description API key retrieved successfully */
+            /** @description Auth method retrieved successfully */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ApiKey"];
+                    "application/json": components["schemas"]["AuthMethod"];
                 };
             };
             default: components["responses"]["Error"];
         };
     };
-    deleteApiKey: {
+    deleteAuthMethod: {
         parameters: {
             query?: never;
             header?: never;
             path: {
                 /** @description The project ID */
                 projectID: string;
-                /** @description The API key ID */
-                keyID: string;
+                /** @description The auth method ID */
+                methodID: string;
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description API key deleted successfully */
+            /** @description Auth method deleted successfully */
             204: {
                 headers: {
                     [name: string]: unknown;
@@ -8781,31 +9027,31 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
-    updateApiKey: {
+    updateAuthMethod: {
         parameters: {
             query?: never;
             header?: never;
             path: {
                 /** @description The project ID */
                 projectID: string;
-                /** @description The API key ID */
-                keyID: string;
+                /** @description The auth method ID */
+                methodID: string;
             };
             cookie?: never;
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["UpdateApiKey"];
+                "application/json": components["schemas"]["UpdateAuthMethod"];
             };
         };
         responses: {
-            /** @description API key updated successfully */
+            /** @description Auth method updated successfully */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ApiKey"];
+                    "application/json": components["schemas"]["AuthMethod"];
                 };
             };
             default: components["responses"]["Error"];

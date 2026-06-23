@@ -158,8 +158,8 @@ func PublishOrganizationEventJourneyDependencies(ctx context.Context, logger *za
 			}
 
 			// Evaluate event conditions in-memory
-			if entrance.Rule != nil {
-				match, err := evaluator.Evaluate(*entrance.Rule, event.Data)
+			if rule := entrance.EntranceRule(); rule != nil {
+				match, err := evaluator.Evaluate(*rule, event.Data)
 				if err != nil {
 					logger.Error("failed to evaluate journey entrance rule", zap.Error(err))
 					return err
@@ -181,8 +181,8 @@ func PublishOrganizationEventJourneyDependencies(ctx context.Context, logger *za
 				return err
 			}
 
-			multiple := entrance.Multiple != nil && *entrance.Multiple
-			concurrent := entrance.Concurrent != nil && *entrance.Concurrent
+			multiple := entrance.Multiple
+			concurrent := entrance.Concurrent
 
 			scanner := func(userID uuid.UUID) error {
 				msg := schemas.JourneyEntrance{
@@ -207,7 +207,7 @@ func PublishOrganizationEventJourneyDependencies(ctx context.Context, logger *za
 				return nil
 			}
 
-			_, err = usrs.ScanOrganizationMembers(ctx, event.ProjectID, event.OrganizationID, entrance.UserRule, scanner)
+			_, err = usrs.ScanOrganizationMembers(ctx, event.ProjectID, event.OrganizationID, entrance.MemberRule(), scanner)
 			if err != nil {
 				logger.Error("failed to scan organization members", zap.Error(err))
 				return err

@@ -25,8 +25,9 @@ import type {
     ProjectAdmin,
     ProjectAdminInviteParams,
     ProjectAdminParams,
-    ProjectApiKey,
-    ProjectApiKeyParams,
+    AuthMethod,
+    CreateAuthMethodParams,
+    UpdateAuthMethodParams,
     Resource,
     RulePath,
     SearchParams,
@@ -306,11 +307,11 @@ const api = {
             await client.post(`${projectUrl(projectId)}/data/paths/sync`).then((r) => r.data),
     },
 
-    apiKeys: createProjectEntityPath<
-        ProjectApiKey,
-        ProjectApiKeyParams,
-        Omit<ProjectApiKeyParams, "scope">
-    >("keys"),
+    authMethods: createProjectEntityPath<
+        AuthMethod,
+        CreateAuthMethodParams,
+        UpdateAuthMethodParams
+    >("auth-methods"),
 
     actions: createProjectEntityPath<Action, ActionCreateParams, ActionUpdateParams>("actions"),
 

@@ -108,7 +108,7 @@ Store any data you need on user profiles. Custom properties let you personalize 
   <Tab value="API">
     ```bash
     curl -X POST https://your-instance.com/api/client/users \
-      -H "Authorization: Bearer pk_..." \
+      -H "Authorization: Bearer sk_..." \
       -H "Content-Type: application/json" \
       -d '{
         "identifier": [{ "external_id": "user_123" }],
@@ -265,6 +265,16 @@ The `identifier` column is required and is used as the `external_id` with the `d
 `email`, `phone`, `first_name`, `last_name`, `timezone`, `locale`
 
 All other columns (like `plan` and `company` above) become custom properties.
+
+<Callout type="info">
+  **Timezone auto-conversion**: Values in the `timezone` column are automatically
+  resolved to IANA timezone names. Abbreviations like `EST`, `PST`, `CET` and
+  GMT/UTC offsets like `GMT-5` or `+02:00` are resolved to a best-match IANA
+  timezone name (for example, `America/New_York`, `America/Los_Angeles`).
+  IANA names like `America/New_York` are used as-is. Note that abbreviation and
+  offset conversion is heuristic/lossy: inputs may map to a region-based timezone
+  that observes DST, so a fixed offset may not be preserved year-round.
+</Callout>
 
 <Callout type="info">
   Importing via a [static list](/lists#static-lists) also creates users, but

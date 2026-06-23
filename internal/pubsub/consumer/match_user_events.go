@@ -124,12 +124,12 @@ func PublishMatchedUserEntrances(ctx context.Context, logger *zap.Logger, jrny *
 				}
 			}
 
-			if entrance.Rule != nil {
+			if rule := entrance.EntranceRule(); rule != nil {
 				data := map[string]any{
 					"data": event.Data,
 				}
 
-				match, err := evaluator.Evaluate(*entrance.Rule, data)
+				match, err := evaluator.Evaluate(*rule, data)
 				if err != nil {
 					logger.Error("failed to evaluate journey entrance rule", zap.Error(err))
 					return err
@@ -146,8 +146,8 @@ func PublishMatchedUserEntrances(ctx context.Context, logger *zap.Logger, jrny *
 				return err
 			}
 
-			multiple := entrance.Multiple != nil && *entrance.Multiple
-			concurrent := entrance.Concurrent != nil && *entrance.Concurrent
+			multiple := entrance.Multiple
+			concurrent := entrance.Concurrent
 
 			logger.Info("publishing journey entrances for matched users",
 				zap.Stringer("journey_id", dep.JourneyID),

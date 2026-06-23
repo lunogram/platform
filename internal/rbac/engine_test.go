@@ -24,6 +24,38 @@ func TestWriteTupleGrantsAccess(t *testing.T) {
 	assert.True(t, allowed)
 }
 
+func TestWriteTupleIfAbsentIsIdempotent(t *testing.T) {
+	t.Parallel()
+
+	engine := NewTestEngine(t)
+	ctx := context.Background()
+	orgID := uuid.New()
+	obj := "organization:" + orgID.String()
+
+	// First write creates the tuple; the duplicate is treated as success.
+	require.NoError(t, engine.WriteTupleIfAbsent(ctx, "user:u1", "member", obj))
+	require.NoError(t, engine.WriteTupleIfAbsent(ctx, "user:u1", "member", obj),
+		"a duplicate write must be idempotent, not an error")
+
+	allowed, err := engine.Check(ctx, "user:u1", "member", obj)
+	require.NoError(t, err)
+	assert.True(t, allowed)
+}
+
+func TestWriteTupleIfAbsentSurfacesRealErrors(t *testing.T) {
+	t.Parallel()
+
+	engine := NewTestEngine(t)
+	ctx := context.Background()
+	obj := "organization:" + uuid.New().String()
+
+	// A relation that does not exist in the authorization model is a genuine
+	// validation failure, not a duplicate, and must be surfaced rather than
+	// swallowed as "already exists".
+	err := engine.WriteTupleIfAbsent(ctx, "user:u1", "not_a_real_relation", obj)
+	require.Error(t, err, "a non-duplicate write failure must surface")
+}
+
 func TestDeleteTupleRevokesAccess(t *testing.T) {
 	t.Parallel()
 

@@ -2,6 +2,7 @@ import {
     Mail,
     Smartphone,
     MessageSquareDot,
+    Inbox,
     Clock,
     CheckCircle2,
     XCircle,
@@ -39,8 +40,9 @@ export function isSentState(state: BroadcastState): boolean {
 
 export const channelIcons: Record<ChannelType, typeof Mail> = {
     email: Mail,
-    text: Smartphone,
+    sms: Smartphone,
     push: MessageSquareDot,
+    inbox: Inbox,
 }
 
 export const stateConfig: Record<

@@ -1,7 +1,7 @@
 import { useContext, useState, useEffect, useRef } from "react"
 import { Controller, useForm, type UseFormReturn } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import type { Campaign, Template, User, Locale } from "@/types"
+import type { Campaign, Template, User, Locale, EmailTemplateData } from "@/types"
 import { useTranslation } from "react-i18next"
 import { ProjectContext, TemplateContext } from "@/contexts"
 import { useNavigate } from "react-router"
@@ -30,14 +30,7 @@ import { SenderIdentityCombobox } from "@/components/sender-identity-combobox"
 import type { SenderIdentity } from "@/oapi/client"
 import { useCampaignVariableContext } from "../../CampaignVariableContext"
 
-const emailSetupFormSchema = z.object({
-    subject: z.string("Subject is required").min(1, "Subject is required"),
-    sender_identity_id: z.string().optional(),
-    from: z.object({
-        name: z.string().optional(),
-    }),
-    replyTo: z.email("Invalid reply-to email address").optional().or(z.literal("")),
-})
+import { emailSetupFormSchema } from "@/validation/campaign/template/mail/setup"
 
 const randomSubjects = [
     "You won't believe what we have for you...",
@@ -57,7 +50,7 @@ function randomSubject() {
     return randomSubjects[index]
 }
 
-export function EmailForm(campaign: Campaign, template?: Template) {
+export function EmailForm(_campaign: Campaign, template?: Template<EmailTemplateData>) {
     const formSchema = emailSetupFormSchema.extend({
         sender_identity_id: z.string("From address is required").min(1),
     })
@@ -70,7 +63,7 @@ export function EmailForm(campaign: Campaign, template?: Template) {
                 name: template?.data.from?.name ?? "",
             },
             subject: template?.data.subject ?? randomSubject(),
-            replyTo: template?.data.replyTo ?? "",
+            replyTo: template?.data.reply_to ?? "",
         },
     })
 
@@ -199,6 +192,14 @@ export function EmailPreview({ campaign: _campaign, form }: EmailSetupProps) {
     const [template] = useContext(TemplateContext)
     const { t } = useTranslation()
     const [selectedUser, setSelectedUser] = useState<User | null>(null)
+
+    if (template.type != "email") {
+        return (
+            <div className="text-center py-12 text-gray-400 italic">
+                {t("campaign.setup.channels.email.no_template_selected")}
+            </div>
+        )
+    }
 
     const loadingSubjects = 3
     const { subject, from } = form.watch()
@@ -335,6 +336,11 @@ export function EmailContentPreview({ campaign, form, edit = false }: EmailSetup
     // The user is passed as a prop so JSX expressions like `props.user.data.first_name`
     // resolve with real values at React render time.
     useEffect(() => {
+        if (template.type != "email") {
+            setCompiledHtml("")
+            return
+        }
+
         const source = template?.data?.code?.source
         if (!source) {
             setCompiledHtml("")
@@ -368,12 +374,20 @@ export function EmailContentPreview({ campaign, form, edit = false }: EmailSetup
         return () => {
             abortController.abort()
         }
-    }, [template?.data?.code?.source, selectedUser])
+        // @ts-expect-error template.data.code can not be undefined here because this page doesn't load without the email being selected,
+        // and the email template type requires code to be defined.
+    }, [template?.data?.code?.source, selectedUser, template?.type])
 
     const { subject, from, replyTo } = form.watch()
 
+    // The useEffect above already clears compiledHtml when the template is not an
+    // email, so we only need to bail out of rendering the email preview here.
+    if (template.type != "email") {
+        return null
+    }
+
     const rawFromName = from.name || template.data.from?.name || ""
-    const displayReplyTo = replyTo || template.data.replyTo || ""
+    const displayReplyTo = replyTo || template.data.reply_to || ""
 
     const displaySubject = selectedUser ? Render(subject, { user: selectedUser }) : subject
     const displayFromName = selectedUser ? Render(rawFromName, { user: selectedUser }) : rawFromName

@@ -48,12 +48,7 @@ func PublishInboxLifecycleEvent(ctx context.Context, pub pubsub.Publisher, messa
 		return fmt.Errorf("inbox events: message is nil")
 	}
 
-	data := map[string]any{
-		"message_id":   message.ID.String(),
-		"channel":      string(message.Channel),
-		"priority":     message.Priority,
-		"scheduled_at": message.ScheduledAt,
-	}
+	data := map[string]any{"message_id": message.ID.String(), "channel": string(message.Channel)}
 	if message.ExternalID != nil {
 		data["external_id"] = *message.ExternalID
 	}
@@ -62,18 +57,6 @@ func PublishInboxLifecycleEvent(ctx context.Context, pub pubsub.Publisher, messa
 	}
 	if message.BroadcastID != nil {
 		data["broadcast_id"] = message.BroadcastID.String()
-	}
-	if message.SenderIdentityID != nil {
-		data["sender_identity_id"] = message.SenderIdentityID.String()
-	}
-	if message.ExpiresAt != nil {
-		data["expires_at"] = *message.ExpiresAt
-	}
-	if message.Source != nil {
-		data["source"] = *message.Source
-	}
-	if len(message.Tags) > 0 {
-		data["tags"] = []string(message.Tags)
 	}
 
 	switch {
@@ -174,16 +157,22 @@ func composePayload(channel providers.Channel, content json.RawMessage, senderId
 		}
 	}
 
-	// No title or body means this isn't the generic format — pass through.
+	// No title means this isn't the generic format — pass through.
 	if generic.Title == "" && generic.Body == "" {
 		return content, nil
 	}
 
+	// The generic format requires a recipient address to compose a provider
+	// payload. Organization email/SMS dispatch passes an empty "to" and relies
+	// on the content already carrying channel-specific recipient fields (which
+	// would have been passed through above). Reaching here with no recipient is
+	// a misconfiguration that will never succeed, so fail permanently.
+	if to == "" && (channel == providers.ChannelEmail || channel == providers.ChannelSMS) {
+		return nil, fmt.Errorf("generic %s content has no recipient address", channel)
+	}
+
 	switch channel {
 	case providers.ChannelEmail:
-		if generic.Title == "" {
-			return content, nil // email requires a subject
-		}
 		fromAddress := senderIdentity.Address()
 		var fromName string
 		if traits := senderIdentity.TraitsMap(); traits != nil {

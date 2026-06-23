@@ -443,6 +443,37 @@ func TestGetPublishedRule_NilWhenDraftOnly(t *testing.T) {
 	require.Nil(t, result, "draft-only list should not return a published rule")
 }
 
+func TestAddUserToListReturning(t *testing.T) {
+	t.Parallel()
+
+	db := NewContainerStore(t)
+	projectID := uuid.New()
+	ctx := context.Background()
+
+	listID, err := db.CreateList(ctx, List{
+		ProjectID: projectID,
+		Name:      "Membership List",
+		Type:      ListTypeStatic,
+	})
+	require.NoError(t, err)
+
+	userID, err := db.CreateUser(ctx, projectID, ptr.To("member@example.com"), nil, []byte(`{}`), nil, nil, []ExternalIDParam{{Source: "default", ExternalID: "member"}})
+	require.NoError(t, err)
+
+	// First insert genuinely adds the membership row: callers use this to gate
+	// emitting list.user.added so static-list imports stay consistent with
+	// dynamic recompute.
+	inserted, err := db.AddUserToListReturning(ctx, listID, userID)
+	require.NoError(t, err)
+	require.True(t, inserted, "first add should report a new membership row")
+
+	// Re-adding the same user is a no-op (ON CONFLICT DO NOTHING) and must
+	// report false so no duplicate list.user.added event is emitted.
+	inserted, err = db.AddUserToListReturning(ctx, listID, userID)
+	require.NoError(t, err)
+	require.False(t, inserted, "re-adding an existing member should report no new row")
+}
+
 func TestDuplicateList(t *testing.T) {
 	t.Parallel()
 
@@ -965,7 +996,7 @@ func TestListLists(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	lists, total, err := db.ListLists(ctx, projectID, store.Pagination{Limit: 10, Offset: 0}, "")
+	lists, total, err := db.ListLists(ctx, projectID, store.Pagination{Limit: 10, Offset: 0}, "", false)
 	require.NoError(t, err)
 	require.Equal(t, 3, total)
 	require.Len(t, lists, 3)
@@ -1164,4 +1195,66 @@ func TestListOAPI_Rules(t *testing.T) {
 	o2 := l2.OAPI()
 	require.Nil(t, o2.Rule)
 	require.Nil(t, o2.DraftRule)
+}
+
+func TestListLists_ArchivedFilter(t *testing.T) {
+	t.Parallel()
+
+	db := NewContainerStore(t)
+	projectID := uuid.New()
+	ctx := context.Background()
+
+	activeID, err := db.CreateList(ctx, List{ProjectID: projectID, Name: "Active List", Type: ListTypeDynamic})
+	require.NoError(t, err)
+
+	archivedID, err := db.CreateList(ctx, List{ProjectID: projectID, Name: "Archived List", Type: ListTypeDynamic})
+	require.NoError(t, err)
+	require.NoError(t, db.DeleteList(ctx, projectID, archivedID))
+
+	page := store.Pagination{Limit: 10, Offset: 0}
+
+	// archivedOnly=false returns only active lists, with a total that excludes archived ones.
+	active, total, err := db.ListLists(ctx, projectID, page, "", false)
+	require.NoError(t, err)
+	require.Equal(t, 1, total)
+	require.Len(t, active, 1)
+	require.Equal(t, activeID, active[0].ID)
+	require.Nil(t, active[0].DeletedAt)
+
+	// archivedOnly=true returns only archived lists, with a matching total for pagination.
+	archived, total, err := db.ListLists(ctx, projectID, page, "", true)
+	require.NoError(t, err)
+	require.Equal(t, 1, total)
+	require.Len(t, archived, 1)
+	require.Equal(t, archivedID, archived[0].ID)
+	require.NotNil(t, archived[0].DeletedAt)
+}
+
+func TestUnarchiveList(t *testing.T) {
+	t.Parallel()
+
+	db := NewContainerStore(t)
+	projectID := uuid.New()
+	ctx := context.Background()
+
+	listID, err := db.CreateList(ctx, List{ProjectID: projectID, Name: "Restore Me", Type: ListTypeDynamic})
+	require.NoError(t, err)
+	require.NoError(t, db.DeleteList(ctx, projectID, listID))
+
+	// Restoring an archived list clears deleted_at and brings it back to the active list.
+	require.NoError(t, db.UnarchiveList(ctx, projectID, listID))
+
+	active, total, err := db.ListLists(ctx, projectID, store.Pagination{Limit: 10, Offset: 0}, "", false)
+	require.NoError(t, err)
+	require.Equal(t, 1, total)
+	require.Len(t, active, 1)
+	require.Equal(t, listID, active[0].ID)
+
+	// Unarchiving a list that is not archived (already active) reports no rows affected.
+	err = db.UnarchiveList(ctx, projectID, listID)
+	require.ErrorIs(t, err, sql.ErrNoRows)
+
+	// Unarchiving a non-existent list reports no rows affected.
+	err = db.UnarchiveList(ctx, projectID, uuid.New())
+	require.ErrorIs(t, err, sql.ErrNoRows)
 }

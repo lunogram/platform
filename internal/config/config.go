@@ -18,6 +18,8 @@ type Node struct {
 
 	PublicURL  string      `env:"PUBLIC_URL" envDefault:"http://localhost:8080"`
 	Redis      Redis       `envPrefix:"REDIS_"`
+	RateLimit  RateLimit   `envPrefix:"RATE_LIMIT_"`
+	JWKSCache  JWKSCache   `envPrefix:"JWKS_CACHE_"`
 	Cluster    Cluster     `envPrefix:"CLUSTER_"`
 	Auth       Auth        `envPrefix:"AUTH_"`
 	Nats       Nats        `envPrefix:"NATS_"`
@@ -45,6 +47,13 @@ type Auth struct {
 	TokenLife time.Duration `env:"TOKEN_LIFE" envDefault:"24h"`
 	Basic     BasicAuth     `envPrefix:"BASIC_"`
 	Clerk     ClerkAuth     `envPrefix:"CLERK_"`
+
+	// SessionSigningKey is a PEM-encoded EC (P-256) private key used to sign and
+	// verify short-lived client session tokens (ES256). When empty, session
+	// minting and verification are disabled.
+	SessionSigningKey string `env:"SESSION_SIGNING_KEY"`
+	// SessionIssuer is the `iss` stamped on (and required of) session tokens.
+	SessionIssuer string `env:"SESSION_ISSUER" envDefault:"https://lunogram.com"`
 }
 
 type BasicAuth struct {
@@ -60,6 +69,30 @@ type ClerkAuth struct {
 type Redis struct {
 	Address   string `env:"ADDRESS" envDefault:"redis://127.0.0.1:6379"`
 	KeyPrefix string `env:"KEY_PREFIX" envDefault:""`
+}
+
+// RateLimit configures request rate limiting across the API.
+type RateLimit struct {
+	// PerMinute is the number of API requests permitted per minute per auth
+	// method (or per IP for unauthenticated requests). The budget is shared
+	// across the client and management APIs — a key is not given a separate
+	// allowance per surface.
+	PerMinute int `env:"PER_MINUTE" envDefault:"600"`
+	// TrustedProxyHops is the number of reverse proxies in front of the server.
+	// X-Forwarded-For is honored only up to this many hops when deriving the
+	// client IP for unauthenticated rate limiting; 0 (the default) ignores the
+	// spoofable header and uses the connection's remote address.
+	TrustedProxyHops int `env:"TRUSTED_PROXY_HOPS" envDefault:"0"`
+}
+
+// JWKSCache configures the two-tier cache for trusted-issuer JWKS verification.
+type JWKSCache struct {
+	// TTL is how long a fetched JWKS is kept in the shared (Redis) cache.
+	TTL time.Duration `env:"TTL" envDefault:"5m"`
+	// FetchTimeout bounds a single JWKS fetch from an issuer.
+	FetchTimeout time.Duration `env:"FETCH_TIMEOUT" envDefault:"5s"`
+	// ErrorTTL is the backoff after a failed fetch before the issuer is retried.
+	ErrorTTL time.Duration `env:"ERROR_TTL" envDefault:"30s"`
 }
 
 type Nats struct {

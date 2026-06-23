@@ -51,6 +51,23 @@ func JourneyStepHandler(logger *zap.Logger, db *sqlx.DB, jrny *journey.State, mg
 			return err
 		}
 
+		// Emit the tracked "journey.step.entered" event before executing the step.
+		// Publishing first means a transient failure retries the whole message
+		// before any step side effects run; the deterministic Msg-Id (keyed on the
+		// inbound message's stream sequence) collapses that retry so the event is
+		// counted exactly once per step entry.
+		var sourceSeq uint64
+		if meta, err := msg.Metadata(); err == nil {
+			sourceSeq = meta.Sequence.Stream
+		}
+		entered := schemas.JourneyStepEntered(event.ProjectID, event.JourneyID, event.JourneyEntryID, event.UserID, event.VersionID, step.ExternalID, step.Type, step.Name)
+		enteredMsgID := schemas.JourneyStepEnteredMsgID(event.JourneyEntryID, step.ExternalID, sourceSeq)
+		err = pub.Publish(ctx, schemas.UserEventsProcess(event.ProjectID), entered, pubsub.WithMsgID(enteredMsgID))
+		if err != nil {
+			logger.Error("failed to publish journey step entered event", zap.Error(err))
+			return err
+		}
+
 		data, err := jrny.GetJourneyEntryData(ctx, db, event.JourneyEntryID, event.UserID)
 		if err != nil {
 			logger.Error("failed to get journey entry data", zap.Error(err))

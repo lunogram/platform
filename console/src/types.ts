@@ -296,6 +296,7 @@ export interface SearchParams {
     search?: string
     tag?: string[]
     id?: UUID[]
+    include_deleted?: boolean
 }
 
 export interface SearchResult<T> {
@@ -368,20 +369,112 @@ export interface Project {
     lists_count?: number
 }
 
-export type ChannelType = "email" | "push" | "sms"
+export type ChannelType = "email" | "push" | "sms" | "inbox"
 
 export type ProjectCreate = Omit<Project, "id" | AuditFields>
 
-export interface ProjectApiKey {
-    id: UUID
-    value: string
-    name: string
-    scope: "public" | "secret"
-    role?: ProjectRole
-    description?: string
+export const authMethodTypes = ["api_key", "trusted_issuer", "session"] as const
+export type AuthMethodType = (typeof authMethodTypes)[number]
+
+// SubjectScope is an auth method's data boundary: "all" acts across every
+// subject's records; "own" confines a verified end user to their own. Only
+// meaningful for verified-subject types (trusted_issuer, session); api_key is
+// always "all". Mirrors SubjectScope in the management OpenAPI schema.
+export const subjectScopes = ["all", "own"] as const
+export type SubjectScope = (typeof subjectScopes)[number]
+
+export const grantVerbs = ["read", "create", "update", "delete"] as const
+export type GrantVerb = (typeof grantVerbs)[number]
+
+export interface PermissionGrant {
+    resource: string
+    verb: GrantVerb
 }
 
-export type ProjectApiKeyParams = Pick<ProjectApiKey, "name" | "description" | "scope" | "role">
+// GrantConstraints narrows which named instances a client may create within a
+// resource it already has create access to (e.g. specific event names). Keyed by
+// resource name; a resource present with a non-empty list is restricted to those
+// names, and an absent resource is unrestricted. (To deny creation entirely,
+// don't grant create — there is no "allow nothing" state.)
+export type GrantConstraints = Partial<Record<string, string[]>>
+
+// grantableResources mirrors rbac.Resources() in internal/rbac/model.go and must
+// stay in sync with it. It drives the custom-permission matrix in the Access UI.
+// Client-facing resources are listed first so the common cases surface at the top.
+export const grantableResources = [
+    "users",
+    "events",
+    "inbox",
+    "scheduled",
+    "devices",
+    "organizations",
+    "subscriptions",
+    "campaigns",
+    "broadcasts",
+    "journeys",
+    "lists",
+    "tags",
+    "templates",
+    "locales",
+    "documents",
+    "actions",
+    "providers",
+    "push_providers",
+    "sender_identities",
+] as const
+
+export interface ClaimMapping {
+    sub?: string
+}
+
+export interface TrustedIssuerConfig {
+    jwks_url?: string
+    public_cert?: string
+    iss?: string
+    aud?: string
+    claim?: ClaimMapping
+}
+
+export interface SessionConfig {
+    ttl_seconds?: number
+}
+
+export interface AuthMethod {
+    id: UUID
+    project_id: UUID
+    type: AuthMethodType
+    name: string
+    description?: string
+    role: ProjectRole
+    subject_scope?: SubjectScope
+    grants?: PermissionGrant[]
+    grant_constraints?: GrantConstraints
+    trusted_issuer?: TrustedIssuerConfig
+    session?: SessionConfig
+    // secret is present only in the response to creating an api_key method.
+    secret?: string
+    created_at: string
+    updated_at: string
+}
+
+export interface CreateAuthMethodParams {
+    type: AuthMethodType
+    name: string
+    description?: string
+    role?: ProjectRole
+    subject_scope?: SubjectScope
+    grants?: PermissionGrant[]
+    grant_constraints?: GrantConstraints
+    trusted_issuer?: TrustedIssuerConfig
+    session?: SessionConfig
+}
+
+export type UpdateAuthMethodParams = Partial<
+    Pick<
+        CreateAuthMethodParams,
+        "name" | "description" | "role" | "subject_scope" | "grants" | "grant_constraints"
+    >
+>
 
 export interface ExternalIDResponse {
     id: UUID
@@ -472,6 +565,7 @@ export type List = {
         total: number
     }
     is_visible: boolean
+    archived?: boolean
     created_at: string
     updated_at: string
 } & (
@@ -699,8 +793,7 @@ export interface EmailTemplateData {
 }
 
 export interface TextTemplateData {
-    from: string
-    text: string
+    body: string
 }
 
 export interface PushTemplateData {
@@ -710,13 +803,28 @@ export interface PushTemplateData {
     custom: Record<string, unknown>
 }
 
-export type Template = {
+export interface InboxTemplateData {
+    title: string
+    body: string
+}
+
+export type Template<
+    DataObjectType extends
+        | EmailTemplateData
+        | TextTemplateData
+        | PushTemplateData
+        | InboxTemplateData =
+        | EmailTemplateData
+        | TextTemplateData
+        | PushTemplateData
+        | InboxTemplateData,
+> = {
     id: UUID
     campaign_id: UUID
     type: ChannelType
     locale: string
     sender_identity_id: UUID | null
-    data: EmailTemplateData | TextTemplateData | PushTemplateData
+    data: DataObjectType
     screenshot_url: string
     created_at: string
     updated_at: string
@@ -732,6 +840,10 @@ export type Template = {
     | {
           type: "push"
           data: PushTemplateData
+      }
+    | {
+          type: "inbox"
+          data: InboxTemplateData
       }
 )
 

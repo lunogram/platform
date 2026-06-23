@@ -56,7 +56,7 @@ Create organizations through the client API. If an organization with a matching 
   <Tab value="API">
     ```bash
     curl -X POST https://your-instance.com/api/client/organizations \
-      -H "Authorization: Bearer pk_..." \
+      -H "Authorization: Bearer sk_..." \
       -H "Content-Type: application/json" \
       -d '{
         "identifier": [{ "external_id": "acme_inc" }],
@@ -112,7 +112,7 @@ Pass custom data as a JSON object when creating or updating an organization:
   <Tab value="API">
     ```bash
     curl -X POST https://your-instance.com/api/client/organizations \
-      -H "Authorization: Bearer pk_..." \
+      -H "Authorization: Bearer sk_..." \
       -H "Content-Type: application/json" \
       -d '{
         "identifier": [{ "external_id": "acme_inc" }],
@@ -217,7 +217,7 @@ Delete an organization by its identifier. This also removes all memberships.
   <Tab value="API">
     ```bash
     curl -X DELETE https://your-instance.com/api/client/organizations \
-      -H "Authorization: Bearer pk_..." \
+      -H "Authorization: Bearer sk_..." \
       -H "Content-Type: application/json" \
       -d '{
         "identifier": [{ "external_id": "acme_inc" }]
@@ -257,7 +257,7 @@ Add a user to an organization using their identifiers:
   <Tab value="API">
     ```bash
     curl -X POST https://your-instance.com/api/client/organizations/users \
-      -H "Authorization: Bearer pk_..." \
+      -H "Authorization: Bearer sk_..." \
       -H "Content-Type: application/json" \
       -d '{
         "organization": {
@@ -316,7 +316,7 @@ Remove a user from an organization:
   <Tab value="API">
     ```bash
     curl -X DELETE https://your-instance.com/api/client/organizations/users \
-      -H "Authorization: Bearer pk_..." \
+      -H "Authorization: Bearer sk_..." \
       -H "Content-Type: application/json" \
       -d '{
         "organization": {
@@ -359,7 +359,7 @@ Organizations have their own event timeline, separate from user events. Organiza
   <Tab value="API">
     ```bash
     curl -X POST https://your-instance.com/api/client/organizations/events \
-      -H "Authorization: Bearer pk_..." \
+      -H "Authorization: Bearer sk_..." \
       -H "Content-Type: application/json" \
       -d '[
         {

@@ -1,5 +1,9 @@
 import React, { useCallback, useContext, useState, useMemo, useRef } from "react"
+import { useForm, Controller } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
 import { useTranslation } from "react-i18next"
+import { scheduledCreateSchema } from "@/validation/scheduled/scheduled-create"
+import type { ScheduledCreateFormValues } from "@/validation/scheduled/scheduled-create"
 import {
     CalendarClock,
     ChevronLeft,
@@ -21,7 +25,6 @@ import { PreferencesContext } from "@/contexts/PreferencesContext"
 import { useResolver } from "../hooks"
 import { formatDate, cn, getPageNumbers } from "../utils"
 import { getRandomColor } from "@/lib/colors"
-import { DEFAULT_TIME_INPUT_VALUE, toIsoFromDateAndTime } from "@/lib/date-time"
 import { client } from "../api"
 import oapiClient from "../oapi/client"
 import type { ScheduledSchema } from "../types"
@@ -78,6 +81,7 @@ interface ScheduledItem {
     anchor_at: string | null
     interval: string | null
     paused_at: string | null
+    has_pending_events: boolean | null
     data: Record<string, unknown> | null
     created_at: string
     updated_at: string
@@ -129,9 +133,7 @@ function ScheduledExpandedRow({ item, patchUrl, onSaved }: ScheduledExpandedRowP
                                         {formatDate(preferences, item.scheduled_at, "PPpp")}
                                     </span>
                                 </DateTimeEdit>
-                                {!item.paused_at &&
-                                    item.scheduled_at &&
-                                    new Date(item.scheduled_at) <= new Date() && (
+                                {!item.paused_at && item.has_pending_events && (
                                         <Tooltip>
                                             <TooltipTrigger asChild>
                                                 <span className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400">
@@ -196,13 +198,17 @@ export default function ScheduledDetailTable({
     const [expandedId, setExpandedId] = useState<string | null>(null)
     const [isCreateOpen, setIsCreateOpen] = useState(false)
     const [isCreating, setIsCreating] = useState(false)
-    const [newScheduledName, setNewScheduledName] = useState("")
-    const [newScheduledDate, setNewScheduledDate] = useState("")
-    const [newScheduledTime, setNewScheduledTime] = useState(DEFAULT_TIME_INPUT_VALUE)
-    const [newStartDate, setNewStartDate] = useState("")
-    const [newStartTime, setNewStartTime] = useState(DEFAULT_TIME_INPUT_VALUE)
-    const [newInterval, setNewInterval] = useState("")
     const [newScheduledData, setNewScheduledData] = useState<Record<string, unknown>>({})
+
+    const scheduledForm = useForm<ScheduledCreateFormValues>({
+        resolver: zodResolver(scheduledCreateSchema),
+        defaultValues: {
+            scheduled_name: "",
+            scheduled_at: "",
+            start_at: "",
+            interval: "",
+        },
+    })
 
     // Dialog state for delete, pause, resume actions
     const [deleteTarget, setDeleteTarget] = useState<ScheduledItem | null>(null)
@@ -211,7 +217,7 @@ export default function ScheduledDetailTable({
     const [resumeTarget, setResumeTarget] = useState<ScheduledItem | null>(null)
     const [resumeMode, setResumeMode] = useState<"immediately" | "at_next_interval">("immediately")
 
-    const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+    const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined)
     const limit = 15
 
     const handleSearch = (value: string) => {
@@ -277,47 +283,14 @@ export default function ScheduledDetailTable({
     const hasNextPage = page < totalPages
     const hasPrevPage = page > 1
 
-    const resetCreateForm = () => {
-        setNewScheduledName("")
-        setNewScheduledDate("")
-        setNewScheduledTime(DEFAULT_TIME_INPUT_VALUE)
-        setNewStartDate("")
-        setNewStartTime(DEFAULT_TIME_INPUT_VALUE)
-        setNewInterval("")
-        setNewScheduledData({})
-    }
-
-    const handleCreateOpenChange = (open: boolean) => {
-        setIsCreateOpen(open)
-        if (!open) {
-            resetCreateForm()
-        }
-    }
-
-    const handleNewScheduledDateChange = (nextDate: string) => {
-        setNewScheduledDate(nextDate)
-        if (!nextDate) {
-            setNewScheduledTime(DEFAULT_TIME_INPUT_VALUE)
-        }
-    }
-
-    const handleNewStartDateChange = (nextDate: string) => {
-        setNewStartDate(nextDate)
-        if (!nextDate) {
-            setNewStartTime(DEFAULT_TIME_INPUT_VALUE)
-        }
-    }
-
-    const createScheduled = async () => {
-        if (!newScheduledName.trim()) return
-
+    const createScheduled = async (formData: ScheduledCreateFormValues) => {
         setIsCreating(true)
         try {
             const body = {
-                scheduled_name: newScheduledName.trim(),
-                scheduled_at: toIsoFromDateAndTime(newScheduledDate, newScheduledTime),
-                start_at: toIsoFromDateAndTime(newStartDate, newStartTime),
-                interval: newInterval.trim() || undefined,
+                scheduled_name: formData.scheduled_name.trim(),
+                scheduled_at: formData.scheduled_at || undefined,
+                start_at: formData.start_at || undefined,
+                interval: formData.interval?.trim() || undefined,
                 data: Object.keys(newScheduledData).length > 0 ? newScheduledData : undefined,
             }
 
@@ -341,7 +314,8 @@ export default function ScheduledDetailTable({
 
             await reloadScheduled()
             setIsCreateOpen(false)
-            resetCreateForm()
+            scheduledForm.reset()
+            setNewScheduledData({})
             toast.success(t("scheduled_created", "Scheduled item created"))
         } catch {
             toast.error(t("failed_to_create_scheduled", "Failed to create scheduled item"))
@@ -514,10 +488,7 @@ export default function ScheduledDetailTable({
                                                             {t("paused", "Paused")}
                                                         </Badge>
                                                     )}
-                                                    {!item.paused_at &&
-                                                        item.scheduled_at &&
-                                                        new Date(item.scheduled_at) <=
-                                                            new Date() && (
+                                                    {!item.paused_at && item.has_pending_events && (
                                                             <Tooltip>
                                                                 <TooltipTrigger asChild>
                                                                     <Badge
@@ -678,7 +649,7 @@ export default function ScheduledDetailTable({
             </div>
 
             {/* Create Scheduled Dialog */}
-            <Dialog open={isCreateOpen} onOpenChange={handleCreateOpenChange}>
+            <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
                 <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle>
@@ -695,19 +666,30 @@ export default function ScheduledDetailTable({
                         <div className="grid sm:grid-cols-2 gap-4">
                             <div className="grid gap-2 content-start">
                                 <Label>{t("scheduled_schema", "Schedule")} *</Label>
-                                <Combobox
-                                    options={scheduleOptions}
-                                    value={newScheduledName}
-                                    onValueChange={setNewScheduledName}
-                                    placeholder={t(
-                                        "enter_schedule_name",
-                                        "Type or select a schedule name...",
-                                    )}
-                                    emptyText={t(
-                                        "no_schedules_found",
-                                        "No matching schedules. Type a name to create one.",
+                                <Controller
+                                    control={scheduledForm.control}
+                                    name="scheduled_name"
+                                    render={({ field }) => (
+                                        <Combobox
+                                            options={scheduleOptions}
+                                            value={field.value}
+                                            onValueChange={field.onChange}
+                                            placeholder={t(
+                                                "enter_schedule_name",
+                                                "Type or select a schedule name...",
+                                            )}
+                                            emptyText={t(
+                                                "no_schedules_found",
+                                                "No matching schedules. Type a name to create one.",
+                                            )}
+                                        />
                                     )}
                                 />
+                                {scheduledForm.formState.errors.scheduled_name && (
+                                    <p className="text-sm text-destructive">
+                                        {scheduledForm.formState.errors.scheduled_name.message}
+                                    </p>
+                                )}
                             </div>
                             <div className="grid gap-2 content-start">
                                 <Label htmlFor="interval">{t("interval", "Interval")}</Label>
@@ -717,8 +699,7 @@ export default function ScheduledDetailTable({
                                         "enter_interval",
                                         "e.g., 24 hours, 7 days, 1 week",
                                     )}
-                                    value={newInterval}
-                                    onChange={(e) => setNewInterval(e.target.value)}
+                                    {...scheduledForm.register("interval")}
                                 />
                                 <p className="text-xs text-muted-foreground">
                                     {t("interval_help", "Makes this a recurring schedule")}
@@ -730,44 +711,48 @@ export default function ScheduledDetailTable({
                                 <Label htmlFor="scheduled_at">
                                     {t("scheduled_at", "Scheduled At")}
                                 </Label>
-                                <div className="flex gap-2">
-                                    <Input
-                                        id="scheduled_at"
-                                        type="date"
-                                        value={newScheduledDate}
-                                        onChange={(e) =>
-                                            handleNewScheduledDateChange(e.target.value)
-                                        }
-                                    />
-                                    <Input
-                                        id="scheduled_at_time"
-                                        type="time"
-                                        value={newScheduledTime}
-                                        onChange={(e) => setNewScheduledTime(e.target.value)}
-                                        disabled={!newScheduledDate}
-                                    />
-                                </div>
+                                <Controller
+                                    control={scheduledForm.control}
+                                    name="scheduled_at"
+                                    render={({ field }) => (
+                                        <Input
+                                            id="scheduled_at"
+                                            type="datetime-local"
+                                            value={field.value || ""}
+                                            onChange={(e) =>
+                                                field.onChange(
+                                                    e.target.value
+                                                        ? new Date(e.target.value).toISOString()
+                                                        : "",
+                                                )
+                                            }
+                                        />
+                                    )}
+                                />
                                 <p className="text-xs text-muted-foreground">
                                     {t("scheduled_at_help", "Trigger time for single schedules")}
                                 </p>
                             </div>
                             <div className="grid gap-2 content-start">
                                 <Label htmlFor="start_at">{t("start_at", "Start At")}</Label>
-                                <div className="flex gap-2">
-                                    <Input
-                                        id="start_at"
-                                        type="date"
-                                        value={newStartDate}
-                                        onChange={(e) => handleNewStartDateChange(e.target.value)}
-                                    />
-                                    <Input
-                                        id="start_at_time"
-                                        type="time"
-                                        value={newStartTime}
-                                        onChange={(e) => setNewStartTime(e.target.value)}
-                                        disabled={!newStartDate}
-                                    />
-                                </div>
+                                <Controller
+                                    control={scheduledForm.control}
+                                    name="start_at"
+                                    render={({ field }) => (
+                                        <Input
+                                            id="start_at"
+                                            type="datetime-local"
+                                            value={field.value || ""}
+                                            onChange={(e) =>
+                                                field.onChange(
+                                                    e.target.value
+                                                        ? new Date(e.target.value).toISOString()
+                                                        : "",
+                                                )
+                                            }
+                                        />
+                                    )}
+                                />
                                 <p className="text-xs text-muted-foreground">
                                     {t("start_at_help", "Start time for recurring schedules")}
                                 </p>
@@ -789,14 +774,14 @@ export default function ScheduledDetailTable({
                     <DialogFooter>
                         <Button
                             variant="outline"
-                            onClick={() => handleCreateOpenChange(false)}
+                            onClick={() => setIsCreateOpen(false)}
                             disabled={isCreating}
                         >
                             {t("cancel")}
                         </Button>
                         <Button
-                            onClick={createScheduled}
-                            disabled={!newScheduledName.trim() || isCreating}
+                            onClick={scheduledForm.handleSubmit(createScheduled)}
+                            disabled={isCreating}
                         >
                             {isCreating ? t("creating") : t("create")}
                         </Button>

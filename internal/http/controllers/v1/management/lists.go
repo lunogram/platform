@@ -160,8 +160,9 @@ func (srv *ListsController) ListLists(w http.ResponseWriter, r *http.Request, pr
 	}
 
 	search := params.Search.ToString()
+	archivedOnly := params.IncludeDeleted != nil && *params.IncludeDeleted
 
-	result, total, err := srv.store.ListLists(ctx, projectID, pagination, search)
+	result, total, err := srv.store.ListLists(ctx, projectID, pagination, search, archivedOnly)
 	if err != nil {
 		logger.Error("failed to list lists", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -445,6 +446,34 @@ func (srv *ListsController) DeleteList(w http.ResponseWriter, r *http.Request, p
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (srv *ListsController) UnarchiveList(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, listID uuid.UUID) {
+	ctx := r.Context()
+	err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("lists", projectID))
+	if err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("list_id", listID))
+	logger.Info("unarchiving list")
+
+	err = srv.store.UnarchiveList(ctx, projectID, listID)
+	if errors.Is(err, sql.ErrNoRows) {
+		logger.Info("list not found", zap.Stringer("list_id", listID))
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("list not found")))
+		return
+	}
+
+	if err != nil {
+		logger.Error("failed to unarchive list", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	logger.Info("list unarchived")
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (srv *ListsController) DuplicateList(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, listID uuid.UUID) {
 	ctx := r.Context()
 	err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("lists", projectID))
@@ -571,6 +600,12 @@ func (srv *ListsController) processUserImport(ctx context.Context, logger *zap.L
 	defer tx.Rollback() //nolint:errcheck
 	stores := subjects.NewState(tx, logger)
 
+	// Track users newly added to the list so that, once the transaction
+	// commits, we can publish list.user.added events. This keeps static lists
+	// consistent with dynamic recompute, which is what list-trigger journeys
+	// listen to.
+	var added []subjects.Recomputed
+
 	for {
 		record, err := reader.Read()
 		if err == io.EOF {
@@ -593,17 +628,32 @@ func (srv *ListsController) processUserImport(ctx context.Context, logger *zap.L
 			return err
 		}
 
-		err = stores.AddUserToList(ctx, listID, id)
+		inserted, err := stores.AddUserToListReturning(ctx, listID, id)
 		if err != nil {
 			logger.Warn("failed to add user to list", zap.Stringer("user_id", id), zap.Error(err))
 			return err
+		}
+
+		if inserted {
+			added = append(added, subjects.Recomputed{UserID: id, Action: subjects.RecomputeActionInserted})
 		}
 
 		imported++
 	}
 
 	logger.Info("import completed", zap.Int("users_added", imported))
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+
+	// Publish membership events after commit so list-trigger journeys are
+	// enrolled. A failure here does not roll back the import; it is logged and
+	// the membership change is still durable.
+	if err := consumer.PublishListRecomputeEvents(ctx, logger, srv.pub, projectID, listID, added); err != nil {
+		logger.Error("failed to publish list membership events after import", zap.Error(err))
+	}
+
+	return nil
 }
 
 func (srv *ListsController) GetListUsers(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, listID uuid.UUID, params oapi.GetListUsersParams) {
