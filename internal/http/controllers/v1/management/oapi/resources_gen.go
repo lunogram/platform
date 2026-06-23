@@ -25,6 +25,27 @@ const (
 	HttpBearerAuthScopes httpBearerAuthContextKey = "HttpBearerAuth.Scopes"
 )
 
+// Defines values for AuthMethodType.
+const (
+	AuthMethodTypeApiKey        AuthMethodType = "api_key"
+	AuthMethodTypeSession       AuthMethodType = "session"
+	AuthMethodTypeTrustedIssuer AuthMethodType = "trusted_issuer"
+)
+
+// Valid indicates whether the value is a known member of the AuthMethodType enum.
+func (e AuthMethodType) Valid() bool {
+	switch e {
+	case AuthMethodTypeApiKey:
+		return true
+	case AuthMethodTypeSession:
+		return true
+	case AuthMethodTypeTrustedIssuer:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for BroadcastState.
 const (
 	BroadcastStateCancelled BroadcastState = "cancelled"
@@ -313,6 +334,30 @@ func (e OrganizationRole) Valid() bool {
 	}
 }
 
+// Defines values for PermissionGrantVerb.
+const (
+	PermissionGrantVerbCreate PermissionGrantVerb = "create"
+	PermissionGrantVerbDelete PermissionGrantVerb = "delete"
+	PermissionGrantVerbRead   PermissionGrantVerb = "read"
+	PermissionGrantVerbUpdate PermissionGrantVerb = "update"
+)
+
+// Valid indicates whether the value is a known member of the PermissionGrantVerb enum.
+func (e PermissionGrantVerb) Valid() bool {
+	switch e {
+	case PermissionGrantVerbCreate:
+		return true
+	case PermissionGrantVerbDelete:
+		return true
+	case PermissionGrantVerbRead:
+		return true
+	case PermissionGrantVerbUpdate:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ProjectPushProviderPlatform.
 const (
 	ProjectPushProviderPlatformAndroid ProjectPushProviderPlatform = "android"
@@ -388,6 +433,24 @@ func (e SenderIdentityChannel) Valid() bool {
 	case SenderIdentityChannelEmail:
 		return true
 	case SenderIdentityChannelSms:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SubjectScope.
+const (
+	All SubjectScope = "all"
+	Own SubjectScope = "own"
+)
+
+// Valid indicates whether the value is a known member of the SubjectScope enum.
+func (e SubjectScope) Valid() bool {
+	switch e {
+	case All:
+		return true
+	case Own:
 		return true
 	default:
 		return false
@@ -679,22 +742,6 @@ type AdminList struct {
 	Total int `json:"total"`
 }
 
-// ApiKey defines model for ApiKey.
-type ApiKey struct {
-	CreatedAt   time.Time          `json:"created_at"`
-	Description *string            `json:"description,omitempty"`
-	Id          openapi_types.UUID `json:"id"`
-	Name        string             `json:"name"`
-	ProjectId   openapi_types.UUID `json:"project_id"`
-
-	// Role Role within a project
-	Role      ProjectRole `json:"role"`
-	UpdatedAt time.Time   `json:"updated_at"`
-
-	// Value The API key value
-	Value string `json:"value"`
-}
-
 // AuthCallbackRequest defines model for AuthCallbackRequest.
 type AuthCallbackRequest struct {
 	// Email Email address (required for basic auth)
@@ -706,6 +753,43 @@ type AuthCallbackRequest struct {
 	// Redirect URL to redirect after successful auth
 	Redirect *string `json:"redirect,omitempty"`
 }
+
+// AuthMethod defines model for AuthMethod.
+type AuthMethod struct {
+	CreatedAt   time.Time          `json:"created_at"`
+	Description *string            `json:"description,omitempty"`
+	Grants      *[]PermissionGrant `json:"grants,omitempty"`
+	Id          openapi_types.UUID `json:"id"`
+	Name        string             `json:"name"`
+	ProjectId   openapi_types.UUID `json:"project_id"`
+
+	// Role Role within a project
+	Role ProjectRole `json:"role"`
+
+	// Secret The full secret value. Returned only once, in the response to
+	// creating an api_key method, and never again.
+	Secret *string `json:"secret,omitempty"`
+
+	// Session Config for a session method.
+	Session *SessionConfig `json:"session,omitempty"`
+
+	// SubjectScope Data boundary for an auth method. "all" acts across every subject's records; "own" confines a verified end user to their own records. Only meaningful for verified-subject types (trusted_issuer, session); api_key is always "all".
+	SubjectScope *SubjectScope `json:"subject_scope,omitempty"`
+
+	// TrustedIssuer External-JWT validation config for a trusted_issuer method. Exactly one of jwks_url or public_cert is set.
+	TrustedIssuer *TrustedIssuer `json:"trusted_issuer,omitempty"`
+
+	// Type How an auth method authenticates a client. `api_key` is a
+	// Lunogram-issued key; `trusted_issuer` validates external JWTs against a
+	// configured JWKS/PEM; `session` mints short-lived user-scoped tokens.
+	Type      AuthMethodType `json:"type"`
+	UpdatedAt time.Time      `json:"updated_at"`
+}
+
+// AuthMethodType How an auth method authenticates a client. `api_key` is a
+// Lunogram-issued key; `trusted_issuer` validates external JWTs against a
+// configured JWKS/PEM; `session` mints short-lived user-scoped tokens.
+type AuthMethodType string
 
 // Broadcast defines model for Broadcast.
 type Broadcast struct {
@@ -797,6 +881,12 @@ type CampaignVariable struct {
 // Channel Communication channel type
 type Channel string
 
+// ClaimMapping Maps identity fields to the JWT claims that carry them. Each field names the claim to read; values follow the JWT spec (e.g. `sub`).
+type ClaimMapping struct {
+	// Sub JWT claim carrying the external user id (defaults to "sub").
+	Sub *string `json:"sub,omitempty"`
+}
+
 // CreateAction defines model for CreateAction.
 type CreateAction struct {
 	// Config Action configuration (varies by type)
@@ -817,13 +907,30 @@ type CreateAdmin struct {
 	Role OrganizationRole `json:"role"`
 }
 
-// CreateApiKey defines model for CreateApiKey.
-type CreateApiKey struct {
+// CreateAuthMethod defines model for CreateAuthMethod.
+type CreateAuthMethod struct {
 	Description *string `json:"description,omitempty"`
-	Name        string  `json:"name"`
+
+	// Grants Custom permission set. When set, takes precedence over the role preset.
+	Grants *[]PermissionGrant `json:"grants,omitempty"`
+	Name   string             `json:"name"`
 
 	// Role Role within a project
 	Role *ProjectRole `json:"role,omitempty"`
+
+	// Session Config for a session method.
+	Session *SessionConfig `json:"session,omitempty"`
+
+	// SubjectScope Data boundary for an auth method. "all" acts across every subject's records; "own" confines a verified end user to their own records. Only meaningful for verified-subject types (trusted_issuer, session); api_key is always "all".
+	SubjectScope *SubjectScope `json:"subject_scope,omitempty"`
+
+	// TrustedIssuer External-JWT validation config for a trusted_issuer method. Exactly one of jwks_url or public_cert is set.
+	TrustedIssuer *TrustedIssuer `json:"trusted_issuer,omitempty"`
+
+	// Type How an auth method authenticates a client. `api_key` is a
+	// Lunogram-issued key; `trusted_issuer` validates external JWTs against a
+	// configured JWKS/PEM; `session` mints short-lived user-scoped tokens.
+	Type AuthMethodType `json:"type"`
 }
 
 // CreateBroadcast defines model for CreateBroadcast.
@@ -1457,6 +1564,15 @@ type PaginatedResponse struct {
 	Total int `json:"total"`
 }
 
+// PermissionGrant A single (resource, verb) entry in a custom permission set.
+type PermissionGrant struct {
+	Resource string              `json:"resource"`
+	Verb     PermissionGrantVerb `json:"verb"`
+}
+
+// PermissionGrantVerb defines model for PermissionGrant.Verb.
+type PermissionGrantVerb string
+
 // Problem defines model for Problem.
 type Problem struct {
 	// Detail A human readable explanation specific to this occurrence of the problem that is helpful to locate the problem and give advice on how to proceed. Written in English and readable for engineers, usually not suited for non technical stakeholders and not localized.
@@ -1699,6 +1815,12 @@ type SenderIdentity struct {
 // SenderIdentityChannel Channel type (email or sms)
 type SenderIdentityChannel string
 
+// SessionConfig Config for a session method.
+type SessionConfig struct {
+	// TtlSeconds Lifetime of minted session tokens, in seconds.
+	TtlSeconds *int `json:"ttl_seconds,omitempty"`
+}
+
 // SmsProviderData defines model for SmsProviderData.
 type SmsProviderData = map[string]interface{}
 
@@ -1707,6 +1829,9 @@ type SmsTemplateData struct {
 	// Body SMS message body
 	Body *string `json:"body,omitempty"`
 }
+
+// SubjectScope Data boundary for an auth method. "all" acts across every subject's records; "own" confines a verified end user to their own records. Only meaningful for verified-subject types (trusted_issuer, session); api_key is always "all".
+type SubjectScope string
 
 // Subscription defines model for Subscription.
 type Subscription struct {
@@ -1784,6 +1909,19 @@ type TestActionResult struct {
 	StatusCode int `json:"status_code"`
 }
 
+// TrustedIssuer External-JWT validation config for a trusted_issuer method. Exactly one of jwks_url or public_cert is set.
+type TrustedIssuer struct {
+	Aud *string `json:"aud,omitempty"`
+
+	// Claim Maps identity fields to the JWT claims that carry them. Each field names the claim to read; values follow the JWT spec (e.g. `sub`).
+	Claim   *ClaimMapping `json:"claim,omitempty"`
+	Iss     *string       `json:"iss,omitempty"`
+	JwksUrl *string       `json:"jwks_url,omitempty"`
+
+	// PublicCert PEM-encoded public certificate (alternative to jwks_url).
+	PublicCert *string `json:"public_cert,omitempty"`
+}
+
 // UpdateAction defines model for UpdateAction.
 type UpdateAction struct {
 	// Config Action configuration (varies by type)
@@ -1804,13 +1942,17 @@ type UpdateAdmin struct {
 	Role *OrganizationRole `json:"role,omitempty"`
 }
 
-// UpdateApiKey defines model for UpdateApiKey.
-type UpdateApiKey struct {
-	Description *string `json:"description,omitempty"`
-	Name        *string `json:"name,omitempty"`
+// UpdateAuthMethod defines model for UpdateAuthMethod.
+type UpdateAuthMethod struct {
+	Description *string            `json:"description,omitempty"`
+	Grants      *[]PermissionGrant `json:"grants,omitempty"`
+	Name        *string            `json:"name,omitempty"`
 
 	// Role Role within a project
 	Role *ProjectRole `json:"role,omitempty"`
+
+	// SubjectScope Data boundary for an auth method. "all" acts across every subject's records; "own" confines a verified end user to their own records. Only meaningful for verified-subject types (trusted_issuer, session); api_key is always "all".
+	SubjectScope *SubjectScope `json:"subject_scope,omitempty"`
 }
 
 // UpdateBroadcast defines model for UpdateBroadcast.
@@ -2192,14 +2334,14 @@ type ActionListResponse struct {
 	Total int `json:"total"`
 }
 
-// ApiKeyListResponse defines model for ApiKeyListResponse.
-type ApiKeyListResponse struct {
+// AuthMethodListResponse defines model for AuthMethodListResponse.
+type AuthMethodListResponse struct {
 	// Limit Maximum number of items returned
 	Limit int `json:"limit"`
 
 	// Offset Number of items skipped
-	Offset  int      `json:"offset"`
-	Results []ApiKey `json:"results"`
+	Offset  int          `json:"offset"`
+	Results []AuthMethod `json:"results"`
 
 	// Total Total number of items matching the filters
 	Total int `json:"total"`
@@ -2374,6 +2516,15 @@ type ListProjectAdminsParams struct {
 	Search *Search `form:"search,omitempty" json:"search,omitempty"`
 }
 
+// ListAuthMethodsParams defines parameters for ListAuthMethods.
+type ListAuthMethodsParams struct {
+	// Limit Maximum number of items to return
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Offset Number of items to skip
+	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
 // ListBroadcastsParams defines parameters for ListBroadcasts.
 type ListBroadcastsParams struct {
 	// Limit Maximum number of items to return
@@ -2492,15 +2643,6 @@ type TriggerUserJSONBody struct {
 type AdvanceUserStepJSONBody struct {
 	// ExternalStepID The external ID of the current step to advance
 	ExternalStepID openapi_types.UUID `json:"externalStepID"`
-}
-
-// ListApiKeysParams defines parameters for ListApiKeys.
-type ListApiKeysParams struct {
-	// Limit Maximum number of items to return
-	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
-
-	// Offset Number of items to skip
-	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
 }
 
 // ListListsParams defines parameters for ListLists.
@@ -2799,6 +2941,12 @@ type TestActionFunctionJSONRequestBody = TestActionFunctionRequest
 // UpdateProjectAdminJSONRequestBody defines body for UpdateProjectAdmin for application/json ContentType.
 type UpdateProjectAdminJSONRequestBody = UpdateProjectAdmin
 
+// CreateAuthMethodJSONRequestBody defines body for CreateAuthMethod for application/json ContentType.
+type CreateAuthMethodJSONRequestBody = CreateAuthMethod
+
+// UpdateAuthMethodJSONRequestBody defines body for UpdateAuthMethod for application/json ContentType.
+type UpdateAuthMethodJSONRequestBody = UpdateAuthMethod
+
 // CreateBroadcastJSONRequestBody defines body for CreateBroadcast for application/json ContentType.
 type CreateBroadcastJSONRequestBody = CreateBroadcast
 
@@ -2837,12 +2985,6 @@ type TriggerUserJSONRequestBody TriggerUserJSONBody
 
 // AdvanceUserStepJSONRequestBody defines body for AdvanceUserStep for application/json ContentType.
 type AdvanceUserStepJSONRequestBody AdvanceUserStepJSONBody
-
-// CreateApiKeyJSONRequestBody defines body for CreateApiKey for application/json ContentType.
-type CreateApiKeyJSONRequestBody = CreateApiKey
-
-// UpdateApiKeyJSONRequestBody defines body for UpdateApiKey for application/json ContentType.
-type UpdateApiKeyJSONRequestBody = UpdateApiKey
 
 // CreateListJSONRequestBody defines body for CreateList for application/json ContentType.
 type CreateListJSONRequestBody = CreateList
@@ -3093,6 +3235,25 @@ type ClientInterface interface {
 
 	UpdateProjectAdmin(ctx context.Context, projectID openapi_types.UUID, adminID openapi_types.UUID, body UpdateProjectAdminJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListAuthMethods request
+	ListAuthMethods(ctx context.Context, projectID openapi_types.UUID, params *ListAuthMethodsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateAuthMethodWithBody request with any body
+	CreateAuthMethodWithBody(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateAuthMethod(ctx context.Context, projectID openapi_types.UUID, body CreateAuthMethodJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteAuthMethod request
+	DeleteAuthMethod(ctx context.Context, projectID openapi_types.UUID, methodID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetAuthMethod request
+	GetAuthMethod(ctx context.Context, projectID openapi_types.UUID, methodID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateAuthMethodWithBody request with any body
+	UpdateAuthMethodWithBody(ctx context.Context, projectID openapi_types.UUID, methodID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateAuthMethod(ctx context.Context, projectID openapi_types.UUID, methodID openapi_types.UUID, body UpdateAuthMethodJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListBroadcasts request
 	ListBroadcasts(ctx context.Context, projectID openapi_types.UUID, params *ListBroadcastsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -3245,25 +3406,6 @@ type ClientInterface interface {
 
 	// VersionJourney request
 	VersionJourney(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// ListApiKeys request
-	ListApiKeys(ctx context.Context, projectID openapi_types.UUID, params *ListApiKeysParams, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// CreateApiKeyWithBody request with any body
-	CreateApiKeyWithBody(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	CreateApiKey(ctx context.Context, projectID openapi_types.UUID, body CreateApiKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// DeleteApiKey request
-	DeleteApiKey(ctx context.Context, projectID openapi_types.UUID, keyID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// GetApiKey request
-	GetApiKey(ctx context.Context, projectID openapi_types.UUID, keyID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// UpdateApiKeyWithBody request with any body
-	UpdateApiKeyWithBody(ctx context.Context, projectID openapi_types.UUID, keyID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	UpdateApiKey(ctx context.Context, projectID openapi_types.UUID, keyID openapi_types.UUID, body UpdateApiKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListLists request
 	ListLists(ctx context.Context, projectID openapi_types.UUID, params *ListListsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -3966,6 +4108,90 @@ func (c *Client) UpdateProjectAdmin(ctx context.Context, projectID openapi_types
 	return c.Client.Do(req)
 }
 
+func (c *Client) ListAuthMethods(ctx context.Context, projectID openapi_types.UUID, params *ListAuthMethodsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListAuthMethodsRequest(c.Server, projectID, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateAuthMethodWithBody(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateAuthMethodRequestWithBody(c.Server, projectID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateAuthMethod(ctx context.Context, projectID openapi_types.UUID, body CreateAuthMethodJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateAuthMethodRequest(c.Server, projectID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteAuthMethod(ctx context.Context, projectID openapi_types.UUID, methodID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteAuthMethodRequest(c.Server, projectID, methodID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetAuthMethod(ctx context.Context, projectID openapi_types.UUID, methodID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetAuthMethodRequest(c.Server, projectID, methodID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateAuthMethodWithBody(ctx context.Context, projectID openapi_types.UUID, methodID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateAuthMethodRequestWithBody(c.Server, projectID, methodID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateAuthMethod(ctx context.Context, projectID openapi_types.UUID, methodID openapi_types.UUID, body UpdateAuthMethodJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateAuthMethodRequest(c.Server, projectID, methodID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) ListBroadcasts(ctx context.Context, projectID openapi_types.UUID, params *ListBroadcastsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListBroadcastsRequest(c.Server, projectID, params)
 	if err != nil {
@@ -4616,90 +4842,6 @@ func (c *Client) GetUserJourneyState(ctx context.Context, projectID openapi_type
 
 func (c *Client) VersionJourney(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewVersionJourneyRequest(c.Server, projectID, journeyID)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) ListApiKeys(ctx context.Context, projectID openapi_types.UUID, params *ListApiKeysParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListApiKeysRequest(c.Server, projectID, params)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) CreateApiKeyWithBody(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateApiKeyRequestWithBody(c.Server, projectID, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) CreateApiKey(ctx context.Context, projectID openapi_types.UUID, body CreateApiKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateApiKeyRequest(c.Server, projectID, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) DeleteApiKey(ctx context.Context, projectID openapi_types.UUID, keyID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteApiKeyRequest(c.Server, projectID, keyID)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) GetApiKey(ctx context.Context, projectID openapi_types.UUID, keyID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetApiKeyRequest(c.Server, projectID, keyID)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) UpdateApiKeyWithBody(ctx context.Context, projectID openapi_types.UUID, keyID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateApiKeyRequestWithBody(c.Server, projectID, keyID, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) UpdateApiKey(ctx context.Context, projectID openapi_types.UUID, keyID openapi_types.UUID, body UpdateApiKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateApiKeyRequest(c.Server, projectID, keyID, body)
 	if err != nil {
 		return nil, err
 	}
@@ -7322,6 +7464,262 @@ func NewUpdateProjectAdminRequestWithBody(server string, projectID openapi_types
 	return req, nil
 }
 
+// NewListAuthMethodsRequest generates requests for ListAuthMethods
+func NewListAuthMethodsRequest(server string, projectID openapi_types.UUID, params *ListAuthMethodsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/auth-methods", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Offset != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "offset", *params.Offset, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateAuthMethodRequest calls the generic CreateAuthMethod builder with application/json body
+func NewCreateAuthMethodRequest(server string, projectID openapi_types.UUID, body CreateAuthMethodJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateAuthMethodRequestWithBody(server, projectID, "application/json", bodyReader)
+}
+
+// NewCreateAuthMethodRequestWithBody generates requests for CreateAuthMethod with any type of body
+func NewCreateAuthMethodRequestWithBody(server string, projectID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/auth-methods", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteAuthMethodRequest generates requests for DeleteAuthMethod
+func NewDeleteAuthMethodRequest(server string, projectID openapi_types.UUID, methodID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "methodID", methodID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/auth-methods/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetAuthMethodRequest generates requests for GetAuthMethod
+func NewGetAuthMethodRequest(server string, projectID openapi_types.UUID, methodID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "methodID", methodID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/auth-methods/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateAuthMethodRequest calls the generic UpdateAuthMethod builder with application/json body
+func NewUpdateAuthMethodRequest(server string, projectID openapi_types.UUID, methodID openapi_types.UUID, body UpdateAuthMethodJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateAuthMethodRequestWithBody(server, projectID, methodID, "application/json", bodyReader)
+}
+
+// NewUpdateAuthMethodRequestWithBody generates requests for UpdateAuthMethod with any type of body
+func NewUpdateAuthMethodRequestWithBody(server string, projectID openapi_types.UUID, methodID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "methodID", methodID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/auth-methods/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListBroadcastsRequest generates requests for ListBroadcasts
 func NewListBroadcastsRequest(server string, projectID openapi_types.UUID, params *ListBroadcastsParams) (*http.Request, error) {
 	var err error
@@ -9659,262 +10057,6 @@ func NewVersionJourneyRequest(server string, projectID openapi_types.UUID, journ
 	if err != nil {
 		return nil, err
 	}
-
-	return req, nil
-}
-
-// NewListApiKeysRequest generates requests for ListApiKeys
-func NewListApiKeysRequest(server string, projectID openapi_types.UUID, params *ListApiKeysParams) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/admin/projects/%s/keys", pathParam0)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	if params != nil {
-		// queryValues collects non-styled parameters (passthrough, JSON)
-		// that are safe to round-trip through url.Values.Encode().
-		queryValues := queryURL.Query()
-		// rawQueryFragments collects pre-encoded query fragments from
-		// styled parameters, preserving literal commas as delimiters
-		// per the OpenAPI spec (e.g. "color=blue,black,brown").
-		var rawQueryFragments []string
-
-		if params.Limit != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
-				return nil, err
-			} else {
-				for _, qp := range strings.Split(queryFrag, "&") {
-					rawQueryFragments = append(rawQueryFragments, qp)
-				}
-			}
-
-		}
-
-		if params.Offset != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "offset", *params.Offset, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
-				return nil, err
-			} else {
-				for _, qp := range strings.Split(queryFrag, "&") {
-					rawQueryFragments = append(rawQueryFragments, qp)
-				}
-			}
-
-		}
-
-		if encoded := queryValues.Encode(); encoded != "" {
-			rawQueryFragments = append(rawQueryFragments, encoded)
-		}
-		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
-	}
-
-	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewCreateApiKeyRequest calls the generic CreateApiKey builder with application/json body
-func NewCreateApiKeyRequest(server string, projectID openapi_types.UUID, body CreateApiKeyJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewCreateApiKeyRequestWithBody(server, projectID, "application/json", bodyReader)
-}
-
-// NewCreateApiKeyRequestWithBody generates requests for CreateApiKey with any type of body
-func NewCreateApiKeyRequestWithBody(server string, projectID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/admin/projects/%s/keys", pathParam0)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewDeleteApiKeyRequest generates requests for DeleteApiKey
-func NewDeleteApiKeyRequest(server string, projectID openapi_types.UUID, keyID openapi_types.UUID) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam1 string
-
-	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "keyID", keyID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/admin/projects/%s/keys/%s", pathParam0, pathParam1)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewGetApiKeyRequest generates requests for GetApiKey
-func NewGetApiKeyRequest(server string, projectID openapi_types.UUID, keyID openapi_types.UUID) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam1 string
-
-	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "keyID", keyID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/admin/projects/%s/keys/%s", pathParam0, pathParam1)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewUpdateApiKeyRequest calls the generic UpdateApiKey builder with application/json body
-func NewUpdateApiKeyRequest(server string, projectID openapi_types.UUID, keyID openapi_types.UUID, body UpdateApiKeyJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewUpdateApiKeyRequestWithBody(server, projectID, keyID, "application/json", bodyReader)
-}
-
-// NewUpdateApiKeyRequestWithBody generates requests for UpdateApiKey with any type of body
-func NewUpdateApiKeyRequestWithBody(server string, projectID openapi_types.UUID, keyID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam1 string
-
-	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "keyID", keyID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/admin/projects/%s/keys/%s", pathParam0, pathParam1)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -15751,6 +15893,25 @@ type ClientWithResponsesInterface interface {
 
 	UpdateProjectAdminWithResponse(ctx context.Context, projectID openapi_types.UUID, adminID openapi_types.UUID, body UpdateProjectAdminJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateProjectAdminResponse, error)
 
+	// ListAuthMethodsWithResponse request
+	ListAuthMethodsWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListAuthMethodsParams, reqEditors ...RequestEditorFn) (*ListAuthMethodsResponse, error)
+
+	// CreateAuthMethodWithBodyWithResponse request with any body
+	CreateAuthMethodWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateAuthMethodResponse, error)
+
+	CreateAuthMethodWithResponse(ctx context.Context, projectID openapi_types.UUID, body CreateAuthMethodJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateAuthMethodResponse, error)
+
+	// DeleteAuthMethodWithResponse request
+	DeleteAuthMethodWithResponse(ctx context.Context, projectID openapi_types.UUID, methodID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteAuthMethodResponse, error)
+
+	// GetAuthMethodWithResponse request
+	GetAuthMethodWithResponse(ctx context.Context, projectID openapi_types.UUID, methodID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetAuthMethodResponse, error)
+
+	// UpdateAuthMethodWithBodyWithResponse request with any body
+	UpdateAuthMethodWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, methodID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateAuthMethodResponse, error)
+
+	UpdateAuthMethodWithResponse(ctx context.Context, projectID openapi_types.UUID, methodID openapi_types.UUID, body UpdateAuthMethodJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateAuthMethodResponse, error)
+
 	// ListBroadcastsWithResponse request
 	ListBroadcastsWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListBroadcastsParams, reqEditors ...RequestEditorFn) (*ListBroadcastsResponse, error)
 
@@ -15903,25 +16064,6 @@ type ClientWithResponsesInterface interface {
 
 	// VersionJourneyWithResponse request
 	VersionJourneyWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, reqEditors ...RequestEditorFn) (*VersionJourneyResponse, error)
-
-	// ListApiKeysWithResponse request
-	ListApiKeysWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListApiKeysParams, reqEditors ...RequestEditorFn) (*ListApiKeysResponse, error)
-
-	// CreateApiKeyWithBodyWithResponse request with any body
-	CreateApiKeyWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateApiKeyResponse, error)
-
-	CreateApiKeyWithResponse(ctx context.Context, projectID openapi_types.UUID, body CreateApiKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateApiKeyResponse, error)
-
-	// DeleteApiKeyWithResponse request
-	DeleteApiKeyWithResponse(ctx context.Context, projectID openapi_types.UUID, keyID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteApiKeyResponse, error)
-
-	// GetApiKeyWithResponse request
-	GetApiKeyWithResponse(ctx context.Context, projectID openapi_types.UUID, keyID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetApiKeyResponse, error)
-
-	// UpdateApiKeyWithBodyWithResponse request with any body
-	UpdateApiKeyWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, keyID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateApiKeyResponse, error)
-
-	UpdateApiKeyWithResponse(ctx context.Context, projectID openapi_types.UUID, keyID openapi_types.UUID, body UpdateApiKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateApiKeyResponse, error)
 
 	// ListListsWithResponse request
 	ListListsWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListListsParams, reqEditors ...RequestEditorFn) (*ListListsResponse, error)
@@ -16910,6 +17052,160 @@ func (r UpdateProjectAdminResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r UpdateProjectAdminResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListAuthMethodsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *AuthMethodListResponse
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListAuthMethodsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListAuthMethodsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListAuthMethodsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateAuthMethodResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *AuthMethod
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateAuthMethodResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateAuthMethodResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateAuthMethodResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteAuthMethodResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteAuthMethodResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteAuthMethodResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteAuthMethodResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetAuthMethodResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *AuthMethod
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetAuthMethodResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetAuthMethodResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetAuthMethodResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdateAuthMethodResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *AuthMethod
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateAuthMethodResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateAuthMethodResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateAuthMethodResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -18259,160 +18555,6 @@ func (r VersionJourneyResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r VersionJourneyResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type ListApiKeysResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *ApiKeyListResponse
-	JSONDefault  *Error
-}
-
-// Status returns HTTPResponse.Status
-func (r ListApiKeysResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r ListApiKeysResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r ListApiKeysResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type CreateApiKeyResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON201      *ApiKey
-	JSONDefault  *Error
-}
-
-// Status returns HTTPResponse.Status
-func (r CreateApiKeyResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r CreateApiKeyResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r CreateApiKeyResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type DeleteApiKeyResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSONDefault  *Error
-}
-
-// Status returns HTTPResponse.Status
-func (r DeleteApiKeyResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r DeleteApiKeyResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r DeleteApiKeyResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type GetApiKeyResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *ApiKey
-	JSONDefault  *Error
-}
-
-// Status returns HTTPResponse.Status
-func (r GetApiKeyResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r GetApiKeyResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r GetApiKeyResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type UpdateApiKeyResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *ApiKey
-	JSONDefault  *Error
-}
-
-// Status returns HTTPResponse.Status
-func (r UpdateApiKeyResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r UpdateApiKeyResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r UpdateApiKeyResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -21885,6 +22027,67 @@ func (c *ClientWithResponses) UpdateProjectAdminWithResponse(ctx context.Context
 	return ParseUpdateProjectAdminResponse(rsp)
 }
 
+// ListAuthMethodsWithResponse request returning *ListAuthMethodsResponse
+func (c *ClientWithResponses) ListAuthMethodsWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListAuthMethodsParams, reqEditors ...RequestEditorFn) (*ListAuthMethodsResponse, error) {
+	rsp, err := c.ListAuthMethods(ctx, projectID, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListAuthMethodsResponse(rsp)
+}
+
+// CreateAuthMethodWithBodyWithResponse request with arbitrary body returning *CreateAuthMethodResponse
+func (c *ClientWithResponses) CreateAuthMethodWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateAuthMethodResponse, error) {
+	rsp, err := c.CreateAuthMethodWithBody(ctx, projectID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateAuthMethodResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateAuthMethodWithResponse(ctx context.Context, projectID openapi_types.UUID, body CreateAuthMethodJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateAuthMethodResponse, error) {
+	rsp, err := c.CreateAuthMethod(ctx, projectID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateAuthMethodResponse(rsp)
+}
+
+// DeleteAuthMethodWithResponse request returning *DeleteAuthMethodResponse
+func (c *ClientWithResponses) DeleteAuthMethodWithResponse(ctx context.Context, projectID openapi_types.UUID, methodID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteAuthMethodResponse, error) {
+	rsp, err := c.DeleteAuthMethod(ctx, projectID, methodID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteAuthMethodResponse(rsp)
+}
+
+// GetAuthMethodWithResponse request returning *GetAuthMethodResponse
+func (c *ClientWithResponses) GetAuthMethodWithResponse(ctx context.Context, projectID openapi_types.UUID, methodID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetAuthMethodResponse, error) {
+	rsp, err := c.GetAuthMethod(ctx, projectID, methodID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetAuthMethodResponse(rsp)
+}
+
+// UpdateAuthMethodWithBodyWithResponse request with arbitrary body returning *UpdateAuthMethodResponse
+func (c *ClientWithResponses) UpdateAuthMethodWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, methodID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateAuthMethodResponse, error) {
+	rsp, err := c.UpdateAuthMethodWithBody(ctx, projectID, methodID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateAuthMethodResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateAuthMethodWithResponse(ctx context.Context, projectID openapi_types.UUID, methodID openapi_types.UUID, body UpdateAuthMethodJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateAuthMethodResponse, error) {
+	rsp, err := c.UpdateAuthMethod(ctx, projectID, methodID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateAuthMethodResponse(rsp)
+}
+
 // ListBroadcastsWithResponse request returning *ListBroadcastsResponse
 func (c *ClientWithResponses) ListBroadcastsWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListBroadcastsParams, reqEditors ...RequestEditorFn) (*ListBroadcastsResponse, error) {
 	rsp, err := c.ListBroadcasts(ctx, projectID, params, reqEditors...)
@@ -22366,67 +22569,6 @@ func (c *ClientWithResponses) VersionJourneyWithResponse(ctx context.Context, pr
 		return nil, err
 	}
 	return ParseVersionJourneyResponse(rsp)
-}
-
-// ListApiKeysWithResponse request returning *ListApiKeysResponse
-func (c *ClientWithResponses) ListApiKeysWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListApiKeysParams, reqEditors ...RequestEditorFn) (*ListApiKeysResponse, error) {
-	rsp, err := c.ListApiKeys(ctx, projectID, params, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseListApiKeysResponse(rsp)
-}
-
-// CreateApiKeyWithBodyWithResponse request with arbitrary body returning *CreateApiKeyResponse
-func (c *ClientWithResponses) CreateApiKeyWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateApiKeyResponse, error) {
-	rsp, err := c.CreateApiKeyWithBody(ctx, projectID, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseCreateApiKeyResponse(rsp)
-}
-
-func (c *ClientWithResponses) CreateApiKeyWithResponse(ctx context.Context, projectID openapi_types.UUID, body CreateApiKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateApiKeyResponse, error) {
-	rsp, err := c.CreateApiKey(ctx, projectID, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseCreateApiKeyResponse(rsp)
-}
-
-// DeleteApiKeyWithResponse request returning *DeleteApiKeyResponse
-func (c *ClientWithResponses) DeleteApiKeyWithResponse(ctx context.Context, projectID openapi_types.UUID, keyID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteApiKeyResponse, error) {
-	rsp, err := c.DeleteApiKey(ctx, projectID, keyID, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseDeleteApiKeyResponse(rsp)
-}
-
-// GetApiKeyWithResponse request returning *GetApiKeyResponse
-func (c *ClientWithResponses) GetApiKeyWithResponse(ctx context.Context, projectID openapi_types.UUID, keyID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetApiKeyResponse, error) {
-	rsp, err := c.GetApiKey(ctx, projectID, keyID, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseGetApiKeyResponse(rsp)
-}
-
-// UpdateApiKeyWithBodyWithResponse request with arbitrary body returning *UpdateApiKeyResponse
-func (c *ClientWithResponses) UpdateApiKeyWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, keyID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateApiKeyResponse, error) {
-	rsp, err := c.UpdateApiKeyWithBody(ctx, projectID, keyID, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseUpdateApiKeyResponse(rsp)
-}
-
-func (c *ClientWithResponses) UpdateApiKeyWithResponse(ctx context.Context, projectID openapi_types.UUID, keyID openapi_types.UUID, body UpdateApiKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateApiKeyResponse, error) {
-	rsp, err := c.UpdateApiKey(ctx, projectID, keyID, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseUpdateApiKeyResponse(rsp)
 }
 
 // ListListsWithResponse request returning *ListListsResponse
@@ -24253,6 +24395,164 @@ func ParseUpdateProjectAdminResponse(rsp *http.Response) (*UpdateProjectAdminRes
 	return response, nil
 }
 
+// ParseListAuthMethodsResponse parses an HTTP response from a ListAuthMethodsWithResponse call
+func ParseListAuthMethodsResponse(rsp *http.Response) (*ListAuthMethodsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListAuthMethodsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AuthMethodListResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateAuthMethodResponse parses an HTTP response from a CreateAuthMethodWithResponse call
+func ParseCreateAuthMethodResponse(rsp *http.Response) (*CreateAuthMethodResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateAuthMethodResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest AuthMethod
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteAuthMethodResponse parses an HTTP response from a DeleteAuthMethodWithResponse call
+func ParseDeleteAuthMethodResponse(rsp *http.Response) (*DeleteAuthMethodResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteAuthMethodResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetAuthMethodResponse parses an HTTP response from a GetAuthMethodWithResponse call
+func ParseGetAuthMethodResponse(rsp *http.Response) (*GetAuthMethodResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetAuthMethodResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AuthMethod
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateAuthMethodResponse parses an HTTP response from a UpdateAuthMethodWithResponse call
+func ParseUpdateAuthMethodResponse(rsp *http.Response) (*UpdateAuthMethodResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateAuthMethodResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AuthMethod
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListBroadcastsResponse parses an HTTP response from a ListBroadcastsWithResponse call
 func ParseListBroadcastsResponse(rsp *http.Response) (*ListBroadcastsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -25597,164 +25897,6 @@ func ParseVersionJourneyResponse(rsp *http.Response) (*VersionJourneyResponse, e
 			return nil, err
 		}
 		response.JSON201 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseListApiKeysResponse parses an HTTP response from a ListApiKeysWithResponse call
-func ParseListApiKeysResponse(rsp *http.Response) (*ListApiKeysResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &ListApiKeysResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ApiKeyListResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseCreateApiKeyResponse parses an HTTP response from a CreateApiKeyWithResponse call
-func ParseCreateApiKeyResponse(rsp *http.Response) (*CreateApiKeyResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &CreateApiKeyResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
-		var dest ApiKey
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON201 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseDeleteApiKeyResponse parses an HTTP response from a DeleteApiKeyWithResponse call
-func ParseDeleteApiKeyResponse(rsp *http.Response) (*DeleteApiKeyResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &DeleteApiKeyResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseGetApiKeyResponse parses an HTTP response from a GetApiKeyWithResponse call
-func ParseGetApiKeyResponse(rsp *http.Response) (*GetApiKeyResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &GetApiKeyResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ApiKey
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseUpdateApiKeyResponse parses an HTTP response from a UpdateApiKeyWithResponse call
-func ParseUpdateApiKeyResponse(rsp *http.Response) (*UpdateApiKeyResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &UpdateApiKeyResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ApiKey
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest Error
@@ -29106,6 +29248,21 @@ type ServerInterface interface {
 	// Update project admin role
 	// (PATCH /api/admin/projects/{projectID}/admins/{adminID})
 	UpdateProjectAdmin(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, adminID openapi_types.UUID)
+	// List auth methods
+	// (GET /api/admin/projects/{projectID}/auth-methods)
+	ListAuthMethods(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListAuthMethodsParams)
+	// Create auth method
+	// (POST /api/admin/projects/{projectID}/auth-methods)
+	CreateAuthMethod(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID)
+	// Delete auth method
+	// (DELETE /api/admin/projects/{projectID}/auth-methods/{methodID})
+	DeleteAuthMethod(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, methodID openapi_types.UUID)
+	// Get auth method by ID
+	// (GET /api/admin/projects/{projectID}/auth-methods/{methodID})
+	GetAuthMethod(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, methodID openapi_types.UUID)
+	// Update auth method
+	// (PATCH /api/admin/projects/{projectID}/auth-methods/{methodID})
+	UpdateAuthMethod(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, methodID openapi_types.UUID)
 	// List broadcasts
 	// (GET /api/admin/projects/{projectID}/broadcasts)
 	ListBroadcasts(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListBroadcastsParams)
@@ -29235,21 +29392,6 @@ type ServerInterface interface {
 	// Create journey version
 	// (POST /api/admin/projects/{projectID}/journeys/{journeyID}/version)
 	VersionJourney(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID)
-	// List API keys
-	// (GET /api/admin/projects/{projectID}/keys)
-	ListApiKeys(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListApiKeysParams)
-	// Create API key
-	// (POST /api/admin/projects/{projectID}/keys)
-	CreateApiKey(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID)
-	// Delete API key
-	// (DELETE /api/admin/projects/{projectID}/keys/{keyID})
-	DeleteApiKey(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, keyID openapi_types.UUID)
-	// Get API key by ID
-	// (GET /api/admin/projects/{projectID}/keys/{keyID})
-	GetApiKey(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, keyID openapi_types.UUID)
-	// Update API key
-	// (PATCH /api/admin/projects/{projectID}/keys/{keyID})
-	UpdateApiKey(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, keyID openapi_types.UUID)
 	// List lists
 	// (GET /api/admin/projects/{projectID}/lists)
 	ListLists(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListListsParams)
@@ -29688,6 +29830,36 @@ func (_ Unimplemented) UpdateProjectAdmin(w http.ResponseWriter, r *http.Request
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// List auth methods
+// (GET /api/admin/projects/{projectID}/auth-methods)
+func (_ Unimplemented) ListAuthMethods(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListAuthMethodsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Create auth method
+// (POST /api/admin/projects/{projectID}/auth-methods)
+func (_ Unimplemented) CreateAuthMethod(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Delete auth method
+// (DELETE /api/admin/projects/{projectID}/auth-methods/{methodID})
+func (_ Unimplemented) DeleteAuthMethod(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, methodID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Get auth method by ID
+// (GET /api/admin/projects/{projectID}/auth-methods/{methodID})
+func (_ Unimplemented) GetAuthMethod(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, methodID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Update auth method
+// (PATCH /api/admin/projects/{projectID}/auth-methods/{methodID})
+func (_ Unimplemented) UpdateAuthMethod(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, methodID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // List broadcasts
 // (GET /api/admin/projects/{projectID}/broadcasts)
 func (_ Unimplemented) ListBroadcasts(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListBroadcastsParams) {
@@ -29943,36 +30115,6 @@ func (_ Unimplemented) GetUserJourneyState(w http.ResponseWriter, r *http.Reques
 // Create journey version
 // (POST /api/admin/projects/{projectID}/journeys/{journeyID}/version)
 func (_ Unimplemented) VersionJourney(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// List API keys
-// (GET /api/admin/projects/{projectID}/keys)
-func (_ Unimplemented) ListApiKeys(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListApiKeysParams) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// Create API key
-// (POST /api/admin/projects/{projectID}/keys)
-func (_ Unimplemented) CreateApiKey(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// Delete API key
-// (DELETE /api/admin/projects/{projectID}/keys/{keyID})
-func (_ Unimplemented) DeleteApiKey(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, keyID openapi_types.UUID) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// Get API key by ID
-// (GET /api/admin/projects/{projectID}/keys/{keyID})
-func (_ Unimplemented) GetApiKey(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, keyID openapi_types.UUID) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// Update API key
-// (PATCH /api/admin/projects/{projectID}/keys/{keyID})
-func (_ Unimplemented) UpdateApiKey(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, keyID openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -31432,6 +31574,222 @@ func (siw *ServerInterfaceWrapper) UpdateProjectAdmin(w http.ResponseWriter, r *
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UpdateProjectAdmin(w, r, projectID, adminID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListAuthMethods operation middleware
+func (siw *ServerInterfaceWrapper) ListAuthMethods(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListAuthMethodsParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "offset", r.URL.Query(), &params.Offset, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "offset"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAuthMethods(w, r, projectID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateAuthMethod operation middleware
+func (siw *ServerInterfaceWrapper) CreateAuthMethod(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateAuthMethod(w, r, projectID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteAuthMethod operation middleware
+func (siw *ServerInterfaceWrapper) DeleteAuthMethod(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "methodID" -------------
+	var methodID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "methodID", chi.URLParam(r, "methodID"), &methodID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "methodID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteAuthMethod(w, r, projectID, methodID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAuthMethod operation middleware
+func (siw *ServerInterfaceWrapper) GetAuthMethod(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "methodID" -------------
+	var methodID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "methodID", chi.URLParam(r, "methodID"), &methodID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "methodID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAuthMethod(w, r, projectID, methodID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateAuthMethod operation middleware
+func (siw *ServerInterfaceWrapper) UpdateAuthMethod(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "methodID" -------------
+	var methodID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "methodID", chi.URLParam(r, "methodID"), &methodID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "methodID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateAuthMethod(w, r, projectID, methodID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -33544,222 +33902,6 @@ func (siw *ServerInterfaceWrapper) VersionJourney(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.VersionJourney(w, r, projectID, journeyID)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// ListApiKeys operation middleware
-func (siw *ServerInterfaceWrapper) ListApiKeys(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "projectID" -------------
-	var projectID openapi_types.UUID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
-		return
-	}
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
-
-	r = r.WithContext(ctx)
-
-	// Parameter object where we will unmarshal all parameters from the context
-	var params ListApiKeysParams
-
-	// ------------- Optional query parameter "limit" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
-		}
-		return
-	}
-
-	// ------------- Optional query parameter "offset" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "offset", r.URL.Query(), &params.Offset, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "offset"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
-		}
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListApiKeys(w, r, projectID, params)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// CreateApiKey operation middleware
-func (siw *ServerInterfaceWrapper) CreateApiKey(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "projectID" -------------
-	var projectID openapi_types.UUID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
-		return
-	}
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
-
-	r = r.WithContext(ctx)
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.CreateApiKey(w, r, projectID)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// DeleteApiKey operation middleware
-func (siw *ServerInterfaceWrapper) DeleteApiKey(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "projectID" -------------
-	var projectID openapi_types.UUID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
-		return
-	}
-
-	// ------------- Path parameter "keyID" -------------
-	var keyID openapi_types.UUID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "keyID", chi.URLParam(r, "keyID"), &keyID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "keyID", Err: err})
-		return
-	}
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
-
-	r = r.WithContext(ctx)
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.DeleteApiKey(w, r, projectID, keyID)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// GetApiKey operation middleware
-func (siw *ServerInterfaceWrapper) GetApiKey(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "projectID" -------------
-	var projectID openapi_types.UUID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
-		return
-	}
-
-	// ------------- Path parameter "keyID" -------------
-	var keyID openapi_types.UUID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "keyID", chi.URLParam(r, "keyID"), &keyID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "keyID", Err: err})
-		return
-	}
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
-
-	r = r.WithContext(ctx)
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetApiKey(w, r, projectID, keyID)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// UpdateApiKey operation middleware
-func (siw *ServerInterfaceWrapper) UpdateApiKey(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "projectID" -------------
-	var projectID openapi_types.UUID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
-		return
-	}
-
-	// ------------- Path parameter "keyID" -------------
-	var keyID openapi_types.UUID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "keyID", chi.URLParam(r, "keyID"), &keyID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "keyID", Err: err})
-		return
-	}
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
-
-	r = r.WithContext(ctx)
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.UpdateApiKey(w, r, projectID, keyID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -38996,6 +39138,21 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Patch(options.BaseURL+"/api/admin/projects/{projectID}/admins/{adminID}", wrapper.UpdateProjectAdmin)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/auth-methods", wrapper.ListAuthMethods)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/auth-methods", wrapper.CreateAuthMethod)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/admin/projects/{projectID}/auth-methods/{methodID}", wrapper.DeleteAuthMethod)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/auth-methods/{methodID}", wrapper.GetAuthMethod)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/admin/projects/{projectID}/auth-methods/{methodID}", wrapper.UpdateAuthMethod)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/broadcasts", wrapper.ListBroadcasts)
 	})
 	r.Group(func(r chi.Router) {
@@ -39123,21 +39280,6 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/journeys/{journeyID}/version", wrapper.VersionJourney)
-	})
-	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/keys", wrapper.ListApiKeys)
-	})
-	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/keys", wrapper.CreateApiKey)
-	})
-	r.Group(func(r chi.Router) {
-		r.Delete(options.BaseURL+"/api/admin/projects/{projectID}/keys/{keyID}", wrapper.DeleteApiKey)
-	})
-	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/keys/{keyID}", wrapper.GetApiKey)
-	})
-	r.Group(func(r chi.Router) {
-		r.Patch(options.BaseURL+"/api/admin/projects/{projectID}/keys/{keyID}", wrapper.UpdateApiKey)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/lists", wrapper.ListLists)
