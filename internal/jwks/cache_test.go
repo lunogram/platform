@@ -139,6 +139,55 @@ func TestCacheFailsOpenToLastKnownGood(t *testing.T) {
 	assert.Equal(t, int32(2), f.calls.Load())
 }
 
+// TestCacheFailsClosedPastMaxStale is the regression test for the fail-closed
+// bound: once the last successful fetch is older than MaxStale, a continuing
+// issuer outage must stop serving the stale key set and surface an error rather
+// than trusting indefinitely-old keys the issuer may have rotated away.
+func TestCacheFailsClosedPastMaxStale(t *testing.T) {
+	t.Parallel()
+	f := &fakeFetcher{raw: testJWKS(t, "k1")}
+	// L1TTL tiny so every call re-resolves and reaches the fetcher; MaxStale
+	// tiny so the staleness bound is crossed almost immediately; ErrorTTL tiny
+	// so the negative-cache backoff never masks the staleness branch.
+	c := New(Config{
+		L1TTL:    time.Millisecond,
+		MaxStale: time.Millisecond,
+		ErrorTTL: time.Millisecond,
+	}, nil, f, nil)
+
+	// Prime the cache with a successful fetch (sets refreshedAt).
+	_, err := c.Keyfunc(context.Background(), url)
+	require.NoError(t, err)
+
+	// Let both L1 freshness and the staleness bound lapse, then break the issuer.
+	time.Sleep(10 * time.Millisecond)
+	f.setErr(errors.New("issuer down"))
+
+	_, err = c.Keyfunc(context.Background(), url)
+	require.Error(t, err, "keys past MaxStale must fail closed, not serve stale")
+	assert.Contains(t, err.Error(), "max staleness")
+}
+
+// TestCacheServesStaleWithinMaxStale pins that the staleness deadline is
+// anchored on the last successful fetch (refreshedAt): while the issuer is down
+// but still within the MaxStale window, last-known-good keys are served.
+func TestCacheServesStaleWithinMaxStale(t *testing.T) {
+	t.Parallel()
+	f := &fakeFetcher{raw: testJWKS(t, "k1")}
+	// Short L1 so we re-resolve; generous MaxStale so we stay within the window.
+	c := New(Config{L1TTL: time.Millisecond, MaxStale: time.Hour}, nil, f, nil)
+
+	_, err := c.Keyfunc(context.Background(), url)
+	require.NoError(t, err)
+
+	time.Sleep(5 * time.Millisecond)
+	f.setErr(errors.New("issuer down"))
+
+	kf, err := c.Keyfunc(context.Background(), url)
+	require.NoError(t, err, "within MaxStale the last-known-good keys are served")
+	require.NotNil(t, kf)
+}
+
 func TestCacheNoKeysFetchErrorReturnsError(t *testing.T) {
 	t.Parallel()
 	f := &fakeFetcher{err: errors.New("issuer down")}
