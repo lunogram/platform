@@ -63,7 +63,20 @@ func (tc *testClientController) withCapturingPublisher() *capturingPublisher {
 func (tc *testClientController) ownDataActor(t *testing.T, orgID, projectID uuid.UUID, subject, source string) *rbac.Actor {
 	t.Helper()
 
-	actor := rbac.NewActor(rbac.ActorEndUser, uuid.New().String(),
+	// Provision a real, unconstrained auth method and use its id as the actor
+	// identity, so per-grant create-constraint enforcement (which looks the method
+	// up by the actor id and fails closed on a missing row) resolves to a live
+	// method — mirroring how a credential-backed end user exists in prod.
+	method, err := tc.mgmt.CreateAuthMethod(t.Context(), projectID, management.CreateAuthMethodInput{
+		Type: management.MethodTypeAPIKey,
+		Name: "own-data test method",
+		Role: rbac.ProjectClient,
+	})
+	if err != nil {
+		t.Fatalf("create auth method: %v", err)
+	}
+
+	actor := rbac.NewActor(rbac.ActorEndUser, method.ID.String(),
 		rbac.WithOrganizationID(orgID),
 		rbac.WithProjectID(projectID),
 		rbac.WithSubject(subject, source),
@@ -83,7 +96,18 @@ func (tc *testClientController) ownDataActor(t *testing.T, orgID, projectID uuid
 func (tc *testClientController) allDataActor(t *testing.T, orgID, projectID uuid.UUID) *rbac.Actor {
 	t.Helper()
 
-	actor := rbac.NewActor(rbac.ActorEndUser, uuid.New().String(),
+	// See ownDataActor: the actor id must be a live auth method so per-grant
+	// create-constraint enforcement resolves instead of failing closed.
+	method, err := tc.mgmt.CreateAuthMethod(t.Context(), projectID, management.CreateAuthMethodInput{
+		Type: management.MethodTypeAPIKey,
+		Name: "all-data test method",
+		Role: rbac.ProjectClient,
+	})
+	if err != nil {
+		t.Fatalf("create auth method: %v", err)
+	}
+
+	actor := rbac.NewActor(rbac.ActorEndUser, method.ID.String(),
 		rbac.WithOrganizationID(orgID),
 		rbac.WithProjectID(projectID),
 		rbac.WithSubject("trusted-subject", "https://idp.example"),
