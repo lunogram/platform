@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/lunogram/platform/internal/http/auth"
 	"github.com/lunogram/platform/internal/http/controllers/v1/client/oapi"
 	"github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/http/problem"
@@ -47,7 +48,7 @@ func (srv *UsersController) DeleteUserClient(w http.ResponseWriter, r *http.Requ
 	logger := srv.logger.With(zap.Stringer("project_id", projectID))
 	logger.Info("deleting user")
 
-	userID, err := srv.users.LookupUserID(ctx, projectID, oapi.ToParams(req.Identifier))
+	userID, err := srv.users.LookupUserID(ctx, projectID, auth.BoundUserIdentifiers(ctx, oapi.ToParams(req.Identifier)))
 	if errors.Is(err, subjects.ErrUserNotFound) {
 		logger.Info("user not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
@@ -111,7 +112,7 @@ func (srv *UsersController) UpsertUserClient(w http.ResponseWriter, r *http.Requ
 		data = *req.Data
 	}
 
-	identifiers := oapi.ToParams(req.Identifier)
+	identifiers := auth.BoundUserIdentifiers(ctx, oapi.ToParams(req.Identifier))
 	params := subjects.UpsertUserParams{
 		Identifiers: identifiers,
 		Email:       req.Email,

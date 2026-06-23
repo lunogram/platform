@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
+	"github.com/lunogram/platform/internal/http/auth"
 	"github.com/lunogram/platform/internal/http/controllers/v1/client/oapi"
 	"github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/http/problem"
@@ -41,14 +42,25 @@ func (srv *EventsController) PostUserEvents(w http.ResponseWriter, r *http.Reque
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Int("events", len(events)))
 	logger.Info("posting events")
 
+	ownScoped := auth.OwnDataScoped(ctx)
+
 	for _, event := range events {
-		if event.Match != nil && event.Identifier != nil {
-			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("match and identifier are mutually exclusive")))
+		// An own-data actor may only emit events about itself: attribute
+		// matching is forbidden and the identifier is always the verified
+		// subject, regardless of what the client sent.
+		if ownScoped && event.Match != nil {
+			oapi.WriteProblem(w, problem.ErrForbidden(problem.Describe("end users may not emit match-based events")))
 			return
 		}
-		if event.Match == nil && event.Identifier == nil {
-			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("one of match or identifier is required")))
-			return
+		if !ownScoped {
+			if event.Match != nil && event.Identifier != nil {
+				oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("match and identifier are mutually exclusive")))
+				return
+			}
+			if event.Match == nil && event.Identifier == nil {
+				oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("one of match or identifier is required")))
+				return
+			}
 		}
 
 		switch {
@@ -67,7 +79,10 @@ func (srv *EventsController) PostUserEvents(w http.ResponseWriter, r *http.Reque
 				Name:      event.Name,
 				Data:      event.Data,
 			}
-			if event.Identifier != nil {
+			switch {
+			case ownScoped:
+				msg.Identifiers = auth.BoundUserIdentifiers(ctx, nil)
+			case event.Identifier != nil:
 				msg.Identifiers = oapi.ToParams(*event.Identifier)
 			}
 			err = srv.pubsub.Publish(ctx, schemas.Subject(schemas.UserEventsProcess(projectID)), msg)
