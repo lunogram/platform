@@ -50,6 +50,10 @@ func (srv *InboxController) PostUserInboxMessages(w http.ResponseWriter, r *http
 			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid message data")))
 			return
 		}
+		// An own-data end user may only address inbox messages to itself: bind
+		// the recipient to the verified subject, ignoring any client-supplied
+		// Target. Backend keys (DataScopeAll) keep the supplied target as-is.
+		msg.Identifiers = auth.BoundUserIdentifiers(r.Context(), msg.Identifiers)
 		if err := srv.pubsub.Publish(r.Context(), schemas.UserInboxProcess(projectID), msg); err != nil {
 			srv.logger.Error("failed to publish user inbox message", zap.Error(err))
 			oapi.WriteProblem(w, problem.ErrInternal())

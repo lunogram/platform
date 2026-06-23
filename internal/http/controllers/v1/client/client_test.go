@@ -38,11 +38,23 @@ func (tc *testClientController) actorContext(t *testing.T, orgID, projectID uuid
 	t.Helper()
 
 	opts := []rbac.ActorOption{rbac.WithOrganizationID(orgID)}
+	actorID := uuid.New()
 	if projectID != uuid.Nil {
 		opts = append(opts, rbac.WithProjectID(projectID))
+		// Provision a real auth method and use its id as the actor identity, so
+		// per-grant create-constraint enforcement (which looks the method up by
+		// the actor id and fails closed on a missing row) resolves to a live,
+		// unconstrained method — matching how an API-key actor exists in prod.
+		method, err := tc.mgmt.CreateAuthMethod(t.Context(), projectID, management.CreateAuthMethodInput{
+			Type: management.MethodTypeAPIKey,
+			Name: "test key",
+			Role: rbac.ProjectClient,
+		})
+		require.NoError(t, err)
+		actorID = method.ID
 	}
 
-	actor := rbac.NewActor(rbac.ActorAPIKey, uuid.New().String(), opts...)
+	actor := rbac.NewActor(rbac.ActorAPIKey, actorID.String(), opts...)
 
 	engine, _ := rbac.TestSetup(t, t.Context(), actor, "member", "client")
 	tc.UsersController.engine = engine

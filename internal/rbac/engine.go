@@ -11,6 +11,8 @@ import (
 	"github.com/openfga/openfga/pkg/logger"
 	"github.com/openfga/openfga/pkg/server"
 	"github.com/openfga/openfga/pkg/storage"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
@@ -157,6 +159,11 @@ func (e *Engine) Check(ctx context.Context, user, relation, object string) (bool
 			Relation: relation,
 			Object:   object,
 		},
+		// Authorization decisions must reflect the latest tuples: a just-revoked
+		// grant or role must not keep resolving from the short-lived Check cache.
+		// We trade a little latency for read-after-write correctness on the
+		// security-critical path.
+		Consistency: openfgav1.ConsistencyPreference_HIGHER_CONSISTENCY,
 	})
 	if err != nil {
 		return false, fmt.Errorf("openfga check failed: %w", err)
@@ -176,6 +183,30 @@ func (e *Engine) WriteTuple(ctx context.Context, user, relation, object string) 
 		},
 	})
 	if err != nil {
+		return fmt.Errorf("openfga write failed: %w", err)
+	}
+	return nil
+}
+
+// WriteTupleIfAbsent writes a tuple, treating an "already exists" duplicate as
+// success so the call is idempotent. Any other write failure (datastore,
+// validation, connectivity) is returned, so callers can surface real problems
+// instead of silently swallowing them.
+func (e *Engine) WriteTupleIfAbsent(ctx context.Context, user, relation, object string) error {
+	_, err := e.server.Write(ctx, &openfgav1.WriteRequest{
+		StoreId:              e.storeID,
+		AuthorizationModelId: e.modelID,
+		Writes: &openfgav1.WriteRequestWrites{
+			TupleKeys: []*openfgav1.TupleKey{
+				{User: user, Relation: relation, Object: object},
+			},
+		},
+	})
+	if err != nil {
+		// OpenFGA reports a duplicate write as write_failed_due_to_invalid_input.
+		if status.Code(err) == codes.Code(openfgav1.ErrorCode_write_failed_due_to_invalid_input) {
+			return nil
+		}
 		return fmt.Errorf("openfga write failed: %w", err)
 	}
 	return nil

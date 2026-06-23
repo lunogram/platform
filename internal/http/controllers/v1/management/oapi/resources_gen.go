@@ -756,15 +756,12 @@ type AuthCallbackRequest struct {
 
 // AuthMethod defines model for AuthMethod.
 type AuthMethod struct {
-	CreatedAt   time.Time `json:"created_at"`
-	Description *string   `json:"description,omitempty"`
-
-	// GrantConstraints Narrows which named instances a method may create within a resource it already has create access to, keyed by resource name (e.g. event names for `events`). A resource present with a non-empty list is restricted to those names; an absent resource is unrestricted. There is no "allow nothing" state — to deny creation, omit the create grant.
-	GrantConstraints *GrantConstraints  `json:"grant_constraints,omitempty"`
-	Grants           *[]PermissionGrant `json:"grants,omitempty"`
-	Id               openapi_types.UUID `json:"id"`
-	Name             string             `json:"name"`
-	ProjectId        openapi_types.UUID `json:"project_id"`
+	CreatedAt   time.Time          `json:"created_at"`
+	Description *string            `json:"description,omitempty"`
+	Grants      *[]PermissionGrant `json:"grants,omitempty"`
+	Id          openapi_types.UUID `json:"id"`
+	Name        string             `json:"name"`
+	ProjectId   openapi_types.UUID `json:"project_id"`
 
 	// Role Role within a project
 	Role ProjectRole `json:"role"`
@@ -913,9 +910,6 @@ type CreateAdmin struct {
 // CreateAuthMethod defines model for CreateAuthMethod.
 type CreateAuthMethod struct {
 	Description *string `json:"description,omitempty"`
-
-	// GrantConstraints Narrows which named instances a method may create within a resource it already has create access to, keyed by resource name (e.g. event names for `events`). A resource present with a non-empty list is restricted to those names; an absent resource is unrestricted. There is no "allow nothing" state — to deny creation, omit the create grant.
-	GrantConstraints *GrantConstraints `json:"grant_constraints,omitempty"`
 
 	// Grants Custom permission set. When set, takes precedence over the role preset.
 	Grants *[]PermissionGrant `json:"grants,omitempty"`
@@ -1263,9 +1257,6 @@ type ExternalIDResponse struct {
 // GateChildData Data for gate step children - typically empty, path determines branch
 type GateChildData = map[string]interface{}
 
-// GrantConstraints Narrows which named instances a method may create within a resource it already has create access to, keyed by resource name (e.g. event names for `events`). A resource present with a non-empty list is restricted to those names; an absent resource is unrestricted. There is no "allow nothing" state — to deny creation, omit the create grant.
-type GrantConstraints map[string][]string
-
 // IdentifyUser defines model for IdentifyUser.
 type IdentifyUser struct {
 	Data  *map[string]any `json:"data,omitempty"`
@@ -1575,8 +1566,10 @@ type PaginatedResponse struct {
 
 // PermissionGrant A single (resource, verb) entry in a custom permission set.
 type PermissionGrant struct {
-	Resource string              `json:"resource"`
-	Verb     PermissionGrantVerb `json:"verb"`
+	// Instances Optional allow-list of named instances this grant is scoped to. For a create grant the method may only create instances with these names (e.g. event names); omitted/empty = unrestricted. Only meaningful for create today.
+	Instances *[]string           `json:"instances,omitempty"`
+	Resource  string              `json:"resource"`
+	Verb      PermissionGrantVerb `json:"verb"`
 }
 
 // PermissionGrantVerb defines model for PermissionGrant.Verb.
@@ -1953,12 +1946,9 @@ type UpdateAdmin struct {
 
 // UpdateAuthMethod defines model for UpdateAuthMethod.
 type UpdateAuthMethod struct {
-	Description *string `json:"description,omitempty"`
-
-	// GrantConstraints Narrows which named instances a method may create within a resource it already has create access to, keyed by resource name (e.g. event names for `events`). A resource present with a non-empty list is restricted to those names; an absent resource is unrestricted. There is no "allow nothing" state — to deny creation, omit the create grant.
-	GrantConstraints *GrantConstraints  `json:"grant_constraints,omitempty"`
-	Grants           *[]PermissionGrant `json:"grants,omitempty"`
-	Name             *string            `json:"name,omitempty"`
+	Description *string            `json:"description,omitempty"`
+	Grants      *[]PermissionGrant `json:"grants,omitempty"`
+	Name        *string            `json:"name,omitempty"`
 
 	// Role Role within a project
 	Role *ProjectRole `json:"role,omitempty"`

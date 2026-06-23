@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/http/problem"
@@ -39,13 +40,16 @@ func (c CreateConstraints) Enforce(ctx context.Context, resource rbac.Resource, 
 		return problem.ErrInternal(problem.Describe("actor is not an auth method"))
 	}
 
-	constraints, err := c.store.GrantConstraints(ctx, methodID)
+	allowed, restricted, err := c.store.CreateGrantInstances(ctx, methodID, string(resource))
 	if err != nil {
 		return problem.ErrInternal()
 	}
+	if !restricted {
+		return nil
+	}
 
 	for _, name := range names {
-		if !constraints.Permits(string(resource), name) {
+		if !slices.Contains(allowed, name) {
 			return problem.ErrForbidden(problem.Describe(
 				fmt.Sprintf("auth method may not create %s %q", resource, name)))
 		}

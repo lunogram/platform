@@ -37,17 +37,6 @@ type Actor struct {
 	OrganizationID uuid.UUID
 	ProjectID      uuid.UUID
 
-	// SubjectID is the resolved internal Lunogram user (subject) id for
-	// end-user actors ([ActorEndUser]). It is the zero UUID for admins and API
-	// keys.
-	//
-	// Authorization is always decided in OpenFGA against the policy identity
-	// ([Actor.UserKey]); SubjectID never participates in the permission check.
-	// It exists so handlers can scope queries to the verified user's own rows
-	// (e.g. WHERE user_id = SubjectID) once the policy has authorized the
-	// resource and verb.
-	SubjectID uuid.UUID
-
 	// Subject and SubjectSource are the verified external identity for end-user
 	// actors: the value of the configured subject claim and the external-ID
 	// source it maps to (the trusted issuer). They let handlers resolve or create
@@ -59,8 +48,9 @@ type Actor struct {
 	// [DataScopeAll]) acts across every subject's records, like a backend key;
 	// [DataScopeOwn] is set only for verified end-user actors ([ActorEndUser])
 	// whose auth method carries the "own" subject scope, binding them to their
-	// verified subject regardless of any client-supplied identifier. See
-	// [Actor.SubjectID].
+	// verified subject regardless of any client-supplied identifier. Handlers
+	// scope such requests to the verified [Actor.Subject]/[Actor.SubjectSource]
+	// via auth.BoundUserIdentifiers.
 	Scope DataScope
 }
 
@@ -91,15 +81,6 @@ func WithOrganizationID(id uuid.UUID) ActorOption {
 func WithProjectID(id uuid.UUID) ActorOption {
 	return func(a *Actor) {
 		a.ProjectID = id
-	}
-}
-
-// WithSubjectID sets the resolved internal user (subject) id on the actor. Use
-// this for end-user actors so handlers can scope queries to the verified user's
-// own rows. See [Actor.SubjectID].
-func WithSubjectID(id uuid.UUID) ActorOption {
-	return func(a *Actor) {
-		a.SubjectID = id
 	}
 }
 

@@ -37,10 +37,12 @@ func ValidateSourceURL(raw string) error {
 
 // isPublicIP reports whether ip is a globally-routable unicast address, i.e. not
 // loopback, private (RFC 1918 / ULA fc00::/7), link-local (incl. the
-// 169.254.169.254 cloud metadata endpoint), CGNAT, multicast or unspecified.
+// 169.254.169.254 cloud metadata endpoint), CGNAT, multicast, broadcast or
+// unspecified.
 func isPublicIP(ip net.IP) bool {
 	if ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() ||
-		ip.IsLinkLocalMulticast() || ip.IsMulticast() || ip.IsUnspecified() {
+		ip.IsLinkLocalMulticast() || ip.IsMulticast() || ip.IsUnspecified() ||
+		ip.Equal(net.IPv4bcast) {
 		return false
 	}
 	if v4 := ip.To4(); v4 != nil && v4[0] == 100 && v4[1]&0xc0 == 0x40 {

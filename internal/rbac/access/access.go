@@ -203,17 +203,27 @@ func BackfillProjectTuples(ctx context.Context, logger *zap.Logger, engine *rbac
 	logger.Info("backfilling RBAC resource tuples for existing projects", zap.Int("count", len(projects)))
 
 	resources := rbac.Resources()
+	var failures int
 	for _, p := range projects {
 		projectObject := rbac.ProjectScope(p.ID)
 		for _, resource := range resources {
-			if err := engine.WriteTuple(ctx, projectObject, "project", resource+":"+p.ID.String()); err != nil {
-				// OpenFGA returns an error when a tuple already exists.
-				// This is expected and safe to ignore.
-				continue
+			object := resource + ":" + p.ID.String()
+			// WriteTupleIfAbsent treats an already-exists duplicate as success
+			// (the idempotent case), so any error here is a real failure — a
+			// datastore or validation problem that would otherwise leave the
+			// project without a tuple and silently fail-closed on later checks.
+			if err := engine.WriteTupleIfAbsent(ctx, projectObject, "project", object); err != nil {
+				failures++
+				logger.Warn("failed to backfill RBAC resource tuple",
+					zap.String("object", object), zap.Error(err))
 			}
 		}
 	}
 
-	logger.Info("RBAC resource tuple backfill complete")
+	if failures > 0 {
+		logger.Warn("RBAC resource tuple backfill completed with failures", zap.Int("failures", failures))
+	} else {
+		logger.Info("RBAC resource tuple backfill complete")
+	}
 	return nil
 }

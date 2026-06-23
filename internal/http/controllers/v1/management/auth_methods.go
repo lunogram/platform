@@ -3,9 +3,7 @@ package v1
 import (
 	"context"
 	"errors"
-	"net"
 	"net/http"
-	"net/url"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -15,6 +13,7 @@ import (
 	"github.com/lunogram/platform/internal/ptr"
 	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/rbac/access"
+	"github.com/lunogram/platform/internal/ssrf"
 	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/management"
 	"go.uber.org/zap"
@@ -154,14 +153,6 @@ func (srv *AuthMethodsController) UpdateAuthMethod(w http.ResponseWriter, r *htt
 	// unchanged).
 	if body.Role != nil && body.Grants == nil {
 		in.Grants = []management.Grant{}
-	}
-	if body.GrantConstraints != nil {
-		gc := management.GrantConstraints(*body.GrantConstraints)
-		if err := validateGrantConstraints(gc); err != nil {
-			oapi.WriteProblem(w, err)
-			return
-		}
-		in.GrantConstraints = &gc
 	}
 	if body.SubjectScope != nil {
 		subjectScope, err := subjectScopeFor(existing.Type, body.SubjectScope)
@@ -311,9 +302,6 @@ func buildCreateAuthMethodInput(body oapi.CreateAuthMethod) (management.CreateAu
 	if body.Grants != nil {
 		in.Grants = toStoreGrants(*body.Grants)
 	}
-	if body.GrantConstraints != nil {
-		in.GrantConstraints = management.GrantConstraints(*body.GrantConstraints)
-	}
 	if body.TrustedIssuer != nil {
 		in.TrustedIssuer = &management.TrustedIssuer{
 			JWKSURL:      ptr.From(body.TrustedIssuer.JwksUrl),
@@ -343,9 +331,6 @@ func buildCreateAuthMethodInput(body oapi.CreateAuthMethod) (management.CreateAu
 		return in, err
 	}
 	if err := validateGrants(in.Grants); err != nil {
-		return in, err
-	}
-	if err := validateGrantConstraints(in.GrantConstraints); err != nil {
 		return in, err
 	}
 
@@ -405,35 +390,31 @@ func validateTrustedIssuer(ti *management.TrustedIssuer) error {
 }
 
 // validateJWKSURL is a cheap up-front guard rejecting an obviously-unsafe JWKS
-// URL at configuration time: it must be an https URL whose host is not a
-// private/loopback/link-local literal. The authoritative SSRF protection (which
-// also covers DNS rebinding) is the dial-time guard in the jwks fetcher.
+// URL at configuration time. It delegates to ssrf.ValidateSourceURL so the
+// config-time and dial-time guards share one definition of "not public" and
+// cannot drift. The authoritative SSRF protection (which also covers DNS
+// rebinding) remains the dial-time guard in the jwks fetcher.
 func validateJWKSURL(raw string) error {
-	u, err := url.Parse(raw)
-	if err != nil {
-		return problem.ErrBadRequest(problem.Describe("invalid jwks_url"))
-	}
-	if u.Scheme != "https" {
-		return problem.ErrBadRequest(problem.Describe("jwks_url must use https"))
-	}
-	host := u.Hostname()
-	if host == "" {
-		return problem.ErrBadRequest(problem.Describe("jwks_url must have a host"))
-	}
-	if ip := net.ParseIP(host); ip != nil &&
-		(ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsUnspecified()) {
-		return problem.ErrBadRequest(problem.Describe("jwks_url host is not a public address"))
+	if err := ssrf.ValidateSourceURL(raw); err != nil {
+		return problem.ErrBadRequest(problem.Describe("jwks_url is not a valid public https URL"))
 	}
 	return nil
 }
 
 // validateGrants rejects a custom permission set referencing an unknown resource
-// or verb, which would otherwise write a tuple that silently never resolves.
+// or verb, which would otherwise write a tuple that silently never resolves. It
+// also rejects an instance allow-list on a grant that could never enforce one:
+// the list is only honored for a create grant on a constrainable resource
+// (today only events). Accepting it elsewhere would store an allow-list that is
+// silently never applied — a false sense of restriction. This makes the
+// guarantee structural: a constraint cannot exist apart from a grant that
+// enforces it.
 func validateGrants(grants []management.Grant) error {
 	if len(grants) == 0 {
 		return nil
 	}
 	known := grantableResources()
+	enforced := constrainableResources()
 	for _, g := range grants {
 		if _, ok := known[g.Resource]; !ok {
 			return problem.ErrBadRequest(problem.Describe("unknown grant resource: " + g.Resource))
@@ -443,32 +424,37 @@ func validateGrants(grants []management.Grant) error {
 		default:
 			return problem.ErrBadRequest(problem.Describe("unknown grant verb: " + g.Verb))
 		}
-	}
-	return nil
-}
-
-// validateGrantConstraints rejects a constraint keyed by an unknown resource,
-// which would otherwise be stored but silently never apply.
-func validateGrantConstraints(constraints management.GrantConstraints) error {
-	if len(constraints) == 0 {
-		return nil
-	}
-	known := grantableResources()
-	for resource := range constraints {
-		if _, ok := known[resource]; !ok {
-			return problem.ErrBadRequest(problem.Describe("unknown grant constraint resource: " + resource))
+		if len(g.Instances) == 0 {
+			continue
+		}
+		if rbac.Permission(g.Verb) != rbac.Create {
+			return problem.ErrBadRequest(problem.Describe("instances are only supported on a create grant: " + g.Resource))
+		}
+		if _, ok := enforced[g.Resource]; !ok {
+			return problem.ErrBadRequest(problem.Describe("instances are not supported for resource: " + g.Resource))
 		}
 	}
 	return nil
 }
 
-// grantableResources is the set of resources a grant or constraint may name.
+// grantableResources is the set of resources a custom grant (permission set) may
+// name. Any resource in the authorization model can carry a grant.
 func grantableResources() map[string]struct{} {
 	known := make(map[string]struct{}, len(rbac.Resources()))
 	for _, r := range rbac.Resources() {
 		known[r] = struct{}{}
 	}
 	return known
+}
+
+// constrainableResources is the set of resources whose create grant honors an
+// instance-name allow-list (its grant's instances). It is the single source of
+// truth shared with the request-time enforcement site (CreateConstraints.Enforce
+// via the events controller); today only client events are enforced. Instances
+// on any other resource would never apply and are rejected at configuration
+// time by [validateGrants].
+func constrainableResources() map[string]struct{} {
+	return map[string]struct{}{"events": {}}
 }
 
 // subjectScopeFor resolves and validates the data boundary for a method. An
@@ -493,6 +479,9 @@ func toStoreGrants(grants []oapi.PermissionGrant) []management.Grant {
 	out := make([]management.Grant, len(grants))
 	for i, g := range grants {
 		out[i] = management.Grant{Resource: g.Resource, Verb: string(g.Verb)}
+		if g.Instances != nil {
+			out[i].Instances = *g.Instances
+		}
 	}
 	return out
 }
@@ -523,12 +512,11 @@ func toOAPIAuthMethod(m *management.AuthMethod, withSecret bool) oapi.AuthMethod
 		grants := make([]oapi.PermissionGrant, len(m.Grants))
 		for i, g := range m.Grants {
 			grants[i] = oapi.PermissionGrant{Resource: g.Resource, Verb: oapi.PermissionGrantVerb(g.Verb)}
+			if len(g.Instances) > 0 {
+				grants[i].Instances = ptr.To(g.Instances)
+			}
 		}
 		out.Grants = &grants
-	}
-	if len(m.GrantConstraints) > 0 {
-		gc := oapi.GrantConstraints(m.GrantConstraints)
-		out.GrantConstraints = &gc
 	}
 	if ti := m.TrustedIssuer; ti != nil {
 		issuer := &oapi.TrustedIssuer{}

@@ -94,14 +94,20 @@ func Middleware(middleware ...Handler) openapi3filter.AuthenticationFunc {
 }
 
 func WithJWT(config config.Auth, mgmt *management.State) Handler {
+	// Bind the accepted algorithm to the key material in use: HMAC mode accepts
+	// only HS256, JWKS mode only RS256. Allowing both under a single keyfunc is
+	// the classic RS256→HS256 confusion setup (verifying an HS256 forgery with
+	// the RSA public key as the shared secret); pinning the method closes it.
 	keyFunc := config.JWKS.Unwrap()
+	methods := []string{"RS256"}
 	if config.JWTSecret != "" {
 		keyFunc = HMAC([]byte(config.JWTSecret))
+		methods = []string{"HS256"}
 	}
 
 	return func(ctx context.Context, value string) (context.Context, error) {
 		claims := jwt.RegisteredClaims{}
-		token, err := jwt.ParseWithClaims(value, &claims, keyFunc, jwt.WithValidMethods([]string{"RS256", "HS256"}))
+		token, err := jwt.ParseWithClaims(value, &claims, keyFunc, jwt.WithValidMethods(methods))
 		if err != nil {
 			return ctx, ErrUnauthorized
 		}
@@ -169,6 +175,13 @@ func enforceSurface(ctx context.Context, surface Surface) error {
 
 // browserOriginated reports whether the request carries an Origin header, which
 // browsers attach to cross-origin (and most same-origin non-GET) requests.
+//
+// This is a best-effort, defense-in-depth signal that an honest browser is
+// calling with a private key — not a security boundary. Browsers omit Origin on
+// same-origin GETs, and a non-browser attacker holding a leaked key simply does
+// not send the header. Private keys must be treated as secrets (rotate on
+// exposure, never ship to a browser); this check only discourages accidental
+// in-browser key use, it does not authenticate origin.
 func browserOriginated(ctx context.Context) bool {
 	r := RequestFromContext(ctx)
 	return r != nil && r.Header.Get("Origin") != ""
@@ -239,7 +252,19 @@ func SetSessionCookie(w http.ResponseWriter, r *http.Request, token string, expi
 		Path:     "/",
 		Expires:  expiresAt,
 		HttpOnly: true,
-		Secure:   r.TLS != nil,
+		Secure:   requestIsSecure(r),
 		SameSite: http.SameSiteLaxMode,
 	})
+}
+
+// requestIsSecure reports whether the original client request reached us over
+// HTTPS. In the common deployment a reverse proxy terminates TLS and forwards
+// plaintext, so r.TLS is nil; we then trust X-Forwarded-Proto. Trusting that
+// header can only ever cause the cookie to be marked Secure (never the reverse),
+// so a spoofed value is harmless here.
+func requestIsSecure(r *http.Request) bool {
+	if r.TLS != nil {
+		return true
+	}
+	return strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https")
 }
