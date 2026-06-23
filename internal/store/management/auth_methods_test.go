@@ -165,4 +165,44 @@ func TestAuthMethodsStore(t *testing.T) {
 		_, err = db.GetAuthMethod(ctx, projectID, target.ID)
 		assert.True(t, errors.Is(err, store.ErrNoRows))
 	})
+
+	t.Run("persists per-grant create constraints and prunes empty lists", func(t *testing.T) {
+		created, err := db.CreateAuthMethod(ctx, projectID, CreateAuthMethodInput{
+			Type:   MethodTypeAPIKey,
+			Name:   "constrained key",
+			Role:   "client",
+			Grants: []Grant{{Resource: "events", Verb: "create"}},
+			GrantConstraints: GrantConstraints{
+				"events": {"purchase", "signup"},
+				// An empty list carries no restriction and must not be stored.
+				"subscriptions": {},
+			},
+		})
+		require.NoError(t, err)
+
+		got, err := db.GetAuthMethod(ctx, projectID, created.ID)
+		require.NoError(t, err)
+		assert.Equal(t, GrantConstraints{"events": {"purchase", "signup"}}, got.GrantConstraints)
+
+		// The focused enforcement read surfaces the stored (pruned) map.
+		constraints, err := db.GrantConstraints(ctx, created.ID)
+		require.NoError(t, err)
+		assert.Equal(t, GrantConstraints{"events": {"purchase", "signup"}}, constraints)
+		assert.True(t, constraints.Permits("events", "purchase"))
+		assert.False(t, constraints.Permits("events", "refund"))
+		assert.True(t, constraints.Permits("subscriptions", "anything"), "an unconstrained resource is unrestricted")
+
+		// A non-nil constraint map replaces the whole set; an empty map clears it.
+		require.NoError(t, db.UpdateAuthMethod(ctx, projectID, created.ID, UpdateAuthMethodInput{
+			GrantConstraints: ptr.To(GrantConstraints{}),
+		}))
+		cleared, err := db.GetAuthMethod(ctx, projectID, created.ID)
+		require.NoError(t, err)
+		assert.Empty(t, cleared.GrantConstraints)
+
+		constraints, err = db.GrantConstraints(ctx, created.ID)
+		require.NoError(t, err)
+		assert.Nil(t, constraints)
+		assert.True(t, constraints.Permits("events", "purchase"), "no constraints = unrestricted")
+	})
 }

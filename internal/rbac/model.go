@@ -247,3 +247,14 @@ func Resources() []string {
 	}
 	return names
 }
+
+// Resource is a typed resource name from the authorization model. Its values are
+// the strings returned by [Resources]; the constants below cover the resources
+// whose create grants can be narrowed by a per-grant constraint.
+type Resource string
+
+const (
+	ResourceEvents        Resource = "events"
+	ResourceSubscriptions Resource = "subscriptions"
+	ResourceScheduled     Resource = "scheduled"
+)

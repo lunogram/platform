@@ -4433,6 +4433,18 @@ export interface components {
              */
             verb: "read" | "create" | "update" | "delete";
         };
+        /**
+         * @description Narrows which named instances a method may create within a resource it already has create access to, keyed by resource name (e.g. event names for `events`). A resource present with a non-empty list is restricted to those names; an absent resource is unrestricted. There is no "allow nothing" state — to deny creation, omit the create grant.
+         * @example {
+         *       "events": [
+         *         "purchase",
+         *         "signup"
+         *       ]
+         *     }
+         */
+        GrantConstraints: {
+            [key: string]: string[];
+        } | null;
         /** @description Maps identity fields to the JWT claims that carry them. Each field names the claim to read; values follow the JWT spec (e.g. `sub`). */
         ClaimMapping: {
             /**
@@ -4473,6 +4485,7 @@ export interface components {
             role: components["schemas"]["ProjectRole"];
             subject_scope?: components["schemas"]["SubjectScope"];
             grants?: components["schemas"]["PermissionGrant"][];
+            grant_constraints?: components["schemas"]["GrantConstraints"];
             trusted_issuer?: components["schemas"]["TrustedIssuer"];
             session?: components["schemas"]["SessionConfig"];
             /**
@@ -4493,6 +4506,7 @@ export interface components {
             subject_scope?: components["schemas"]["SubjectScope"];
             /** @description Custom permission set. When set, takes precedence over the role preset. */
             grants?: components["schemas"]["PermissionGrant"][];
+            grant_constraints?: components["schemas"]["GrantConstraints"];
             trusted_issuer?: components["schemas"]["TrustedIssuer"];
             session?: components["schemas"]["SessionConfig"];
         };
@@ -4502,6 +4516,7 @@ export interface components {
             role?: components["schemas"]["ProjectRole"];
             subject_scope?: components["schemas"]["SubjectScope"];
             grants?: components["schemas"]["PermissionGrant"][];
+            grant_constraints?: components["schemas"]["GrantConstraints"];
         };
         ClientEvent: {
             /**

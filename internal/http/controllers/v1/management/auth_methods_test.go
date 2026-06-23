@@ -146,4 +146,24 @@ func TestBuildCreateAuthMethodInput(t *testing.T) {
 		})
 		require.NoError(t, err)
 	})
+
+	t.Run("maps grant constraints onto the store input", func(t *testing.T) {
+		in, err := buildCreateAuthMethodInput(oapi.CreateAuthMethod{
+			Type:             "api_key",
+			Name:             "backend",
+			Grants:           &[]oapi.PermissionGrant{{Resource: "events", Verb: "create"}},
+			GrantConstraints: &oapi.GrantConstraints{"events": {"purchase", "signup"}},
+		})
+		require.NoError(t, err)
+		assert.Equal(t, []string{"purchase", "signup"}, in.GrantConstraints["events"])
+	})
+
+	t.Run("rejects a grant constraint keyed by an unknown resource", func(t *testing.T) {
+		_, err := buildCreateAuthMethodInput(oapi.CreateAuthMethod{
+			Type:             "api_key",
+			Name:             "backend",
+			GrantConstraints: &oapi.GrantConstraints{"not_a_resource": {"x"}},
+		})
+		assert.Error(t, err)
+	})
 }
