@@ -127,8 +127,8 @@ func PublishMatchedOrgEntrances(ctx context.Context, logger *zap.Logger, usrs *s
 				}
 			}
 
-			if entrance.Rule != nil {
-				match, err := evaluator.Evaluate(*entrance.Rule, event.Data)
+			if rule := entrance.EntranceRule(); rule != nil {
+				match, err := evaluator.Evaluate(*rule, event.Data)
 				if err != nil {
 					logger.Error("failed to evaluate journey entrance rule", zap.Error(err))
 					return err
@@ -145,8 +145,8 @@ func PublishMatchedOrgEntrances(ctx context.Context, logger *zap.Logger, usrs *s
 				return err
 			}
 
-			multiple := entrance.Multiple != nil && *entrance.Multiple
-			concurrent := entrance.Concurrent != nil && *entrance.Concurrent
+			multiple := entrance.Multiple
+			concurrent := entrance.Concurrent
 
 			for _, orgID := range orgIDs {
 				logger.Info("publishing journey entrances for organization members",
@@ -177,7 +177,7 @@ func PublishMatchedOrgEntrances(ctx context.Context, logger *zap.Logger, usrs *s
 					return nil
 				}
 
-				_, err = usrs.ScanOrganizationMembers(ctx, event.ProjectID, orgID, entrance.UserRule, scanner)
+				_, err = usrs.ScanOrganizationMembers(ctx, event.ProjectID, orgID, entrance.MemberRule(), scanner)
 				if err != nil {
 					logger.Error("failed to scan organization members", zap.Error(err), zap.Stringer("organization_id", orgID))
 					return err

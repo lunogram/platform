@@ -443,6 +443,37 @@ func TestGetPublishedRule_NilWhenDraftOnly(t *testing.T) {
 	require.Nil(t, result, "draft-only list should not return a published rule")
 }
 
+func TestAddUserToListReturning(t *testing.T) {
+	t.Parallel()
+
+	db := NewContainerStore(t)
+	projectID := uuid.New()
+	ctx := context.Background()
+
+	listID, err := db.CreateList(ctx, List{
+		ProjectID: projectID,
+		Name:      "Membership List",
+		Type:      ListTypeStatic,
+	})
+	require.NoError(t, err)
+
+	userID, err := db.CreateUser(ctx, projectID, ptr.To("member@example.com"), nil, []byte(`{}`), nil, nil, []ExternalIDParam{{Source: "default", ExternalID: "member"}})
+	require.NoError(t, err)
+
+	// First insert genuinely adds the membership row: callers use this to gate
+	// emitting list.user.added so static-list imports stay consistent with
+	// dynamic recompute.
+	inserted, err := db.AddUserToListReturning(ctx, listID, userID)
+	require.NoError(t, err)
+	require.True(t, inserted, "first add should report a new membership row")
+
+	// Re-adding the same user is a no-op (ON CONFLICT DO NOTHING) and must
+	// report false so no duplicate list.user.added event is emitted.
+	inserted, err = db.AddUserToListReturning(ctx, listID, userID)
+	require.NoError(t, err)
+	require.False(t, inserted, "re-adding an existing member should report no new row")
+}
+
 func TestDuplicateList(t *testing.T) {
 	t.Parallel()
 
