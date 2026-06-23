@@ -42,6 +42,30 @@ func HMAC(secret []byte) jwt.Keyfunc {
 
 type Handler func(ctx context.Context, token string) (context.Context, error)
 
+// Surface identifies which API an API-key request is authenticating against.
+// Key scope is enforced differently per surface; see [WithKey].
+type Surface int
+
+const (
+	SurfaceManagement Surface = iota
+	SurfaceClient
+)
+
+type requestContextKey struct{}
+
+// withRequest stores the in-flight request on the context so authentication
+// handlers can inspect request headers (e.g. Origin) during scope enforcement.
+func withRequest(ctx context.Context, r *http.Request) context.Context {
+	return context.WithValue(ctx, requestContextKey{}, r)
+}
+
+// RequestFromContext returns the request stored by the authentication
+// middleware, or nil if none is present.
+func RequestFromContext(ctx context.Context) *http.Request {
+	r, _ := ctx.Value(requestContextKey{}).(*http.Request)
+	return r
+}
+
 // Middleware is a middleware function that authenticates requests by verifying the
 // authorization header. It returns a AuthenticationFunc that checks the authorization
 // header and adds the authenticated session to the request context.
@@ -49,6 +73,7 @@ func Middleware(middleware ...Handler) openapi3filter.AuthenticationFunc {
 	return func(ctx context.Context, filter *openapi3filter.AuthenticationInput) error {
 		req := filter.RequestValidationInput.Request
 		tokenString := GetSession(req)
+		ctx = withRequest(ctx, req)
 
 		for _, m := range middleware {
 			ctx, err := m(ctx, tokenString)
@@ -100,7 +125,12 @@ func WithJWT(config config.Auth, mgmt *management.State) Handler {
 	}
 }
 
-func WithKey(mgmt *management.State) Handler {
+// WithKey authenticates an API-key request for the given surface. API keys are
+// private (backend-only) credentials, so on the client surface a key is rejected
+// when the request is browser-originated (carries an Origin header); browser and
+// mobile clients authenticate via a trusted issuer or a short-lived session
+// instead. The management surface accepts any valid key.
+func WithKey(mgmt *management.State, surface Surface) Handler {
 	return func(ctx context.Context, tokenString string) (context.Context, error) {
 		if tokenString == "" {
 			return ctx, ErrUnauthorized
@@ -109,6 +139,10 @@ func WithKey(mgmt *management.State) Handler {
 		key, err := mgmt.GetAPIKeyBySecret(tokenString)
 		if err != nil {
 			return ctx, ErrUnauthorized
+		}
+
+		if err := enforceSurface(ctx, surface); err != nil {
+			return ctx, err
 		}
 
 		actor := rbac.NewActor(
@@ -120,6 +154,24 @@ func WithKey(mgmt *management.State) Handler {
 
 		return rbac.WithActor(ctx, actor), nil
 	}
+}
+
+// enforceSurface rejects API-key auth where it must not be used: a private key
+// presented to the browser-facing client API (a request carrying an Origin
+// header). It returns ErrUnauthorized (rather than a distinct error) so callers
+// cannot use the response to probe whether a given key exists.
+func enforceSurface(ctx context.Context, surface Surface) error {
+	if surface == SurfaceClient && browserOriginated(ctx) {
+		return ErrUnauthorized
+	}
+	return nil
+}
+
+// browserOriginated reports whether the request carries an Origin header, which
+// browsers attach to cross-origin (and most same-origin non-GET) requests.
+func browserOriginated(ctx context.Context) bool {
+	r := RequestFromContext(ctx)
+	return r != nil && r.Header.Get("Origin") != ""
 }
 
 // OAuthResponse represents the OAuth token response stored in cookies

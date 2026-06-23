@@ -28,6 +28,9 @@ var ErrForbidden = ErrorFunc(WithStatus(NewError("forbidden", "you do not have p
 // ErrConflict is thrown whenever a resource conflicts with an existing one.
 var ErrConflict = ErrorFunc(WithStatus(NewError("conflict", "the resource already exists"), http.StatusConflict))
 
+// ErrTooManyRequests is thrown when a client exceeds its rate limit.
+var ErrTooManyRequests = ErrorFunc(WithStatus(NewError("too many requests", "the rate limit for this request has been exceeded"), http.StatusTooManyRequests))
+
 // NewError creates a new error with the given title and description.
 func NewError(title, description string) error {
 	return &withDescription{
