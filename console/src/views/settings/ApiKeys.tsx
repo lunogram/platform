@@ -251,7 +251,6 @@ export default function ProjectApiKeys() {
                             await api.apiKeys.create(project.id, {
                                 name: name as string,
                                 description,
-                                scope: "secret",
                                 role,
                             })
                         }

@@ -58,31 +58,27 @@ func TestCreateApiKey(t *testing.T) {
 	tests := map[string]test{
 		"simple with default role": {
 			body: oapi.CreateApiKeyJSONRequestBody{
-				Name:  "Test API Key",
-				Scope: oapi.Secret,
+				Name: "Test API Key",
 			},
 			code: 201,
 		},
 		"with support role": {
 			body: oapi.CreateApiKeyJSONRequestBody{
-				Name:  "Support API Key",
-				Scope: oapi.Secret,
-				Role:  &roleSupport,
+				Name: "Support API Key",
+				Role: &roleSupport,
 			},
 			code: 201,
 		},
 		"with admin role": {
 			body: oapi.CreateApiKeyJSONRequestBody{
-				Name:  "Admin API Key",
-				Scope: oapi.Secret,
-				Role:  &roleAdmin,
+				Name: "Admin API Key",
+				Role: &roleAdmin,
 			},
 			code: 201,
 		},
 		"with description": {
 			body: oapi.CreateApiKeyJSONRequestBody{
 				Name:        "Described API Key",
-				Scope:       oapi.Secret,
 				Description: ptr.To("This is a test API key"),
 			},
 			code: 201,
@@ -136,7 +132,7 @@ func TestListApiKeys(t *testing.T) {
 	apiKeysStore := management.NewApiKeysStore(mgmt)
 
 	for i := 0; i < 3; i++ {
-		_, err := apiKeysStore.CreateApiKey(ctx, projectID, "Test Key", "project", "support", nil)
+		_, err := apiKeysStore.CreateApiKey(ctx, projectID, "Test Key", "support", nil)
 		require.NoError(t, err)
 	}
 
@@ -210,7 +206,7 @@ func TestGetApiKey(t *testing.T) {
 	require.NoError(t, err)
 
 	apiKeysStore := management.NewApiKeysStore(mgmt)
-	apiKey, err := apiKeysStore.CreateApiKey(ctx, projectID, "Test Key", "project", "support", nil)
+	apiKey, err := apiKeysStore.CreateApiKey(ctx, projectID, "Test Key", "support", nil)
 	require.NoError(t, err)
 
 	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
@@ -318,7 +314,7 @@ func TestUpdateApiKey(t *testing.T) {
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			// Create a fresh API key for each test case
-			apiKey, err := apiKeysStore.CreateApiKey(ctx, projectID, "Test Key", "project", "support", nil)
+			apiKey, err := apiKeysStore.CreateApiKey(ctx, projectID, "Test Key", "support", nil)
 			require.NoError(t, err)
 
 			// Provision the RBAC tuple so deprovision/update can succeed.
@@ -365,7 +361,7 @@ func TestDeleteApiKey(t *testing.T) {
 	require.NoError(t, err)
 
 	apiKeysStore := management.NewApiKeysStore(mgmt)
-	apiKey, err := apiKeysStore.CreateApiKey(ctx, projectID, "Test Key", "project", "support", nil)
+	apiKey, err := apiKeysStore.CreateApiKey(ctx, projectID, "Test Key", "support", nil)
 	require.NoError(t, err)
 
 	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),

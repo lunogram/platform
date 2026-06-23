@@ -1909,7 +1909,7 @@ export interface paths {
         head?: never;
         /**
          * Update API key
-         * @description Updates an API key's name or description (scope cannot be changed)
+         * @description Updates an API key's name, role, or description
          */
         patch: operations["updateApiKey"];
         trace?: never;
@@ -4409,12 +4409,6 @@ export interface components {
         ProjectAdminList: components["schemas"]["PaginatedResponse"] & {
             results: components["schemas"]["ProjectAdmin"][];
         };
-        /**
-         * @description API key scope - public keys are safe to expose in client-side code
-         * @example secret
-         * @enum {string}
-         */
-        ApiKeyScope: "public" | "secret";
         ApiKey: {
             /**
              * Format: uuid
@@ -4433,7 +4427,6 @@ export interface components {
              * @example a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2
              */
             value: string;
-            scope: components["schemas"]["ApiKeyScope"];
             role: components["schemas"]["ProjectRole"];
             /** @example API key for production environment */
             description?: string;
@@ -4451,7 +4444,6 @@ export interface components {
         CreateApiKey: {
             /** @example Production API Key */
             name: string;
-            scope: components["schemas"]["ApiKeyScope"];
             role?: components["schemas"]["ProjectRole"];
             /** @example API key for production environment */
             description?: string;

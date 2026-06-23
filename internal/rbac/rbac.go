@@ -10,8 +10,9 @@ import (
 type ActorType string
 
 const (
-	ActorAdmin  ActorType = "admin"
-	ActorAPIKey ActorType = "api_key"
+	ActorAdmin   ActorType = "admin"
+	ActorAPIKey  ActorType = "api_key"
+	ActorEndUser ActorType = "end_user"
 )
 
 const (
@@ -35,7 +36,39 @@ type Actor struct {
 	ID             string
 	OrganizationID uuid.UUID
 	ProjectID      uuid.UUID
+
+	// SubjectID is the resolved internal Lunogram user (subject) id for
+	// end-user actors ([ActorEndUser]). It is the zero UUID for admins and API
+	// keys.
+	//
+	// Authorization is always decided in OpenFGA against the policy identity
+	// ([Actor.UserKey]); SubjectID never participates in the permission check.
+	// It exists so handlers can scope queries to the verified user's own rows
+	// (e.g. WHERE user_id = SubjectID) once the policy has authorized the
+	// resource and verb.
+	SubjectID uuid.UUID
+
+	// Scope is the data boundary the actor acts within. The zero value (and
+	// [DataScopeAll]) acts across every subject's records, like a backend key;
+	// [DataScopeOwn] is set only for verified end-user actors ([ActorEndUser])
+	// whose auth method carries the "own" subject scope, binding them to their
+	// verified subject regardless of any client-supplied identifier. See
+	// [Actor.SubjectID].
+	Scope DataScope
 }
+
+// DataScope is the data boundary an actor acts within. It is a small enum rather
+// than a bool so the boundary can grow new values without changing the actor
+// option signature.
+type DataScope string
+
+const (
+	// DataScopeAll acts across every subject's records (the default: backend
+	// keys and admins).
+	DataScopeAll DataScope = "all"
+	// DataScopeOwn confines a verified end user to its own records.
+	DataScopeOwn DataScope = "own"
+)
 
 // ActorOption configures optional fields on an [Actor].
 type ActorOption func(*Actor)
@@ -51,6 +84,24 @@ func WithOrganizationID(id uuid.UUID) ActorOption {
 func WithProjectID(id uuid.UUID) ActorOption {
 	return func(a *Actor) {
 		a.ProjectID = id
+	}
+}
+
+// WithSubjectID sets the resolved internal user (subject) id on the actor. Use
+// this for end-user actors so handlers can scope queries to the verified user's
+// own rows. See [Actor.SubjectID].
+func WithSubjectID(id uuid.UUID) ActorOption {
+	return func(a *Actor) {
+		a.SubjectID = id
+	}
+}
+
+// WithScope sets the data boundary the actor acts within. Use [DataScopeOwn]
+// for verified end-user actors whose auth method has the "own" subject scope.
+// See [Actor.Scope].
+func WithScope(scope DataScope) ActorOption {
+	return func(a *Actor) {
+		a.Scope = scope
 	}
 }
 

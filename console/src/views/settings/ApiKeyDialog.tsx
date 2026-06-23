@@ -39,11 +39,11 @@ const roleConfig: Record<
     },
     client: {
         icon: Smartphone,
-        description: "Write-only access for client-side SDKs and integrations.",
+        description: "Write-only access for ingesting events and user data.",
         permissions: [
             "Create & update users, events, and organizations",
             "No read access to any resource",
-            "Designed for client-side SDKs and public integrations",
+            "Designed for server-side ingestion integrations",
         ],
     },
     editor: {
