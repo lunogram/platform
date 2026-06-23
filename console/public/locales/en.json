@@ -979,5 +979,19 @@
     "search_inbox": "Search inbox...",
     "sender": "Sender",
     "sms": "SMS",
-    "unread": "Unread"
+    "unread": "Unread",
+    "client_scope_any": "Any",
+    "client_scope_limited_to": "Limited to {{count}}",
+    "client_scope_create_named": "Create \"{{name}}\"",
+    "client_scope_hint_open": "Add names to limit what this client can create.",
+    "client_scope_hint_limited": "Only these may be created. Clear the list to allow any.",
+    "client_scope_events_title": "Allowed event names",
+    "client_scope_events_help": "Only these event names may be emitted. Caps the blast radius of a leaked key forging events to trigger journeys.",
+    "client_scope_events_search": "Search or add an event name…",
+    "client_scope_subscriptions_title": "Allowed subscriptions",
+    "client_scope_subscriptions_help": "Only these subscriptions may be created or changed by this client.",
+    "client_scope_subscriptions_search": "Search or add a subscription…",
+    "client_scope_scheduled_title": "Allowed scheduled events",
+    "client_scope_scheduled_help": "Only these scheduled event names may be created or changed by this client.",
+    "client_scope_scheduled_search": "Search or add a scheduled event…"
 }
