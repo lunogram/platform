@@ -13,11 +13,12 @@ import (
 	"github.com/lunogram/platform/internal/store/subjects"
 	"github.com/lunogram/platform/internal/webhook"
 	"github.com/nats-io/nats.go/jetstream"
+	goredis "github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 )
 
-func NewController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB, cfg config.Node, storage storage.Storage, urlResolver *storage.URLResolver, pub pubsub.Publisher, req pubsub.Caller, jet jetstream.JetStream, registry *providers.Registry, actionRegistry *actions.Registry, engine *rbac.Engine) (_ *Controller, err error) {
-	mgmt := management.NewState(managementDB)
+func NewController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB, cfg config.Node, storage storage.Storage, urlResolver *storage.URLResolver, pub pubsub.Publisher, req pubsub.Caller, jet jetstream.JetStream, registry *providers.Registry, actionRegistry *actions.Registry, engine *rbac.Engine, rdb *goredis.Client) (_ *Controller, err error) {
+	mgmt := management.NewState(managementDB, management.WithRedis(rdb, cfg.Redis.KeyPrefix))
 	projects := management.NewProjectsStore(managementDB)
 	usrs := subjects.NewState(usersDB, logger)
 

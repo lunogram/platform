@@ -48,6 +48,13 @@ type Actor struct {
 	// resource and verb.
 	SubjectID uuid.UUID
 
+	// Subject and SubjectSource are the verified external identity for end-user
+	// actors: the value of the configured subject claim and the external-ID
+	// source it maps to (the trusted issuer). They let handlers resolve or create
+	// the Lunogram user for the verified subject. Empty for admins and API keys.
+	Subject       string
+	SubjectSource string
+
 	// Scope is the data boundary the actor acts within. The zero value (and
 	// [DataScopeAll]) acts across every subject's records, like a backend key;
 	// [DataScopeOwn] is set only for verified end-user actors ([ActorEndUser])
@@ -93,6 +100,15 @@ func WithProjectID(id uuid.UUID) ActorOption {
 func WithSubjectID(id uuid.UUID) ActorOption {
 	return func(a *Actor) {
 		a.SubjectID = id
+	}
+}
+
+// WithSubject sets the verified external subject and its external-ID source on
+// the actor. See [Actor.Subject].
+func WithSubject(subject, source string) ActorOption {
+	return func(a *Actor) {
+		a.Subject = subject
+		a.SubjectSource = source
 	}
 }
 

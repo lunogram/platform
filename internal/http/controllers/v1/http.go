@@ -23,6 +23,7 @@ import (
 	managementv1 "github.com/lunogram/platform/internal/http/controllers/v1/management"
 	mgmtoapi "github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/http/scalar"
+	"github.com/lunogram/platform/internal/jwks"
 	"github.com/lunogram/platform/internal/providers"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/ratelimit"
@@ -32,6 +33,7 @@ import (
 	"github.com/lunogram/platform/internal/store/management"
 	"github.com/lunogram/platform/internal/store/subjects"
 	"github.com/nats-io/nats.go/jetstream"
+	goredis "github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 )
 
@@ -41,8 +43,8 @@ var staticFiles embed.FS
 // NewServer constructs a unified HTTP server combining both management and client
 // API endpoints. Management endpoints use JWT+API Key auth, while client endpoints
 // use API Key only authentication.
-func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *store.Connections, storageDriver storage.Storage, jet jetstream.JetStream, pub pubsub.Publisher, req pubsub.Caller, registry *providers.Registry, actionRegistry *actions.Registry, rbacEngine *rbac.Engine, limiter *ratelimit.Limiter) (*http.Server, error) {
-	mgmtStores := management.NewState(db.Management)
+func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *store.Connections, storageDriver storage.Storage, jet jetstream.JetStream, pub pubsub.Publisher, req pubsub.Caller, registry *providers.Registry, actionRegistry *actions.Registry, rbacEngine *rbac.Engine, limiter *ratelimit.Limiter, jwksCache *jwks.Cache, rdb *goredis.Client) (*http.Server, error) {
+	mgmtStores := management.NewState(db.Management, management.WithRedis(rdb, cfg.Redis.KeyPrefix))
 	usersStore := subjects.NewState(db.Subjects, logger)
 
 	// Load OpenAPI specs
@@ -60,13 +62,20 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *st
 	urlResolver := storage.NewURLResolver(cfg.Storage.BaseURL)
 
 	// Create management controller
-	mgmtController, err := managementv1.NewController(logger, db.Management, db.Subjects, db.Journey, cfg, storageDriver, urlResolver, pub, req, jet, registry, actionRegistry, rbacEngine)
+	mgmtController, err := managementv1.NewController(logger, db.Management, db.Subjects, db.Journey, cfg, storageDriver, urlResolver, pub, req, jet, registry, actionRegistry, rbacEngine, rdb)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create management controller: %w", err)
 	}
 
+	// Session signer (ES256). Nil when no signing key is configured, which
+	// disables session minting and verification.
+	sessionSigner, err := auth.NewSessionSigner(cfg.Auth.SessionSigningKey, cfg.Auth.SessionIssuer)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build session signer: %w", err)
+	}
+
 	// Create client controller
-	clientController, err := clientv1.NewController(logger, db.Management, db.Subjects, mgmtStores, usersStore, pub, rbacEngine)
+	clientController, err := clientv1.NewController(logger, db.Management, db.Subjects, mgmtStores, usersStore, pub, rbacEngine, sessionSigner)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create client controller: %w", err)
 	}
@@ -105,6 +114,8 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *st
 				clientoapi.Validator(clientSpec, openapi3filter.Options{
 					AuthenticationFunc: auth.Middleware(
 						auth.WithKey(mgmtStores, auth.SurfaceClient),
+						auth.WithSession(mgmtStores, sessionSigner),
+						auth.WithTrustedIssuer(mgmtStores, jwksCache),
 					),
 				}),
 				// Runs after the validator (and thus after authentication) so

@@ -49,6 +49,31 @@ func TestAuthMethodsStore(t *testing.T) {
 		assert.Len(t, got.Grants, 2)
 	})
 
+	t.Run("resolves a trusted_issuer by its issuer", func(t *testing.T) {
+		created, err := db.CreateAuthMethod(ctx, projectID, CreateAuthMethodInput{
+			Type: MethodTypeTrustedIssuer,
+			Name: "lookup idp",
+			Role: "support",
+			TrustedIssuer: &TrustedIssuer{
+				JWKSURL: "https://lookup.example/jwks.json",
+				Issuer:  "https://lookup.example",
+			},
+		})
+		require.NoError(t, err)
+
+		resolved, err := db.GetTrustedIssuerByIssuer(ctx, "https://lookup.example")
+		require.NoError(t, err)
+		assert.Equal(t, created.ID, resolved.ID)
+		assert.Equal(t, projectID, resolved.ProjectID)
+		assert.Equal(t, orgID, resolved.OrganizationID)
+		require.NotNil(t, resolved.JWKSURL)
+		assert.Equal(t, "https://lookup.example/jwks.json", *resolved.JWKSURL)
+		assert.Equal(t, "sub", resolved.SubjectClaim)
+
+		_, err = db.GetTrustedIssuerByIssuer(ctx, "https://unknown.example")
+		assert.Error(t, err)
+	})
+
 	t.Run("creates a trusted_issuer method", func(t *testing.T) {
 		created, err := db.CreateAuthMethod(ctx, projectID, CreateAuthMethodInput{
 			Type:         MethodTypeTrustedIssuer,
@@ -95,13 +120,27 @@ func TestAuthMethodsStore(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, got.Session)
 		assert.Equal(t, 600, got.Session.TTLSeconds)
+
+		// Resolvable as a session policy for minting/verifying tokens.
+		sess, err := db.GetSessionAuthMethod(created.ID)
+		require.NoError(t, err)
+		assert.Equal(t, created.ID, sess.ID)
+		assert.Equal(t, projectID, sess.ProjectID)
+		assert.Equal(t, orgID, sess.OrganizationID)
+		assert.Equal(t, 600, sess.TTLSeconds)
+
+		// An api_key method is not a session method.
+		apiKeyMethod, err := db.CreateAuthMethod(ctx, projectID, CreateAuthMethodInput{Type: MethodTypeAPIKey, Name: "k", Role: "support"})
+		require.NoError(t, err)
+		_, err = db.GetSessionAuthMethod(apiKeyMethod.ID)
+		assert.Error(t, err)
 	})
 
 	t.Run("lists, updates role + grants, soft deletes", func(t *testing.T) {
 		methods, total, err := db.ListAuthMethods(ctx, projectID, store.Pagination{Limit: 10})
 		require.NoError(t, err)
-		assert.Equal(t, 3, total)
-		assert.Len(t, methods, 3)
+		assert.Equal(t, 5, total)
+		assert.Len(t, methods, 5)
 
 		// Find the api_key method and rewrite its scope.
 		var target AuthMethod

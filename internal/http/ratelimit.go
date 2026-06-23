@@ -46,6 +46,12 @@ func RateLimit(limiter *ratelimit.Limiter, limit int, window time.Duration, trus
 // the client and management APIs.
 func rateLimitKey(r *http.Request, trustedProxyHops int) string {
 	if actor := rbac.FromContext(r.Context()); actor != nil && actor.ID != "" {
+		// Verified end users (session / trusted issuer) all share their auth
+		// method's id as the actor id, so partition the bucket by the verified
+		// subject; otherwise one end user could exhaust the whole method's budget.
+		if actor.Subject != "" {
+			return "key:" + actor.ID + ":" + actor.Subject
+		}
 		return "key:" + actor.ID
 	}
 	return "ip:" + clientIP(r, trustedProxyHops)
