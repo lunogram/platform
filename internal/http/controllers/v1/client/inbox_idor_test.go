@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
 	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/store/subjects"
@@ -17,17 +16,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
-
-// capturingPublisher records every published message so a controller test can
-// assert on what was sent downstream without a real broker.
-type capturingPublisher struct {
-	messages []any
-}
-
-func (p *capturingPublisher) Publish(_ context.Context, _ schemas.Subject, v any, _ ...pubsub.PublishOption) error {
-	p.messages = append(p.messages, v)
-	return nil
-}
 
 // newInboxController wires an InboxController over an in-memory RBAC engine that
 // grants the actor the "client" project role (which carries inbox-create) and a
@@ -67,8 +55,9 @@ func postInboxMessage(t *testing.T, srv *InboxController, ctx context.Context, s
 
 func publishedIdentifiers(t *testing.T, pub *capturingPublisher) []subjects.ExternalIDParam {
 	t.Helper()
-	require.Len(t, pub.messages, 1, "exactly one inbox message should be published")
-	msg, ok := pub.messages[0].(schemas.InboxMessage)
+	captured := pub.captured()
+	require.Len(t, captured, 1, "exactly one inbox message should be published")
+	msg, ok := captured[0].Value.(schemas.InboxMessage)
 	require.True(t, ok, "published value should be a schemas.InboxMessage")
 	return msg.Identifiers
 }
