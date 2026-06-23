@@ -1,4 +1,4 @@
 {
   "title": "Settings",
-  "pages": ["api-keys", "subscriptions"]
+  "pages": ["access", "subscriptions"]
 }
