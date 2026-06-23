@@ -49,7 +49,7 @@ func postInboxMessage(t *testing.T, srv *InboxController, ctx context.Context, s
 	req := httptest.NewRequest(http.MethodPost, "/api/client/users/inbox", bytes.NewReader(data)).WithContext(ctx)
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
-	srv.PostUserInboxMessages(w, req)
+	srv.PostUserInboxMessages(w, req, uuid.Nil)
 	return w
 }
 

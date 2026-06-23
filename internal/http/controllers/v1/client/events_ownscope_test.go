@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
 	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/store/subjects"
@@ -29,7 +30,7 @@ func postEvents(t *testing.T, c *testClientController, actor *rbac.Actor, events
 	req.Header.Set("Content-Type", "application/json")
 	req = req.WithContext(rbac.WithActor(req.Context(), actor))
 	w := httptest.NewRecorder()
-	c.PostUserEvents(w, req)
+	c.PostUserEvents(w, req, uuid.Nil)
 	return w
 }
 
