@@ -6,7 +6,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
-	"github.com/lunogram/platform/internal/ptr"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
 	"github.com/stretchr/testify/require"
 )
@@ -33,10 +32,12 @@ func TestJourneyEntranceEventDependencies_ListTrigger(t *testing.T) {
 		{
 			name: "join with exit on leave",
 			data: oapi.EntranceStepData{
-				Trigger:       ptr.To("list"),
-				ListID:        &listID,
-				ListDirection: ptr.To("joins"),
-				ExitOnLeave:   ptr.To(true),
+				Trigger: oapi.TriggerList,
+				List: &oapi.ListTrigger{
+					ID:          listID,
+					Direction:   oapi.ListJoins,
+					ExitOnLeave: true,
+				},
 			},
 			wantInMap: true,
 			wantEnter: schemas.EventListUserAdded,
@@ -45,10 +46,12 @@ func TestJourneyEntranceEventDependencies_ListTrigger(t *testing.T) {
 		{
 			name: "join without exit on leave",
 			data: oapi.EntranceStepData{
-				Trigger:       ptr.To("list"),
-				ListID:        &listID,
-				ListDirection: ptr.To("joins"),
-				ExitOnLeave:   ptr.To(false),
+				Trigger: oapi.TriggerList,
+				List: &oapi.ListTrigger{
+					ID:          listID,
+					Direction:   oapi.ListJoins,
+					ExitOnLeave: false,
+				},
 			},
 			wantInMap: true,
 			wantEnter: schemas.EventListUserAdded,
@@ -57,10 +60,12 @@ func TestJourneyEntranceEventDependencies_ListTrigger(t *testing.T) {
 		{
 			name: "leave direction never exits",
 			data: oapi.EntranceStepData{
-				Trigger:       ptr.To("list"),
-				ListID:        &listID,
-				ListDirection: ptr.To("leaves"),
-				ExitOnLeave:   ptr.To(true),
+				Trigger: oapi.TriggerList,
+				List: &oapi.ListTrigger{
+					ID:          listID,
+					Direction:   oapi.ListLeaves,
+					ExitOnLeave: true,
+				},
 			},
 			wantInMap: true,
 			wantEnter: schemas.EventListUserRemoved,
@@ -69,9 +74,11 @@ func TestJourneyEntranceEventDependencies_ListTrigger(t *testing.T) {
 		{
 			name: "default direction is join",
 			data: oapi.EntranceStepData{
-				Trigger:     ptr.To("list"),
-				ListID:      &listID,
-				ExitOnLeave: ptr.To(true),
+				Trigger: oapi.TriggerList,
+				List: &oapi.ListTrigger{
+					ID:          listID,
+					ExitOnLeave: true,
+				},
 			},
 			wantInMap: true,
 			wantEnter: schemas.EventListUserAdded,
@@ -80,16 +87,17 @@ func TestJourneyEntranceEventDependencies_ListTrigger(t *testing.T) {
 		{
 			name: "list trigger without a list is ignored",
 			data: oapi.EntranceStepData{
-				Trigger:       ptr.To("list"),
-				ListDirection: ptr.To("joins"),
+				Trigger: oapi.TriggerList,
 			},
 			wantInMap: false,
 		},
 		{
 			name: "event trigger only registers enter",
 			data: oapi.EntranceStepData{
-				Trigger:   ptr.To("event"),
-				EventName: ptr.To("order.created"),
+				Trigger: oapi.TriggerEvent,
+				Event: &oapi.EventTrigger{
+					Name: "order.created",
+				},
 			},
 			wantInMap: true,
 			wantEnter: "order.created",

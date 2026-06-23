@@ -54,27 +54,42 @@ import type { UUID } from "@/types/common"
 
 type ListDirection = "joins" | "leaves"
 
+interface EntranceEventTrigger {
+    name?: string
+    rule?: Rule
+    user_rule?: Rule
+}
+
+interface EntranceScheduledTrigger {
+    name?: string
+    offset_id?: UUID
+    rule?: Rule
+    user_rule?: Rule
+}
+
+interface EntranceListTrigger {
+    id?: UUID
+    direction?: ListDirection
+    exit_on_leave?: boolean
+}
+
 interface EntranceConfig {
     trigger: "none" | "event" | "scheduled" | "list"
 
-    // event based
-    event_name?: string
-    rule?: Rule
     multiple?: boolean
     concurrent?: boolean
 
-    // scheduled based
+    // Exactly one matches `trigger` (none carries no block).
+    event?: EntranceEventTrigger
+    scheduled?: EntranceScheduledTrigger
+    list?: EntranceListTrigger
+
+    // UI-only working state. The backend ignores these but they are preserved
+    // verbatim in the stored step data so the editor can restore its selections.
     scheduled_name?: string
-    schedule_offset_id?: UUID
     schedule_offset?: string
     schedule_offset_direction?: string
-
-    // list based
-    list_id?: UUID
     list_name?: string
-    list_direction?: ListDirection
-    exit_on_leave?: boolean
-
     references?: Array<{ id: UUID; name: string }>
 }
 
@@ -137,11 +152,11 @@ function ScheduledOffsetSelector({
     valueRef.current = value
 
     useEffect(() => {
-        if (!valueRef.current.schedule_offset_id && offsets.length > 0) {
+        if (!valueRef.current.scheduled?.offset_id && offsets.length > 0) {
             const first = offsets[0]
             onChangeRef.current({
                 ...valueRef.current,
-                schedule_offset_id: first.id,
+                scheduled: { ...valueRef.current.scheduled, offset_id: first.id },
                 schedule_offset: first.offset,
                 schedule_offset_direction: first.direction,
             })
@@ -158,11 +173,11 @@ function ScheduledOffsetSelector({
                 projectId={projectId}
                 scheduledId={schedule?.id ?? ("" as UUID)}
                 offsets={offsets}
-                value={value.schedule_offset_id}
+                value={value.scheduled?.offset_id}
                 onChange={(offsetId, offset, direction) => {
                     onChange({
                         ...value,
-                        schedule_offset_id: offsetId,
+                        scheduled: { ...value.scheduled, offset_id: offsetId },
                         schedule_offset: offset,
                         schedule_offset_direction: direction,
                     })
@@ -572,15 +587,13 @@ export const entranceStep: JourneyStepType<EntranceConfig> = {
     Describe({
         value: {
             trigger,
-            event_name,
-            rule,
+            event,
+            scheduled,
             scheduled_name,
-            schedule_offset_id,
             schedule_offset,
             schedule_offset_direction,
+            list,
             list_name,
-            list_direction,
-            exit_on_leave,
             references = [],
         },
     }) {
@@ -588,6 +601,7 @@ export const entranceStep: JourneyStepType<EntranceConfig> = {
         const [preferences] = useContext(PreferencesContext)
 
         if (trigger === "event") {
+            const rule = event?.rule
             const hasConditions = rule && isEventWrapper(rule) && !!rule?.children?.length
             return (
                 <div className="space-y-1.5 max-w-[300px]">
@@ -595,7 +609,7 @@ export const entranceStep: JourneyStepType<EntranceConfig> = {
                         <Zap className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                         <span>
                             {t("entrance_add_everyone_when") + " "}
-                            <strong>{event_name || <>&#8211;</>}</strong>
+                            <strong>{event?.name || <>&#8211;</>}</strong>
                             {t("entrance_occurs")}
                         </span>
                     </div>
@@ -619,7 +633,7 @@ export const entranceStep: JourneyStepType<EntranceConfig> = {
                     <CalendarClock className="size-4 shrink-0 text-muted-foreground" />
                     <span>
                         <span className="font-medium">{scheduled_name}</span>
-                        {schedule_offset_id && schedule_offset != null && (
+                        {scheduled?.offset_id && schedule_offset != null && (
                             <span className="text-muted-foreground">
                                 {" "}
                                 {formatOffset(
@@ -634,7 +648,8 @@ export const entranceStep: JourneyStepType<EntranceConfig> = {
         }
 
         if (trigger === "list") {
-            const direction = list_direction ?? "joins"
+            const direction = list?.direction ?? "joins"
+            const exit_on_leave = list?.exit_on_leave
             return (
                 <div className="space-y-1.5 max-w-[300px]">
                     <div className="flex items-center gap-1.5 text-sm">
@@ -725,14 +740,17 @@ export const entranceStep: JourneyStepType<EntranceConfig> = {
         // Seed sensible defaults for the list trigger: enter on join, and exit
         // the journey when the user leaves the list.
         useEffect(() => {
-            if (value.trigger === "list" && value.list_direction === undefined) {
+            if (value.trigger === "list" && value.list?.direction === undefined) {
                 onChange({
                     ...value,
-                    list_direction: "joins",
-                    exit_on_leave: value.exit_on_leave ?? true,
+                    list: {
+                        ...value.list,
+                        direction: "joins",
+                        exit_on_leave: value.list?.exit_on_leave ?? true,
+                    },
                 })
             }
-        }, [value.trigger, value.list_direction]) // eslint-disable-line react-hooks/exhaustive-deps
+        }, [value.trigger, value.list?.direction]) // eslint-disable-line react-hooks/exhaustive-deps
 
         const handleSearch = useCallback(
             async (query: string): Promise<RulePath[]> => {
@@ -745,15 +763,14 @@ export const entranceStep: JourneyStepType<EntranceConfig> = {
         )
 
         const handleEventNameChange = useCallback(
-            (event_name: string) => {
-                const currentRule = value.rule
+            (name: string) => {
+                const currentRule = value.event?.rule
                 const updatedRule = currentRule
-                    ? { ...currentRule, value: event_name }
-                    : createSimpleEventRule(event_name)
+                    ? { ...currentRule, value: name }
+                    : createSimpleEventRule(name)
                 onChange({
                     ...value,
-                    event_name,
-                    rule: updatedRule,
+                    event: { ...value.event, name, rule: updatedRule },
                 })
             },
             [onChange, value],
@@ -784,12 +801,19 @@ export const entranceStep: JourneyStepType<EntranceConfig> = {
                     <Label className="text-sm font-medium">{t("trigger")}</Label>
                     <Tabs
                         value={value.trigger}
-                        onValueChange={(trigger) =>
+                        onValueChange={(next) => {
+                            const trigger = next as EntranceConfig["trigger"]
+                            // Keep only the active trigger's block so the stored
+                            // data stays a clean oneOf; the backend rejects an
+                            // entrance that carries a foreign trigger block.
                             onChange({
                                 ...value,
-                                trigger: trigger as EntranceConfig["trigger"],
+                                trigger,
+                                event: trigger === "event" ? value.event : undefined,
+                                scheduled: trigger === "scheduled" ? value.scheduled : undefined,
+                                list: trigger === "list" ? value.list : undefined,
                             })
-                        }
+                        }}
                     >
                         <TabsList className="w-full">
                             {triggers.map((key) => {
@@ -812,24 +836,27 @@ export const entranceStep: JourneyStepType<EntranceConfig> = {
                                 <span className="text-destructive">*</span>
                             </Label>
                             <EventNameCombobox
-                                value={value.event_name ?? ""}
+                                value={value.event?.name ?? ""}
                                 onChange={handleEventNameChange}
                                 onSearch={handleSearch}
                             />
                         </div>
-                        {value.event_name && (
+                        {value.event?.name && (
                             <RuleBuilder
-                                rule={value.rule ?? createSimpleEventRule(value.event_name)}
+                                rule={value.event.rule ?? createSimpleEventRule(value.event.name)}
                                 setRule={(rule) =>
                                     onChange({
                                         ...value,
-                                        rule: {
-                                            ...rule,
-                                            value: value.event_name,
+                                        event: {
+                                            ...value.event,
+                                            rule: {
+                                                ...rule,
+                                                value: value.event?.name,
+                                            },
                                         },
                                     })
                                 }
-                                eventName={value.event_name}
+                                eventName={value.event.name}
                                 headerPrefix={t("entrance_matching")}
                             />
                         )}
@@ -886,10 +913,13 @@ export const entranceStep: JourneyStepType<EntranceConfig> = {
                                     onChange({
                                         ...value,
                                         scheduled_name,
-                                        schedule_offset_id: undefined,
-                                        event_name: scheduled_name
-                                            ? `scheduled.${scheduled_name}`
-                                            : undefined,
+                                        scheduled: {
+                                            ...value.scheduled,
+                                            name: scheduled_name
+                                                ? `scheduled.${scheduled_name}`
+                                                : undefined,
+                                            offset_id: undefined,
+                                        },
                                     })
                                 }}
                                 placeholder={t("scheduled_name", "Scheduled Name")}
@@ -922,22 +952,30 @@ export const entranceStep: JourneyStepType<EntranceConfig> = {
                         )}
 
                         {/* RuleBuilder - shown after schedule + offset are selected */}
-                        {value.scheduled_name && value.schedule_offset_id && value.event_name && (
-                            <RuleBuilder
-                                rule={value.rule ?? createSimpleEventRule(value.event_name)}
-                                setRule={(rule) =>
-                                    onChange({
-                                        ...value,
-                                        rule: {
-                                            ...rule,
-                                            value: value.event_name,
-                                        },
-                                    })
-                                }
-                                eventName={value.event_name}
-                                headerPrefix={t("entrance_matching")}
-                            />
-                        )}
+                        {value.scheduled_name &&
+                            value.scheduled?.offset_id &&
+                            value.scheduled?.name && (
+                                <RuleBuilder
+                                    rule={
+                                        value.scheduled.rule ??
+                                        createSimpleEventRule(value.scheduled.name)
+                                    }
+                                    setRule={(rule) =>
+                                        onChange({
+                                            ...value,
+                                            scheduled: {
+                                                ...value.scheduled,
+                                                rule: {
+                                                    ...rule,
+                                                    value: value.scheduled?.name,
+                                                },
+                                            },
+                                        })
+                                    }
+                                    eventName={value.scheduled.name}
+                                    headerPrefix={t("entrance_matching")}
+                                />
+                            )}
 
                         {/* Multiple entries toggle */}
                         <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
@@ -990,12 +1028,12 @@ export const entranceStep: JourneyStepType<EntranceConfig> = {
                             </Label>
                             <ListSelector
                                 projectId={projectId as UUID}
-                                value={value.list_id}
+                                value={value.list?.id}
                                 displayName={value.list_name}
                                 onChange={(list) =>
                                     onChange({
                                         ...value,
-                                        list_id: list.id,
+                                        list: { ...value.list, id: list.id },
                                         list_name: list.name,
                                     })
                                 }
@@ -1007,16 +1045,19 @@ export const entranceStep: JourneyStepType<EntranceConfig> = {
                                 {t("entrance_list_when", "Enter the journey when")}
                             </Label>
                             <Select
-                                value={value.list_direction ?? "joins"}
+                                value={value.list?.direction ?? "joins"}
                                 onValueChange={(v) => {
                                     const direction = v as ListDirection
                                     onChange({
                                         ...value,
-                                        list_direction: direction,
-                                        exit_on_leave:
-                                            direction === "joins"
-                                                ? (value.exit_on_leave ?? true)
-                                                : false,
+                                        list: {
+                                            ...value.list,
+                                            direction,
+                                            exit_on_leave:
+                                                direction === "joins"
+                                                    ? (value.list?.exit_on_leave ?? true)
+                                                    : false,
+                                        },
                                     })
                                 }}
                             >
@@ -1034,7 +1075,7 @@ export const entranceStep: JourneyStepType<EntranceConfig> = {
                             </Select>
                         </div>
 
-                        {(value.list_direction ?? "joins") === "joins" && (
+                        {(value.list?.direction ?? "joins") === "joins" && (
                             <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
                                 <div className="space-y-0.5">
                                     <Label htmlFor="exit-on-leave" className="text-sm font-medium">
@@ -1052,9 +1093,12 @@ export const entranceStep: JourneyStepType<EntranceConfig> = {
                                 </div>
                                 <Switch
                                     id="exit-on-leave"
-                                    checked={value.exit_on_leave ?? true}
+                                    checked={value.list?.exit_on_leave ?? true}
                                     onCheckedChange={(exit_on_leave) =>
-                                        onChange({ ...value, exit_on_leave })
+                                        onChange({
+                                            ...value,
+                                            list: { ...value.list, exit_on_leave },
+                                        })
                                     }
                                 />
                             </div>
@@ -1113,15 +1157,15 @@ export const entranceStep: JourneyStepType<EntranceConfig> = {
             </>
         )
     },
-    validate: ({ trigger, event_name, scheduled_name, schedule_offset_id, list_id }) => {
+    validate: ({ trigger, event, scheduled, list }) => {
         if (trigger === "event") {
-            return !!event_name
+            return !!event?.name
         }
         if (trigger === "scheduled") {
-            return !!scheduled_name && !!schedule_offset_id
+            return !!scheduled?.name && !!scheduled?.offset_id
         }
         if (trigger === "list") {
-            return !!list_id
+            return !!list?.id
         }
         return true
     },

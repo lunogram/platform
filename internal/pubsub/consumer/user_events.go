@@ -168,22 +168,22 @@ func PublishUserEventJourneyDependencies(ctx context.Context, logger *zap.Logger
 			// List triggers reuse the list membership events but must only
 			// enrol users for their own list. The list match is authoritative
 			// in the backend rather than relying on a generated rule.
-			if entrance.Trigger != nil && *entrance.Trigger == "list" {
-				if entrance.ListID == nil {
+			if entrance.Trigger == oapi.TriggerList {
+				if entrance.List == nil {
 					continue
 				}
 				listID, _ := event.Data["list_id"].(string)
-				if !strings.EqualFold(listID, entrance.ListID.String()) {
+				if !strings.EqualFold(listID, entrance.List.ID.String()) {
 					continue
 				}
 			}
 
-			if entrance.Rule != nil {
+			if rule := entrance.EntranceRule(); rule != nil {
 				data := map[string]any{
 					"data": event.Data,
 				}
 
-				match, err := evaluator.Evaluate(*entrance.Rule, data)
+				match, err := evaluator.Evaluate(*rule, data)
 				if err != nil {
 					logger.Error("failed to evaluate journey entrance rule", zap.Error(err))
 					return err
@@ -211,8 +211,8 @@ func PublishUserEventJourneyDependencies(ctx context.Context, logger *zap.Logger
 				VersionID:      dep.VersionID,
 				UserID:         event.UserID,
 				ExternalStepID: dep.ExternalID,
-				Multiple:       entrance.Multiple != nil && *entrance.Multiple,
-				Concurrent:     entrance.Concurrent != nil && *entrance.Concurrent,
+				Multiple:       entrance.Multiple,
+				Concurrent:     entrance.Concurrent,
 				Data:           event.Data,
 				Children:       childrenJSON,
 			}
@@ -257,7 +257,7 @@ func CompleteUserEventJourneyExits(ctx context.Context, logger *zap.Logger, jrny
 				}
 			}
 
-			if entrance.ListID == nil || !strings.EqualFold(eventListID, entrance.ListID.String()) {
+			if entrance.List == nil || !strings.EqualFold(eventListID, entrance.List.ID.String()) {
 				continue
 			}
 

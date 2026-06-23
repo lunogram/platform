@@ -6522,33 +6522,98 @@ components:
 
     EntranceStepData:
       type: object
-      description: Data for entrance step - entry point into journey
+      description: >
+        Data for entrance step - entry point into journey. Tagged union:
+        `trigger` selects the kind and the matching sub-object (event, scheduled
+        or list) carries its fields. `concurrent` and `multiple` apply to every
+        kind. `none` is an API/manually triggered entrance with no sub-object.
       additionalProperties: false
+      required:
+        - trigger
       properties:
         trigger:
           type: string
-          enum: [none, event]
-          description: Trigger type for entrance
+          enum: [none, event, scheduled, list]
+          description: Selects which trigger sub-object is active
           example: "event"
-        event_name:
+        concurrent:
+          type: boolean
+          description: Allow concurrent journey runs
+          example: false
+        multiple:
+          type: boolean
+          description: Allow re-entry after a previous run completed
+          example: false
+        event:
+          $ref: "#/components/schemas/EntranceEventTrigger"
+        scheduled:
+          $ref: "#/components/schemas/EntranceScheduledTrigger"
+        list:
+          $ref: "#/components/schemas/EntranceListTrigger"
+
+    EntranceEventTrigger:
+      type: object
+      description: Enters the user when a matching custom event is received
+      additionalProperties: false
+      required:
+        - name
+      properties:
+        name:
           type: string
           description: Event name that triggers entrance
           example: "user_signup"
         rule:
           type: object
-          description: Rule for filtering events
+          description: Optional condition evaluated against the event data
           additionalProperties: true
         user_rule:
           type: object
-          description: Rule for filtering users (used with organization events)
+          description: Optional filter for organization members
           additionalProperties: true
-        multiple:
+
+    EntranceScheduledTrigger:
+      type: object
+      description: Enters the user when a schedule offset fires
+      additionalProperties: false
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: Scheduled event name that triggers entrance
+          example: "scheduled.weekly_digest"
+        offset_id:
+          type: string
+          format: uuid
+          description: Schedule offset that fires the entrance
+        rule:
+          type: object
+          description: Optional condition evaluated against the event data
+          additionalProperties: true
+        user_rule:
+          type: object
+          description: Optional filter for organization members
+          additionalProperties: true
+
+    EntranceListTrigger:
+      type: object
+      description: Enters the user when they join or leave the referenced list
+      additionalProperties: false
+      required:
+        - id
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: List whose membership changes trigger entrance
+        direction:
+          type: string
+          enum: [joins, leaves]
+          description: Membership change that fires the trigger (default joins)
+          example: "joins"
+        exit_on_leave:
           type: boolean
-          description: Allow multiple entries
-          example: false
-        concurrent:
-          type: boolean
-          description: Allow concurrent journey runs
+          description: Exit the user when they leave the list (joins direction only)
           example: false
 
     ExitStepData:

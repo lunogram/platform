@@ -2581,37 +2581,83 @@ export interface components {
          * @enum {string}
          */
         JourneyStepType: "entrance" | "exit" | "delay" | "action" | "campaign" | "gate" | "experiment" | "sticky" | "balancer" | "update" | "event" | "schedule";
-        /** @description Data for entrance step - entry point into journey */
+        /** @description Data for entrance step - entry point into journey. Tagged union: `trigger` selects the kind and the matching sub-object (event, scheduled or list) carries its fields. `concurrent` and `multiple` apply to every kind. `none` is an API/manually triggered entrance with no sub-object. */
         EntranceStepData: {
             /**
-             * @description Trigger type for entrance
+             * @description Selects which trigger sub-object is active
              * @example event
              * @enum {string}
              */
-            trigger?: "none" | "event";
-            /**
-             * @description Event name that triggers entrance
-             * @example user_signup
-             */
-            event_name?: string;
-            /** @description Rule for filtering events */
-            rule?: {
-                [key: string]: unknown;
-            };
-            /** @description Rule for filtering users (used with organization events) */
-            user_rule?: {
-                [key: string]: unknown;
-            };
-            /**
-             * @description Allow multiple entries
-             * @example false
-             */
-            multiple?: boolean;
+            trigger: "none" | "event" | "scheduled" | "list";
             /**
              * @description Allow concurrent journey runs
              * @example false
              */
             concurrent?: boolean;
+            /**
+             * @description Allow re-entry after a previous run completed
+             * @example false
+             */
+            multiple?: boolean;
+            event?: components["schemas"]["EntranceEventTrigger"];
+            scheduled?: components["schemas"]["EntranceScheduledTrigger"];
+            list?: components["schemas"]["EntranceListTrigger"];
+        };
+        /** @description Enters the user when a matching custom event is received */
+        EntranceEventTrigger: {
+            /**
+             * @description Event name that triggers entrance
+             * @example user_signup
+             */
+            name: string;
+            /** @description Optional condition evaluated against the event data */
+            rule?: {
+                [key: string]: unknown;
+            };
+            /** @description Optional filter for organization members */
+            user_rule?: {
+                [key: string]: unknown;
+            };
+        };
+        /** @description Enters the user when a schedule offset fires */
+        EntranceScheduledTrigger: {
+            /**
+             * @description Scheduled event name that triggers entrance
+             * @example scheduled.weekly_digest
+             */
+            name: string;
+            /**
+             * Format: uuid
+             * @description Schedule offset that fires the entrance
+             */
+            offset_id?: string;
+            /** @description Optional condition evaluated against the event data */
+            rule?: {
+                [key: string]: unknown;
+            };
+            /** @description Optional filter for organization members */
+            user_rule?: {
+                [key: string]: unknown;
+            };
+        };
+        /** @description Enters the user when they join or leave the referenced list */
+        EntranceListTrigger: {
+            /**
+             * Format: uuid
+             * @description List whose membership changes trigger entrance
+             */
+            id: string;
+            /**
+             * @description Membership change that fires the trigger (default joins)
+             * @example joins
+             * @enum {string}
+             */
+            direction?: "joins" | "leaves";
+            /**
+             * @description Exit the user when they leave the list (joins direction only)
+             * @example false
+             */
+            exit_on_leave?: boolean;
         };
         /** @description Data for exit step - exits user from journey */
         ExitStepData: {

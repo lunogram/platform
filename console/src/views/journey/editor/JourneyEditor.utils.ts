@@ -230,14 +230,28 @@ export function getUpstreamDataKeys(
         const node = nodesById.get(current)
         if (node?.data.data_key) {
             const stepData = node.data.data as Record<string, unknown> | undefined
+            // Entrance steps carry trigger details in nested `event` /
+            // `scheduled` blocks; other step types still expose `event_name` at
+            // the top level, so fall back to that.
+            const eventBlock = stepData?.event as { name?: string } | undefined
+            const scheduledBlock = stepData?.scheduled as
+                | { name?: string; offset_id?: string }
+                | undefined
             result.push({
                 nodeId: node.id,
                 name: node.data.name ?? "",
                 type: node.data.type,
                 data_key: node.data.data_key,
-                event_name: (stepData?.event_name as string) ?? undefined,
+                event_name:
+                    eventBlock?.name ??
+                    scheduledBlock?.name ??
+                    (stepData?.event_name as string) ??
+                    undefined,
                 scheduled_name: (stepData?.scheduled_name as string) ?? undefined,
-                schedule_offset_id: (stepData?.schedule_offset_id as string) ?? undefined,
+                schedule_offset_id:
+                    scheduledBlock?.offset_id ??
+                    (stepData?.schedule_offset_id as string) ??
+                    undefined,
             })
         }
         for (const parent of parentMap.get(current) ?? []) {
