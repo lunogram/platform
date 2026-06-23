@@ -10,23 +10,36 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestValidateGrantConstraints(t *testing.T) {
+func TestValidateGrantInstances(t *testing.T) {
 	t.Parallel()
 
-	t.Run("accepts no constraints", func(t *testing.T) {
-		require.NoError(t, validateGrantConstraints(nil))
+	t.Run("accepts grants with no instances", func(t *testing.T) {
+		require.NoError(t, validateGrants([]management.Grant{{Resource: "events", Verb: "create"}}))
 	})
 
-	t.Run("accepts a constraint on an enforced resource", func(t *testing.T) {
-		require.NoError(t, validateGrantConstraints(management.GrantConstraints{"events": {"purchase"}}))
+	t.Run("accepts instances on a create grant for an enforced resource", func(t *testing.T) {
+		require.NoError(t, validateGrants([]management.Grant{
+			{Resource: "events", Verb: "create", Instances: []string{"purchase"}},
+		}))
 	})
 
-	t.Run("rejects a constraint on an unenforced resource", func(t *testing.T) {
-		// A constraint on a resource with no request-time enforcement would be
+	t.Run("rejects instances on a non-create grant", func(t *testing.T) {
+		// Instances are only enforced for create today; an allow-list on a read
+		// grant would be stored but never applied.
+		err := validateGrants([]management.Grant{
+			{Resource: "events", Verb: "read", Instances: []string{"purchase"}},
+		})
+		require.Error(t, err)
+	})
+
+	t.Run("rejects instances on an unenforced resource", func(t *testing.T) {
+		// Instances on a resource with no request-time enforcement would be
 		// stored but never applied — a false sense of restriction. It must be
 		// rejected at configuration time, even though the resource is a valid
 		// grant target.
-		err := validateGrantConstraints(management.GrantConstraints{"users": {"alice"}})
+		err := validateGrants([]management.Grant{
+			{Resource: "users", Verb: "create", Instances: []string{"alice"}},
+		})
 		require.Error(t, err)
 	})
 }
@@ -169,22 +182,26 @@ func TestBuildCreateAuthMethodInput(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("maps grant constraints onto the store input", func(t *testing.T) {
+	t.Run("maps a grant's instance allow-list onto the store input", func(t *testing.T) {
 		in, err := buildCreateAuthMethodInput(oapi.CreateAuthMethod{
-			Type:             "api_key",
-			Name:             "backend",
-			Grants:           &[]oapi.PermissionGrant{{Resource: "events", Verb: "create"}},
-			GrantConstraints: &oapi.GrantConstraints{"events": {"purchase", "signup"}},
+			Type: "api_key",
+			Name: "backend",
+			Grants: &[]oapi.PermissionGrant{
+				{Resource: "events", Verb: "create", Instances: ptr.To([]string{"purchase", "signup"})},
+			},
 		})
 		require.NoError(t, err)
-		assert.Equal(t, []string{"purchase", "signup"}, in.GrantConstraints["events"])
+		require.Len(t, in.Grants, 1)
+		assert.Equal(t, []string{"purchase", "signup"}, in.Grants[0].Instances)
 	})
 
-	t.Run("rejects a grant constraint keyed by an unknown resource", func(t *testing.T) {
+	t.Run("rejects an instance allow-list on an unenforced resource", func(t *testing.T) {
 		_, err := buildCreateAuthMethodInput(oapi.CreateAuthMethod{
-			Type:             "api_key",
-			Name:             "backend",
-			GrantConstraints: &oapi.GrantConstraints{"not_a_resource": {"x"}},
+			Type: "api_key",
+			Name: "backend",
+			Grants: &[]oapi.PermissionGrant{
+				{Resource: "users", Verb: "create", Instances: ptr.To([]string{"x"})},
+			},
 		})
 		assert.Error(t, err)
 	})

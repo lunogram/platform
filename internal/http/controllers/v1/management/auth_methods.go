@@ -154,14 +154,6 @@ func (srv *AuthMethodsController) UpdateAuthMethod(w http.ResponseWriter, r *htt
 	if body.Role != nil && body.Grants == nil {
 		in.Grants = []management.Grant{}
 	}
-	if body.GrantConstraints != nil {
-		gc := management.GrantConstraints(*body.GrantConstraints)
-		if err := validateGrantConstraints(gc); err != nil {
-			oapi.WriteProblem(w, err)
-			return
-		}
-		in.GrantConstraints = &gc
-	}
 	if body.SubjectScope != nil {
 		subjectScope, err := subjectScopeFor(existing.Type, body.SubjectScope)
 		if err != nil {
@@ -310,9 +302,6 @@ func buildCreateAuthMethodInput(body oapi.CreateAuthMethod) (management.CreateAu
 	if body.Grants != nil {
 		in.Grants = toStoreGrants(*body.Grants)
 	}
-	if body.GrantConstraints != nil {
-		in.GrantConstraints = management.GrantConstraints(*body.GrantConstraints)
-	}
 	if body.TrustedIssuer != nil {
 		in.TrustedIssuer = &management.TrustedIssuer{
 			JWKSURL:      ptr.From(body.TrustedIssuer.JwksUrl),
@@ -342,9 +331,6 @@ func buildCreateAuthMethodInput(body oapi.CreateAuthMethod) (management.CreateAu
 		return in, err
 	}
 	if err := validateGrants(in.Grants); err != nil {
-		return in, err
-	}
-	if err := validateGrantConstraints(in.GrantConstraints); err != nil {
 		return in, err
 	}
 
@@ -416,12 +402,19 @@ func validateJWKSURL(raw string) error {
 }
 
 // validateGrants rejects a custom permission set referencing an unknown resource
-// or verb, which would otherwise write a tuple that silently never resolves.
+// or verb, which would otherwise write a tuple that silently never resolves. It
+// also rejects an instance allow-list on a grant that could never enforce one:
+// the list is only honored for a create grant on a constrainable resource
+// (today only events). Accepting it elsewhere would store an allow-list that is
+// silently never applied — a false sense of restriction. This makes the
+// guarantee structural: a constraint cannot exist apart from a grant that
+// enforces it.
 func validateGrants(grants []management.Grant) error {
 	if len(grants) == 0 {
 		return nil
 	}
 	known := grantableResources()
+	enforced := constrainableResources()
 	for _, g := range grants {
 		if _, ok := known[g.Resource]; !ok {
 			return problem.ErrBadRequest(problem.Describe("unknown grant resource: " + g.Resource))
@@ -431,22 +424,14 @@ func validateGrants(grants []management.Grant) error {
 		default:
 			return problem.ErrBadRequest(problem.Describe("unknown grant verb: " + g.Verb))
 		}
-	}
-	return nil
-}
-
-// validateGrantConstraints rejects a constraint keyed by a resource that does
-// not enforce an instance-name allow-list. Accepting one would store a
-// constraint that is silently never applied — a false sense of restriction.
-// Only [constrainableResources] are honored at request time.
-func validateGrantConstraints(constraints management.GrantConstraints) error {
-	if len(constraints) == 0 {
-		return nil
-	}
-	enforced := constrainableResources()
-	for resource := range constraints {
-		if _, ok := enforced[resource]; !ok {
-			return problem.ErrBadRequest(problem.Describe("create constraints are not supported for resource: " + resource))
+		if len(g.Instances) == 0 {
+			continue
+		}
+		if rbac.Permission(g.Verb) != rbac.Create {
+			return problem.ErrBadRequest(problem.Describe("instances are only supported on a create grant: " + g.Resource))
+		}
+		if _, ok := enforced[g.Resource]; !ok {
+			return problem.ErrBadRequest(problem.Describe("instances are not supported for resource: " + g.Resource))
 		}
 	}
 	return nil
@@ -463,11 +448,11 @@ func grantableResources() map[string]struct{} {
 }
 
 // constrainableResources is the set of resources whose create grant honors an
-// instance-name allow-list (a grant constraint). It is the single source of
-// truth shared with the request-time enforcement site
-// (EventsController.enforceCreateConstraint); today only client events are
-// enforced. A constraint on any other resource would never apply and is
-// rejected at configuration time by [validateGrantConstraints].
+// instance-name allow-list (its grant's instances). It is the single source of
+// truth shared with the request-time enforcement site (CreateConstraints.Enforce
+// via the events controller); today only client events are enforced. Instances
+// on any other resource would never apply and are rejected at configuration
+// time by [validateGrants].
 func constrainableResources() map[string]struct{} {
 	return map[string]struct{}{"events": {}}
 }
@@ -494,6 +479,9 @@ func toStoreGrants(grants []oapi.PermissionGrant) []management.Grant {
 	out := make([]management.Grant, len(grants))
 	for i, g := range grants {
 		out[i] = management.Grant{Resource: g.Resource, Verb: string(g.Verb)}
+		if g.Instances != nil {
+			out[i].Instances = *g.Instances
+		}
 	}
 	return out
 }
@@ -524,12 +512,11 @@ func toOAPIAuthMethod(m *management.AuthMethod, withSecret bool) oapi.AuthMethod
 		grants := make([]oapi.PermissionGrant, len(m.Grants))
 		for i, g := range m.Grants {
 			grants[i] = oapi.PermissionGrant{Resource: g.Resource, Verb: oapi.PermissionGrantVerb(g.Verb)}
+			if len(g.Instances) > 0 {
+				grants[i].Instances = ptr.To(g.Instances)
+			}
 		}
 		out.Grants = &grants
-	}
-	if len(m.GrantConstraints) > 0 {
-		gc := oapi.GrantConstraints(m.GrantConstraints)
-		out.GrantConstraints = &gc
 	}
 	if ti := m.TrustedIssuer; ti != nil {
 		issuer := &oapi.TrustedIssuer{}

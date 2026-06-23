@@ -167,47 +167,53 @@ func TestAuthMethodsStore(t *testing.T) {
 		assert.True(t, errors.Is(err, store.ErrNoRows))
 	})
 
-	t.Run("persists per-grant create constraints and prunes empty lists", func(t *testing.T) {
+	t.Run("persists a grant's create-instance allow-list", func(t *testing.T) {
 		created, err := db.CreateAuthMethod(ctx, projectID, CreateAuthMethodInput{
-			Type:   MethodTypeAPIKey,
-			Name:   "constrained key",
-			Role:   "client",
-			Grants: []Grant{{Resource: "events", Verb: "create"}},
-			GrantConstraints: GrantConstraints{
-				"events": {"purchase", "signup"},
-				// An empty list carries no restriction and must not be stored.
-				"subscriptions": {},
+			Type: MethodTypeAPIKey,
+			Name: "constrained key",
+			Role: "client",
+			Grants: []Grant{
+				{Resource: "events", Verb: "create", Instances: []string{"purchase", "signup"}},
+				// An empty list carries no restriction and stores SQL NULL.
+				{Resource: "subscriptions", Verb: "create"},
 			},
 		})
 		require.NoError(t, err)
 
 		got, err := db.GetAuthMethod(ctx, projectID, created.ID)
 		require.NoError(t, err)
-		assert.Equal(t, GrantConstraints{"events": {"purchase", "signup"}}, got.GrantConstraints)
+		assert.Equal(t, []Grant{
+			{Resource: "events", Verb: "create", Instances: []string{"purchase", "signup"}},
+			{Resource: "subscriptions", Verb: "create"},
+		}, got.Grants)
 
-		// The focused enforcement read surfaces the constrained resources.
-		constraints, err := db.GrantConstraints(ctx, created.ID)
+		// The focused enforcement read surfaces the create-grant allow-list.
+		names, restricted, err := db.CreateGrantInstances(ctx, created.ID, "events")
 		require.NoError(t, err)
-		assert.Equal(t, []string{"purchase", "signup"}, constraints["events"])
-		assert.True(t, constraints.Permits("events", "purchase"))
-		assert.False(t, constraints.Permits("events", "refund"), "a name off the allow-list is rejected")
-		assert.True(t, constraints.Permits("subscriptions", "anything"), "an unconstrained resource is unrestricted")
+		assert.True(t, restricted)
+		assert.Equal(t, []string{"purchase", "signup"}, names)
+
+		// A create grant with no allow-list is unrestricted.
+		_, restricted, err = db.CreateGrantInstances(ctx, created.ID, "subscriptions")
+		require.NoError(t, err)
+		assert.False(t, restricted, "a create grant with no instances is unrestricted")
+
+		// A resource with no create grant at all is unrestricted by this read.
+		_, restricted, err = db.CreateGrantInstances(ctx, created.ID, "campaigns")
+		require.NoError(t, err)
+		assert.False(t, restricted, "a resource without a create grant is unrestricted")
 
 		// A missing method (revoked mid-request) must fail closed: the read
-		// returns ErrNoRows rather than an empty (unrestricted) constraint set.
-		_, err = db.GrantConstraints(ctx, uuid.New())
+		// returns ErrNoRows rather than an empty (unrestricted) result.
+		_, _, err = db.CreateGrantInstances(ctx, uuid.New(), "events")
 		assert.True(t, errors.Is(err, store.ErrNoRows), "a vanished method surfaces an error, not unrestricted")
 
-		// A non-nil constraint map replaces the whole set; an empty map clears it.
+		// Replacing the grant set rewrites the allow-list along with the grants.
 		require.NoError(t, db.UpdateAuthMethod(ctx, projectID, created.ID, UpdateAuthMethodInput{
-			GrantConstraints: ptr.To(GrantConstraints{}),
+			Grants: []Grant{{Resource: "events", Verb: "create"}},
 		}))
-		cleared, err := db.GetAuthMethod(ctx, projectID, created.ID)
+		_, restricted, err = db.CreateGrantInstances(ctx, created.ID, "events")
 		require.NoError(t, err)
-		assert.Empty(t, cleared.GrantConstraints)
-
-		constraints, err = db.GrantConstraints(ctx, created.ID)
-		require.NoError(t, err)
-		assert.True(t, constraints.Permits("events", "purchase"), "a cleared constraint set is unrestricted")
+		assert.False(t, restricted, "a cleared allow-list is unrestricted")
 	})
 }
