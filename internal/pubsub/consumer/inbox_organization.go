@@ -56,7 +56,9 @@ func NewOrganizationInboxHandler(
 
 // Messages handles organisation-scoped inbox messages. The inbox row is
 // created in a transaction and the inbox.message.created event is published
-// only after that transaction commits.
+// immediately after that transaction commits. For scheduled messages the
+// inbox.message.sent event is emitted later when the scheduler dispatches
+// the message.
 func (h *OrganizationInboxHandler) Messages() HandlerFunc {
 	return func(ctx context.Context, msg jetstream.Msg) error {
 		var inbox schemas.InboxMessage
@@ -71,8 +73,11 @@ func (h *OrganizationInboxHandler) Messages() HandlerFunc {
 		var created *subjects.InboxMessage
 		var err error
 
-		// When a MessageID is provided (e.g. rate-limited retry), load
-		// the existing message instead of creating a new one.
+		// When a MessageID is provided (e.g. rate-limited retry or
+		// scheduler), load the existing message and publish the created
+		// event if it hasn't been sent yet (first activation). Duplicate
+		// created events under JetStream redelivery are harmless —
+		// downstream consumers treat them as idempotent.
 		if inbox.MessageID != uuid.Nil {
 			created, err = h.usrs.InboxStore.GetOrganizationInboxMessageByID(ctx, inbox.MessageID)
 			if errors.Is(err, sql.ErrNoRows) {
@@ -82,6 +87,11 @@ func (h *OrganizationInboxHandler) Messages() HandlerFunc {
 			if err != nil {
 				h.logger.Error("failed to load existing inbox message", zap.Error(err), zap.Stringer("message_id", inbox.MessageID))
 				return err
+			}
+			if created.SentAt == nil {
+				if err := PublishInboxLifecycleEvent(ctx, h.pub, created, schemas.EventInboxMessageCreated); err != nil {
+					return fmt.Errorf("publish created event for existing message: %w", err)
+				}
 			}
 		}
 
@@ -93,7 +103,7 @@ func (h *OrganizationInboxHandler) Messages() HandlerFunc {
 		}
 
 		if created == nil {
-			created, err = h.createAndPublish(ctx, inbox)
+			created, err = h.createInboxMessage(ctx, inbox)
 			if errors.Is(err, sql.ErrNoRows) {
 				h.logger.Info("organization inbox message already exists")
 				return nil
@@ -102,6 +112,12 @@ func (h *OrganizationInboxHandler) Messages() HandlerFunc {
 				h.logger.Error("failed to create organization inbox message", zap.Error(err))
 				return err
 			}
+		}
+
+		// If the message is not yet due (future scheduled_at), stop here.
+		// The scheduler will re-publish once it becomes due.
+		if !created.IsDue() {
+			return nil
 		}
 
 		if created.Channel != modules.ChannelInbox {
@@ -335,10 +351,12 @@ func (h *OrganizationInboxHandler) resolveOrganizationID(ctx context.Context, pr
 	return organizationID, nil
 }
 
-// createAndPublish inserts the organisation inbox row inside a transaction
-// and, after that transaction commits, publishes the inbox.message.created
-// event when the message is due.
-func (h *OrganizationInboxHandler) createAndPublish(ctx context.Context, inbox schemas.InboxMessage) (created *subjects.InboxMessage, err error) {
+// createInboxMessage inserts the organisation inbox row inside a transaction
+// and publishes the inbox.message.created lifecycle event before committing.
+// If the publish fails the transaction is rolled back so the DB row and event
+// stay in sync. Duplicate created events are safe — downstream consumers
+// treat them as idempotent.
+func (h *OrganizationInboxHandler) createInboxMessage(ctx context.Context, inbox schemas.InboxMessage) (created *subjects.InboxMessage, err error) {
 	tx, err := h.db.BeginTxx(ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("begin tx: %w", err)
@@ -357,14 +375,16 @@ func (h *OrganizationInboxHandler) createAndPublish(ctx context.Context, inbox s
 		return nil, err
 	}
 
+	// Publish the lifecycle event before committing. If this fails the
+	// deferred rollback removes the row, preventing a message without a
+	// corresponding created event.
+	if err = PublishInboxLifecycleEvent(ctx, h.pub, created, schemas.EventInboxMessageCreated); err != nil {
+		return nil, fmt.Errorf("publish created event: %w", err)
+	}
+
 	if err = tx.Commit(); err != nil {
 		return nil, fmt.Errorf("commit tx: %w", err)
 	}
 
-	if created.IsDue() {
-		if pubErr := PublishInboxLifecycleEvent(ctx, h.pub, created, schemas.EventInboxMessageCreated); pubErr != nil {
-			h.logger.Error("failed to publish inbox created event", zap.Error(pubErr), zap.Stringer("message_id", created.ID))
-		}
-	}
 	return created, nil
 }

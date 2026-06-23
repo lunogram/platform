@@ -76,7 +76,7 @@ func CampaignsSendHandler(logger *zap.Logger, db *sqlx.DB, mgmt *management.Stat
 		}
 
 		for _, item := range rendered {
-			message, err := createCampaignInboxMessageAndPublish(ctx, db, pub, logger, event, item)
+			message, err := createCampaignInboxMessage(ctx, db, logger, event, item)
 			if errors.Is(err, sql.ErrNoRows) {
 				logger.Info("campaign inbox message already exists")
 				continue
@@ -106,13 +106,13 @@ func CampaignsSendHandler(logger *zap.Logger, db *sqlx.DB, mgmt *management.Stat
 	}
 }
 
-// createCampaignInboxMessageAndPublish persists the rendered campaign output
-// as an inbox row and, after the transaction commits, publishes the
-// inbox.message.created event when the message is due. Render output
+// createCampaignInboxMessage persists the rendered campaign output
+// as an inbox row. Lifecycle events and dispatch are owned by the inbox
+// handler that receives the message after this function returns.
 // (subject, title, body, html, ...) lives in Content; provenance
 // (template_id, campaign_id, broadcast_id, journey_*) lives in Data so future
 // audits do not have to re-derive it from the external_id key.
-func createCampaignInboxMessageAndPublish(ctx context.Context, db *sqlx.DB, pub pubsub.Publisher, logger *zap.Logger, event schemas.SendCampaign, item renderedCampaignInboxMessage) (*subjects.InboxMessage, error) {
+func createCampaignInboxMessage(ctx context.Context, db *sqlx.DB, logger *zap.Logger, event schemas.SendCampaign, item renderedCampaignInboxMessage) (*subjects.InboxMessage, error) {
 	providerPart := "multi"
 	if item.SenderIdentityID != nil {
 		providerPart = item.SenderIdentityID.String()
@@ -181,12 +181,6 @@ func createCampaignInboxMessageAndPublish(ctx context.Context, db *sqlx.DB, pub 
 
 	if err = tx.Commit(); err != nil {
 		return nil, fmt.Errorf("commit tx: %w", err)
-	}
-
-	if message.IsDue() {
-		if err = PublishInboxLifecycleEvent(ctx, pub, message, schemas.EventInboxMessageCreated); err != nil {
-			return nil, fmt.Errorf("publish created event: %w", err)
-		}
 	}
 
 	return message, nil

@@ -23,11 +23,14 @@ func (controller *Controller) ReconcileUserInboxMessages(ctx context.Context) fu
 				return nil
 			}
 
-			err := controller.pub.Publish(ctx, schemas.UserEventsProcess(message.ProjectID), schemas.UserEvent{
+			// Delegate the full lifecycle (inbox.message.created event,
+			// provider dispatch, sent_at tracking, inbox.message.sent
+			// event) to the inbox handler.
+			err := controller.pub.Publish(ctx, schemas.UserInboxProcess(message.ProjectID), schemas.InboxMessage{
 				ProjectID: message.ProjectID,
-				UserID:    *message.UserID,
-				Name:      schemas.EventInboxMessageCreated,
-				Data:      map[string]any{"message_id": message.ID.String()},
+				MessageID: message.ID,
+				SubjectID: *message.UserID,
+				Channel:   string(message.Channel),
 			})
 			if err != nil {
 				failed++
@@ -67,11 +70,14 @@ func (controller *Controller) ReconcileOrganizationInboxMessages(ctx context.Con
 				return nil
 			}
 
-			err := controller.pub.Publish(ctx, schemas.OrganizationEventsProcess(message.ProjectID), schemas.OrganizationEvent{
-				ProjectID:      message.ProjectID,
-				OrganizationID: *message.OrganizationID,
-				Name:           schemas.EventInboxMessageCreated,
-				Data:           map[string]any{"message_id": message.ID.String()},
+			// Delegate the full lifecycle (inbox.message.created event,
+			// provider dispatch, sent_at tracking, inbox.message.sent
+			// event) to the inbox handler.
+			err := controller.pub.Publish(ctx, schemas.OrganizationInboxProcess(message.ProjectID), schemas.InboxMessage{
+				ProjectID: message.ProjectID,
+				MessageID: message.ID,
+				SubjectID: *message.OrganizationID,
+				Channel:   string(message.Channel),
 			})
 			if err != nil {
 				failed++

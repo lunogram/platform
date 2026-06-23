@@ -48,7 +48,12 @@ func PublishInboxLifecycleEvent(ctx context.Context, pub pubsub.Publisher, messa
 		return fmt.Errorf("inbox events: message is nil")
 	}
 
-	data := map[string]any{"message_id": message.ID.String(), "channel": string(message.Channel)}
+	data := map[string]any{
+		"message_id":   message.ID.String(),
+		"channel":      string(message.Channel),
+		"priority":     message.Priority,
+		"scheduled_at": message.ScheduledAt,
+	}
 	if message.ExternalID != nil {
 		data["external_id"] = *message.ExternalID
 	}
@@ -57,6 +62,18 @@ func PublishInboxLifecycleEvent(ctx context.Context, pub pubsub.Publisher, messa
 	}
 	if message.BroadcastID != nil {
 		data["broadcast_id"] = message.BroadcastID.String()
+	}
+	if message.SenderIdentityID != nil {
+		data["sender_identity_id"] = message.SenderIdentityID.String()
+	}
+	if message.ExpiresAt != nil {
+		data["expires_at"] = *message.ExpiresAt
+	}
+	if message.Source != nil {
+		data["source"] = *message.Source
+	}
+	if len(message.Tags) > 0 {
+		data["tags"] = []string(message.Tags)
 	}
 
 	switch {
@@ -157,13 +174,16 @@ func composePayload(channel providers.Channel, content json.RawMessage, senderId
 		}
 	}
 
-	// No title means this isn't the generic format — pass through.
+	// No title or body means this isn't the generic format — pass through.
 	if generic.Title == "" && generic.Body == "" {
 		return content, nil
 	}
 
 	switch channel {
 	case providers.ChannelEmail:
+		if generic.Title == "" {
+			return content, nil // email requires a subject
+		}
 		fromAddress := senderIdentity.Address()
 		var fromName string
 		if traits := senderIdentity.TraitsMap(); traits != nil {

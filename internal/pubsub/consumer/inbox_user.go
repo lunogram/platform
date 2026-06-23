@@ -59,9 +59,11 @@ func NewUserInboxHandler(
 // event to the bus. Idempotency across retries is provided by the row's
 // external_id unique constraint and by JetStream Msg-Id dedup on the published
 // event. It then dispatches via the message's provider (if any), marks
-// sent_at, and publishes the inbox.message.sent lifecycle event. When called
-// with a MessageID (from the campaign handler), it skips row creation and
-// dispatches the existing message.
+// sent_at, and publishes the inbox.message.sent lifecycle event. The
+// inbox.message.created event is emitted immediately when the row is first
+// inserted, even for scheduled messages. When called with a MessageID (from
+// the scheduler or campaign handler), it skips row creation and dispatches the
+// existing message.
 func (h *UserInboxHandler) Messages() HandlerFunc {
 	return func(ctx context.Context, msg jetstream.Msg) error {
 		var inbox schemas.InboxMessage
@@ -76,7 +78,11 @@ func (h *UserInboxHandler) Messages() HandlerFunc {
 		var created *subjects.InboxMessage
 		var err error
 
-		// When a MessageID is provided (from campaign handler), load the existing message.
+		// When a MessageID is provided (from the campaign handler or
+		// scheduler), load the existing message and publish the created
+		// event if it hasn't been sent yet (first activation). Duplicate
+		// created events under JetStream redelivery are harmless —
+		// downstream consumers treat them as idempotent.
 		if inbox.MessageID != uuid.Nil {
 			created, err = h.usrs.InboxStore.GetUserInboxMessageByID(ctx, inbox.MessageID)
 			if errors.Is(err, sql.ErrNoRows) {
@@ -86,6 +92,11 @@ func (h *UserInboxHandler) Messages() HandlerFunc {
 			if err != nil {
 				h.logger.Error("failed to load existing inbox message", zap.Error(err), zap.Stringer("message_id", inbox.MessageID))
 				return err
+			}
+			if created.SentAt == nil {
+				if err := PublishInboxLifecycleEvent(ctx, h.pub, created, schemas.EventInboxMessageCreated); err != nil {
+					return fmt.Errorf("publish created event for existing message: %w", err)
+				}
 			}
 		}
 
@@ -99,7 +110,7 @@ func (h *UserInboxHandler) Messages() HandlerFunc {
 
 		// Create the inbox message if it wasn't loaded by MessageID.
 		if created == nil {
-			created, err = h.createAndPublish(ctx, inbox)
+			created, err = h.createInboxMessage(ctx, inbox)
 			if errors.Is(err, sql.ErrNoRows) {
 				h.logger.Info("user inbox message already exists")
 				return nil
@@ -108,6 +119,12 @@ func (h *UserInboxHandler) Messages() HandlerFunc {
 				h.logger.Error("failed to create user inbox message", zap.Error(err))
 				return err
 			}
+		}
+
+		// If the message is not yet due (future scheduled_at), stop here.
+		// The scheduler will re-publish once it becomes due.
+		if !created.IsDue() {
+			return nil
 		}
 
 		// Dispatch non-inbox channels before marking the message as sent.
@@ -353,11 +370,13 @@ func (h *UserInboxHandler) resolveUserID(ctx context.Context, projectID, subject
 	return userID, nil
 }
 
-// createAndPublish inserts the user inbox row inside a transaction and, after
-// the transaction commits, publishes the inbox.message.created event when the
-// message is due. Idempotency on retry is provided by the row's external_id
-// unique constraint and by JetStream Msg-Id dedup on the published event.
-func (h *UserInboxHandler) createAndPublish(ctx context.Context, inbox schemas.InboxMessage) (created *subjects.InboxMessage, err error) {
+// createInboxMessage inserts the user inbox row inside a transaction and
+// publishes the inbox.message.created lifecycle event before committing. If
+// the publish fails the transaction is rolled back so the DB row and event
+// stay in sync. Duplicate created events are safe — downstream consumers
+// treat them as idempotent. Idempotency on retry is provided by the row's
+// external_id unique constraint.
+func (h *UserInboxHandler) createInboxMessage(ctx context.Context, inbox schemas.InboxMessage) (created *subjects.InboxMessage, err error) {
 	tx, err := h.db.BeginTxx(ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("begin tx: %w", err)
@@ -376,15 +395,17 @@ func (h *UserInboxHandler) createAndPublish(ctx context.Context, inbox schemas.I
 		return nil, err
 	}
 
+	// Publish the lifecycle event before committing. If this fails the
+	// deferred rollback removes the row, preventing a message without a
+	// corresponding created event.
+	if err = PublishInboxLifecycleEvent(ctx, h.pub, created, schemas.EventInboxMessageCreated); err != nil {
+		return nil, fmt.Errorf("publish created event: %w", err)
+	}
+
 	if err = tx.Commit(); err != nil {
 		return nil, fmt.Errorf("commit tx: %w", err)
 	}
 
-	if created.IsDue() {
-		if pubErr := PublishInboxLifecycleEvent(ctx, h.pub, created, schemas.EventInboxMessageCreated); pubErr != nil {
-			h.logger.Error("failed to publish inbox created event", zap.Error(pubErr), zap.Stringer("message_id", created.ID))
-		}
-	}
 	return created, nil
 }
 

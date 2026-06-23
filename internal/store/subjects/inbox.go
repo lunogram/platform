@@ -76,6 +76,7 @@ func (m *InboxMessage) OAPI() oapi.InboxMessage {
 		ExpiresAt:        m.ExpiresAt,
 		ReadAt:           m.ReadAt,
 		ArchivedAt:       m.ArchivedAt,
+		SentAt:           m.SentAt,
 		CreatedAt:        m.CreatedAt,
 		UpdatedAt:        m.UpdatedAt,
 	}

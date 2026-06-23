@@ -32,10 +32,16 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Switch } from "@/components/ui/switch"
 import { Input } from "@/components/ui/input"
+import {
+    DEFAULT_TIME_INPUT_VALUE,
+    dateInputValueFromDate,
+    parseDateAndTime,
+    toIsoFromDateAndTime,
+} from "@/lib/date-time"
 
 const channelIcons: Record<ChannelType, typeof Mail> = {
     email: Mail,
-    text: Smartphone,
+    sms: Smartphone,
     push: MessageSquareDot,
 }
 
@@ -66,7 +72,8 @@ export function CreateBroadcastDialog({
     const [selectedListId, setSelectedListId] = useState<UUID | undefined>(preselectedListId)
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [isScheduled, setIsScheduled] = useState(false)
-    const [scheduledAt, setScheduledAt] = useState("")
+    const [scheduledDate, setScheduledDate] = useState("")
+    const [scheduledTime, setScheduledTime] = useState(DEFAULT_TIME_INPUT_VALUE)
 
     // Sync pre-selected props when they change (useState only uses initial value)
     useEffect(() => {
@@ -105,17 +112,31 @@ export function CreateBroadcastDialog({
 
     const selectedCampaign = campaigns.find((c: Campaign) => c.id === selectedCampaignId)
     const selectedList = lists.find((l: List) => l.id === selectedListId)
+    const selectedListCount = selectedList?.users_count ?? 0
+    const selectedListCountLabel = selectedListCount.toLocaleString()
 
     const canSubmit =
-        !!selectedCampaignId && !!selectedListId && !isSubmitting && (!isScheduled || !!scheduledAt)
+        !!selectedCampaignId &&
+        !!selectedListId &&
+        !isSubmitting &&
+        (!isScheduled || !!scheduledDate)
+
+    const handleScheduledDateChange = (nextDate: string) => {
+        setScheduledDate(nextDate)
+        if (!nextDate) {
+            setScheduledTime(DEFAULT_TIME_INPUT_VALUE)
+        }
+    }
 
     const handleSubmit = async () => {
         if (!selectedCampaignId || !selectedListId) return
 
+        const scheduledAtIso = toIsoFromDateAndTime(scheduledDate, scheduledTime)
+
         // Validate scheduled time is in the future
-        if (isScheduled && scheduledAt) {
-            const scheduledDate = new Date(scheduledAt)
-            if (scheduledDate <= new Date()) {
+        if (isScheduled && scheduledDate) {
+            const scheduled = parseDateAndTime(scheduledDate, scheduledTime)
+            if (!scheduled || scheduled <= new Date()) {
                 toast.error(
                     t("scheduled_at_must_be_future", "Scheduled time must be in the future"),
                 )
@@ -134,8 +155,10 @@ export function CreateBroadcastDialog({
                     body: {
                         campaign_id: selectedCampaignId,
                         list_id: selectedListId,
-                        ...(isScheduled && scheduledAt
-                            ? { scheduled_at: new Date(scheduledAt).toISOString() }
+                        ...(isScheduled && scheduledAtIso
+                            ? {
+                                  scheduled_at: scheduledAtIso,
+                              }
                             : {}),
                     },
                 },
@@ -159,7 +182,8 @@ export function CreateBroadcastDialog({
             if (!preselectedCampaignId) setSelectedCampaignId(undefined)
             if (!preselectedListId) setSelectedListId(undefined)
             setIsScheduled(false)
-            setScheduledAt("")
+            setScheduledDate("")
+            setScheduledTime(DEFAULT_TIME_INPUT_VALUE)
         }
         onOpenChange(value)
     }
@@ -265,12 +289,20 @@ export function CreateBroadcastDialog({
                             />
                         </div>
                         {isScheduled && (
-                            <Input
-                                type="datetime-local"
-                                value={scheduledAt}
-                                onChange={(e) => setScheduledAt(e.target.value)}
-                                min={new Date(Date.now() + 60_000).toISOString().slice(0, 16)}
-                            />
+                            <div className="flex gap-2">
+                                <Input
+                                    type="date"
+                                    value={scheduledDate}
+                                    onChange={(e) => handleScheduledDateChange(e.target.value)}
+                                    min={dateInputValueFromDate(new Date(Date.now() + 60_000))}
+                                />
+                                <Input
+                                    type="time"
+                                    value={scheduledTime}
+                                    onChange={(e) => setScheduledTime(e.target.value)}
+                                    disabled={!scheduledDate}
+                                />
+                            </div>
                         )}
                     </div>
 
@@ -281,10 +313,10 @@ export function CreateBroadcastDialog({
                             <AlertDescription className="text-blue-700 dark:text-blue-300">
                                 {t(
                                     "broadcast_confirm_info",
-                                    `This will send "${selectedCampaign.name}" to ${selectedList.users_count?.toLocaleString() ?? 0} users in "${selectedList.name}".`,
+                                    `This will send "${selectedCampaign.name}" to ${selectedListCountLabel} users in "${selectedList.name}".`,
                                     {
                                         campaign: selectedCampaign.name,
-                                        count: selectedList.users_count?.toLocaleString() ?? 0,
+                                        count: selectedListCount,
                                         list: selectedList.name,
                                     },
                                 )}

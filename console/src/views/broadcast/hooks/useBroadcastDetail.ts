@@ -5,6 +5,7 @@ import { AxiosError } from "axios"
 
 import oapiClient from "@/oapi/client"
 import { ProjectContext } from "@/contexts"
+import { parseDateAndTime, splitLocalDateTimeValue } from "@/lib/date-time"
 
 import type { Broadcast, BroadcastUser } from "@/types"
 import type { UUID } from "@/types/common"
@@ -64,7 +65,7 @@ export function useBroadcastDetail(broadcastId: UUID): UseBroadcastDetailResult 
     const [usersOffset, setUsersOffset] = useState(0)
     const [usersSearch, setUsersSearch] = useState("")
     const [usersDebouncedSearch, setUsersDebouncedSearch] = useState("")
-    const usersSearchTimeoutRef = useRef<ReturnType<typeof setTimeout>>()
+    const usersSearchTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
     // Whether the recipients table shows a preview (list users) or actual sends
     const isPreview = broadcast ? !isSentState(broadcast.state) : true
@@ -242,20 +243,21 @@ export function useBroadcastDetail(broadcastId: UUID): UseBroadcastDetailResult 
     const handleSetSchedule = async () => {
         if (!broadcast || !scheduleValue) return
 
-        const scheduledDate = new Date(scheduleValue)
-        if (scheduledDate <= new Date()) {
+        const { dateValue, timeValue } = splitLocalDateTimeValue(scheduleValue)
+        const scheduledDate = parseDateAndTime(dateValue, timeValue)
+
+        if (!scheduledDate || scheduledDate <= new Date()) {
             toast.error(t("scheduled_at_must_be_future", "Scheduled time must be in the future"))
             return
         }
 
         setIsScheduling(true)
         try {
-            const newIso = new Date(scheduleValue).toISOString()
             await oapiClient.PATCH("/api/admin/projects/{projectID}/broadcasts/{broadcastID}", {
                 params: {
                     path: { projectID: project.id, broadcastID: broadcastId },
                 },
-                body: { scheduled_at: newIso },
+                body: { scheduled_at: scheduledDate.toISOString() },
             })
             loadBroadcast()
             setScheduleValue("")

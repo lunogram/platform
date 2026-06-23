@@ -345,6 +345,7 @@ func inboxMessageToClientOAPI(message subjects.InboxMessage) oapi.InboxMessage {
 		ExpiresAt:        message.ExpiresAt,
 		ReadAt:           message.ReadAt,
 		ArchivedAt:       message.ArchivedAt,
+		SentAt:           message.SentAt,
 		CreatedAt:        message.CreatedAt,
 		UpdatedAt:        message.UpdatedAt,
 	}

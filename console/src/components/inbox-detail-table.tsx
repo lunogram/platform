@@ -1,19 +1,18 @@
-import { useCallback, useContext, useRef, useState } from "react"
+import React, { useCallback, useContext, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import type { TFunction } from "i18next"
 import {
     Archive,
     ArchiveRestore,
-    Bell,
     CalendarClock,
     Check,
+    ChevronDown,
     ChevronLeft,
     ChevronRight,
     EyeOff,
     Inbox,
     Info,
-    Mail,
-    MessageSquare,
+    Loader2,
     MoreHorizontal,
     Plus,
     Search,
@@ -22,9 +21,12 @@ import { toast } from "sonner"
 import { ProjectContext } from "../contexts"
 import { PreferencesContext } from "@/contexts/PreferencesContext"
 import { useResolver } from "../hooks"
-import { formatDate, getPageNumbers } from "../utils"
+import { formatDate, getPageNumbers, cn } from "../utils"
 import oapiClient from "../oapi/client"
 import type { components } from "../oapi/management.generated"
+import { MessageExpandedRow } from "@/components/message-expanded-row"
+import { getChannelMeta } from "@/components/inbox-channel-meta"
+import { DEFAULT_TIME_INPUT_VALUE, toIsoFromDateAndTime } from "@/lib/date-time"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -34,6 +36,7 @@ import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Textarea } from "@/components/ui/textarea"
 import { DateTimeEdit } from "@/components/ui/datetime-edit"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import {
     Dialog,
     DialogContent,
@@ -65,7 +68,7 @@ import {
 } from "@/components/ui/table"
 
 type InboxMessage = components["schemas"]["InboxMessage"]
-type InboxStatus = "all" | "unread" | "opened" | "archived"
+type InboxStatus = "all" | "unread" | "read" | "archived"
 type InboxChannel = components["schemas"]["Channel"]
 
 interface InboxDetailTableProps {
@@ -90,8 +93,14 @@ export default function InboxDetailTable({ subjectId, subjectType }: InboxDetail
     const [title, setTitle] = useState("")
     const [body, setBody] = useState("")
     const [tags, setTags] = useState("")
-    const [scheduledAt, setScheduledAt] = useState("")
-    const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>()
+    const [scheduledDate, setScheduledDate] = useState("")
+    const [scheduledTime, setScheduledTime] = useState(DEFAULT_TIME_INPUT_VALUE)
+    const [expandedMessageId, setExpandedMessageId] = useState<string | null>(null)
+    const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+
+    const toggleExpanded = useCallback((messageId: string) => {
+        setExpandedMessageId((prev) => (prev === messageId ? null : messageId))
+    }, [])
 
     const handleSearch = (value: string) => {
         setSearchQuery(value)
@@ -108,7 +117,15 @@ export default function InboxDetailTable({ subjectId, subjectType }: InboxDetail
         setTitle("")
         setBody("")
         setTags("")
-        setScheduledAt("")
+        setScheduledDate("")
+        setScheduledTime(DEFAULT_TIME_INPUT_VALUE)
+    }
+
+    const handleScheduledDateChange = (nextDate: string) => {
+        setScheduledDate(nextDate)
+        if (!nextDate) {
+            setScheduledTime(DEFAULT_TIME_INPUT_VALUE)
+        }
     }
 
     const [result, , reload] = useResolver(
@@ -151,7 +168,7 @@ export default function InboxDetailTable({ subjectId, subjectType }: InboxDetail
     )
 
     const createMessage = async () => {
-        if (!title.trim()) return
+        if (channel === "sms" ? !body.trim() : !title.trim()) return
         if ((channel === "email" || channel === "sms") && !senderIdentityId) return
 
         setIsCreating(true)
@@ -167,13 +184,18 @@ export default function InboxDetailTable({ subjectId, subjectType }: InboxDetail
 
             const payload = {
                 channel,
-                sender_identity_id: channel === "push" || channel === "inbox" ? undefined : senderIdentityId,
-                content: {
-                    title: title.trim(),
-                    body: body.trim() || undefined,
-                },
+                sender_identity_id:
+                    channel === "push" || channel === "inbox" ? undefined : senderIdentityId,
+                content:
+                    channel === "sms"
+                        ? { body: body.trim() }
+                        : {
+                              title: title.trim(),
+                              body: body.trim() || undefined,
+                          },
                 tags: dedupedTags,
-                scheduled_at: scheduledAt || undefined,
+                priority: 3,
+                scheduled_at: toIsoFromDateAndTime(scheduledDate, scheduledTime),
             }
 
             if (subjectType === "users") {
@@ -215,6 +237,8 @@ export default function InboxDetailTable({ subjectId, subjectType }: InboxDetail
         try {
             if (subjectType === "users") {
                 if (event === "scheduled") {
+                    if (!newScheduledAt) return
+
                     const { error } = await oapiClient.POST(
                         "/api/admin/projects/{projectID}/subjects/users/{userID}/inbox/{messageID}/schedule",
                         {
@@ -225,13 +249,13 @@ export default function InboxDetailTable({ subjectId, subjectType }: InboxDetail
                                     messageID: message.id,
                                 },
                             },
-                            body: { scheduled_at: newScheduledAt ?? "" },
+                            body: { scheduled_at: newScheduledAt },
                         },
                     )
                     if (error) throw error
                 } else if (event === "opened") {
                     const { error } = await oapiClient.POST(
-                        "/api/admin/projects/{projectID}/subjects/users/{userID}/inbox/{messageID}/open",
+                        "/api/admin/projects/{projectID}/subjects/users/{userID}/inbox/{messageID}/read",
                         {
                             params: {
                                 path: {
@@ -288,6 +312,8 @@ export default function InboxDetailTable({ subjectId, subjectType }: InboxDetail
                 }
             } else {
                 if (event === "scheduled") {
+                    if (!newScheduledAt) return
+
                     const { error } = await oapiClient.POST(
                         "/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/inbox/{messageID}/schedule",
                         {
@@ -298,13 +324,13 @@ export default function InboxDetailTable({ subjectId, subjectType }: InboxDetail
                                     messageID: message.id,
                                 },
                             },
-                            body: { scheduled_at: newScheduledAt ?? "" },
+                            body: { scheduled_at: newScheduledAt },
                         },
                     )
                     if (error) throw error
                 } else if (event === "opened") {
                     const { error } = await oapiClient.POST(
-                        "/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/inbox/{messageID}/open",
+                        "/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/inbox/{messageID}/read",
                         {
                             params: {
                                 path: {
@@ -420,7 +446,7 @@ export default function InboxDetailTable({ subjectId, subjectType }: InboxDetail
                         <SelectContent>
                             <SelectItem value="all">{t("all", "All")}</SelectItem>
                             <SelectItem value="unread">{t("unread", "Unread")}</SelectItem>
-                            <SelectItem value="opened">{t("opened", "Opened")}</SelectItem>
+                            <SelectItem value="read">{t("read", "Read")}</SelectItem>
                             <SelectItem value="archived">{t("archived", "Archived")}</SelectItem>
                         </SelectContent>
                     </Select>
@@ -439,6 +465,7 @@ export default function InboxDetailTable({ subjectId, subjectType }: InboxDetail
                 <Table>
                     <TableHeader>
                         <TableRow>
+                            <TableHead className="w-8 p-0" />
                             <TableHead>{t("message", "Message")}</TableHead>
                             <TableHead>{t("channel", "Channel")}</TableHead>
                             <TableHead>{t("status", "Status")}</TableHead>
@@ -451,6 +478,9 @@ export default function InboxDetailTable({ subjectId, subjectType }: InboxDetail
                         {result === null ? (
                             Array.from({ length: 5 }).map((_, index) => (
                                 <TableRow key={index}>
+                                    <TableCell className="p-0 pl-2">
+                                        <Skeleton className="h-4 w-4" />
+                                    </TableCell>
                                     <TableCell>
                                         <div className="space-y-2">
                                             <Skeleton className="h-4 w-48" />
@@ -476,7 +506,7 @@ export default function InboxDetailTable({ subjectId, subjectType }: InboxDetail
                             ))
                         ) : result.results.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={6} className="h-48">
+                                <TableCell colSpan={7} className="h-48">
                                     <div className="flex flex-col items-center justify-center">
                                         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted mb-4">
                                             <Inbox
@@ -501,6 +531,7 @@ export default function InboxDetailTable({ subjectId, subjectType }: InboxDetail
                                 const visible = isMessageVisible(message)
                                 const channelMeta = getChannelMeta(message.channel, t)
                                 const ChannelIcon = channelMeta.icon
+                                const isExpanded = expandedMessageId === message.id
                                 const messageTitle =
                                     typeof message.content?.title === "string"
                                         ? message.content.title
@@ -511,162 +542,220 @@ export default function InboxDetailTable({ subjectId, subjectType }: InboxDetail
                                         : ""
 
                                 return (
-                                    <TableRow key={message.id}>
-                                        <TableCell>
-                                            <div className="space-y-1">
-                                                <div className="font-medium">{messageTitle}</div>
-                                                {messageBody && (
-                                                    <div className="line-clamp-2 max-w-xl text-sm text-muted-foreground">
-                                                        {messageBody}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
-                                                <ChannelIcon
-                                                    aria-hidden="true"
-                                                    className="h-3.5 w-3.5"
-                                                />
-                                                {channelMeta.label}
-                                            </span>
-                                        </TableCell>
-                                        <TableCell>{statusBadge(message, t)}</TableCell>
-                                        <TableCell>
-                                            {message.tags.length > 0 ? (
-                                                <div className="flex flex-wrap gap-1">
-                                                    {message.tags.map((tag) => (
-                                                        <Badge key={tag} variant="outline">
-                                                            {tag}
-                                                        </Badge>
-                                                    ))}
-                                                </div>
-                                            ) : (
-                                                <span className="text-muted-foreground">—</span>
+                                    <React.Fragment key={message.id}>
+                                        <TableRow
+                                            className={cn(
+                                                "cursor-pointer",
+                                                isExpanded && "bg-muted/50",
                                             )}
-                                        </TableCell>
-                                        <TableCell className="text-muted-foreground whitespace-nowrap">
-                                            {new Date(message.scheduled_at) > new Date() ? (
-                                                <DateTimeEdit
-                                                    value={message.scheduled_at}
-                                                    onSave={(newIso) =>
-                                                        updateMessage(message, "scheduled", newIso)
-                                                    }
-                                                >
+                                            tabIndex={0}
+                                            role="button"
+                                            aria-expanded={isExpanded}
+                                            aria-label={t(
+                                                "toggle_message_details",
+                                                "Toggle message details",
+                                            )}
+                                            onClick={() => toggleExpanded(message.id)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === "Enter" || e.key === " ") {
+                                                    e.preventDefault()
+                                                    toggleExpanded(message.id)
+                                                }
+                                            }}
+                                        >
+                                            <TableCell className="p-0 pl-3">
+                                                {isExpanded ? (
+                                                    <ChevronDown
+                                                        className="h-4 w-4 text-muted-foreground"
+                                                        aria-hidden="true"
+                                                    />
+                                                ) : (
+                                                    <ChevronRight
+                                                        className="h-4 w-4 text-muted-foreground"
+                                                        aria-hidden="true"
+                                                    />
+                                                )}
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className="space-y-1">
+                                                    {messageTitle && (
+                                                        <div className="font-medium">
+                                                            {messageTitle}
+                                                        </div>
+                                                    )}
+                                                    {messageBody && (
+                                                        <div
+                                                            className={cn(
+                                                                "line-clamp-2 max-w-xl text-sm",
+                                                                messageTitle
+                                                                    ? "text-muted-foreground"
+                                                                    : "font-medium",
+                                                            )}
+                                                        >
+                                                            {messageBody}
+                                                        </div>
+                                                    )}
+                                                    {!messageTitle && !messageBody && (
+                                                        <span className="text-muted-foreground">
+                                                            —
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell>
+                                                <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
+                                                    <ChannelIcon
+                                                        aria-hidden="true"
+                                                        className="h-3.5 w-3.5"
+                                                    />
+                                                    {channelMeta.label}
+                                                </span>
+                                            </TableCell>
+                                            <TableCell>{statusBadge(message, t)}</TableCell>
+                                            <TableCell>
+                                                {message.tags.length > 0 ? (
+                                                    <div className="flex flex-wrap gap-1">
+                                                        {message.tags.map((tag) => (
+                                                            <Badge key={tag} variant="outline">
+                                                                {tag}
+                                                            </Badge>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-muted-foreground">—</span>
+                                                )}
+                                            </TableCell>
+                                            <TableCell className="text-muted-foreground whitespace-nowrap">
+                                                {new Date(message.scheduled_at) > new Date() ? (
+                                                    <DateTimeEdit
+                                                        value={message.scheduled_at}
+                                                        onSave={(newIso) =>
+                                                            updateMessage(
+                                                                message,
+                                                                "scheduled",
+                                                                newIso,
+                                                            )
+                                                        }
+                                                    >
+                                                        <span className="inline-flex items-center gap-1.5 text-sm">
+                                                            {formatDate(
+                                                                preferences,
+                                                                message.scheduled_at,
+                                                                "Pp",
+                                                            )}
+                                                        </span>
+                                                    </DateTimeEdit>
+                                                ) : (
                                                     <span className="inline-flex items-center gap-1.5 text-sm">
-                                                        <CalendarClock
-                                                            aria-hidden="true"
-                                                            className="h-3.5 w-3.5"
-                                                        />
                                                         {formatDate(
                                                             preferences,
                                                             message.scheduled_at,
                                                             "Pp",
                                                         )}
                                                     </span>
-                                                </DateTimeEdit>
-                                            ) : (
-                                                <span className="inline-flex items-center gap-1.5 text-sm">
-                                                    <CalendarClock
-                                                        aria-hidden="true"
-                                                        className="h-3.5 w-3.5"
-                                                    />
-                                                    {formatDate(
-                                                        preferences,
-                                                        message.scheduled_at,
-                                                        "Pp",
-                                                    )}
-                                                </span>
-                                            )}
-                                        </TableCell>
-                                        <TableCell>
-                                            <DropdownMenu modal={false}>
-                                                <DropdownMenuTrigger asChild>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        className="h-8 w-8 p-0"
-                                                        aria-label={t("open_menu", "Open menu")}
-                                                    >
-                                                        <MoreHorizontal
-                                                            aria-hidden="true"
-                                                            className="h-4 w-4"
-                                                        />
-                                                    </Button>
-                                                </DropdownMenuTrigger>
-                                                <DropdownMenuContent align="end">
-                                                    {!message.opened_at &&
-                                                        !message.archived_at &&
-                                                        visible && (
+                                                )}
+                                            </TableCell>
+                                            <TableCell>
+                                                <DropdownMenu modal={false}>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="h-8 w-8 p-0"
+                                                            aria-label={t("open_menu", "Open menu")}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        >
+                                                            <MoreHorizontal
+                                                                aria-hidden="true"
+                                                                className="h-4 w-4"
+                                                            />
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="end">
+                                                        {!message.read_at &&
+                                                            !message.archived_at &&
+                                                            visible && (
+                                                                <DropdownMenuItem
+                                                                    onClick={() =>
+                                                                        updateMessage(
+                                                                            message,
+                                                                            "opened",
+                                                                        ).catch(console.error)
+                                                                    }
+                                                                >
+                                                                    <Check
+                                                                        aria-hidden="true"
+                                                                        className="mr-2 h-4 w-4"
+                                                                    />
+                                                                    {t("mark_read", "Mark as read")}
+                                                                </DropdownMenuItem>
+                                                            )}
+                                                        {!message.archived_at && visible && (
                                                             <DropdownMenuItem
                                                                 onClick={() =>
                                                                     updateMessage(
                                                                         message,
-                                                                        "opened",
+                                                                        "archived",
                                                                     ).catch(console.error)
                                                                 }
                                                             >
-                                                                <Check
+                                                                <Archive
                                                                     aria-hidden="true"
                                                                     className="mr-2 h-4 w-4"
                                                                 />
-                                                                {t("mark_opened", "Mark opened")}
+                                                                {t("archive", "Archive")}
                                                             </DropdownMenuItem>
                                                         )}
-                                                    {!message.archived_at && visible && (
-                                                        <DropdownMenuItem
-                                                            onClick={() =>
-                                                                updateMessage(
-                                                                    message,
-                                                                    "archived",
-                                                                ).catch(console.error)
-                                                            }
-                                                        >
-                                                            <Archive
-                                                                aria-hidden="true"
-                                                                className="mr-2 h-4 w-4"
-                                                            />
-                                                            {t("archive", "Archive")}
-                                                        </DropdownMenuItem>
-                                                    )}
-                                                    {message.archived_at && visible && (
-                                                        <DropdownMenuItem
-                                                            onClick={() =>
-                                                                updateMessage(
-                                                                    message,
-                                                                    "unarchived",
-                                                                ).catch(console.error)
-                                                            }
-                                                        >
-                                                            <ArchiveRestore
-                                                                aria-hidden="true"
-                                                                className="mr-2 h-4 w-4"
-                                                            />
-                                                            {t("unarchive", "Unarchive")}
-                                                        </DropdownMenuItem>
-                                                    )}
-                                                    {message.opened_at &&
-                                                        !message.archived_at &&
-                                                        visible && (
+                                                        {message.archived_at && visible && (
                                                             <DropdownMenuItem
                                                                 onClick={() =>
                                                                     updateMessage(
                                                                         message,
-                                                                        "unread",
+                                                                        "unarchived",
                                                                     ).catch(console.error)
                                                                 }
                                                             >
-                                                                <EyeOff
+                                                                <ArchiveRestore
                                                                     aria-hidden="true"
                                                                     className="mr-2 h-4 w-4"
                                                                 />
-                                                                {t("mark_unread", "Mark unread")}
+                                                                {t("unarchive", "Unarchive")}
                                                             </DropdownMenuItem>
                                                         )}
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
-                                        </TableCell>
-                                    </TableRow>
+                                                        {message.read_at &&
+                                                            !message.archived_at &&
+                                                            visible && (
+                                                                <DropdownMenuItem
+                                                                    onClick={() =>
+                                                                        updateMessage(
+                                                                            message,
+                                                                            "unread",
+                                                                        ).catch(console.error)
+                                                                    }
+                                                                >
+                                                                    <EyeOff
+                                                                        aria-hidden="true"
+                                                                        className="mr-2 h-4 w-4"
+                                                                    />
+                                                                    {t(
+                                                                        "mark_unread",
+                                                                        "Mark unread",
+                                                                    )}
+                                                                </DropdownMenuItem>
+                                                            )}
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
+                                            </TableCell>
+                                        </TableRow>
+
+                                        {/* Expanded Row */}
+                                        {isExpanded && (
+                                            <MessageExpandedRow
+                                                key={`${message.id}-expanded`}
+                                                message={message}
+                                            />
+                                        )}
+                                    </React.Fragment>
                                 )
                             })
                         )}
@@ -836,27 +925,32 @@ export default function InboxDetailTable({ subjectId, subjectType }: InboxDetail
                             </div>
                         </div>
 
-                        <div className="grid gap-2">
-                            <Label htmlFor="inbox-title">
-                                {channel === "email"
-                                    ? t("subject", "Subject")
-                                    : t("title", "Title")}{" "}
-                                *
-                            </Label>
-                            <Input
-                                id="inbox-title"
-                                value={title}
-                                onChange={(event) => setTitle(event.target.value)}
-                                placeholder={
-                                    channel === "email"
-                                        ? t("inbox_subject_placeholder", "Message subject")
-                                        : t("inbox_title_placeholder", "Message title")
-                                }
-                            />
-                        </div>
+                        {channel !== "sms" && (
+                            <div className="grid gap-2">
+                                <Label htmlFor="inbox-title">
+                                    {channel === "email"
+                                        ? t("subject", "Subject")
+                                        : t("title", "Title")}{" "}
+                                    *
+                                </Label>
+                                <Input
+                                    id="inbox-title"
+                                    value={title}
+                                    onChange={(event) => setTitle(event.target.value)}
+                                    placeholder={
+                                        channel === "email"
+                                            ? t("inbox_subject_placeholder", "Message subject")
+                                            : t("inbox_title_placeholder", "Message title")
+                                    }
+                                />
+                            </div>
+                        )}
 
                         <div className="grid gap-2">
-                            <Label htmlFor="inbox-body">{t("body", "Body")}</Label>
+                            <Label htmlFor="inbox-body">
+                                {t("body", "Body")}
+                                {channel === "sms" ? " *" : ""}
+                            </Label>
                             <Textarea
                                 id="inbox-body"
                                 value={body}
@@ -889,18 +983,23 @@ export default function InboxDetailTable({ subjectId, subjectType }: InboxDetail
                                 <Label htmlFor="inbox-scheduled-at">
                                     {t("scheduled_at", "Scheduled at")}
                                 </Label>
-                                <Input
-                                    id="inbox-scheduled-at"
-                                    type="datetime-local"
-                                    value={scheduledAt}
-                                    onChange={(event) =>
-                                        setScheduledAt(
-                                            event.target.value
-                                                ? new Date(event.target.value).toISOString()
-                                                : "",
-                                        )
-                                    }
-                                />
+                                <div className="flex gap-2">
+                                    <Input
+                                        id="inbox-scheduled-at"
+                                        type="date"
+                                        value={scheduledDate}
+                                        onChange={(event) =>
+                                            handleScheduledDateChange(event.target.value)
+                                        }
+                                    />
+                                    <Input
+                                        id="inbox-scheduled-time"
+                                        type="time"
+                                        value={scheduledTime}
+                                        onChange={(event) => setScheduledTime(event.target.value)}
+                                        disabled={!scheduledDate}
+                                    />
+                                </div>
                                 <p className="text-xs text-muted-foreground">
                                     {t(
                                         "inbox_scheduled_at_hint",
@@ -925,7 +1024,7 @@ export default function InboxDetailTable({ subjectId, subjectType }: InboxDetail
                             onClick={createMessage}
                             disabled={
                                 isCreating ||
-                                !title.trim() ||
+                                (channel === "sms" ? !body.trim() : !title.trim()) ||
                                 ((channel === "email" || channel === "sms") && !senderIdentityId)
                             }
                         >
@@ -947,6 +1046,27 @@ function statusBadge(message: InboxMessage, t: TFunction) {
             </Badge>
         )
     }
+    if (!message.sent_at && new Date(message.scheduled_at) <= new Date()) {
+        return (
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <Badge
+                        variant="outline"
+                        className="border-0 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 gap-1"
+                    >
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        {t("sending", "Sending")}
+                    </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                    {t(
+                        "scheduled_sending_tooltip",
+                        "This message is scheduled to be sent out. It could take up to 1 minute to process.",
+                    )}
+                </TooltipContent>
+            </Tooltip>
+        )
+    }
     if (message.archived_at) {
         return (
             <Badge variant="outline" className="border-0 bg-muted text-muted-foreground">
@@ -954,25 +1074,10 @@ function statusBadge(message: InboxMessage, t: TFunction) {
             </Badge>
         )
     }
-    if (message.opened_at) {
+    if (message.read_at) {
         return <Badge variant="secondary">{t("opened", "Opened")}</Badge>
     }
     return <Badge>{t("unread", "Unread")}</Badge>
-}
-
-function getChannelMeta(channel: InboxChannel, t: TFunction) {
-    switch (channel) {
-        case "inbox":
-            return { label: t("inbox", "Inbox"), icon: Inbox }
-        case "email":
-            return { label: t("email", "Email"), icon: Mail }
-        case "sms":
-            return { label: t("sms", "SMS"), icon: MessageSquare }
-        case "push":
-            return { label: t("push", "Push"), icon: Bell }
-        default:
-            return { label: channel, icon: Inbox }
-    }
 }
 
 function isMessageVisible(message: InboxMessage) {

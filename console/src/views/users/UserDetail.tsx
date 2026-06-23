@@ -6,6 +6,7 @@ import {
     Trash2,
     FileText,
     Activity,
+    CalendarClock,
     Bell,
     Route,
     Building2,
@@ -17,7 +18,6 @@ import {
     Languages,
     Pencil,
     Check,
-    CalendarClock,
     Inbox,
 } from "lucide-react"
 import { ProjectContext, UserContext } from "../../contexts"
@@ -134,7 +134,7 @@ export default function UserDetail() {
     // Determine active tab
     const basePath = `/projects/${project.id}/users/${user.id}`
     const currentPath = location.pathname
-    const activeTab = currentPath === basePath ? "details" : currentPath.split("/").pop()
+    const activeTab = currentPath === basePath ? "details" : currentPath.replace(basePath + "/", "").split("/")[0]
 
     const deleteUser = async () => {
         setIsDeleting(true)
@@ -148,14 +148,9 @@ export default function UserDetail() {
 
     const tabs = [
         { key: "details", to: "", label: t("details"), icon: FileText },
-        { key: "events", to: "events", label: t("events"), icon: Activity },
-        {
-            key: "scheduled",
-            to: "scheduled",
-            label: t("scheduled", "Scheduled"),
-            icon: CalendarClock,
-        },
         { key: "inbox", to: "inbox", label: t("inbox", "Inbox"), icon: Inbox },
+        { key: "events", to: "events", label: t("events"), icon: Activity },
+        { key: "scheduled", to: "scheduled", label: t("scheduled", "Scheduled"), icon: CalendarClock },
         { key: "subscriptions", to: "subscriptions", label: t("subscriptions"), icon: Bell },
         { key: "journeys", to: "journeys", label: t("journeys"), icon: Route },
         { key: "organizations", to: "organizations", label: t("organizations"), icon: Building2 },

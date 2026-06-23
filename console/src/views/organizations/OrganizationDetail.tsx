@@ -7,7 +7,6 @@ import {
     FileText,
     Users,
     Activity,
-    CalendarClock,
     ChevronRight,
     Inbox,
     MoreHorizontal,
@@ -55,7 +54,7 @@ export default function OrganizationDetail() {
     // Determine active tab
     const basePath = `/projects/${project.id}/organizations/${organization.id}`
     const currentPath = location.pathname
-    const activeTab = currentPath === basePath ? "details" : currentPath.split("/").pop()
+    const activeTab = currentPath === basePath ? "details" : currentPath.replace(basePath + "/", "").split("/")[0]
 
     const deleteOrganization = async () => {
         setIsDeleting(true)
@@ -79,15 +78,9 @@ export default function OrganizationDetail() {
 
     const tabs = [
         { key: "details", to: "", label: t("details"), icon: FileText },
+        { key: "inbox", to: "inbox", label: t("inbox", "Inbox"), icon: Inbox },
         { key: "members", to: "members", label: t("members"), icon: Users },
         { key: "events", to: "events", label: t("events"), icon: Activity },
-        {
-            key: "scheduled",
-            to: "scheduled",
-            label: t("scheduled", "Scheduled"),
-            icon: CalendarClock,
-        },
-        { key: "inbox", to: "inbox", label: t("inbox", "Inbox"), icon: Inbox },
     ]
 
     return (
