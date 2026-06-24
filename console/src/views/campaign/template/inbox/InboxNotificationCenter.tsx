@@ -8,15 +8,18 @@ interface InboxNotificationCenterProps {
     body: string
     /** App / project name shown in the header. */
     appName?: string
+    /** Timestamp shown on the active message. Defaults to the current time. */
+    time?: string
 }
 
 // A faux in-app inbox / notification center. The campaign message renders as the
 // top, unread item; the dimmed rows beneath it exist purely to convey that the
 // message lands inside a list. Mirrors the message layout used on the user
 // detail inbox tab (bold title, muted body) so previews stay consistent.
-export function InboxNotificationCenter({ title, body, appName }: InboxNotificationCenterProps) {
+export function InboxNotificationCenter({ title, body, appName, time }: InboxNotificationCenterProps) {
     const { t } = useTranslation()
-    const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    const displayTime =
+        time ?? new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
 
     const placeholders = [
         {
@@ -41,19 +44,21 @@ export function InboxNotificationCenter({ title, body, appName }: InboxNotificat
                 {/* Header */}
                 <div className="flex items-center justify-between border-b px-4 py-3">
                     <div className="flex items-center gap-2">
-                        <Inbox className="h-4 w-4 text-muted-foreground" />
+                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-violet-500">
+                            <Inbox className="h-4 w-4 text-white" strokeWidth={1.5} />
+                        </div>
                         <span className="text-sm font-semibold text-foreground">
                             {appName || t("inbox", "Inbox")}
                         </span>
                     </div>
-                    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                    <span className="rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-700">
                         1 {t("campaign.setup.channels.inbox.new", "new")}
                     </span>
                 </div>
 
                 {/* Active (campaign) message — unread */}
-                <div className="relative flex gap-3 bg-muted/40 px-4 py-3">
-                    <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary" />
+                <div className="relative flex gap-3 bg-violet-50 px-4 py-3">
+                    <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-violet-500" />
                     <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-2">
                             <span className="truncate text-sm font-semibold text-foreground">
@@ -63,7 +68,9 @@ export function InboxNotificationCenter({ title, body, appName }: InboxNotificat
                                     </span>
                                 )}
                             </span>
-                            <span className="shrink-0 text-xs text-muted-foreground">{time}</span>
+                            <span className="shrink-0 text-xs text-muted-foreground">
+                                {displayTime}
+                            </span>
                         </div>
                         {body && (
                             <p className="mt-0.5 line-clamp-3 whitespace-pre-line text-sm text-muted-foreground">

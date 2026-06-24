@@ -548,33 +548,35 @@ export default function InboxDetailTable({ subjectId, subjectType }: InboxDetail
                                                 "cursor-pointer",
                                                 isExpanded && "bg-muted/50",
                                             )}
-                                            tabIndex={0}
-                                            role="button"
-                                            aria-expanded={isExpanded}
-                                            aria-label={t(
-                                                "toggle_message_details",
-                                                "Toggle message details",
-                                            )}
                                             onClick={() => toggleExpanded(message.id)}
-                                            onKeyDown={(e) => {
-                                                if (e.key === "Enter" || e.key === " ") {
-                                                    e.preventDefault()
-                                                    toggleExpanded(message.id)
-                                                }
-                                            }}
                                         >
                                             <TableCell className="p-0 pl-3">
-                                                {isExpanded ? (
-                                                    <ChevronDown
-                                                        className="h-4 w-4 text-muted-foreground"
-                                                        aria-hidden="true"
-                                                    />
-                                                ) : (
-                                                    <ChevronRight
-                                                        className="h-4 w-4 text-muted-foreground"
-                                                        aria-hidden="true"
-                                                    />
-                                                )}
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-8 w-8 p-0"
+                                                    aria-expanded={isExpanded}
+                                                    aria-label={t(
+                                                        "toggle_message_details",
+                                                        "Toggle message details",
+                                                    )}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation()
+                                                        toggleExpanded(message.id)
+                                                    }}
+                                                >
+                                                    {isExpanded ? (
+                                                        <ChevronDown
+                                                            className="h-4 w-4 text-muted-foreground"
+                                                            aria-hidden="true"
+                                                        />
+                                                    ) : (
+                                                        <ChevronRight
+                                                            className="h-4 w-4 text-muted-foreground"
+                                                            aria-hidden="true"
+                                                        />
+                                                    )}
+                                                </Button>
                                             </TableCell>
                                             <TableCell>
                                                 <div className="space-y-1">

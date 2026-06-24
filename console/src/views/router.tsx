@@ -29,7 +29,6 @@ import UserDetailAttrs from "./users/UserDetailAttrs"
 import UserDetailEvents from "./users/UserDetailEvents"
 import UserDetailInbox from "./users/UserDetailInbox"
 import UserDetailScheduled from "./users/UserDetailScheduled"
-import OrganizationDetailEventsLayout from "./organizations/OrganizationDetailEventsLayout"
 import UserDetailSubscriptions from "./users/UserDetailSubscriptions"
 import Campaigns from "./campaign/Campaigns"
 import Campaign from "./campaign/Campaign"
@@ -557,25 +556,15 @@ export const createRouter = ({
                                             },
                                             {
                                                 path: "events",
-                                                element: <OrganizationDetailEventsLayout />,
-                                                children: [
-                                                    {
-                                                        index: true,
-                                                        element: <OrganizationDetailEvents />,
-                                                    },
-                                                    {
-                                                        path: "scheduled",
-                                                        element: <OrganizationDetailScheduled />,
-                                                    },
-                                                ],
+                                                element: <OrganizationDetailEvents />,
+                                            },
+                                            {
+                                                path: "scheduled",
+                                                element: <OrganizationDetailScheduled />,
                                             },
                                             {
                                                 path: "members",
                                                 element: <OrganizationDetailMembers />,
-                                            },
-                                            {
-                                                path: "inbox",
-                                                element: <OrganizationDetailInbox />,
                                             },
                                             {
                                                 path: "inbox",

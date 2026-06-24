@@ -110,7 +110,11 @@ export default function PermissionSelector({
     return (
         <div className="grid gap-3">
             {/* Preset cards: the role bundles plus a Custom indicator. */}
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            <div
+                role="group"
+                aria-label={t("permission_presets", "Permission presets")}
+                className="grid grid-cols-2 gap-2 sm:grid-cols-3"
+            >
                 {rolePresets.map((preset) => (
                     <SelectableCard
                         key={preset.role}

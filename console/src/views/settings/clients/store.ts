@@ -17,7 +17,7 @@ import {
 // callback for refreshing after a mutation.
 export function useClients(projectId: UUID) {
     const [result, , reload, loading] = useResolver(
-        useCallback(() => api.authMethods.search(projectId, { limit: 200 }), [projectId]),
+        useCallback(() => api.authMethods.search(projectId, { limit: 100 }), [projectId]),
     )
     const clients = (result?.results ?? []).map(authMethodToClient)
     return { clients, loading, reload }

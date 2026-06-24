@@ -18,7 +18,6 @@ import {
     Languages,
     Pencil,
     Check,
-    CalendarClock,
     Inbox,
 } from "lucide-react"
 import { ProjectContext, UserContext } from "../../contexts"

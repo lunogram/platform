@@ -13,7 +13,6 @@ import { getSystemPreviewProps } from "@/views/campaign/template/mail/editor/var
 import { EmailFrame } from "@/components/preview/EmailFrame"
 import { PhoneFrame } from "@/components/preview/PhoneFrame"
 import { PushFrame } from "@/components/preview/PushFrame"
-import { InboxFrame } from "@/components/preview/InboxFrame"
 import { InboxNotificationCenter } from "@/views/campaign/template/inbox/InboxNotificationCenter"
 
 type InboxMessage = components["schemas"]["InboxMessage"]
@@ -90,14 +89,6 @@ export default function Preview({
         noSubject: t("no_subject", "No subject"),
         unknownSender: t("unknown_sender", "Unknown sender"),
         noContent: t("no_content_available", "No content available"),
-    }
-
-    const inboxLabels = {
-        noTitle: t("no_title", "No title"),
-        priorityUrgent: t("priority_urgent", "Urgent"),
-        priorityHigh: t("priority_high", "High"),
-        priorityMedium: t("priority_medium", "Medium"),
-        priorityLow: t("priority_low", "Low"),
     }
 
     let preview: ReactNode = null
@@ -197,17 +188,16 @@ export default function Preview({
                 />
             )
         } else {
-            // inbox / fallback — dedicated inbox card
+            // inbox / fallback — notification-center card, matching the campaign preview
             preview = (
-                <InboxFrame
-                    title={title || undefined}
-                    time={sentTime ?? undefined}
-                    priority={message.priority}
-                    tags={message.tags}
-                    labels={inboxLabels}
-                >
-                    {body ? body : !title ? t("no_content", "No content") : null}
-                </InboxFrame>
+                <div className="w-full max-w-lg">
+                    <InboxNotificationCenter
+                        title={title}
+                        body={body || (!title ? t("no_content", "No content") : "")}
+                        appName={project.name}
+                        time={sentTime ?? undefined}
+                    />
+                </div>
             )
         }
     }

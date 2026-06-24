@@ -188,6 +188,7 @@ export default function ClientList() {
                                                         variant="ghost"
                                                         size="icon"
                                                         className="h-8 w-8 text-ink-soft"
+                                                        aria-label={`Actions for ${client.name}`}
                                                     >
                                                         <MoreHorizontal className="h-4 w-4" />
                                                     </Button>

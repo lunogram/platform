@@ -37,7 +37,7 @@ export interface Identity {
     ttlSeconds?: number
 }
 
-export type { SubjectScope }
+export type { GrantConstraints, SubjectScope }
 
 // Client is a named integration that talks to the API: how it authenticates
 // (identity), what it may do (permissions), and whose data it may touch

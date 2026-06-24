@@ -56,7 +56,11 @@ export function AuthenticationFields({
                 <>
                     <div className="grid gap-3">
                         <SubLabel>Method</SubLabel>
-                        <div className="grid gap-2 sm:grid-cols-3">
+                        <div
+                            role="group"
+                            aria-label="Authentication method"
+                            className="grid gap-2 sm:grid-cols-3"
+                        >
                             {(Object.keys(identityMeta) as IdentityType[]).map((type) => {
                                 const Icon = identityIcon[type]
                                 return (
@@ -82,7 +86,11 @@ export function AuthenticationFields({
                     <SubLabel hint="Whose data this client may touch within its permissions.">
                         Data access
                     </SubLabel>
-                    <div className="grid gap-2 sm:grid-cols-2">
+                    <div
+                        role="group"
+                        aria-label="Data access"
+                        className="grid gap-2 sm:grid-cols-2"
+                    >
                         <SelectableCard
                             active={client.subjectScope === "all"}
                             onClick={() => set({ subjectScope: "all" })}
@@ -161,8 +169,9 @@ function IdentityConfig({
     if (identity.type === "session") {
         return (
             <div className="grid gap-x-6 gap-y-5 sm:grid-cols-2">
-                <Field label="Token lifetime (seconds)">
+                <Field label="Token lifetime (seconds)" htmlFor="cl-ttl">
                     <Input
+                        id="cl-ttl"
                         type="number"
                         min={1}
                         value={identity.ttlSeconds ?? 900}
@@ -204,8 +213,10 @@ function IdentityConfig({
                         <Field
                             label="Public key (PEM)"
                             hint="Your identity provider's PEM-encoded public key or X.509 certificate. Signatures are verified against it directly — no network fetch."
+                            htmlFor="cl-public-cert"
                         >
                             <Textarea
+                                id="cl-public-cert"
                                 rows={5}
                                 className="font-mono text-xs"
                                 placeholder={"-----BEGIN PUBLIC KEY-----\n…"}
@@ -218,29 +229,46 @@ function IdentityConfig({
                     <Field
                         label="JWKS URL"
                         hint="Where we fetch your identity provider's public signing keys."
+                        htmlFor="cl-jwks-url"
                     >
                         <Input
+                            id="cl-jwks-url"
                             value={identity.jwksUrl ?? ""}
                             placeholder="https://issuer/.well-known/jwks.json"
                             onChange={(e) => onChange({ jwksUrl: e.target.value })}
                         />
                     </Field>
                 )}
-                <Field label="Issuer (iss)" hint="Must match the iss claim in incoming tokens.">
+                <Field
+                    label="Issuer (iss)"
+                    hint="Must match the iss claim in incoming tokens."
+                    htmlFor="cl-iss"
+                >
                     <Input
+                        id="cl-iss"
                         value={identity.iss ?? ""}
                         placeholder="https://auth.acme.com/"
                         onChange={(e) => onChange({ iss: e.target.value })}
                     />
                 </Field>
-                <Field label="Audience (aud)" hint="Optional. Leave empty to skip the check.">
+                <Field
+                    label="Audience (aud)"
+                    hint="Optional. Leave empty to skip the check."
+                    htmlFor="cl-aud"
+                >
                     <Input
+                        id="cl-aud"
                         value={identity.aud ?? ""}
                         onChange={(e) => onChange({ aud: e.target.value })}
                     />
                 </Field>
-                <Field label="Subject claim" hint="Which token claim holds the user id.">
+                <Field
+                    label="Subject claim"
+                    hint="Which token claim holds the user id."
+                    htmlFor="cl-subject-claim"
+                >
                     <Input
+                        id="cl-subject-claim"
                         value={identity.subjectClaim ?? "sub"}
                         onChange={(e) => onChange({ subjectClaim: e.target.value })}
                     />
