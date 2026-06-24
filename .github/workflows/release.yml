@@ -86,7 +86,7 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           name: wasm-modules
-          path: internal
+          path: internal/integrations/modules
 
       - name: Download console dist
         uses: actions/download-artifact@v8
