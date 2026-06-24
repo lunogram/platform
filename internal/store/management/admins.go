@@ -166,11 +166,15 @@ func (s *AdminsStore) ListAdmins(ctx context.Context, organizationID uuid.UUID, 
 	return admins, total, nil
 }
 
+// GetAdminByEmail looks up an admin by email, case-insensitively. Email
+// matching must be case-insensitive everywhere it affects authorization (e.g.
+// the cross-organization invite guard and login provisioning); an exact match
+// would let an uppercase-stored email silently bypass those checks.
 func (s *AdminsStore) GetAdminByEmail(ctx context.Context, email string) (*Admin, error) {
 	stmt := `
 	SELECT id, organization_id, external_id, email, first_name, last_name, image_url, role, created_at, updated_at
 	FROM admins
-	WHERE email = $1
+	WHERE lower(email) = lower($1)
 	AND deleted_at IS NULL`
 
 	var admin Admin

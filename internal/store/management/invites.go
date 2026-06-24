@@ -68,10 +68,14 @@ const inviteColumns = `
 // invite per (project, lower(email)); re-inviting the same address upserts the
 // existing pending row with the new role, inviter and expiry. inviteeAdminID is
 // the denormalized id of the admin that currently owns the email, if any.
-func (s *InvitesStore) CreateProjectInvite(ctx context.Context, projectID, inviterAdminID uuid.UUID, inviteeEmail string, inviteeAdminID *uuid.UUID, role oapi.CreateProjectInviteRole, expiresIn string) (*Invite, error) {
+func (s *InvitesStore) CreateProjectInvite(ctx context.Context, projectID, inviterAdminID uuid.UUID, inviteeEmail string, inviteeAdminID *uuid.UUID, role oapi.CreateProjectInviteRole, ttl time.Duration) (*Invite, error) {
+	// The TTL is bound as an integer number of seconds and multiplied by a
+	// fixed '1 second'::interval. This keeps the (validated, clamped) duration
+	// fully parameterized and avoids casting any free-form user string to an
+	// interval, which could otherwise fail at the database layer.
 	stmt := `
 	INSERT INTO project_invites (project_id, inviter_admin_id, invitee_email, invitee_admin_id, role, expires_at)
-	VALUES ($1, $2, $3, $4, $5, NOW() + $6::interval)
+	VALUES ($1, $2, $3, $4, $5, NOW() + ($6 * INTERVAL '1 second'))
 	ON CONFLICT (project_id, lower(invitee_email)) WHERE accepted_at IS NULL AND revoked_at IS NULL
 	DO UPDATE SET
 		inviter_admin_id = EXCLUDED.inviter_admin_id,
@@ -82,7 +86,7 @@ func (s *InvitesStore) CreateProjectInvite(ctx context.Context, projectID, invit
 	RETURNING id, project_id, inviter_admin_id, invitee_email, invitee_admin_id, role, expires_at, created_at, revoked_at, accepted_at`
 
 	var invite Invite
-	err := s.db.GetContext(ctx, &invite, stmt, projectID, inviterAdminID, inviteeEmail, inviteeAdminID, role, expiresIn)
+	err := s.db.GetContext(ctx, &invite, stmt, projectID, inviterAdminID, inviteeEmail, inviteeAdminID, role, int64(ttl.Seconds()))
 	if err != nil {
 		return nil, err
 	}
