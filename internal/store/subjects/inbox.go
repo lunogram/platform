@@ -21,6 +21,11 @@ const (
 	InboxStatusArchived = "archived"
 )
 
+// DefaultInboxPriority is applied when a message is created without an explicit
+// priority. It matches the OpenAPI schema default for InboxMessage.priority
+// (range 1-5, default 3).
+const DefaultInboxPriority int16 = 3
+
 // InboxMessage is one row from user_inbox_messages or organization_inbox_messages.
 //
 // Render output (title, body, format, link_url, subject, ...) lives in Content.
@@ -289,7 +294,7 @@ func normalizeInboxMessageParams(params InboxMessageParams) InboxMessageParams {
 		params.Tags = []string{}
 	}
 	if params.Priority == nil {
-		params.Priority = ptr.To(int16(3))
+		params.Priority = ptr.To(DefaultInboxPriority)
 	}
 	return params
 }
