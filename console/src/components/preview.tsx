@@ -1,5 +1,11 @@
 import { format } from "date-fns"
-import type { Template } from "../types"
+import type {
+    Template,
+    EmailTemplateData,
+    TextTemplateData,
+    PushTemplateData,
+    InboxTemplateData,
+} from "../types"
 import type { components } from "../oapi/management.generated"
 import Iframe from "@/components/iframe"
 import "./preview.css"
@@ -17,6 +23,12 @@ import { InboxNotificationCenter } from "@/views/campaign/template/inbox/InboxNo
 
 type InboxMessage = components["schemas"]["InboxMessage"]
 
+type EmailLabels = {
+    noSubject: string
+    unknownSender: string
+    noContent: string
+}
+
 type PreviewProps = {
     size?: "small" | "large"
     variant?: "default" | "inbox-detail"
@@ -27,7 +39,15 @@ type PreviewProps = {
     | { message: InboxMessage; template?: never }
 )
 
-function EmailPreviewContent({ data, size }: { data: Template["data"]; size: "small" | "large" }) {
+function EmailPreviewContent({
+    data,
+    size,
+    labels,
+}: {
+    data: EmailTemplateData
+    size: "small" | "large"
+    labels: EmailLabels
+}) {
     const [compiledHtml, setCompiledHtml] = useState<string>("")
     const abortRef = useRef<AbortController | null>(null)
 
@@ -63,7 +83,7 @@ function EmailPreviewContent({ data, size }: { data: Template["data"]; size: "sm
     }, [data?.code?.source])
 
     return (
-        <EmailFrame subject={data.subject} fromName={data.from?.name} labels={emailLabels}>
+        <EmailFrame subject={data.subject} fromName={data.from?.name} labels={labels}>
             <Iframe content={compiledHtml} allowScroll={size !== "small"} />
         </EmailFrame>
     )
@@ -85,7 +105,7 @@ export default function Preview({
         ? "bg-white border rounded-xl w-full max-w-3xl overflow-hidden flex flex-col shadow-sm"
         : undefined
 
-    const emailLabels = {
+    const emailLabels: EmailLabels = {
         noSubject: t("no_subject", "No subject"),
         unknownSender: t("unknown_sender", "Unknown sender"),
         noContent: t("no_content_available", "No content available"),
@@ -94,16 +114,18 @@ export default function Preview({
     let preview: ReactNode = null
 
     if (template) {
-        const { data, type } = template
+        const { type } = template
         if (type === "email") {
-            preview = <EmailPreviewContent data={data} size={size} />
+            const data = template.data as EmailTemplateData
+            preview = <EmailPreviewContent data={data} size={size} labels={emailLabels} />
         } else if (type === "sms") {
+            const data = template.data as TextTemplateData
             preview = (
                 <PhoneFrame
                     sender={project.name.charAt(0).toUpperCase() + project.name.slice(1)}
                     message={
                         <>
-                            {data.text}
+                            {data.body}
                             <br />
                             {project.text_opt_out_message}
                         </>
@@ -113,6 +135,7 @@ export default function Preview({
                 />
             )
         } else if (type === "push") {
+            const data = template.data as PushTemplateData
             preview = (
                 <PushFrame
                     title={data.title ?? t("notification", "Notification")}
@@ -121,6 +144,7 @@ export default function Preview({
                 />
             )
         } else if (type === "inbox") {
+            const data = template.data as InboxTemplateData
             preview = (
                 <div className="p-4">
                     <InboxNotificationCenter
