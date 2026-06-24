@@ -6,6 +6,3 @@ export type { PhoneFrameProps } from "./PhoneFrame"
 
 export { PushFrame } from "./PushFrame"
 export type { PushFrameProps } from "./PushFrame"
-
-export { InboxFrame } from "./InboxFrame"
-export type { InboxFrameProps } from "./InboxFrame"
