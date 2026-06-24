@@ -184,32 +184,17 @@ func (srv *InviteController) CreateProjectInvite(w http.ResponseWriter, r *http.
 		return
 	}
 
-	project, err := srv.mgmt.GetProject(ctx, projectID, nil)
-	if err != nil {
-		logger.Error("failed to get project", zap.Error(err))
-		oapi.WriteProblem(w, err)
-		return
-	}
-
-	// Same-org / new-email guard. An invite may target a brand-new email (no
-	// admin account yet) or an existing admin that already belongs to the
-	// project's organization. Inviting an email that belongs to a *different*
-	// organization is rejected until admin↔organization many-to-many membership
-	// lands. When the invitee already has an account we denormalize its id so
-	// "my invites" can be matched even before the email column is touched.
+	// The invitee may be a brand-new email (no admin account yet) or an existing
+	// admin — possibly from another organization, who will be added as a member
+	// of this project's organization when they accept. When the invitee already
+	// has an account we denormalize its id so "my invites" can be matched even
+	// before they next sign in.
 	var inviteeAdminID *uuid.UUID
 	inviteeAdmin, err := srv.mgmt.GetAdminByEmail(ctx, inviteeEmail)
 	switch {
 	case err == nil:
-		if project.OrganizationID == nil || inviteeAdmin.OrganizationID != *project.OrganizationID {
-			// Use a generic message that does not confirm whether/where the email
-			// is registered, to limit account-enumeration across organizations.
-			// (The response still differs from the brand-new-email path; closing
-			// that gap fully needs a product decision — see PR notes.)
-			logger.Debug("invitee belongs to a different organization", zap.String("invitee_admin_id", inviteeAdmin.ID.String()))
-			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("this email cannot be invited to this project")))
-			return
-		}
+		// The invitee may belong to a different organization; accepting the invite
+		// adds them as a member of this project's organization (see AcceptProjectInvite).
 		inviteeAdminID = &inviteeAdmin.ID
 	case errors.Is(err, sql.ErrNoRows):
 		// Brand-new invitee — resolved by email when they sign up.
@@ -378,9 +363,6 @@ func (srv *InviteController) AcceptProjectInvite(w http.ResponseWriter, r *http.
 		}
 	}
 
-	// TODO: once admin↔organization many-to-many membership lands, also add the
-	// admin to the organization that owns this project.
-
 	// Mark the invite accepted. The guarded UPDATE is the real arbiter under
 	// concurrency: it only matches a pending, unexpired invite. sql.ErrNoRows
 	// therefore means the invite was already accepted, or was revoked/expired in
@@ -410,6 +392,32 @@ func (srv *InviteController) AcceptProjectInvite(w http.ResponseWriter, r *http.
 		return
 	}
 
+	// Ensure the admin is a member of the organization that owns this project.
+	// This is the cross-organization case: accepting an invite into another
+	// org's project makes the admin a base member of that organization so it
+	// appears in their organization switcher and org-scoped reads resolve. An
+	// existing membership (e.g. their home org) is left untouched so we never
+	// downgrade an owner to a member.
+	addedToOrg := false
+	var orgID uuid.UUID
+	if project.OrganizationID != nil {
+		orgID = *project.OrganizationID
+		isMember, err := managementStore.IsMember(ctx, orgID, adminID)
+		if err != nil {
+			logger.Error("failed to check organization membership", zap.Error(err))
+			oapi.WriteProblem(w, err)
+			return
+		}
+		if !isMember {
+			if err := managementStore.AddMember(ctx, orgID, adminID, "member"); err != nil {
+				logger.Error("failed to add organization membership", zap.Error(err))
+				oapi.WriteProblem(w, err)
+				return
+			}
+			addedToOrg = true
+		}
+	}
+
 	if err = tx.Commit(); err != nil {
 		logger.Error("failed to commit transaction", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -437,6 +445,14 @@ func (srv *InviteController) AcceptProjectInvite(w http.ResponseWriter, r *http.
 		logger.Error("failed to write RBAC tuples for project admin", zap.Error(err))
 		oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("failed to assign project role")))
 		return
+	}
+
+	if addedToOrg {
+		if err = srv.engine.WriteTuples(ctx, access.OrganizationRoleTuples(adminID, orgID, "member")); err != nil {
+			logger.Error("failed to write organization RBAC tuples", zap.Error(err))
+			oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("failed to assign organization membership")))
+			return
+		}
 	}
 
 	logger.Info("accepted project invite and added admin to project", zap.String("project_id", invite.ProjectID.String()))

@@ -796,6 +796,18 @@ type AdminList struct {
 	Total int `json:"total"`
 }
 
+// AdminOrganization defines model for AdminOrganization.
+type AdminOrganization struct {
+	Id openapi_types.UUID `json:"id"`
+
+	// IsActive Whether this is the admin's currently active organization
+	IsActive bool   `json:"is_active"`
+	Name     string `json:"name"`
+
+	// Role The admin's role within this organization
+	Role string `json:"role"`
+}
+
 // ApiKey defines model for ApiKey.
 type ApiKey struct {
 	CreatedAt   time.Time          `json:"created_at"`
@@ -1859,6 +1871,11 @@ type SenderIdentity struct {
 
 // SenderIdentityChannel Channel type (email or sms)
 type SenderIdentityChannel string
+
+// SetActiveOrganization defines model for SetActiveOrganization.
+type SetActiveOrganization struct {
+	OrganizationId openapi_types.UUID `json:"organization_id"`
+}
 
 // SmsProviderData defines model for SmsProviderData.
 type SmsProviderData = map[string]interface{}
@@ -2979,6 +2996,9 @@ type AuthCallbackParamsDriver string
 // AuthWebhookParamsDriver defines parameters for AuthWebhook.
 type AuthWebhookParamsDriver string
 
+// SetActiveOrganizationJSONRequestBody defines body for SetActiveOrganization for application/json ContentType.
+type SetActiveOrganizationJSONRequestBody = SetActiveOrganization
+
 // CreateProjectJSONRequestBody defines body for CreateProject for application/json ContentType.
 type CreateProjectJSONRequestBody = CreateProject
 
@@ -3223,6 +3243,14 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 
 // The interface specification for the client above.
 type ClientInterface interface {
+	// SetActiveOrganizationWithBody request with any body
+	SetActiveOrganizationWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	SetActiveOrganization(ctx context.Context, body SetActiveOrganizationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListMyOrganizations request
+	ListMyOrganizations(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetProfile request
 	GetProfile(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -3861,6 +3889,42 @@ type ClientInterface interface {
 
 	// AcceptProjectInvite request
 	AcceptProjectInvite(ctx context.Context, inviteID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+}
+
+func (c *Client) SetActiveOrganizationWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetActiveOrganizationRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) SetActiveOrganization(ctx context.Context, body SetActiveOrganizationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetActiveOrganizationRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListMyOrganizations(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListMyOrganizationsRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
 }
 
 func (c *Client) GetProfile(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -6633,6 +6697,73 @@ func (c *Client) AcceptProjectInvite(ctx context.Context, inviteID openapi_types
 		return nil, err
 	}
 	return c.Client.Do(req)
+}
+
+// NewSetActiveOrganizationRequest calls the generic SetActiveOrganization builder with application/json body
+func NewSetActiveOrganizationRequest(server string, body SetActiveOrganizationJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSetActiveOrganizationRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewSetActiveOrganizationRequestWithBody generates requests for SetActiveOrganization with any type of body
+func NewSetActiveOrganizationRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/active-organization")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListMyOrganizationsRequest generates requests for ListMyOrganizations
+func NewListMyOrganizationsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/organizations")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
 }
 
 // NewGetProfileRequest generates requests for GetProfile
@@ -16264,6 +16395,14 @@ func WithBaseURL(baseURL string) ClientOption {
 
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
+	// SetActiveOrganizationWithBodyWithResponse request with any body
+	SetActiveOrganizationWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetActiveOrganizationResponse, error)
+
+	SetActiveOrganizationWithResponse(ctx context.Context, body SetActiveOrganizationJSONRequestBody, reqEditors ...RequestEditorFn) (*SetActiveOrganizationResponse, error)
+
+	// ListMyOrganizationsWithResponse request
+	ListMyOrganizationsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListMyOrganizationsResponse, error)
+
 	// GetProfileWithResponse request
 	GetProfileWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetProfileResponse, error)
 
@@ -16902,6 +17041,69 @@ type ClientWithResponsesInterface interface {
 
 	// AcceptProjectInviteWithResponse request
 	AcceptProjectInviteWithResponse(ctx context.Context, inviteID openapi_types.UUID, reqEditors ...RequestEditorFn) (*AcceptProjectInviteResponse, error)
+}
+
+type SetActiveOrganizationResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r SetActiveOrganizationResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SetActiveOrganizationResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SetActiveOrganizationResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListMyOrganizationsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *struct {
+		Results []AdminOrganization `json:"results"`
+	}
+	JSONDefault *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListMyOrganizationsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListMyOrganizationsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListMyOrganizationsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
 }
 
 type GetProfileResponse struct {
@@ -22409,6 +22611,32 @@ func (r AcceptProjectInviteResponse) ContentType() string {
 	return ""
 }
 
+// SetActiveOrganizationWithBodyWithResponse request with arbitrary body returning *SetActiveOrganizationResponse
+func (c *ClientWithResponses) SetActiveOrganizationWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetActiveOrganizationResponse, error) {
+	rsp, err := c.SetActiveOrganizationWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetActiveOrganizationResponse(rsp)
+}
+
+func (c *ClientWithResponses) SetActiveOrganizationWithResponse(ctx context.Context, body SetActiveOrganizationJSONRequestBody, reqEditors ...RequestEditorFn) (*SetActiveOrganizationResponse, error) {
+	rsp, err := c.SetActiveOrganization(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetActiveOrganizationResponse(rsp)
+}
+
+// ListMyOrganizationsWithResponse request returning *ListMyOrganizationsResponse
+func (c *ClientWithResponses) ListMyOrganizationsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListMyOrganizationsResponse, error) {
+	rsp, err := c.ListMyOrganizations(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListMyOrganizationsResponse(rsp)
+}
+
 // GetProfileWithResponse request returning *GetProfileResponse
 func (c *ClientWithResponses) GetProfileWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetProfileResponse, error) {
 	rsp, err := c.GetProfile(ctx, reqEditors...)
@@ -24432,6 +24660,67 @@ func (c *ClientWithResponses) AcceptProjectInviteWithResponse(ctx context.Contex
 		return nil, err
 	}
 	return ParseAcceptProjectInviteResponse(rsp)
+}
+
+// ParseSetActiveOrganizationResponse parses an HTTP response from a SetActiveOrganizationWithResponse call
+func ParseSetActiveOrganizationResponse(rsp *http.Response) (*SetActiveOrganizationResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SetActiveOrganizationResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListMyOrganizationsResponse parses an HTTP response from a ListMyOrganizationsWithResponse call
+func ParseListMyOrganizationsResponse(rsp *http.Response) (*ListMyOrganizationsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListMyOrganizationsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Results []AdminOrganization `json:"results"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
 }
 
 // ParseGetProfileResponse parses an HTTP response from a GetProfileWithResponse call
@@ -30019,6 +30308,12 @@ func ParseAcceptProjectInviteResponse(rsp *http.Response) (*AcceptProjectInviteR
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// Set active organization
+	// (POST /api/admin/active-organization)
+	SetActiveOrganization(w http.ResponseWriter, r *http.Request)
+	// List my organizations
+	// (GET /api/admin/organizations)
+	ListMyOrganizations(w http.ResponseWriter, r *http.Request)
 	// Get current admin profile
 	// (GET /api/admin/profile)
 	GetProfile(w http.ResponseWriter, r *http.Request)
@@ -30555,6 +30850,18 @@ type ServerInterface interface {
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
 
 type Unimplemented struct{}
+
+// Set active organization
+// (POST /api/admin/active-organization)
+func (_ Unimplemented) SetActiveOrganization(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// List my organizations
+// (GET /api/admin/organizations)
+func (_ Unimplemented) ListMyOrganizations(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
 
 // Get current admin profile
 // (GET /api/admin/profile)
@@ -31626,6 +31933,46 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
+
+// SetActiveOrganization operation middleware
+func (siw *ServerInterfaceWrapper) SetActiveOrganization(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetActiveOrganization(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListMyOrganizations operation middleware
+func (siw *ServerInterfaceWrapper) ListMyOrganizations(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListMyOrganizations(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
 
 // GetProfile operation middleware
 func (siw *ServerInterfaceWrapper) GetProfile(w http.ResponseWriter, r *http.Request) {
@@ -40217,6 +40564,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		ErrorHandlerFunc:   options.ErrorHandlerFunc,
 	}
 
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/active-organization", wrapper.SetActiveOrganization)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/organizations", wrapper.ListMyOrganizations)
+	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/profile", wrapper.GetProfile)
 	})

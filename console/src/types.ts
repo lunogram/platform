@@ -333,6 +333,13 @@ export interface Admin {
 
 export const projectRoles = ["support", "client", "editor", "admin"] as const
 
+export interface AdminOrganization {
+    id: UUID
+    name: string
+    role: string
+    is_active: boolean
+}
+
 export interface ProjectInvite {
     id: UUID
     project_id: UUID

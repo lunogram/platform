@@ -11,6 +11,7 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/config"
 	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/store/management"
@@ -110,14 +111,78 @@ func WithJWT(config config.Auth, mgmt *management.State) Handler {
 			return ctx, ErrUnauthorized
 		}
 
+		orgID, err := resolveActiveOrganization(ctx, mgmt, admin)
+		if err != nil {
+			// A real failure resolving the active organization (e.g. a transient
+			// DB error) must NOT fail open onto the home org — that would bypass
+			// the revoked-membership check on a hot security path. Surface the
+			// error so the request fails instead of silently granting scope.
+			return ctx, err
+		}
+
 		actor := rbac.NewActor(
 			rbac.ActorAdmin,
 			admin.ID.String(),
-			rbac.WithOrganizationID(admin.OrganizationID),
+			rbac.WithOrganizationID(orgID),
 		)
 
 		return rbac.WithActor(ctx, actor), nil
 	}
+}
+
+// resolveActiveOrganization determines which organization scopes the request.
+// An admin may belong to several organizations; the session is scoped to their
+// active organization. The stored active organization is validated against
+// current membership on every request so that revoking a membership (or a stale
+// active_organization_id) cannot leak access to an organization the admin no
+// longer belongs to. It falls back to the home organization, then to any
+// remaining membership.
+//
+// This runs on every authenticated request and gates the revoked-membership
+// check, so a DB error must be propagated, not swallowed. Swallowing it would
+// fail OPEN — defaulting to the home org and bypassing the membership check on
+// a transient failure. Only a clean "not a member" result (no error) advances
+// to the next fallback.
+func resolveActiveOrganization(ctx context.Context, mgmt *management.State, admin *management.Admin) (uuid.UUID, error) {
+	active := admin.OrganizationID
+	if admin.ActiveOrganizationID != nil {
+		active = *admin.ActiveOrganizationID
+	}
+
+	ok, err := mgmt.IsMember(ctx, active, admin.ID)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	if ok {
+		return active, nil
+	}
+
+	// The active org is stale (membership revoked). Try the home org, but only
+	// if it differs from the active org we already checked.
+	if admin.OrganizationID != active {
+		ok, err := mgmt.IsMember(ctx, admin.OrganizationID, admin.ID)
+		if err != nil {
+			return uuid.Nil, err
+		}
+		if ok {
+			return admin.OrganizationID, nil
+		}
+	}
+
+	// Neither the active nor home org is a current membership; fall back to any
+	// remaining membership so the admin can still reach an org they belong to.
+	orgs, err := mgmt.ListOrganizationsForAdmin(ctx, admin.ID)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	if len(orgs) > 0 {
+		return orgs[0].ID, nil
+	}
+
+	// The admin belongs to no organization. Scope to the home org as a last
+	// resort; org-scoped permission checks will deny access since there is no
+	// membership tuple, so this does not leak access.
+	return admin.OrganizationID, nil
 }
 
 func WithKey(mgmt *management.State) Handler {

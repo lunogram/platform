@@ -1653,6 +1653,53 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
+  /api/admin/organizations:
+    get:
+      summary: List my organizations
+      description: Lists the organizations the authenticated admin is a member of, with the active one flagged
+      operationId: ListMyOrganizations
+      tags:
+        - Admins
+      security:
+        - HttpBearerAuth: []
+      responses:
+        "200":
+          description: Organizations retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - results
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AdminOrganization"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/active-organization:
+    post:
+      summary: Set active organization
+      description: Switches the authenticated admin's active organization, which scopes subsequent requests
+      operationId: SetActiveOrganization
+      tags:
+        - Admins
+      security:
+        - HttpBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetActiveOrganization"
+      responses:
+        "204":
+          description: Active organization updated successfully
+        default:
+          $ref: "#/components/responses/Error"
+
   /api/admin/tenant/admins:
     get:
       summary: List organization admins
@@ -10010,6 +10057,40 @@ components:
             channel:
               type: string
     
+    AdminOrganization:
+      type: object
+      required:
+        - id
+        - name
+        - role
+        - is_active
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d"
+        name:
+          type: string
+          example: "Acme Inc"
+        role:
+          type: string
+          description: The admin's role within this organization
+          example: owner
+        is_active:
+          type: boolean
+          description: Whether this is the admin's currently active organization
+          example: true
+
+    SetActiveOrganization:
+      type: object
+      required:
+        - organization_id
+      properties:
+        organization_id:
+          type: string
+          format: uuid
+          example: "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d"
+
     CreateProjectInvite:
       type: object
       required:
