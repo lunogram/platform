@@ -749,9 +749,6 @@ type AuthCallbackRequest struct {
 
 	// Password Password (required for basic auth)
 	Password *string `json:"password,omitempty"`
-
-	// Redirect URL to redirect after successful auth
-	Redirect *string `json:"redirect,omitempty"`
 }
 
 // AuthMethod defines model for AuthMethod.

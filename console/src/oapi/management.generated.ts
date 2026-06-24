@@ -4704,11 +4704,6 @@ export interface components {
              * @example password123
              */
             password?: string;
-            /**
-             * @description URL to redirect after successful auth
-             * @example /
-             */
-            redirect?: string;
         };
         EmailTemplate: {
             /**

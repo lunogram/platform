@@ -169,10 +169,10 @@ const api = {
         basicAuth: async (email: string, password: string) => {
             await client.post("/auth/login/basic/callback", { email, password })
         },
-        clerkAuth: async (token: string, redirect: string = "/") => {
+        clerkAuth: async (token: string) => {
             await client.post(
                 "/auth/login/clerk/callback",
-                { redirect },
+                {},
                 { headers: { Authorization: `Bearer ${token}` } },
             )
         },
