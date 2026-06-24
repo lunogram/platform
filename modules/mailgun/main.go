@@ -87,9 +87,29 @@ func callMailgun(ctx context.Context, apiKey, method, endpoint string, form url.
 	return resp.StatusCode, respBody, nil
 }
 
+// providerCapabilitySpec describes the provider capability advertised by this
+// integration.
+func providerCapabilitySpec() json.RawMessage {
+	spec, err := json.Marshal(modules.ProviderSpec{
+		Channels: []modules.Channel{modules.ChannelEmail},
+		Webhook:  true,
+		RateLimit: &modules.RateLimit{
+			Limit:    5,
+			Interval: "1s",
+			Override: true,
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	return spec
+}
+
 //go:export manifest
 func Manifest() int32 {
-	manifest := providers.ProviderManifest{
+	manifest := modules.IntegrationManifest{
+		APIVersion: "v1",
 		Metadata: modules.Metadata{
 			ID:          "mailgun",
 			Title:       "Mailgun Email",
@@ -106,53 +126,46 @@ func Manifest() int32 {
 			Email: "dev@lunogram.io",
 			URL:   "https://lunogram.com",
 		},
-		Spec: providers.ProviderSpec{
-			Webhook:  true,
-			Channels: []providers.Channel{providers.ChannelEmail},
-			RateLimit: &providers.RateLimit{
-				Limit:    5,
-				Interval: "1s",
-				Override: true,
-			},
-			Config: &modules.JSONSchema{
-				Type: "object",
-				Properties: []modules.JSONSchemaProperty{
-					{
-						Name: "data",
-						Schema: &modules.JSONSchema{
-							Type: "object",
-							Properties: []modules.JSONSchemaProperty{
-								{
-									Name:   "apiKey",
-									Schema: &modules.JSONSchema{Type: "string", Title: "Mailgun API Key", Format: "password"},
-								},
-								{
-									Name: "apiRegion",
-									Schema: &modules.JSONSchema{
-										Type:        "string",
-										Title:       "API Region",
-										Description: "Mailgun API region (US or EU)",
-										Enum:        []string{"US", "EU"},
-									},
-								},
-								{
-									Name:   "domain",
-									Schema: &modules.JSONSchema{Type: "string", Title: "Mailgun Domain", Description: "Verified Mailgun sending domain (e.g. mg.example.com)"},
-								},
-								{
-									Name:   "webhookSigningKey",
-									Schema: &modules.JSONSchema{Type: "string", Title: "Webhook Signing Key", Format: "password", Description: "Optional Mailgun webhook signing key used to verify webhook signatures"},
-								},
-								{
-									Name:   "webhookUrl",
-									Schema: &modules.JSONSchema{Type: "string", Title: "Webhook URL", Description: "Mailgun webhook callback URL (auto-configured)"},
-									Hidden: true,
+		Config: &modules.JSONSchema{
+			Type: "object",
+			Properties: []modules.JSONSchemaProperty{
+				{
+					Name: "data",
+					Schema: &modules.JSONSchema{
+						Type: "object",
+						Properties: []modules.JSONSchemaProperty{
+							{
+								Name:   "apiKey",
+								Schema: &modules.JSONSchema{Type: "string", Title: "Mailgun API Key", Format: "password"},
+							},
+							{
+								Name: "apiRegion",
+								Schema: &modules.JSONSchema{
+									Type:        "string",
+									Title:       "API Region",
+									Description: "Mailgun API region (US or EU)",
+									Enum:        []string{"US", "EU"},
 								},
 							},
-							Required: []string{"apiKey", "domain"},
+							{
+								Name:   "domain",
+								Schema: &modules.JSONSchema{Type: "string", Title: "Mailgun Domain", Description: "Verified Mailgun sending domain (e.g. mg.example.com)"},
+							},
+							{
+								Name:   "webhookSigningKey",
+								Schema: &modules.JSONSchema{Type: "string", Title: "Webhook Signing Key", Format: "password", Description: "Optional Mailgun webhook signing key used to verify webhook signatures"},
+							},
 						},
+						Required: []string{"apiKey", "domain"},
 					},
 				},
+			},
+		},
+		Capabilities: []modules.Capability{
+			{
+				Type:    "provider",
+				Version: "v1",
+				Spec:    providerCapabilitySpec(),
 			},
 		},
 	}
@@ -165,7 +178,7 @@ func Manifest() int32 {
 	return ExitSuccess
 }
 
-//go:export send
+//go:export provider_send
 func Send() int32 {
 	var req providers.SendRequest[Config]
 	if err := pdk.InputJSON(&req); err != nil {
@@ -237,7 +250,7 @@ func Send() int32 {
 	return ExitSuccess
 }
 
-//go:export webhook
+//go:export provider_webhook
 func WebhookHandler() int32 {
 	var req providers.WebhookRequest
 	if err := pdk.InputJSON(&req); err != nil {
@@ -282,7 +295,7 @@ func WebhookHandler() int32 {
 
 //go:export validate
 func Validate() int32 {
-	var req providers.ValidateRequest
+	var req modules.ValidateRequest
 	if err := pdk.InputJSON(&req); err != nil {
 		pdk.SetError(err)
 		return ExitPermanent
@@ -297,7 +310,7 @@ func Validate() int32 {
 	errs := validateConfig(config)
 
 	if len(errs) > 0 {
-		if err := pdk.OutputJSON(providers.ValidateResponse{
+		if err := pdk.OutputJSON(modules.ValidateResponse{
 			Valid:   false,
 			Errors:  errs,
 			Message: "invalid provider configuration",
@@ -308,10 +321,12 @@ func Validate() int32 {
 		return ExitSuccess
 	}
 
-	if err := pdk.OutputJSON(providers.ValidateResponse{Valid: true}); err != nil {
+	if err := pdk.OutputJSON(modules.ValidateResponse{Valid: true}); err != nil {
 		pdk.SetError(err)
 		return ExitPermanent
 	}
 
 	return ExitSuccess
 }
+
+func main() {}

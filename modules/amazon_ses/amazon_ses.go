@@ -59,6 +59,23 @@ type SESv2SendEmailRequest struct {
 	ConfigurationSetName *string `json:"ConfigurationSetName,omitempty"`
 }
 
+// validateConfig checks the required SES credentials and returns a map of
+// field-level error messages keyed by the config property name. An empty map
+// means the configuration is valid.
+func validateConfig(config Config) map[string]string {
+	errs := make(map[string]string)
+	if config.AccessKeyID == "" {
+		errs["accessKeyId"] = "Access key ID is required"
+	}
+	if config.SecretAccessKey == "" {
+		errs["secretAccessKey"] = "Secret access key is required"
+	}
+	if config.Region == "" {
+		errs["region"] = "AWS region is required"
+	}
+	return errs
+}
+
 // formatAddress formats an EmailAddress as "Name <addr>" or just "addr".
 func formatAddress(address providers.EmailAddress) string {
 	if address.Name != "" {

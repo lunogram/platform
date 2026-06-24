@@ -44,6 +44,27 @@ func NewSESv2Client(cfg Config) *SESv2Client {
 	}
 }
 
+// providerCapabilitySpec describes the provider capability advertised by this
+// integration. SES delivers via the SESv2 API; delivery/bounce notifications
+// arrive out-of-band via SNS, which the platform does not yet ingest, so
+// Webhook is left false.
+func providerCapabilitySpec() json.RawMessage {
+	spec, err := json.Marshal(modules.ProviderSpec{
+		Channels: []modules.Channel{modules.ChannelEmail},
+		Webhook:  false,
+		RateLimit: &modules.RateLimit{
+			Limit:    14,
+			Interval: "1s",
+			Override: true,
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	return spec
+}
+
 func (c *SESv2Client) SendEmail(req *SESv2SendEmailRequest) (string, error) {
 	body, err := json.Marshal(req)
 	if err != nil {
@@ -81,7 +102,8 @@ func (c *SESv2Client) SendEmail(req *SESv2SendEmailRequest) (string, error) {
 
 //go:export manifest
 func Manifest() int32 {
-	manifest := providers.ProviderManifest{
+	manifest := modules.IntegrationManifest{
+		APIVersion: "v1",
 		Metadata: modules.Metadata{
 			ID:          "amazon_ses",
 			Title:       "Amazon SES",
@@ -98,47 +120,45 @@ func Manifest() int32 {
 			Email: "dev@lunogram.io",
 			URL:   "https://lunogram.com",
 		},
-		Spec: providers.ProviderSpec{
-			// Webhook support is not yet implemented for SES. Delivery/bounce
-			// notifications arrive via SNS, which requires parsing the SNS
-			// envelope around SES events (see WebhookHandler). Keep this false
-			// so the platform does not register a webhook that silently drops
-			// every event.
-			Webhook:  false,
-			Channels: []providers.Channel{providers.ChannelEmail},
-			Config: &modules.JSONSchema{
-				Type: "object",
-				Properties: []modules.JSONSchemaProperty{
-					{
-						Name: "data",
-						Schema: &modules.JSONSchema{
-							Type: "object",
-							Properties: []modules.JSONSchemaProperty{
-								{
-									Name:   "accessKeyId",
-									Schema: &modules.JSONSchema{Type: "string", Title: "Access Key ID"},
-								},
-								{
-									Name:   "secretAccessKey",
-									Schema: &modules.JSONSchema{Type: "string", Title: "Secret Access Key", Format: "password"},
-								},
-								{
-									Name:   "region",
-									Schema: &modules.JSONSchema{Type: "string", Title: "AWS Region", Description: "For example us-east-1"},
-								},
-								{
-									Name:   "sessionToken",
-									Schema: &modules.JSONSchema{Type: "string", Title: "Session Token", Description: "Optional STS Session Token", Format: "password"},
-								},
-								{
-									Name:   "configurationSet",
-									Schema: &modules.JSONSchema{Type: "string", Title: "Configuration Set", Description: "Optional SES Configuration Set name"},
-								},
+		Config: &modules.JSONSchema{
+			Type: "object",
+			Properties: []modules.JSONSchemaProperty{
+				{
+					Name: "data",
+					Schema: &modules.JSONSchema{
+						Type: "object",
+						Properties: []modules.JSONSchemaProperty{
+							{
+								Name:   "accessKeyId",
+								Schema: &modules.JSONSchema{Type: "string", Title: "Access Key ID"},
 							},
-							Required: []string{"accessKeyId", "secretAccessKey", "region"},
+							{
+								Name:   "secretAccessKey",
+								Schema: &modules.JSONSchema{Type: "string", Title: "Secret Access Key", Format: "password"},
+							},
+							{
+								Name:   "region",
+								Schema: &modules.JSONSchema{Type: "string", Title: "AWS Region", Description: "For example us-east-1"},
+							},
+							{
+								Name:   "sessionToken",
+								Schema: &modules.JSONSchema{Type: "string", Title: "Session Token", Description: "Optional STS Session Token", Format: "password"},
+							},
+							{
+								Name:   "configurationSet",
+								Schema: &modules.JSONSchema{Type: "string", Title: "Configuration Set", Description: "Optional SES Configuration Set name"},
+							},
 						},
+						Required: []string{"accessKeyId", "secretAccessKey", "region"},
 					},
 				},
+			},
+		},
+		Capabilities: []modules.Capability{
+			{
+				Type:    "provider",
+				Version: "v1",
+				Spec:    providerCapabilitySpec(),
 			},
 		},
 	}
@@ -150,7 +170,7 @@ func Manifest() int32 {
 	return ExitSuccess
 }
 
-//go:export send
+//go:export provider_send
 func Send() int32 {
 	var req providers.SendRequest[Config]
 	if err := pdk.InputJSON(&req); err != nil {
@@ -223,7 +243,7 @@ func Send() int32 {
 	return ExitSuccess
 }
 
-//go:export webhook
+//go:export provider_webhook
 func WebhookHandler() int32 {
 	var req providers.WebhookRequest
 	if err := pdk.InputJSON(&req); err != nil {
@@ -243,3 +263,41 @@ func WebhookHandler() int32 {
 	}
 	return ExitSuccess
 }
+
+//go:export validate
+func Validate() int32 {
+	var req modules.ValidateRequest
+	if err := pdk.InputJSON(&req); err != nil {
+		pdk.SetError(err)
+		return ExitPermanent
+	}
+
+	var config Config
+	if err := json.Unmarshal(req.Config, &config); err != nil {
+		pdk.SetError(fmt.Errorf("failed to parse config: %w", err))
+		return ExitPermanent
+	}
+
+	errs := validateConfig(config)
+
+	if len(errs) > 0 {
+		if err := pdk.OutputJSON(modules.ValidateResponse{
+			Valid:   false,
+			Errors:  errs,
+			Message: "invalid provider configuration",
+		}); err != nil {
+			pdk.SetError(err)
+			return ExitPermanent
+		}
+		return ExitSuccess
+	}
+
+	if err := pdk.OutputJSON(modules.ValidateResponse{Valid: true}); err != nil {
+		pdk.SetError(err)
+		return ExitPermanent
+	}
+
+	return ExitSuccess
+}
+
+func main() {}
