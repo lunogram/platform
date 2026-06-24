@@ -65,7 +65,7 @@ func (srv *LocalesController) CreateLocale(w http.ResponseWriter, r *http.Reques
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.String("key", body.Key))
 	logger.Info("creating locale")
 
-	_, err = srv.store.ProjectsStore.GetProject(ctx, projectID)
+	_, err = srv.store.ProjectsStore.GetProject(ctx, projectID, nil)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("project not found", zap.Stringer("project_id", projectID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("project not found")))
@@ -114,7 +114,7 @@ func (srv *LocalesController) ListLocales(w http.ResponseWriter, r *http.Request
 	logger := srv.logger.With(zap.Stringer("project_id", projectID))
 	logger.Info("listing locales")
 
-	_, err = srv.store.ProjectsStore.GetProject(ctx, projectID)
+	_, err = srv.store.ProjectsStore.GetProject(ctx, projectID, nil)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("project not found", zap.Stringer("project_id", projectID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("project not found")))
@@ -167,7 +167,7 @@ func (srv *LocalesController) GetLocale(w http.ResponseWriter, r *http.Request, 
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.String("locale_id", localeID))
 	logger.Info("getting locale")
 
-	_, err = srv.store.ProjectsStore.GetProject(ctx, projectID)
+	_, err = srv.store.ProjectsStore.GetProject(ctx, projectID, nil)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("project not found", zap.Stringer("project_id", projectID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("project not found")))
@@ -207,7 +207,7 @@ func (srv *LocalesController) DeleteLocale(w http.ResponseWriter, r *http.Reques
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("locale_id", localeID))
 	logger.Info("deleting locale")
 
-	_, err = srv.store.ProjectsStore.GetProject(ctx, projectID)
+	_, err = srv.store.ProjectsStore.GetProject(ctx, projectID, nil)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("project not found", zap.Stringer("project_id", projectID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("project not found")))

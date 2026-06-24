@@ -42,6 +42,25 @@ func HMAC(secret []byte) jwt.Keyfunc {
 	}
 }
 
+// multiKeyfunc returns a keyfunc that dispatches to jwks for RS256 tokens and
+// hmac for HS256 tokens, allowing both Clerk (RS256) and basic auth (HS256) to
+// coexist when both are configured.
+func multiKeyfunc(jwks, hmac jwt.Keyfunc) jwt.Keyfunc {
+	return func(token *jwt.Token) (any, error) {
+		switch token.Method.(type) {
+		case *jwt.SigningMethodRSA:
+			if jwks != nil {
+				return jwks(token)
+			}
+		case *jwt.SigningMethodHMAC:
+			if hmac != nil {
+				return hmac(token)
+			}
+		}
+		return nil, jwt.ErrTokenSignatureInvalid
+	}
+}
+
 type Handler func(ctx context.Context, token string) (context.Context, error)
 
 // Surface identifies which API an API-key request is authenticating against.
@@ -96,16 +115,19 @@ func Middleware(middleware ...Handler) openapi3filter.AuthenticationFunc {
 }
 
 func WithJWT(config config.Auth, mgmt *management.State) Handler {
-	// Bind the accepted algorithm to the key material in use: HMAC mode accepts
-	// only HS256, JWKS mode only RS256. Allowing both under a single keyfunc is
-	// the classic RS256→HS256 confusion setup (verifying an HS256 forgery with
-	// the RSA public key as the shared secret); pinning the method closes it.
-	keyFunc := config.JWKS.Unwrap()
+	// multiKeyfunc binds each algorithm to its own key material: RS256 verifies
+	// against JWKS (Clerk), HS256 against the shared secret (basic auth). Because
+	// the two never share key material, the classic RS256→HS256 confusion attack
+	// (verifying an HS256 forgery with the RSA public key as the secret) cannot
+	// happen here. WithValidMethods additionally pins the accepted algorithm set:
+	// HS256 is only accepted when a secret is configured.
+	var hmacFunc jwt.Keyfunc
 	methods := []string{"RS256"}
 	if config.JWTSecret != "" {
-		keyFunc = HMAC([]byte(config.JWTSecret))
-		methods = []string{"HS256"}
+		hmacFunc = HMAC([]byte(config.JWTSecret))
+		methods = append(methods, "HS256")
 	}
+	keyFunc := multiKeyfunc(config.JWKS.Unwrap(), hmacFunc)
 
 	return func(ctx context.Context, value string) (context.Context, error) {
 		claims := jwt.RegisteredClaims{}
@@ -123,14 +145,78 @@ func WithJWT(config config.Auth, mgmt *management.State) Handler {
 			return ctx, ErrUnauthorized
 		}
 
+		orgID, err := resolveActiveOrganization(ctx, mgmt, admin)
+		if err != nil {
+			// A real failure resolving the active organization (e.g. a transient
+			// DB error) must NOT fail open onto the home org — that would bypass
+			// the revoked-membership check on a hot security path. Surface the
+			// error so the request fails instead of silently granting scope.
+			return ctx, err
+		}
+
 		actor := rbac.NewActor(
 			rbac.ActorAdmin,
 			admin.ID.String(),
-			rbac.WithOrganizationID(admin.OrganizationID),
+			rbac.WithOrganizationID(orgID),
 		)
 
 		return rbac.WithActor(ctx, actor), nil
 	}
+}
+
+// resolveActiveOrganization determines which organization scopes the request.
+// An admin may belong to several organizations; the session is scoped to their
+// active organization. The stored active organization is validated against
+// current membership on every request so that revoking a membership (or a stale
+// active_organization_id) cannot leak access to an organization the admin no
+// longer belongs to. It falls back to the home organization, then to any
+// remaining membership.
+//
+// This runs on every authenticated request and gates the revoked-membership
+// check, so a DB error must be propagated, not swallowed. Swallowing it would
+// fail OPEN — defaulting to the home org and bypassing the membership check on
+// a transient failure. Only a clean "not a member" result (no error) advances
+// to the next fallback.
+func resolveActiveOrganization(ctx context.Context, mgmt *management.State, admin *management.Admin) (uuid.UUID, error) {
+	active := admin.OrganizationID
+	if admin.ActiveOrganizationID != nil {
+		active = *admin.ActiveOrganizationID
+	}
+
+	ok, err := mgmt.IsMember(ctx, active, admin.ID)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	if ok {
+		return active, nil
+	}
+
+	// The active org is stale (membership revoked). Try the home org, but only
+	// if it differs from the active org we already checked.
+	if admin.OrganizationID != active {
+		ok, err := mgmt.IsMember(ctx, admin.OrganizationID, admin.ID)
+		if err != nil {
+			return uuid.Nil, err
+		}
+		if ok {
+			return admin.OrganizationID, nil
+		}
+	}
+
+	// Neither the active nor home org is a current membership; fall back to any
+	// remaining membership so the admin can still reach an org they belong to.
+	orgs, err := mgmt.ListOrganizationsForAdmin(ctx, admin.ID)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	if len(orgs) > 0 {
+		return orgs[0].ID, nil
+	}
+
+	// The admin belongs to no organization. Scope to the home org as a last
+	// resort; org-scoped permission checks will deny access since there is no
+	// membership tuple, so this does not leak access.
+	return admin.OrganizationID, nil
 }
 
 // WithKey authenticates an API-key request for the given surface. API keys are

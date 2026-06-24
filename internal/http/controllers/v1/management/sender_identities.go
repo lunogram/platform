@@ -67,7 +67,7 @@ func (srv *SenderIdentitiesController) CreateSenderIdentity(w http.ResponseWrite
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.String("address", address), zap.String("channel", string(body.Channel)), zap.Stringer("provider_id", body.ProviderId))
 	logger.Info("creating sender identity")
 
-	_, err = srv.store.ProjectsStore.GetProject(ctx, projectID)
+	_, err = srv.store.ProjectsStore.GetProject(ctx, projectID, nil)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("project not found", zap.Stringer("project_id", projectID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("project not found")))
@@ -141,7 +141,7 @@ func (srv *SenderIdentitiesController) ListSenderIdentities(w http.ResponseWrite
 	logger := srv.logger.With(zap.Stringer("project_id", projectID))
 	logger.Info("listing sender identities")
 
-	_, err = srv.store.ProjectsStore.GetProject(ctx, projectID)
+	_, err = srv.store.ProjectsStore.GetProject(ctx, projectID, nil)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("project not found", zap.Stringer("project_id", projectID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("project not found")))
@@ -203,7 +203,7 @@ func (srv *SenderIdentitiesController) GetSenderIdentity(w http.ResponseWriter, 
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("sender_identity_id", senderIdentityID))
 	logger.Info("getting sender identity")
 
-	_, err = srv.store.ProjectsStore.GetProject(ctx, projectID)
+	_, err = srv.store.ProjectsStore.GetProject(ctx, projectID, nil)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("project not found", zap.Stringer("project_id", projectID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("project not found")))
@@ -241,7 +241,7 @@ func (srv *SenderIdentitiesController) DeleteSenderIdentity(w http.ResponseWrite
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("sender_identity_id", senderIdentityID))
 	logger.Info("deleting sender identity")
 
-	_, err = srv.store.ProjectsStore.GetProject(ctx, projectID)
+	_, err = srv.store.ProjectsStore.GetProject(ctx, projectID, nil)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("project not found", zap.Stringer("project_id", projectID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("project not found")))

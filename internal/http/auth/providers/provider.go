@@ -3,11 +3,13 @@ package providers
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/config"
+	"github.com/lunogram/platform/internal/rbac/access"
 	"github.com/lunogram/platform/internal/store/management"
 	"go.uber.org/zap"
 )
@@ -38,6 +40,26 @@ type RBACWriter interface {
 	// For admin provisioning this is typically:
 	//   WriteTuple(ctx, "user:<admin-uuid>", "owner", "organization:<org-uuid>")
 	WriteTuple(ctx context.Context, user, relation, object string) error
+}
+
+// provisionMembership records a freshly provisioned admin's membership in its
+// home organization: the organization_members row plus the matching RBAC owner
+// tuples. Every admin-provisioning path calls this so the two representations
+// stay in sync (an admin that is a member but has no tuples cannot pass
+// permission checks, and vice versa).
+func provisionMembership(ctx context.Context, mgmt *management.State, writer RBACWriter, adminID, organizationID uuid.UUID, role string) error {
+	if err := mgmt.AddMember(ctx, organizationID, adminID, role); err != nil {
+		return fmt.Errorf("failed to add organization membership for new admin: %w", err)
+	}
+
+	if writer != nil {
+		for _, t := range access.OrganizationRoleTuples(adminID, organizationID, role) {
+			if err := writer.WriteTuple(ctx, t.User, t.Relation, t.Object); err != nil {
+				return fmt.Errorf("failed to write RBAC tuple for new admin: %w", err)
+			}
+		}
+	}
+	return nil
 }
 
 func NewProvider(cfg config.Auth, mgmt *management.State, logger *zap.Logger, rbac RBACWriter) (Provider, error) {

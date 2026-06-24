@@ -2,6 +2,7 @@ import * as React from "react"
 import { useTranslation } from "react-i18next"
 
 import { ProjectSwitcher } from "@/components/project-switcher"
+import { OrganizationSwitcher } from "@/components/organization-switcher"
 import {
     Sidebar,
     SidebarContent,
@@ -51,9 +52,21 @@ export function AppSidebar({
         }, []),
     )
 
+    const [organizations] = useResolver(
+        React.useCallback(async () => {
+            try {
+                return (await api.adminOrganizations.mine()).results
+            } catch (error) {
+                console.error("Failed to fetch organizations:", error)
+                return []
+            }
+        }, []),
+    )
+
     return (
         <Sidebar {...props}>
             <SidebarHeader>
+                {organizations && <OrganizationSwitcher organizations={organizations} />}
                 {allProjects && project && (
                     <ProjectSwitcher projects={allProjects} currentProject={project} />
                 )}

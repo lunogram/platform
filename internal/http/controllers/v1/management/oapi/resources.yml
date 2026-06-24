@@ -1653,6 +1653,53 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
+  /api/admin/organizations:
+    get:
+      summary: List my organizations
+      description: Lists the organizations the authenticated admin is a member of, with the active one flagged
+      operationId: ListMyOrganizations
+      tags:
+        - Admins
+      security:
+        - HttpBearerAuth: []
+      responses:
+        "200":
+          description: Organizations retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - results
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AdminOrganization"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/active-organization:
+    post:
+      summary: Set active organization
+      description: Switches the authenticated admin's active organization, which scopes subsequent requests
+      operationId: SetActiveOrganization
+      tags:
+        - Admins
+      security:
+        - HttpBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetActiveOrganization"
+      responses:
+        "204":
+          description: Active organization updated successfully
+        default:
+          $ref: "#/components/responses/Error"
+
   /api/admin/tenant/admins:
     get:
       summary: List organization admins
@@ -1797,6 +1844,181 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Admin"
+        default:
+          $ref: "#/components/responses/Error"
+  
+  /api/admin/projects/{projectID}/invites:
+    post:
+      summary: Create a project invite
+      description: Creates a new project invite for an email address
+      operationId: CreateProjectInvite
+      tags:
+        - Admins
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProjectInvite"
+      responses:
+        "201":
+          description: Project invite created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectInvite"
+        default:
+          $ref: "#/components/responses/Error"
+    get:
+      summary: List project invites
+      description: Retrieves a list of active project invites
+      operationId: ListProjectInvites
+      tags:
+        - Admins
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [pending, accepted, revoked, expired]
+          description: Filter invites by status
+        - name: role
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [support, client, editor, admin]
+            description: Filter invites by role
+        - name: expires_after
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+            description: Filter invites that expire after a certain date
+        - name: expires_before
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+            description: Filter invites that expire before a certain date
+        - name: inviter_admin_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: Filter invites by the admin who created them
+        - $ref: "#/components/parameters/Search"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          $ref: "#/components/responses/ProjectInviteListResponse"
+        default:
+          $ref: "#/components/responses/Error"
+  
+  /api/admin/projects/{projectID}/invites/{inviteID}:
+    delete:
+      summary: Revoke a project invite
+      description: Revokes a pending project invite, preventing it from being accepted
+      operationId: RevokeProjectInvite
+      tags:
+        - Admins
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: inviteID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The invite ID
+      responses:
+        "204":
+          description: Project invite revoked successfully
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/invites/mine:
+    get:
+      summary: List my invites
+      description: Lists the pending project invites addressed to the authenticated admin's email
+      operationId: ListMyInvites
+      tags:
+        - Admins
+      security:
+        - HttpBearerAuth: []
+      responses:
+        "200":
+          description: Pending invites retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - results
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ProjectInvite"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/invites/{inviteID}/accept:
+    post:
+      summary: Accept a project invite
+      description: Accepts a pending project invite addressed to the authenticated admin's email, adding them to the invite's project
+      operationId: AcceptProjectInvite
+      tags:
+        - Admins
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: inviteID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The invite ID
+      responses:
+        "200":
+          description: Project invite accepted successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
         default:
           $ref: "#/components/responses/Error"
 
@@ -6120,6 +6342,22 @@ components:
                     items:
                       $ref: "#/components/schemas/Campaign"
 
+    ProjectInviteListResponse:
+      description: Project invites retrieved successfully
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: "#/components/schemas/PaginatedResponse"
+              - type: object
+                required:
+                  - results
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ProjectInvite"
+
     JourneyListResponse:
       description: Journeys retrieved successfully
       content:
@@ -8972,8 +9210,8 @@ components:
 
     ProjectPushProviderPlatform:
       type: string
-      enum: [ios, android, web]
-      description: Target platform for push notifications
+      enum: [ios, android, web, mail]
+      description: Target platform for providers (push or mail)
       example: ios
 
     ProjectPushProvider:
@@ -9975,6 +10213,116 @@ components:
               type: string
             channel:
               type: string
+    
+    AdminOrganization:
+      type: object
+      required:
+        - id
+        - name
+        - role
+        - is_active
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d"
+        name:
+          type: string
+          example: "Acme Inc"
+        role:
+          type: string
+          description: The admin's role within this organization
+          example: owner
+        is_active:
+          type: boolean
+          description: Whether this is the admin's currently active organization
+          example: true
+
+    SetActiveOrganization:
+      type: object
+      required:
+        - organization_id
+      properties:
+        organization_id:
+          type: string
+          format: uuid
+          example: "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d"
+
+    CreateProjectInvite:
+      type: object
+      required:
+        - email
+        - role
+      properties:
+        email:
+          type: string
+          format: email
+          example: "user@example.com"
+        role:
+          type: string
+          enum: [support, client, editor, admin]
+          example: admin
+        expires_in:
+          type: string
+          description: Duration until the invite expires (e.g. "24h", "7d"). Optional, defaults to 24 hours.
+          example: "24h"
+
+    ProjectInvite:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d"
+        project_id:
+          type: string
+          format: uuid
+          example: "4c9d3163-7b64-4f9e-9068-d2e4b96be56b"
+        project_name:
+          type: string
+          example: "My Project"
+          description: Name of the project the invite grants access to
+        inviter_admin_id:
+          type: string
+          format: uuid
+          nullable: true
+          example: "5143f27c-cca9-4dc4-9059-e1dbb08144ad"
+        inviter_admin_email:
+          type: string
+          example: "admin@example.com"
+          nullable: true
+        invitee_email:
+          type: string
+          format: email
+          example: "user@example.com"
+        invitee_admin_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Id of the existing admin that owns the invitee email, if any
+          example: "7d2c1b0a-0000-4000-8000-000000000000"
+        role:
+          type: string
+          enum: [support, client, editor, admin]
+          example: admin
+        expires_at:
+          type: string
+          format: date-time
+          example: "2025-12-31T23:59:59Z"
+        accepted_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: null
+        revoked_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: null
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-12-31T23:59:59Z"
 
   securitySchemes:
     HttpBearerAuth:

@@ -660,6 +660,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/organizations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List my organizations
+         * @description Lists the organizations the authenticated admin is a member of, with the active one flagged
+         */
+        get: operations["ListMyOrganizations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/active-organization": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set active organization
+         * @description Switches the authenticated admin's active organization, which scopes subsequent requests
+         */
+        post: operations["SetActiveOrganization"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/tenant/admins": {
         parameters: {
             query?: never;
@@ -726,6 +766,90 @@ export interface paths {
         get: operations["whoami"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/invites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List project invites
+         * @description Retrieves a list of active project invites
+         */
+        get: operations["ListProjectInvites"];
+        put?: never;
+        /**
+         * Create a project invite
+         * @description Creates a new project invite for an email address
+         */
+        post: operations["CreateProjectInvite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/invites/{inviteID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke a project invite
+         * @description Revokes a pending project invite, preventing it from being accepted
+         */
+        delete: operations["RevokeProjectInvite"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/invites/mine": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List my invites
+         * @description Lists the pending project invites addressed to the authenticated admin's email
+         */
+        get: operations["ListMyInvites"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/invites/{inviteID}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept a project invite
+         * @description Accepts a pending project invite addressed to the authenticated admin's email, adding them to the invite's project
+         */
+        post: operations["AcceptProjectInvite"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4331,11 +4455,11 @@ export interface components {
             };
         };
         /**
-         * @description Target platform for push notifications
+         * @description Target platform for providers (push or mail)
          * @example ios
          * @enum {string}
          */
-        ProjectPushProviderPlatform: "ios" | "android" | "web";
+        ProjectPushProviderPlatform: "ios" | "android" | "web" | "mail";
         ProjectPushProvider: {
             /** Format: uuid */
             id: string;
@@ -5107,6 +5231,109 @@ export interface components {
                 channel?: string;
             };
         };
+        AdminOrganization: {
+            /**
+             * Format: uuid
+             * @example 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
+             */
+            id: string;
+            /** @example Acme Inc */
+            name: string;
+            /**
+             * @description The admin's role within this organization
+             * @example owner
+             */
+            role: string;
+            /**
+             * @description Whether this is the admin's currently active organization
+             * @example true
+             */
+            is_active: boolean;
+        };
+        SetActiveOrganization: {
+            /**
+             * Format: uuid
+             * @example 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
+             */
+            organization_id: string;
+        };
+        CreateProjectInvite: {
+            /**
+             * Format: email
+             * @example user@example.com
+             */
+            email: string;
+            /**
+             * @example admin
+             * @enum {string}
+             */
+            role: "support" | "client" | "editor" | "admin";
+            /**
+             * @description Duration until the invite expires (e.g. "24h", "7d"). Optional, defaults to 24 hours.
+             * @example 24h
+             */
+            expires_in?: string;
+        };
+        ProjectInvite: {
+            /**
+             * Format: uuid
+             * @example 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
+             */
+            id?: string;
+            /**
+             * Format: uuid
+             * @example 4c9d3163-7b64-4f9e-9068-d2e4b96be56b
+             */
+            project_id?: string;
+            /**
+             * @description Name of the project the invite grants access to
+             * @example My Project
+             */
+            project_name?: string;
+            /**
+             * Format: uuid
+             * @example 5143f27c-cca9-4dc4-9059-e1dbb08144ad
+             */
+            inviter_admin_id?: string | null;
+            /** @example admin@example.com */
+            inviter_admin_email?: string | null;
+            /**
+             * Format: email
+             * @example user@example.com
+             */
+            invitee_email?: string;
+            /**
+             * Format: uuid
+             * @description Id of the existing admin that owns the invitee email, if any
+             * @example 7d2c1b0a-0000-4000-8000-000000000000
+             */
+            invitee_admin_id?: string | null;
+            /**
+             * @example admin
+             * @enum {string}
+             */
+            role?: "support" | "client" | "editor" | "admin";
+            /**
+             * Format: date-time
+             * @example 2025-12-31T23:59:59Z
+             */
+            expires_at?: string;
+            /**
+             * Format: date-time
+             * @example null
+             */
+            accepted_at?: string | null;
+            /**
+             * Format: date-time
+             * @example null
+             */
+            revoked_at?: string | null;
+            /**
+             * Format: date-time
+             * @example 2025-12-31T23:59:59Z
+             */
+            created_at?: string;
+        };
     };
     responses: {
         /** @description Error response */
@@ -5126,6 +5353,17 @@ export interface components {
             content: {
                 "application/json": components["schemas"]["PaginatedResponse"] & {
                     results: components["schemas"]["Campaign"][];
+                };
+            };
+        };
+        /** @description Project invites retrieved successfully */
+        ProjectInviteListResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["PaginatedResponse"] & {
+                    results: components["schemas"]["ProjectInvite"][];
                 };
             };
         };
@@ -6599,6 +6837,52 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    ListMyOrganizations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Organizations retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        results: components["schemas"]["AdminOrganization"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    SetActiveOrganization: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetActiveOrganization"];
+            };
+        };
+        responses: {
+            /** @description Active organization updated successfully */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     listAdmins: {
         parameters: {
             query?: {
@@ -6742,6 +7026,135 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Admin"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    ListProjectInvites: {
+        parameters: {
+            query?: {
+                /** @description Filter invites by status */
+                status?: "pending" | "accepted" | "revoked" | "expired";
+                role?: "support" | "client" | "editor" | "admin";
+                expires_after?: string;
+                expires_before?: string;
+                /** @description Filter invites by the admin who created them */
+                inviter_admin_id?: string;
+                /** @description Search query string */
+                search?: components["parameters"]["Search"];
+                /** @description Maximum number of items to return */
+                limit?: components["parameters"]["Limit"];
+                /** @description Number of items to skip */
+                offset?: components["parameters"]["Offset"];
+            };
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ProjectInviteListResponse"];
+            default: components["responses"]["Error"];
+        };
+    };
+    CreateProjectInvite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateProjectInvite"];
+            };
+        };
+        responses: {
+            /** @description Project invite created successfully */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectInvite"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    RevokeProjectInvite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The invite ID */
+                inviteID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Project invite revoked successfully */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    ListMyInvites: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Pending invites retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        results: components["schemas"]["ProjectInvite"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    AcceptProjectInvite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The invite ID */
+                inviteID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Project invite accepted successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Project"];
                 };
             };
             default: components["responses"]["Error"];

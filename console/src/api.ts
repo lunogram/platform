@@ -6,6 +6,7 @@ import type {
     ActionCreateParams,
     ActionUpdateParams,
     Admin,
+    AdminOrganization,
     AuthDriver,
     Campaign,
     CampaignCreateParams,
@@ -25,6 +26,8 @@ import type {
     ProjectAdmin,
     ProjectAdminInviteParams,
     ProjectAdminParams,
+    ProjectInvite,
+    ProjectRole,
     AuthMethod,
     CreateAuthMethodParams,
     UpdateAuthMethodParams,
@@ -53,6 +56,12 @@ import type {
 } from "./types"
 import type { UUID } from "@/types/common"
 
+declare module "axios" {
+    export interface AxiosRequestConfig {
+        skipAuthRedirect?: boolean
+    }
+}
+
 function appendValue(params: URLSearchParams, name: string, value: unknown) {
     if (typeof value === "undefined" || value === null || typeof value === "function") return
     if (typeof value === "object") value = JSON.stringify(value)
@@ -79,8 +88,11 @@ export const client = Axios.create({
 client.interceptors.response.use(
     (response) => response,
     async (error) => {
-        const isLoginPage = window.location.pathname.startsWith("/login")
-        if (error.response.status === 401 && !isLoginPage) {
+        const isPublicPage = window.location.pathname.startsWith("/login")
+        const isUserNotAuthenticated = error.response?.status === 401
+        const skipRedirect = error.config?.skipAuthRedirect
+
+        if (isUserNotAuthenticated && !isPublicPage && !skipRedirect) {
             api.auth.login()
         }
         throw error
@@ -181,6 +193,43 @@ const api = {
         },
     },
 
+    invites: {
+        // mine lists the pending invites addressed to the logged-in admin's email.
+        mine: async () =>
+            await client.get<SearchResult<ProjectInvite>>(`/invites/mine`).then((r) => r.data),
+        accept: async (inviteId: UUID) =>
+            await client
+                .post<Project>(`/invites/${inviteId}/accept`, undefined, {
+                    skipAuthRedirect: true, // "I'm a big boy, I'll handle this myself"
+                })
+                .then((r) => r.data),
+        list: async (
+            projectId: UUID,
+            params?: {
+                limit?: number
+                offset?: number
+                search?: string
+                status?: string
+                role?: string
+                expires_after?: string
+                expires_before?: string
+                inviter_admin_id?: string
+            },
+        ) =>
+            await client
+                .get<SearchResult<ProjectInvite>>(`${projectUrl(projectId)}/invites`, { params })
+                .then((r) => r.data),
+        create: async (
+            projectId: UUID,
+            params: { email: string; role: ProjectRole; expires_in?: string },
+        ) =>
+            await client
+                .post<ProjectInvite>(`${projectUrl(projectId)}/invites`, params)
+                .then((r) => r.data),
+        revoke: async (projectId: UUID, inviteId: UUID) =>
+            await client.delete(`${projectUrl(projectId)}/invites/${inviteId}`).then((r) => r.data),
+    },
+
     profile: {
         get: async () => {
             if (!cache.profile) {
@@ -193,6 +242,19 @@ const api = {
     admins: {
         ...createEntityPath<Admin>("/admin/tenant/admins"),
         whoami: async () => await client.get<Admin>("/admin/tenant/whoami").then((r) => r.data),
+    },
+
+    // adminOrganizations are the organizations the logged-in admin belongs to
+    // (distinct from `organizations`, which is end-user CRM data).
+    adminOrganizations: {
+        mine: async () =>
+            await client
+                .get<SearchResult<AdminOrganization>>("/admin/organizations")
+                .then((r) => r.data),
+        setActive: async (organizationId: UUID) =>
+            await client.post("/admin/active-organization", {
+                organization_id: organizationId,
+            }),
     },
 
     projects: {

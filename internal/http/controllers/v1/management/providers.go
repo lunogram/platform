@@ -544,7 +544,7 @@ func (srv *ProvidersController) autoAssignPushProvider(ctx context.Context, logg
 			continue
 		}
 
-		_, err := srv.store.ProjectPushProvidersStore.UpsertProjectPushProvider(ctx, management.ProjectPushProvider{
+		_, err := srv.store.ProjectPushProvidersStore.UpsertProjectPushProvider(ctx, management.ProjectProvider{
 			ProjectID:  projectID,
 			ProviderID: providerID,
 			Platform:   platform.String(),

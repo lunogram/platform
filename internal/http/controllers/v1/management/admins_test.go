@@ -191,6 +191,139 @@ func TestGetProfileErrors(t *testing.T) {
 	}
 }
 
+// TestSetActiveOrganizationRejectsNonMember is the IDOR guard: an admin must
+// not be able to activate an organization they are not a member of, even though
+// they hold a valid session.
+func TestSetActiveOrganizationRejectsNonMember(t *testing.T) {
+	t.Parallel()
+
+	logger := zaptest.NewLogger(t)
+	ctx := t.Context()
+	mgmt, _, _ := teststore.RunPostgreSQL(t)
+	state := management.NewState(mgmt)
+
+	homeOrg, err := state.CreateOrganization(ctx, "Home Org")
+	require.NoError(t, err)
+	foreignOrg, err := state.CreateOrganization(ctx, "Foreign Org")
+	require.NoError(t, err)
+
+	adminID, err := state.CreateAdmin(ctx, management.Admin{
+		OrganizationID: homeOrg,
+		Email:          "idor@example.com",
+		Role:           "owner",
+	})
+	require.NoError(t, err)
+	require.NoError(t, state.AddMember(ctx, homeOrg, adminID, "owner"))
+	// Deliberately NOT a member of foreignOrg.
+
+	actor := rbac.NewActor(rbac.ActorAdmin, adminID.String(), rbac.WithOrganizationID(homeOrg))
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "")
+	controller := NewAdminsController(logger, mgmt, engine)
+
+	body := oapi.SetActiveOrganization{OrganizationId: foreignOrg}
+	bb, err := json.Marshal(body)
+	require.NoError(t, err)
+
+	res := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/admin/active-organization", bytes.NewReader(bb))
+	req = req.WithContext(actorCtx)
+
+	controller.SetActiveOrganization(res, req)
+
+	require.Equal(t, 403, res.Code, res.Body.String())
+
+	// The active organization must be unchanged after the rejected switch.
+	admin, err := state.GetAdmin(ctx, adminID)
+	require.NoError(t, err)
+	require.NotNil(t, admin.ActiveOrganizationID)
+	require.Equal(t, homeOrg, *admin.ActiveOrganizationID)
+}
+
+// TestCreateAdminDoesNotMutateCrossOrgGlobalRecord verifies that adding an
+// existing admin (whose home organization is a DIFFERENT org) to the caller's
+// organization is purely a membership grant: it must NOT overwrite that admin's
+// global email/name/role. Doing so would be a cross-organization privilege
+// escalation.
+func TestCreateAdminDoesNotMutateCrossOrgGlobalRecord(t *testing.T) {
+	t.Parallel()
+
+	logger := zaptest.NewLogger(t)
+	ctx := t.Context()
+	mgmt, _, _ := teststore.RunPostgreSQL(t)
+	state := management.NewState(mgmt)
+
+	orgA, err := state.CreateOrganization(ctx, "Org A")
+	require.NoError(t, err)
+	orgB, err := state.CreateOrganization(ctx, "Org B")
+	require.NoError(t, err)
+
+	// The caller is an owner of Org A.
+	callerID, err := state.CreateAdmin(ctx, management.Admin{
+		OrganizationID: orgA,
+		Email:          "owner-a@example.com",
+		Role:           "owner",
+	})
+	require.NoError(t, err)
+	require.NoError(t, state.AddMember(ctx, orgA, callerID, "owner"))
+
+	// The victim belongs to Org B with an "owner" global role and a known name.
+	victimFirst := "Victim"
+	victimLast := "Original"
+	victimID, err := state.CreateAdmin(ctx, management.Admin{
+		OrganizationID: orgB,
+		Email:          "victim@example.com",
+		FirstName:      &victimFirst,
+		LastName:       &victimLast,
+		Role:           "owner",
+	})
+	require.NoError(t, err)
+	require.NoError(t, state.AddMember(ctx, orgB, victimID, "owner"))
+
+	actor := rbac.NewActor(rbac.ActorAdmin, callerID.String(), rbac.WithOrganizationID(orgA))
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "")
+	controller := NewAdminsController(logger, mgmt, engine)
+
+	// Org A's owner adds the victim by email, requesting role "member" with an
+	// attempt to rewrite their name. None of these global fields may change.
+	attackFirst := "Hacked"
+	attackLast := "Name"
+	body := oapi.CreateAdmin{
+		Email:     "victim@example.com",
+		FirstName: &attackFirst,
+		LastName:  &attackLast,
+		Role:      oapi.OrganizationRoleMember,
+	}
+	bb, err := json.Marshal(body)
+	require.NoError(t, err)
+
+	res := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/admin/admins", bytes.NewReader(bb))
+	req = req.WithContext(actorCtx)
+
+	controller.CreateAdmin(res, req)
+	require.Equal(t, 201, res.Code, res.Body.String())
+
+	// The victim's GLOBAL record is untouched.
+	victim, err := state.GetAdmin(ctx, victimID)
+	require.NoError(t, err)
+	require.Equal(t, orgB, victim.OrganizationID, "home org must not change")
+	require.Equal(t, "owner", victim.Role, "global role must not be downgraded")
+	require.NotNil(t, victim.FirstName)
+	require.Equal(t, "Victim", *victim.FirstName, "global first name must not be rewritten")
+	require.NotNil(t, victim.LastName)
+	require.Equal(t, "Original", *victim.LastName, "global last name must not be rewritten")
+
+	// But they ARE now a member of Org A with the requested org-scoped role.
+	member, err := state.GetMember(ctx, orgA, victimID)
+	require.NoError(t, err)
+	require.Equal(t, "member", member.Role)
+
+	// And Org B membership/role is preserved.
+	bMember, err := state.GetMember(ctx, orgB, victimID)
+	require.NoError(t, err)
+	require.Equal(t, "owner", bMember.Role)
+}
+
 func TestListProjectAdmins(t *testing.T) {
 	t.Parallel()
 

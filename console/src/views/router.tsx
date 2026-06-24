@@ -17,6 +17,7 @@ import {
 } from "../contexts"
 import ClientList from "./settings/clients/ClientList"
 import { NewClientRoute, EditClientRoute } from "./settings/clients/ClientEditorLayout"
+import Invites from "./settings/Invites"
 import Lists from "./users/Lists"
 import ListDetail from "./users/ListDetail"
 import Users from "./users/Users"
@@ -47,6 +48,8 @@ import NewIntegration from "./settings/NewIntegration"
 import IntegrationSetup from "./settings/IntegrationSetup"
 import Login from "./auth/Login"
 import LoginCallback from "./auth/LoginCallback"
+import Register from "./auth/Register"
+import MyInvites from "./invites/MyInvites"
 import Onboarding from "./auth/Onboarding"
 import OnboardingProject from "./auth/OnboardingProject"
 import {
@@ -109,6 +112,14 @@ export const createRouter = ({
             {
                 path: "/login/:driver/callback",
                 element: <LoginCallback />,
+            },
+            {
+                path: "/register",
+                element: <Register />,
+            },
+            {
+                path: "/invites",
+                element: <MyInvites />,
             },
             {
                 path: "*",
@@ -628,6 +639,10 @@ export const createRouter = ({
                                                         element: <EditClientRoute />,
                                                     },
                                                 ],
+                                            },
+                                            {
+                                                path: "invites",
+                                                element: <Invites />,
                                             },
                                             {
                                                 path: "subscriptions",
