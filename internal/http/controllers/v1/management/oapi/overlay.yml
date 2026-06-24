@@ -1,0 +1,67 @@
+overlay: 1.0.0
+info:
+  title: Add rules.RuleSet Go type annotations for server-side code generation
+  version: 1.0.0
+actions:
+  - target: $.components.schemas.EntranceEventTrigger.properties.rule
+    description: Add rules.RuleSet type to entrance event trigger rule
+    update:
+      x-go-type: rules.RuleSet
+      x-go-type-import:
+        path: github.com/lunogram/platform/internal/rules
+
+  - target: $.components.schemas.EntranceEventTrigger.properties.user_rule
+    description: Add rules.RuleSet type to entrance event trigger user_rule
+    update:
+      x-go-type: rules.RuleSet
+      x-go-type-import:
+        path: github.com/lunogram/platform/internal/rules
+
+  - target: $.components.schemas.EntranceScheduledTrigger.properties.rule
+    description: Add rules.RuleSet type to entrance scheduled trigger rule
+    update:
+      x-go-type: rules.RuleSet
+      x-go-type-import:
+        path: github.com/lunogram/platform/internal/rules
+
+  - target: $.components.schemas.EntranceScheduledTrigger.properties.user_rule
+    description: Add rules.RuleSet type to entrance scheduled trigger user_rule
+    update:
+      x-go-type: rules.RuleSet
+      x-go-type-import:
+        path: github.com/lunogram/platform/internal/rules
+
+  - target: $.components.schemas.GateStepData.properties.rule
+    description: Add rules.RuleSet type to gate step rule
+    update:
+      x-go-type: rules.RuleSet
+      x-go-type-import:
+        path: github.com/lunogram/platform/internal/rules
+
+  - target: $.components.schemas.CreateList.properties.rule
+    description: Add rules.RuleSet type to CreateList rule
+    update:
+      x-go-type: rules.RuleSet
+      x-go-type-import:
+        path: github.com/lunogram/platform/internal/rules
+
+  - target: $.components.schemas.UpdateList.properties.rule
+    description: Add rules.RuleSet type to UpdateList rule
+    update:
+      x-go-type: rules.RuleSet
+      x-go-type-import:
+        path: github.com/lunogram/platform/internal/rules
+
+  - target: $.components.schemas.List.properties.rule
+    description: Add rules.RuleSet type to List rule
+    update:
+      x-go-type: rules.RuleSet
+      x-go-type-import:
+        path: github.com/lunogram/platform/internal/rules
+
+  - target: $.components.schemas.List.properties.draft_rule
+    description: Add rules.RuleSet type to List draft_rule
+    update:
+      x-go-type: rules.RuleSet
+      x-go-type-import:
+        path: github.com/lunogram/platform/internal/rules

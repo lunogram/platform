@@ -1,3 +1,0 @@
----
-title: AWS Elastic Beanstalk
----

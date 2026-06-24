@@ -9,16 +9,18 @@ import (
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/http/problem"
+	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/management"
 	"go.uber.org/zap"
 )
 
-func NewSubscriptionsController(logger *zap.Logger, db *sqlx.DB) *SubscriptionsController {
+func NewSubscriptionsController(logger *zap.Logger, db *sqlx.DB, engine *rbac.Engine) *SubscriptionsController {
 	return &SubscriptionsController{
 		logger: logger,
 		db:     db,
 		store:  management.NewState(db),
+		engine: engine,
 	}
 }
 
@@ -26,12 +28,19 @@ type SubscriptionsController struct {
 	logger *zap.Logger
 	db     *sqlx.DB
 	store  *management.State
+	engine *rbac.Engine
 }
 
 func (srv *SubscriptionsController) CreateSubscription(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
 	ctx := r.Context()
+	err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("subscriptions", projectID))
+	if err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	body := oapi.CreateSubscriptionJSONRequestBody{}
-	err := json.Decode(r.Body, &body)
+	err = json.Decode(r.Body, &body)
 	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
@@ -71,6 +80,12 @@ func (srv *SubscriptionsController) CreateSubscription(w http.ResponseWriter, r 
 
 func (srv *SubscriptionsController) ListSubscriptions(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, params oapi.ListSubscriptionsParams) {
 	ctx := r.Context()
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("subscriptions", projectID))
+	if err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	logger := srv.logger.With(zap.Stringer("project_id", projectID))
 	logger.Info("listing subscription types")
 
@@ -97,6 +112,12 @@ func (srv *SubscriptionsController) ListSubscriptions(w http.ResponseWriter, r *
 
 func (srv *SubscriptionsController) GetSubscription(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, subscriptionID uuid.UUID) {
 	ctx := r.Context()
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("subscriptions", projectID))
+	if err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("subscription_id", subscriptionID))
 	logger.Info("getting subscription type")
 
@@ -118,12 +139,18 @@ func (srv *SubscriptionsController) GetSubscription(w http.ResponseWriter, r *ht
 }
 
 func (srv *SubscriptionsController) UpdateSubscription(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, subscriptionID uuid.UUID) {
+	ctx := r.Context()
+	err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("subscriptions", projectID))
+	if err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("subscription_id", subscriptionID))
 	logger.Info("updating subscription type")
 
-	ctx := r.Context()
 	body := oapi.UpdateSubscriptionJSONRequestBody{}
-	err := json.Decode(r.Body, &body)
+	err = json.Decode(r.Body, &body)
 	if err != nil {
 		oapi.WriteProblem(w, err)
 		return

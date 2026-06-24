@@ -10,7 +10,7 @@ import (
 	"github.com/lunogram/platform/internal/http/problem"
 )
 
-//go:generate oapi-codegen -o ./resources_gen.go -generate types,client,chi-server -package oapi ./resources.yml
+//go:generate oapi-codegen -config codegen.yml ./resources.yml
 
 //go:embed resources.yml
 var OAPI []byte

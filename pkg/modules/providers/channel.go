@@ -4,6 +4,7 @@ package providers
 type Channel string
 
 const (
+	ChannelInbox Channel = "inbox"
 	ChannelEmail Channel = "email"
 	ChannelSMS   Channel = "sms"
 	ChannelPush  Channel = "push"
@@ -17,7 +18,31 @@ func (c Channel) String() string {
 // IsValid checks if the channel is a valid known channel type.
 func (c Channel) IsValid() bool {
 	switch c {
-	case ChannelEmail, ChannelSMS, ChannelPush:
+	case ChannelInbox, ChannelEmail, ChannelSMS, ChannelPush:
+		return true
+	default:
+		return false
+	}
+}
+
+// Platform represents a push notification platform.
+type Platform string
+
+const (
+	PlatformIOS     Platform = "ios"
+	PlatformAndroid Platform = "android"
+	PlatformWeb     Platform = "web"
+)
+
+// String returns the string representation of the platform.
+func (p Platform) String() string {
+	return string(p)
+}
+
+// IsValid checks if the platform is a valid known platform type.
+func (p Platform) IsValid() bool {
+	switch p {
+	case PlatformIOS, PlatformAndroid, PlatformWeb:
 		return true
 	default:
 		return false

@@ -2,6 +2,7 @@ package eval
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -239,13 +240,13 @@ func (e *Evaluator) compareNumbers(actual any, operator rules.Operator, expected
 
 // compareBooleans compares boolean values
 func (e *Evaluator) compareBooleans(actual any, operator rules.Operator, expected any) (bool, error) {
-	actualBool, ok := actual.(bool)
-	if !ok {
+	actualBool, err := toBool(actual)
+	if err != nil {
 		return false, fmt.Errorf("actual value is not a boolean")
 	}
 
-	expectedBool, ok := expected.(bool)
-	if !ok {
+	expectedBool, err := toBool(expected)
+	if err != nil {
 		return false, fmt.Errorf("expected value is not a boolean")
 	}
 
@@ -256,6 +257,20 @@ func (e *Evaluator) compareBooleans(actual any, operator rules.Operator, expecte
 		return actualBool != expectedBool, nil
 	default:
 		return false, fmt.Errorf("unsupported boolean operator: %s", operator)
+	}
+}
+
+// toBool converts a value to a boolean, handling both native bools and string
+// representations. This is needed because JSON round-tripping through databases
+// (e.g. PostgreSQL JSONB) can turn boolean values into strings.
+func toBool(v any) (bool, error) {
+	switch val := v.(type) {
+	case bool:
+		return val, nil
+	case string:
+		return strconv.ParseBool(val)
+	default:
+		return false, fmt.Errorf("cannot convert %T to boolean", v)
 	}
 }
 
@@ -360,7 +375,8 @@ func (e *Evaluator) compareArrays(actual any, operator rules.Operator, expected 
 	}
 }
 
-// toFloat64 converts various numeric types to float64
+// toFloat64 converts various numeric types to float64.
+// Strings are parsed as numbers since rule values from JSON are often stored as strings.
 func toFloat64(value any) (float64, error) {
 	switch v := value.(type) {
 	case float64:
@@ -379,6 +395,12 @@ func toFloat64(value any) (float64, error) {
 		return float64(v), nil
 	case uint32:
 		return float64(v), nil
+	case string:
+		f, err := strconv.ParseFloat(v, 64)
+		if err != nil {
+			return 0, fmt.Errorf("cannot convert string %q to float64: %w", v, err)
+		}
+		return f, nil
 	default:
 		return 0, fmt.Errorf("cannot convert %T to float64", value)
 	}

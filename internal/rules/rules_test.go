@@ -2,9 +2,11 @@ package rules
 
 import (
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRuleEvents(t *testing.T) {
@@ -123,7 +125,127 @@ func TestRuleEvents(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			events := test.rule.Events()
+			events := test.rule.UserEvents()
+			assert.Equal(t, test.expected, events)
+		})
+	}
+}
+
+func TestRuleOrganizationEvents(t *testing.T) {
+	t.Parallel()
+
+	type test struct {
+		rule     Rule
+		expected []string
+	}
+
+	tests := map[string]test{
+		"single organization event rule": {
+			rule: Rule{
+				Type:  RuleTypeWrapper,
+				Group: RuleGroupOrganizationEvent,
+				Value: "org.created",
+			},
+			expected: []string{"org.created"},
+		},
+		"multiple organization event rules": {
+			rule: Rule{
+				Type:     RuleTypeWrapper,
+				Group:    RuleGroupParent,
+				Operator: OperatorAnd,
+				Children: []Rule{
+					{
+						Type:  RuleTypeWrapper,
+						Group: RuleGroupOrganizationEvent,
+						Value: "org.created",
+					},
+					{
+						Type:  RuleTypeWrapper,
+						Group: RuleGroupOrganizationEvent,
+						Value: "org.updated",
+					},
+				},
+			},
+			expected: []string{"org.created", "org.updated"},
+		},
+		"nested organization event rules": {
+			rule: Rule{
+				Type:     RuleTypeWrapper,
+				Group:    RuleGroupParent,
+				Operator: OperatorAnd,
+				Children: []Rule{
+					{
+						Type:  RuleTypeWrapper,
+						Group: RuleGroupOrganizationEvent,
+						Value: "subscription.created",
+					},
+					{
+						Type:     RuleTypeWrapper,
+						Group:    RuleGroupParent,
+						Operator: OperatorOr,
+						Children: []Rule{
+							{
+								Type:  RuleTypeWrapper,
+								Group: RuleGroupOrganizationEvent,
+								Value: "payment.completed",
+							},
+							{
+								Type:  RuleTypeWrapper,
+								Group: RuleGroupOrganizationEvent,
+								Value: "payment.failed",
+							},
+						},
+					},
+				},
+			},
+			expected: []string{"subscription.created", "payment.completed", "payment.failed"},
+		},
+		"no organization events": {
+			rule: Rule{
+				Type:     RuleTypeWrapper,
+				Group:    RuleGroupParent,
+				Operator: OperatorAnd,
+				Children: []Rule{
+					{
+						Type:     RuleTypeString,
+						Group:    RuleGroupOrganization,
+						Path:     "name",
+						Operator: OperatorContains,
+						Value:    "example",
+					},
+				},
+			},
+			expected: nil,
+		},
+		"mixed organization event and user event rules": {
+			rule: Rule{
+				Type:     RuleTypeWrapper,
+				Group:    RuleGroupParent,
+				Operator: OperatorAnd,
+				Children: []Rule{
+					{
+						Type:  RuleTypeWrapper,
+						Group: RuleGroupOrganizationEvent,
+						Value: "org.purchase.completed",
+					},
+					{
+						Type:  RuleTypeWrapper,
+						Group: RuleGroupEvent,
+						Value: "user.login",
+					},
+				},
+			},
+			expected: []string{"org.purchase.completed"},
+		},
+		"empty rule": {
+			rule:     Rule{},
+			expected: nil,
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			events := test.rule.OrganizationEvents()
 			assert.Equal(t, test.expected, events)
 		})
 	}
@@ -304,7 +426,7 @@ func TestRuleDependsOnUsers(t *testing.T) {
 								Group:    RuleGroupUser,
 								Path:     "locale",
 								Operator: OperatorEquals,
-								Value:    "en-US",
+								Value:    "en",
 							},
 							{
 								Type:     RuleTypeBoolean,
@@ -342,6 +464,14 @@ func TestRuleDependsOnUsers(t *testing.T) {
 		"empty rule": {
 			rule:     Rule{},
 			expected: false,
+		},
+		"parent wrapper with no children matches all users": {
+			rule: Rule{
+				Type:     RuleTypeWrapper,
+				Group:    RuleGroupParent,
+				Operator: OperatorAnd,
+			},
+			expected: true,
 		},
 	}
 
@@ -433,6 +563,352 @@ func TestRuleIsRoot(t *testing.T) {
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			result := test.rule.IsRoot()
+			assert.Equal(t, test.expected, result)
+		})
+	}
+}
+
+func TestRuleDependsOnOrganizations(t *testing.T) {
+	t.Parallel()
+
+	type test struct {
+		rule     Rule
+		expected bool
+	}
+
+	tests := map[string]test{
+		"single organization rule": {
+			rule: Rule{
+				Type:     RuleTypeString,
+				Group:    RuleGroupOrganization,
+				Path:     ".data.tier",
+				Operator: OperatorEquals,
+				Value:    "gold",
+			},
+			expected: true,
+		},
+		"nested with organization rule": {
+			rule: Rule{
+				Type:     RuleTypeWrapper,
+				Group:    RuleGroupParent,
+				Operator: OperatorAnd,
+				Children: []Rule{
+					{
+						Type:     RuleTypeString,
+						Group:    RuleGroupUser,
+						Path:     "email",
+						Operator: OperatorContains,
+						Value:    "test",
+					},
+					{
+						Type:     RuleTypeString,
+						Group:    RuleGroupOrganization,
+						Path:     ".name",
+						Operator: OperatorEquals,
+						Value:    "Acme",
+					},
+				},
+			},
+			expected: true,
+		},
+		"deeply nested with organization rule": {
+			rule: Rule{
+				Type:     RuleTypeWrapper,
+				Group:    RuleGroupParent,
+				Operator: OperatorAnd,
+				Children: []Rule{
+					{
+						Type:     RuleTypeString,
+						Group:    RuleGroupUser,
+						Path:     "name",
+						Operator: OperatorEquals,
+						Value:    "John",
+					},
+					{
+						Type:     RuleTypeWrapper,
+						Group:    RuleGroupParent,
+						Operator: OperatorOr,
+						Children: []Rule{
+							{
+								Type:     RuleTypeNumber,
+								Group:    RuleGroupUser,
+								Path:     "age",
+								Operator: OperatorLessThan,
+								Value:    30,
+							},
+							{
+								Type:     RuleTypeString,
+								Group:    RuleGroupOrganization,
+								Path:     ".data.plan",
+								Operator: OperatorEquals,
+								Value:    "enterprise",
+							},
+						},
+					},
+				},
+			},
+			expected: true,
+		},
+		"only user rules": {
+			rule: Rule{
+				Type:     RuleTypeWrapper,
+				Group:    RuleGroupParent,
+				Operator: OperatorAnd,
+				Children: []Rule{
+					{
+						Type:     RuleTypeString,
+						Group:    RuleGroupUser,
+						Path:     "email",
+						Operator: OperatorContains,
+						Value:    "example.com",
+					},
+					{
+						Type:     RuleTypeBoolean,
+						Group:    RuleGroupUser,
+						Path:     "data.verified",
+						Operator: OperatorEquals,
+						Value:    true,
+					},
+				},
+			},
+			expected: false,
+		},
+		"only organization user rules": {
+			rule: Rule{
+				Type:     RuleTypeWrapper,
+				Group:    RuleGroupParent,
+				Operator: OperatorAnd,
+				Children: []Rule{
+					{
+						Type:     RuleTypeString,
+						Group:    RuleGroupOrganizationUser,
+						Path:     ".data.role",
+						Operator: OperatorEquals,
+						Value:    "admin",
+					},
+				},
+			},
+			expected: false,
+		},
+		"empty rule": {
+			rule:     Rule{},
+			expected: false,
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			result := test.rule.DependsOnOrganizations()
+			assert.Equal(t, test.expected, result)
+		})
+	}
+}
+
+func TestRuleDependsOnOrganizationUsers(t *testing.T) {
+	t.Parallel()
+
+	type test struct {
+		rule     Rule
+		expected bool
+	}
+
+	tests := map[string]test{
+		"single organization user rule": {
+			rule: Rule{
+				Type:     RuleTypeString,
+				Group:    RuleGroupOrganizationUser,
+				Path:     ".data.role",
+				Operator: OperatorEquals,
+				Value:    "admin",
+			},
+			expected: true,
+		},
+		"nested with organization user rule": {
+			rule: Rule{
+				Type:     RuleTypeWrapper,
+				Group:    RuleGroupParent,
+				Operator: OperatorAnd,
+				Children: []Rule{
+					{
+						Type:     RuleTypeString,
+						Group:    RuleGroupUser,
+						Path:     "email",
+						Operator: OperatorContains,
+						Value:    "test",
+					},
+					{
+						Type:     RuleTypeString,
+						Group:    RuleGroupOrganizationUser,
+						Path:     ".data.role",
+						Operator: OperatorEquals,
+						Value:    "member",
+					},
+				},
+			},
+			expected: true,
+		},
+		"deeply nested with organization user rule": {
+			rule: Rule{
+				Type:     RuleTypeWrapper,
+				Group:    RuleGroupParent,
+				Operator: OperatorAnd,
+				Children: []Rule{
+					{
+						Type:     RuleTypeString,
+						Group:    RuleGroupUser,
+						Path:     "name",
+						Operator: OperatorEquals,
+						Value:    "John",
+					},
+					{
+						Type:     RuleTypeWrapper,
+						Group:    RuleGroupParent,
+						Operator: OperatorOr,
+						Children: []Rule{
+							{
+								Type:     RuleTypeNumber,
+								Group:    RuleGroupUser,
+								Path:     "age",
+								Operator: OperatorLessThan,
+								Value:    30,
+							},
+							{
+								Type:     RuleTypeString,
+								Group:    RuleGroupOrganizationUser,
+								Path:     ".data.permissions",
+								Operator: OperatorContains,
+								Value:    "write",
+							},
+						},
+					},
+				},
+			},
+			expected: true,
+		},
+		"only user rules": {
+			rule: Rule{
+				Type:     RuleTypeWrapper,
+				Group:    RuleGroupParent,
+				Operator: OperatorAnd,
+				Children: []Rule{
+					{
+						Type:     RuleTypeString,
+						Group:    RuleGroupUser,
+						Path:     "email",
+						Operator: OperatorContains,
+						Value:    "example.com",
+					},
+					{
+						Type:     RuleTypeBoolean,
+						Group:    RuleGroupUser,
+						Path:     "data.verified",
+						Operator: OperatorEquals,
+						Value:    true,
+					},
+				},
+			},
+			expected: false,
+		},
+		"only organization rules": {
+			rule: Rule{
+				Type:     RuleTypeWrapper,
+				Group:    RuleGroupParent,
+				Operator: OperatorAnd,
+				Children: []Rule{
+					{
+						Type:     RuleTypeString,
+						Group:    RuleGroupOrganization,
+						Path:     ".data.tier",
+						Operator: OperatorEquals,
+						Value:    "gold",
+					},
+				},
+			},
+			expected: false,
+		},
+		"mixed organization and organization user": {
+			rule: Rule{
+				Type:     RuleTypeWrapper,
+				Group:    RuleGroupParent,
+				Operator: OperatorAnd,
+				Children: []Rule{
+					{
+						Type:     RuleTypeString,
+						Group:    RuleGroupOrganization,
+						Path:     ".data.tier",
+						Operator: OperatorEquals,
+						Value:    "gold",
+					},
+					{
+						Type:     RuleTypeString,
+						Group:    RuleGroupOrganizationUser,
+						Path:     ".data.role",
+						Operator: OperatorEquals,
+						Value:    "admin",
+					},
+				},
+			},
+			expected: true,
+		},
+		"empty rule": {
+			rule:     Rule{},
+			expected: false,
+		},
+		"organization wrapper with member conditions": {
+			rule: Rule{
+				Type:     RuleTypeWrapper,
+				Group:    RuleGroupParent,
+				Operator: OperatorAnd,
+				Children: []Rule{
+					{
+						Type:     RuleTypeWrapper,
+						Group:    RuleGroupOrganization,
+						Operator: OperatorAnd,
+						UserMatch: &UserMatch{
+							Type: UserMatchConditions,
+							MemberConditions: &Rule{
+								Type:     RuleTypeWrapper,
+								Group:    RuleGroupParent,
+								Operator: OperatorAnd,
+								Children: []Rule{
+									{
+										Type:     RuleTypeBoolean,
+										Group:    RuleGroupUser,
+										Path:     "is_primary_contact",
+										Operator: OperatorEquals,
+										Value:    false,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: true,
+		},
+		"organization wrapper with user_match all": {
+			rule: Rule{
+				Type:     RuleTypeWrapper,
+				Group:    RuleGroupParent,
+				Operator: OperatorAnd,
+				Children: []Rule{
+					{
+						Type:     RuleTypeWrapper,
+						Group:    RuleGroupOrganization,
+						Operator: OperatorAnd,
+						UserMatch: &UserMatch{
+							Type: UserMatchAll,
+						},
+					},
+				},
+			},
+			expected: false,
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			result := test.rule.DependsOnOrganizationUsers()
 			assert.Equal(t, test.expected, result)
 		})
 	}
@@ -565,4 +1041,322 @@ func TestPeriodUnitSQL(t *testing.T) {
 			assert.Equal(t, test.expected, result)
 		})
 	}
+}
+
+func TestPeriodUnitRecomputeInterval(t *testing.T) {
+	t.Parallel()
+
+	type test struct {
+		unit     PeriodUnit
+		expected time.Duration
+	}
+
+	tests := map[string]test{
+		"minute": {
+			unit:     PeriodUnitMinute,
+			expected: time.Minute,
+		},
+		"hour": {
+			unit:     PeriodUnitHour,
+			expected: 5 * time.Minute,
+		},
+		"day": {
+			unit:     PeriodUnitDay,
+			expected: time.Hour,
+		},
+		"week": {
+			unit:     PeriodUnitWeek,
+			expected: 6 * time.Hour,
+		},
+		"month": {
+			unit:     PeriodUnitMonth,
+			expected: 24 * time.Hour,
+		},
+		"year": {
+			unit:     PeriodUnitYear,
+			expected: 7 * 24 * time.Hour,
+		},
+		"unknown (default)": {
+			unit:     PeriodUnit("unknown"),
+			expected: time.Hour,
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			result := test.unit.RecomputeInterval()
+			assert.Equal(t, test.expected, result)
+		})
+	}
+}
+
+func TestRuleDependsOnTime(t *testing.T) {
+	t.Parallel()
+
+	type test struct {
+		rule     Rule
+		expected bool
+	}
+
+	tests := map[string]test{
+		"event rule with rolling frequency": {
+			rule: Rule{
+				Type:  RuleTypeWrapper,
+				Group: RuleGroupEvent,
+				Value: "purchase",
+				Frequency: &Frequency{
+					Count:    1,
+					Operator: OperatorGreaterEqual,
+					Period: Period{
+						Type:  PeriodTypeRolling,
+						Unit:  PeriodUnitDay,
+						Value: 30,
+					},
+				},
+			},
+			expected: true,
+		},
+		"event rule without frequency": {
+			rule: Rule{
+				Type:  RuleTypeWrapper,
+				Group: RuleGroupEvent,
+				Value: "purchase",
+			},
+			expected: false,
+		},
+		"event rule with since_entered period": {
+			rule: Rule{
+				Type:  RuleTypeWrapper,
+				Group: RuleGroupEvent,
+				Value: "purchase",
+				Frequency: &Frequency{
+					Count:    1,
+					Operator: OperatorGreaterEqual,
+					Period: Period{
+						Type:  PeriodTypeSinceEntered,
+						Unit:  PeriodUnitDay,
+						Value: 7,
+					},
+				},
+			},
+			expected: false,
+		},
+		"nested rolling frequency": {
+			rule: Rule{
+				Type:     RuleTypeWrapper,
+				Group:    RuleGroupParent,
+				Operator: OperatorAnd,
+				Children: []Rule{
+					{
+						Type:     RuleTypeString,
+						Group:    RuleGroupUser,
+						Path:     "email",
+						Operator: OperatorContains,
+						Value:    "@example.com",
+					},
+					{
+						Type:  RuleTypeWrapper,
+						Group: RuleGroupEvent,
+						Value: "page.viewed",
+						Frequency: &Frequency{
+							Count:    5,
+							Operator: OperatorGreaterEqual,
+							Period: Period{
+								Type:  PeriodTypeRolling,
+								Unit:  PeriodUnitHour,
+								Value: 24,
+							},
+						},
+					},
+				},
+			},
+			expected: true,
+		},
+		"user-only rule": {
+			rule: Rule{
+				Type:     RuleTypeString,
+				Group:    RuleGroupUser,
+				Path:     "email",
+				Operator: OperatorContains,
+				Value:    "@example.com",
+			},
+			expected: false,
+		},
+		"organization event with rolling frequency": {
+			rule: Rule{
+				Type:  RuleTypeWrapper,
+				Group: RuleGroupOrganizationEvent,
+				Value: "subscription.renewed",
+				Frequency: &Frequency{
+					Count:    1,
+					Operator: OperatorGreaterEqual,
+					Period: Period{
+						Type:  PeriodTypeRolling,
+						Unit:  PeriodUnitMonth,
+						Value: 1,
+					},
+				},
+			},
+			expected: true,
+		},
+		"empty rule": {
+			rule:     Rule{},
+			expected: false,
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			result := test.rule.DependsOnTime()
+			assert.Equal(t, test.expected, result)
+		})
+	}
+}
+
+func TestRuleSetRecomputeInterval(t *testing.T) {
+	t.Parallel()
+
+	t.Run("no rolling periods returns nil", func(t *testing.T) {
+		rs := RuleSet{
+			Rule: Rule{
+				Type:     RuleTypeWrapper,
+				Group:    RuleGroupParent,
+				Operator: OperatorAnd,
+				Children: []Rule{
+					{
+						Type:     RuleTypeString,
+						Group:    RuleGroupUser,
+						Path:     "email",
+						Operator: OperatorContains,
+						Value:    "@example.com",
+					},
+				},
+			},
+		}
+		assert.Nil(t, rs.RecomputeInterval())
+	})
+
+	t.Run("single rolling period returns tier interval", func(t *testing.T) {
+		rs := RuleSet{
+			Rule: Rule{
+				Type:     RuleTypeWrapper,
+				Group:    RuleGroupParent,
+				Operator: OperatorAnd,
+				Children: []Rule{
+					{
+						Type:  RuleTypeWrapper,
+						Group: RuleGroupEvent,
+						Value: "purchase",
+						Frequency: &Frequency{
+							Count:    1,
+							Operator: OperatorGreaterEqual,
+							Period: Period{
+								Type:  PeriodTypeRolling,
+								Unit:  PeriodUnitDay,
+								Value: 30,
+							},
+						},
+					},
+				},
+			},
+		}
+		interval := rs.RecomputeInterval()
+		require.NotNil(t, interval)
+		assert.Equal(t, time.Hour, *interval)
+	})
+
+	t.Run("multiple rolling periods returns smallest interval", func(t *testing.T) {
+		rs := RuleSet{
+			Rule: Rule{
+				Type:     RuleTypeWrapper,
+				Group:    RuleGroupParent,
+				Operator: OperatorAnd,
+				Children: []Rule{
+					{
+						Type:  RuleTypeWrapper,
+						Group: RuleGroupEvent,
+						Value: "purchase",
+						Frequency: &Frequency{
+							Count:    1,
+							Operator: OperatorGreaterEqual,
+							Period: Period{
+								Type:  PeriodTypeRolling,
+								Unit:  PeriodUnitMonth,
+								Value: 1,
+							},
+						},
+					},
+					{
+						Type:  RuleTypeWrapper,
+						Group: RuleGroupEvent,
+						Value: "page.viewed",
+						Frequency: &Frequency{
+							Count:    5,
+							Operator: OperatorGreaterEqual,
+							Period: Period{
+								Type:  PeriodTypeRolling,
+								Unit:  PeriodUnitHour,
+								Value: 2,
+							},
+						},
+					},
+				},
+			},
+		}
+		interval := rs.RecomputeInterval()
+		require.NotNil(t, interval)
+		// hour tier (5 min) < month tier (24 hours), so hour wins
+		assert.Equal(t, 5*time.Minute, *interval)
+	})
+
+	t.Run("mixed rolling and non-rolling", func(t *testing.T) {
+		rs := RuleSet{
+			Rule: Rule{
+				Type:     RuleTypeWrapper,
+				Group:    RuleGroupParent,
+				Operator: OperatorAnd,
+				Children: []Rule{
+					{
+						Type:     RuleTypeString,
+						Group:    RuleGroupUser,
+						Path:     "email",
+						Operator: OperatorContains,
+						Value:    "@example.com",
+					},
+					{
+						Type:  RuleTypeWrapper,
+						Group: RuleGroupEvent,
+						Value: "login",
+						Frequency: &Frequency{
+							Count:    1,
+							Operator: OperatorGreaterEqual,
+							Period: Period{
+								Type:  PeriodTypeRolling,
+								Unit:  PeriodUnitWeek,
+								Value: 1,
+							},
+						},
+					},
+					{
+						Type:  RuleTypeWrapper,
+						Group: RuleGroupEvent,
+						Value: "session.started",
+						Frequency: &Frequency{
+							Count:    1,
+							Operator: OperatorGreaterEqual,
+							Period: Period{
+								Type:  PeriodTypeSinceEntered,
+								Unit:  PeriodUnitDay,
+								Value: 7,
+							},
+						},
+					},
+				},
+			},
+		}
+		interval := rs.RecomputeInterval()
+		require.NotNil(t, interval)
+		// Only the week rolling period counts; since_entered is not rolling
+		assert.Equal(t, 6*time.Hour, *interval)
+	})
 }

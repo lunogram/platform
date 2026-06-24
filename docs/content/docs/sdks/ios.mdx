@@ -1,0 +1,23 @@
+---
+title: iOS (Swift)
+description: Native SDK for iOS and Mac Catalyst applications
+---
+
+<Callout type="warn">
+  The iOS SDK is currently in development. Check back soon or [follow us on
+  GitHub](https://github.com/lunogram) for updates.
+</Callout>
+
+The Lunogram iOS SDK will provide native support for user identification, event tracking, push notification registration, and deeplink handling in iOS and Mac Catalyst applications.
+
+## Planned features
+
+- User identification and attribute management
+- Event tracking
+- APNs device token registration for push notifications
+- Universal link / deeplink unwrapping
+- Swift Package Manager and CocoaPods distribution
+
+## In the meantime
+
+You can integrate directly with the [Client API](/api/client) using any HTTP library. All you need is a public API key and standard JSON requests. Client requests go to `/api/client/projects/{projectID}/...`, where `{projectID}` is your project's UUID.

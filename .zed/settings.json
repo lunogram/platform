@@ -1,0 +1,9 @@
+{
+    "lsp": {
+        "eslint": {
+            "settings": {
+                "workingDirectories": ["./console"]
+            }
+        }
+    }
+}

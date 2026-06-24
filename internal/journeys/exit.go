@@ -2,6 +2,7 @@ package journeys
 
 import (
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
+	"github.com/lunogram/platform/internal/node/metrics"
 	"github.com/lunogram/platform/internal/store/journey"
 )
 
@@ -22,6 +23,8 @@ func HandleExit(ctx HandlerContext, step journey.JourneyVersionStep, state journ
 	if err != nil {
 		return state, nil, err
 	}
+
+	metrics.JourneyExitsTotal.WithLabelValues(ctx.ProjectID.String()).Inc()
 
 	state.CompletedAt = now
 	return state, nil, nil

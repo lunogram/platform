@@ -7,6 +7,7 @@ import (
 
 type Config struct {
 	Type          string      `env:"STORAGE_TYPE" envDefault:"local"`
+	BaseURL       string      `env:"STORAGE_BASE_URL"`
 	MaxUploadSize int64       `env:"STORAGE_MAX_UPLOAD_SIZE" envDefault:"10485760"` // 10MB default
 	S3            S3Config    `envPrefix:"STORAGE_S3_"`
 	Local         LocalConfig `envPrefix:"STORAGE_LOCAL_"`
@@ -25,4 +26,21 @@ func New(cfg Config) (Storage, error) {
 	default:
 		return NewLocalStorage(cfg.Local)
 	}
+}
+
+// URLResolver generates public URLs for stored documents.
+// It constructs URLs as {baseURL}/{key} using the configured STORAGE_BASE_URL.
+type URLResolver struct {
+	baseURL string
+}
+
+// NewURLResolver creates a URLResolver from the configured storage base URL
+// (e.g. a CDN or S3 bucket public URL).
+func NewURLResolver(storageBaseURL string) *URLResolver {
+	return &URLResolver{baseURL: storageBaseURL}
+}
+
+// URL returns the public URL for the given storage key.
+func (r *URLResolver) URL(key string) string {
+	return r.baseURL + "/" + key
 }

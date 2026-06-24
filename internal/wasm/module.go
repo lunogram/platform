@@ -7,6 +7,7 @@ import (
 	"time"
 
 	extism "github.com/extism/go-sdk"
+	"github.com/tetratelabs/wazero"
 	"go.uber.org/zap"
 
 	"github.com/lunogram/platform/internal/config"
@@ -20,9 +21,19 @@ type Module[T modules.Manifest] struct {
 	config   config.WASM
 }
 
+// NewModule constructs a typed module from an initialized plugin and manifest.
+func NewModule[T modules.Manifest](manifest T, plugin *extism.Plugin, cfg config.WASM) *Module[T] {
+	return &Module[T]{manifest: manifest, plugin: plugin, config: cfg}
+}
+
 // Manifest returns the module's manifest.
 func (m *Module[T]) Manifest() T {
 	return m.manifest
+}
+
+// Plugin returns the underlying Extism plugin.
+func (m *Module[T]) Plugin() *extism.Plugin {
+	return m.plugin
 }
 
 // Call invokes a function on the WASM plugin.
@@ -32,6 +43,14 @@ func (m *Module[T]) Call(ctx context.Context, fn string, input []byte) (uint32, 
 	defer cancel()
 
 	return m.plugin.CallWithContext(ctx, fn, input)
+}
+
+// FunctionExists checks if the WASM plugin exports a function with the given name.
+func (m *Module[T]) FunctionExists(name string) bool {
+	if m.plugin == nil {
+		return false
+	}
+	return m.plugin.FunctionExists(name)
 }
 
 // Close closes the underlying plugin.
@@ -56,7 +75,8 @@ func NewPlugin(ctx context.Context, wasm []byte, logger *zap.Logger) (*extism.Pl
 	}
 
 	cfg := extism.PluginConfig{
-		EnableWasi: true,
+		EnableWasi:   true,
+		ModuleConfig: wazero.NewModuleConfig().WithSysWalltime(),
 	}
 
 	plugin, err := extism.NewPlugin(ctx, manifest, cfg, nil)
@@ -66,6 +86,7 @@ func NewPlugin(ctx context.Context, wasm []byte, logger *zap.Logger) (*extism.Pl
 
 	if logger != nil {
 		// TODO: store the logs inside the database or a log management system
+		extism.SetLogLevel(extism.LogLevelTrace)
 		plugin.SetLogger(func(level extism.LogLevel, message string) {
 			switch level {
 			case extism.LogLevelTrace, extism.LogLevelDebug:
@@ -107,5 +128,5 @@ func LoadModule[T modules.Manifest](ctx context.Context, data []byte, cfg config
 		return nil, fmt.Errorf("failed to unmarshal manifest: %w", err)
 	}
 
-	return &Module[T]{manifest: manifest, plugin: plugin, config: cfg}, nil
+	return NewModule(manifest, plugin, cfg), nil
 }

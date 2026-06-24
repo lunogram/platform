@@ -9,6 +9,7 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
 	"github.com/lunogram/platform/internal/store/journey"
 	"github.com/stretchr/testify/assert"
@@ -24,7 +25,7 @@ type mockEvent struct {
 	data    any
 }
 
-func (m *mockPublisher) Publish(ctx context.Context, subject schemas.Subject, v any) error {
+func (m *mockPublisher) Publish(ctx context.Context, subject schemas.Subject, v any, _ ...pubsub.PublishOption) error {
 	m.publishedEvents = append(m.publishedEvents, mockEvent{
 		subject: subject,
 		data:    v,
@@ -97,6 +98,26 @@ func TestHandleEvent(t *testing.T) {
 			expectedEvents: 1,
 			wantErr:        false,
 		},
+		"event_name with liquid variable": {
+			step: journey.JourneyVersionStep{
+				ID:   uuid.New(),
+				Type: EventStepType,
+				Data: json.RawMessage(`{"event_name":"{{ journey.entrance.event_type }}_completed"}`),
+				Children: []journey.JourneyVersionStepChild{
+					{ChildExternalID: "next-step"},
+				},
+			},
+			state: journey.JourneyUserState{},
+			data: map[string]any{
+				"journey": map[string]any{
+					"entrance": map[string]any{
+						"event_type": "onboarding",
+					},
+				},
+			},
+			expectedEvents: 1,
+			wantErr:        false,
+		},
 		"event with empty template": {
 			step: journey.JourneyVersionStep{
 				ID:   uuid.New(),
@@ -148,11 +169,13 @@ func TestHandleEvent(t *testing.T) {
 				// Expect GetUser query
 				now := time.Now()
 				rows := sqlmock.NewRows([]string{
-					"id", "project_id", "external_id", "email", "phone",
-					"anonymous_id", "timezone", "locale", "data", "created_at", "updated_at",
+					"id", "project_id", "email", "phone", "data",
+					"timezone", "locale", "version", "created_at", "updated_at",
+					"has_push_device", "external_ids",
 				}).AddRow(
-					userID, projectID, "test-user", nil, nil,
-					"anon-123", nil, nil, []byte("{}"), now, now,
+					userID, projectID, nil, nil, []byte("{}"),
+					nil, nil, int32(0), now, now,
+					false, []byte("[]"),
 				)
 				mock.ExpectQuery(`SELECT (.+) FROM users`).
 					WithArgs(userID, projectID).
@@ -186,10 +209,10 @@ func TestHandleEvent(t *testing.T) {
 
 				// Verify event structure
 				event := mockPub.publishedEvents[0]
-				assert.Equal(t, schemas.Subject("events.process."+projectID.String()), event.subject)
+				assert.Equal(t, schemas.Subject("users.events.process."+projectID.String()), event.subject)
 
-				eventData, ok := event.data.(schemas.Event)
-				require.True(t, ok, "event data should be schemas.Event type")
+				eventData, ok := event.data.(schemas.UserEvent)
+				require.True(t, ok, "event data should be schemas.UserEvent type")
 				assert.NotNil(t, eventData.ID)
 				assert.NotEmpty(t, eventData.Name)
 				assert.Equal(t, projectID, eventData.ProjectID)
@@ -210,13 +233,15 @@ func TestHandleEventTemplateRendering(t *testing.T) {
 		template     string
 		data         map[string]any
 		eventName    string
+		expectedName string
 		checkPayload func(t *testing.T, data map[string]any)
 	}
 
 	tests := map[string]test{
 		"renders user data": {
-			template:  `{"user_email":"{{ user.email }}","user_name":"{{ user.name }}"}`,
-			eventName: "user_action",
+			template:     `{"user_email":"{{ user.email }}","user_name":"{{ user.name }}"}`,
+			eventName:    "user_action",
+			expectedName: "user_action",
 			data: map[string]any{
 				"user": map[string]any{
 					"email": "test@example.com",
@@ -229,8 +254,9 @@ func TestHandleEventTemplateRendering(t *testing.T) {
 			},
 		},
 		"renders journey step data": {
-			template:  `{"product_id":"{{ journey.entrance.product_id }}","quantity":{{ journey.entrance.quantity }}}`,
-			eventName: "cart_updated",
+			template:     `{"product_id":"{{ journey.entrance.product_id }}","quantity":{{ journey.entrance.quantity }}}`,
+			eventName:    "cart_updated",
+			expectedName: "cart_updated",
 			data: map[string]any{
 				"journey": map[string]any{
 					"entrance": map[string]any{
@@ -246,8 +272,9 @@ func TestHandleEventTemplateRendering(t *testing.T) {
 			},
 		},
 		"renders complex nested data": {
-			template:  `{"summary":"{{ user.first_name }} {{ user.last_name }} completed {{ journey.course.name }}","course_id":"{{ journey.course.id }}"}`,
-			eventName: "course_completed",
+			template:     `{"summary":"{{ user.first_name }} {{ user.last_name }} completed {{ journey.course.name }}","course_id":"{{ journey.course.id }}"}`,
+			eventName:    "course_completed",
+			expectedName: "course_completed",
 			data: map[string]any{
 				"user": map[string]any{
 					"first_name": "John",
@@ -265,6 +292,21 @@ func TestHandleEventTemplateRendering(t *testing.T) {
 				assert.Equal(t, "course-456", data["course_id"])
 			},
 		},
+		"renders event_name with variable": {
+			template:     `{"step":"done"}`,
+			eventName:    "{{ journey.entrance.event_type }}_completed",
+			expectedName: "onboarding_completed",
+			data: map[string]any{
+				"journey": map[string]any{
+					"entrance": map[string]any{
+						"event_type": "onboarding",
+					},
+				},
+			},
+			checkPayload: func(t *testing.T, data map[string]any) {
+				assert.Equal(t, "done", data["step"])
+			},
+		},
 	}
 
 	for name, tc := range tests {
@@ -279,11 +321,13 @@ func TestHandleEventTemplateRendering(t *testing.T) {
 			// Expect GetUser query
 			now := time.Now()
 			rows := sqlmock.NewRows([]string{
-				"id", "project_id", "external_id", "email", "phone",
-				"anonymous_id", "timezone", "locale", "data", "created_at", "updated_at",
+				"id", "project_id", "email", "phone", "data",
+				"timezone", "locale", "version", "created_at", "updated_at",
+				"has_push_device", "external_ids",
 			}).AddRow(
-				userID, projectID, "test-user", nil, nil,
-				"anon-123", nil, nil, []byte("{}"), now, now,
+				userID, projectID, nil, nil, []byte("{}"),
+				nil, nil, int32(0), now, now,
+				false, []byte("[]"),
 			)
 			mock.ExpectQuery(`SELECT (.+) FROM users`).
 				WithArgs(userID, projectID).
@@ -325,8 +369,12 @@ func TestHandleEventTemplateRendering(t *testing.T) {
 
 			// Check the event payload
 			event := mockPub.publishedEvents[0]
-			eventData, ok := event.data.(schemas.Event)
+			eventData, ok := event.data.(schemas.UserEvent)
 			require.True(t, ok)
+
+			if tc.expectedName != "" {
+				assert.Equal(t, tc.expectedName, eventData.Name)
+			}
 
 			payloadData := eventData.Data
 			require.True(t, ok)

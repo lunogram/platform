@@ -4,21 +4,30 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/lunogram/platform/internal/store/users"
+	"github.com/lunogram/platform/internal/pkg/timezone"
+	"github.com/lunogram/platform/internal/store/subjects"
 )
 
 var ErrMissingExternalID = errors.New("external_id column is required")
 
-var UserFieldMap = map[string]func(*users.UpsertUserParams, string){
-	"external_id": func(u *users.UpsertUserParams, v string) { u.ExternalID = &v },
-	"email":       func(u *users.UpsertUserParams, v string) { u.Email = &v },
-	"phone":       func(u *users.UpsertUserParams, v string) { u.Phone = &v },
-	"timezone":    func(u *users.UpsertUserParams, v string) { u.Timezone = &v },
-	"locale":      func(u *users.UpsertUserParams, v string) { u.Locale = &v },
+var UserFieldMap = map[string]func(*subjects.UpsertUserParams, string){
+	"external_id": func(u *subjects.UpsertUserParams, v string) {
+		u.Identifiers = append(u.Identifiers, subjects.ExternalIDParam{Source: "default", ExternalID: v})
+	},
+	"email": func(u *subjects.UpsertUserParams, v string) { u.Email = &v },
+	"phone": func(u *subjects.UpsertUserParams, v string) { u.Phone = &v },
+	"timezone": func(u *subjects.UpsertUserParams, v string) {
+		if resolved, err := timezone.Resolve(v); err == nil {
+			u.Timezone = &resolved
+		} else {
+			u.Timezone = &v
+		}
+	},
+	"locale": func(u *subjects.UpsertUserParams, v string) { u.Locale = &v },
 }
 
 func NewUsers(headers []string) (*UserMapper, error) {
-	setters := make([]func(*users.UpsertUserParams, string), len(headers))
+	setters := make([]func(*subjects.UpsertUserParams, string), len(headers))
 	data := make([]string, len(headers))
 	hasExternalID := false
 
@@ -49,13 +58,13 @@ func NewUsers(headers []string) (*UserMapper, error) {
 }
 
 type UserMapper struct {
-	Setters []func(*users.UpsertUserParams, string)
+	Setters []func(*subjects.UpsertUserParams, string)
 	Data    []string
 	Headers []string
 }
 
-func (m *UserMapper) MapRecord(record []string) (users.UpsertUserParams, error) {
-	user := users.UpsertUserParams{}
+func (m *UserMapper) MapRecord(record []string) (subjects.UpsertUserParams, error) {
+	user := subjects.UpsertUserParams{}
 	user.Data = make(map[string]any)
 
 	for index, value := range record {

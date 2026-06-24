@@ -1,30 +1,29 @@
-import { useContext } from 'react'
-import type { JourneyStepType, Rule } from '../../../types'
-import { GateStepIcon } from '../../../components/icons'
-import RuleBuilder from '../../users/rules/RuleBuilder'
-import { PreferencesContext } from '../../../ui/PreferencesContext'
-import { useTranslation } from 'react-i18next'
-import { ruleDescription } from '../../users/rules/RuleDescriptions'
-import { createWrapperRule } from '../../users/rules/RuleHelpers'
+import { useContext } from "react"
+import type { JourneyStepType, Rule } from "../../../types"
+import { GateStepIcon } from "../../../components/icons"
+import RuleBuilder from "../../users/rules/RuleBuilder"
+import { PreferencesContext } from "@/contexts/PreferencesContext"
+import { useTranslation } from "react-i18next"
+import { ruleDescription } from "../../users/rules/RuleDescriptions"
+import { createWrapperRule } from "../../users/rules/RuleHelpers"
+import { useJourneyVariableContext } from "../JourneyVariableContext"
 
 interface GateConfig {
     rule: Rule
 }
 
 export const gateStep: JourneyStepType<GateConfig> = {
-    name: 'gate',
+    name: "gate",
     icon: <GateStepIcon />,
-    category: 'flow',
-    description: 'gate_desc',
-    Describe({
-        value,
-    }) {
+    category: "flow",
+    description: "gate_desc",
+    Describe({ value }) {
         const { t } = useTranslation()
         const [preferences] = useContext(PreferencesContext)
         if (value.rule) {
             return (
-                <div style={{ maxWidth: 300 }}>
-                    {t('has_done') + ' '}
+                <div className="max-w-[300px]">
+                    {t("has_done") + " "}
                     {ruleDescription(preferences, value.rule, [], value.rule.operator)}
                 </div>
             )
@@ -34,18 +33,20 @@ export const gateStep: JourneyStepType<GateConfig> = {
     newData: async () => ({
         rule: createWrapperRule(),
     }),
-    Edit({
-        onChange,
-        value,
-    }) {
+    Edit({ onChange, value, nodeId }) {
         const { t } = useTranslation()
+        const { getVariablesForNode } = useJourneyVariableContext()
+        const journeyVariables = nodeId ? getVariablesForNode(nodeId) : []
         return (
             <RuleBuilder
                 rule={value.rule}
-                setRule={rule => onChange({ ...value, rule })}
-                headerPrefix={t('does_user_match')}
+                setRule={(rule) => onChange({ ...value, rule })}
+                headerPrefix={t("does_user_match")}
+                userOnly={true}
+                journeyContext={true}
+                journeyVariables={journeyVariables}
             />
         )
     },
-    sources: ['yes', 'no'],
+    sources: ["yes", "no"],
 }

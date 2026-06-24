@@ -3,7 +3,7 @@ package importer
 import (
 	"testing"
 
-	"github.com/lunogram/platform/internal/store/users"
+	"github.com/lunogram/platform/internal/store/subjects"
 	"github.com/stretchr/testify/require"
 )
 
@@ -65,16 +65,17 @@ func TestUserMapperMapRecord(t *testing.T) {
 	type test struct {
 		headers  []string
 		record   []string
-		validate func(*testing.T, users.UpsertUserParams)
+		validate func(*testing.T, subjects.UpsertUserParams)
 	}
 
 	tests := map[string]test{
 		"standard fields": {
 			headers: []string{"external_id", "email", "phone", "timezone", "locale"},
-			record:  []string{"user-123", "test@example.com", "+1234567890", "UTC", "en-US"},
-			validate: func(t *testing.T, user users.UpsertUserParams) {
-				require.NotNil(t, user.ExternalID)
-				require.Equal(t, "user-123", *user.ExternalID)
+			record:  []string{"user-123", "test@example.com", "+1234567890", "UTC", "en"},
+			validate: func(t *testing.T, user subjects.UpsertUserParams) {
+				require.Len(t, user.Identifiers, 1)
+				require.Equal(t, "default", user.Identifiers[0].Source)
+				require.Equal(t, "user-123", user.Identifiers[0].ExternalID)
 				require.NotNil(t, user.Email)
 				require.Equal(t, "test@example.com", *user.Email)
 				require.NotNil(t, user.Phone)
@@ -82,16 +83,17 @@ func TestUserMapperMapRecord(t *testing.T) {
 				require.NotNil(t, user.Timezone)
 				require.Equal(t, "UTC", *user.Timezone)
 				require.NotNil(t, user.Locale)
-				require.Equal(t, "en-US", *user.Locale)
+				require.Equal(t, "en", *user.Locale)
 				require.Empty(t, user.Data)
 			},
 		},
 		"out of order fields": {
 			headers: []string{"email", "external_id", "timezone"},
 			record:  []string{"test@example.com", "user-456", "America/New_York"},
-			validate: func(t *testing.T, user users.UpsertUserParams) {
-				require.NotNil(t, user.ExternalID)
-				require.Equal(t, "user-456", *user.ExternalID)
+			validate: func(t *testing.T, user subjects.UpsertUserParams) {
+				require.Len(t, user.Identifiers, 1)
+				require.Equal(t, "default", user.Identifiers[0].Source)
+				require.Equal(t, "user-456", user.Identifiers[0].ExternalID)
 				require.NotNil(t, user.Email)
 				require.Equal(t, "test@example.com", *user.Email)
 				require.NotNil(t, user.Timezone)
@@ -101,9 +103,10 @@ func TestUserMapperMapRecord(t *testing.T) {
 		"with custom fields": {
 			headers: []string{"external_id", "email", "company", "role"},
 			record:  []string{"user-789", "admin@example.com", "Acme Inc", "Admin"},
-			validate: func(t *testing.T, user users.UpsertUserParams) {
-				require.NotNil(t, user.ExternalID)
-				require.Equal(t, "user-789", *user.ExternalID)
+			validate: func(t *testing.T, user subjects.UpsertUserParams) {
+				require.Len(t, user.Identifiers, 1)
+				require.Equal(t, "default", user.Identifiers[0].Source)
+				require.Equal(t, "user-789", user.Identifiers[0].ExternalID)
 				require.NotNil(t, user.Email)
 				require.Equal(t, "admin@example.com", *user.Email)
 				require.NotNil(t, user.Data)
@@ -114,9 +117,10 @@ func TestUserMapperMapRecord(t *testing.T) {
 		"only custom fields": {
 			headers: []string{"external_id", "department", "employee_id"},
 			record:  []string{"user-999", "Engineering", "EMP-001"},
-			validate: func(t *testing.T, user users.UpsertUserParams) {
-				require.NotNil(t, user.ExternalID)
-				require.Equal(t, "user-999", *user.ExternalID)
+			validate: func(t *testing.T, user subjects.UpsertUserParams) {
+				require.Len(t, user.Identifiers, 1)
+				require.Equal(t, "default", user.Identifiers[0].Source)
+				require.Equal(t, "user-999", user.Identifiers[0].ExternalID)
 				require.NotNil(t, user.Data)
 				require.Equal(t, "Engineering", user.Data["department"])
 				require.Equal(t, "EMP-001", user.Data["employee_id"])
@@ -125,9 +129,10 @@ func TestUserMapperMapRecord(t *testing.T) {
 		"with whitespace": {
 			headers: []string{"external_id", "email", "phone"},
 			record:  []string{"  user-111  ", "  test@example.com  ", "  +1234567890  "},
-			validate: func(t *testing.T, user users.UpsertUserParams) {
-				require.NotNil(t, user.ExternalID)
-				require.Equal(t, "user-111", *user.ExternalID)
+			validate: func(t *testing.T, user subjects.UpsertUserParams) {
+				require.Len(t, user.Identifiers, 1)
+				require.Equal(t, "default", user.Identifiers[0].Source)
+				require.Equal(t, "user-111", user.Identifiers[0].ExternalID)
 				require.NotNil(t, user.Email)
 				require.Equal(t, "test@example.com", *user.Email)
 				require.NotNil(t, user.Phone)
@@ -137,9 +142,10 @@ func TestUserMapperMapRecord(t *testing.T) {
 		"minimal record": {
 			headers: []string{"external_id"},
 			record:  []string{"user-minimal"},
-			validate: func(t *testing.T, user users.UpsertUserParams) {
-				require.NotNil(t, user.ExternalID)
-				require.Equal(t, "user-minimal", *user.ExternalID)
+			validate: func(t *testing.T, user subjects.UpsertUserParams) {
+				require.Len(t, user.Identifiers, 1)
+				require.Equal(t, "default", user.Identifiers[0].Source)
+				require.Equal(t, "user-minimal", user.Identifiers[0].ExternalID)
 				require.Nil(t, user.Email)
 				require.Nil(t, user.Phone)
 				require.Nil(t, user.Timezone)
@@ -147,12 +153,33 @@ func TestUserMapperMapRecord(t *testing.T) {
 				require.Empty(t, user.Data)
 			},
 		},
+		"timezone GMT offset conversion": {
+			headers: []string{"external_id", "timezone"},
+			record:  []string{"user-gmt", "GMT+2"},
+			validate: func(t *testing.T, user subjects.UpsertUserParams) {
+				require.Len(t, user.Identifiers, 1)
+				require.Equal(t, "user-gmt", user.Identifiers[0].ExternalID)
+				require.NotNil(t, user.Timezone)
+				require.Equal(t, "Europe/Amsterdam", *user.Timezone)
+			},
+		},
+		"timezone IANA passthrough": {
+			headers: []string{"external_id", "timezone"},
+			record:  []string{"user-iana", "America/New_York"},
+			validate: func(t *testing.T, user subjects.UpsertUserParams) {
+				require.Len(t, user.Identifiers, 1)
+				require.Equal(t, "user-iana", user.Identifiers[0].ExternalID)
+				require.NotNil(t, user.Timezone)
+				require.Equal(t, "America/New_York", *user.Timezone)
+			},
+		},
 		"empty values": {
 			headers: []string{"external_id", "email", "phone"},
 			record:  []string{"user-empty", "", ""},
-			validate: func(t *testing.T, user users.UpsertUserParams) {
-				require.NotNil(t, user.ExternalID)
-				require.Equal(t, "user-empty", *user.ExternalID)
+			validate: func(t *testing.T, user subjects.UpsertUserParams) {
+				require.Len(t, user.Identifiers, 1)
+				require.Equal(t, "default", user.Identifiers[0].Source)
+				require.Equal(t, "user-empty", user.Identifiers[0].ExternalID)
 				require.NotNil(t, user.Email)
 				require.Equal(t, "", *user.Email)
 				require.NotNil(t, user.Phone)
@@ -162,9 +189,10 @@ func TestUserMapperMapRecord(t *testing.T) {
 		"mixed standard and custom fields": {
 			headers: []string{"external_id", "email", "subscription_tier", "phone", "join_date"},
 			record:  []string{"user-mixed", "user@example.com", "premium", "+1234567890", "2025-01-01"},
-			validate: func(t *testing.T, user users.UpsertUserParams) {
-				require.NotNil(t, user.ExternalID)
-				require.Equal(t, "user-mixed", *user.ExternalID)
+			validate: func(t *testing.T, user subjects.UpsertUserParams) {
+				require.Len(t, user.Identifiers, 1)
+				require.Equal(t, "default", user.Identifiers[0].Source)
+				require.Equal(t, "user-mixed", user.Identifiers[0].ExternalID)
 				require.NotNil(t, user.Email)
 				require.Equal(t, "user@example.com", *user.Email)
 				require.NotNil(t, user.Phone)

@@ -5,11 +5,13 @@ info:
   version: 1.0.0
 
 paths:
-  /api/client/identify:
+  /api/client/projects/{projectID}/users:
+    parameters:
+      - $ref: "#/components/parameters/ProjectID"
     post:
-      summary: Identify user
-      description: Used by client libraries to create or update a user profile. The project is determined from the API key.
-      operationId: identifyUserClient
+      summary: Upsert user
+      description: Used by client libraries to create or update a user profile. The project is taken from the projectID path parameter.
+      operationId: upsertUserClient
       tags:
         - Client
       security:
@@ -19,27 +21,22 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/IdentifyRequest'
+              $ref: "#/components/schemas/IdentifyRequest"
       responses:
-        '200':
-          description: User identified successfully
+        "200":
+          description: User upserted successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/User'
+                $ref: "#/components/schemas/User"
         default:
-          $ref: '#/components/responses/Error'
-
-  /api/client/events:
-    post:
-      summary: Post events
+          $ref: "#/components/responses/Error"
+    delete:
+      summary: Delete user
       description: |
-        Used by client libraries to trigger events that can be used to execute a step in a journey or update a virtual list.
-        Multiple events can be sent in a single request and are processed asynchronously.
-        Each event is handled independently: if one event fails to be accepted or processed, other events in the same request may still be published successfully.
-        Clients requiring deterministic retry or recovery behavior must submit events individually.
-        The project is determined from the API key.
-      operationId: postEvents
+        Used by client libraries to delete a user by external_id or anonymous_id.
+        The project is taken from the projectID path parameter.
+      operationId: deleteUserClient
       tags:
         - Client
       security:
@@ -49,12 +46,593 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PostEventsRequest'
+              $ref: "#/components/schemas/DeleteUserRequest"
       responses:
-        '202':
+        "204":
+          description: User deleted successfully
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/client/projects/{projectID}/users/events:
+    parameters:
+      - $ref: "#/components/parameters/ProjectID"
+    post:
+      summary: Post user events
+      description: |
+        Used by client libraries to trigger events for a user that can be used to execute a step in a journey or update a virtual list.
+        Multiple events can be sent in a single request and are processed asynchronously.
+        Each event is handled independently: if one event fails to be accepted or processed, other events in the same request may still be published successfully.
+        Clients requiring deterministic retry or recovery behavior must submit events individually.
+        The project is taken from the projectID path parameter.
+      operationId: postUserEvents
+      tags:
+        - Client
+      security:
+        - HttpBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PostEventsRequest"
+      responses:
+        "202":
           description: Events accepted for asynchronous processing
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
+
+  /api/client/projects/{projectID}/users/inbox:
+    parameters:
+      - $ref: "#/components/parameters/ProjectID"
+    post:
+      summary: Create user inbox messages
+      description: Creates one or more inbox messages for users identified by external identifiers. Messages are processed asynchronously.
+      operationId: postUserInboxMessages
+      tags:
+        - Client
+      security:
+        - HttpBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PostUserInboxMessagesRequest"
+      responses:
+        "202":
+          description: Inbox messages accepted for asynchronous processing
+        default:
+          $ref: "#/components/responses/Error"
+    get:
+      summary: Query user inbox messages
+      description: Returns visible, non-expired inbox messages for a user identified by source and external_id.
+      operationId: getUserInbox
+      tags:
+        - Client
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: source
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: external_id
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [unread, read, archived]
+        - name: tags
+          in: query
+          schema:
+            type: string
+          description: Comma-separated tag filter. All listed tags must be present.
+        - name: message_source
+          in: query
+          schema:
+            type: string
+        - name: priority
+          in: query
+          schema:
+            type: integer
+        - name: channel
+          in: query
+          required: true
+          schema:
+            $ref: "#/components/schemas/Channel"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: User inbox messages retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxMessageList"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/client/projects/{projectID}/users/inbox/count:
+    parameters:
+      - $ref: "#/components/parameters/ProjectID"
+    get:
+      summary: Count user inbox messages
+      description: Returns unread and total visible inbox message counts for a user.
+      operationId: getUserInboxCount
+      tags:
+        - Client
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: source
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: external_id
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: channel
+          in: query
+          required: true
+          schema:
+            $ref: "#/components/schemas/Channel"
+      responses:
+        "200":
+          description: User inbox count retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxCount"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/client/projects/{projectID}/users/inbox/read:
+    parameters:
+      - $ref: "#/components/parameters/ProjectID"
+    post:
+      summary: Mark user inbox messages read
+      description: Marks one or more user inbox messages as read. Processed asynchronously.
+      operationId: postUserInboxRead
+      tags:
+        - Client
+      security:
+        - HttpBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserInboxMessageEvents"
+      responses:
+        "202":
+          description: Inbox read events accepted for asynchronous processing
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/client/projects/{projectID}/users/inbox/archived:
+    parameters:
+      - $ref: "#/components/parameters/ProjectID"
+    post:
+      summary: Mark user inbox messages archived
+      description: Marks one or more user inbox messages as archived. Processed asynchronously.
+      operationId: postUserInboxArchived
+      tags:
+        - Client
+      security:
+        - HttpBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserInboxMessageEvents"
+      responses:
+        "202":
+          description: Inbox archived events accepted for asynchronous processing
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/client/projects/{projectID}/organizations:
+    parameters:
+      - $ref: "#/components/parameters/ProjectID"
+    post:
+      summary: Upsert organization
+      description: |
+        Used by client libraries to create or update an organization by external_id.
+        The project is taken from the projectID path parameter.
+      operationId: upsertOrganizationClient
+      tags:
+        - Client
+      security:
+        - HttpBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrganizationRequest"
+      responses:
+        "200":
+          description: Organization upserted successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Organization"
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      summary: Delete organization
+      description: |
+        Used by client libraries to delete an organization by external_id.
+        This will also remove all organization memberships.
+        The project is taken from the projectID path parameter.
+      operationId: deleteOrganizationClient
+      tags:
+        - Client
+      security:
+        - HttpBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeleteOrganizationRequest"
+      responses:
+        "204":
+          description: Organization deleted successfully
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/client/projects/{projectID}/organizations/users:
+    parameters:
+      - $ref: "#/components/parameters/ProjectID"
+    post:
+      summary: Add user to organization
+      description: |
+        Used by client libraries to add a user to an organization with optional org-specific data.
+        Both organization and user are identified by their external_id.
+        The project is taken from the projectID path parameter.
+      operationId: addOrganizationUserClient
+      tags:
+        - Client
+      security:
+        - HttpBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrganizationUserRequest"
+      responses:
+        "200":
+          description: User added to organization successfully
+        default:
+          $ref: "#/components/responses/Error"
+
+    delete:
+      summary: Remove user from organization
+      description: |
+        Used by client libraries to remove a user from an organization.
+        Both organization and user are identified by their external_id.
+        The project is taken from the projectID path parameter.
+      operationId: removeOrganizationUserClient
+      tags:
+        - Client
+      security:
+        - HttpBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RemoveOrganizationUserRequest"
+      responses:
+        "204":
+          description: User removed from organization successfully
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/client/projects/{projectID}/users/scheduled:
+    parameters:
+      - $ref: "#/components/parameters/ProjectID"
+    post:
+      summary: Upsert user scheduled
+      description: |
+        Used by client libraries to create or update a scheduled resource for a user.
+        The user is identified by external_id or anonymous_id.
+        This triggers journey entrance recalculation for any journeys that depend on the scheduled resource.
+        The project is taken from the projectID path parameter.
+      operationId: upsertUserScheduledClient
+      tags:
+        - Client
+      security:
+        - HttpBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertUserScheduledRequest"
+      responses:
+        "202":
+          description: Scheduled resource accepted for asynchronous processing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScheduledAccepted"
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      summary: Delete user scheduled
+      description: |
+        Used by client libraries to delete all scheduled instances for a user with a given scheduled resource name.
+        The user is identified by external_id or anonymous_id.
+        This cancels any pending journey entrance states that depend on the scheduled resource.
+        The project is taken from the projectID path parameter.
+      operationId: deleteUserScheduledClient
+      tags:
+        - Client
+      security:
+        - HttpBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeleteUserScheduledRequest"
+      responses:
+        "200":
+          description: User scheduled deleted successfully
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/client/projects/{projectID}/organizations/scheduled:
+    parameters:
+      - $ref: "#/components/parameters/ProjectID"
+    post:
+      summary: Upsert organization scheduled
+      description: |
+        Used by client libraries to create or update a scheduled resource for an organization.
+        The organization is identified by external_id.
+        This triggers journey entrance recalculation for any journeys that depend on the scheduled resource.
+        The project is taken from the projectID path parameter.
+      operationId: upsertOrganizationScheduledClient
+      tags:
+        - Client
+      security:
+        - HttpBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertOrganizationScheduledRequest"
+      responses:
+        "202":
+          description: Scheduled resource accepted for asynchronous processing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScheduledAccepted"
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      summary: Delete organization scheduled
+      description: |
+        Used by client libraries to delete all scheduled instances for an organization with a given scheduled resource name.
+        The organization is identified by external_id.
+        This cancels any pending journey entrance states that depend on the scheduled resource.
+        The project is taken from the projectID path parameter.
+      operationId: deleteOrganizationScheduledClient
+      tags:
+        - Client
+      security:
+        - HttpBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeleteOrganizationScheduledRequest"
+      responses:
+        "200":
+          description: Organization scheduled deleted successfully
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/client/projects/{projectID}/organizations/events:
+    parameters:
+      - $ref: "#/components/parameters/ProjectID"
+    post:
+      summary: Post organization events
+      description: |
+        Used by client libraries to trigger events on an organization.
+        The organization is identified by external_id.
+        Events are processed asynchronously and can trigger journeys for all users in the organization.
+        The project is taken from the projectID path parameter.
+      operationId: postOrganizationEventsClient
+      tags:
+        - Client
+      security:
+        - HttpBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PostOrganizationEventsRequest"
+      responses:
+        "202":
+          description: Events accepted for asynchronous processing
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/client/projects/{projectID}/organizations/inbox:
+    parameters:
+      - $ref: "#/components/parameters/ProjectID"
+    post:
+      summary: Create organization inbox messages
+      description: Creates one or more inbox messages for organizations identified by external identifiers. Messages are processed asynchronously.
+      operationId: postOrganizationInboxMessages
+      tags:
+        - Client
+      security:
+        - HttpBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PostOrganizationInboxMessagesRequest"
+      responses:
+        "202":
+          description: Inbox messages accepted for asynchronous processing
+        default:
+          $ref: "#/components/responses/Error"
+    get:
+      summary: Query organization inbox messages
+      description: Returns visible, non-expired inbox messages for an organization identified by source and external_id.
+      operationId: getOrganizationInbox
+      tags:
+        - Client
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: source
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: external_id
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [unread, read, archived]
+        - name: tags
+          in: query
+          schema:
+            type: string
+          description: Comma-separated tag filter. All listed tags must be present.
+        - name: message_source
+          in: query
+          schema:
+            type: string
+        - name: priority
+          in: query
+          schema:
+            type: integer
+        - name: channel
+          in: query
+          required: true
+          schema:
+            $ref: "#/components/schemas/Channel"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: Organization inbox messages retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxMessageList"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/client/projects/{projectID}/organizations/inbox/count:
+    parameters:
+      - $ref: "#/components/parameters/ProjectID"
+    get:
+      summary: Count organization inbox messages
+      description: Returns unread and total visible inbox message counts for an organization.
+      operationId: getOrganizationInboxCount
+      tags:
+        - Client
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: source
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: external_id
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: channel
+          in: query
+          required: true
+          schema:
+            $ref: "#/components/schemas/Channel"
+      responses:
+        "200":
+          description: Organization inbox count retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxCount"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/client/projects/{projectID}/organizations/inbox/read:
+    parameters:
+      - $ref: "#/components/parameters/ProjectID"
+    post:
+      summary: Mark organization inbox messages read
+      description: Marks one or more organization inbox messages as read. Processed asynchronously.
+      operationId: postOrganizationInboxRead
+      tags:
+        - Client
+      security:
+        - HttpBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrganizationInboxMessageEvents"
+      responses:
+        "202":
+          description: Inbox read events accepted for asynchronous processing
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/client/projects/{projectID}/organizations/inbox/archived:
+    parameters:
+      - $ref: "#/components/parameters/ProjectID"
+    post:
+      summary: Mark organization inbox messages archived
+      description: Marks one or more organization inbox messages as archived. Processed asynchronously.
+      operationId: postOrganizationInboxArchived
+      tags:
+        - Client
+      security:
+        - HttpBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrganizationInboxMessageEvents"
+      responses:
+        "202":
+          description: Inbox archived events accepted for asynchronous processing
+        default:
+          $ref: "#/components/responses/Error"
 
   /unsubscribe/email:
     get:
@@ -73,7 +651,7 @@ paths:
             type: string
           description: Encoded unsubscribe link with user and campaign data
       responses:
-        '200':
+        "200":
           description: Unsubscribe confirmation page
           content:
             text/html:
@@ -105,7 +683,7 @@ paths:
             format: uuid
           description: The user ID
       responses:
-        '200':
+        "200":
           description: Subscription preferences page
           content:
             text/html:
@@ -149,25 +727,168 @@ paths:
                     format: uuid
                   description: Array of subscription IDs to keep subscribed
       responses:
-        '302':
+        "302":
           description: Redirect to preferences page with success indicator
-        '200':
+        "200":
           description: Success response (for htmx partial updates)
           content:
             text/html:
               schema:
                 type: string
 
+  /api/client/projects/{projectID}/users/devices:
+    parameters:
+      - $ref: "#/components/parameters/ProjectID"
+    post:
+      summary: Register device
+      description: Register or update a device's push subscription. The project is taken from the projectID path parameter.
+      operationId: registerDevice
+      tags:
+        - Client
+      security:
+        - HttpBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeviceRegistration"
+      responses:
+        "201":
+          description: Device registered successfully
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/client/projects/{projectID}/push/vapid:
+    parameters:
+      - $ref: "#/components/parameters/ProjectID"
+    get:
+      summary: Get VAPID public key
+      description: Retrieves the VAPID public key for push notifications
+      operationId: getVapidPublicKey
+      tags:
+        - Client
+      security:
+        - HttpBearerAuth: []
+      responses:
+        "200":
+          description: VAPID public key retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VapidPublicKey"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/client/projects/{projectID}/auth-methods/{authMethodID}/sessions:
+    parameters:
+      - $ref: "#/components/parameters/ProjectID"
+    post:
+      summary: Mint a session token
+      description: |
+        Mints a short-lived session token for an end user, to be used from the
+        client. Called server-side with an API key; the session's permissions are
+        defined by the session auth method (policy) named in the path.
+      operationId: createSession
+      tags:
+        - Client
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: authMethodID
+          in: path
+          required: true
+          description: The session auth method (policy) that defines what the session may do.
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSession"
+      responses:
+        "201":
+          description: Session token minted successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionToken"
+        default:
+          $ref: "#/components/responses/Error"
+
 components:
+  parameters:
+    ProjectID:
+      name: projectID
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: The project the request acts on. Must match the project the presented credential is authorized for.
+
+    Limit:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+        x-go-type: PaginationLimit
+      description: Maximum number of items to return
+
+    Offset:
+      name: offset
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+        x-go-type: PaginationOffset
+      description: Number of items to skip
+
   responses:
     Error:
       description: Error response
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Problem'
+            $ref: "#/components/schemas/Problem"
 
   schemas:
+    CreateSession:
+      type: object
+      description: Request to mint a session token for an end user.
+      required:
+        - user_id
+      properties:
+        user_id:
+          type: string
+          description: The end user's external identifier (the session subject).
+          example: "user_12345"
+
+    SessionToken:
+      type: object
+      required:
+        - token
+        - expires_at
+      properties:
+        token:
+          type: string
+          description: The signed session token (a bearer token for the Client API).
+        expires_at:
+          type: string
+          format: date-time
+
+    Channel:
+      type: string
+      enum: [email, sms, push, inbox]
+
     Problem:
       type: object
       required:
@@ -184,13 +905,70 @@ components:
           description: |
             A human readable explanation specific to this occurrence of the problem that is helpful to locate the problem and give advice on how to proceed. Written in English and readable for engineers, usually not suited for non technical stakeholders and not localized.
           example: some description for the error situation
-          
+
+    ExternalID:
+      type: object
+      description: An external identifier with source and optional metadata
+      required:
+        - external_id
+      properties:
+        source:
+          type: string
+          default: "default"
+          example: "default"
+          description: Source of the identifier (e.g. "default", "anonymous", or a custom source). Defaults to "default" if not provided.
+        external_id:
+          type: string
+          minLength: 1
+          example: "user_12345"
+          description: The external identifier value
+        metadata:
+          type: object
+          additionalProperties: true
+          nullable: true
+          x-go-type: map[string]any
+          description: Optional metadata associated with this identifier
+
+    ExternalIDResponse:
+      type: object
+      description: An external identifier as returned in responses, including database ID and timestamps
+      required:
+        - id
+        - source
+        - external_id
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+        source:
+          type: string
+          example: "default"
+        external_id:
+          type: string
+          example: "user_12345"
+        metadata:
+          type: object
+          additionalProperties: true
+          nullable: true
+          x-go-type: map[string]any
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-11-19T14:18:42.960Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2025-11-23T17:20:00.021Z"
+
     User:
       type: object
       required:
         - id
         - project_id
-        - anonymous_id
+        - identifier
         - data
         - has_push_device
         - version
@@ -205,12 +983,11 @@ components:
           type: string
           format: uuid
           example: "4c9d3163-7b64-4f9e-9068-d2e4b96be56b"
-        anonymous_id:
-          type: string
-          example: "anon_abc123xyz"
-        external_id:
-          type: string
-          example: "user_123"
+        identifier:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExternalIDResponse"
+          description: External identifiers associated with this user
         email:
           type: string
           format: email
@@ -234,7 +1011,7 @@ components:
           example: "America/New_York"
         locale:
           type: string
-          example: "en-US"
+          example: "en"
         has_push_device:
           type: boolean
           example: false
@@ -251,19 +1028,85 @@ components:
           format: date-time
           example: "2025-11-23T17:20:00.021Z"
 
+    UserIdentifier:
+      type: array
+      description: One or more external identifiers to identify the user
+      minItems: 1
+      items:
+        $ref: "#/components/schemas/ExternalID"
+
+    OrganizationIdentifier:
+      type: array
+      description: One or more external identifiers to identify the organization
+      minItems: 1
+      items:
+        $ref: "#/components/schemas/ExternalID"
+
+    DeviceRegistration:
+      type: object
+      required:
+        - identifier
+        - device_id
+        - config
+      properties:
+        identifier:
+          $ref: "#/components/schemas/UserIdentifier"
+        device_id:
+          type: string
+        os:
+          type: string
+          enum: [web, ios, android]
+        os_version:
+          type: string
+        model:
+          type: string
+        app_version:
+          type: string
+        data:
+          type: object
+          additionalProperties: true
+          nullable: true
+          x-go-type: json.RawMessage
+          example:
+            app_channel: "beta"
+            locale: "en-US"
+        config:
+          type: object
+          properties:
+            token:
+              type: string
+              description: Device token for FCM or APNs
+            endpoint:
+              type: string
+              description: Web Push subscription endpoint URL
+            expiration_time:
+              type: string
+              format: date-time
+            keys:
+              type: object
+              required: [p256dh, auth]
+              properties:
+                p256dh:
+                  type: string
+                auth:
+                  type: string
+
+    VapidPublicKey:
+      type: object
+      required:
+        - public_key
+      properties:
+        public_key:
+          type: string
+          description: The VAPID public key
+
     IdentifyRequest:
       type: object
+      required:
+        - identifier
       properties:
-        external_id:
-          type: string
-          nullable: true
-          example: "user_12345"
-          description: External identifier for the user from your system
-        anonymous_id:
-          type: string
-          nullable: true
-          example: "anon_abc123"
-          description: Anonymous identifier for the user
+        identifier:
+          $ref: "#/components/schemas/UserIdentifier"
         email:
           type: string
           nullable: true
@@ -273,18 +1116,18 @@ components:
         phone:
           type: string
           nullable: true
-          example: "+1234567890"
+          example: "+31612345678"
           description: E.164 formatted phone number
           x-go-type: string
           format: phone
         timezone:
           type: string
           nullable: true
-          example: "America/Chicago"
+          example: "Europe/Amsterdam"
         locale:
           type: string
           nullable: true
-          example: "en"
+          example: "nl-NL"
         data:
           type: object
           additionalProperties: true
@@ -300,7 +1143,7 @@ components:
       type: array
       minItems: 1
       items:
-        $ref: '#/components/schemas/Event'
+        $ref: "#/components/schemas/Event"
 
     Event:
       type: object
@@ -312,16 +1155,19 @@ components:
           type: string
           example: "purchase_completed"
           description: The name of the event
-        anonymous_id:
-          type: string
+        identifier:
+          $ref: "#/components/schemas/UserIdentifier"
+        match:
+          type: object
+          additionalProperties: true
           nullable: true
-          example: "anon_abc123"
-          description: Anonymous identifier for the user
-        external_id:
-          type: string
-          nullable: true
-          example: "user_12345"
-          description: External identifier for the user from your system
+          x-go-type: map[string]any
+          description: >-
+            JSONB containment filter to match users by their data attributes.
+            Mutually exclusive with identifier. When set, the event is delivered
+            to every user whose data column contains the given key/value pairs.
+          example:
+            plan: "enterprise"
         data:
           type: object
           additionalProperties: true
@@ -330,6 +1176,600 @@ components:
             product_id: "prod_789"
             amount: 99.99
           description: Event-specific data
+
+    InboxMessageCreate:
+      type: object
+      required:
+        - target
+        - channel
+        - identifier
+      properties:
+        target:
+          $ref: "#/components/schemas/UserIdentifier"
+        identifier:
+          $ref: "#/components/schemas/ExternalID"
+          description: External identifier for the message. Required for idempotency and traceability back to the origin source.
+        channel:
+          $ref: "#/components/schemas/Channel"
+        sender_identity_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Required for email and sms messages. Push uses project push provider settings.
+        campaign_id:
+          type: string
+          format: uuid
+          nullable: true
+        broadcast_id:
+          type: string
+          format: uuid
+          nullable: true
+        content:
+          type: object
+          additionalProperties: true
+          nullable: true
+          x-go-type: json.RawMessage
+          description: Channel-specific payload content.
+        data:
+          type: object
+          additionalProperties: true
+          nullable: true
+          x-go-type: map[string]any
+        tags:
+          type: array
+          items:
+            type: string
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 5
+          default: 3
+          x-go-type: int16
+        source:
+          type: string
+          nullable: true
+        scheduled_at:
+          type: string
+          format: date-time
+          nullable: true
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    OrganizationInboxMessageCreate:
+      type: object
+      required:
+        - target
+        - channel
+        - identifier
+      properties:
+        target:
+          $ref: "#/components/schemas/OrganizationIdentifier"
+        identifier:
+          $ref: "#/components/schemas/ExternalID"
+          description: External identifier for the message. Required for idempotency and traceability back to the origin source.
+        channel:
+          $ref: "#/components/schemas/Channel"
+        sender_identity_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Required for email and sms messages. Push uses project push provider settings.
+        campaign_id:
+          type: string
+          format: uuid
+          nullable: true
+        broadcast_id:
+          type: string
+          format: uuid
+          nullable: true
+        content:
+          type: object
+          additionalProperties: true
+          nullable: true
+          x-go-type: json.RawMessage
+          description: Channel-specific payload content.
+        data:
+          type: object
+          additionalProperties: true
+          nullable: true
+          x-go-type: map[string]any
+        tags:
+          type: array
+          items:
+            type: string
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 5
+          default: 3
+          x-go-type: int16
+        source:
+          type: string
+          nullable: true
+        scheduled_at:
+          type: string
+          format: date-time
+          nullable: true
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    PostUserInboxMessagesRequest:
+      type: array
+      minItems: 1
+      maxItems: 100
+      items:
+        $ref: "#/components/schemas/InboxMessageCreate"
+
+    PostOrganizationInboxMessagesRequest:
+      type: array
+      minItems: 1
+      maxItems: 100
+      items:
+        $ref: "#/components/schemas/OrganizationInboxMessageCreate"
+
+    UserInboxMessageRef:
+      type: object
+      required:
+        - target
+        - message_id
+      properties:
+        target:
+          $ref: "#/components/schemas/UserIdentifier"
+        message_id:
+          type: string
+          format: uuid
+
+    OrganizationInboxMessageRef:
+      type: object
+      required:
+        - target
+        - message_id
+      properties:
+        target:
+          $ref: "#/components/schemas/OrganizationIdentifier"
+        message_id:
+          type: string
+          format: uuid
+
+    UserInboxMessageEvents:
+      type: array
+      minItems: 1
+      maxItems: 100
+      items:
+        $ref: "#/components/schemas/UserInboxMessageRef"
+
+    OrganizationInboxMessageEvents:
+      type: array
+      minItems: 1
+      maxItems: 100
+      items:
+        $ref: "#/components/schemas/OrganizationInboxMessageRef"
+
+    InboxMessage:
+      type: object
+      required:
+        - id
+        - project_id
+        - channel
+        - content
+        - data
+        - tags
+        - priority
+        - scheduled_at
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        organization_id:
+          type: string
+          format: uuid
+        external_id:
+          type: string
+          nullable: true
+          description: External identifier for the message, if one was provided at creation time.
+        channel:
+          $ref: "#/components/schemas/Channel"
+        sender_identity_id:
+          type: string
+          format: uuid
+          nullable: true
+        campaign_id:
+          type: string
+          format: uuid
+          nullable: true
+        broadcast_id:
+          type: string
+          format: uuid
+          nullable: true
+        content:
+          type: object
+          additionalProperties: true
+          x-go-type: json.RawMessage
+        data:
+          type: object
+          additionalProperties: true
+          x-go-type: json.RawMessage
+        tags:
+          type: array
+          items:
+            type: string
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 5
+          x-go-type: int16
+        source:
+          type: string
+          nullable: true
+        scheduled_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+        read_at:
+          type: string
+          format: date-time
+          nullable: true
+        archived_at:
+          type: string
+          format: date-time
+          nullable: true
+        sent_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    InboxMessageList:
+      type: object
+      required:
+        - results
+        - total
+        - limit
+        - offset
+      properties:
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/InboxMessage"
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+
+    InboxCount:
+      type: object
+      required:
+        - unread
+        - total
+      properties:
+        unread:
+          type: integer
+        total:
+          type: integer
+
+    Organization:
+      type: object
+      required:
+        - id
+        - project_id
+        - identifier
+        - data
+        - version
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d"
+        project_id:
+          type: string
+          format: uuid
+          example: "4c9d3163-7b64-4f9e-9068-d2e4b96be56b"
+        identifier:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExternalIDResponse"
+          description: External identifiers associated with this organization
+        name:
+          type: string
+          example: "Acme Corp"
+        data:
+          type: object
+          additionalProperties: true
+          x-go-type: map[string]any
+          example:
+            industry: "technology"
+            size: "enterprise"
+        version:
+          type: integer
+          example: 1
+          x-go-type: int32
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-11-19T14:18:42.960Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2025-11-23T17:20:00.021Z"
+
+    OrganizationRequest:
+      type: object
+      required:
+        - identifier
+      properties:
+        identifier:
+          $ref: "#/components/schemas/OrganizationIdentifier"
+        name:
+          type: string
+          nullable: true
+          example: "Acme Corp"
+        data:
+          type: object
+          additionalProperties: true
+          nullable: true
+          x-go-type: map[string]any
+          example:
+            industry: "technology"
+            size: "enterprise"
+
+    OrganizationUserRequest:
+      type: object
+      required:
+        - organization
+        - user
+      properties:
+        organization:
+          type: object
+          required:
+            - identifier
+          properties:
+            identifier:
+              $ref: "#/components/schemas/OrganizationIdentifier"
+        user:
+          type: object
+          required:
+            - identifier
+          properties:
+            identifier:
+              $ref: "#/components/schemas/UserIdentifier"
+        data:
+          type: object
+          additionalProperties: true
+          nullable: true
+          x-go-type: map[string]any
+          example:
+            role: "admin"
+            department: "engineering"
+          description: Organization-specific data for this user
+
+    DeleteUserRequest:
+      type: object
+      required:
+        - identifier
+      properties:
+        identifier:
+          $ref: "#/components/schemas/UserIdentifier"
+
+    DeleteOrganizationRequest:
+      type: object
+      required:
+        - identifier
+      properties:
+        identifier:
+          $ref: "#/components/schemas/OrganizationIdentifier"
+
+    RemoveOrganizationUserRequest:
+      type: object
+      required:
+        - organization
+        - user
+      properties:
+        organization:
+          type: object
+          required:
+            - identifier
+          properties:
+            identifier:
+              $ref: "#/components/schemas/OrganizationIdentifier"
+        user:
+          type: object
+          required:
+            - identifier
+          properties:
+            identifier:
+              $ref: "#/components/schemas/UserIdentifier"
+
+    PostOrganizationEventsRequest:
+      type: array
+      minItems: 1
+      items:
+        $ref: "#/components/schemas/OrganizationEvent"
+
+    OrganizationEvent:
+      type: object
+      required:
+        - name
+      properties:
+        identifier:
+          $ref: "#/components/schemas/OrganizationIdentifier"
+        match:
+          type: object
+          additionalProperties: true
+          nullable: true
+          x-go-type: map[string]any
+          description: >-
+            JSONB containment filter to match organizations by their data attributes.
+            Mutually exclusive with identifier. When set, the event is delivered
+            to every organization whose data column contains the given key/value pairs.
+          example:
+            plan: "enterprise"
+        name:
+          type: string
+          example: "subscription_upgraded"
+          description: The name of the event
+        data:
+          type: object
+          additionalProperties: true
+          nullable: true
+          x-go-type: map[string]any
+          example:
+            plan: "enterprise"
+            seats: 100
+          description: Event-specific data
+
+    UpsertUserScheduledRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          example: "renewal_date"
+          description: The name of the scheduled resource
+        identifier:
+          $ref: "#/components/schemas/UserIdentifier"
+        scheduled_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2025-12-25T10:00:00Z"
+          description: The time at which the scheduled resource is set to trigger. Required for single schedules.
+        start_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2025-01-01T00:00:00Z"
+          description: Start time for recurring schedules. If omitted for recurring schedules, defaults to now.
+        interval:
+          type: string
+          nullable: true
+          example: "24h"
+          description: Interval for recurring schedules. When set, the schedule type is automatically set to recurring.
+        data:
+          type: object
+          additionalProperties: true
+          nullable: true
+          x-go-type: map[string]any
+          example:
+            plan: "pro"
+            amount: 29.99
+          description: Scheduled resource data
+
+    UpsertOrganizationScheduledRequest:
+      type: object
+      required:
+        - name
+        - identifier
+      properties:
+        name:
+          type: string
+          example: "contract_renewal"
+          description: The name of the scheduled resource
+        identifier:
+          $ref: "#/components/schemas/OrganizationIdentifier"
+        scheduled_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2025-12-25T10:00:00Z"
+          description: The time at which the scheduled resource is set to trigger. Required for single schedules.
+        start_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2025-01-01T00:00:00Z"
+          description: Start time for recurring schedules. If omitted for recurring schedules, defaults to now.
+        interval:
+          type: string
+          nullable: true
+          example: "24h"
+          description: Interval for recurring schedules. When set, the schedule type is automatically set to recurring.
+        data:
+          type: object
+          additionalProperties: true
+          nullable: true
+          x-go-type: map[string]any
+          example:
+            contract_type: "enterprise"
+            seats: 100
+          description: Scheduled resource data
+
+    DeleteUserScheduledRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          example: "renewal_date"
+          description: The name of the scheduled resource to delete
+        identifier:
+          $ref: "#/components/schemas/UserIdentifier"
+
+    ScheduledAccepted:
+      type: object
+      required:
+        - id
+        - name
+        - scheduled_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+          description: The unique identifier for the scheduled instance
+        name:
+          type: string
+          example: "trial_end"
+          description: The name of the scheduled resource
+        scheduled_at:
+          type: string
+          format: date-time
+          example: "2025-01-15T09:00:00Z"
+          description: The time at which the scheduled resource is set to trigger
+        data:
+          type: object
+          additionalProperties: true
+          nullable: true
+          x-go-type: "map[string]any"
+          description: Scheduled resource data
+
+    DeleteOrganizationScheduledRequest:
+      type: object
+      required:
+        - name
+        - identifier
+      properties:
+        name:
+          type: string
+          example: "contract_renewal"
+          description: The name of the scheduled resource to delete
+        identifier:
+          $ref: "#/components/schemas/OrganizationIdentifier"
 
   securitySchemes:
     HttpBearerAuth:

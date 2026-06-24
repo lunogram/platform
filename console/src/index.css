@@ -1,11 +1,19 @@
 @import "tailwindcss";
+@source "../../../packages/block-editor/src/**/*.{ts,tsx}";
 @plugin "tailwindcss-animate";
 @import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
 
 body {
-    font-family: 'Inter', 'Helvetica Neue', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+    font-family:
+        "Inter",
+        "Helvetica Neue",
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        "Roboto",
+        sans-serif;
     font-size: 15px;
     background: var(--color-background);
     color: var(--color-primary);
@@ -27,227 +35,6 @@ body {
 
 .page-content .page-banner {
     padding-top: 20px;
-}
-
-.legacy-container {
-    border: 1px solid var(--color-grey);
-    border-radius: var(--border-radius-outer);
-    padding: 20px;
-}
-
-h1.legacy-typography {
-    font-style: normal;
-    font-weight: 700;
-    font-size: 36px;
-    line-height: 44px;
-    margin: 20px 0;
-}
-
-h2.legacy-typography {
-    font-style: normal;
-    font-weight: 700;
-    font-size: 30px;
-    line-height: 42px;
-    margin: 20px 0;
-}
-
-h3.legacy-typography {
-    font-size: 22px;
-    line-height: 24px;
-}
-
-h4.legacy-typography {
-    font-size: 18px;
-    line-height: 22px;
-}
-
-h5.legacy-typography {
-    font-size: 14px;
-    line-height: 18px;
-    margin: 5px 0;
-}
-
-input.legacy,
-textarea.legacy {
-    position: relative;
-    background: var(--color-background);
-    color: var(--color-primary);
-    font-family: 'Inter', 'Helvetica Neue', sans-serif;
-    font-size: 16px;
-    border: 1px solid var(--color-grey);
-    border-radius: var(--border-radius);
-    padding: 12px 15px;
-    width: 100%;
-    box-shadow: 0px 1px 2px rgba(16, 24, 40, 0.05);
-    outline-color: var(--color-blue);
-    transition: border-color 100ms;
-}
-
-::placeholder {
-    color: var(--color-primary-soft);
-}
-
-input.small {
-    padding: 5px 7px;
-    font-size: 14px;
-    line-height: 20px;
-    width: auto;
-}
-
-input.tiny {
-    padding: 5px 7px;
-    font-size: 14px;
-    line-height: 20px;
-    width: 60px;
-}
-
-textarea {
-    min-height: 100px;
-}
-
-input:hover,
-textarea:hover {
-    border-color: var(--color-grey-hard);
-}
-
-form .form-submit {
-    margin-top: 20px;
-    margin-bottom: 0;
-    display: inline-block;
-}
-
-label.legacy {
-    display: block;
-    margin: 10px 0 5px;
-}
-
-form .label {
-    display: block;
-    margin: 5px 0;
-}
-
-label>span {
-    margin-bottom: 3px;
-    display: block;
-    font-weight: 500;
-}
-
-label.invalid input {
-    border-color: var(--color-red);
-    box-shadow: 0px 1px 2px var(--color-red-light);
-}
-
-label.invalid span {
-    color: var(--color-red);
-}
-
-label.hide-label {
-    margin: 0;
-}
-
-.label-subtitle {
-    color: var(--color-primary-soft);
-    font-weight: 400;
-    font-size: 14px;
-}
-
-label .switch {
-    display: inline-block;
-    height: 26px;
-    position: relative;
-    width: 46px;
-}
-
-label .switch input {
-    display: none;
-}
-
-label .switch .slider {
-    background-color: var(--color-grey);
-    bottom: 0;
-    cursor: pointer;
-    left: 0;
-    position: absolute;
-    right: 0;
-    top: 0;
-    transition: .4s;
-}
-
-label .switch .slider:before {
-    background-color: var(--color-background);
-    bottom: 4px;
-    content: "";
-    height: 18px;
-    width: 18px;
-    left: 4px;
-    position: absolute;
-    transition: .4s;
-}
-
-label .switch input:checked+.slider {
-    background-color: var(--color-green);
-}
-
-label .switch input:checked+.slider:before {
-    transform: translateX(20px);
-}
-
-label .switch .slider.round {
-    border-radius: 26px;
-}
-
-label .switch .slider.round:before {
-    border-radius: 50%;
-}
-
-fieldset {
-    border: 1px solid var(--color-grey-soft);
-    border-radius: var(--border-radius);
-    padding: 0 10px 10px;
-    margin: 15px 0;
-    min-width: 0;
-}
-
-/* .icon {
-    width: 16px;
-    height: 16px;
-} */
-
-.icon-box {
-    align-self: start;
-    border-radius: 4px;
-    width: 36px;
-    height: 36px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-code {
-    word-wrap: break-word;
-    background-color: var(--color-grey-soft);
-    border-radius: 2px;
-    padding: 2px;
-}
-
-.blue {
-    background-color: var(--color-blue-soft);
-    color: var(--color-blue-hard);
-}
-
-.green {
-    background-color: var(--color-green-soft);
-    color: var(--color-green-hard);
-}
-
-.red {
-    background-color: var(--color-red-soft);
-    color: var(--color-red-hard);
-}
-
-.yellow {
-    background-color: var(--color-yellow-soft);
-    color: var(--color-yellow-hard);
 }
 
 @media only screen and (max-width: 600px) {
@@ -292,6 +79,33 @@ code {
     --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-ring: var(--sidebar-ring);
+
+    /* Lunogram design-system tokens (see DESIGN.md). Named by appearance, theme-aware
+       via the var() indirection below — light values in :root, dark in .dark. */
+    --color-ink: var(--ink);
+    --color-ink-soft: var(--ink-soft);
+    --color-surface: var(--surface);
+    --color-surface-soft: var(--surface-soft);
+    --color-surface-muted: var(--surface-muted);
+    --color-surface-editor: var(--surface-editor);
+    --color-surface-fixed: var(--surface-fixed);
+    --color-border-strong: var(--border-strong);
+
+    --color-red: var(--red);
+    --color-red-soft: var(--red-soft);
+    --color-red-hard: var(--red-hard);
+    --color-blue: var(--blue);
+    --color-blue-soft: var(--blue-soft);
+    --color-blue-hard: var(--blue-hard);
+    --color-amber: var(--amber);
+    --color-amber-soft: var(--amber-soft);
+    --color-amber-hard: var(--amber-hard);
+    --color-green: var(--green);
+    --color-green-soft: var(--green-soft);
+    --color-green-hard: var(--green-hard);
+    --color-purple: var(--purple);
+    --color-purple-soft: var(--purple-soft);
+    --color-purple-hard: var(--purple-hard);
 }
 
 :root {
@@ -327,6 +141,32 @@ code {
     --sidebar-accent-foreground: oklch(0.205 0 0);
     --sidebar-border: oklch(0.922 0 0);
     --sidebar-ring: oklch(0.708 0 0);
+
+    /* Lunogram design-system tokens — light (DESIGN.md `colors`). */
+    --ink: #151c2d;
+    --ink-soft: #6b707b;
+    --surface: #ffffff;
+    --surface-soft: #f9fafb;
+    --surface-muted: #f5f5f7;
+    --surface-editor: #0d121e;
+    --surface-fixed: #ffffff;
+    --border-strong: #cecfd2;
+
+    --red: #d92d20;
+    --red-soft: #fecdca;
+    --red-hard: #b42419;
+    --blue: #2970ff;
+    --blue-soft: #d1e0ff;
+    --blue-hard: #004ebb;
+    --amber: #fec84b;
+    --amber-soft: #fef0c7;
+    --amber-hard: #f79009;
+    --green: #32d583;
+    --green-soft: #d1fadf;
+    --green-hard: #039855;
+    --purple: #8729c1;
+    --purple-soft: #f7d8ff;
+    --purple-hard: #4e0c77;
 }
 
 .dark {
@@ -361,6 +201,18 @@ code {
     --sidebar-accent-foreground: oklch(0.985 0 0);
     --sidebar-border: oklch(1 0 0 / 10%);
     --sidebar-ring: oklch(0.556 0 0);
+
+    /* Lunogram design-system tokens — dark intent (DESIGN.md `colors-dark`); lists only
+       what differs from light. Status base/soft/hard carry over except purple, which
+       inverts. surface-fixed is intentionally NOT overridden so it never inverts. */
+    --ink: #ffffff;
+    --ink-soft: #919496;
+    --surface: #121721;
+    --surface-soft: #1a1f2b;
+    --surface-muted: #252b3a;
+    --border-strong: #3a4358;
+    --purple-soft: #4e0c77;
+    --purple-hard: #d1a7ea;
 }
 
 @layer base {
@@ -368,7 +220,23 @@ code {
         @apply border-border outline-ring/50;
     }
 
+    html {
+        height: 100%;
+    }
+
     body {
         @apply bg-background text-foreground;
+        min-height: 100%;
+    }
+    .maplibregl-popup-content {
+        @apply bg-transparent! shadow-none! p-0! rounded-none!;
+    }
+    .maplibregl-popup-tip {
+        @apply hidden!;
+    }
+    .ambient-map .maplibregl-ctrl-attrib,
+    .ambient-map .maplibregl-ctrl-bottom-right,
+    .ambient-map .maplibregl-ctrl-bottom-left {
+        @apply hidden!;
     }
 }

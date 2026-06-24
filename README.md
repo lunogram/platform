@@ -2,13 +2,13 @@
 <div align="center">
   <a href="https://lunogram.com" target="_blank">
     <picture>
-        <source media="(prefers-color-scheme: dark)" srcset=".github/assets/logo-dark.png#gh-dark-mode-only">
-        <img src=".github/assets/logo-light.png#gh-light-mode-only" width="360" alt="Logo"/>
+        <source media="(prefers-color-scheme: dark)" srcset="https://lunogram.com/logos/logo-white-512.png">
+        <img src="https://lunogram.com/logos/logo-dark-512.png" width="360" alt="Logo"/>
     </picture>
   </a>
 </div>
 
-<h1 align="center">Open Source Multi-Channel Marketing</h1>
+<h1 align="center">SaaS Multi-Channel Outreach</h1>
 
 <p align="center">Engage your customers through effortless communication.</p>
 
@@ -47,6 +47,14 @@ git clone https://github.com/lunogram/platform.git
 cd platform
 docker compose up -d
 ```
+
+This single command builds and runs Lunogram along with its backing services —
+PostgreSQL, Redis and NATS. Those are defined in
+[`docker-compose.deps.yml`](docker-compose.deps.yml), which the root
+[`docker-compose.yml`](docker-compose.yml) pulls in automatically.
+
+If you'd rather run Lunogram from source and only need the backing services in Docker,
+see the [Contributing Guide](CONTRIBUTING.md) for the local development setup.
 
 Login to the web app at http://localhost:8080 using the default credentials:
 

@@ -10,11 +10,16 @@ import (
 	"go.uber.org/zap/zaptest"
 )
 
-func ptr[T any](v T) *T {
-	return &v
+func NewContainerStore(t *testing.T) *State {
+	t.Helper()
+	state, _ := newContainerStoreWithDB(t)
+	return state
 }
 
-func NewContainerStore(t *testing.T) *State {
+// newContainerStoreWithDB is like NewContainerStore but also returns the
+// underlying *sqlx.DB so tests that need to set up edge states (e.g. forcing an
+// invite's expiry) can run raw SQL.
+func newContainerStoreWithDB(t *testing.T) (*State, store.DB) {
 	t.Helper()
 
 	uri := container.RunPostgreSQL(t)
@@ -26,5 +31,5 @@ func NewContainerStore(t *testing.T) *State {
 	db, err := store.Connect(ctx, logger, mgmtURI)
 	require.NoError(t, err)
 
-	return NewState(db)
+	return NewState(db), db
 }

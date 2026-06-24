@@ -12,20 +12,20 @@ import (
 	"testing"
 
 	"github.com/cloudproud/graceful"
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
-	"github.com/lunogram/platform/internal/claim"
 	"github.com/lunogram/platform/internal/config"
 	"github.com/lunogram/platform/internal/container"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
+	"github.com/lunogram/platform/internal/ptr"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/consumer"
+	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/rules"
 	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/journey"
 	"github.com/lunogram/platform/internal/store/management"
+	"github.com/lunogram/platform/internal/store/subjects"
 	teststore "github.com/lunogram/platform/internal/store/test"
-	"github.com/lunogram/platform/internal/store/users"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
@@ -39,7 +39,7 @@ var noExternalIDImportUsersCSV string
 //go:embed test/users/out-of-order.csv
 var outOfOrderImportUsersCSV string
 
-func TNewUsersController(t *testing.T) (*UsersController, uuid.UUID) {
+func TNewUsersController(t *testing.T) (*UsersController, uuid.UUID, context.Context) {
 	t.Helper()
 
 	logger := zaptest.NewLogger(t)
@@ -55,10 +55,10 @@ func TNewUsersController(t *testing.T) (*UsersController, uuid.UUID) {
 	jet, err := pubsub.New(gracefulCtx, cfg)
 	require.NoError(t, err)
 
-	err = consumer.Bootstrap(gracefulCtx, logger, jet)
+	err = consumer.Bootstrap(gracefulCtx, logger, jet, "")
 	require.NoError(t, err)
 
-	pub := pubsub.NewPublisher(jet)
+	pub := pubsub.NewPublisher(jet, "")
 
 	orgsStore := management.NewOrganizationsStore(mgmtDB)
 	orgID, err := orgsStore.CreateOrganization(ctx, "Test Org")
@@ -73,38 +73,32 @@ func TNewUsersController(t *testing.T) (*UsersController, uuid.UUID) {
 	})
 	require.NoError(t, err)
 
-	mgmt := management.NewState(mgmtDB)
-	controller := NewUsersController(logger, pub, usrsDB, jrnyDB, mgmt, 32<<20)
-	return controller, projectID
-}
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(orgID),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
 
-func validSession() claim.Session {
-	return claim.Session{
-		RegisteredClaims: jwt.RegisteredClaims{
-			Subject: uuid.New().String(),
-		},
-	}
+	mgmt := management.NewState(mgmtDB)
+	controller := NewUsersController(logger, pub, usrsDB, jrnyDB, mgmt, 32<<20, engine)
+	return controller, projectID, actorCtx
 }
 
 func TestListUsers(t *testing.T) {
 	t.Parallel()
 
-	controller, projectID := TNewUsersController(t)
+	controller, projectID, actorCtx := TNewUsersController(t)
 	ctx := context.Background()
 
 	usersStore := controller.users.UsersStore
 	for i := 0; i < 5; i++ {
-		_, err := usersStore.CreateUser(ctx, users.User{
-			ProjectID:   projectID,
-			AnonymousID: ptr(uuid.New().String()),
-			Data:        json.RawMessage(`{}`),
-		})
+		_, err := usersStore.CreateUser(ctx, projectID, nil, nil, json.RawMessage(`{}`), nil, nil, []subjects.ExternalIDParam{{Source: "anonymous", ExternalID: uuid.New().String()}})
 		require.NoError(t, err)
 	}
 
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/users", nil)
-	req = req.WithContext(claim.WithSession(req.Context(), validSession()))
+	req = req.WithContext(actorCtx)
 
 	controller.ListUsers(res, req, projectID, oapi.ListUsersParams{})
 
@@ -120,11 +114,11 @@ func TestListUsers(t *testing.T) {
 func TestIdentifyUser(t *testing.T) {
 	t.Parallel()
 
-	controller, projectID := TNewUsersController(t)
+	controller, projectID, actorCtx := TNewUsersController(t)
 
 	body := oapi.IdentifyUser{
-		ExternalId: ptr("user_new_123"),
-		Email:      ptr("new@example.com"),
+		Identifier: []oapi.ExternalID{{Source: ptr.To("default"), ExternalId: "user_new_123"}},
+		Email:      ptr.To("new@example.com"),
 	}
 
 	bodyBytes, err := json.Marshal(body)
@@ -133,7 +127,7 @@ func TestIdentifyUser(t *testing.T) {
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/api/admin/projects/"+projectID.String()+"/users", bytes.NewReader(bodyBytes))
 	req.Header.Set("Content-Type", "application/json")
-	req = req.WithContext(claim.WithSession(req.Context(), validSession()))
+	req = req.WithContext(actorCtx)
 
 	controller.IdentifyUser(res, req, projectID)
 
@@ -142,28 +136,25 @@ func TestIdentifyUser(t *testing.T) {
 	var user oapi.User
 	err = json.Unmarshal(res.Body.Bytes(), &user)
 	require.NoError(t, err)
-	require.Equal(t, "user_new_123", *user.ExternalId)
+	require.Len(t, user.Identifier, 1)
+	require.Equal(t, "default", user.Identifier[0].Source)
+	require.Equal(t, "user_new_123", user.Identifier[0].ExternalId)
 	require.Equal(t, "new@example.com", string(*user.Email))
 }
 
 func TestGetUser(t *testing.T) {
 	t.Parallel()
 
-	controller, projectID := TNewUsersController(t)
+	controller, projectID, actorCtx := TNewUsersController(t)
 	ctx := context.Background()
 
 	usersStore := controller.users.UsersStore
-	userID, err := usersStore.CreateUser(ctx, users.User{
-		ProjectID:   projectID,
-		AnonymousID: ptr("anon_get"),
-		Email:       ptr("get@example.com"),
-		Data:        json.RawMessage(`{}`),
-	})
+	userID, err := usersStore.CreateUser(ctx, projectID, ptr.To("get@example.com"), nil, json.RawMessage(`{}`), nil, nil, []subjects.ExternalIDParam{{Source: "anonymous", ExternalID: "anon_get"}})
 	require.NoError(t, err)
 
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/users/"+userID.String(), nil)
-	req = req.WithContext(claim.WithSession(req.Context(), validSession()))
+	req = req.WithContext(actorCtx)
 
 	controller.GetUser(res, req, projectID, userID)
 
@@ -173,27 +164,29 @@ func TestGetUser(t *testing.T) {
 	err = json.Unmarshal(res.Body.Bytes(), &user)
 	require.NoError(t, err)
 	require.Equal(t, userID, user.Id)
-	require.Equal(t, "anon_get", user.AnonymousId)
+	// Verify anonymous identifier is present
+	var foundAnon bool
+	for _, id := range user.Identifier {
+		if id.Source == "anonymous" && id.ExternalId == "anon_get" {
+			foundAnon = true
+		}
+	}
+	require.True(t, foundAnon, "should have anonymous identifier")
 }
 
 func TestUpdateUser(t *testing.T) {
 	t.Parallel()
 
-	controller, projectID := TNewUsersController(t)
+	controller, projectID, actorCtx := TNewUsersController(t)
 	ctx := context.Background()
 
 	usersStore := controller.users.UsersStore
-	userID, err := usersStore.CreateUser(ctx, users.User{
-		ProjectID:   projectID,
-		AnonymousID: ptr("anon_update"),
-		Email:       ptr("old@example.com"),
-		Data:        json.RawMessage(`{"old":"value"}`),
-	})
+	userID, err := usersStore.CreateUser(ctx, projectID, ptr.To("old@example.com"), nil, json.RawMessage(`{"old":"value"}`), nil, nil, []subjects.ExternalIDParam{{Source: "anonymous", ExternalID: "anon_update"}})
 	require.NoError(t, err)
 
 	updateBody := oapi.UpdateUser{
-		Email: ptr("updated@example.com"),
-		Data:  ptr(json.RawMessage(`{"new":"field"}`)),
+		Email: ptr.To("updated@example.com"),
+		Data:  ptr.To(json.RawMessage(`{"new":"field"}`)),
 	}
 
 	bodyBytes, err := json.Marshal(updateBody)
@@ -202,7 +195,7 @@ func TestUpdateUser(t *testing.T) {
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("PATCH", "/api/admin/projects/"+projectID.String()+"/users/"+userID.String(), bytes.NewReader(bodyBytes))
 	req.Header.Set("Content-Type", "application/json")
-	req = req.WithContext(claim.WithSession(req.Context(), validSession()))
+	req = req.WithContext(actorCtx)
 
 	controller.UpdateUser(res, req, projectID, userID)
 
@@ -223,20 +216,16 @@ func TestUpdateUser(t *testing.T) {
 func TestDeleteUser(t *testing.T) {
 	t.Parallel()
 
-	controller, projectID := TNewUsersController(t)
+	controller, projectID, actorCtx := TNewUsersController(t)
 	ctx := context.Background()
 
 	usersStore := controller.users.UsersStore
-	userID, err := usersStore.CreateUser(ctx, users.User{
-		ProjectID:   projectID,
-		AnonymousID: ptr("anon_delete"),
-		Data:        json.RawMessage(`{}`),
-	})
+	userID, err := usersStore.CreateUser(ctx, projectID, nil, nil, json.RawMessage(`{}`), nil, nil, []subjects.ExternalIDParam{{Source: "anonymous", ExternalID: "anon_delete"}})
 	require.NoError(t, err)
 
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("DELETE", "/api/admin/projects/"+projectID.String()+"/users/"+userID.String(), nil)
-	req = req.WithContext(claim.WithSession(req.Context(), validSession()))
+	req = req.WithContext(actorCtx)
 
 	controller.DeleteUser(res, req, projectID, userID)
 
@@ -249,15 +238,11 @@ func TestDeleteUser(t *testing.T) {
 func TestVersionIncrementsOnUpdate(t *testing.T) {
 	t.Parallel()
 
-	controller, projectID := TNewUsersController(t)
+	controller, projectID, actorCtx := TNewUsersController(t)
 	ctx := context.Background()
 
 	usersStore := controller.users.UsersStore
-	userID, err := usersStore.CreateUser(ctx, users.User{
-		ProjectID:   projectID,
-		AnonymousID: ptr("anon_version"),
-		Data:        json.RawMessage(`{}`),
-	})
+	userID, err := usersStore.CreateUser(ctx, projectID, nil, nil, json.RawMessage(`{}`), nil, nil, []subjects.ExternalIDParam{{Source: "anonymous", ExternalID: "anon_version"}})
 	require.NoError(t, err)
 
 	user, err := usersStore.GetUser(ctx, projectID, userID)
@@ -265,14 +250,14 @@ func TestVersionIncrementsOnUpdate(t *testing.T) {
 	initialVersion := user.Version
 
 	bodyBytes, err := json.Marshal(oapi.UpdateUser{
-		Email: ptr("version@example.com"),
+		Email: ptr.To("version@example.com"),
 	})
 	require.NoError(t, err)
 
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("PATCH", "/api/admin/projects/"+projectID.String()+"/users/"+userID.String(), bytes.NewReader(bodyBytes))
 	req.Header.Set("Content-Type", "application/json")
-	req = req.WithContext(claim.WithSession(req.Context(), validSession()))
+	req = req.WithContext(actorCtx)
 
 	controller.UpdateUser(res, req, projectID, userID)
 	require.Equal(t, 200, res.Code)
@@ -286,19 +271,15 @@ func TestVersionIncrementsOnUpdate(t *testing.T) {
 func TestGetUserEvents(t *testing.T) {
 	t.Parallel()
 
-	controller, projectID := TNewUsersController(t)
+	controller, projectID, actorCtx := TNewUsersController(t)
 	ctx := context.Background()
 
 	usersStore := controller.users.UsersStore
-	userID, err := usersStore.CreateUser(ctx, users.User{
-		ProjectID:   projectID,
-		AnonymousID: ptr("anon_events"),
-		Data:        json.RawMessage(`{}`),
-	})
+	userID, err := usersStore.CreateUser(ctx, projectID, nil, nil, json.RawMessage(`{}`), nil, nil, []subjects.ExternalIDParam{{Source: "anonymous", ExternalID: "anon_events"}})
 	require.NoError(t, err)
 
 	for i := 0; i < 3; i++ {
-		_, err := usersStore.CreateUserEvent(ctx, users.UserEvent{
+		_, err := usersStore.CreateUserEvent(ctx, subjects.UserEvent{
 			ProjectID: projectID,
 			UserID:    userID,
 			Name:      "page_viewed",
@@ -309,7 +290,7 @@ func TestGetUserEvents(t *testing.T) {
 
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/users/"+userID.String()+"/events", nil)
-	req = req.WithContext(claim.WithSession(req.Context(), validSession()))
+	req = req.WithContext(actorCtx)
 
 	controller.GetUserEvents(res, req, projectID, userID, oapi.GetUserEventsParams{})
 
@@ -326,13 +307,13 @@ func TestGetUserEvents(t *testing.T) {
 func TestGetUserEventsNotFound(t *testing.T) {
 	t.Parallel()
 
-	controller, projectID := TNewUsersController(t)
+	controller, projectID, actorCtx := TNewUsersController(t)
 
 	nonExistentUserID := uuid.New()
 
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/users/"+nonExistentUserID.String()+"/events", nil)
-	req = req.WithContext(claim.WithSession(req.Context(), validSession()))
+	req = req.WithContext(actorCtx)
 
 	controller.GetUserEvents(res, req, projectID, nonExistentUserID, oapi.GetUserEventsParams{})
 
@@ -342,15 +323,11 @@ func TestGetUserEventsNotFound(t *testing.T) {
 func TestGetUserSubscriptions(t *testing.T) {
 	t.Parallel()
 
-	controller, projectID := TNewUsersController(t)
+	controller, projectID, actorCtx := TNewUsersController(t)
 	ctx := context.Background()
 
 	usersStore := controller.users.UsersStore
-	userID, err := usersStore.CreateUser(ctx, users.User{
-		ProjectID:   projectID,
-		AnonymousID: ptr("anon_subscriptions"),
-		Data:        json.RawMessage(`{}`),
-	})
+	userID, err := usersStore.CreateUser(ctx, projectID, nil, nil, json.RawMessage(`{}`), nil, nil, []subjects.ExternalIDParam{{Source: "anonymous", ExternalID: "anon_subscriptions"}})
 	require.NoError(t, err)
 
 	subscriptionsStore := controller.mgmt.SubscriptionsStore
@@ -375,7 +352,7 @@ func TestGetUserSubscriptions(t *testing.T) {
 
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/users/"+userID.String()+"/subscriptions", nil)
-	req = req.WithContext(claim.WithSession(req.Context(), validSession()))
+	req = req.WithContext(actorCtx)
 
 	controller.GetUserSubscriptions(res, req, projectID, userID, oapi.GetUserSubscriptionsParams{})
 
@@ -399,15 +376,11 @@ func TestGetUserSubscriptions(t *testing.T) {
 func TestUpdateUserSubscriptions(t *testing.T) {
 	t.Parallel()
 
-	controller, projectID := TNewUsersController(t)
+	controller, projectID, actorCtx := TNewUsersController(t)
 	ctx := context.Background()
 
 	usersStore := controller.users.UsersStore
-	userID, err := usersStore.CreateUser(ctx, users.User{
-		ProjectID:   projectID,
-		AnonymousID: ptr("anon_update_subs"),
-		Data:        json.RawMessage(`{}`),
-	})
+	userID, err := usersStore.CreateUser(ctx, projectID, nil, nil, json.RawMessage(`{}`), nil, nil, []subjects.ExternalIDParam{{Source: "anonymous", ExternalID: "anon_update_subs"}})
 	require.NoError(t, err)
 
 	subscriptionsStore := controller.mgmt.SubscriptionsStore
@@ -432,7 +405,7 @@ func TestUpdateUserSubscriptions(t *testing.T) {
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("PATCH", "/api/admin/projects/"+projectID.String()+"/users/"+userID.String()+"/subscriptions", bytes.NewReader(bodyBytes))
 	req.Header.Set("Content-Type", "application/json")
-	req = req.WithContext(claim.WithSession(req.Context(), validSession()))
+	req = req.WithContext(actorCtx)
 
 	controller.UpdateUserSubscriptions(res, req, projectID, userID)
 
@@ -448,15 +421,11 @@ func TestUpdateUserSubscriptions(t *testing.T) {
 func TestUpdateUserSubscriptionsNotFound(t *testing.T) {
 	t.Parallel()
 
-	controller, projectID := TNewUsersController(t)
+	controller, projectID, actorCtx := TNewUsersController(t)
 	ctx := context.Background()
 
 	usersStore := controller.users.UsersStore
-	userID, err := usersStore.CreateUser(ctx, users.User{
-		ProjectID:   projectID,
-		AnonymousID: ptr("anon_sub_not_found"),
-		Data:        json.RawMessage(`{}`),
-	})
+	userID, err := usersStore.CreateUser(ctx, projectID, nil, nil, json.RawMessage(`{}`), nil, nil, []subjects.ExternalIDParam{{Source: "anonymous", ExternalID: "anon_sub_not_found"}})
 	require.NoError(t, err)
 
 	nonExistentSubID := uuid.New()
@@ -473,7 +442,7 @@ func TestUpdateUserSubscriptionsNotFound(t *testing.T) {
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("PATCH", "/api/admin/projects/"+projectID.String()+"/users/"+userID.String()+"/subscriptions", bytes.NewReader(bodyBytes))
 	req.Header.Set("Content-Type", "application/json")
-	req = req.WithContext(claim.WithSession(req.Context(), validSession()))
+	req = req.WithContext(actorCtx)
 
 	controller.UpdateUserSubscriptions(res, req, projectID, userID)
 
@@ -483,15 +452,11 @@ func TestUpdateUserSubscriptionsNotFound(t *testing.T) {
 func TestGetUserJourneys(t *testing.T) {
 	t.Parallel()
 
-	controller, projectID := TNewUsersController(t)
+	controller, projectID, actorCtx := TNewUsersController(t)
 	ctx := context.Background()
 
 	usersStore := controller.users.UsersStore
-	userID, err := usersStore.CreateUser(ctx, users.User{
-		ProjectID:   projectID,
-		AnonymousID: ptr("anon_journeys"),
-		Data:        json.RawMessage(`{}`),
-	})
+	userID, err := usersStore.CreateUser(ctx, projectID, nil, nil, json.RawMessage(`{}`), nil, nil, []subjects.ExternalIDParam{{Source: "anonymous", ExternalID: "anon_journeys"}})
 	require.NoError(t, err)
 
 	journeysStore := controller.journey.JourneysStore
@@ -530,7 +495,7 @@ func TestGetUserJourneys(t *testing.T) {
 
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/users/"+userID.String()+"/journeys", nil)
-	req = req.WithContext(claim.WithSession(req.Context(), validSession()))
+	req = req.WithContext(actorCtx)
 
 	controller.GetUserJourneys(res, req, projectID, userID, oapi.GetUserJourneysParams{})
 
@@ -549,15 +514,11 @@ func TestGetUserJourneys(t *testing.T) {
 func TestGetUserJourneysPagination(t *testing.T) {
 	t.Parallel()
 
-	controller, projectID := TNewUsersController(t)
+	controller, projectID, actorCtx := TNewUsersController(t)
 	ctx := context.Background()
 
 	usersStore := controller.users.UsersStore
-	userID, err := usersStore.CreateUser(ctx, users.User{
-		ProjectID:   projectID,
-		AnonymousID: ptr("anon_journeys_page"),
-		Data:        json.RawMessage(`{}`),
-	})
+	userID, err := usersStore.CreateUser(ctx, projectID, nil, nil, json.RawMessage(`{}`), nil, nil, []subjects.ExternalIDParam{{Source: "anonymous", ExternalID: "anon_journeys_page"}})
 	require.NoError(t, err)
 
 	journeysStore := controller.journey.JourneysStore
@@ -599,7 +560,7 @@ func TestGetUserJourneysPagination(t *testing.T) {
 
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/users/"+userID.String()+"/journeys", nil)
-	req = req.WithContext(claim.WithSession(req.Context(), validSession()))
+	req = req.WithContext(actorCtx)
 
 	controller.GetUserJourneys(res, req, projectID, userID, oapi.GetUserJourneysParams{
 		Limit:  &limit,
@@ -621,7 +582,7 @@ func TestGetUserJourneysPagination(t *testing.T) {
 func TestListUserSchemas(t *testing.T) {
 	t.Parallel()
 
-	controller, projectID := TNewUsersController(t)
+	controller, projectID, actorCtx := TNewUsersController(t)
 	ctx := context.Background()
 
 	usersStore := controller.users.UsersStore
@@ -638,7 +599,7 @@ func TestListUserSchemas(t *testing.T) {
 
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/user-schemas", nil)
-	req = req.WithContext(claim.WithSession(req.Context(), validSession()))
+	req = req.WithContext(actorCtx)
 
 	controller.ListUserSchemas(res, req, projectID)
 
@@ -649,28 +610,43 @@ func TestListUserSchemas(t *testing.T) {
 	}
 	err = json.Unmarshal(res.Body.Bytes(), &response)
 	require.NoError(t, err)
-	require.Len(t, response.Results, 5)
+
+	// 5 well-known direct columns + 5 discovered data properties
+	require.Len(t, response.Results, 10)
 
 	pathMap := make(map[string][]string)
 	for _, schema := range response.Results {
 		pathMap[schema.Path] = schema.Types
 	}
 
+	// Well-known user direct columns
+	require.Contains(t, pathMap, ".email")
 	require.Contains(t, pathMap[".email"], "string")
-	require.Contains(t, pathMap[".age"], "number")
-	require.Contains(t, pathMap[".plan"], "string")
-	require.Contains(t, pathMap[".preferences"], "object")
-	require.Contains(t, pathMap[".preferences.notifications"], "boolean")
+	require.Contains(t, pathMap, ".phone")
+	require.Contains(t, pathMap[".phone"], "string")
+	require.Contains(t, pathMap, ".locale")
+	require.Contains(t, pathMap[".locale"], "string")
+	require.Contains(t, pathMap, ".timezone")
+	require.Contains(t, pathMap[".timezone"], "string")
+	require.Contains(t, pathMap, ".created_at")
+	require.Contains(t, pathMap[".created_at"], "date")
+
+	// Discovered data properties should have .data prefix
+	require.Contains(t, pathMap[".data.email"], "string")
+	require.Contains(t, pathMap[".data.age"], "number")
+	require.Contains(t, pathMap[".data.plan"], "string")
+	require.Contains(t, pathMap[".data.preferences"], "object")
+	require.Contains(t, pathMap[".data.preferences.notifications"], "boolean")
 }
 
 func TestListUserSchemasEmpty(t *testing.T) {
 	t.Parallel()
 
-	controller, projectID := TNewUsersController(t)
+	controller, projectID, actorCtx := TNewUsersController(t)
 
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/users/schema", nil)
-	req = req.WithContext(claim.WithSession(req.Context(), validSession()))
+	req = req.WithContext(actorCtx)
 
 	controller.ListUserSchemas(res, req, projectID)
 
@@ -681,13 +657,26 @@ func TestListUserSchemasEmpty(t *testing.T) {
 	}
 	err := json.Unmarshal(res.Body.Bytes(), &response)
 	require.NoError(t, err)
-	require.Empty(t, response.Results)
+
+	// Even with no discovered schemas, well-known direct columns should be present
+	require.Len(t, response.Results, 5)
+
+	pathMap := make(map[string][]string)
+	for _, schema := range response.Results {
+		pathMap[schema.Path] = schema.Types
+	}
+
+	require.Contains(t, pathMap, ".email")
+	require.Contains(t, pathMap, ".phone")
+	require.Contains(t, pathMap, ".locale")
+	require.Contains(t, pathMap, ".timezone")
+	require.Contains(t, pathMap, ".created_at")
 }
 
 func TestListUserSchemasUnauthorized(t *testing.T) {
 	t.Parallel()
 
-	controller, projectID := TNewUsersController(t)
+	controller, projectID, _ := TNewUsersController(t)
 
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/users/schema", nil)
@@ -700,7 +689,7 @@ func TestListUserSchemasUnauthorized(t *testing.T) {
 func TestListUserSchemasWithMultipleTypes(t *testing.T) {
 	t.Parallel()
 
-	controller, projectID := TNewUsersController(t)
+	controller, projectID, actorCtx := TNewUsersController(t)
 	ctx := context.Background()
 
 	usersStore := controller.users.UsersStore
@@ -722,7 +711,7 @@ func TestListUserSchemasWithMultipleTypes(t *testing.T) {
 
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/users/schema", nil)
-	req = req.WithContext(claim.WithSession(req.Context(), validSession()))
+	req = req.WithContext(actorCtx)
 
 	controller.ListUserSchemas(res, req, projectID)
 
@@ -733,40 +722,195 @@ func TestListUserSchemasWithMultipleTypes(t *testing.T) {
 	}
 	err = json.Unmarshal(res.Body.Bytes(), &response)
 	require.NoError(t, err)
-	require.Len(t, response.Results, 5)
+
+	// 5 well-known direct columns + 5 discovered data properties
+	require.Len(t, response.Results, 10)
 
 	pathMap := make(map[string][]string)
 	for _, schema := range response.Results {
 		pathMap[schema.Path] = schema.Types
 	}
 
-	// Verify .age has both number and string types
-	require.Contains(t, pathMap, ".age")
-	require.Len(t, pathMap[".age"], 2)
-	require.Contains(t, pathMap[".age"], "number")
-	require.Contains(t, pathMap[".age"], "string")
+	// Verify .data.age has both number and string types
+	require.Contains(t, pathMap, ".data.age")
+	require.Len(t, pathMap[".data.age"], 2)
+	require.Contains(t, pathMap[".data.age"], "number")
+	require.Contains(t, pathMap[".data.age"], "string")
 
-	// Verify .is_active has both boolean and string types
-	require.Contains(t, pathMap, ".is_active")
-	require.Len(t, pathMap[".is_active"], 2)
-	require.Contains(t, pathMap[".is_active"], "boolean")
-	require.Contains(t, pathMap[".is_active"], "string")
+	// Verify .data.is_active has both boolean and string types
+	require.Contains(t, pathMap, ".data.is_active")
+	require.Len(t, pathMap[".data.is_active"], 2)
+	require.Contains(t, pathMap[".data.is_active"], "boolean")
+	require.Contains(t, pathMap[".data.is_active"], "string")
 
-	// Verify .tags has both array and string types
-	require.Contains(t, pathMap, ".tags")
-	require.Len(t, pathMap[".tags"], 2)
-	require.Contains(t, pathMap[".tags"], "array")
-	require.Contains(t, pathMap[".tags"], "string")
+	// Verify .data.tags has both array and string types
+	require.Contains(t, pathMap, ".data.tags")
+	require.Len(t, pathMap[".data.tags"], 2)
+	require.Contains(t, pathMap[".data.tags"], "array")
+	require.Contains(t, pathMap[".data.tags"], "string")
 
-	// Verify .metadata has only object type
-	require.Contains(t, pathMap, ".metadata")
-	require.Len(t, pathMap[".metadata"], 1)
-	require.Contains(t, pathMap[".metadata"], "object")
+	// Verify .data.metadata has only object type
+	require.Contains(t, pathMap, ".data.metadata")
+	require.Len(t, pathMap[".data.metadata"], 1)
+	require.Contains(t, pathMap[".data.metadata"], "object")
 
-	// Verify .name has only string type
-	require.Contains(t, pathMap, ".name")
-	require.Len(t, pathMap[".name"], 1)
-	require.Contains(t, pathMap[".name"], "string")
+	// Verify .data.name has only string type
+	require.Contains(t, pathMap, ".data.name")
+	require.Len(t, pathMap[".data.name"], 1)
+	require.Contains(t, pathMap[".data.name"], "string")
+}
+
+func TestCreateUserDevice(t *testing.T) {
+	t.Parallel()
+
+	controller, projectID, actorCtx := TNewUsersController(t)
+	ctx := context.Background()
+
+	usersStore := controller.users.UsersStore
+	userID, err := usersStore.CreateUser(ctx, projectID, nil, nil, json.RawMessage(`{}`), nil, nil, []subjects.ExternalIDParam{{Source: "anonymous", ExternalID: "anon_create_device"}})
+	require.NoError(t, err)
+
+	body := oapi.CreateUserDevice{
+		DeviceId:   "device-1",
+		Data:       ptr.To(json.RawMessage(`{"app_channel":"beta"}`)),
+		Os:         oapi.CreateUserDeviceOsIos,
+		OsVersion:  ptr.To("18.1"),
+		Model:      ptr.To("iPhone 15"),
+		AppBuild:   ptr.To("101"),
+		AppVersion: ptr.To("1.0.1"),
+	}
+	body.Config.Token = ptr.To("token-1")
+
+	bodyBytes, err := json.Marshal(body)
+	require.NoError(t, err)
+
+	res := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/admin/projects/"+projectID.String()+"/users/"+userID.String()+"/devices", bytes.NewReader(bodyBytes))
+	req.Header.Set("Content-Type", "application/json")
+	req = req.WithContext(actorCtx)
+
+	controller.CreateUserDevice(res, req, projectID, userID)
+
+	require.Equal(t, 204, res.Code)
+
+	devices, err := controller.users.ListDevicesByUserWithConfig(ctx, projectID, userID)
+	require.NoError(t, err)
+	require.Len(t, devices, 1)
+	require.Equal(t, "device-1", devices[0].DeviceID)
+	require.NotNil(t, devices[0].Config)
+	require.Equal(t, subjects.PushConfigTypeAPNs, devices[0].Config.Type)
+	require.Equal(t, "token-1", devices[0].Config.Token)
+	require.JSONEq(t, `{"app_channel":"beta"}`, string(devices[0].Data))
+	require.NotNil(t, devices[0].OS)
+	require.Equal(t, "ios", *devices[0].OS)
+}
+
+func TestCreateUserDeviceUserNotFound(t *testing.T) {
+	t.Parallel()
+
+	controller, projectID, actorCtx := TNewUsersController(t)
+	nonExistentUserID := uuid.New()
+
+	body := oapi.CreateUserDevice{
+		DeviceId: "device-404",
+		Os:       oapi.CreateUserDeviceOsAndroid,
+	}
+	body.Config.Token = ptr.To("token-404")
+
+	bodyBytes, err := json.Marshal(body)
+	require.NoError(t, err)
+
+	res := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/admin/projects/"+projectID.String()+"/users/"+nonExistentUserID.String()+"/devices", bytes.NewReader(bodyBytes))
+	req.Header.Set("Content-Type", "application/json")
+	req = req.WithContext(actorCtx)
+
+	controller.CreateUserDevice(res, req, projectID, nonExistentUserID)
+
+	require.Equal(t, 404, res.Code)
+}
+
+func TestCreateUserDeviceTokenConflict(t *testing.T) {
+	t.Parallel()
+
+	controller, projectID, actorCtx := TNewUsersController(t)
+	ctx := context.Background()
+
+	usersStore := controller.users.UsersStore
+	user1ID, err := usersStore.CreateUser(ctx, projectID, nil, nil, json.RawMessage(`{}`), nil, nil, []subjects.ExternalIDParam{{Source: "anonymous", ExternalID: "anon_device_conflict_1"}})
+	require.NoError(t, err)
+
+	user2ID, err := usersStore.CreateUser(ctx, projectID, nil, nil, json.RawMessage(`{}`), nil, nil, []subjects.ExternalIDParam{{Source: "anonymous", ExternalID: "anon_device_conflict_2"}})
+	require.NoError(t, err)
+
+	_, err = controller.users.CreateDevice(ctx, subjects.Device{
+		ProjectID: projectID,
+		UserID:    user1ID,
+		DeviceID:  "existing-device",
+		Config: &subjects.PushConfig{
+			Type:  subjects.PushConfigTypeAPNs,
+			Token: "shared-token",
+		},
+		OS:    ptr.To("ios"),
+		Model: ptr.To("iPhone"),
+	})
+	require.NoError(t, err)
+
+	body := oapi.CreateUserDevice{
+		DeviceId: "new-device",
+		Os:       oapi.CreateUserDeviceOsAndroid,
+	}
+	body.Config.Token = ptr.To("shared-token")
+
+	bodyBytes, err := json.Marshal(body)
+	require.NoError(t, err)
+
+	res := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/admin/projects/"+projectID.String()+"/users/"+user2ID.String()+"/devices", bytes.NewReader(bodyBytes))
+	req.Header.Set("Content-Type", "application/json")
+	req = req.WithContext(actorCtx)
+
+	controller.CreateUserDevice(res, req, projectID, user2ID)
+
+	require.Equal(t, 409, res.Code)
+}
+
+func TestGetUserDevicesDoesNotExposeToken(t *testing.T) {
+	t.Parallel()
+
+	controller, projectID, actorCtx := TNewUsersController(t)
+	ctx := context.Background()
+
+	usersStore := controller.users.UsersStore
+	userID, err := usersStore.CreateUser(ctx, projectID, nil, nil, json.RawMessage(`{}`), nil, nil, []subjects.ExternalIDParam{{Source: "anonymous", ExternalID: "anon_devices_no_token"}})
+	require.NoError(t, err)
+
+	token := "super-secret-token"
+	_, err = controller.users.CreateDevice(ctx, subjects.Device{
+		ProjectID: projectID,
+		UserID:    userID,
+		DeviceID:  "device-no-token",
+		Config: &subjects.PushConfig{
+			Type:  subjects.PushConfigTypeAPNs,
+			Token: token,
+		},
+		OS:    ptr.To("ios"),
+		Model: ptr.To("iPhone"),
+	})
+	require.NoError(t, err)
+
+	res := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/users/"+userID.String()+"/devices", nil)
+	req = req.WithContext(actorCtx)
+
+	controller.GetUserDevices(res, req, projectID, userID)
+
+	require.Equal(t, 200, res.Code)
+
+	var response oapi.UserDeviceList
+	err = json.Unmarshal(res.Body.Bytes(), &response)
+	require.NoError(t, err)
+	require.Len(t, response.Results, 1)
 }
 
 func TestImportUsers(t *testing.T) {
@@ -812,10 +956,10 @@ func TestImportUsers(t *testing.T) {
 			jet, err := pubsub.New(gracefulCtx, cfg)
 			require.NoError(t, err)
 
-			err = consumer.Bootstrap(gracefulCtx, logger, jet)
+			err = consumer.Bootstrap(gracefulCtx, logger, jet, "")
 			require.NoError(t, err)
 
-			pub := pubsub.NewPublisher(jet)
+			pub := pubsub.NewPublisher(jet, "")
 
 			orgsStore := management.NewOrganizationsStore(mgmtDB)
 			orgID, err := orgsStore.CreateOrganization(ctx, "Test Org")
@@ -830,9 +974,15 @@ func TestImportUsers(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			usersStore := users.NewUsersStore(usrsDB)
+			actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+				rbac.WithOrganizationID(orgID),
+				rbac.WithProjectID(projectID),
+			)
+			engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
+			usersStore := subjects.NewUsersStore(usrsDB)
 			mgmt := management.NewState(mgmtDB)
-			controller := NewUsersController(logger, pub, usrsDB, jrnyDB, mgmt, 32<<20)
+			controller := NewUsersController(logger, pub, usrsDB, jrnyDB, mgmt, 32<<20, engine)
 
 			body := &bytes.Buffer{}
 			writer := multipart.NewWriter(body)
@@ -853,7 +1003,7 @@ func TestImportUsers(t *testing.T) {
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("POST", fmt.Sprintf("/api/admin/projects/%s/users/import", projectID), body)
 			req.Header.Set("Content-Type", writer.FormDataContentType())
-			req = req.WithContext(claim.WithSession(req.Context(), validSession()))
+			req = req.WithContext(actorCtx)
 
 			controller.ImportUsers(res, req, projectID)
 

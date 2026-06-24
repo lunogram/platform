@@ -1,0 +1,121 @@
+---
+title: Quick Start
+description: Get up and running with Lunogram using Docker Compose
+---
+
+import { Cards, Card } from "fumadocs-ui/components/card";
+
+<div className="rounded-xl border bg-muted/50 p-6 mb-8 not-prose">
+  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div>
+      <span className="font-semibold leading-none block">
+        Want to skip the setup?
+      </span>
+      <span className="text-sm text-muted-foreground block mt-1">
+        Get started in minutes with Lunogram Cloud. No infrastructure to
+        maintain.
+      </span>
+    </div>
+    <Button asChild className="shrink-0">
+      <a href="https://console.lunogram.com" className="no-underline">
+        Try Lunogram Cloud
+      </a>
+    </Button>
+  </div>
+</div>
+
+This guide gets you from zero to a running self-hosted Lunogram instance in under 5 minutes.
+
+<Callout type="info">
+  **Prerequisites:** Make sure you have
+  [Docker](https://docs.docker.com/get-docker/) installed and running on your
+  machine.
+</Callout>
+
+## Install & Run
+
+```bash
+git clone https://github.com/lunogram/platform.git
+cd platform
+docker compose up -d
+```
+
+That's it. Lunogram is now running at [http://localhost:8080](http://localhost:8080).
+
+## Log In
+
+Use the default credentials to access the dashboard:
+
+| Field    | Value             |
+| -------- | ----------------- |
+| Email    | `admin@localhost` |
+| Password | `admin`           |
+
+<Callout type="warn">
+  Change these credentials before deploying to production.
+</Callout>
+
+## What's Running
+
+Docker Compose starts everything you need:
+
+| Service    | Purpose          | Port |
+| ---------- | ---------------- | ---- |
+| Lunogram   | Main application | 8080 |
+| PostgreSQL | Database         | 5432 |
+| Redis      | Caching          | 6379 |
+| NATS       | Event streaming  | 4222 |
+
+## Your First Campaign
+
+Once logged in, you'll go through a quick onboarding to create your first project. Then:
+
+<Cards>
+  <Card title="1. Add an Integration" href="/integrations">
+    Connect an email provider like Resend or Twilio for SMS.
+  </Card>
+  <Card title="2. Create a List" href="lists">
+    Define which users should receive your messages.
+  </Card>
+  <Card title="3. Build a Campaign" href="campaigns">
+    Design your message and send it.
+  </Card>
+  <Card title="4. Set Up a Journey" href="journeys">
+    Automate messages based on user behavior.
+  </Card>
+</Cards>
+
+## Integrate Your App
+
+Start tracking users and events:
+
+```bash
+npm install @lunogram/js-sdk
+```
+
+```javascript
+import { Lunogram } from "@lunogram/js-sdk";
+
+const lunogram = new Lunogram(
+  "<session-token>", // minted by your backend — see Settings → Access
+  "http://localhost:8080/api",
+);
+
+await lunogram.user.upsert({
+  identifier: [{ externalId: "user_123" }],
+  email: "user@example.com",
+});
+await lunogram.user.events.post([{ name: "user.signed_up" }]);
+```
+
+<Cards>
+  <Card title="JavaScript SDK" href="/sdks/javascript">
+    For web browsers and Node.js
+  </Card>
+  <Card title="iOS SDK" href="/sdks/ios">
+    For Swift applications
+  </Card>
+  <Card title="Android SDK" href="/sdks/android">
+    For Kotlin/Java applications
+  </Card>
+</Cards>

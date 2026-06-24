@@ -2,20 +2,54 @@ package v1
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/lunogram/platform/internal/claim/rbac"
+	"github.com/lunogram/platform/internal/config"
+	"github.com/lunogram/platform/internal/ptr"
+	"github.com/lunogram/platform/internal/pubsub"
+	"github.com/lunogram/platform/internal/rbac"
 
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
+	"github.com/lunogram/platform/internal/pubsub/schemas"
+	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/management"
 	teststore "github.com/lunogram/platform/internal/store/test"
+	"github.com/lunogram/platform/internal/webhook"
+	webhookoapi "github.com/lunogram/platform/oapi"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
+
+type publishedMessage struct {
+	subject schemas.Subject
+	data    []byte
+}
+
+type recordingPublisher struct {
+	messages []publishedMessage
+}
+
+func (r *recordingPublisher) Publish(_ context.Context, subject schemas.Subject, v any, _ ...pubsub.PublishOption) error {
+	data, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	r.messages = append(r.messages, publishedMessage{subject: subject, data: data})
+	return nil
+}
+
+type failingPublisher struct{}
+
+func (f *failingPublisher) Publish(_ context.Context, _ schemas.Subject, _ any, _ ...pubsub.PublishOption) error {
+	return errors.New("publish failed")
+}
 
 func TestCreateProject(t *testing.T) {
 	t.Parallel()
@@ -39,7 +73,12 @@ func TestCreateProject(t *testing.T) {
 	admin, err := admins.GetAdmin(ctx, adminID)
 	require.NoError(t, err)
 
-	projects := NewProjectsController(logger, mgmt, usrs, jrny)
+	actor := rbac.NewActor(rbac.ActorAdmin, adminID.String(),
+		rbac.WithOrganizationID(admin.OrganizationID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "")
+
+	projects := NewProjectsController(logger, mgmt, usrs, jrny, nil, nil, engine)
 
 	type test struct {
 		body oapi.CreateProjectJSONRequestBody
@@ -51,25 +90,16 @@ func TestCreateProject(t *testing.T) {
 			body: oapi.CreateProjectJSONRequestBody{
 				Name:     "Test Project",
 				Timezone: "America/New_York",
-				Locale:   "en-US",
+				Locale:   "en",
 			},
 			code: http.StatusCreated,
 		},
 		"with description": {
 			body: oapi.CreateProjectJSONRequestBody{
 				Name:        "Test Project",
-				Description: ptr("A test project"),
+				Description: ptr.To("A test project"),
 				Timezone:    "America/New_York",
-				Locale:      "en-US",
-			},
-			code: http.StatusCreated,
-		},
-		"with tools": {
-			body: oapi.CreateProjectJSONRequestBody{
-				Name:     "Test Project",
-				Timezone: "America/New_York",
-				Locale:   "en-US",
-				Tools:    &[]string{"analytics", "reporting"},
+				Locale:      "en",
 			},
 			code: http.StatusCreated,
 		},
@@ -82,11 +112,7 @@ func TestCreateProject(t *testing.T) {
 
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("POST", "/api/admin/projects", bytes.NewReader(bb))
-
-			claimAdmin := &rbac.Scope{
-				OrganizationID: admin.OrganizationID,
-			}
-			req = req.WithContext(rbac.WithScope(req.Context(), claimAdmin))
+			req = req.WithContext(actorCtx)
 
 			projects.CreateProject(res, req)
 
@@ -133,7 +159,7 @@ func TestListProjects(t *testing.T) {
 			OrganizationID: &orgID,
 			Name:           "Test Project",
 			Timezone:       "UTC",
-			Locale:         "en-US",
+			Locale:         "en",
 		})
 		require.NoError(t, err)
 
@@ -141,15 +167,16 @@ func TestListProjects(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	projects := NewProjectsController(logger, mgmt, usrs, jrny)
+	actor := rbac.NewActor(rbac.ActorAdmin, adminID.String(),
+		rbac.WithOrganizationID(admin.OrganizationID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "")
+
+	projects := NewProjectsController(logger, mgmt, usrs, jrny, nil, nil, engine)
 
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/api/admin/projects", nil)
-
-	claimAdmin := &rbac.Scope{
-		OrganizationID: admin.OrganizationID,
-	}
-	req = req.WithContext(rbac.WithScope(req.Context(), claimAdmin))
+	req = req.WithContext(actorCtx)
 
 	limit := oapi.PaginationLimit(10)
 	offset := oapi.PaginationOffset(0)
@@ -196,22 +223,23 @@ func TestGetProject(t *testing.T) {
 		OrganizationID: &orgID,
 		Name:           "Test Project",
 		Timezone:       "UTC",
-		Locale:         "en-US",
+		Locale:         "en",
 	})
 	require.NoError(t, err)
 
 	err = projectStore.AddProjectAdmin(ctx, projectID, adminID, "admin")
 	require.NoError(t, err)
 
-	projects := NewProjectsController(logger, mgmt, usrs, jrny)
+	actor := rbac.NewActor(rbac.ActorAdmin, adminID.String(),
+		rbac.WithOrganizationID(admin.OrganizationID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "")
+
+	projects := NewProjectsController(logger, mgmt, usrs, jrny, nil, nil, engine)
 
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String(), nil)
-
-	claimAdmin := &rbac.Scope{
-		OrganizationID: admin.OrganizationID,
-	}
-	req = req.WithContext(rbac.WithScope(req.Context(), claimAdmin))
+	req = req.WithContext(actorCtx)
 
 	projects.GetProject(res, req, projectID)
 
@@ -251,14 +279,19 @@ func TestUpdateProject(t *testing.T) {
 		OrganizationID: &orgID,
 		Name:           "Test Project",
 		Timezone:       "UTC",
-		Locale:         "en-US",
+		Locale:         "en",
 	})
 	require.NoError(t, err)
 
 	err = projectStore.AddProjectAdmin(ctx, projectID, adminID, "admin")
 	require.NoError(t, err)
 
-	projects := NewProjectsController(logger, mgmt, usrs, jrny)
+	actor := rbac.NewActor(rbac.ActorAdmin, adminID.String(),
+		rbac.WithOrganizationID(admin.OrganizationID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "")
+
+	projects := NewProjectsController(logger, mgmt, usrs, jrny, nil, nil, engine)
 
 	type test struct {
 		body oapi.UpdateProjectJSONRequestBody
@@ -268,13 +301,13 @@ func TestUpdateProject(t *testing.T) {
 	tests := map[string]test{
 		"update name": {
 			body: oapi.UpdateProjectJSONRequestBody{
-				Name: ptr("Updated Project"),
+				Name: ptr.To("Updated Project"),
 			},
 			code: http.StatusOK,
 		},
 		"update timezone": {
 			body: oapi.UpdateProjectJSONRequestBody{
-				Timezone: ptr("America/Los_Angeles"),
+				Timezone: ptr.To("America/Los_Angeles"),
 			},
 			code: http.StatusOK,
 		},
@@ -287,11 +320,7 @@ func TestUpdateProject(t *testing.T) {
 
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("PATCH", "/api/admin/projects/"+projectID.String(), bytes.NewReader(bb))
-
-			claimAdmin := &rbac.Scope{
-				OrganizationID: admin.OrganizationID,
-			}
-			req = req.WithContext(rbac.WithScope(req.Context(), claimAdmin))
+			req = req.WithContext(actorCtx)
 
 			projects.UpdateProject(res, req, projectID)
 
@@ -312,4 +341,179 @@ func TestUpdateProject(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestCreateProjectWebhook(t *testing.T) {
+	t.Parallel()
+
+	logger := zaptest.NewLogger(t)
+	ctx := t.Context()
+	mgmt, usrs, jrny := teststore.RunPostgreSQL(t)
+
+	orgs := management.NewOrganizationsStore(mgmt)
+	orgID, err := orgs.CreateOrganization(ctx, "Test Organization")
+	require.NoError(t, err)
+
+	admins := management.NewAdminsStore(mgmt)
+	adminID, err := admins.CreateAdmin(ctx, management.Admin{
+		OrganizationID: orgID,
+		Email:          "test@example.com",
+		Role:           "admin",
+	})
+	require.NoError(t, err)
+
+	var called atomic.Bool
+	var receivedEvent webhookoapi.ProjectCreatedEvent
+
+	webhookServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called.Store(true)
+
+		require.Equal(t, http.MethodPost, r.Method)
+		require.Equal(t, "application/json", r.Header.Get("Content-Type"))
+		require.Equal(t, string(webhookoapi.ProjectCreated), r.Header.Get("X-Webhook-Event"))
+
+		err := json.NewDecoder(r.Body).Decode(&receivedEvent)
+		require.NoError(t, err)
+
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer webhookServer.Close()
+
+	caller := webhook.NewCaller(logger, config.Webhook{
+		ProjectCreatedURL: webhookServer.URL,
+	})
+
+	actor := rbac.NewActor(rbac.ActorAdmin, adminID.String(),
+		rbac.WithOrganizationID(orgID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "")
+
+	projects := NewProjectsController(logger, mgmt, usrs, jrny, caller, nil, engine)
+
+	body := oapi.CreateProjectJSONRequestBody{
+		Name:     "Webhook Test Project",
+		Timezone: "America/New_York",
+		Locale:   "en",
+	}
+
+	bb, err := json.Marshal(body)
+	require.NoError(t, err)
+
+	res := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/admin/projects", bytes.NewReader(bb))
+	req = req.WithContext(actorCtx)
+
+	projects.CreateProject(res, req)
+
+	require.Equal(t, http.StatusCreated, res.Code, res.Body.String())
+	require.True(t, called.Load(), "webhook should have been called")
+
+	require.Equal(t, webhookoapi.ProjectCreated, receivedEvent.Event)
+	require.Equal(t, "Webhook Test Project", receivedEvent.Project.Name)
+	require.Equal(t, orgID, receivedEvent.Project.OrganizationId)
+	require.NotEqual(t, uuid.Nil, receivedEvent.Project.Id)
+}
+
+func TestCreateProjectPublishesNATSEvent(t *testing.T) {
+	t.Parallel()
+
+	logger := zaptest.NewLogger(t)
+	ctx := t.Context()
+	mgmt, usrs, jrny := teststore.RunPostgreSQL(t)
+
+	orgs := management.NewOrganizationsStore(mgmt)
+	orgID, err := orgs.CreateOrganization(ctx, "Test Organization")
+	require.NoError(t, err)
+
+	admins := management.NewAdminsStore(mgmt)
+	adminID, err := admins.CreateAdmin(ctx, management.Admin{
+		OrganizationID: orgID,
+		Email:          "test@example.com",
+		Role:           "admin",
+	})
+	require.NoError(t, err)
+
+	pub := &recordingPublisher{}
+
+	actor := rbac.NewActor(rbac.ActorAdmin, adminID.String(),
+		rbac.WithOrganizationID(orgID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "")
+
+	projects := NewProjectsController(logger, mgmt, usrs, jrny, nil, pub, engine)
+
+	body := oapi.CreateProjectJSONRequestBody{
+		Name:     "NATS Test Project",
+		Timezone: "America/New_York",
+		Locale:   "en",
+	}
+
+	bb, err := json.Marshal(body)
+	require.NoError(t, err)
+
+	res := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/admin/projects", bytes.NewReader(bb))
+	req = req.WithContext(actorCtx)
+
+	projects.CreateProject(res, req)
+
+	require.Equal(t, http.StatusCreated, res.Code, res.Body.String())
+	require.Len(t, pub.messages, 1, "expected one NATS event to be published")
+
+	expectedSubject := schemas.ProjectEventsProcess(orgID)
+	require.Equal(t, expectedSubject, pub.messages[0].subject)
+
+	var event schemas.ProjectEvent
+	err = json.Unmarshal(pub.messages[0].data, &event)
+	require.NoError(t, err)
+	require.Equal(t, schemas.EventProjectCreated, event.Name)
+	require.Equal(t, orgID, event.OrganizationID)
+	require.NotEqual(t, uuid.Nil, event.ID)
+	require.Equal(t, "NATS Test Project", event.Data["name"])
+	require.Equal(t, "America/New_York", event.Data["timezone"])
+	require.Equal(t, "en", event.Data["locale"])
+}
+
+func TestCreateProjectRollbackOnPublishFailure(t *testing.T) {
+	t.Parallel()
+
+	logger := zaptest.NewLogger(t)
+	ctx := t.Context()
+	mgmt, usrs, jrny := teststore.RunPostgreSQL(t)
+
+	orgs := management.NewOrganizationsStore(mgmt)
+	orgID, err := orgs.CreateOrganization(ctx, "Test Organization")
+	require.NoError(t, err)
+
+	pub := &failingPublisher{}
+
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(orgID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "")
+
+	projects := NewProjectsController(logger, mgmt, usrs, jrny, nil, pub, engine)
+
+	body := oapi.CreateProjectJSONRequestBody{
+		Name:     "Rollback Test Project",
+		Timezone: "America/New_York",
+		Locale:   "en",
+	}
+
+	bb, err := json.Marshal(body)
+	require.NoError(t, err)
+
+	res := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/admin/projects", bytes.NewReader(bb))
+	req = req.WithContext(actorCtx)
+
+	projects.CreateProject(res, req)
+
+	require.Equal(t, http.StatusInternalServerError, res.Code, "request should fail when publish fails")
+
+	// Verify the project was not persisted (transaction was rolled back)
+	mgmtState := management.NewState(mgmt)
+	_, total, err := mgmtState.ListProjects(ctx, orgID, store.Pagination{Limit: 10, Offset: 0}, "")
+	require.NoError(t, err)
+	require.Equal(t, 0, total, "project should not exist after rollback")
 }

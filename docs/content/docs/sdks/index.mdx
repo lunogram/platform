@@ -1,0 +1,47 @@
+---
+title: SDKs
+description: Official libraries for integrating Lunogram into your applications
+---
+
+import { Cards, Card } from "fumadocs-ui/components/card";
+
+Lunogram provides official SDKs to integrate user tracking, event ingestion, and push notifications into your applications. All SDKs wrap the [Client API](/api/client) and handle authentication, request formatting, and error handling for you.
+
+## Available SDKs
+
+<Cards>
+  <Card title="JavaScript" href="/sdks/javascript">
+    For web browsers and Node.js. Available on npm.
+  </Card>
+  <Card title="iOS (Swift)" href="/sdks/ios">
+    For iOS and Mac Catalyst applications. Coming soon.
+  </Card>
+  <Card title="Android (Kotlin)" href="/sdks/android">
+    For Android applications. Coming soon.
+  </Card>
+</Cards>
+
+## Core functionality
+
+Every SDK provides the same set of capabilities:
+
+| Feature                     | Description                                                          |
+| --------------------------- | -------------------------------------------------------------------- |
+| **User identification**     | Create and update user profiles with custom attributes               |
+| **Event tracking**          | Record user actions that trigger journeys and update list membership |
+| **Organization management** | Group users into organizations with shared attributes and events     |
+| **Scheduling**              | Create recurring or one-time schedules that emit events              |
+| **Device registration**     | Register devices for push notification delivery                      |
+| **Deeplink handling**       | Unwrap Lunogram tracking links for universal/app link support        |
+
+## Authentication
+
+Browser and mobile SDKs authenticate as a **verified end user** — there is no key to embed in client-side code. Use either a JWT from your own identity provider (a **trusted issuer**) or a short-lived **session** token minted by your backend. Each is scoped to that user's own data (events, users, and their own inbox, preferences and profile).
+
+From a server you can instead send a private **API key** (`sk_`) as a Bearer token — see the `Client` class in the [JavaScript SDK](/sdks/javascript). API keys are backend-only and are rejected on browser-originated requests.
+
+See [Access](/settings/access) to configure any of these auth methods in your project settings.
+
+## Direct API access
+
+If an SDK is not available for your language, you can integrate directly with the [Client API](/api/client). The API accepts standard JSON requests with a Bearer token and is straightforward to call from any HTTP client.

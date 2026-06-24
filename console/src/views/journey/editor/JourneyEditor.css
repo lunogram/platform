@@ -1,0 +1,294 @@
+/* --- Editing state: dim non-editing nodes --- */
+.journey-editor .journey-editing .react-flow__node {
+    opacity: 0.4;
+    transition: opacity 0.2s ease;
+}
+
+.journey-editor .journey-editing .react-flow__node:has(.journey-editing-active) {
+    opacity: 1;
+}
+
+/* --- Active pulse animation (orange border glow) --- */
+@keyframes busy-pulse {
+    0% {
+        border-color: rgba(249, 115, 22, 1);
+        box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.4);
+    }
+    70% {
+        border-color: rgba(249, 115, 22, 1);
+        box-shadow: 0 0 0 10px rgba(249, 115, 22, 0);
+    }
+    100% {
+        border-color: rgba(249, 115, 22, 1);
+        box-shadow: 0 0 0 0 rgba(249, 115, 22, 0);
+    }
+}
+
+.journey-active-pulse {
+    animation: busy-pulse 2s infinite;
+}
+
+/* Lift the nodes layer above React Flow's connection-line SVG
+   (which ships with z-index: 1001 in @xyflow/react/dist/style.css).
+   Without this, a dragged connection paints on top of the source
+   pill — visually the line appears to emerge in front of the
+   chevron rather than from behind it. Nodes already sit visually
+   above edges via DOM order; making the stacking explicit lets
+   the pill (and the rest of each card) win over the live
+   connection line during a drag. */
+.journey-editor .react-flow__nodes {
+    z-index: 1002;
+}
+
+.journey-editor .react-flow__handle {
+    width: 12px;
+    height: 12px;
+    border: 1px solid var(--border);
+    background: var(--background);
+    border-radius: 9999px;
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.06);
+    transition:
+        background 0.15s ease,
+        border-color 0.15s ease,
+        transform 0.15s ease,
+        opacity 0.15s ease;
+}
+
+.journey-editor .react-flow__handle::before,
+.journey-editor .react-flow__handle::after {
+    content: none;
+}
+
+.journey-editor .react-flow__handle.connectionindicator {
+    cursor: crosshair;
+}
+
+/* --- Source handle: bottom-center port, half overlapping the card edge --- */
+.journey-editor .journey-handle-source {
+    bottom: 0;
+    transform: translate(-50%, 50%);
+    opacity: 0.7;
+}
+
+.journey-editor .react-flow__node:hover .journey-handle-source,
+.journey-editor .react-flow__node.selected .journey-handle-source {
+    opacity: 1;
+    border-color: var(--primary);
+}
+
+.journey-editor .journey-handle-source.connectingfrom,
+.journey-editor .journey-handle-source:hover {
+    opacity: 1;
+    background: var(--primary);
+    border-color: var(--primary);
+    transform: translate(-50%, 50%) scale(1.15);
+}
+
+/* --- Source handle: "connect me" affordance ---
+   Rendered when the editor detects an unconnected step elsewhere on the
+   canvas (or when the user has only just dropped their first step). The real
+   React Flow handle stays as the 12px bottom-edge dot so edge geometry still
+   starts at the card. The larger chevron circle is an overflow child below
+   that anchor, painted in the step's category palette. A soft filled halo
+   radiates outward — never inward — to draw the eye without breathing. */
+.journey-editor .journey-handle-source.journey-handle-suggest {
+    border-radius: 9999px;
+    background: var(--hint-ring, var(--primary));
+    border-color: var(--hint-border, var(--primary));
+    opacity: 1;
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.08);
+    /* Override the base handle transition so toggling the suggest class
+       doesn't animate the geometry shift (bottom + transform), which
+       otherwise reads as the pill "floating in" from the card edge. We
+       still want color/background to ease for hover, so list those only. */
+    transition:
+        background-color 0.15s ease,
+        border-color 0.15s ease,
+        color 0.15s ease;
+}
+
+.dark .journey-editor .journey-handle-source.journey-handle-suggest {
+    background: var(--hint-ring, var(--primary));
+    border-color: var(--hint-border-dark, var(--primary));
+}
+
+.journey-editor .journey-handle-suggest-inner {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border: 1px solid var(--hint-border, var(--primary));
+    border-radius: 9999px;
+    background: var(--hint-bg, var(--background));
+    color: var(--hint-fg, var(--primary));
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.08);
+    isolation: isolate;
+    pointer-events: auto;
+    transform: translate(-50%, -50%);
+    transition:
+        background-color 0.15s ease,
+        border-color 0.15s ease,
+        color 0.15s ease,
+        transform 0.15s ease;
+}
+
+.dark .journey-editor .journey-handle-suggest-inner {
+    background: var(--hint-bg-dark, var(--background));
+    border-color: var(--hint-border-dark, var(--primary));
+    color: var(--hint-fg-dark, var(--primary));
+}
+
+/* The pulse uses a pseudo-element halo painted with the ring color so the
+   animation reads as a soft outward glow rather than a thin ring. The halo
+   only travels outward — no inward breathe — for a calmer cadence. */
+.journey-editor .journey-handle-suggest-inner::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background: var(--hint-ring, var(--primary));
+    opacity: 0;
+    z-index: -1;
+    animation: journey-connect-pulse 2.4s ease-out infinite;
+}
+
+.journey-editor
+    .journey-handle-source.journey-handle-suggest:hover
+    .journey-handle-suggest-inner::after,
+.journey-editor
+    .journey-handle-source.journey-handle-suggest.connectingfrom
+    .journey-handle-suggest-inner::after {
+    animation: none;
+}
+
+.journey-editor .journey-handle-source.journey-handle-suggest:hover,
+.journey-editor .journey-handle-source.journey-handle-suggest.connectingfrom {
+    background: var(--hint-ring, var(--primary));
+    border-color: var(--hint-ring, var(--primary));
+    transform: translate(-50%, 50%);
+}
+
+.journey-editor .journey-handle-source.journey-handle-suggest:hover .journey-handle-suggest-inner,
+.journey-editor
+    .journey-handle-source.journey-handle-suggest.connectingfrom
+    .journey-handle-suggest-inner {
+    background: var(--hint-ring, var(--primary));
+    color: var(--background);
+    border-color: var(--hint-ring, var(--primary));
+    transform: translate(-50%, -50%) scale(1.08);
+}
+
+.dark
+    .journey-editor
+    .journey-handle-source.journey-handle-suggest:hover
+    .journey-handle-suggest-inner,
+.dark
+    .journey-editor
+    .journey-handle-source.journey-handle-suggest.connectingfrom
+    .journey-handle-suggest-inner {
+    color: var(--color-zinc-950, #0a0a0a);
+}
+
+@keyframes journey-connect-pulse {
+    0% {
+        opacity: 0.45;
+        transform: scale(1);
+    }
+    100% {
+        opacity: 0;
+        transform: scale(2);
+    }
+}
+
+/* --- Target handle: top-center port, hidden until a connection is being dragged --- */
+.journey-editor .journey-handle-target {
+    top: 0;
+    transform: translate(-50%, -50%);
+    opacity: 0;
+    pointer-events: auto;
+}
+
+/* While a connection is being dragged, reveal target ports across all nodes.
+   Scope the :has() selector to the .react-flow root so the rule never matches
+   the document body and only fires inside the editor. */
+.journey-editor .react-flow:has(.react-flow__connection) .journey-handle-target {
+    opacity: 0.7;
+}
+
+.journey-editor .journey-handle-target.connectionindicator:hover,
+.journey-editor .journey-handle-target.connectingto.valid {
+    opacity: 1;
+    background: var(--primary);
+    border-color: var(--primary);
+    transform: translate(-50%, -50%) scale(1.15);
+}
+
+.journey-editor .journey-handle-target.connectingto:not(.valid) {
+    opacity: 1;
+    background: var(--destructive);
+    border-color: var(--destructive);
+}
+
+/* --- Edges --- */
+.journey-editor .react-flow__edge-path,
+.journey-editor .react-flow__connection-path {
+    stroke-width: 1.5;
+}
+
+.journey-editor .react-flow__edge .react-flow__edge-path {
+    /* Fallback for browsers without color-mix() (e.g. older Safari/Firefox). */
+    stroke: var(--muted-foreground);
+    opacity: 0.6;
+}
+
+@supports (color: color-mix(in oklch, red, blue)) {
+    .journey-editor .react-flow__edge .react-flow__edge-path {
+        stroke: color-mix(in oklch, var(--muted-foreground), transparent 40%);
+        opacity: 1;
+    }
+}
+
+.journey-editor .react-flow__edge.selected .react-flow__edge-path,
+.journey-editor .react-flow__edge:focus .react-flow__edge-path,
+.journey-editor .react-flow__edge:focus-visible .react-flow__edge-path {
+    stroke: var(--primary);
+}
+
+.journey-editor .react-flow__edge.animated .react-flow__edge-path,
+.journey-editor .journey-connection-line {
+    stroke-dasharray: 4 6;
+    animation: journey-flow-dash 1.1s linear infinite;
+}
+
+.journey-editor .journey-connection-line-shadow {
+    stroke: var(--background);
+    stroke-width: 3.5;
+    stroke-linecap: round;
+    opacity: 0.9;
+}
+
+.journey-editor .journey-connection-line {
+    stroke: var(--primary);
+    stroke-width: 1.5;
+    stroke-linecap: round;
+}
+
+.journey-editor .journey-connection-invalid .journey-connection-line {
+    stroke: var(--destructive);
+}
+
+@keyframes journey-flow-dash {
+    to {
+        stroke-dashoffset: -10;
+    }
+}
+
+/* --- Hide ReactFlow attribution --- */
+.journey-editor .react-flow__attribution {
+    display: none;
+}

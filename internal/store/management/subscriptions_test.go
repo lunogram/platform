@@ -22,7 +22,7 @@ func TestSubscriptionsStore(t *testing.T) {
 		OrganizationID: &orgID,
 		Name:           "Test Project",
 		Timezone:       "UTC",
-		Locale:         "en-US",
+		Locale:         "en",
 	})
 	require.NoError(t, err)
 
@@ -56,5 +56,39 @@ func TestSubscriptionsStore(t *testing.T) {
 		require.NoError(t, err)
 		assert.GreaterOrEqual(t, total, 1)
 		assert.GreaterOrEqual(t, len(subs), 1)
+	})
+
+	t.Run("IsUserUnsubscribed", func(t *testing.T) {
+		subID, err := db.CreateSubscription(ctx, Subscription{
+			ProjectID: projectID,
+			Name:      "Promotions",
+			Channel:   "email",
+			IsPublic:  true,
+		})
+		require.NoError(t, err)
+
+		userID := uuid.New()
+
+		t.Run("returns false when no record exists", func(t *testing.T) {
+			unsubscribed, err := db.IsUserUnsubscribed(ctx, userID, subID)
+			require.NoError(t, err)
+			assert.False(t, unsubscribed)
+		})
+
+		t.Run("returns true after unsubscribe", func(t *testing.T) {
+			require.NoError(t, db.Unsubscribe(ctx, userID, subID))
+
+			unsubscribed, err := db.IsUserUnsubscribed(ctx, userID, subID)
+			require.NoError(t, err)
+			assert.True(t, unsubscribed)
+		})
+
+		t.Run("returns false after re-subscribe", func(t *testing.T) {
+			require.NoError(t, db.Subscribe(ctx, userID, subID))
+
+			unsubscribed, err := db.IsUserUnsubscribed(ctx, userID, subID)
+			require.NoError(t, err)
+			assert.False(t, unsubscribed)
+		})
 	})
 }

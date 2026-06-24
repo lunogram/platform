@@ -9,6 +9,8 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
+	"github.com/lunogram/platform/internal/ptr"
+	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/store/management"
 	teststore "github.com/lunogram/platform/internal/store/test"
 	"github.com/stretchr/testify/require"
@@ -26,7 +28,13 @@ func TestSubscriptionCreation(t *testing.T) {
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	subs := NewSubscriptionsController(logger, mgmt)
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(uuid.New()),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
+	subs := NewSubscriptionsController(logger, mgmt, engine)
 
 	isPublicTrue := true
 	isPublicFalse := false
@@ -48,7 +56,7 @@ func TestSubscriptionCreation(t *testing.T) {
 		"sms-subscription": {
 			body: oapi.CreateSubscriptionJSONRequestBody{
 				Name:     "Order Updates",
-				Channel:  oapi.Channel("text"),
+				Channel:  oapi.Channel("sms"),
 				IsPublic: &isPublicTrue,
 			},
 			code: 201,
@@ -70,6 +78,7 @@ func TestSubscriptionCreation(t *testing.T) {
 
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("POST", "/v1/subscriptions", bytes.NewReader(bb))
+			req = req.WithContext(actorCtx)
 			subs.CreateSubscription(res, req, projectID)
 
 			require.Equal(t, test.code, res.Code, res.Body.String())
@@ -101,7 +110,13 @@ func TestListSubscriptions(t *testing.T) {
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	subs := NewSubscriptionsController(logger, mgmt)
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(uuid.New()),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
+	subs := NewSubscriptionsController(logger, mgmt, engine)
 
 	// Create some test subscriptions
 	isPublic := true
@@ -117,6 +132,7 @@ func TestListSubscriptions(t *testing.T) {
 
 		res := httptest.NewRecorder()
 		req := httptest.NewRequest("POST", "/v1/subscriptions", bytes.NewReader(bb))
+		req = req.WithContext(actorCtx)
 		subs.CreateSubscription(res, req, projectID)
 		require.Equal(t, 201, res.Code, "failed to create subscription %d", i)
 	}
@@ -124,10 +140,11 @@ func TestListSubscriptions(t *testing.T) {
 	// List subscriptions
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/v1/subscriptions?limit=10&offset=0", nil)
+	req = req.WithContext(actorCtx)
 
 	params := oapi.ListSubscriptionsParams{
-		Limit:  ptr(oapi.PaginationLimit(10)),
-		Offset: ptr(oapi.PaginationOffset(0)),
+		Limit:  ptr.To(oapi.PaginationLimit(10)),
+		Offset: ptr.To(oapi.PaginationOffset(0)),
 	}
 
 	subs.ListSubscriptions(res, req, projectID, params)
@@ -151,7 +168,13 @@ func TestUpdateSubscription(t *testing.T) {
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	subs := NewSubscriptionsController(logger, mgmt)
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(uuid.New()),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
+	subs := NewSubscriptionsController(logger, mgmt, engine)
 
 	// Create a subscription
 	isPublic := true
@@ -166,6 +189,7 @@ func TestUpdateSubscription(t *testing.T) {
 
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/v1/subscriptions", bytes.NewReader(bb))
+	req = req.WithContext(actorCtx)
 	subs.CreateSubscription(res, req, projectID)
 	require.Equal(t, 201, res.Code)
 
@@ -184,6 +208,7 @@ func TestUpdateSubscription(t *testing.T) {
 
 	res = httptest.NewRecorder()
 	req = httptest.NewRequest("PATCH", "/v1/subscriptions/"+created.Id.String(), bytes.NewReader(bb))
+	req = req.WithContext(actorCtx)
 	subs.UpdateSubscription(res, req, projectID, created.Id)
 	require.Equal(t, 200, res.Code, res.Body.String())
 
@@ -206,7 +231,13 @@ func TestGetSubscription(t *testing.T) {
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	subs := NewSubscriptionsController(logger, mgmt)
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(uuid.New()),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
+	subs := NewSubscriptionsController(logger, mgmt, engine)
 
 	// Create a subscription
 	isPublic := true
@@ -221,6 +252,7 @@ func TestGetSubscription(t *testing.T) {
 
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/v1/subscriptions", bytes.NewReader(bb))
+	req = req.WithContext(actorCtx)
 	subs.CreateSubscription(res, req, projectID)
 	require.Equal(t, 201, res.Code)
 
@@ -231,6 +263,7 @@ func TestGetSubscription(t *testing.T) {
 	// Get the subscription
 	res = httptest.NewRecorder()
 	req = httptest.NewRequest("GET", "/v1/subscriptions/"+created.Id.String(), nil)
+	req = req.WithContext(actorCtx)
 	subs.GetSubscription(res, req, projectID, created.Id)
 	require.Equal(t, 200, res.Code, res.Body.String())
 
@@ -244,6 +277,7 @@ func TestGetSubscription(t *testing.T) {
 	// Test not found
 	res = httptest.NewRecorder()
 	req = httptest.NewRequest("GET", "/v1/subscriptions/"+uuid.New().String(), nil)
+	req = req.WithContext(actorCtx)
 	subs.GetSubscription(res, req, projectID, uuid.New())
 	require.Equal(t, 404, res.Code)
 }

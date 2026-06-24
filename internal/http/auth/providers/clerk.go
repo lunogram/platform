@@ -2,6 +2,7 @@ package providers
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"io"
@@ -29,17 +30,21 @@ type ClerkProvider struct {
 	logger        *zap.Logger
 	users         *user.Client
 	keyFunc       jwt.Keyfunc
+	rbac          RBACWriter
 }
 
-func NewClerkProvider(cfg config.ClerkAuth, mgmt *management.State, logger *zap.Logger, keyFunc jwt.Keyfunc) (_ *ClerkProvider, err error) {
-	clerk.SetKey(cfg.SecretKey)
-
+func NewClerkProvider(cfg config.ClerkAuth, mgmt *management.State, logger *zap.Logger, keyFunc jwt.Keyfunc, rbac RBACWriter) (_ *ClerkProvider, err error) {
 	provider := &ClerkProvider{
-		config:  cfg,
-		mgmt:    mgmt,
-		logger:  logger,
-		users:   user.NewClient(&clerk.ClientConfig{}),
+		config: cfg,
+		mgmt:   mgmt,
+		logger: logger,
+		users: user.NewClient(&clerk.ClientConfig{
+			BackendConfig: clerk.BackendConfig{
+				Key: &cfg.SecretKey,
+			},
+		}),
 		keyFunc: keyFunc,
+		rbac:    rbac,
 	}
 
 	if cfg.WebhookSecret != "" {
@@ -78,7 +83,7 @@ func (p *ClerkProvider) Authenticate(ctx context.Context, w http.ResponseWriter,
 		return ctx, nil
 	}
 
-	if err != nil {
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
 	}
 
@@ -103,6 +108,13 @@ func (p *ClerkProvider) Authenticate(ctx context.Context, w http.ResponseWriter,
 
 	admin.ID, err = p.mgmt.CreateAdmin(ctx, *admin)
 	if err != nil {
+		return nil, err
+	}
+
+	// Record the home-organization membership and grant the owner role in the
+	// RBAC engine so that subsequent permission checks (e.g. read profile,
+	// list/create projects) succeed.
+	if err := provisionMembership(ctx, p.mgmt, p.rbac, admin.ID, admin.OrganizationID, admin.Role); err != nil {
 		return nil, err
 	}
 
@@ -190,8 +202,18 @@ func (p *ClerkProvider) handleUserCreated(ctx context.Context, data json.RawMess
 		Role:           "owner",
 	}
 
-	_, err = p.mgmt.CreateAdmin(ctx, newAdmin)
-	return err
+	adminID, err := p.mgmt.CreateAdmin(ctx, newAdmin)
+	if err != nil {
+		return err
+	}
+
+	// Record the home-organization membership and grant the owner role in the
+	// RBAC engine so that subsequent permission checks succeed.
+	if err := provisionMembership(ctx, p.mgmt, p.rbac, adminID, orgID, newAdmin.Role); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (p *ClerkProvider) handleUserUpdated(ctx context.Context, data json.RawMessage) error {

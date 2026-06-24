@@ -1,0 +1,41 @@
+.preview {
+    background: var(--color-background-soft);
+    border-radius: var(--border-radius);
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: stretch;
+    border: 1px solid var(--color-grey);
+    flex-grow: 1;
+}
+
+.preview iframe {
+    overflow: auto;
+    min-height: 500px;
+    flex-grow: 1;
+}
+
+.preview.small {
+    height: 200px;
+    display: block;
+}
+
+.preview--inbox-detail {
+    align-items: center;
+    background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+    border: 0;
+    border-radius: 0;
+    padding: 1.5rem;
+}
+
+.preview--inbox-detail.small {
+    padding: 0;
+}
+
+.preview--sms-bottom {
+    align-items: flex-end;
+}
+
+.preview--inbox-detail.preview--sms-bottom {
+    padding-bottom: 0;
+}

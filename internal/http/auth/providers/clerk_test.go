@@ -19,7 +19,7 @@ import (
 
 func TestClerkProviderDriver(t *testing.T) {
 	cfg := config.ClerkAuth{SecretKey: "test"}
-	provider, err := NewClerkProvider(cfg, nil, zaptest.NewLogger(t), nil)
+	provider, err := NewClerkProvider(cfg, nil, zaptest.NewLogger(t), nil, nil)
 	require.NoError(t, err)
 	require.Equal(t, "clerk", provider.Driver())
 }
@@ -29,7 +29,7 @@ func TestClerkProviderAuthenticateNoToken(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	cfg := config.ClerkAuth{SecretKey: "test"}
-	provider, err := NewClerkProvider(cfg, nil, logger, nil)
+	provider, err := NewClerkProvider(cfg, nil, logger, nil, nil)
 	require.NoError(t, err)
 
 	req := httptest.NewRequest(http.MethodPost, "/auth/login/clerk/callback", nil)
@@ -42,7 +42,7 @@ func TestClerkProviderAuthenticateNoToken(t *testing.T) {
 func TestClerkProviderGetPrimaryEmail(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	cfg := config.ClerkAuth{SecretKey: "test"}
-	provider, err := NewClerkProvider(cfg, nil, logger, nil)
+	provider, err := NewClerkProvider(cfg, nil, logger, nil, nil)
 	require.NoError(t, err)
 
 	type test struct {
@@ -102,7 +102,7 @@ func TestClerkProviderGetPrimaryEmail(t *testing.T) {
 func TestClerkProviderWebhookNotConfigured(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	cfg := config.ClerkAuth{SecretKey: "test"}
-	provider, err := NewClerkProvider(cfg, nil, logger, nil)
+	provider, err := NewClerkProvider(cfg, nil, logger, nil, nil)
 	require.NoError(t, err)
 
 	req := httptest.NewRequest(http.MethodPost, "/auth/clerk/webhook", nil)
@@ -118,7 +118,7 @@ func TestClerkProviderHandleUserCreated(t *testing.T) {
 	stores := management.NewState(mgmt)
 
 	cfg := config.ClerkAuth{SecretKey: "test"}
-	provider, err := NewClerkProvider(cfg, stores, logger, nil)
+	provider, err := NewClerkProvider(cfg, stores, logger, nil, nil)
 	require.NoError(t, err)
 
 	primaryID := "email_primary"
@@ -166,7 +166,7 @@ func TestClerkProviderHandleUserCreatedAlreadyExists(t *testing.T) {
 	require.NoError(t, err)
 
 	cfg := config.ClerkAuth{SecretKey: "test"}
-	provider, err := NewClerkProvider(cfg, stores, logger, nil)
+	provider, err := NewClerkProvider(cfg, stores, logger, nil, nil)
 	require.NoError(t, err)
 
 	primaryID := "email_primary"
@@ -196,7 +196,7 @@ func TestClerkProviderHandleUserCreatedNoEmail(t *testing.T) {
 	stores := management.NewState(mgmt)
 
 	cfg := config.ClerkAuth{SecretKey: "test"}
-	provider, err := NewClerkProvider(cfg, stores, logger, nil)
+	provider, err := NewClerkProvider(cfg, stores, logger, nil, nil)
 	require.NoError(t, err)
 
 	userData := clerk.User{
@@ -234,7 +234,7 @@ func TestClerkProviderHandleUserUpdated(t *testing.T) {
 	require.NoError(t, err)
 
 	cfg := config.ClerkAuth{SecretKey: "test"}
-	provider, err := NewClerkProvider(cfg, stores, logger, nil)
+	provider, err := NewClerkProvider(cfg, stores, logger, nil, nil)
 	require.NoError(t, err)
 
 	primaryID := "email_primary"
@@ -267,7 +267,7 @@ func TestClerkProviderHandleUserUpdatedNotFound(t *testing.T) {
 	stores := management.NewState(mgmt)
 
 	cfg := config.ClerkAuth{SecretKey: "test"}
-	provider, err := NewClerkProvider(cfg, stores, logger, nil)
+	provider, err := NewClerkProvider(cfg, stores, logger, nil, nil)
 	require.NoError(t, err)
 
 	primaryID := "email_primary"
@@ -305,7 +305,7 @@ func TestClerkProviderHandleUserDeleted(t *testing.T) {
 	require.NoError(t, err)
 
 	cfg := config.ClerkAuth{SecretKey: "test"}
-	provider, err := NewClerkProvider(cfg, stores, logger, nil)
+	provider, err := NewClerkProvider(cfg, stores, logger, nil, nil)
 	require.NoError(t, err)
 
 	userData := struct {
@@ -331,7 +331,7 @@ func TestClerkProviderHandleUserDeletedNotFound(t *testing.T) {
 	stores := management.NewState(mgmt)
 
 	cfg := config.ClerkAuth{SecretKey: "test"}
-	provider, err := NewClerkProvider(cfg, stores, logger, nil)
+	provider, err := NewClerkProvider(cfg, stores, logger, nil, nil)
 	require.NoError(t, err)
 
 	userData := struct {
@@ -353,12 +353,12 @@ func TestClerkProviderAuthenticateInvalidToken(t *testing.T) {
 	mgmt, _, _ := teststore.RunPostgreSQL(t)
 	stores := management.NewState(mgmt)
 
-	keyFunc := func(token *jwt.Token) (interface{}, error) {
+	keyFunc := func(token *jwt.Token) (any, error) {
 		return []byte("test-secret"), nil
 	}
 
 	cfg := config.ClerkAuth{SecretKey: "test"}
-	provider, err := NewClerkProvider(cfg, stores, logger, keyFunc)
+	provider, err := NewClerkProvider(cfg, stores, logger, keyFunc, nil)
 	require.NoError(t, err)
 
 	req := httptest.NewRequest(http.MethodPost, "/auth/login/clerk/callback", nil)

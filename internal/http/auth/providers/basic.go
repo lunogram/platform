@@ -23,13 +23,15 @@ type BasicProvider struct {
 	config    config.BasicAuth
 	mgmt      *management.State
 	generator TokenGenerator
+	rbac      RBACWriter
 }
 
-func NewBasicProvider(cfg config.BasicAuth, mgmt *management.State, generator TokenGenerator) *BasicProvider {
+func NewBasicProvider(cfg config.BasicAuth, mgmt *management.State, generator TokenGenerator, rbac RBACWriter) *BasicProvider {
 	return &BasicProvider{
 		config:    cfg,
 		mgmt:      mgmt,
 		generator: generator,
+		rbac:      rbac,
 	}
 }
 
@@ -95,6 +97,13 @@ func (p *BasicProvider) findOrCreateAdmin(ctx context.Context, email string) (*m
 
 	admin.ID, err = p.mgmt.CreateAdmin(ctx, *admin)
 	if err != nil {
+		return nil, err
+	}
+
+	// Record the home-organization membership and grant the owner role in the
+	// RBAC engine so that subsequent permission checks (e.g. read profile,
+	// list/create projects) succeed.
+	if err := provisionMembership(ctx, p.mgmt, p.rbac, admin.ID, admin.OrganizationID, admin.Role); err != nil {
 		return nil, err
 	}
 

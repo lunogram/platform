@@ -2,25 +2,41 @@ package v1
 
 import (
 	"github.com/jmoiron/sqlx"
+	"github.com/lunogram/platform/internal/http/auth"
 	"github.com/lunogram/platform/internal/pubsub"
+	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/store/management"
-	"github.com/lunogram/platform/internal/store/users"
+	"github.com/lunogram/platform/internal/store/subjects"
 	"go.uber.org/zap"
 )
 
-func NewController(logger *zap.Logger, mgmtDB, usersDB *sqlx.DB, mgmt *management.State, usrs *users.State, pub pubsub.Publisher) (*Controller, error) {
-	subsController, err := NewSubscriptionsController(logger, mgmtDB, mgmt, usrs)
+func NewController(logger *zap.Logger, mgmtDB, usersDB *sqlx.DB, mgmt *management.State, usrs *subjects.State, pub pubsub.Publisher, engine *rbac.Engine, sessionSigner *auth.SessionSigner) (*Controller, error) {
+	clientController := NewClientController(logger, usersDB, mgmtDB, usrs, pub, engine)
+
+	subsController, err := NewSubscriptionsController(clientController, mgmtDB, mgmt)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Controller{
-		ClientController:        NewClientController(logger, usersDB, usrs, pub),
+		UsersController:         NewUsersController(clientController),
+		EventsController:        NewEventsController(clientController),
+		OrganizationsController: NewOrganizationsController(clientController),
+		ScheduledController:     NewScheduledController(clientController),
+		InboxController:         NewInboxController(clientController),
+		DevicesController:       NewDevicesController(clientController),
 		SubscriptionsController: subsController,
+		SessionsController:      NewSessionsController(clientController, sessionSigner),
 	}, nil
 }
 
 type Controller struct {
-	*ClientController
+	*UsersController
+	*EventsController
+	*OrganizationsController
+	*ScheduledController
+	*InboxController
+	*DevicesController
 	*SubscriptionsController
+	*SessionsController
 }

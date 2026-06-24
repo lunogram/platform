@@ -1,30 +1,27 @@
-import "web-streams-polyfill/polyfill";
-import './i18n'
-import App from './App'
-import { StrictMode } from 'react'
-import ReactDOM from 'react-dom/client'
-import reportWebVitals from './reportWebVitals'
-import { ClerkProvider } from '@clerk/clerk-react'
+import "web-streams-polyfill/polyfill"
+import "./i18n"
+import App from "./App"
+import { StrictMode } from "react"
+import ReactDOM from "react-dom/client"
+import reportWebVitals from "./reportWebVitals"
+import { ClerkProvider } from "@clerk/clerk-react"
 
-import './variables.css'
-import './index.css'
+import "./variables.css"
+import "./index.css"
 
-const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
+const CLERK_PUBLISHABLE_KEY =
+    window.__CONFIG__?.CLERK_PUBLISHABLE_KEY || import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
 
-const root = ReactDOM.createRoot(
-    document.getElementById('root') as HTMLElement,
-)
+const root = ReactDOM.createRoot(document.getElementById("root") as HTMLElement)
 root.render(
     <StrictMode>
-        {CLERK_PUBLISHABLE_KEY
-            ? (
-                <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY}>
-                    <App />
-                </ClerkProvider>
-            )
-            : (
+        {CLERK_PUBLISHABLE_KEY ? (
+            <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY}>
                 <App />
-            )}
+            </ClerkProvider>
+        ) : (
+            <App />
+        )}
     </StrictMode>,
 )
 

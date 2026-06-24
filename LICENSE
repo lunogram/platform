@@ -6,31 +6,42 @@ enterprise features.
 
 Every file is under copyright (c) Lunogram B.V. 2026 unless otherwise
 specified. Every file is under License AGPL unless otherwise specified or
-belonging to one of the below cases:
+belonging to one of the below cases.
 
-The files under internal/ are BSL 1.1 Licensed, except any snippets of code under
-the compile flag "enterprise". Those snippets and files are under a proprietary
-and commercial license. The files under console/ are BSL 1.1 Licensed, except
-any snippets of code that require a positive license check to be activated.
-Those snippets and files are under a proprietary and commercial license. The
-files under modules/ are AGPLv3 Licensed, except any snippets of code under the
-compile flag "enterprise" or that require a positive license check to be
-activated. Private and public forks MUST not include any of the above proprietary
-and commercial code. The openapi files are Apache 2.0 Licensed.
+"Enterprise Feature" means any code that is: (a) enclosed in a
+//go:build enterprise build tag, (b) gated behind a Vite __ENTERPRISE__
+compile-time constant, or (c) activated exclusively by a positive response
+from the Lunogram license validation service. Enterprise Features require a
+separate commercial license from Lunogram B.V. regardless of the license
+that otherwise applies to the file in which they appear.
+
+The files under internal/ are BSL 1.1 Licensed, except any Enterprise
+Features. Those Enterprise Features are under a proprietary and commercial
+license. The files under console/ are BSL 1.1 Licensed, except any
+Enterprise Features. Those Enterprise Features are under a proprietary and
+commercial license. The files under modules/ are AGPLv3 Licensed, except
+any Enterprise Features. Those Enterprise Features are under a proprietary
+and commercial license. Private and public forks MUST not include any of
+the above proprietary and commercial code. The openapi files are Apache
+2.0 Licensed.
 
 The binary compilable from source code in this repository without the
-"enterprise" feature flag is open-source under the AGPLv3 License terms and
-conditions.
+"enterprise" feature flag is open-source under the AGPLv3 License terms
+and conditions.
 
-The "Community Edition" of Lunogram available in the docker images hosted under
-ghcr.io/lunogram/platform and the github binary releases contains the files
-under the AGPLv3 and Apache 2 sources but also includes proprietary and
-non-public code and features which are not open source and under the following
-terms: Lunogram B.V. grants a right to use all the features of the
-"Community Edition" for free without restrictions other than the limits and
-quotas set in the software and a right to distribute the community edition as is
-but not to sell, resell, serve as a managed service, modify or wrap under any
-form without an explicit agreement.
+The "Community Edition" of Lunogram available in the docker images hosted
+under ghcr.io/lunogram/platform and the github binary releases contains
+the files under the AGPLv3 and Apache 2 sources but also includes
+proprietary and non-public code and features which are not open source and
+under the following terms: Lunogram B.V. grants a right to use all the
+features of the "Community Edition" for free without restrictions other
+than the limits and quotas set in the software and a right to distribute
+the community edition as is but not to sell, resell, serve as a managed
+service, modify or wrap under any form without an explicit agreement.
+The Community Edition grants access only to features that are available
+without a valid commercial license key. Enterprise Features included in
+Community Edition binaries remain subject to a separate commercial license.
 
-All third party components incorporated into the Lunogram Software are licensed
-under the original license provided by the owner of the applicable component.
+All third party components incorporated into the Lunogram Software are
+licensed under the original license provided by the owner of the applicable
+component.

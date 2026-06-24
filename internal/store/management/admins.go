@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/lunogram/platform/internal/claim"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/http/problem"
 	"github.com/lunogram/platform/internal/store"
@@ -22,16 +21,17 @@ type AdminsStore struct {
 }
 
 type Admin struct {
-	ID             uuid.UUID `db:"id"`
-	OrganizationID uuid.UUID `db:"organization_id"`
-	ExternalID     *string   `db:"external_id"`
-	Email          string    `db:"email"`
-	FirstName      *string   `db:"first_name"`
-	LastName       *string   `db:"last_name"`
-	ImageURL       *string   `db:"image_url"`
-	Role           string    `db:"role"`
-	CreatedAt      time.Time `db:"created_at"`
-	UpdatedAt      time.Time `db:"updated_at"`
+	ID                   uuid.UUID  `db:"id"`
+	OrganizationID       uuid.UUID  `db:"organization_id"`
+	ActiveOrganizationID *uuid.UUID `db:"active_organization_id"`
+	ExternalID           *string    `db:"external_id"`
+	Email                string     `db:"email"`
+	FirstName            *string    `db:"first_name"`
+	LastName             *string    `db:"last_name"`
+	ImageURL             *string    `db:"image_url"`
+	Role                 string     `db:"role"`
+	CreatedAt            time.Time  `db:"created_at"`
+	UpdatedAt            time.Time  `db:"updated_at"`
 }
 
 func (admin *Admin) OAPI() oapi.Admin {
@@ -51,7 +51,7 @@ func (admin *Admin) OAPI() oapi.Admin {
 
 func (s *AdminsStore) GetAdmin(ctx context.Context, id uuid.UUID) (*Admin, error) {
 	stmt := `
-	SELECT id, organization_id, external_id, email, first_name, last_name, image_url, role, created_at, updated_at
+	SELECT id, organization_id, active_organization_id, external_id, email, first_name, last_name, image_url, role, created_at, updated_at
 	FROM admins
 	WHERE id = $1
 	AND deleted_at IS NULL`
@@ -67,7 +67,7 @@ func (s *AdminsStore) GetAdmin(ctx context.Context, id uuid.UUID) (*Admin, error
 
 func (s *AdminsStore) GetAdminByExternalID(ctx context.Context, externalID string) (*Admin, error) {
 	stmt := `
-	SELECT id, organization_id, external_id, email, first_name, last_name, image_url, role, created_at, updated_at
+	SELECT id, organization_id, active_organization_id, external_id, email, first_name, last_name, image_url, role, created_at, updated_at
 	FROM admins
 	WHERE external_id = $1
 	AND deleted_at IS NULL`
@@ -81,9 +81,9 @@ func (s *AdminsStore) GetAdminByExternalID(ctx context.Context, externalID strin
 	return &admin, nil
 }
 
-func (s *AdminsStore) GetAdminBySubject(ctx context.Context, session claim.Session) (*Admin, error) {
-	if session.Issuer != "" {
-		admin, err := s.GetAdminByExternalID(ctx, session.Subject)
+func (s *AdminsStore) GetAdminBySubject(ctx context.Context, issuer, subject string) (*Admin, error) {
+	if issuer != "" {
+		admin, err := s.GetAdminByExternalID(ctx, subject)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return nil, err
 		}
@@ -92,7 +92,7 @@ func (s *AdminsStore) GetAdminBySubject(ctx context.Context, session claim.Sessi
 		}
 	}
 
-	adminID, err := uuid.Parse(session.Subject)
+	adminID, err := uuid.Parse(subject)
 	if err != nil {
 		return nil, problem.ErrUnauthorized(problem.Describe("invalid token"))
 	}
@@ -101,9 +101,11 @@ func (s *AdminsStore) GetAdminBySubject(ctx context.Context, session claim.Sessi
 }
 
 func (s *AdminsStore) CreateAdmin(ctx context.Context, admin Admin) (uuid.UUID, error) {
+	// A newly created admin's active organization defaults to its home
+	// organization; the switcher can change it later.
 	stmt := `
-	INSERT INTO admins (organization_id, external_id, email, first_name, last_name, image_url, role)
-	VALUES ($1, $2, $3, $4, $5, $6, $7)
+	INSERT INTO admins (organization_id, active_organization_id, external_id, email, first_name, last_name, image_url, role)
+	VALUES ($1, $1, $2, $3, $4, $5, $6, $7)
 	RETURNING id
 	`
 
@@ -128,20 +130,23 @@ func (s *AdminsStore) ListAdmins(ctx context.Context, organizationID uuid.UUID, 
 	var admins []Admin
 	var total int
 
+	// Lists the members of the organization. Membership is the source of truth
+	// (an admin can belong to several organizations), so this joins
+	// organization_members rather than filtering admins.organization_id.
 	query := `
 	SELECT
-		id, organization_id, external_id, email, first_name, last_name, image_url, role, created_at, updated_at,
+		a.id, a.organization_id, a.active_organization_id, a.external_id, a.email, a.first_name, a.last_name, a.image_url, a.role, a.created_at, a.updated_at,
 		COUNT(*) OVER () AS total_count
-	FROM admins
-	WHERE organization_id = $1
-	AND deleted_at IS NULL
+	FROM admins a
+	JOIN organization_members om ON om.admin_id = a.id AND om.organization_id = $1 AND om.deleted_at IS NULL
+	WHERE a.deleted_at IS NULL
 	AND (
 		$2 = '' OR
-		first_name ILIKE '%' || $2 || '%' OR
-		last_name ILIKE '%' || $2 || '%' OR
-		email ILIKE '%' || $2 || '%'
+		a.first_name ILIKE '%' || $2 || '%' OR
+		a.last_name ILIKE '%' || $2 || '%' OR
+		a.email ILIKE '%' || $2 || '%'
 	)
-	ORDER BY created_at DESC
+	ORDER BY a.created_at DESC
 	LIMIT $3 OFFSET $4`
 
 	type result struct {
@@ -167,11 +172,15 @@ func (s *AdminsStore) ListAdmins(ctx context.Context, organizationID uuid.UUID, 
 	return admins, total, nil
 }
 
+// GetAdminByEmail looks up an admin by email, case-insensitively. Email
+// matching must be case-insensitive everywhere it affects authorization (e.g.
+// the cross-organization invite guard and login provisioning); an exact match
+// would let an uppercase-stored email silently bypass those checks.
 func (s *AdminsStore) GetAdminByEmail(ctx context.Context, email string) (*Admin, error) {
 	stmt := `
-	SELECT id, organization_id, external_id, email, first_name, last_name, image_url, role, created_at, updated_at
+	SELECT id, organization_id, active_organization_id, external_id, email, first_name, last_name, image_url, role, created_at, updated_at
 	FROM admins
-	WHERE email = $1
+	WHERE lower(email) = lower($1)
 	AND deleted_at IS NULL`
 
 	var admin Admin
@@ -208,6 +217,15 @@ func (s *AdminsStore) UpdateAdmin(ctx context.Context, id uuid.UUID, update Admi
 func (s *AdminsStore) DeleteAdmin(ctx context.Context, id uuid.UUID) error {
 	stmt := `UPDATE admins SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL`
 	_, err := s.db.ExecContext(ctx, stmt, id)
+	return err
+}
+
+// SetActiveOrganization updates the admin's active organization, the one that
+// scopes their session. Callers must verify the admin is a member of the
+// organization first.
+func (s *AdminsStore) SetActiveOrganization(ctx context.Context, adminID, organizationID uuid.UUID) error {
+	stmt := `UPDATE admins SET active_organization_id = $2 WHERE id = $1 AND deleted_at IS NULL`
+	_, err := s.db.ExecContext(ctx, stmt, adminID, organizationID)
 	return err
 }
 
@@ -366,6 +384,16 @@ func (s *AdminsStore) DeleteProjectAdmin(ctx context.Context, projectID, adminID
 	WHERE project_id = $1
 	AND admin_id = $2
 	AND deleted_at IS NULL`
+
+	_, err := s.db.ExecContext(ctx, query, projectID, adminID)
+	return err
+}
+
+func (s *AdminsStore) HardDeleteProjectAdmin(ctx context.Context, projectID, adminID uuid.UUID) error {
+	query := `
+	DELETE FROM project_admins
+	WHERE project_id = $1
+	AND admin_id = $2`
 
 	_, err := s.db.ExecContext(ctx, query, projectID, adminID)
 	return err

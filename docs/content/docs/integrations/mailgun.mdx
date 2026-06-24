@@ -1,0 +1,104 @@
+---
+title: Mailgun
+description: Configure Mailgun for email sending in Lunogram
+---
+
+[Mailgun](https://www.mailgun.com/) is a powerful email API for sending, receiving, and tracking emails. Lunogram delivers email through the Mailgun HTTP API and ingests Mailgun's webhooks for delivery, bounce, complaint, and engagement events.
+
+## Features
+
+- Email sending via the Mailgun Messages API
+- US and EU API regions
+- Webhook ingestion for delivery, bounce, complaint, open, click, and unsubscribe events
+- Optional webhook signature verification
+
+## Setup
+
+### 1. Create a Mailgun Account
+
+Create an account at [mailgun.com](https://signup.mailgun.com/). Mailgun offers a free trial that lets you send to authorized recipients while you verify your domain.
+
+### 2. Add and Verify Your Domain
+
+1. Go to **Sending → Domains** in the Mailgun dashboard
+2. Click **Add New Domain** and enter your sending domain (for example `mg.example.com`)
+3. Add the DNS records Mailgun provides (SPF, DKIM, and the tracking CNAME)
+4. Wait for verification to complete
+
+<Callout type="info">
+Mailgun hosts domains in two regions. Make sure you note whether your domain lives in the **US** or **EU** region — you'll need this when configuring the integration.
+</Callout>
+
+### 3. Get Your API Key
+
+1. Open **Settings → API Keys** in the Mailgun dashboard
+2. Copy your **Private API key**
+
+### 4. Configure in Lunogram
+
+1. Open your Lunogram project settings
+2. Navigate to **Integrations** and click **Add Integration**
+3. Select **Mailgun** from the list of providers
+4. Enter your configuration:
+   - **Mailgun API Key**: Your private API key
+   - **API Region**: `US` or `EU` (must match where your domain is hosted)
+   - **Mailgun Domain**: Your verified sending domain (e.g. `mg.example.com`)
+   - **Webhook Signing Key** (optional): Used to verify incoming webhooks
+5. Click **Save** to create the provider
+
+## Configuration Options
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| Mailgun API Key | Yes | Your private Mailgun API key |
+| API Region | No | `US` (default) or `EU`, matching your domain's region |
+| Mailgun Domain | Yes | The verified domain messages are sent from |
+| Webhook Signing Key | No | Mailgun HTTP webhook signing key used to verify webhook signatures |
+
+## Webhooks
+
+Lunogram exposes a webhook endpoint for your Mailgun integration that maps Mailgun events to delivery status updates:
+
+| Mailgun event | Lunogram event |
+|---------------|----------------|
+| `accepted` | sent |
+| `delivered` | delivered |
+| `failed` (temporary) | deferred |
+| `failed` (permanent) | bounced |
+| `opened` | opened |
+| `clicked` | clicked |
+| `complained` | complained |
+| `unsubscribed` | unsubscribed |
+
+To enable webhooks:
+
+1. Copy the webhook URL shown for the Mailgun integration in Lunogram
+2. In Mailgun, go to **Sending → Webhooks** for your domain and add the URL for each event type you want to track
+3. (Recommended) Copy the **HTTP webhook signing key** from **Settings → Webhooks** into the integration's **Webhook Signing Key** field so Lunogram can verify that incoming requests originate from Mailgun
+
+## Email Format
+
+Mailgun supports both HTML and plain text emails. When creating templates in Lunogram:
+
+- **HTML**: Rich formatted emails with images, buttons, and styling
+- **Plain Text**: Simple text fallback for email clients that don't support HTML
+
+## Troubleshooting
+
+### Emails Not Sending
+
+1. Verify your API key is correct and active
+2. Confirm the **API Region** matches where your domain is hosted (a US key cannot send through an EU domain)
+3. Ensure the domain is verified and the "from" address uses that domain
+
+### Webhooks Not Updating Status
+
+1. Confirm the webhook URL is registered in Mailgun for the relevant events
+2. If you set a signing key in Lunogram, make sure it matches the key in Mailgun
+3. Check the Mailgun logs for delivery attempts to the webhook URL
+
+## Related Links
+
+- [Mailgun Documentation](https://documentation.mailgun.com/)
+- [Mailgun Quickstart](https://documentation.mailgun.com/en/latest/quickstart-sending.html)
+- [Mailgun Webhooks](https://documentation.mailgun.com/en/latest/user_manual.html#webhooks)

@@ -14,15 +14,16 @@ import (
 	"github.com/lunogram/platform/internal/rules"
 	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/management"
+	"github.com/lunogram/platform/internal/store/subjects"
 	teststore "github.com/lunogram/platform/internal/store/test"
-	"github.com/lunogram/platform/internal/store/users"
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 )
 
-func setupRecomputeTest(t *testing.T) (*users.State, uuid.UUID, jetstream.JetStream) {
+func setupRecomputeTest(t *testing.T) (*subjects.State, uuid.UUID, jetstream.JetStream) {
 	t.Helper()
 
 	ctx := graceful.NewContext(t.Context())
@@ -40,7 +41,7 @@ func setupRecomputeTest(t *testing.T) (*users.State, uuid.UUID, jetstream.JetStr
 	require.NoError(t, err)
 
 	mgmtState := management.NewState(mgmt)
-	usersState := users.NewState(usrs)
+	usersState := subjects.NewState(usrs, zap.NewNop())
 
 	orgID, err := mgmtState.OrganizationsStore.CreateOrganization(ctx, "Test Org")
 	require.NoError(t, err)
@@ -74,12 +75,13 @@ func TestRecomputeListHandlerSuccess(t *testing.T) {
 	st, projectID, jet := setupRecomputeTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
+	ns := testNamespace(t)
 
-	err := Bootstrap(ctx, logger, jet)
+	err := Bootstrap(ctx, logger, jet, ns)
 	require.NoError(t, err)
 
 	email := "test@example.com"
-	userID, err := st.UsersStore.UpsertUser(ctx, projectID, users.UpsertUserParams{
+	userID, err := st.UsersStore.UpsertUser(ctx, projectID, subjects.UpsertUserParams{
 		Email: &email,
 		Data: map[string]any{
 			"age": 25,
@@ -98,7 +100,7 @@ func TestRecomputeListHandlerSuccess(t *testing.T) {
 		},
 	}
 
-	ruleID, err := st.RulesStore.CreateRule(ctx, users.Rule{
+	ruleID, err := st.RulesStore.CreateRule(ctx, subjects.Rule{
 		ProjectID:       projectID,
 		Rule:            store.JSONB[rules.RuleSet]{Data: ruleset},
 		DependsOnUsers:  true,
@@ -107,16 +109,21 @@ func TestRecomputeListHandlerSuccess(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	listID, err := st.ListsStore.CreateList(ctx, users.List{
+	listID, err := st.ListsStore.CreateList(ctx, subjects.List{
 		ProjectID: projectID,
 		Name:      "Test List",
 		Type:      "static",
-		RuleID:    &ruleID,
 	})
 	require.NoError(t, err)
 
-	pub := pubsub.NewPublisher(jet)
-	handler := RecomputeListHandler(logger, st, pub)
+	versionID, err := st.ListsStore.CreateVersion(ctx, listID, &ruleID)
+	require.NoError(t, err)
+
+	err = st.ListsStore.PublishVersion(ctx, listID, versionID)
+	require.NoError(t, err)
+
+	pub := pubsub.NewPublisher(jet, string(ns))
+	handler := RecomputeListHandler(logger, st, pub, nil)
 
 	recompute := RecomputeList{
 		ID:        listID,
@@ -126,7 +133,7 @@ func TestRecomputeListHandlerSuccess(t *testing.T) {
 	err = pub.Publish(ctx, schemas.ListsRecompute(projectID, listID), recompute)
 	require.NoError(t, err)
 
-	consumer, err := jet.Consumer(ctx, StreamLists, ConsumerListsRecompute)
+	consumer, err := jet.Consumer(ctx, ns.Stream(StreamLists), ns.Consumer(ConsumerListsRecompute))
 	require.NoError(t, err)
 
 	msg, err := consumer.Next(jetstream.FetchMaxWait(5 * time.Second))
@@ -138,7 +145,7 @@ func TestRecomputeListHandlerSuccess(t *testing.T) {
 	err = msg.Ack()
 	require.NoError(t, err)
 
-	usrs, total, err := st.ListsStore.SelectListUsers(ctx, projectID, listID, store.Pagination{Limit: 10, Offset: 0})
+	usrs, total, err := st.ListsStore.SelectListUsers(ctx, projectID, listID, store.Pagination{Limit: 10, Offset: 0}, "")
 	require.NoError(t, err)
 	assert.Equal(t, 1, total)
 	assert.Len(t, usrs, 1)
@@ -151,20 +158,20 @@ func TestRecomputeListHandlerNoRule(t *testing.T) {
 	st, projectID, jet := setupRecomputeTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
+	ns := testNamespace(t)
 
-	err := Bootstrap(ctx, logger, jet)
+	err := Bootstrap(ctx, logger, jet, ns)
 	require.NoError(t, err)
 
-	listID, err := st.ListsStore.CreateList(ctx, users.List{
+	listID, err := st.ListsStore.CreateList(ctx, subjects.List{
 		ProjectID: projectID,
 		Name:      "Test List Without Rule",
 		Type:      "static",
-		RuleID:    nil,
 	})
 	require.NoError(t, err)
 
-	pub := pubsub.NewPublisher(jet)
-	handler := RecomputeListHandler(logger, st, pub)
+	pub := pubsub.NewPublisher(jet, string(ns))
+	handler := RecomputeListHandler(logger, st, pub, nil)
 
 	recompute := RecomputeList{
 		ID:        listID,
@@ -174,7 +181,7 @@ func TestRecomputeListHandlerNoRule(t *testing.T) {
 	err = pub.Publish(ctx, schemas.ListsRecompute(projectID, listID), recompute)
 	require.NoError(t, err)
 
-	consumer, err := jet.Consumer(ctx, StreamLists, ConsumerListsRecompute)
+	consumer, err := jet.Consumer(ctx, ns.Stream(StreamLists), ns.Consumer(ConsumerListsRecompute))
 	require.NoError(t, err)
 
 	msg, err := consumer.Next(jetstream.FetchMaxWait(5 * time.Second))
@@ -190,12 +197,13 @@ func TestRecomputeListHandlerWithUserAddedEvent(t *testing.T) {
 	st, projectID, jet := setupRecomputeTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
+	ns := testNamespace(t)
 
-	err := Bootstrap(ctx, logger, jet)
+	err := Bootstrap(ctx, logger, jet, ns)
 	require.NoError(t, err)
 
 	email := "test@example.com"
-	userID, err := st.UsersStore.UpsertUser(ctx, projectID, users.UpsertUserParams{
+	userID, err := st.UsersStore.UpsertUser(ctx, projectID, subjects.UpsertUserParams{
 		Email: &email,
 		Data: map[string]any{
 			"age": 30,
@@ -214,7 +222,7 @@ func TestRecomputeListHandlerWithUserAddedEvent(t *testing.T) {
 		},
 	}
 
-	ruleID, err := st.RulesStore.CreateRule(ctx, users.Rule{
+	ruleID, err := st.RulesStore.CreateRule(ctx, subjects.Rule{
 		ProjectID:       projectID,
 		Rule:            store.JSONB[rules.RuleSet]{Data: ruleset},
 		DependsOnUsers:  true,
@@ -223,16 +231,21 @@ func TestRecomputeListHandlerWithUserAddedEvent(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	listID, err := st.ListsStore.CreateList(ctx, users.List{
+	listID, err := st.ListsStore.CreateList(ctx, subjects.List{
 		ProjectID: projectID,
 		Name:      "Test List",
 		Type:      "static",
-		RuleID:    &ruleID,
 	})
 	require.NoError(t, err)
 
-	pub := pubsub.NewPublisher(jet)
-	handler := RecomputeListHandler(logger, st, pub)
+	versionID, err := st.ListsStore.CreateVersion(ctx, listID, &ruleID)
+	require.NoError(t, err)
+
+	err = st.ListsStore.PublishVersion(ctx, listID, versionID)
+	require.NoError(t, err)
+
+	pub := pubsub.NewPublisher(jet, string(ns))
+	handler := RecomputeListHandler(logger, st, pub, nil)
 
 	recompute := RecomputeList{
 		ID:        listID,
@@ -242,7 +255,7 @@ func TestRecomputeListHandlerWithUserAddedEvent(t *testing.T) {
 	err = pub.Publish(ctx, schemas.ListsRecompute(projectID, listID), recompute)
 	require.NoError(t, err)
 
-	consumer, err := jet.Consumer(ctx, StreamLists, ConsumerListsRecompute)
+	consumer, err := jet.Consumer(ctx, ns.Stream(StreamLists), ns.Consumer(ConsumerListsRecompute))
 	require.NoError(t, err)
 
 	msg, err := consumer.Next(jetstream.FetchMaxWait(5 * time.Second))
@@ -254,13 +267,13 @@ func TestRecomputeListHandlerWithUserAddedEvent(t *testing.T) {
 	err = msg.Ack()
 	require.NoError(t, err)
 
-	eventConsumer, err := jet.Consumer(ctx, StreamEvents, ConsumerEventsProcess)
+	eventConsumer, err := jet.Consumer(ctx, ns.Stream(StreamUserEvents), ns.Consumer(ConsumerUserEventsProcess))
 	require.NoError(t, err)
 
 	eventMsg, err := eventConsumer.Next(jetstream.FetchMaxWait(5 * time.Second))
 	require.NoError(t, err)
 
-	var receivedEvent schemas.Event
+	var receivedEvent schemas.UserEvent
 	err = json.Unmarshal(eventMsg.Data(), &receivedEvent)
 	require.NoError(t, err)
 	assert.Equal(t, schemas.EventListUserAdded, receivedEvent.Name)
@@ -274,22 +287,23 @@ func TestPublishListRecomputeEventsInserted(t *testing.T) {
 	jet := setupBootstrapTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
+	ns := testNamespace(t)
 
 	_, err := jet.CreateStream(ctx, jetstream.StreamConfig{
-		Name:     StreamEvents,
-		Subjects: []string{"events.>"},
+		Name:     ns.Stream(StreamUserEvents),
+		Subjects: []string{ns.Subject("users.events.>")},
 	})
 	require.NoError(t, err)
 
-	pub := pubsub.NewPublisher(jet)
+	pub := pubsub.NewPublisher(jet, string(ns))
 	projectID := uuid.New()
 	listID := uuid.New()
 	userID := uuid.New()
 
-	recomputed := []users.Recomputed{
+	recomputed := []subjects.Recomputed{
 		{
 			UserID: userID,
-			Action: users.RecomputeActionInserted,
+			Action: subjects.RecomputeActionInserted,
 		},
 	}
 
@@ -303,22 +317,23 @@ func TestPublishListRecomputeEventsDeleted(t *testing.T) {
 	jet := setupBootstrapTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
+	ns := testNamespace(t)
 
 	_, err := jet.CreateStream(ctx, jetstream.StreamConfig{
-		Name:     StreamEvents,
-		Subjects: []string{"events.>"},
+		Name:     ns.Stream(StreamUserEvents),
+		Subjects: []string{ns.Subject("users.events.>")},
 	})
 	require.NoError(t, err)
 
-	pub := pubsub.NewPublisher(jet)
+	pub := pubsub.NewPublisher(jet, string(ns))
 	projectID := uuid.New()
 	listID := uuid.New()
 	userID := uuid.New()
 
-	recomputed := []users.Recomputed{
+	recomputed := []subjects.Recomputed{
 		{
 			UserID: userID,
-			Action: users.RecomputeActionDeleted,
+			Action: subjects.RecomputeActionDeleted,
 		},
 	}
 
@@ -332,29 +347,30 @@ func TestPublishListRecomputeEventsMixed(t *testing.T) {
 	jet := setupBootstrapTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
+	ns := testNamespace(t)
 
 	_, err := jet.CreateStream(ctx, jetstream.StreamConfig{
-		Name:     StreamEvents,
-		Subjects: []string{"events.>"},
+		Name:     ns.Stream(StreamUserEvents),
+		Subjects: []string{ns.Subject("users.events.>")},
 	})
 	require.NoError(t, err)
 
-	pub := pubsub.NewPublisher(jet)
+	pub := pubsub.NewPublisher(jet, string(ns))
 	projectID := uuid.New()
 	listID := uuid.New()
 
-	recomputed := []users.Recomputed{
+	recomputed := []subjects.Recomputed{
 		{
 			UserID: uuid.New(),
-			Action: users.RecomputeActionInserted,
+			Action: subjects.RecomputeActionInserted,
 		},
 		{
 			UserID: uuid.New(),
-			Action: users.RecomputeActionDeleted,
+			Action: subjects.RecomputeActionDeleted,
 		},
 		{
 			UserID: uuid.New(),
-			Action: users.RecomputeActionInserted,
+			Action: subjects.RecomputeActionInserted,
 		},
 	}
 

@@ -11,18 +11,19 @@ import (
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/store/journey"
 	"github.com/lunogram/platform/internal/store/management"
+	"github.com/lunogram/platform/internal/store/subjects"
 	teststore "github.com/lunogram/platform/internal/store/test"
-	"github.com/lunogram/platform/internal/store/users"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 )
 
-func setupStore(t *testing.T) (*management.State, *users.State, *sqlx.DB) {
+func setupStore(t *testing.T) (*management.State, *subjects.State, *sqlx.DB) {
 	t.Helper()
 
 	mgmt, usrs, _ := teststore.RunPostgreSQL(t)
 
-	return management.NewState(mgmt), users.NewState(usrs), usrs
+	return management.NewState(mgmt), subjects.NewState(usrs, zap.NewNop()), usrs
 }
 
 func TestHandleUpdate(t *testing.T) {
@@ -39,7 +40,7 @@ func TestHandleUpdate(t *testing.T) {
 		OrganizationID: &organizationID,
 		Name:           "Test Project",
 		Timezone:       "UTC",
-		Locale:         "en-US",
+		Locale:         "en",
 	})
 	require.NoError(t, err)
 
@@ -129,10 +130,8 @@ func TestHandleUpdate(t *testing.T) {
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			initialData, _ := json.Marshal(tc.initialUserData)
-			userID, err := usersStore.CreateUser(ctx, users.User{
-				ProjectID:   project,
-				Data:        json.RawMessage(initialData),
-				AnonymousID: ptr("anon_" + uuid.New().String()),
+			userID, err := usersStore.CreateUser(ctx, project, nil, nil, json.RawMessage(initialData), nil, nil, []subjects.ExternalIDParam{
+				{Source: "anonymous", ExternalID: "anon_" + uuid.New().String()},
 			})
 			require.NoError(t, err)
 
@@ -188,7 +187,7 @@ func TestHandleUpdateTemplateRendering(t *testing.T) {
 		OrganizationID: &organizationID,
 		Name:           "Test Project",
 		Timezone:       "UTC",
-		Locale:         "en-US",
+		Locale:         "en",
 	})
 	require.NoError(t, err)
 
@@ -247,10 +246,8 @@ func TestHandleUpdateTemplateRendering(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			userID, err := usersStore.CreateUser(ctx, users.User{
-				ProjectID:   project,
-				Data:        json.RawMessage(`{}`),
-				AnonymousID: ptr("anon_" + uuid.New().String()),
+			userID, err := usersStore.CreateUser(ctx, project, nil, nil, json.RawMessage(`{}`), nil, nil, []subjects.ExternalIDParam{
+				{Source: "anonymous", ExternalID: "anon_" + uuid.New().String()},
 			})
 			require.NoError(t, err)
 

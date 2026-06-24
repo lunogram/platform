@@ -24,12 +24,7 @@ func (qb *QueryBuilder) buildEventRule(rule *rules.Rule) (string, error) {
 	if rule.HasChildren() {
 		for i := range rule.Children {
 			child := &rule.Children[i]
-			column, err := qb.buildColumnPath("ue", child.Path, child.Type)
-			if err != nil {
-				return "", err
-			}
-
-			condition, err := qb.buildComparison(column, child.Operator, child.Value, child.Type)
+			condition, err := qb.buildConditionFromPath("ue", child.Path, child)
 			if err != nil {
 				return "", err
 			}
@@ -59,14 +54,22 @@ func (qb *QueryBuilder) buildFrequencyRule(rule *rules.Rule) (string, error) {
 	freq := rule.Frequency
 
 	// Build time period condition
-	if freq.Period.Type != rules.PeriodTypeRolling {
-		return "", fmt.Errorf("only rolling periods are currently supported")
+	var timeCondition string
+	switch freq.Period.Type {
+	case rules.PeriodTypeRolling:
+		interval := fmt.Sprintf("%d %s", freq.Period.Value, freq.Period.Unit.SQL())
+		timeCondition = fmt.Sprintf("ue.created_at >= NOW() - %s::interval", qb.arg(interval))
+	case rules.PeriodTypeSinceEntered:
+		if qb.sinceTimestamp == nil {
+			return "", fmt.Errorf("since_entered period type requires a since timestamp")
+		}
+		timeCondition = fmt.Sprintf("ue.created_at >= %s", qb.arg(*qb.sinceTimestamp))
+	default:
+		return "", fmt.Errorf("unsupported period type: %s", freq.Period.Type)
 	}
 
-	interval := fmt.Sprintf("%d %s", freq.Period.Value, freq.Period.Unit.SQL())
-
 	// Start with base event conditions
-	eventConditions := []string{fmt.Sprintf("ue.created_at >= NOW() - %s::interval", qb.arg(interval))}
+	eventConditions := []string{timeCondition}
 
 	// Event name condition
 	if rule.Value != nil {
@@ -77,12 +80,7 @@ func (qb *QueryBuilder) buildFrequencyRule(rule *rules.Rule) (string, error) {
 	if rule.HasChildren() {
 		for i := range rule.Children {
 			child := &rule.Children[i]
-			column, err := qb.buildColumnPath("ue", child.Path, child.Type)
-			if err != nil {
-				return "", err
-			}
-
-			condition, err := qb.buildComparison(column, child.Operator, child.Value, child.Type)
+			condition, err := qb.buildConditionFromPath("ue", child.Path, child)
 			if err != nil {
 				return "", err
 			}
@@ -90,28 +88,14 @@ func (qb *QueryBuilder) buildFrequencyRule(rule *rules.Rule) (string, error) {
 		}
 	}
 
-	// Use JOINs if enabled, otherwise use subquery in WHERE
+	// Build HAVING clause based on frequency operator
+	havingClause, err := qb.buildHavingClause(freq)
+	if err != nil {
+		return "", err
+	}
+
 	// Generate a unique alias for this frequency join
 	alias := qb.nextJoinAlias()
-
-	// Build HAVING clause based on frequency operator
-	var havingClause string
-	switch freq.Operator {
-	case rules.OperatorGreaterThan:
-		havingClause = fmt.Sprintf("COUNT(*) > %s", qb.arg(freq.Count))
-	case rules.OperatorGreaterEqual:
-		havingClause = fmt.Sprintf("COUNT(*) >= %s", qb.arg(freq.Count))
-	case rules.OperatorLessThan:
-		havingClause = fmt.Sprintf("COUNT(*) < %s", qb.arg(freq.Count))
-	case rules.OperatorLessEqual:
-		havingClause = fmt.Sprintf("COUNT(*) <= %s", qb.arg(freq.Count))
-	case rules.OperatorEquals:
-		havingClause = fmt.Sprintf("COUNT(*) = %s", qb.arg(freq.Count))
-	case rules.OperatorNotEquals:
-		havingClause = fmt.Sprintf("COUNT(*) != %s", qb.arg(freq.Count))
-	default:
-		return "", fmt.Errorf("unsupported frequency operator: %s", freq.Operator)
-	}
 
 	// Build the JOIN clause with subquery using GROUP BY and HAVING
 	joinClause := fmt.Sprintf(

@@ -9,16 +9,18 @@ import (
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/http/problem"
+	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/management"
 	"go.uber.org/zap"
 )
 
-func NewTagsController(logger *zap.Logger, db *sqlx.DB) *TagsController {
+func NewTagsController(logger *zap.Logger, db *sqlx.DB, engine *rbac.Engine) *TagsController {
 	return &TagsController{
 		logger: logger,
 		db:     db,
 		store:  management.NewState(db),
+		engine: engine,
 	}
 }
 
@@ -26,12 +28,19 @@ type TagsController struct {
 	logger *zap.Logger
 	db     *sqlx.DB
 	store  *management.State
+	engine *rbac.Engine
 }
 
 func (srv *TagsController) CreateTag(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
 	ctx := r.Context()
+	err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("tags", projectID))
+	if err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	body := oapi.CreateTagJSONRequestBody{}
-	err := json.Decode(r.Body, &body)
+	err = json.Decode(r.Body, &body)
 	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
@@ -60,6 +69,12 @@ func (srv *TagsController) CreateTag(w http.ResponseWriter, r *http.Request, pro
 
 func (srv *TagsController) ListTags(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, params oapi.ListTagsParams) {
 	ctx := r.Context()
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("tags", projectID))
+	if err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	logger := srv.logger.With(zap.Stringer("project_id", projectID))
 	logger.Info("listing tags")
 
@@ -86,6 +101,12 @@ func (srv *TagsController) ListTags(w http.ResponseWriter, r *http.Request, proj
 
 func (srv *TagsController) GetTag(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, tagID uuid.UUID) {
 	ctx := r.Context()
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("tags", projectID))
+	if err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("tag_id", tagID))
 	logger.Info("getting tag")
 
@@ -107,12 +128,18 @@ func (srv *TagsController) GetTag(w http.ResponseWriter, r *http.Request, projec
 }
 
 func (srv *TagsController) UpdateTag(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, tagID uuid.UUID) {
+	ctx := r.Context()
+	err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("tags", projectID))
+	if err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("tag_id", tagID))
 	logger.Info("updating tag")
 
-	ctx := r.Context()
 	body := oapi.UpdateTagJSONRequestBody{}
-	err := json.Decode(r.Body, &body)
+	err = json.Decode(r.Body, &body)
 	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
@@ -144,10 +171,16 @@ func (srv *TagsController) UpdateTag(w http.ResponseWriter, r *http.Request, pro
 
 func (srv *TagsController) DeleteTag(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, tagID uuid.UUID) {
 	ctx := r.Context()
+	err := srv.engine.Allowed(ctx, rbac.Delete, rbac.ProjectResourceScope("tags", projectID))
+	if err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("tag_id", tagID))
 	logger.Info("deleting tag")
 
-	err := srv.store.TagsStore.DeleteTag(ctx, projectID, tagID)
+	err = srv.store.TagsStore.DeleteTag(ctx, projectID, tagID)
 	if err != nil {
 		logger.Error("failed to delete tag", zap.Error(err))
 		oapi.WriteProblem(w, err)

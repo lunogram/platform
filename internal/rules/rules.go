@@ -1,6 +1,8 @@
 package rules
 
 import (
+	"time"
+
 	"github.com/google/uuid"
 )
 
@@ -36,9 +38,13 @@ func (rt RuleType) SQL() string {
 type RuleGroup string
 
 const (
-	RuleGroupParent RuleGroup = "parent"
-	RuleGroupUser   RuleGroup = "user"
-	RuleGroupEvent  RuleGroup = "event"
+	RuleGroupParent            RuleGroup = "parent"
+	RuleGroupUser              RuleGroup = "user"
+	RuleGroupEvent             RuleGroup = "event"
+	RuleGroupOrganization      RuleGroup = "organization"
+	RuleGroupOrganizationUser  RuleGroup = "organization_user"
+	RuleGroupOrganizationEvent RuleGroup = "organization_event"
+	RuleGroupJourney           RuleGroup = "journey"
 )
 
 // Operator defines logical and comparison operators
@@ -92,8 +98,9 @@ func (op Operator) SQL() string {
 type PeriodType string
 
 const (
-	PeriodTypeRolling  PeriodType = "rolling"
-	PeriodTypeAbsolute PeriodType = "absolute"
+	PeriodTypeRolling      PeriodType = "rolling"
+	PeriodTypeAbsolute     PeriodType = "absolute"
+	PeriodTypeSinceEntered PeriodType = "since_entered"
 )
 
 // PeriodUnit defines the unit of time for a period
@@ -128,6 +135,29 @@ func (unit PeriodUnit) SQL() string {
 	}
 }
 
+// RecomputeInterval returns the recommended recomputation interval for a
+// rolling period with this unit. The intervals are chosen so that lists are
+// recomputed frequently enough to keep membership reasonably fresh without
+// being wasteful.
+func (unit PeriodUnit) RecomputeInterval() time.Duration {
+	switch unit {
+	case PeriodUnitMinute:
+		return time.Minute
+	case PeriodUnitHour:
+		return 5 * time.Minute
+	case PeriodUnitDay:
+		return time.Hour
+	case PeriodUnitWeek:
+		return 6 * time.Hour
+	case PeriodUnitMonth:
+		return 24 * time.Hour
+	case PeriodUnitYear:
+		return 7 * 24 * time.Hour
+	default:
+		return time.Hour
+	}
+}
+
 // Period defines a time period for frequency rules
 type Period struct {
 	Type  PeriodType `json:"type"`
@@ -142,6 +172,24 @@ type Frequency struct {
 	Operator Operator `json:"operator"`
 }
 
+// UserMatchType defines how to match users in organization event rules
+type UserMatchType string
+
+const (
+	// UserMatchAll includes all members of organizations matching the event criteria
+	UserMatchAll UserMatchType = "all"
+	// UserMatchConditions includes only members matching specific property conditions
+	UserMatchConditions UserMatchType = "conditions"
+)
+
+// UserMatch defines how to match users within organizations for organization event rules
+type UserMatch struct {
+	// Type defines how to select users: "all" or "conditions"
+	Type UserMatchType `json:"type"`
+	// MemberConditions defines filter rules for organization user properties (when Type is "conditions")
+	MemberConditions *Rule `json:"member_conditions,omitempty"`
+}
+
 // Rule represents a rule node in the rules tree
 type Rule struct {
 	Path       string     `json:"path"`
@@ -154,19 +202,40 @@ type Rule struct {
 	Frequency  *Frequency `json:"frequency,omitempty"`
 	RootUUID   *uuid.UUID `json:"root_uuid,omitempty"`
 	ParentUUID *uuid.UUID `json:"parent_uuid,omitempty"`
+	// UserMatch defines how to match users for organization event rules
+	UserMatch *UserMatch `json:"user_match,omitempty"`
 }
 
 func (r Rule) IsWrapper() bool {
 	return r.Type == RuleTypeWrapper
 }
 
-func (r Rule) Events() (result []string) {
+func (r Rule) UserEvents() (result []string) {
 	if r.Group == RuleGroupEvent && r.Type == RuleTypeWrapper {
-		result = append(result, r.Value.(string))
+		if v, ok := r.Value.(string); ok {
+			result = append(result, v)
+		}
 	}
 
 	for _, child := range r.Children {
-		events := child.Events()
+		events := child.UserEvents()
+		if len(events) > 0 {
+			result = append(result, events...)
+		}
+	}
+
+	return result
+}
+
+func (r Rule) OrganizationEvents() (result []string) {
+	if r.Group == RuleGroupOrganizationEvent && r.Type == RuleTypeWrapper {
+		if v, ok := r.Value.(string); ok {
+			result = append(result, v)
+		}
+	}
+
+	for _, child := range r.Children {
+		events := child.OrganizationEvents()
 		if len(events) > 0 {
 			result = append(result, events...)
 		}
@@ -194,6 +263,12 @@ func (r Rule) DependsOnUsers() bool {
 		return true
 	}
 
+	// A parent wrapper with no children matches all users, so it depends on
+	// user data (any newly created user should appear in the list).
+	if r.Type == RuleTypeWrapper && r.Group == RuleGroupParent && len(r.Children) == 0 {
+		return true
+	}
+
 	for _, child := range r.Children {
 		if child.DependsOnUsers() {
 			return true
@@ -203,9 +278,119 @@ func (r Rule) DependsOnUsers() bool {
 	return false
 }
 
+func (r Rule) DependsOnOrganizations() bool {
+	if r.Group == RuleGroupOrganization {
+		return true
+	}
+
+	for _, child := range r.Children {
+		if child.DependsOnOrganizations() {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (r Rule) DependsOnOrganizationUsers() bool {
+	if r.Group == RuleGroupOrganizationUser {
+		return true
+	}
+
+	// If this rule has member conditions in UserMatch, it depends on organization_users
+	// data regardless of the group field (frontend sends group="user" for member conditions
+	// but the query builder correctly queries the organization_users table).
+	if r.UserMatch != nil && r.UserMatch.Type == UserMatchConditions && r.UserMatch.MemberConditions != nil {
+		return true
+	}
+
+	for _, child := range r.Children {
+		if child.DependsOnOrganizationUsers() {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (r Rule) DependsOnJourney() bool {
+	if r.Group == RuleGroupJourney {
+		return true
+	}
+
+	for _, child := range r.Children {
+		if child.DependsOnJourney() {
+			return true
+		}
+	}
+
+	return false
+}
+
+// DependsOnTime returns true if any rule node in the tree uses a rolling time
+// period. Lists with such rules need periodic recomputation because users can
+// fall out of the time window without any triggering event.
+func (r Rule) DependsOnTime() bool {
+	if r.Frequency != nil && r.Frequency.Period.Type == PeriodTypeRolling {
+		return true
+	}
+
+	if r.UserMatch != nil && r.UserMatch.MemberConditions != nil {
+		if r.UserMatch.MemberConditions.DependsOnTime() {
+			return true
+		}
+	}
+
+	for _, child := range r.Children {
+		if child.DependsOnTime() {
+			return true
+		}
+	}
+
+	return false
+}
+
+// smallestRecomputeInterval recursively finds the smallest recompute interval
+// across all rolling period nodes in the rule tree. Returns nil when no rolling
+// periods exist.
+func (r Rule) smallestRecomputeInterval() *time.Duration {
+	var smallest *time.Duration
+
+	if r.Frequency != nil && r.Frequency.Period.Type == PeriodTypeRolling {
+		d := r.Frequency.Period.Unit.RecomputeInterval()
+		smallest = &d
+	}
+
+	if r.UserMatch != nil && r.UserMatch.MemberConditions != nil {
+		if child := r.UserMatch.MemberConditions.smallestRecomputeInterval(); child != nil {
+			if smallest == nil || *child < *smallest {
+				smallest = child
+			}
+		}
+	}
+
+	for _, child := range r.Children {
+		if child := child.smallestRecomputeInterval(); child != nil {
+			if smallest == nil || *child < *smallest {
+				smallest = child
+			}
+		}
+	}
+
+	return smallest
+}
+
 // RuleSet represents the complete rule configuration
 type RuleSet struct {
 	Rule
+}
+
+// RecomputeInterval returns the recommended recomputation interval for the
+// entire rule set. It walks the rule tree and returns the smallest tier-based
+// interval across all rolling period nodes. Returns nil when the rule set
+// contains no rolling periods (i.e. no time-based reconciliation needed).
+func (rs RuleSet) RecomputeInterval() *time.Duration {
+	return rs.Rule.smallestRecomputeInterval()
 }
 
 // HasChildren returns true if the rule has child rules
@@ -216,4 +401,59 @@ func (r *Rule) HasChildren() bool {
 // IsRoot returns true if the rule is a root node
 func (r *Rule) IsRoot() bool {
 	return r.ParentUUID == nil
+}
+
+// Local returns the subset of rules that are evaluated in-memory against
+// journey data. Returns nil when no such rules exist.
+func (rs RuleSet) Local() *RuleSet {
+	if !rs.Rule.IsWrapper() || !rs.Rule.HasChildren() {
+		return nil
+	}
+
+	var children []Rule
+	for _, child := range rs.Children {
+		if child.Group == RuleGroupJourney {
+			children = append(children, child)
+		}
+	}
+
+	if len(children) == 0 {
+		return nil
+	}
+
+	if len(children) == len(rs.Children) {
+		return &rs
+	}
+
+	r := rs.Rule
+	r.Children = children
+	return &RuleSet{Rule: r}
+}
+
+// Historical returns the subset of rules that are evaluated via SQL against
+// the database. Returns nil when no such rules exist. If the root rule is not
+// a wrapper or has no children, the entire RuleSet is returned.
+func (rs RuleSet) Historical() *RuleSet {
+	if !rs.Rule.IsWrapper() || !rs.Rule.HasChildren() {
+		return &rs
+	}
+
+	var children []Rule
+	for _, child := range rs.Children {
+		if child.Group != RuleGroupJourney {
+			children = append(children, child)
+		}
+	}
+
+	if len(children) == 0 {
+		return nil
+	}
+
+	if len(children) == len(rs.Children) {
+		return &rs
+	}
+
+	r := rs.Rule
+	r.Children = children
+	return &RuleSet{Rule: r}
 }

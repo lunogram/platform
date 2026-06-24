@@ -1,56 +1,109 @@
-import type { JourneyStepType, Rule } from '../../../types'
-import { EntranceStepIcon } from '../../../components/icons'
-import RadioInput from '../../../ui/form/RadioInput'
-import TextInput from '../../../ui/form/TextInput'
-import RuleBuilder from '../../users/rules/RuleBuilder'
-import { useCallback, useContext } from 'react'
-import { PreferencesContext } from '../../../ui/PreferencesContext'
-import SwitchField from '../../../ui/form/SwitchField'
-import { EntityIdPicker } from '../../../ui/form/EntityIdPicker'
-import api from '../../../api'
-import { RRule } from 'rrule'
-import { useResolver } from '../../../hooks'
-import RRuleEditor from '../../../ui/RRuleEditor'
-import CodeExample from '../../../ui/CodeExample'
-import { env } from '../../../config/env'
-import { useTranslation, Trans } from 'react-i18next'
-import { createEventRule, createSimpleEventRule, isEventWrapper } from '../../users/rules/RuleHelpers'
-import { ruleDescription } from '../../users/rules/RuleDescriptions'
-import { Tag } from '../../../ui'
-import { Link } from 'react-router'
-import type { UUID } from '@/types/common'
-import { NIL } from 'uuid'
+/* eslint-disable react-refresh/only-export-components */
+import type {
+    JourneyStepType,
+    List,
+    Rule,
+    RulePath,
+    ScheduledSchema,
+    ScheduleOffset,
+} from "../../../types"
+import { EntranceStepIcon } from "../../../components/icons"
+import RuleBuilder from "../../users/rules/RuleBuilder"
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
+import { PreferencesContext } from "@/contexts/PreferencesContext"
+import { Switch } from "@/components/ui/switch"
+import { Label } from "@/components/ui/label"
+import { Combobox } from "@/components/ui/combobox"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import api from "../../../api"
+import { Button } from "@/components/ui/button"
+import { Command, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
+import { env } from "../../../config/env"
+import { useTranslation, Trans } from "react-i18next"
+import { createSimpleEventRule, isEventWrapper } from "../../users/rules/RuleHelpers"
+import { ruleDescription } from "../../users/rules/RuleDescriptions"
+import { Badge } from "@/components/ui/badge"
+import {
+    Webhook,
+    Zap,
+    Copy,
+    Check,
+    CalendarClock,
+    ChevronsUpDown,
+    Loader2,
+    Plus,
+    ArrowLeft,
+    ListChecks,
+    LogOut,
+} from "lucide-react"
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select"
+import { ScheduleOffsetCombobox } from "@/components/schedule-offset-combobox"
+import { formatOffset } from "@/utils"
+import { cn } from "@/utils"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Input } from "@/components/ui/input"
+
+import { Link } from "react-router"
+import type { UUID } from "@/types/common"
+
+type ListDirection = "joins" | "leaves"
+
+interface EntranceEventTrigger {
+    name?: string
+    rule?: Rule
+    user_rule?: Rule
+}
+
+interface EntranceScheduledTrigger {
+    name?: string
+    offset_id?: UUID
+    rule?: Rule
+    user_rule?: Rule
+}
+
+interface EntranceListTrigger {
+    id?: UUID
+    direction?: ListDirection
+    exit_on_leave?: boolean
+}
 
 interface EntranceConfig {
-    trigger: 'none' | 'event' | 'schedule'
+    trigger: "none" | "event" | "scheduled" | "list"
 
-    // event based
-    event_name?: string
-    rule?: Rule
     multiple?: boolean
     concurrent?: boolean
 
-    // schedule based
-    list_id?: UUID
-    schedule?: string
+    // Exactly one matches `trigger` (none carries no block).
+    event?: EntranceEventTrigger
+    scheduled?: EntranceScheduledTrigger
+    list?: EntranceListTrigger
 
-    references?: Array<{ id: UUID, name: string }>
+    // UI-only working state. The backend ignores these but they are preserved
+    // verbatim in the stored step data so the editor can restore its selections.
+    scheduled_name?: string
+    schedule_offset?: string
+    schedule_offset_direction?: string
+    list_name?: string
+    references?: Array<{ id: UUID; name: string }>
 }
 
-const triggerOptions = [
-    {
-        key: 'none',
-        label: 'None',
-    },
-    {
-        key: 'event',
-        label: 'Event',
-    },
-    {
-        key: 'schedule',
-        label: 'Schedule',
-    },
-]
+const triggers = ["none", "event", "scheduled", "list"] as const
+
+type EventOption = Pick<RulePath, "name" | "path">
+type EventComboboxView = "list" | "create"
+
+const triggerConfig = {
+    none: { icon: Webhook, label: "API" },
+    event: { icon: Zap, label: "Event" },
+    scheduled: { icon: CalendarClock, label: "Scheduled" },
+    list: { icon: ListChecks, label: "List" },
+} as const
 
 const codeExample = (journeyId: UUID, entranceId: UUID) => `curl --request POST \\
 --url '${env.api.baseURL}/client/journeys/${journeyId}/trigger' \\
@@ -59,7 +112,7 @@ const codeExample = (journeyId: UUID, entranceId: UUID) => `curl --request POST 
 --data '{
     "entrance_id": ${entranceId},
     "user": {
-        "external_id": "example-user-id",
+        "identifier": [{ "source": "default", "external_id": "example-user-id" }],
         "extra_user_property": true
     },
     "event": {
@@ -67,214 +120,1052 @@ const codeExample = (journeyId: UUID, entranceId: UUID) => `curl --request POST 
     }
 }'`
 
+import type { MutableRefObject } from "react"
+
+interface ScheduledOffsetSelectorProps {
+    projectId: string
+    scheduledCacheRef: MutableRefObject<ScheduledSchema[] | null>
+    scheduledName: string
+    value: EntranceConfig
+    onChange: (value: EntranceConfig) => void
+    onOffsetsChange: (offsets: ScheduleOffset[], schedule: ScheduledSchema) => void
+    t: (key: string, fallback?: string) => string
+}
+
+function ScheduledOffsetSelector({
+    projectId,
+    scheduledCacheRef,
+    scheduledName,
+    value,
+    onChange,
+    onOffsetsChange,
+    t,
+}: ScheduledOffsetSelectorProps) {
+    const schedule = scheduledCacheRef.current?.find((s) => s.name === scheduledName)
+    const offsets = useMemo(() => schedule?.offsets ?? [], [schedule?.offsets])
+
+    // Auto-select the first offset when offsets become available but none is selected.
+    // Use a ref for onChange/value to avoid re-triggering when the parent re-renders.
+    const onChangeRef = useRef(onChange)
+    const valueRef = useRef(value)
+    onChangeRef.current = onChange
+    valueRef.current = value
+
+    useEffect(() => {
+        if (!valueRef.current.scheduled?.offset_id && offsets.length > 0) {
+            const first = offsets[0]
+            onChangeRef.current({
+                ...valueRef.current,
+                scheduled: { ...valueRef.current.scheduled, offset_id: first.id },
+                schedule_offset: first.offset,
+                schedule_offset_direction: first.direction,
+            })
+        }
+    }, [offsets])
+
+    return (
+        <div className="space-y-1.5">
+            <Label className="inline-flex items-center gap-0.5 text-sm font-medium">
+                {t("schedule_offset", "Schedule Offset")}
+                <span className="text-destructive">*</span>
+            </Label>
+            <ScheduleOffsetCombobox
+                projectId={projectId}
+                scheduledId={schedule?.id ?? ("" as UUID)}
+                offsets={offsets}
+                value={value.scheduled?.offset_id}
+                onChange={(offsetId, offset, direction) => {
+                    onChange({
+                        ...value,
+                        scheduled: { ...value.scheduled, offset_id: offsetId },
+                        schedule_offset: offset,
+                        schedule_offset_direction: direction,
+                    })
+                }}
+                onOffsetsChange={(updated) => {
+                    if (schedule) {
+                        onOffsetsChange(updated, schedule)
+                    }
+                }}
+                disabled={!schedule}
+            />
+        </div>
+    )
+}
+
+function ApiTriggerSection({ journeyId, stepId }: { journeyId: UUID; stepId: UUID }) {
+    const { t } = useTranslation()
+    const [copied, setCopied] = useState(false)
+    const code = codeExample(journeyId, stepId)
+
+    const handleCopy = async () => {
+        await navigator.clipboard.writeText(code)
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2000)
+    }
+
+    return (
+        <div className="space-y-3">
+            <div className="space-y-1">
+                <Label className="text-sm font-medium">{t("entrance_trigger")}</Label>
+                <p className="text-xs text-muted-foreground">
+                    <Trans i18nKey="entrance_trigger_desc">
+                        This entrance can be triggered directly via API. An example request is
+                        available below. Data from the{" "}
+                        <code className="rounded bg-muted px-1 py-0.5 font-mono text-[11px]">
+                            event
+                        </code>{" "}
+                        field will be available for use in the journey and campaign templates under{" "}
+                        <code className="rounded bg-muted px-1 py-0.5 font-mono text-[11px]">
+                            journey.DATA_KEY_OF_THIS_STEP.*
+                        </code>{" "}
+                        (for example,{" "}
+                        <code className="rounded bg-muted px-1 py-0.5 font-mono text-[11px]">
+                            journey.my_entrance.purchaseAmount
+                        </code>
+                        ).
+                    </Trans>
+                </p>
+            </div>
+            <div className="rounded-lg border overflow-hidden">
+                <div className="flex items-center justify-between bg-muted/50 px-3 py-2 border-b">
+                    <span className="text-xs font-medium text-muted-foreground">cURL</span>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 gap-1.5 px-2 text-xs text-muted-foreground"
+                        onClick={handleCopy}
+                    >
+                        {copied ? (
+                            <>
+                                <Check className="h-3 w-3 text-green-500" />
+                                Copied
+                            </>
+                        ) : (
+                            <>
+                                <Copy className="h-3 w-3" />
+                                Copy
+                            </>
+                        )}
+                    </Button>
+                </div>
+                <pre className="overflow-x-auto p-3 text-xs leading-relaxed font-mono">{code}</pre>
+            </div>
+        </div>
+    )
+}
+
+interface EventNameComboboxProps {
+    value?: string
+    onChange: (eventName: string) => void
+    onSearch: (query: string) => Promise<EventOption[]>
+}
+
+function EventNameCombobox({ value, onChange, onSearch }: EventNameComboboxProps) {
+    const { t } = useTranslation()
+    const [open, setOpen] = useState(false)
+    const [view, setView] = useState<EventComboboxView>("list")
+    const [search, setSearch] = useState("")
+    const [results, setResults] = useState<EventOption[]>([])
+    const [loading, setLoading] = useState(false)
+    const [newEventName, setNewEventName] = useState("")
+    const debounceRef = useRef<ReturnType<typeof setTimeout>>()
+
+    const resetCreateForm = useCallback((seedName = "") => {
+        setNewEventName(seedName)
+    }, [])
+
+    useEffect(() => {
+        if (!open || view !== "list") return
+        if (debounceRef.current) clearTimeout(debounceRef.current)
+
+        setLoading(true)
+        debounceRef.current = setTimeout(async () => {
+            try {
+                setResults(await onSearch(search))
+            } finally {
+                setLoading(false)
+            }
+        }, 250)
+
+        return () => {
+            if (debounceRef.current) clearTimeout(debounceRef.current)
+        }
+    }, [open, view, search, onSearch])
+
+    useEffect(() => {
+        if (!open) return
+        setView("list")
+        setSearch("")
+        resetCreateForm()
+    }, [open, resetCreateForm])
+
+    const handleSelect = (eventName: string) => {
+        onChange(eventName)
+        setOpen(false)
+    }
+
+    const handleSwitchToCreate = () => {
+        resetCreateForm(search || value || "")
+        setView("create")
+    }
+
+    const handleUseEvent = () => {
+        const name = newEventName.trim()
+        if (!name) return
+        onChange(name)
+        setOpen(false)
+    }
+
+    return (
+        <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+                <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={open}
+                    type="button"
+                    className={cn(
+                        "h-9 w-full justify-between shadow-none font-normal",
+                        !value && "text-muted-foreground",
+                    )}
+                >
+                    <span className="flex items-center gap-2 truncate">
+                        <Zap className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        <span className="truncate font-mono text-sm">
+                            {value || t("select_or_create_event", "Select or create event...")}
+                        </span>
+                    </span>
+                    <ChevronsUpDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent
+                className="w-[var(--radix-popover-trigger-width)] p-0"
+                align="start"
+                onOpenAutoFocus={(e) => e.preventDefault()}
+            >
+                {view === "list" ? (
+                    <div>
+                        <Command shouldFilter={false}>
+                            <CommandInput
+                                placeholder={t(
+                                    "search_or_type_event",
+                                    "Search or type an event...",
+                                )}
+                                value={search}
+                                onValueChange={setSearch}
+                            />
+                            <CommandList>
+                                {loading ? (
+                                    <div className="flex items-center justify-center py-6">
+                                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                                    </div>
+                                ) : results.length === 0 ? (
+                                    <div className="py-6 text-center text-sm text-muted-foreground">
+                                        {t("no_events_found", "No events found.")}
+                                    </div>
+                                ) : (
+                                    <div className="max-h-64 overflow-y-auto p-1">
+                                        {results.map((event) => (
+                                            <CommandItem
+                                                key={event.path}
+                                                value={event.path}
+                                                onSelect={() => handleSelect(event.name)}
+                                                className="cursor-pointer"
+                                            >
+                                                <Check
+                                                    className={cn(
+                                                        "mr-2 h-4 w-4 shrink-0",
+                                                        value === event.name
+                                                            ? "opacity-100"
+                                                            : "opacity-0",
+                                                    )}
+                                                />
+                                                <span className="truncate font-mono text-sm">
+                                                    {event.name}
+                                                </span>
+                                            </CommandItem>
+                                        ))}
+                                    </div>
+                                )}
+                            </CommandList>
+                        </Command>
+                        <div className="border-t p-1">
+                            <button
+                                type="button"
+                                onClick={handleSwitchToCreate}
+                                className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground cursor-pointer"
+                            >
+                                <Plus className="h-4 w-4" />
+                                {t("create_event_inline", "Create event...")}
+                            </button>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="p-3 space-y-3">
+                        <div className="flex items-center gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setView("list")}
+                                className="p-1 rounded-sm hover:bg-accent text-muted-foreground cursor-pointer"
+                            >
+                                <ArrowLeft className="h-4 w-4" />
+                            </button>
+                            <span className="text-sm font-medium">
+                                {t("create_event", "Create Event")}
+                            </span>
+                        </div>
+
+                        <div className="space-y-1">
+                            <Label htmlFor="new-entrance-event" className="text-xs font-medium">
+                                {t("event_name", "Event Name")}
+                            </Label>
+                            <Input
+                                id="new-entrance-event"
+                                value={newEventName}
+                                onChange={(e) => setNewEventName(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter") {
+                                        e.preventDefault()
+                                        handleUseEvent()
+                                    }
+                                    if (e.key === "Escape") {
+                                        e.preventDefault()
+                                        setView("list")
+                                    }
+                                }}
+                                placeholder="product.purchased"
+                                autoFocus
+                                className="h-8 font-mono"
+                            />
+                        </div>
+
+                        <p className="text-xs text-muted-foreground">
+                            {t(
+                                "create_entrance_event_hint",
+                                "This adds the event name to the entrance. Save the draft to persist it for this project.",
+                            )}
+                        </p>
+
+                        <Button
+                            type="button"
+                            size="sm"
+                            onClick={handleUseEvent}
+                            disabled={!newEventName.trim()}
+                            className="h-8"
+                        >
+                            {t("create", "Create")}
+                        </Button>
+                    </div>
+                )}
+            </PopoverContent>
+        </Popover>
+    )
+}
+
+interface ListSelectorProps {
+    projectId: UUID
+    value?: UUID
+    displayName?: string
+    onChange: (list: { id: UUID; name: string }) => void
+}
+
+function ListSelector({ projectId, value, displayName, onChange }: ListSelectorProps) {
+    const { t } = useTranslation()
+    const [open, setOpen] = useState(false)
+    const [search, setSearch] = useState("")
+    const [results, setResults] = useState<List[]>([])
+    const [loading, setLoading] = useState(false)
+    const debounceRef = useRef<ReturnType<typeof setTimeout>>()
+
+    useEffect(() => {
+        if (!open) return
+        if (debounceRef.current) clearTimeout(debounceRef.current)
+
+        setLoading(true)
+        debounceRef.current = setTimeout(async () => {
+            try {
+                const res = await api.lists.search(projectId, { limit: 50, search })
+                setResults(res.results)
+            } finally {
+                setLoading(false)
+            }
+        }, 250)
+
+        return () => {
+            if (debounceRef.current) clearTimeout(debounceRef.current)
+        }
+    }, [open, search, projectId])
+
+    useEffect(() => {
+        if (!open) setSearch("")
+    }, [open])
+
+    return (
+        <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+                <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={open}
+                    type="button"
+                    className={cn(
+                        "h-9 w-full justify-between shadow-none font-normal",
+                        !value && "text-muted-foreground",
+                    )}
+                >
+                    <span className="flex items-center gap-2 truncate">
+                        <ListChecks className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        <span className="truncate text-sm">
+                            {displayName || t("select_list", "Select a list...")}
+                        </span>
+                    </span>
+                    <ChevronsUpDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent
+                className="w-[var(--radix-popover-trigger-width)] p-0"
+                align="start"
+                onOpenAutoFocus={(e) => e.preventDefault()}
+            >
+                <Command shouldFilter={false}>
+                    <CommandInput
+                        placeholder={t("search_lists", "Search lists...")}
+                        value={search}
+                        onValueChange={setSearch}
+                    />
+                    <CommandList>
+                        {loading ? (
+                            <div className="flex items-center justify-center py-6">
+                                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                            </div>
+                        ) : results.length === 0 ? (
+                            <div className="py-6 text-center text-sm text-muted-foreground">
+                                {t("no_lists_found", "No lists found.")}
+                            </div>
+                        ) : (
+                            <div className="max-h-64 overflow-y-auto p-1">
+                                {results.map((list) => (
+                                    <CommandItem
+                                        key={list.id}
+                                        value={list.id}
+                                        onSelect={() => {
+                                            onChange({ id: list.id, name: list.name })
+                                            setOpen(false)
+                                        }}
+                                        className="cursor-pointer"
+                                    >
+                                        <Check
+                                            className={cn(
+                                                "mr-2 h-4 w-4 shrink-0",
+                                                value === list.id ? "opacity-100" : "opacity-0",
+                                            )}
+                                        />
+                                        <span className="truncate text-sm">{list.name}</span>
+                                        <Badge variant="secondary" className="ml-auto shrink-0">
+                                            {list.type}
+                                        </Badge>
+                                    </CommandItem>
+                                ))}
+                            </div>
+                        )}
+                    </CommandList>
+                </Command>
+            </PopoverContent>
+        </Popover>
+    )
+}
+
 export const entranceStep: JourneyStepType<EntranceConfig> = {
-    name: 'entrance',
+    name: "entrance",
     icon: <EntranceStepIcon />,
-    category: 'entrance',
-    description: 'entrance_desc',
+    category: "entrance",
+    description: "entrance_desc",
     newData: async () => ({
-        trigger: 'none',
+        trigger: "event",
     }),
     Describe({
-        project: {
-            id: projectId,
-        },
         value: {
             trigger,
-            event_name,
-            rule,
-            list_id,
-            schedule,
+            event,
+            scheduled,
+            scheduled_name,
+            schedule_offset,
+            schedule_offset_direction,
+            list,
+            list_name,
             references = [],
         },
     }) {
         const { t } = useTranslation()
         const [preferences] = useContext(PreferencesContext)
 
-        const [list] = useResolver(useCallback(async () => {
-            if (trigger === 'schedule' && list_id) {
-                return await api.lists.get(projectId, list_id)
-            }
-            return null
-        }, [projectId, list_id, trigger]))
-
-        if (trigger === 'schedule') {
-            let s = ''
-            if (schedule) {
-                const rule = RRule.fromString(schedule)
-                if (rule.options.freq) {
-                    s = rule.toText()
-                    if (rule.options.freq === RRule.DAILY) {
-                        s += Number(rule.options.byhour) < 12
-                            ? 'am'
-                            : 'pm'
-                    }
-                } else {
-                    s = 'once'
-                }
-            }
+        if (trigger === "event") {
+            const rule = event?.rule
+            const hasConditions = rule && isEventWrapper(rule) && !!rule?.children?.length
             return (
-                <div style={{ maxWidth: 300 }}>
-                    {t('entrance_add_everyone_from') + ' '}
-                    <strong>
-                        {list?.name ?? <>&#8211;</>}
-                    </strong>
-                    {' '}
-                    {s}
+                <div className="space-y-1.5 max-w-[300px]">
+                    <div className="flex items-center gap-1.5 text-sm">
+                        <Zap className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                        <span>
+                            {t("entrance_add_everyone_when") + " "}
+                            <strong>{event?.name || <>&#8211;</>}</strong>
+                            {t("entrance_occurs")}
+                        </span>
+                    </div>
+                    {hasConditions && (
+                        <div className="border-l-2 border-muted pl-2 text-xs text-muted-foreground">
+                            {rule.children!.map((child, i) => (
+                                <span key={i}>
+                                    {i > 0 && <>{rule.operator === "and" ? " and " : " or "}</>}
+                                    {ruleDescription(preferences, child)}
+                                </span>
+                            ))}
+                        </div>
+                    )}
                 </div>
             )
         }
 
-        if (trigger === 'event') {
+        if (trigger === "scheduled") {
             return (
-                <div style={{ maxWidth: 300 }}>
-                    {t('entrance_add_everyone_when') + ' '}
-                    <strong>{event_name ?? ''}</strong>
-                    {t('entrance_occurs')}
-                    {
-                        rule && isEventWrapper(rule) && !!rule?.children?.length && (
-                            <>
-                                {' '}
-                                {ruleDescription(preferences, rule)}
-                            </>
-                        )
-                    }
+                <div className="flex items-center gap-1.5 text-sm">
+                    <CalendarClock className="size-4 shrink-0 text-muted-foreground" />
+                    <span>
+                        <span className="font-medium">{scheduled_name}</span>
+                        {scheduled?.offset_id && schedule_offset != null && (
+                            <span className="text-muted-foreground">
+                                {" "}
+                                {formatOffset(
+                                    schedule_offset,
+                                    schedule_offset_direction ?? "before",
+                                )}
+                            </span>
+                        )}
+                    </span>
+                </div>
+            )
+        }
+
+        if (trigger === "list") {
+            const direction = list?.direction ?? "joins"
+            const exit_on_leave = list?.exit_on_leave
+            return (
+                <div className="space-y-1.5 max-w-[300px]">
+                    <div className="flex items-center gap-1.5 text-sm">
+                        <ListChecks className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                        <span>
+                            {direction === "leaves"
+                                ? t("entrance_list_leaves", "When a user leaves")
+                                : t("entrance_list_joins", "When a user joins")}{" "}
+                            <strong>{list_name || <>&#8211;</>}</strong>
+                        </span>
+                    </div>
+                    {direction === "joins" && exit_on_leave && (
+                        <div className="flex items-center gap-1.5 border-l-2 border-muted pl-2 text-xs text-muted-foreground">
+                            <LogOut className="h-3 w-3 shrink-0" />
+                            {t(
+                                "entrance_list_exit_on_leave_summary",
+                                "Exit when they leave the list",
+                            )}
+                        </div>
+                    )}
                 </div>
             )
         }
 
         if (references.length) {
-            return <div className="references">
-                <span>{t('entrance_links')}</span>
-                <div className="ui-tag-list">
-                    {references.map(journey =>
-                        <Tag variant="plain" key={journey.id}>
-                            <Link to={`../journeys/${journey.id}`}>{journey.name}</Link>
-                        </Tag>,
-                    )}
+            return (
+                <div className="space-y-1.5">
+                    <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                        {t("entrance_links")}
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                        {references.map((journey) => (
+                            <Badge variant="secondary" key={journey.id}>
+                                <Link to={`../journeys/${journey.id}`}>{journey.name}</Link>
+                            </Badge>
+                        ))}
+                    </div>
                 </div>
-            </div>
+            )
         }
 
-        return <>{t('entrance_empty')}</>
+        return (
+            <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                <Webhook className="h-3.5 w-3.5 shrink-0" />
+                {t("entrance_empty")}
+            </div>
+        )
     },
     Edit({ onChange, project: { id: projectId }, journey: { id: journeyId }, stepId, value }) {
-
         const { t } = useTranslation()
-        const getList = useCallback(async (id: UUID) => await api.lists.get(projectId, id), [projectId])
-        const searchLists = useCallback(async (q: string) => await api.lists.search(projectId, { q, limit: 50 }), [projectId])
+
+        const cacheRef = useRef<RulePath[] | null>(null)
+        const scheduledCacheRef = useRef<ScheduledSchema[] | null>(null)
+        const [scheduledCacheVersion, setScheduledCacheVersion] = useState(0)
+
+        const ensureSuggestionsLoaded = useCallback(async () => {
+            if (cacheRef.current && scheduledCacheRef.current) return
+            const suggestions = await api.projects.pathSuggestions(projectId)
+            if (!cacheRef.current) {
+                cacheRef.current = Array.isArray(suggestions?.eventPaths)
+                    ? suggestions.eventPaths.map((event, index) => ({
+                          id: `event-${index}` as UUID,
+                          name: event.name,
+                          path: event.name,
+                          type: "event" as const,
+                          data_type: "string" as const,
+                          visibility: "public" as const,
+                      }))
+                    : []
+            }
+            if (!scheduledCacheRef.current) {
+                scheduledCacheRef.current = Array.isArray(suggestions?.scheduledPaths)
+                    ? suggestions.scheduledPaths
+                    : []
+            }
+        }, [projectId])
+
+        // Eagerly load suggestions on mount when trigger is scheduled
+        // so that the offset selector has data immediately (not just on search)
+        useEffect(() => {
+            if (value.trigger === "scheduled" && value.scheduled_name) {
+                ensureSuggestionsLoaded().then(() => {
+                    setScheduledCacheVersion((v) => v + 1)
+                })
+            }
+        }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+        // Seed sensible defaults for the list trigger: enter on join, and exit
+        // the journey when the user leaves the list.
+        useEffect(() => {
+            if (value.trigger === "list" && value.list?.direction === undefined) {
+                onChange({
+                    ...value,
+                    list: {
+                        ...value.list,
+                        direction: "joins",
+                        exit_on_leave: value.list?.exit_on_leave ?? true,
+                    },
+                })
+            }
+        }, [value.trigger, value.list?.direction]) // eslint-disable-line react-hooks/exhaustive-deps
+
+        const handleSearch = useCallback(
+            async (query: string): Promise<RulePath[]> => {
+                await ensureSuggestionsLoaded()
+                if (!query) return cacheRef.current!
+                const lower = query.toLowerCase()
+                return cacheRef.current!.filter((o) => o.name.toLowerCase().includes(lower))
+            },
+            [ensureSuggestionsLoaded],
+        )
+
+        const handleEventNameChange = useCallback(
+            (name: string) => {
+                const currentRule = value.event?.rule
+                const updatedRule = currentRule
+                    ? { ...currentRule, value: name }
+                    : createSimpleEventRule(name)
+                onChange({
+                    ...value,
+                    event: { ...value.event, name, rule: updatedRule },
+                })
+            },
+            [onChange, value],
+        )
+
+        const handleScheduledSearch = useCallback(
+            async (query: string): Promise<RulePath[]> => {
+                await ensureSuggestionsLoaded()
+                const schedules = scheduledCacheRef.current ?? []
+                const paths: RulePath[] = schedules.map((s, index) => ({
+                    id: `scheduled-${index}` as UUID,
+                    name: s.name,
+                    path: s.name,
+                    type: "scheduled" as const,
+                    data_type: "string" as const,
+                    visibility: "public" as const,
+                }))
+                if (!query) return paths
+                const lower = query.toLowerCase()
+                return paths.filter((o) => o.name.toLowerCase().includes(lower))
+            },
+            [ensureSuggestionsLoaded],
+        )
 
         return (
             <>
-                <RadioInput
-                    label={t('trigger')}
-                    value={value.trigger}
-                    options={triggerOptions}
-                    onChange={trigger => onChange({ ...value, trigger })}
-                    required
-                />
-                {
-                    value.trigger === 'event' && (
-                        <>
-                            <TextInput
-                                name="event_name"
-                                label={t('event_name')}
-                                required
-                                value={value.event_name ?? ''}
-                                onChange={event_name => {
-                                    const currentRule = value.rule
-                                    // Keep the existing rule structure, just update the value
-                                    const updatedRule = currentRule
-                                        ? { ...currentRule, value: event_name }
-                                        : createSimpleEventRule(event_name)
-                                    onChange({
-                                        ...value,
-                                        event_name,
-                                        rule: updatedRule,
-                                    })
-                                }}
-                            />
-                            {
-                                value.event_name && (
-                                    <RuleBuilder
-                                        rule={value.rule ?? createSimpleEventRule(value.event_name)}
-                                        setRule={rule => onChange({
-                                            ...value,
-                                            rule: {
-                                                ...rule,
-                                                value: value.event_name,
-                                            },
-                                        })}
-                                        eventName={value.event_name}
-                                        headerPrefix={t('entrance_matching')}
-                                    />
+                <div className="space-y-1.5">
+                    <Label className="text-sm font-medium">{t("trigger")}</Label>
+                    <Tabs
+                        value={value.trigger}
+                        onValueChange={(next) => {
+                            const trigger = next as EntranceConfig["trigger"]
+                            // Keep only the active trigger's block so the stored
+                            // data stays a clean oneOf; the backend rejects an
+                            // entrance that carries a foreign trigger block.
+                            onChange({
+                                ...value,
+                                trigger,
+                                event: trigger === "event" ? value.event : undefined,
+                                scheduled: trigger === "scheduled" ? value.scheduled : undefined,
+                                list: trigger === "list" ? value.list : undefined,
+                            })
+                        }}
+                    >
+                        <TabsList className="w-full">
+                            {triggers.map((key) => {
+                                const { icon: Icon, label } = triggerConfig[key]
+                                return (
+                                    <TabsTrigger key={key} value={key} className="flex-1 gap-1.5">
+                                        <Icon className="h-3.5 w-3.5" />
+                                        {label}
+                                    </TabsTrigger>
                                 )
-                            }
-                            <SwitchField
-                                name="multiple"
-                                label={t('entrance_multiple_entries')}
-                                subtitle={t('entrance_multiple_entries_desc')}
-                                checked={Boolean(value.multiple)}
-                                onChange={multiple => onChange({ ...value, multiple })}
-                            />
-                            {
-                                value.multiple && (
-                                    <SwitchField
-                                        name="concurrent"
-                                        label={t('entrance_simultaneous_entries')}
-                                        subtitle={t('entrance_simultaneous_entries_desc')}
-                                        checked={Boolean(value.concurrent)}
-                                        onChange={concurrent => onChange({ ...value, concurrent })}
-                                    />
-                                )
-                            }
-                        </>
-                    )
-                }
-                {
-                    value.trigger === 'schedule' && (
-                        <>
-                            <EntityIdPicker
-                                get={getList}
-                                search={searchLists}
-                                value={value.list_id ?? NIL as UUID}
-                                onChange={list_id => onChange({ ...value, list_id })}
-                                label={t('list')}
-                                subtitle={t('entrance_list_desc')}
-                                required
-                            />
-                            <RRuleEditor
-                                label={t('schedule')}
-                                value={[value.schedule ?? '', undefined]}
-                                onChange={([schedule, rule]) => onChange({ ...value, schedule, multiple: !!rule?.freq })}
-                            />
-                        </>
-                    )
-                }
-                {
-                    !!stepId && value.trigger === 'none' && (
-                        <div style={{ maxWidth: 600 }}>
-                            <CodeExample
-                                title={t('entrance_trigger')}
-                                description={
-                                    <Trans i18nKey="entrance_trigger_desc">
-                                        This entrance can be triggered directly via API. An example request is available below. Data from the <code>event</code> field will be available for use in the journey and campaign templates under <code>journey.DATA_KEY_OF_THIS_STEP.*</code> (for example, <code>journey.my_entrance.purchaseAmount</code>).
-                                    </Trans>
-                                }
-                                code={codeExample(journeyId, stepId)}
+                            })}
+                        </TabsList>
+                    </Tabs>
+                </div>
+                {value.trigger === "event" && (
+                    <>
+                        <div className="space-y-1.5">
+                            <Label className="inline-flex items-center gap-0.5 text-sm font-medium">
+                                {t("event_name")}
+                                <span className="text-destructive">*</span>
+                            </Label>
+                            <EventNameCombobox
+                                value={value.event?.name ?? ""}
+                                onChange={handleEventNameChange}
+                                onSearch={handleSearch}
                             />
                         </div>
-                    )
-                }
+                        {value.event?.name && (
+                            <RuleBuilder
+                                rule={value.event.rule ?? createSimpleEventRule(value.event.name)}
+                                setRule={(rule) =>
+                                    onChange({
+                                        ...value,
+                                        event: {
+                                            ...value.event,
+                                            rule: {
+                                                ...rule,
+                                                value: value.event?.name,
+                                            },
+                                        },
+                                    })
+                                }
+                                eventName={value.event.name}
+                                headerPrefix={t("entrance_matching")}
+                            />
+                        )}
+                        <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
+                            <div className="space-y-0.5">
+                                <Label htmlFor="multiple" className="text-sm font-medium">
+                                    {t("entrance_multiple_entries")}
+                                </Label>
+                                <p className="text-xs text-muted-foreground">
+                                    {t("entrance_multiple_entries_desc")}
+                                </p>
+                            </div>
+                            <Switch
+                                id="multiple"
+                                checked={Boolean(value.multiple)}
+                                onCheckedChange={(multiple) => onChange({ ...value, multiple })}
+                            />
+                        </div>
+                        {value.multiple && (
+                            <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
+                                <div className="space-y-0.5">
+                                    <Label htmlFor="concurrent" className="text-sm font-medium">
+                                        {t("entrance_simultaneous_entries")}
+                                    </Label>
+                                    <p className="text-xs text-muted-foreground">
+                                        {t("entrance_simultaneous_entries_desc")}
+                                    </p>
+                                </div>
+                                <Switch
+                                    id="concurrent"
+                                    checked={Boolean(value.concurrent)}
+                                    onCheckedChange={(concurrent) =>
+                                        onChange({ ...value, concurrent })
+                                    }
+                                />
+                            </div>
+                        )}
+                    </>
+                )}
+                {value.trigger === "scheduled" && (
+                    <>
+                        {/* Schedule name selector */}
+                        <div className="space-y-1.5">
+                            <Label className="inline-flex items-center gap-0.5 text-sm font-medium">
+                                {t("scheduled_name", "Scheduled Name")}
+                                <span className="text-destructive">*</span>
+                            </Label>
+                            <Combobox<RulePath>
+                                onSearch={handleScheduledSearch}
+                                value={value.scheduled_name ?? ""}
+                                displayValue={value.scheduled_name}
+                                onValueChange={(scheduled_name) => {
+                                    // When schedule changes, reset offset selection
+                                    onChange({
+                                        ...value,
+                                        scheduled_name,
+                                        scheduled: {
+                                            ...value.scheduled,
+                                            name: scheduled_name
+                                                ? `scheduled.${scheduled_name}`
+                                                : undefined,
+                                            offset_id: undefined,
+                                        },
+                                    })
+                                }}
+                                placeholder={t("scheduled_name", "Scheduled Name")}
+                                renderOption={(option) => option.name}
+                            />
+                        </div>
+
+                        {/* Offset selector - shown after schedule is selected */}
+                        {value.scheduled_name && (
+                            <ScheduledOffsetSelector
+                                key={scheduledCacheVersion}
+                                projectId={projectId}
+                                scheduledCacheRef={scheduledCacheRef}
+                                scheduledName={value.scheduled_name}
+                                value={value}
+                                onChange={onChange}
+                                onOffsetsChange={(updated, schedule) => {
+                                    const idx = scheduledCacheRef.current?.findIndex(
+                                        (s) => s.id === schedule.id,
+                                    )
+                                    if (scheduledCacheRef.current && idx != null && idx >= 0) {
+                                        scheduledCacheRef.current = scheduledCacheRef.current.map(
+                                            (s, i) => (i === idx ? { ...s, offsets: updated } : s),
+                                        )
+                                        setScheduledCacheVersion((v) => v + 1)
+                                    }
+                                }}
+                                t={t}
+                            />
+                        )}
+
+                        {/* RuleBuilder - shown after schedule + offset are selected */}
+                        {value.scheduled_name &&
+                            value.scheduled?.offset_id &&
+                            value.scheduled?.name && (
+                                <RuleBuilder
+                                    rule={
+                                        value.scheduled.rule ??
+                                        createSimpleEventRule(value.scheduled.name)
+                                    }
+                                    setRule={(rule) =>
+                                        onChange({
+                                            ...value,
+                                            scheduled: {
+                                                ...value.scheduled,
+                                                rule: {
+                                                    ...rule,
+                                                    value: value.scheduled?.name,
+                                                },
+                                            },
+                                        })
+                                    }
+                                    eventName={value.scheduled.name}
+                                    headerPrefix={t("entrance_matching")}
+                                />
+                            )}
+
+                        {/* Multiple entries toggle */}
+                        <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
+                            <div className="space-y-0.5">
+                                <Label htmlFor="multiple-scheduled" className="text-sm font-medium">
+                                    {t("entrance_multiple_entries")}
+                                </Label>
+                                <p className="text-xs text-muted-foreground">
+                                    {t("entrance_multiple_entries_desc")}
+                                </p>
+                            </div>
+                            <Switch
+                                id="multiple-scheduled"
+                                checked={Boolean(value.multiple)}
+                                onCheckedChange={(multiple) => onChange({ ...value, multiple })}
+                            />
+                        </div>
+
+                        {/* Concurrent entries toggle */}
+                        {value.multiple && (
+                            <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
+                                <div className="space-y-0.5">
+                                    <Label
+                                        htmlFor="concurrent-scheduled"
+                                        className="text-sm font-medium"
+                                    >
+                                        {t("entrance_simultaneous_entries")}
+                                    </Label>
+                                    <p className="text-xs text-muted-foreground">
+                                        {t("entrance_simultaneous_entries_desc")}
+                                    </p>
+                                </div>
+                                <Switch
+                                    id="concurrent-scheduled"
+                                    checked={Boolean(value.concurrent)}
+                                    onCheckedChange={(concurrent) =>
+                                        onChange({ ...value, concurrent })
+                                    }
+                                />
+                            </div>
+                        )}
+                    </>
+                )}
+                {value.trigger === "list" && (
+                    <>
+                        <div className="space-y-1.5">
+                            <Label className="inline-flex items-center gap-0.5 text-sm font-medium">
+                                {t("list", "List")}
+                                <span className="text-destructive">*</span>
+                            </Label>
+                            <ListSelector
+                                projectId={projectId as UUID}
+                                value={value.list?.id}
+                                displayName={value.list_name}
+                                onChange={(list) =>
+                                    onChange({
+                                        ...value,
+                                        list: { ...value.list, id: list.id },
+                                        list_name: list.name,
+                                    })
+                                }
+                            />
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <Label className="text-sm font-medium">
+                                {t("entrance_list_when", "Enter the journey when")}
+                            </Label>
+                            <Select
+                                value={value.list?.direction ?? "joins"}
+                                onValueChange={(v) => {
+                                    const direction = v as ListDirection
+                                    onChange({
+                                        ...value,
+                                        list: {
+                                            ...value.list,
+                                            direction,
+                                            exit_on_leave:
+                                                direction === "joins"
+                                                    ? (value.list?.exit_on_leave ?? true)
+                                                    : false,
+                                        },
+                                    })
+                                }}
+                            >
+                                <SelectTrigger className="h-9">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="joins">
+                                        {t("entrance_list_option_joins", "A user joins the list")}
+                                    </SelectItem>
+                                    <SelectItem value="leaves">
+                                        {t("entrance_list_option_leaves", "A user leaves the list")}
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {(value.list?.direction ?? "joins") === "joins" && (
+                            <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
+                                <div className="space-y-0.5">
+                                    <Label htmlFor="exit-on-leave" className="text-sm font-medium">
+                                        {t(
+                                            "entrance_list_exit_on_leave",
+                                            "Exit when they leave the list",
+                                        )}
+                                    </Label>
+                                    <p className="text-xs text-muted-foreground">
+                                        {t(
+                                            "entrance_list_exit_on_leave_desc",
+                                            "Automatically remove users from this journey when they leave the list.",
+                                        )}
+                                    </p>
+                                </div>
+                                <Switch
+                                    id="exit-on-leave"
+                                    checked={value.list?.exit_on_leave ?? true}
+                                    onCheckedChange={(exit_on_leave) =>
+                                        onChange({
+                                            ...value,
+                                            list: { ...value.list, exit_on_leave },
+                                        })
+                                    }
+                                />
+                            </div>
+                        )}
+
+                        <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
+                            <div className="space-y-0.5">
+                                <Label htmlFor="multiple-list" className="text-sm font-medium">
+                                    {t("entrance_multiple_entries")}
+                                </Label>
+                                <p className="text-xs text-muted-foreground">
+                                    {t("entrance_multiple_entries_desc")}
+                                </p>
+                            </div>
+                            <Switch
+                                id="multiple-list"
+                                checked={Boolean(value.multiple)}
+                                onCheckedChange={(multiple) => onChange({ ...value, multiple })}
+                            />
+                        </div>
+                        {value.multiple && (
+                            <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
+                                <div className="space-y-0.5">
+                                    <Label
+                                        htmlFor="concurrent-list"
+                                        className="text-sm font-medium"
+                                    >
+                                        {t("entrance_simultaneous_entries")}
+                                    </Label>
+                                    <p className="text-xs text-muted-foreground">
+                                        {t("entrance_simultaneous_entries_desc")}
+                                    </p>
+                                </div>
+                                <Switch
+                                    id="concurrent-list"
+                                    checked={Boolean(value.concurrent)}
+                                    onCheckedChange={(concurrent) =>
+                                        onChange({ ...value, concurrent })
+                                    }
+                                />
+                            </div>
+                        )}
+                    </>
+                )}
+                {value.trigger === "none" &&
+                    (stepId ? (
+                        <ApiTriggerSection journeyId={journeyId} stepId={stepId} />
+                    ) : (
+                        <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+                            {t(
+                                "entrance_api_save_first",
+                                "Save the draft to generate the API trigger example for this entrance.",
+                            )}
+                        </div>
+                    ))}
             </>
         )
     },
-    validate: ({ trigger, event_name, list_id, schedule }) => {
-        if (trigger === 'event') {
-            return !!event_name
+    validate: ({ trigger, event, scheduled, list }) => {
+        if (trigger === "event") {
+            return !!event?.name
         }
-        if (trigger === 'schedule') {
-            return !!list_id && !!schedule
+        if (trigger === "scheduled") {
+            return !!scheduled?.name && !!scheduled?.offset_id
+        }
+        if (trigger === "list") {
+            return !!list?.id
         }
         return true
     },

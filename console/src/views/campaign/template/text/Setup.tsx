@@ -1,65 +1,105 @@
-import { Controller, useForm, type UseFormReturn } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Ellipsis, UserRound } from 'lucide-react';
-import type { Campaign, Template, User, Locale } from "@/types";
-import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router";
-import api from "@/api";
-import * as z from "zod";
+import { Controller, useForm, type UseFormReturn } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { Ellipsis, Rocket } from "lucide-react"
+import type { Campaign, Template, User, Locale } from "@/types"
+import { useTranslation } from "react-i18next"
+import { useNavigate } from "react-router"
+import api from "@/api"
+import type * as z from "zod"
 
-import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
-import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
+import { Render } from "@/renderTemplates"
+import { PhoneFrame } from "@/components/preview/PhoneFrame"
+import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
+import { SenderIdentityCombobox } from "@/components/sender-identity-combobox"
+import { TemplateInput } from "@/components/ui/template-input"
+import { Button } from "@/components/ui/button"
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from "@/components/ui/select";
-import { UserSelection } from "../UserSelection";
-import { useContext, useState, useEffect } from "react";
-import { ProjectContext, TemplateContext } from "@/contexts";
+} from "@/components/ui/select"
+import { UserSelection } from "../UserSelection"
+import { useContext, useState, useEffect } from "react"
+import { ProjectContext, TemplateContext } from "@/contexts"
+import { useCampaignVariableContext } from "../../CampaignVariableContext"
+import { useSendTestSMS } from "./useSendTestSMS"
 
-const textSetupFormSchema = z.object({
-    message: z.string("Message is required").min(1, "Message is required"),
-});
+import { textSetupFormSchema } from "@/validation/campaign/template/text/setup"
 
 export function TextForm(_campaign: Campaign, template?: Template) {
-    const formSchema = textSetupFormSchema.extend({});
+    const formSchema = textSetupFormSchema
+
+    const defaultValues: z.infer<typeof textSetupFormSchema> = {
+        sender_identity_id: "",
+        body: "",
+    }
+
+    if (template && template.type === "sms") {
+        defaultValues.sender_identity_id = template.sender_identity_id ?? ""
+        defaultValues.body = template.data.body
+    }
 
     return useForm({
         resolver: zodResolver(formSchema),
-        defaultValues: {
-            message: template?.data.message,
-        },
-    });
+        defaultValues: defaultValues,
+    })
 }
 
 interface TextFormControlProps {
-    campaign: Campaign;
-    form: UseFormReturn<z.infer<typeof textSetupFormSchema>>;
-    disabled?: boolean;
+    campaign: Campaign
+    form: UseFormReturn<z.infer<typeof textSetupFormSchema>>
+    disabled?: boolean
 }
 
-export function TextFormControl({ form, disabled = false }: TextFormControlProps) {
-    const { t } = useTranslation();
+export function TextFormControl({
+    campaign: _campaign,
+    form,
+    disabled = false,
+}: TextFormControlProps) {
+    const { t } = useTranslation()
+    const [project] = useContext(ProjectContext)
+    const { variableGroups } = useCampaignVariableContext()
 
     return (
         <FieldGroup className="mt-7">
             <Controller
-                name="message"
+                name="sender_identity_id"
+                control={form.control}
+                render={({ field, fieldState }) => {
+                    return (
+                        <Field data-invalid={fieldState.invalid} className="gap-2">
+                            <FieldLabel htmlFor="form-rhf-demo-from">
+                                {t("campaign.setup.channels.text.from.label")}
+                            </FieldLabel>
+                            <SenderIdentityCombobox
+                                projectId={project.id}
+                                channel="sms"
+                                value={field.value ?? ""}
+                                onChange={field.onChange}
+                                placeholder={t("select_from_number", "Select from number...")}
+                                disabled={disabled}
+                            />
+                            {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                        </Field>
+                    )
+                }}
+            />
+            <Controller
+                name="body"
                 control={form.control}
                 render={({ field, fieldState }) => (
                     <Field data-invalid={fieldState.invalid} className="gap-2">
-                        <FieldLabel htmlFor="form-rhf-demo-message">{t('campaign.setup.channels.text.message.label')}</FieldLabel>
-                        <Textarea
-                            {...field}
-                            aria-invalid={fieldState.invalid}
+                        <FieldLabel htmlFor="form-rhf-demo-message">
+                            {t("campaign.setup.channels.text.message.label")}
+                        </FieldLabel>
+                        <TemplateInput
+                            value={field.value}
+                            onChange={field.onChange}
                             placeholder=""
-                            autoComplete="off"
                             disabled={disabled}
-                            readOnly={disabled}
+                            variables={variableGroups}
                         />
                         {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
                     </Field>
@@ -70,58 +110,86 @@ export function TextFormControl({ form, disabled = false }: TextFormControlProps
 }
 
 export interface TextSetupProps {
-    campaign: Campaign;
-    form: UseFormReturn<z.infer<typeof textSetupFormSchema>>;
-    edit?: boolean;
+    campaign: Campaign
+    form: UseFormReturn<z.infer<typeof textSetupFormSchema>>
+    edit?: boolean
 }
 
 export function TextPreview({ campaign, form, edit = false }: TextSetupProps) {
-    const [project] = useContext(ProjectContext);
-    const [template, setTemplate] = useContext(TemplateContext);
-    const { t } = useTranslation();
-    const [selectedUser, setSelectedUser] = useState<User | null>(null);
-    const [selectedLocale, setSelectedLocale] = useState(template.locale);
-    const [locales, setLocales] = useState<Locale[]>([]);
-    const navigate = useNavigate();
+    const [project] = useContext(ProjectContext)
+    const [template, setTemplate] = useContext(TemplateContext)
+    const { t } = useTranslation()
+    const [selectedUser, setSelectedUser] = useState<User | null>(null)
+    const [selectedLocale, setSelectedLocale] = useState(template.locale)
+    const [locales, setLocales] = useState<Locale[]>([])
+    const navigate = useNavigate()
+
+    const { sending, handleSendTest } = useSendTestSMS({
+        projectId: project.id,
+        campaignId: campaign.id,
+        templateId: template.id,
+    })
 
     useEffect(() => {
         const fetchLocales = async () => {
             if (project?.id) {
-                const result = await api.locales.search(project.id, { limit: 100 });
-                setLocales(result.results);
+                const result = await api.locales.search(project.id, { limit: 100 })
+                setLocales(result.results)
             }
-        };
-        fetchLocales();
-    }, [project?.id]);
+        }
+        fetchLocales()
+    }, [project?.id])
 
-    const message = form.watch('message');
-    const phoneNumber = project.name.charAt(0).toUpperCase() + project.name.slice(1);
+    const rawMessage = form.watch("body")
+    const message = selectedUser ? Render(rawMessage, { user: selectedUser }) : rawMessage
+    const phoneNumber = project.name.charAt(0).toUpperCase() + project.name.slice(1)
 
     const handleEditTemplate = () => {
-        navigate(`/projects/${project?.id}/campaigns/${campaign.id}/templates/${template.id}`);
-    };
+        navigate(`/projects/${project?.id}/campaigns/${campaign.id}/templates/${template.id}`)
+    }
 
     const handleLocaleChange = async (locale: string) => {
-        setSelectedLocale(locale);
-        const newTemplate = campaign.templates.find(t => t.locale === locale);
+        setSelectedLocale(locale)
+        const newTemplate = campaign.templates.find((t) => t.locale === locale)
         if (!newTemplate) {
             return
         }
-        setTemplate(newTemplate);
-    };
+        setTemplate(newTemplate)
+    }
 
     return (
         <div className="flex h-full items-center flex-col">
-            <div className="mb-8 m-auto flex items-center gap-4 w-full max-w-md">
-                <div className={edit ? "flex-1" : "flex-1 flex justify-center"}>
-                    <UserSelection
-                        projectId={project?.id}
-                        value={selectedUser}
-                        onChange={setSelectedUser}
-                    />
-                </div>
+            <div className="mb-8 m-auto flex items-center justify-center gap-4 w-full max-w-md">
+                {!edit && (
+                    <div className="flex items-center gap-2">
+                        <UserSelection
+                            projectId={project?.id}
+                            value={selectedUser}
+                            onChange={setSelectedUser}
+                            ariaLabel="Send test recipient"
+                            searchInputAriaLabel="Search send test recipients"
+                        />
+                        <Button
+                            variant="default"
+                            size="sm"
+                            className="h-9 gap-1.5 shrink-0"
+                            onClick={() => handleSendTest(selectedUser?.phone ?? "", selectedUser)}
+                            disabled={sending || !selectedUser?.phone}
+                        >
+                            <Rocket className="h-3.5 w-3.5" />
+                            {t("send_test_sms.button", "Send test")}
+                        </Button>
+                    </div>
+                )}
                 {edit && (
                     <>
+                        <div className="flex-1">
+                            <UserSelection
+                                projectId={project?.id}
+                                value={selectedUser}
+                                onChange={setSelectedUser}
+                            />
+                        </div>
                         <div className="flex-1">
                             <Select value={selectedLocale} onValueChange={handleLocaleChange}>
                                 <SelectTrigger className="w-full">
@@ -129,59 +197,35 @@ export function TextPreview({ campaign, form, edit = false }: TextSetupProps) {
                                 </SelectTrigger>
                                 <SelectContent>
                                     {campaign.templates.map((t) => {
-                                        const locale = locales.find(l => l.key === t.locale);
+                                        const locale = locales.find((l) => l.key === t.locale)
                                         return (
                                             <SelectItem key={t.id} value={t.locale}>
                                                 {locale?.label || t.locale}
                                             </SelectItem>
-                                        );
+                                        )
                                     })}
                                 </SelectContent>
                             </Select>
                         </div>
                         <div className="flex-1">
                             <Button onClick={handleEditTemplate} className="w-full">
-                                {t('campaign.template.edit')}
+                                {t("campaign.template.edit")}
                             </Button>
                         </div>
                     </>
                 )}
             </div>
-            <div className="w-[390px] h-[533px] bg-zinc-900 rounded-t-[70px] p-3 pb-0 shadow-2xl">
-                <div className="w-full h-full bg-white rounded-t-[58px] overflow-hidden flex flex-col">
-                    <div className="h-12 bg-white flex items-start justify-center px-8 pt-3">
-                        <div className="w-32 h-8 bg-zinc-900 rounded-full" />
-                    </div>
-
-                    <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-center">
-                        <div className="flex flex-col items-center">
-                            <div className="w-12 h-12 bg-gray-300 rounded-full flex items-center justify-center mb-1">
-                                <UserRound className="w-7 h-7 text-gray-500" strokeWidth={1.5} />
-                            </div>
-                            <span className="text-sm font-medium">{phoneNumber}</span>
-                        </div>
-                    </div>
-
-                    <div className="flex-1 bg-white px-4 py-6 overflow-y-auto">
-                        <div className="flex flex-col items-center mb-6">
-                            <span className="text-gray-500 text-xs">{t('campaign.setup.channels.text.text_message_label')}</span>
-                            <span className="text-gray-400 text-xs">{t('campaign.setup.channels.text.today')}</span>
-                        </div>
-
-                        <div className="flex justify-start mb-6">
-                            <div className="max-w-[75%]">
-                                <div className="bg-gray-200 rounded-3xl rounded-bl-sm px-4 py-3">
-                                    {message || <Ellipsis className="text-gray-500" />}
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="text-center">
-                            <p className="text-gray-400 text-sm">{t('campaign.setup.channels.text.preview_disclaimer')}</p>
-                        </div>
-                    </div>
-                </div>
+            <PhoneFrame
+                sender={phoneNumber}
+                message={message || <Ellipsis className="text-gray-500" />}
+                contextLabel={t("campaign.setup.channels.text.text_message_label")}
+                contextDate={t("campaign.setup.channels.text.today")}
+            />
+            <div className="text-center mt-4">
+                <p className="text-gray-400 text-sm">
+                    {t("campaign.setup.channels.text.preview_disclaimer")}
+                </p>
             </div>
         </div>
-    );
+    )
 }

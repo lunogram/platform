@@ -28,7 +28,7 @@ func TestGetAuthMethods(t *testing.T) {
 		},
 	}
 
-	controller, err := NewAuthController(logger, mgmt, cfg)
+	controller, err := NewAuthController(logger, mgmt, cfg, nil)
 	require.NoError(t, err)
 
 	type test struct {
@@ -74,7 +74,7 @@ func TestAuthCallbackWithInvalidDriver(t *testing.T) {
 		},
 	}
 
-	controller, err := NewAuthController(logger, mgmt, cfg)
+	controller, err := NewAuthController(logger, mgmt, cfg, nil)
 	require.NoError(t, err)
 
 	type test struct {
@@ -115,7 +115,7 @@ func TestAuthWebhookWithInvalidDriver(t *testing.T) {
 		},
 	}
 
-	controller, err := NewAuthController(logger, mgmt, cfg)
+	controller, err := NewAuthController(logger, mgmt, cfg, nil)
 	require.NoError(t, err)
 
 	type test struct {

@@ -11,9 +11,10 @@ import (
 	"github.com/lunogram/platform/internal/http/controllers/v1/client/oapi"
 	"github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/store/management"
+	"github.com/lunogram/platform/internal/store/subjects"
 	teststore "github.com/lunogram/platform/internal/store/test"
-	"github.com/lunogram/platform/internal/store/users"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 )
 
@@ -25,27 +26,24 @@ func setupSubscriptionsController(t *testing.T) (*SubscriptionsController, uuid.
 	mgmtDB, usrsDB, _ := teststore.RunPostgreSQL(t)
 
 	mgmt := management.NewState(mgmtDB)
-	usrs := users.NewState(usrsDB)
+	usrs := subjects.NewState(usrsDB, zap.NewNop())
+	client := NewClientController(logger, usrsDB, mgmtDB, usrs, nil, nil)
 
 	// Create project
 	projectsStore := management.NewProjectsStore(mgmtDB)
 	projectID, err := projectsStore.CreateProject(ctx, management.Project{
 		Name:     "Test Project",
 		Timezone: "UTC",
-		Locale:   "en-US",
+		Locale:   "en",
 	})
 	require.NoError(t, err)
 
 	// Create user
 	email := "test@example.com"
-	userID, err := usrs.CreateUser(ctx, users.User{
-		ProjectID: projectID,
-		Email:     &email,
-		Data:      json.RawMessage("{}"),
-	})
+	userID, err := usrs.CreateUser(ctx, projectID, &email, nil, json.RawMessage("{}"), nil, nil, nil)
 	require.NoError(t, err)
 
-	controller, err := NewSubscriptionsController(logger, mgmtDB, mgmt, usrs)
+	controller, err := NewSubscriptionsController(client, mgmtDB, mgmt)
 	require.NoError(t, err)
 
 	return controller, projectID, userID
@@ -137,24 +135,21 @@ func TestEmailUnsubscribe(t *testing.T) {
 	mgmtDB, usrsDB, _ := teststore.RunPostgreSQL(t)
 
 	mgmt := management.NewState(mgmtDB)
-	usrs := users.NewState(usrsDB)
+	usrs := subjects.NewState(usrsDB, zap.NewNop())
+	client := NewClientController(logger, usrsDB, mgmtDB, usrs, nil, nil)
 
 	// Create project
 	projectsStore := management.NewProjectsStore(mgmtDB)
 	projectID, err := projectsStore.CreateProject(ctx, management.Project{
 		Name:     "Test Project",
 		Timezone: "UTC",
-		Locale:   "en-US",
+		Locale:   "en",
 	})
 	require.NoError(t, err)
 
 	// Create user
 	email := "test@example.com"
-	userID, err := usrs.CreateUser(ctx, users.User{
-		ProjectID: projectID,
-		Email:     &email,
-		Data:      json.RawMessage("{}"),
-	})
+	userID, err := usrs.CreateUser(ctx, projectID, &email, nil, json.RawMessage("{}"), nil, nil, nil)
 	require.NoError(t, err)
 
 	// Create subscription
@@ -176,7 +171,7 @@ func TestEmailUnsubscribe(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	controller, err := NewSubscriptionsController(logger, mgmtDB, mgmt, usrs)
+	controller, err := NewSubscriptionsController(client, mgmtDB, mgmt)
 	require.NoError(t, err)
 
 	type test struct {

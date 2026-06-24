@@ -1,0 +1,30 @@
+---
+title: Exit Criteria
+description: Remove users from a journey when they complete an action
+---
+
+Use exit entrances to remove users from a journey flow when they meet certain criteria, instead of adding a gate before every step.
+
+This example shows a prescription refill program where users receive reminders on a schedule, and are exited from the flow once they complete their order.
+
+![Exit Criteria Example](/img/exit-example.png)
+
+## Steps
+
+The journey uses three entrances:
+
+1. **Refill Reminder** entrance:
+   - Schedule-based, listening for the `prescription.refill` schedule with a "2 days before" offset
+   - Connects to a `Send` step that sends a reminder email letting the user know a refill is coming up
+
+2. **Prescription Refill** entrance:
+   - Schedule-based, listening for the `prescription.refill` schedule at the scheduled time
+   - Connects to a `Send` step with the "Refill Ready" email
+   - Followed by a `Delay` of 1 day, then a `Gate` that checks whether the user has completed a `product.purchased` event
+   - The gate branches into further steps based on whether the purchase was made
+
+3. **Order Completed** entrance:
+   - Event-based, triggers when `order.completed` occurs
+   - Connects to an `Exit` step that removes the user from the **Prescription Refill** flow
+
+This way, if a user completes their order at any point, they are removed from the refill flow and stop receiving follow-up messages. You can add as many exit entrances as needed by creating additional entrances with different criteria.

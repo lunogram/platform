@@ -1,11 +1,12 @@
 package channels
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
 	"github.com/lunogram/platform/internal/store/management"
-	"github.com/lunogram/platform/internal/store/users"
+	"github.com/lunogram/platform/internal/store/subjects"
 	"github.com/lunogram/platform/pkg/modules/providers"
 )
 
@@ -16,25 +17,47 @@ type PushTemplateData struct {
 	Data  map[string]any `json:"data,omitempty"`
 }
 
-func ComposePush(config map[string]any, template management.Template, user *users.User, devices users.Devices) (*providers.SendRequest[map[string]any], error) {
+func ComposePush(_ context.Context, config map[string]any, template management.Template, user *subjects.User, devices subjects.Devices) (providers.SendRequest[map[string]any], error) {
 	if !user.HasPushDevice {
-		return nil, fmt.Errorf("user has no push-enabled device")
+		return providers.SendRequest[map[string]any]{}, fmt.Errorf("user has no push-enabled device")
 	}
 
 	var data PushTemplateData
 	if err := json.Unmarshal(template.Data, &data); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal push template data: %w", err)
+		return providers.SendRequest[map[string]any]{}, fmt.Errorf("failed to unmarshal push template data: %w", err)
 	}
 
 	tokens := make([]string, 0, len(devices))
+	apnsTokens := make([]string, 0, len(devices))
+	webPushTargets := make([]providers.WebPushTarget, 0, len(devices))
+
 	for _, device := range devices {
-		if device.HasPushToken() {
-			tokens = append(tokens, *device.Token)
+		if device.Config == nil {
+			continue
+		}
+		switch device.Config.Type {
+		case subjects.PushConfigTypeFCM:
+			tokens = append(tokens, device.Config.Token)
+		case subjects.PushConfigTypeAPNs:
+			apnsTokens = append(apnsTokens, device.Config.Token)
+		case subjects.PushConfigTypeWebPush:
+			target := providers.WebPushTarget{
+				Endpoint: device.Config.Endpoint,
+			}
+			if device.Config.ExpirationTime != nil {
+				exp := device.Config.ExpirationTime.Unix()
+				target.ExpirationTime = &exp
+			}
+			if device.Config.Keys != nil {
+				target.Keys.Auth = device.Config.Keys.Auth
+				target.Keys.P256dh = device.Config.Keys.P256dh
+			}
+			webPushTargets = append(webPushTargets, target)
 		}
 	}
 
-	if len(tokens) == 0 {
-		return nil, fmt.Errorf("user has no devices with push tokens")
+	if len(tokens) == 0 && len(apnsTokens) == 0 && len(webPushTargets) == 0 {
+		return providers.SendRequest[map[string]any]{}, fmt.Errorf("user has no devices with push tokens or web push subscriptions")
 	}
 
 	custom := data.Data
@@ -43,10 +66,12 @@ func ComposePush(config map[string]any, template management.Template, user *user
 	}
 
 	payload := providers.PushPayload{
-		Tokens: tokens,
-		Title:  data.Title,
-		Body:   data.Body,
-		Data:   custom,
+		Tokens:         tokens,
+		APNsTokens:     apnsTokens,
+		WebPushTargets: webPushTargets,
+		Title:          data.Title,
+		Body:           data.Body,
+		Data:           custom,
 	}
 
 	return providers.NewPushRequest(config, payload)

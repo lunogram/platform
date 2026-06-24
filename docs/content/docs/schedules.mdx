@@ -1,0 +1,224 @@
+---
+title: Schedules
+description: Time-based triggers for users and organizations
+---
+
+Schedules let you trigger events at specific times — either once or on a recurring interval. They are a first-class resource: you assign a schedule to a user or organization via the client API, and the platform fires events automatically when the time comes.
+
+**Common use cases:**
+
+- Weekly digest emails (recurring schedule, every 7 days)
+- Subscription renewal notices (single schedule with offsets at 7 days before, 1 day before, and on the date)
+- Monthly check-ins (recurring schedule, every 1 month)
+- Anniversary campaigns (auto-created, recurring yearly)
+
+## How Schedules Work
+
+A schedule has two parts:
+
+1. **Schedule definition** — a named template with a type (`single` or `recurring`) and one or more **offsets**. Created in the management UI or API.
+2. **Schedule assignment** — a per-user or per-organization instance that holds the actual timing (`scheduled_at` for single, `interval` + `start_at` for recurring) and optional data. Created via the [client API](/api/client).
+
+When the scheduled time arrives (adjusted by each offset), the platform publishes a standard event named `scheduled.<schedule_name>`. This event flows through the normal event pipeline — you can use it to trigger [journey entrances](/journeys/types), evaluate rules, or process it in any other event-driven workflow.
+
+### Offsets
+
+Every schedule has at least one offset. A default offset of `0 minutes after` is created automatically with each schedule.
+
+Offsets let you fire events at times relative to the scheduled moment. Each offset has:
+
+| Field     | Description                                              |
+| --------- | -------------------------------------------------------- |
+| Offset    | A time interval (e.g. `30 minutes`, `7 days`, `1 month`) |
+| Direction | `before` or `after` the scheduled time                   |
+
+For example, a "trial_expiration" schedule with three offsets:
+
+- `7 days before` — send a warning email
+- `1 day before` — send a last-chance reminder
+- `0 minutes after` — mark the trial as expired
+
+Each offset fires its own `scheduled.trial_expiration` event at the appropriate time, with the offset details included in the event data.
+
+## Default Anniversary Schedule
+
+When a user or organization is created, Lunogram automatically creates a recurring **anniversary** schedule for them. This schedule fires a `scheduled.anniversary` event every year from the date the user or organization was first created.
+
+You don't need to create or assign this schedule — it happens automatically. The anniversary schedule:
+
+- **Name**: `anniversary`
+- **Type**: Recurring
+- **Interval**: 1 year
+- **Start**: The moment the user or organization was created
+- **Event**: `scheduled.anniversary`
+
+Use the anniversary schedule to build journey automations around milestones like first-year celebrations, loyalty rewards, or annual check-ins. You can add [offsets](#offsets) to the anniversary schedule to fire events before or after the anniversary date — for example, 7 days before to prepare a personalized email.
+
+<Callout type="info">
+  The anniversary schedule uses the same offset system as any other schedule.
+  Add offsets in the management UI to fire events at custom times relative to
+  each anniversary.
+</Callout>
+
+## Schedule Types
+
+### Single
+
+A single schedule fires once at a specific time. Provide `scheduled_at` when assigning it to a user or organization.
+
+```json
+{
+  "name": "trial_expiration",
+  "identifier": [{ "external_id": "user_123" }],
+  "scheduled_at": "2025-02-14T00:00:00Z",
+  "data": {
+    "plan": "free"
+  }
+}
+```
+
+### Recurring
+
+A recurring schedule fires repeatedly at a fixed interval. Provide `interval` and optionally `start_at` (defaults to now).
+
+```json
+{
+  "name": "weekly_digest",
+  "identifier": [{ "external_id": "user_123" }],
+  "interval": "7 days",
+  "start_at": "2025-01-06T09:00:00Z",
+  "data": {
+    "digest_type": "summary"
+  }
+}
+```
+
+The platform advances the schedule automatically after each cycle. On each advancement, new events are generated for all offsets in the next cycle.
+
+<Callout type="info">
+  Setting `interval` automatically makes the schedule recurring — you don't need
+  to specify the type explicitly.
+</Callout>
+
+## Assigning Schedules
+
+Schedules are assigned through the client API. The endpoints use an upsert model: sending the same `name` for the same user or organization updates the existing assignment.
+
+<Callout type="warn">
+  The schedule `name` acts as a **unique identifier** per user or organization.
+  Each user (or organization) can only have one active assignment for a given
+  schedule name. If you send a new assignment with the same name, it replaces the
+  previous one — including its timing, interval, and data.
+</Callout>
+
+### User Schedules
+
+```
+POST /api/client/projects/{projectID}/users/scheduled
+```
+
+| Field          | Type     | Required | Description                                                |
+| -------------- | -------- | -------- | ---------------------------------------------------------- |
+| `name`         | string   | Yes      | Schedule name — unique per user (emits as `scheduled.<name>`) |
+| `identifier`   | array    | Yes      | Array of `{ externalId, source? }` objects to identify the user |
+| `scheduled_at` | datetime | \*\*     | Fire time for single schedules                             |
+| `interval`     | string   | \*\*     | Interval for recurring schedules (e.g. `7 days`)           |
+| `start_at`     | datetime | No       | Start time for recurring schedules (defaults to now)       |
+| `data`         | object   | No       | Custom data included in fired events                       |
+
+\*\* Provide `scheduled_at` for single schedules or `interval` for recurring schedules.
+
+### Organization Schedules
+
+```
+POST /api/client/projects/{projectID}/organizations/scheduled
+```
+
+| Field                      | Type     | Required | Description                                          |
+| -------------------------- | -------- | -------- | ---------------------------------------------------- |
+| `name`                     | string   | Yes      | Schedule name — unique per organization (emits as `scheduled.<name>`) |
+| `identifier`               | array    | Yes      | Array of `{ externalId, source? }` objects to identify the organization |
+| `scheduled_at`             | datetime | \*\*     | Fire time for single schedules                       |
+| `interval`                 | string   | \*\*     | Interval for recurring schedules                     |
+| `start_at`                 | datetime | No       | Start time for recurring schedules (defaults to now) |
+| `data`                     | object   | No       | Custom data included in fired events                 |
+
+### Deleting Assignments
+
+To remove a schedule assignment:
+
+```
+DELETE /api/client/projects/{projectID}/users/scheduled
+```
+
+```json
+{
+  "name": "trial_expiration",
+  "identifier": [{ "external_id": "user_123" }]
+}
+```
+
+```
+DELETE /api/client/projects/{projectID}/organizations/scheduled
+```
+
+```json
+{
+  "name": "trial_expiration",
+  "identifier": [{ "external_id": "org_456" }]
+}
+```
+
+## Event Data
+
+When a scheduled event fires, the event name follows the pattern `scheduled.<schedule_name>` and includes both your custom data and schedule metadata:
+
+| Field                | Description                                     |
+| -------------------- | ----------------------------------------------- |
+| `schedule_id`        | UUID of the schedule definition                 |
+| `schedule_offset_id` | UUID of the offset that triggered this event    |
+| `offset`             | The offset interval (e.g. `7 days`)             |
+| `fire_at`            | The exact time this event was scheduled to fire |
+| _(your custom data)_ | Any fields from the `data` object you provided  |
+
+For example, a `scheduled.trial_expiration` event with a 7-day-before offset:
+
+```json
+{
+  "name": "scheduled.trial_expiration",
+  "data": {
+    "plan": "free",
+    "schedule_id": "a1b2c3d4-...",
+    "schedule_offset_id": "e5f6a7b8-...",
+    "offset": "7 days",
+    "fire_at": "2025-02-07T00:00:00Z"
+  }
+}
+```
+
+## Pause and Resume
+
+Recurring schedules can be paused and resumed through the management API.
+
+### Pause Modes
+
+| Mode                  | Behavior                                                               |
+| --------------------- | ---------------------------------------------------------------------- |
+| `immediately`         | Pauses now and deletes all unfired events for this assignment          |
+| `after_next_interval` | Keeps existing events but prevents the schedule from advancing further |
+
+### Resume Modes
+
+| Mode               | Behavior                                                                   |
+| ------------------ | -------------------------------------------------------------------------- |
+| `immediately`      | Rebases the anchor to now and generates new events from the current moment |
+| `at_next_interval` | Computes the next occurrence from the existing anchor without rebasing     |
+
+## Using Schedules in Journeys
+
+Schedules integrate directly with journey [entrance steps](/journeys/types). When configuring an entrance with the **Scheduled** trigger:
+
+1. Select a schedule from the dropdown
+2. Select an offset (the default `0 minutes after` offset is always available)
+
+When the offset fires, users who have an active assignment for that schedule enter the journey. The event data (including your custom fields) is available as journey context for downstream steps.

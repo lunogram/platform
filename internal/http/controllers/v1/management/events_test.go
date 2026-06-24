@@ -7,17 +7,18 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/lunogram/platform/internal/claim"
+	"github.com/lunogram/platform/internal/rbac"
 
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/rules"
 	"github.com/lunogram/platform/internal/store/management"
+	"github.com/lunogram/platform/internal/store/subjects"
 	teststore "github.com/lunogram/platform/internal/store/test"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
 
-func setupEventsController(t *testing.T) (*EventsController, uuid.UUID) {
+func setupEventsController(t *testing.T) (*EventsController, uuid.UUID, context.Context) {
 	t.Helper()
 
 	logger := zaptest.NewLogger(t)
@@ -37,19 +38,25 @@ func setupEventsController(t *testing.T) (*EventsController, uuid.UUID) {
 	})
 	require.NoError(t, err)
 
-	controller := NewEventsController(logger, usrs)
-	return controller, projectID
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(orgID),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
+	controller := NewEventsController(logger, usrs, engine)
+	return controller, projectID, actorCtx
 }
 
-func TestListEvents(t *testing.T) {
+func TestListUserEventSchemas(t *testing.T) {
 	t.Parallel()
 
-	controller, projectID := setupEventsController(t)
+	controller, projectID, actorCtx := setupEventsController(t)
 	ctx := context.Background()
 
 	eventsStore := controller.store.EventsStore
 
-	eventID1, err := eventsStore.UpsertEvent(ctx, projectID, "purchase_completed")
+	eventID1, err := eventsStore.UpsertEvent(ctx, projectID, "purchase_completed", subjects.SubjectTypeUser)
 	require.NoError(t, err)
 
 	paths1 := rules.Paths{
@@ -60,7 +67,7 @@ func TestListEvents(t *testing.T) {
 	err = eventsStore.UpsertEventSchema(ctx, projectID, eventID1, paths1)
 	require.NoError(t, err)
 
-	eventID2, err := eventsStore.UpsertEvent(ctx, projectID, "page_viewed")
+	eventID2, err := eventsStore.UpsertEvent(ctx, projectID, "page_viewed", subjects.SubjectTypeUser)
 	require.NoError(t, err)
 
 	paths2 := rules.Paths{
@@ -70,14 +77,14 @@ func TestListEvents(t *testing.T) {
 	err = eventsStore.UpsertEventSchema(ctx, projectID, eventID2, paths2)
 	require.NoError(t, err)
 
-	_, err = eventsStore.UpsertEvent(ctx, projectID, "user_logout")
+	_, err = eventsStore.UpsertEvent(ctx, projectID, "user_logout", subjects.SubjectTypeUser)
 	require.NoError(t, err)
 
 	res := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/events/schema", nil)
-	req = req.WithContext(claim.WithSession(req.Context(), validSession()))
+	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/subjects/user/events/schema", nil)
+	req = req.WithContext(actorCtx)
 
-	controller.ListEvents(res, req, projectID)
+	controller.ListUserEventSchemas(res, req, projectID)
 
 	require.Equal(t, 200, res.Code)
 
@@ -110,12 +117,12 @@ func TestListEvents(t *testing.T) {
 	for _, s := range purchaseEvent.Schema {
 		pathMap[s.Path] = s.Types
 	}
-	require.Contains(t, pathMap, ".product_id")
-	require.Contains(t, pathMap, ".amount")
-	require.Contains(t, pathMap, ".currency")
-	require.Contains(t, pathMap[".product_id"], "string")
-	require.Contains(t, pathMap[".amount"], "number")
-	require.Contains(t, pathMap[".currency"], "string")
+	require.Contains(t, pathMap, ".data.product_id")
+	require.Contains(t, pathMap, ".data.amount")
+	require.Contains(t, pathMap, ".data.currency")
+	require.Contains(t, pathMap[".data.product_id"], "string")
+	require.Contains(t, pathMap[".data.amount"], "number")
+	require.Contains(t, pathMap[".data.currency"], "string")
 
 	require.NotNil(t, pageEvent)
 	require.Equal(t, eventID2, pageEvent.Id)
@@ -125,23 +132,23 @@ func TestListEvents(t *testing.T) {
 	for _, s := range pageEvent.Schema {
 		pagePathMap[s.Path] = s.Types
 	}
-	require.Contains(t, pagePathMap, ".page")
-	require.Contains(t, pagePathMap, ".referrer")
+	require.Contains(t, pagePathMap, ".data.page")
+	require.Contains(t, pagePathMap, ".data.referrer")
 
 	require.NotNil(t, logoutEvent)
 	require.Empty(t, logoutEvent.Schema)
 }
 
-func TestListEventsEmpty(t *testing.T) {
+func TestListUserEventSchemasEmpty(t *testing.T) {
 	t.Parallel()
 
-	controller, projectID := setupEventsController(t)
+	controller, projectID, actorCtx := setupEventsController(t)
 
 	res := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/events/schema", nil)
-	req = req.WithContext(claim.WithSession(req.Context(), validSession()))
+	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/subjects/user/events/schema", nil)
+	req = req.WithContext(actorCtx)
 
-	controller.ListEvents(res, req, projectID)
+	controller.ListUserEventSchemas(res, req, projectID)
 
 	require.Equal(t, 200, res.Code)
 
@@ -153,28 +160,28 @@ func TestListEventsEmpty(t *testing.T) {
 	require.Empty(t, response.Results)
 }
 
-func TestListEventsUnauthorized(t *testing.T) {
+func TestListUserEventSchemasUnauthorized(t *testing.T) {
 	t.Parallel()
 
-	controller, projectID := setupEventsController(t)
+	controller, projectID, _ := setupEventsController(t)
 
 	res := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/events/schema", nil)
+	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/subjects/user/events/schema", nil)
 
-	controller.ListEvents(res, req, projectID)
+	controller.ListUserEventSchemas(res, req, projectID)
 
 	require.Equal(t, 401, res.Code)
 }
 
-func TestListEventsWithMultipleTypes(t *testing.T) {
+func TestListUserEventSchemasWithMultipleTypes(t *testing.T) {
 	t.Parallel()
 
-	controller, projectID := setupEventsController(t)
+	controller, projectID, actorCtx := setupEventsController(t)
 	ctx := context.Background()
 
 	eventsStore := controller.store.EventsStore
 
-	eventID, err := eventsStore.UpsertEvent(ctx, projectID, "user_action")
+	eventID, err := eventsStore.UpsertEvent(ctx, projectID, "user_action", subjects.SubjectTypeUser)
 	require.NoError(t, err)
 
 	// Insert the same path with different types to simulate real-world scenarios
@@ -190,10 +197,10 @@ func TestListEventsWithMultipleTypes(t *testing.T) {
 	require.NoError(t, err)
 
 	res := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/events/schema", nil)
-	req = req.WithContext(claim.WithSession(req.Context(), validSession()))
+	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/subjects/user/events/schema", nil)
+	req = req.WithContext(actorCtx)
 
-	controller.ListEvents(res, req, projectID)
+	controller.ListUserEventSchemas(res, req, projectID)
 
 	require.Equal(t, 200, res.Code)
 
@@ -214,19 +221,19 @@ func TestListEventsWithMultipleTypes(t *testing.T) {
 	}
 
 	// Verify .user_id has both string and number types
-	require.Contains(t, pathMap, ".user_id")
-	require.Len(t, pathMap[".user_id"], 2)
-	require.Contains(t, pathMap[".user_id"], "number")
-	require.Contains(t, pathMap[".user_id"], "string")
+	require.Contains(t, pathMap, ".data.user_id")
+	require.Len(t, pathMap[".data.user_id"], 2)
+	require.Contains(t, pathMap[".data.user_id"], "number")
+	require.Contains(t, pathMap[".data.user_id"], "string")
 
 	// Verify .metadata has both object and string types
-	require.Contains(t, pathMap, ".metadata")
-	require.Len(t, pathMap[".metadata"], 2)
-	require.Contains(t, pathMap[".metadata"], "object")
-	require.Contains(t, pathMap[".metadata"], "string")
+	require.Contains(t, pathMap, ".data.metadata")
+	require.Len(t, pathMap[".data.metadata"], 2)
+	require.Contains(t, pathMap[".data.metadata"], "object")
+	require.Contains(t, pathMap[".data.metadata"], "string")
 
 	// Verify .tags has only array type
-	require.Contains(t, pathMap, ".tags")
-	require.Len(t, pathMap[".tags"], 1)
-	require.Contains(t, pathMap[".tags"], "array")
+	require.Contains(t, pathMap, ".data.tags")
+	require.Len(t, pathMap[".data.tags"], 1)
+	require.Contains(t, pathMap[".data.tags"], "array")
 }

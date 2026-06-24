@@ -4,22 +4,29 @@ import (
 	"database/sql"
 	"errors"
 	"net/http"
+	"regexp"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/http/problem"
+	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/management"
 	"go.uber.org/zap"
 )
 
-func NewLocalesController(logger *zap.Logger, db *sqlx.DB) *LocalesController {
+// validLocaleKey matches BCP 47 / IETF language tags such as "en", "en", "pt-BR", "zh-Hant-TW".
+// It intentionally allows only the most common forms (language, language-region, language-script-region).
+var validLocaleKey = regexp.MustCompile(`^[a-z]{2,3}(-[A-Za-z]{4})?(-[A-Z]{2}|-[0-9]{3})?$`)
+
+func NewLocalesController(logger *zap.Logger, db *sqlx.DB, engine *rbac.Engine) *LocalesController {
 	return &LocalesController{
 		logger: logger,
 		db:     db,
 		store:  management.NewState(db),
+		engine: engine,
 	}
 }
 
@@ -27,21 +34,38 @@ type LocalesController struct {
 	logger *zap.Logger
 	db     *sqlx.DB
 	store  *management.State
+	engine *rbac.Engine
 }
 
 func (srv *LocalesController) CreateLocale(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
 	ctx := r.Context()
-	body := oapi.CreateLocaleJSONRequestBody{}
-	err := json.Decode(r.Body, &body)
+	err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("locales", projectID))
 	if err != nil {
 		oapi.WriteProblem(w, err)
+		return
+	}
+
+	body := oapi.CreateLocaleJSONRequestBody{}
+	err = json.Decode(r.Body, &body)
+	if err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	if body.Key == "" || body.Label == "" {
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("key and label are required")))
+		return
+	}
+
+	if !validLocaleKey.MatchString(body.Key) {
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("key must be a valid BCP 47 language tag (e.g. en, en, pt-BR)")))
 		return
 	}
 
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.String("key", body.Key))
 	logger.Info("creating locale")
 
-	_, err = srv.store.ProjectsStore.GetProject(ctx, projectID)
+	_, err = srv.store.ProjectsStore.GetProject(ctx, projectID, nil)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("project not found", zap.Stringer("project_id", projectID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("project not found")))
@@ -81,10 +105,16 @@ func (srv *LocalesController) CreateLocale(w http.ResponseWriter, r *http.Reques
 
 func (srv *LocalesController) ListLocales(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, params oapi.ListLocalesParams) {
 	ctx := r.Context()
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("locales", projectID))
+	if err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	logger := srv.logger.With(zap.Stringer("project_id", projectID))
 	logger.Info("listing locales")
 
-	_, err := srv.store.ProjectsStore.GetProject(ctx, projectID)
+	_, err = srv.store.ProjectsStore.GetProject(ctx, projectID, nil)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("project not found", zap.Stringer("project_id", projectID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("project not found")))
@@ -128,10 +158,16 @@ func (srv *LocalesController) ListLocales(w http.ResponseWriter, r *http.Request
 
 func (srv *LocalesController) GetLocale(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, localeID string) {
 	ctx := r.Context()
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("locales", projectID))
+	if err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.String("locale_id", localeID))
 	logger.Info("getting locale")
 
-	_, err := srv.store.ProjectsStore.GetProject(ctx, projectID)
+	_, err = srv.store.ProjectsStore.GetProject(ctx, projectID, nil)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("project not found", zap.Stringer("project_id", projectID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("project not found")))
@@ -162,10 +198,16 @@ func (srv *LocalesController) GetLocale(w http.ResponseWriter, r *http.Request, 
 
 func (srv *LocalesController) DeleteLocale(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, localeID uuid.UUID) {
 	ctx := r.Context()
+	err := srv.engine.Allowed(ctx, rbac.Delete, rbac.ProjectResourceScope("locales", projectID))
+	if err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("locale_id", localeID))
 	logger.Info("deleting locale")
 
-	_, err := srv.store.ProjectsStore.GetProject(ctx, projectID)
+	_, err = srv.store.ProjectsStore.GetProject(ctx, projectID, nil)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("project not found", zap.Stringer("project_id", projectID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("project not found")))

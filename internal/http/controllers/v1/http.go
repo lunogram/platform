@@ -3,12 +3,17 @@ package v1
 import (
 	"embed"
 	"fmt"
+	"io"
 	"io/fs"
+	"mime"
 	nethttp "net/http"
+	"path/filepath"
+	"time"
 
 	"github.com/cloudproud/graceful"
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/go-chi/chi/v5"
+	"github.com/lunogram/platform/internal/actions"
 	"github.com/lunogram/platform/internal/config"
 	"github.com/lunogram/platform/internal/http"
 	"github.com/lunogram/platform/internal/http/auth"
@@ -18,12 +23,17 @@ import (
 	managementv1 "github.com/lunogram/platform/internal/http/controllers/v1/management"
 	mgmtoapi "github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/http/scalar"
+	"github.com/lunogram/platform/internal/jwks"
 	"github.com/lunogram/platform/internal/providers"
 	"github.com/lunogram/platform/internal/pubsub"
+	"github.com/lunogram/platform/internal/ratelimit"
+	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/storage"
 	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/management"
-	"github.com/lunogram/platform/internal/store/users"
+	"github.com/lunogram/platform/internal/store/subjects"
+	"github.com/nats-io/nats.go/jetstream"
+	goredis "github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 )
 
@@ -33,9 +43,9 @@ var staticFiles embed.FS
 // NewServer constructs a unified HTTP server combining both management and client
 // API endpoints. Management endpoints use JWT+API Key auth, while client endpoints
 // use API Key only authentication.
-func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *store.Connections, storage storage.Storage, pub pubsub.Publisher, registry *providers.Registry) (*http.Server, error) {
-	mgmtStores := management.NewState(db.Management)
-	usersStore := users.NewState(db.Users)
+func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *store.Connections, storageDriver storage.Storage, jet jetstream.JetStream, pub pubsub.Publisher, req pubsub.Caller, registry *providers.Registry, actionRegistry *actions.Registry, rbacEngine *rbac.Engine, limiter *ratelimit.Limiter, jwksCache *jwks.Cache, rdb *goredis.Client) (*http.Server, error) {
+	mgmtStores := management.NewState(db.Management, management.WithRedis(rdb, cfg.Redis.KeyPrefix))
+	usersStore := subjects.NewState(db.Subjects, logger)
 
 	// Load OpenAPI specs
 	mgmtSpec, err := mgmtoapi.Spec()
@@ -48,14 +58,24 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *st
 		return nil, fmt.Errorf("failed to load client OpenAPI spec: %w", err)
 	}
 
+	// Create URL resolver for public document URLs
+	urlResolver := storage.NewURLResolver(cfg.Storage.BaseURL)
+
 	// Create management controller
-	mgmtController, err := managementv1.NewController(logger, db.Management, db.Users, db.Journey, cfg, storage, pub, registry)
+	mgmtController, err := managementv1.NewController(logger, db.Management, db.Subjects, db.Journey, cfg, storageDriver, urlResolver, pub, req, jet, registry, actionRegistry, rbacEngine, rdb)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create management controller: %w", err)
 	}
 
+	// Session signer (ES256). Nil when no signing key is configured, which
+	// disables session minting and verification.
+	sessionSigner, err := auth.NewSessionSigner(cfg.Auth.SessionSigningKey, cfg.Auth.SessionIssuer)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build session signer: %w", err)
+	}
+
 	// Create client controller
-	clientController, err := clientv1.NewController(logger, db.Management, db.Users, mgmtStores, usersStore, pub)
+	clientController, err := clientv1.NewController(logger, db.Management, db.Subjects, mgmtStores, usersStore, pub, rbacEngine, sessionSigner)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create client controller: %w", err)
 	}
@@ -69,23 +89,58 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *st
 	// Mount management routes with JWT+API Key auth
 	mgmtoapi.HandlerWithOptions(mgmtController, mgmtoapi.ChiServerOptions{
 		BaseRouter: router,
-		Middlewares: []mgmtoapi.MiddlewareFunc{mgmtoapi.Validator(mgmtSpec, openapi3filter.Options{
-			AuthenticationFunc: auth.Middleware(
-				auth.WithJWT(cfg.Auth, mgmtStores),
-				auth.WithKey(mgmtStores),
-			),
-		})},
+		Middlewares: []mgmtoapi.MiddlewareFunc{
+			mgmtoapi.Validator(mgmtSpec, openapi3filter.Options{
+				AuthenticationFunc: auth.Middleware(
+					auth.WithJWT(cfg.Auth, mgmtStores),
+					auth.WithKey(mgmtStores, auth.SurfaceManagement),
+				),
+			}),
+			// Runs after the validator (and thus after authentication) so the
+			// limiter keys on the resolved auth method. The budget is shared
+			// with the client API, so a key cannot get a separate allowance per
+			// surface.
+			http.RateLimit(limiter, cfg.RateLimit.PerMinute, time.Minute, cfg.RateLimit.TrustedProxyHops, mgmtoapi.WriteProblem),
+		},
 	})
 
 	// Mount client routes with API Key only auth
-	clientoapi.HandlerWithOptions(clientController, clientoapi.ChiServerOptions{
-		BaseRouter: router,
-		Middlewares: []clientoapi.MiddlewareFunc{clientoapi.Validator(clientSpec, openapi3filter.Options{
-			AuthenticationFunc: auth.Middleware(
-				auth.WithKey(mgmtStores),
-			),
-		})},
+	router.Group(func(r chi.Router) {
+		r.Use(clientoapi.CORS())
+		r.Options("/api/client/*", func(w nethttp.ResponseWriter, r *nethttp.Request) {})
+		clientoapi.HandlerWithOptions(clientController, clientoapi.ChiServerOptions{
+			BaseRouter: r,
+			Middlewares: []clientoapi.MiddlewareFunc{
+				clientoapi.Validator(clientSpec, openapi3filter.Options{
+					AuthenticationFunc: auth.Middleware(
+						auth.WithKey(mgmtStores, auth.SurfaceClient),
+						auth.WithSession(mgmtStores, sessionSigner),
+						auth.WithTrustedIssuer(mgmtStores, jwksCache),
+					),
+				}),
+				// Runs after the validator (and thus after authentication) so
+				// the limiter keys on the resolved auth method.
+				http.RateLimit(limiter, cfg.RateLimit.PerMinute, time.Minute, cfg.RateLimit.TrustedProxyHops, clientoapi.WriteProblem),
+			},
+		})
 	})
+
+	if cfg.Storage.BaseURL == "" {
+		// Mount public (unauthenticated) document serving endpoint.
+		// When using local storage without a CDN, this endpoint allows documents
+		// to be loaded publicly (e.g. images embedded in emails).
+		router.Get("/uploads/documents/{key}", documentsHandler(logger, storageDriver))
+	}
+
+	// Mount link tracking redirect endpoint (unauthenticated, outside OpenAPI validation).
+	linkKey := cfg.Link.SecretBytes()
+	linkPub := pubsub.NewPublisher(jet, cfg.Nats.Namespace)
+	router.Get("/c/{token}", LinkRedirectHandler(logger, linkKey, linkPub))
+
+	// Provider webhook endpoint (unauthenticated — providers can't send JWTs).
+	router.Post("/webhooks/{projectID}/providers/{providerID}",
+		ProviderWebhookHandler(logger, mgmtStores, registry, linkPub, cfg.Webhook.MaxBodySize, cfg.PublicBaseURL()),
+	)
 
 	// Serve static assets - use sub-filesystem to strip the "client/static" prefix
 	staticSubFS, err := fs.Sub(staticFiles, "client/static")
@@ -94,8 +149,15 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *st
 	}
 	router.Handle("/static/*", nethttp.StripPrefix("/static/", nethttp.FileServer(nethttp.FS(staticSubFS))))
 
+	// Mount enterprise proxy routes (backoffice, courier).
+	// In OSS builds this is a no-op; in enterprise builds it registers
+	// reverse proxy handlers based on PROXY_*_URL environment variables.
+	MountProxyRoutes(logger, router, cfg.Enterprise)
+
 	// Serve console (admin UI) as fallback
-	consoleHandler, err := console.Handler()
+	consoleHandler, err := console.Handler(console.Config{
+		ClerkPublishableKey: cfg.Console.ClerkPublishableKey,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create console handler: %w", err)
 	}
@@ -130,5 +192,39 @@ func apiDocsMiddleware() func(next nethttp.Handler) nethttp.Handler {
 
 			next.ServeHTTP(w, req)
 		})
+	}
+}
+
+// documentsHandler returns an HTTP handler that serves document files from
+// storage. This endpoint is unauthenticated so that documents can be loaded
+// publicly (e.g. images embedded in emails).
+func documentsHandler(logger *zap.Logger, s storage.Storage) nethttp.HandlerFunc {
+	return func(w nethttp.ResponseWriter, r *nethttp.Request) {
+		key := chi.URLParam(r, "key")
+		if key == "" {
+			nethttp.Error(w, "Not Found", nethttp.StatusNotFound)
+			return
+		}
+
+		file, err := s.Read(r.Context(), key)
+		if err != nil {
+			logger.Debug("document not found in storage", zap.String("key", key), zap.Error(err))
+			nethttp.Error(w, "Not Found", nethttp.StatusNotFound)
+			return
+		}
+		defer file.Close()
+
+		// Determine content type from the file extension in the key.
+		contentType := mime.TypeByExtension(filepath.Ext(key))
+		if contentType == "" {
+			contentType = "application/octet-stream"
+		}
+
+		w.Header().Set("Content-Type", contentType)
+		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+
+		if _, err := io.Copy(w, file); err != nil {
+			logger.Error("failed to write document to response", zap.String("key", key), zap.Error(err))
+		}
 	}
 }

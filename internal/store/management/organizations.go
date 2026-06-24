@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/store"
 )
 
@@ -16,17 +15,6 @@ type Organization struct {
 	TrackingDeeplinkMirrorURL *string    `db:"tracking_deeplink_mirror_url"`
 	CreatedAt                 time.Time  `db:"created_at"`
 	UpdatedAt                 time.Time  `db:"updated_at"`
-}
-
-func (o *Organization) OAPI() oapi.Organization {
-	return oapi.Organization{
-		Id:                        o.ID,
-		Name:                      o.Name,
-		TrackingDeeplinkMirrorUrl: o.TrackingDeeplinkMirrorURL,
-		NotificationProviderId:    o.NotificationProviderID,
-		CreatedAt:                 o.CreatedAt,
-		UpdatedAt:                 o.UpdatedAt,
-	}
 }
 
 type OrganizationUpdate struct {
@@ -97,8 +85,8 @@ func (s *OrganizationsStore) DeleteOrganization(ctx context.Context, id uuid.UUI
 
 func (s *OrganizationsStore) GetOrganizationIntegrations(ctx context.Context, orgID uuid.UUID) (Providers, error) {
 	stmt := `
-	SELECT p.id, p.project_id, p.module, p.channel, p.data, p.is_default,
-		   p.rate_limit, p.rate_interval, p.name, p.created_at, p.updated_at
+	SELECT p.id, p.project_id, p.module, p.channels, p.data, p.link_wrap,
+		   p.name, p.created_at, p.updated_at
 	FROM providers p
 	INNER JOIN projects pr ON pr.id = p.project_id
 	WHERE pr.organization_id = $1

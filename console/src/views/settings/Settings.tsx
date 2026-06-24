@@ -1,46 +1,101 @@
-import { Outlet } from 'react-router'
-import PageContent from '../../ui/PageContent'
-import { NavigationTabs } from '../../ui/Tabs'
-import { ProjectRoleRequired } from '../project/ProjectRoleRequired'
-import { useTranslation } from 'react-i18next'
+import { Outlet, useLocation } from "react-router"
+import { useTranslation } from "react-i18next"
+import { useContext } from "react"
+import {
+    Settings as SettingsLucideIcon,
+    Globe,
+    Key,
+    Bell,
+    Zap,
+    Mail,
+    Smartphone,
+    UserPlus,
+} from "lucide-react"
+import { ProjectContext } from "../../contexts"
+import { ProjectRoleRequired } from "../project/ProjectRoleRequired"
+import { SettingsIcon } from "@/components/icons"
+import { NavTabs } from "@/components/ui/nav-tabs"
+import { isEnterprise } from "@/config/enterprise"
 
 export default function Settings() {
     const { t } = useTranslation()
+    const [project] = useContext(ProjectContext)
+
+    const basePath = `/projects/${project.id}/settings`
+    const location = useLocation()
+    const currentPath = location.pathname
+    // The active tab is the first path segment after the settings base — so a
+    // nested route like /settings/access/:id/permissions still maps to "access".
+    const relative = currentPath.startsWith(basePath)
+        ? currentPath.slice(basePath.length).replace(/^\//, "")
+        : ""
+    const activeTab = relative === "" ? "general" : relative.split("/")[0]
+
     const tabs = [
+        { key: "general", to: "", label: t("general"), icon: SettingsLucideIcon },
+        { key: "locales", to: "locales", label: t("locales"), icon: Globe },
+        { key: "access", to: "access", label: t("api_and_clients", "API & Clients"), icon: Key },
+        ...(isEnterprise
+            ? [{ key: "invites", to: "invites", label: t("invites"), icon: UserPlus }]
+            : []),
+        { key: "subscriptions", to: "subscriptions", label: t("subscriptions"), icon: Bell },
         {
-            key: 'general',
-            to: '',
-            end: true,
-            children: t('general'),
+            key: "event-schemas",
+            to: "event-schemas",
+            label: t("schemas", "Schemas"),
+            icon: Zap,
         },
         {
-            key: 'locales',
-            to: 'locales',
-            children: t('locales'),
+            key: "push-providers",
+            to: "push-providers",
+            label: t("push_providers", "Push"),
+            icon: Smartphone,
         },
-        {
-            key: 'api-keys',
-            to: 'api-keys',
-            children: t('api_keys'),
-        },
-        {
-            key: 'integrations',
-            to: 'integrations',
-            children: t('integrations'),
-        },
-        {
-            key: 'subscriptions',
-            to: 'subscriptions',
-            children: t('subscriptions'),
-        },
+        ...(isEnterprise
+            ? [
+                  {
+                      key: "domains",
+                      to: "domains",
+                      label: t("domains", "Domains"),
+                      icon: Mail,
+                  },
+              ]
+            : []),
     ]
 
     return (
         <ProjectRoleRequired minRole="admin">
-            <PageContent title={t('settings')}>
-                <NavigationTabs tabs={tabs} />
-                <Outlet />
-            </PageContent>
+            <div className="flex flex-col min-h-full">
+                {/* Header Section */}
+                <div className="border-b bg-card/50">
+                    <div className="p-4 sm:p-6 pb-0 sm:pb-0">
+                        <div className="flex items-start gap-3 sm:gap-4">
+                            <div className="flex h-10 w-10 sm:h-14 sm:w-14 items-center justify-center rounded-xl shrink-0 bg-muted [&>svg]:h-5 [&>svg]:w-5 sm:[&>svg]:h-7 sm:[&>svg]:w-7 [&>svg]:text-muted-foreground">
+                                <SettingsIcon />
+                            </div>
+                            <div className="space-y-1">
+                                <h1 className="text-xl sm:text-2xl font-semibold tracking-tight">
+                                    {t("settings")}
+                                </h1>
+                                <p className="text-sm text-muted-foreground hidden sm:block">
+                                    {t(
+                                        "settings_description",
+                                        "Manage your project configuration, integrations, and preferences.",
+                                    )}
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Navigation Tabs */}
+                        <NavTabs tabs={tabs} activeTab={activeTab} className="mt-4 sm:mt-6" />
+                    </div>
+                </div>
+
+                {/* Content Area */}
+                <div className="flex-1 p-4 sm:p-6">
+                    <Outlet />
+                </div>
+            </div>
         </ProjectRoleRequired>
     )
 }

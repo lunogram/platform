@@ -1,0 +1,63 @@
+version: 2
+project_name: lunogram
+
+before:
+  hooks:
+    # Verify that pre-built embedded assets exist.
+    # WASM modules and console SPA are built by the CI workflow
+    # before goreleaser runs.
+    - sh -c 'test -f internal/integrations/modules/logger.wasm || (echo "WASM modules not found — run build-assets first" && exit 1)'
+    - sh -c 'test -f internal/http/console/dist/index.html || (echo "Console dist not found — run build-assets first" && exit 1)'
+
+builds:
+  - id: lunogram
+    main: ./cmd/lunogram
+    binary: lunogram
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -w -s
+      - -X github.com/lunogram/platform/internal/build.version={{.Version}}
+      - -X github.com/lunogram/platform/internal/build.commit={{.ShortCommit}}
+
+archives:
+  - id: lunogram
+    ids: [lunogram]
+    formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+      - "^chore:"
+
+dockers_v2:
+  - images:
+      - "ghcr.io/lunogram/platform"
+    tags:
+      - "{{ .Version }}"
+      - "{{ .Major }}.{{ .Minor }}"
+      - "{{ .Major }}"
+      - "latest"
+    dockerfile: Dockerfile.goreleaser
+
+release:
+  github:
+    owner: lunogram
+    name: platform
+  draft: false
+  prerelease: auto

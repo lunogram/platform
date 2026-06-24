@@ -1,0 +1,206 @@
+---
+title: Lists
+description: Segment users into targeted audiences for campaigns and journeys
+---
+
+import { Tabs, Tab } from 'fumadocs-ui/components/tabs';
+
+Lists let you define audiences in Lunogram. A list is a segment of users that you can target with campaigns, use as journey entrances, or reference as conditions in journey gates.
+
+There are two types of lists, each suited to different use cases:
+
+| Type | Best For | Updates |
+|------|----------|---------|
+| **Dynamic** | Segments defined by rules — user properties, events, and organization data | Automatic, real-time |
+| **Static** | Fixed audiences — imported CSVs, newsletter subscribers, external system syncs | Manual via CSV or API |
+
+---
+
+## Dynamic Lists
+
+Dynamic lists are rule-based segments that stay in sync with your user data automatically. You define the criteria once, and Lunogram continuously evaluates which users match. When a user's profile changes, when new events are tracked, or when organization data is updated, list membership is recalculated in real time.
+
+This makes dynamic lists a powerful tool for understanding your customer base. Instead of manually curating audiences, you describe the characteristics of the segment you care about and let Lunogram maintain it for you.
+
+**Common use cases:**
+
+- **Engagement tiers** — Separate highly active users from those at risk of churning, so you can tailor messaging to each group
+- **Lifecycle stages** — Track users through onboarding, activation, and retention phases based on the events they trigger
+- **Plan-based targeting** — Identify free-tier power users who are candidates for an upgrade, or enterprise customers who need dedicated support
+- **Geographic or demographic segments** — Target users by country, locale, timezone, or any custom property you track
+- **Behavioral cohorts** — Group users who performed specific actions (purchases, feature usage, support tickets) within a time window
+
+### Building Rules
+
+Rules define who belongs to a dynamic list. Combine multiple conditions using **AND** / **OR** logic to create precise segments.
+
+There are four types of conditions you can add at the top level:
+
+| Condition Type | What It Checks |
+|----------------|---------------|
+| **User property** | Values on the user profile (e.g., email, plan, country, or any custom data field) |
+| **User event** | Whether a user performed an action a certain number of times within a rolling time window |
+| **Organization property** | Values on the user's organization, with the option to match all members or only members meeting additional criteria |
+| **Organization event** | Whether the user's organization triggered an event, again with member-matching options |
+
+#### User Property Rules
+
+Property rules check values on user profiles. Each condition specifies a data type, a field path, an operator, and a value.
+
+**Supported data types and operators:**
+
+| Type | Operators |
+|------|-----------|
+| String | equals, does not equal, contains, does not contain, starts with, does not start with, is set, is not set, is empty |
+| Number | equals, does not equal, less than, less than or equal to, greater than, greater than or equal to, is set, is not set |
+| Boolean | is, is not |
+| Date | equals, does not equal, is before, is on or before, is after, is on or after, is same day, is set, is not set |
+| Array | equals, does not equal, contains, is set, is not set, is empty |
+
+Field paths can reference standard user fields (`.email`, `.phone`, `.locale`, `.timezone`, `.created_at`) or any custom property stored in the user's data object using dot notation (e.g., `.data.subscription.plan`).
+
+#### Event Rules
+
+Event rules check whether users performed specific actions within a rolling time window. Each event rule specifies:
+
+- **Event name** — the event to match (e.g., "Order Completed", "Login")
+- **Frequency** — a count operator and threshold (e.g., at least 3 times, exactly 1 time, more than 5 times)
+- **Time window** — a rolling period such as "in last 30 days", "in last 2 weeks", or "in last 24 hours"
+
+Available time units: minutes, hours, days, weeks, months.
+
+You can add sub-conditions to an event rule to filter which events count. For example:
+
+```
+User did "Order Completed" at least 2 times in last 30 days
+  WHERE .data.total >= 100
+  AND .data.currency = "USD"
+```
+
+This matches users who completed at least 2 orders over $100 USD in the past month.
+
+#### Organization Rules
+
+If your users belong to organizations, you can build rules based on organization properties or organization events. Each organization rule includes a **member matching** option:
+
+- **All members** — include every user in organizations that match the criteria
+- **Members matching conditions** — only include organization members whose own user properties meet additional filters
+
+### Draft and Publish
+
+Dynamic lists use a draft/publish workflow. When you create or edit rules, changes are saved as a draft. Use the preview to see which users would match before publishing. Once published, the list begins evaluating in real time.
+
+### List Membership Events
+
+When users enter or leave a dynamic list, Lunogram emits events that can trigger journeys:
+
+| Event | When |
+|-------|------|
+| `list.user.added` | User matches the rules and joins the list |
+| `list.user.removed` | User no longer matches and leaves the list |
+
+Both events include `list_id` in the event data, so you can build journeys that respond to specific list changes.
+
+**Example journey triggers:**
+
+- **Re-engagement** — When users enter an "Inactive 30+ Days" list, start a win-back email sequence
+- **Churn prevention** — When users exit a "Highly Engaged" list, trigger an intervention flow
+- **Upsell** — When users enter a "Power Users on Free Plan" list, send upgrade prompts
+- **Onboarding complete** — When users exit a "New Users" list, send a milestone email
+
+---
+
+## Static Lists
+
+Static lists contain a fixed set of users. Add users by uploading a CSV file or through the API.
+
+### When to Use Static Lists
+
+- **Newsletter subscribers** — Manage email lists where users subscribe via a form, updated through your API
+- **Event attendees** — Import attendee lists for targeted follow-ups
+- **Partner leads** — Upload leads from external sources
+- **Beta programs** — Manually curate participants
+- **Migration** — Bring segments from other marketing platforms
+
+### Importing via CSV
+
+Upload a CSV file with your user data. The file must include an `identifier` column.
+
+```csv
+identifier,email,first_name,company,source
+user_001,alice@example.com,Alice,Acme Inc,webinar
+user_002,bob@example.com,Bob,Globex,partner
+user_003,carol@example.com,Carol,Initech,organic
+```
+
+**Reserved columns** (mapped to standard fields): `identifier`, `email`, `phone`, `first_name`, `last_name`, `timezone`, `locale`
+
+All other columns become custom properties on the user.
+
+<Callout type="info">
+  **Timezone auto-conversion**: Values in the `timezone` column are automatically
+  resolved to IANA timezone names. Abbreviations like `EST`, `PST`, `CET` and
+  GMT/UTC offsets like `GMT-5` or `+02:00` are resolved to a best-fit IANA
+  timezone (for example, `America/New_York`, `America/Los_Angeles`). IANA names
+  like `America/New_York` are used as-is. Note that abbreviation/offset
+  conversion is heuristic and lossy: a resolved regional timezone may observe
+  daylight saving time and therefore may not preserve the original fixed offset
+  year-round.
+</Callout>
+
+### Updating via API
+
+For newsletter signups or other integrations, use the Admin API to add users to a static list:
+
+```bash
+curl -X POST https://your-instance.com/api/admin/projects/{projectId}/lists/{listId}/users \
+  -H "Authorization: Bearer sk_..." \
+  -H "Content-Type: multipart/form-data" \
+  -F "file=@subscribers.csv"
+```
+
+This lets you sync subscribers from your signup forms, CRM, or other systems.
+
+---
+
+## Choosing Between Dynamic and Static
+
+<Tabs items={['Dynamic', 'Static']}>
+  <Tab value="Dynamic">
+    **Use dynamic lists when:**
+    - Membership should update automatically based on user behavior or profile changes
+    - You want to trigger journeys when users enter or leave a segment
+    - The segment is defined by properties, events, or organization data
+    - You need real-time audience targeting that stays current without manual intervention
+
+    **Examples:**
+    - Premium users who completed a purchase in the last 30 days
+    - Users who triggered "Feature Used" at least 5 times in the last week
+    - Free-plan users in organizations with more than 50 members
+  </Tab>
+  <Tab value="Static">
+    **Use static lists when:**
+    - You have a fixed audience from an external source
+    - Users explicitly subscribe (newsletters, updates)
+    - You're running a one-time campaign to a known set of users
+    - The list is managed by an external system via API
+
+    **Examples:**
+    - Email newsletter subscribers
+    - Conference attendees
+    - Imported leads from a partner
+  </Tab>
+</Tabs>
+
+---
+
+## Using Lists
+
+Once created, lists integrate with other Lunogram features:
+
+| Feature | How Lists Are Used |
+|---------|-------------------|
+| **Campaigns** | Target a list as your campaign audience |
+| **Journey entrances** | Use scheduled entrances to process all list members on a recurring basis |
+| **Journey triggers** | Start journeys when users enter or leave dynamic lists |
+| **Gates** | Check if a user belongs to a list as a condition in journey branching |

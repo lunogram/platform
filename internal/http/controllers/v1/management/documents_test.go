@@ -14,6 +14,8 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
+	"github.com/lunogram/platform/internal/ptr"
+	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/storage"
 	"github.com/lunogram/platform/internal/store/management"
 	teststore "github.com/lunogram/platform/internal/store/test"
@@ -43,7 +45,13 @@ func TestDocumentUpload(t *testing.T) {
 	storageBackend, err := storage.New(storageCfg)
 	require.NoError(t, err)
 
-	documents := NewDocumentsController(logger, mgmt, storageBackend, storageCfg.MaxUploadSize)
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(uuid.New()),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
+	documents := NewDocumentsController(logger, mgmt, storageBackend, storageCfg.MaxUploadSize, storage.NewURLResolver("http://localhost:8080"), engine)
 
 	type test struct {
 		filename    string
@@ -99,6 +107,7 @@ func TestDocumentUpload(t *testing.T) {
 
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("POST", "/v1/documents", body)
+			req = req.WithContext(actorCtx)
 			req.Header.Set("Content-Type", writer.FormDataContentType())
 
 			documents.UploadDocuments(res, req, projectID)
@@ -152,7 +161,13 @@ func TestListDocuments(t *testing.T) {
 	storageBackend, err := storage.New(storageCfg)
 	require.NoError(t, err)
 
-	documents := NewDocumentsController(logger, mgmt, storageBackend, storageCfg.MaxUploadSize)
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(uuid.New()),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
+	documents := NewDocumentsController(logger, mgmt, storageBackend, storageCfg.MaxUploadSize, storage.NewURLResolver("http://localhost:8080"), engine)
 
 	type test struct {
 		params   oapi.ListDocumentsParams
@@ -162,36 +177,36 @@ func TestListDocuments(t *testing.T) {
 	tests := map[string]test{
 		"list-all": {
 			params: oapi.ListDocumentsParams{
-				Limit:  ptr(oapi.PaginationLimit(10)),
-				Offset: ptr(oapi.PaginationOffset(0)),
+				Limit:  ptr.To(oapi.PaginationLimit(10)),
+				Offset: ptr.To(oapi.PaginationOffset(0)),
 			},
 			expected: 3,
 		},
 		"with-pagination": {
 			params: oapi.ListDocumentsParams{
-				Limit:  ptr(oapi.PaginationLimit(2)),
-				Offset: ptr(oapi.PaginationOffset(0)),
+				Limit:  ptr.To(oapi.PaginationLimit(2)),
+				Offset: ptr.To(oapi.PaginationOffset(0)),
 			},
 			expected: 2,
 		},
 		"offset-beyond-total": {
 			params: oapi.ListDocumentsParams{
-				Limit:  ptr(oapi.PaginationLimit(10)),
-				Offset: ptr(oapi.PaginationOffset(100)),
+				Limit:  ptr.To(oapi.PaginationLimit(10)),
+				Offset: ptr.To(oapi.PaginationOffset(100)),
 			},
 			expected: 0,
 		},
 		"limit-exceeds-available": {
 			params: oapi.ListDocumentsParams{
-				Limit:  ptr(oapi.PaginationLimit(100)),
-				Offset: ptr(oapi.PaginationOffset(0)),
+				Limit:  ptr.To(oapi.PaginationLimit(100)),
+				Offset: ptr.To(oapi.PaginationOffset(0)),
 			},
 			expected: 3,
 		},
 		"offset-at-boundary": {
 			params: oapi.ListDocumentsParams{
-				Limit:  ptr(oapi.PaginationLimit(10)),
-				Offset: ptr(oapi.PaginationOffset(2)),
+				Limit:  ptr.To(oapi.PaginationLimit(10)),
+				Offset: ptr.To(oapi.PaginationOffset(2)),
 			},
 			expected: 1,
 		},
@@ -201,6 +216,7 @@ func TestListDocuments(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("GET", "/v1/documents", nil)
+			req = req.WithContext(actorCtx)
 			documents.ListDocuments(res, req, projectID, test.params)
 
 			require.Equal(t, 200, res.Code, res.Body.String())
@@ -247,7 +263,13 @@ func TestGetDocumentMetadata(t *testing.T) {
 	storageBackend, err := storage.New(storageCfg)
 	require.NoError(t, err)
 
-	documents := NewDocumentsController(logger, mgmt, storageBackend, storageCfg.MaxUploadSize)
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(uuid.New()),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
+	documents := NewDocumentsController(logger, mgmt, storageBackend, storageCfg.MaxUploadSize, storage.NewURLResolver("http://localhost:8080"), engine)
 
 	type test struct {
 		documentID uuid.UUID
@@ -269,6 +291,7 @@ func TestGetDocumentMetadata(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("GET", fmt.Sprintf("/v1/documents/%s/metadata", test.documentID), nil)
+			req = req.WithContext(actorCtx)
 			documents.GetDocumentMetadata(res, req, projectID, test.documentID)
 
 			require.Equal(t, test.code, res.Code, res.Body.String())
@@ -309,7 +332,13 @@ func TestGetDocument(t *testing.T) {
 	storageBackend, err := storage.New(storageCfg)
 	require.NoError(t, err)
 
-	documents := NewDocumentsController(logger, mgmt, storageBackend, storageCfg.MaxUploadSize)
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(uuid.New()),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
+	documents := NewDocumentsController(logger, mgmt, storageBackend, storageCfg.MaxUploadSize, storage.NewURLResolver("http://localhost:8080"), engine)
 
 	testContent := []byte("fake document content")
 
@@ -348,6 +377,7 @@ func TestGetDocument(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("GET", fmt.Sprintf("/v1/documents/%s", test.documentID), nil)
+			req = req.WithContext(actorCtx)
 			documents.GetDocument(res, req, projectID, test.documentID)
 
 			require.Equal(t, test.code, res.Code, res.Body.String())
@@ -384,7 +414,13 @@ func TestDeleteDocument(t *testing.T) {
 	storageBackend, err := storage.New(storageCfg)
 	require.NoError(t, err)
 
-	documents := NewDocumentsController(logger, mgmt, storageBackend, storageCfg.MaxUploadSize)
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(uuid.New()),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
+	documents := NewDocumentsController(logger, mgmt, storageBackend, storageCfg.MaxUploadSize, storage.NewURLResolver("http://localhost:8080"), engine)
 
 	documentsStore := management.NewDocumentsStore(mgmt)
 	documentID := uuid.New()
@@ -422,6 +458,7 @@ func TestDeleteDocument(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("DELETE", fmt.Sprintf("/v1/documents/%s", test.documentID), nil)
+			req = req.WithContext(actorCtx)
 			documents.DeleteDocument(res, req, projectID, test.documentID)
 
 			require.Equal(t, test.code, res.Code, res.Body.String())

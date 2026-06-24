@@ -1,13 +1,8 @@
-// Package providers implements a WASM-based provider system for messaging channels.
-//
-// It builds on the generic wasm package to provide provider-specific functionality
-// including channel support validation and a typed Send interface for email, SMS,
-// and push notifications.
+// Package providers provides provider-oriented wrappers over unified WASM integrations.
 package providers
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io/fs"
 	"slices"
@@ -15,66 +10,140 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/lunogram/platform/internal/config"
-	"github.com/lunogram/platform/internal/wasm"
-	"github.com/lunogram/platform/pkg/modules/providers"
+	"github.com/lunogram/platform/internal/wasm/integrations"
+	"github.com/lunogram/platform/pkg/modules"
+	providertypes "github.com/lunogram/platform/pkg/modules/providers"
 )
 
-// Provider wraps a WASM module with provider-specific functionality.
+// Provider wraps a unified integration with provider-specific helpers.
 type Provider struct {
-	*wasm.Module[providers.ProviderManifest]
+	*integrations.Integration
 }
 
-// Send invokes the provider's send function.
-func (p *Provider) Send(ctx context.Context, req *providers.SendRequest[map[string]any]) (*providers.SendResponse, error) {
-	payload, err := json.Marshal(req)
+// ProviderError is returned when a provider call fails.
+type ProviderError = integrations.ProviderError
+
+// Manifest returns the compatibility provider manifest view derived from integration capabilities.
+func (p *Provider) Manifest() providertypes.ProviderManifest {
+	im := p.Integration.Manifest()
+	compat := providertypes.ProviderManifest{
+		Metadata: im.Metadata,
+		Website:  im.Website,
+		Version:  im.Version,
+		License:  im.License,
+		Author:   im.Author,
+	}
+
+	if spec, ok := p.Integration.ProviderSpec(); ok {
+		compat.Spec = providertypes.ProviderSpec{
+			Channels:  fromUnifiedChannels(spec.Channels),
+			Platforms: fromUnifiedPlatforms(spec.Platforms),
+			Webhook:   spec.Webhook,
+			Locked:    spec.Locked,
+			RateLimit: fromUnifiedRateLimit(spec.RateLimit),
+			Config:    im.Config,
+		}
+	}
+
+	return compat
+}
+
+// SupportsWebhook reports whether this provider's module exports a webhook function.
+func (p *Provider) SupportsWebhook() bool {
+	if spec, ok := p.Integration.ProviderSpec(); ok && spec.Webhook {
+		return true
+	}
+
+	return p.Integration.HasWebhook()
+}
+
+// Init invokes integration install semantics and adapts the compatibility response.
+func (p *Provider) Init(ctx context.Context, req providertypes.InitRequest) (*providertypes.InitResponse, error) {
+	res, err := p.Integration.Install(ctx, modules.InstallRequest{
+		Config:        req.Config,
+		WebhookURL:    req.WebhookURL,
+		IntegrationID: req.ProviderID,
+		ProjectID:     req.ProjectID,
+	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal send request: %w", err)
+		return nil, err
 	}
 
-	code, res, err := p.Call(ctx, "send", payload)
+	return &providertypes.InitResponse{ConfigPatch: res.State}, nil
+}
+
+// Validate invokes integration validation and adapts the compatibility response.
+func (p *Provider) Validate(ctx context.Context, req providertypes.ValidateRequest) (*providertypes.ValidateResponse, error) {
+	res, err := p.Integration.Validate(ctx, modules.ValidateRequest{Config: req.Config})
 	if err != nil {
-		return nil, fmt.Errorf("failed to call provider send: %w", err)
+		return nil, err
 	}
 
-	if code != 0 {
-		return nil, fmt.Errorf("provider send returned code %d: %s", code, string(res))
+	return &providertypes.ValidateResponse{
+		Valid:   res.Valid,
+		Errors:  res.Errors,
+		Message: res.Message,
+	}, nil
+}
+
+// Destroy invokes integration uninstall semantics.
+func (p *Provider) Destroy(ctx context.Context, req providertypes.DestroyRequest) (*providertypes.DestroyResponse, error) {
+	_, err := p.Integration.Uninstall(ctx, modules.UninstallRequest{
+		Config:        req.Config,
+		IntegrationID: req.ProviderID,
+		ProjectID:     req.ProjectID,
+	})
+	if err != nil {
+		return nil, err
 	}
 
-	var response providers.SendResponse
-	if err := json.Unmarshal(res, &response); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal send response: %w", err)
-	}
+	return &providertypes.DestroyResponse{}, nil
+}
 
-	return &response, nil
+// Webhook invokes provider webhook processing.
+func (p *Provider) Webhook(ctx context.Context, req providertypes.WebhookRequest) (*providertypes.WebhookResponse, error) {
+	return p.Integration.Webhook(ctx, req)
+}
+
+// Send invokes provider send.
+func (p *Provider) Send(ctx context.Context, req providertypes.SendRequest[map[string]any]) (*providertypes.SendResponse, error) {
+	return p.Integration.Send(ctx, req)
 }
 
 // SupportsChannel checks if this provider supports a specific channel.
-func (p *Provider) SupportsChannel(ch providers.Channel) bool {
-	return slices.Contains(p.Manifest().Spec.Channels, ch)
-}
-
-// Registry is a provider-specific registry that wraps the generic WASM module registry.
-type Registry struct {
-	*wasm.Registry[providers.ProviderManifest]
-}
-
-// NewRegistry creates a new provider registry with the given configuration.
-func NewRegistry(config config.WASM, logger *zap.Logger) *Registry {
-	return &Registry{
-		Registry: wasm.NewRegistry[providers.ProviderManifest](config, logger),
+func (p *Provider) SupportsChannel(ch providertypes.Channel) bool {
+	spec, ok := p.Integration.ProviderSpec()
+	if !ok {
+		return false
 	}
+
+	return slices.Contains(spec.Channels, modules.Channel(ch))
 }
 
-// LoadFromFS loads all provider modules from an embedded filesystem.
-// Validates that each loaded module supports at least one channel.
+// Registry is a provider-specific registry facade over unified integrations.
+type Registry struct {
+	*integrations.Registry
+}
+
+// Register adds a provider module to the registry.
+func (r *Registry) Register(module any) error {
+	return r.Registry.Register(module)
+}
+
+// NewRegistry creates a new provider registry facade.
+func NewRegistry(cfg config.WASM, logger *zap.Logger) *Registry {
+	return &Registry{Registry: integrations.NewRegistry(cfg, logger)}
+}
+
+// LoadFromFS loads all provider-capable modules from an embedded filesystem.
 func (r *Registry) LoadFromFS(ctx context.Context, fsys fs.FS, dir string) error {
 	if err := r.Registry.LoadFromFS(ctx, fsys, dir); err != nil {
 		return err
 	}
 
-	for _, module := range r.Registry.All() {
-		if len(module.Manifest().Spec.Channels) == 0 {
-			return fmt.Errorf("provider %s must support at least one channel", module.Manifest().Metadata.ID)
+	for _, provider := range r.All() {
+		if len(provider.Manifest().Spec.Channels) == 0 {
+			return fmt.Errorf("provider %s must support at least one channel", provider.Manifest().Metadata.ID)
 		}
 	}
 
@@ -83,28 +152,76 @@ func (r *Registry) LoadFromFS(ctx context.Context, fsys fs.FS, dir string) error
 
 // Get retrieves a provider by ID.
 func (r *Registry) Get(id string) (*Provider, bool) {
-	module, exists := r.Registry.Get(id)
+	integration, exists := r.Registry.Get(id)
 	if !exists {
 		return nil, false
 	}
-	return &Provider{Module: module}, true
+
+	if _, ok := integration.ProviderSpec(); !ok {
+		return nil, false
+	}
+
+	return &Provider{Integration: integration}, true
 }
 
-// All returns all registered providers.
+// All returns all provider-capable modules.
 func (r *Registry) All() []*Provider {
-	modules := r.Registry.All()
-	result := make([]*Provider, len(modules))
-	for i, module := range modules {
-		result[i] = &Provider{Module: module}
+	integrations := r.Registry.All()
+	result := make([]*Provider, 0, len(integrations))
+	for _, integration := range integrations {
+		if _, ok := integration.ProviderSpec(); ok {
+			result = append(result, &Provider{Integration: integration})
+		}
 	}
+
 	return result
 }
 
 // SupportsChannel checks if a module supports a specific channel.
-func (r *Registry) SupportsChannel(moduleID string, channel providers.Channel) bool {
+func (r *Registry) SupportsChannel(moduleID string, channel providertypes.Channel) bool {
 	provider, exists := r.Get(moduleID)
 	if !exists {
 		return false
 	}
+
 	return provider.SupportsChannel(channel)
+}
+
+// List returns all provider module IDs.
+func (r *Registry) List() []string {
+	providers := r.All()
+	ids := make([]string, 0, len(providers))
+	for _, provider := range providers {
+		ids = append(ids, provider.Manifest().Metadata.ID)
+	}
+
+	return ids
+}
+
+func fromUnifiedChannels(channels []modules.Channel) []providertypes.Channel {
+	result := make([]providertypes.Channel, len(channels))
+	for i, ch := range channels {
+		result[i] = providertypes.Channel(ch)
+	}
+	return result
+}
+
+func fromUnifiedPlatforms(platforms []modules.Platform) []providertypes.Platform {
+	result := make([]providertypes.Platform, len(platforms))
+	for i, p := range platforms {
+		result[i] = providertypes.Platform(p)
+	}
+	return result
+}
+
+func fromUnifiedRateLimit(limit *modules.RateLimit) *providertypes.RateLimit {
+	if limit == nil {
+		return nil
+	}
+
+	return &providertypes.RateLimit{
+		Limit:    limit.Limit,
+		Interval: limit.Interval,
+		Override: limit.Override,
+	}
 }

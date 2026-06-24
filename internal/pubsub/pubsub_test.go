@@ -35,7 +35,7 @@ func TestNewPublisher(t *testing.T) {
 	t.Parallel()
 
 	jet := setupJetStream(t)
-	pub := NewPublisher(jet)
+	pub := NewPublisher(jet, "")
 
 	assert.NotNil(t, pub)
 }
@@ -53,7 +53,7 @@ func TestPublisherPublish(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	pub := NewPublisher(jet)
+	pub := NewPublisher(jet, "")
 
 	type test struct {
 		subject schemas.Subject
@@ -63,7 +63,7 @@ func TestPublisherPublish(t *testing.T) {
 	tests := map[string]test{
 		"publish event": {
 			subject: "events.process.123",
-			data: schemas.Event{
+			data: schemas.UserEvent{
 				ID:        uuid.New(),
 				Name:      "test_event",
 				ProjectID: uuid.New(),
@@ -71,16 +71,15 @@ func TestPublisherPublish(t *testing.T) {
 		},
 		"publish with nil data": {
 			subject: "events.process.456",
-			data: schemas.Event{
-				ID:          uuid.New(),
-				Name:        "another_event",
-				ProjectID:   uuid.New(),
-				AnonymousId: nil,
+			data: schemas.UserEvent{
+				ID:        uuid.New(),
+				Name:      "another_event",
+				ProjectID: uuid.New(),
 			},
 		},
 		"publish with event data": {
 			subject: "events.process.789",
-			data: schemas.Event{
+			data: schemas.UserEvent{
 				ID:        uuid.New(),
 				Name:      "event_with_data",
 				ProjectID: uuid.New(),
@@ -100,23 +99,23 @@ func TestPublisherPublish(t *testing.T) {
 	}
 }
 
-func TestEventsProject(t *testing.T) {
+func TestUserEventsProcess(t *testing.T) {
 	t.Parallel()
 
 	projectID := uuid.New()
-	subject := schemas.EventsProcess(projectID)
+	subject := schemas.UserEventsProcess(projectID)
 
-	expected := schemas.Subject("events.process." + projectID.String())
+	expected := schemas.Subject("users.events.process." + projectID.String())
 	assert.Equal(t, expected, subject)
 }
 
-func TestEventsSchema(t *testing.T) {
+func TestUserEventsSchema(t *testing.T) {
 	t.Parallel()
 
 	projectID := uuid.New()
-	subject := schemas.EventsSchema(projectID)
+	subject := schemas.UserEventsSchema(projectID)
 
-	expected := schemas.Subject("events.schema." + projectID.String())
+	expected := schemas.Subject("users.events.schema." + projectID.String())
 	assert.Equal(t, expected, subject)
 }
 
@@ -132,9 +131,9 @@ func TestPublisherPublishAndReceive(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	pub := NewPublisher(jet)
+	pub := NewPublisher(jet, "")
 
-	testEvent := schemas.Event{
+	testEvent := schemas.UserEvent{
 		ID:        uuid.New(),
 		Name:      "test_event",
 		ProjectID: uuid.New(),
@@ -155,7 +154,7 @@ func TestPublisherPublishAndReceive(t *testing.T) {
 	msg, err := consumer.Next()
 	require.NoError(t, err)
 
-	var received schemas.Event
+	var received schemas.UserEvent
 	err = json.Unmarshal(msg.Data(), &received)
 	require.NoError(t, err)
 

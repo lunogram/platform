@@ -1,26 +1,43 @@
 package config
 
 import (
+	"strings"
 	"time"
 
 	"github.com/lunogram/platform/internal/claim"
 	"github.com/lunogram/platform/internal/http"
+	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/storage"
 	"github.com/lunogram/platform/internal/store"
 )
 
 type Node struct {
-	NodeID          string  `env:"NODE_ID" envDefault:""`
-	HTTPAddress     string  `env:"HTTP_ADDRESS" envDefault:":8080"`
-	DatabaseMigrate bool    `env:"DATABASE_MIGRATE" envDefault:"true"`
-	Redis           Redis   `envPrefix:"REDIS_"`
-	Cluster         Cluster `envPrefix:"CLUSTER_"`
-	Auth            Auth    `envPrefix:"AUTH_"`
-	Nats            Nats    `envPrefix:"NATS_"`
-	WASM            WASM    `envPrefix:"WASM_"`
-	HTTP            http.Config
-	Store           store.Config
-	Storage         storage.Config
+	NodeID          string `env:"NODE_ID" envDefault:""`
+	HTTPAddress     string `env:"HTTP_ADDRESS" envDefault:":8080"`
+	DatabaseMigrate bool   `env:"DATABASE_MIGRATE" envDefault:"true"`
+
+	PublicURL  string      `env:"PUBLIC_URL" envDefault:"http://localhost:8080"`
+	Redis      Redis       `envPrefix:"REDIS_"`
+	RateLimit  RateLimit   `envPrefix:"RATE_LIMIT_"`
+	JWKSCache  JWKSCache   `envPrefix:"JWKS_CACHE_"`
+	Cluster    Cluster     `envPrefix:"CLUSTER_"`
+	Auth       Auth        `envPrefix:"AUTH_"`
+	Nats       Nats        `envPrefix:"NATS_"`
+	WASM       WASM        `envPrefix:"WASM_"`
+	Webhook    Webhook     `envPrefix:"WEBHOOK_"`
+	Link       Link        `envPrefix:"LINK_"`
+	RBAC       rbac.Config `envPrefix:"RBAC_"`
+	Enterprise Enterprise
+	Console    Console `envPrefix:"CONSOLE_"`
+	HTTP       http.Config
+	Store      store.Config
+	Storage    storage.Config
+}
+
+// PublicBaseURL returns the public URL with any trailing slash removed,
+// suitable for concatenating with request paths.
+func (n Node) PublicBaseURL() string {
+	return strings.TrimRight(n.PublicURL, "/")
 }
 
 type Auth struct {
@@ -30,6 +47,13 @@ type Auth struct {
 	TokenLife time.Duration `env:"TOKEN_LIFE" envDefault:"24h"`
 	Basic     BasicAuth     `envPrefix:"BASIC_"`
 	Clerk     ClerkAuth     `envPrefix:"CLERK_"`
+
+	// SessionSigningKey is a PEM-encoded EC (P-256) private key used to sign and
+	// verify short-lived client session tokens (ES256). When empty, session
+	// minting and verification are disabled.
+	SessionSigningKey string `env:"SESSION_SIGNING_KEY"`
+	// SessionIssuer is the `iss` stamped on (and required of) session tokens.
+	SessionIssuer string `env:"SESSION_ISSUER" envDefault:"https://lunogram.com"`
 }
 
 type BasicAuth struct {
@@ -47,16 +71,107 @@ type Redis struct {
 	KeyPrefix string `env:"KEY_PREFIX" envDefault:""`
 }
 
+// RateLimit configures request rate limiting across the API.
+type RateLimit struct {
+	// PerMinute is the number of API requests permitted per minute per auth
+	// method (or per IP for unauthenticated requests). The budget is shared
+	// across the client and management APIs — a key is not given a separate
+	// allowance per surface.
+	PerMinute int `env:"PER_MINUTE" envDefault:"600"`
+	// TrustedProxyHops is the number of reverse proxies in front of the server.
+	// X-Forwarded-For is honored only up to this many hops when deriving the
+	// client IP for unauthenticated rate limiting; 0 (the default) ignores the
+	// spoofable header and uses the connection's remote address.
+	TrustedProxyHops int `env:"TRUSTED_PROXY_HOPS" envDefault:"0"`
+}
+
+// JWKSCache configures the two-tier cache for trusted-issuer JWKS verification.
+type JWKSCache struct {
+	// TTL is how long a fetched JWKS is kept in the shared (Redis) cache.
+	TTL time.Duration `env:"TTL" envDefault:"5m"`
+	// FetchTimeout bounds a single JWKS fetch from an issuer.
+	FetchTimeout time.Duration `env:"FETCH_TIMEOUT" envDefault:"5s"`
+	// ErrorTTL is the backoff after a failed fetch before the issuer is retried.
+	ErrorTTL time.Duration `env:"ERROR_TTL" envDefault:"30s"`
+}
+
 type Nats struct {
-	URL string `env:"URL" envDefault:"nats://127.0.0.1:4222"`
+	URL               string `env:"URL" envDefault:"nats://127.0.0.1:4222"`
+	Namespace         string `env:"NAMESPACE" envDefault:""`
+	ManagedExternally bool   `env:"MANAGED_EXTERNALLY" envDefault:"false"`
 }
 
 type Cluster struct {
 	ReconciliationInterval time.Duration `env:"RECONCILIATION_INTERVAL" envDefault:"1m"`
-	LeaderCampaignInterval time.Duration `env:"LEADER_CAMPAIGN_INTERVAL" envDefault:"5s"`
-	HeartbeatInterval      time.Duration `env:"HEARTBEAT_INTERVAL" envDefault:"4s"`
+	// ReconciliationBatchSize is the maximum number of rows each
+	// reconciliation task (journey resumptions, scheduled messages,
+	// inbox dispatch, broadcasts, list recomputation, ...) will scan
+	// and process in a single tick. Lower values smooth out load at
+	// the cost of higher end-to-end latency for large backlogs;
+	// higher values drain backlogs faster but increase per-tick
+	// resource usage. Remaining work rolls over to the next tick.
+	ReconciliationBatchSize int           `env:"RECONCILIATION_BATCH_SIZE" envDefault:"1000"`
+	LeaderCampaignInterval  time.Duration `env:"LEADER_CAMPAIGN_INTERVAL" envDefault:"5s"`
+	HeartbeatInterval       time.Duration `env:"HEARTBEAT_INTERVAL" envDefault:"4s"`
 }
 
 type WASM struct {
 	CallTimeout time.Duration `env:"CALL_TIMEOUT" envDefault:"30s"`
+}
+
+type Webhook struct {
+	// ProjectCreatedURL is the webhook URL called after project creation
+	ProjectCreatedURL string `env:"PROJECT_CREATED_URL"`
+	// ProjectCreatedTimeout is the HTTP timeout for the webhook call
+	ProjectCreatedTimeout time.Duration `env:"PROJECT_CREATED_TIMEOUT" envDefault:"30s"`
+
+	// EmailTemplatesURL is the webhook URL called to fetch email starter templates.
+	// When configured, the backend proxies gallery requests to this endpoint.
+	// When not configured, the endpoint returns an empty list.
+	EmailTemplatesURL string `env:"EMAIL_TEMPLATES_URL"`
+	// EmailTemplatesTimeout is the HTTP timeout for the email templates webhook call
+	EmailTemplatesTimeout time.Duration `env:"EMAIL_TEMPLATES_TIMEOUT" envDefault:"10s"`
+
+	// MaxBodySize is the maximum allowed request body size in bytes for
+	// inbound provider webhook payloads. Defaults to 1 MB.
+	MaxBodySize int64 `env:"MAX_BODY_SIZE" envDefault:"1048576"`
+}
+
+// Link holds the configuration for self-hosted click tracking.
+// Both Secret (a 64-char hex string encoding a 32-byte AES-256 key) and
+// TrackingURL (the public base URL for the redirect endpoint) must be set
+// for link wrapping to be active.
+type Link struct {
+	// Secret is a 32-byte key encoded, used for
+	// AES-256-GCM encryption of click-tracking tokens.
+	Secret string `env:"SECRET"`
+	// TrackingURL is the public base URL where the redirect endpoint is
+	// reachable (e.g. "https://t.example.com"). When empty, the platform's
+	// PublicURL is used instead.
+	TrackingURL string `env:"TRACKING_URL"`
+}
+
+// SecretBytes decodes the hex-encoded secret into raw bytes.
+func (l Link) SecretBytes() []byte {
+	if l.Secret == "" {
+		return nil
+	}
+
+	key := make([]byte, 32)
+	copy(key, []byte(l.Secret))
+	return key
+}
+
+// TrackingBaseURL returns the base URL for click-tracking redirects,
+// with any trailing slash removed.
+func (l Link) TrackingBaseURL() string {
+	return strings.TrimRight(l.TrackingURL, "/")
+}
+
+type Console struct {
+	// ClerkPublishableKey is the Clerk publishable key injected into the
+	// console frontend at runtime via /config.js. This allows different
+	// environments (stg, prd) to use different Clerk instances without
+	// rebuilding the Docker image.
+	ClerkPublishableKey string `env:"CLERK_PUBLISHABLE_KEY"`
 }

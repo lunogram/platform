@@ -39,6 +39,7 @@ type Journey struct {
 	VersionID   *uuid.UUID `db:"version_id"`
 	CreatedAt   time.Time  `db:"created_at"`
 	UpdatedAt   time.Time  `db:"updated_at"`
+	DeletedAt   *time.Time `db:"deleted_at"`
 }
 
 func (j *Journey) OAPI(versionInfo *JourneyVersionInfo) oapi.Journey {
@@ -53,6 +54,11 @@ func (j *Journey) OAPI(versionInfo *JourneyVersionInfo) oapi.Journey {
 		versionNumber = &versionInfo.VersionNumber
 		draftVersionID = versionInfo.DraftVersionID
 		publishedVersionID = versionInfo.PublishedVersionID
+	}
+
+	// Archived journeys always report status as "archived"
+	if j.DeletedAt != nil {
+		status = oapi.JourneyStatus("archived")
 	}
 
 	return oapi.Journey{
@@ -178,9 +184,9 @@ func (s *JourneysStore) CountJourneys(ctx context.Context, projectID uuid.UUID) 
 
 func (s *JourneysStore) GetJourney(ctx context.Context, projectID, journeyID uuid.UUID) (*Journey, error) {
 	stmt := `
-	SELECT id, project_id, name, description, version_id, created_at, updated_at
+	SELECT id, project_id, name, description, version_id, created_at, updated_at, deleted_at
 	FROM journeys
-	WHERE id = $1 AND project_id = $2 AND deleted_at IS NULL`
+	WHERE id = $1 AND project_id = $2`
 
 	var journey Journey
 	err := s.db.GetContext(ctx, &journey, stmt, journeyID, projectID)
@@ -217,7 +223,7 @@ func (s *JourneysStore) GetJourneyVersionInfo(ctx context.Context, journeyID uui
 	LEFT JOIN journey_versions published ON j.id = published.journey_id
 		AND published.status = 'published'
 		AND published.version_number = latest_pub.max_version
-	WHERE j.id = $1 AND j.deleted_at IS NULL`
+	WHERE j.id = $1`
 
 	var info JourneyVersionInfo
 	err := s.db.GetContext(ctx, &info, stmt, journeyID)
@@ -235,7 +241,7 @@ func (s *JourneysStore) GetJourneyVersionInfo(ctx context.Context, journeyID uui
 func (s *JourneysStore) ResolveVersionID(ctx context.Context, journeyID uuid.UUID) (uuid.UUID, error) {
 	query := `
 	SELECT COALESCE(
-		(SELECT version_id FROM journeys WHERE id = $1 AND deleted_at IS NULL),
+		(SELECT version_id FROM journeys WHERE id = $1),
 		(SELECT id FROM journey_versions WHERE journey_id = $1 AND status = 'draft' ORDER BY version_number DESC LIMIT 1)
 	) as version_id`
 
@@ -326,7 +332,7 @@ func (s *JourneysStore) CreateJourney(ctx context.Context, journey Journey) (uui
 	return id, nil
 }
 
-func (s *JourneysStore) ListJourneys(ctx context.Context, projectID uuid.UUID, pagination store.Pagination) (Journeys, int, error) {
+func (s *JourneysStore) ListJourneys(ctx context.Context, projectID uuid.UUID, pagination store.Pagination, search string, archivedOnly bool) (Journeys, int, error) {
 	query := `
 	SELECT
 		id,
@@ -336,9 +342,11 @@ func (s *JourneysStore) ListJourneys(ctx context.Context, projectID uuid.UUID, p
 		version_id,
 		created_at,
 		updated_at,
+		deleted_at,
 		COUNT(*) OVER () AS total_count
 	FROM journeys
-	WHERE project_id = $1 AND deleted_at IS NULL
+	WHERE project_id = $1 AND (($5 = false AND deleted_at IS NULL) OR ($5 = true AND deleted_at IS NOT NULL))
+	AND ($4 = '' OR name ILIKE '%' || $4 || '%')
 	ORDER BY created_at DESC
 	LIMIT $2 OFFSET $3`
 
@@ -348,7 +356,7 @@ func (s *JourneysStore) ListJourneys(ctx context.Context, projectID uuid.UUID, p
 	}
 
 	var results []rows
-	err := s.db.SelectContext(ctx, &results, query, projectID, pagination.Limit, pagination.Offset)
+	err := s.db.SelectContext(ctx, &results, query, projectID, pagination.Limit, pagination.Offset, search, archivedOnly)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -440,6 +448,29 @@ func (s *JourneysStore) DeleteJourney(ctx context.Context, projectID, journeyID 
 
 	_, err := s.db.ExecContext(ctx, stmt, journeyID, projectID)
 	return err
+}
+
+func (s *JourneysStore) UnarchiveJourney(ctx context.Context, projectID, journeyID uuid.UUID) error {
+	stmt := `
+	UPDATE journeys
+	SET deleted_at = NULL
+	WHERE id = $1 AND project_id = $2 AND deleted_at IS NOT NULL`
+
+	result, err := s.db.ExecContext(ctx, stmt, journeyID, projectID)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+
+	return nil
 }
 
 func (s *JourneysStore) CreateJourneyVersion(ctx context.Context, journeyID uuid.UUID, status string) (uuid.UUID, error) {
@@ -538,8 +569,8 @@ func (s *JourneysStore) CopyVersionSteps(ctx context.Context, fromVersionID, toV
 
 	// Copy event dependencies
 	copyDepsStmt := `
-	INSERT INTO journey_version_step_events (version_id, external_id, event_id)
-	SELECT $1, external_id, event_id
+	INSERT INTO journey_version_step_events (version_id, external_id, event_id, kind)
+	SELECT $1, external_id, event_id, kind
 	FROM journey_version_step_events
 	WHERE version_id = $2`
 
@@ -594,6 +625,70 @@ func (s *JourneysStore) GetJourneyVersionStepsChildren(ctx context.Context, vers
 	}
 
 	return children, nil
+}
+
+func (s *JourneysStore) GetStepType(ctx context.Context, versionID uuid.UUID, externalStepID string) (string, error) {
+	query := `SELECT type FROM journey_version_steps WHERE version_id = $1 AND external_id = $2`
+	var stepType string
+	err := s.db.GetContext(ctx, &stepType, query, versionID, externalStepID)
+	if err != nil {
+		return "", err
+	}
+	return stepType, nil
+}
+
+type UserJourneyState struct {
+	ExternalStepID string     `db:"external_step_id"`
+	StepType       string     `db:"step_type"`
+	EnteredAt      time.Time  `db:"entered_at"`
+	CompletedAt    *time.Time `db:"completed_at"`
+	VisitedAt      *time.Time `db:"visited_at"`
+}
+
+func (s *JourneysStore) GetUserJourneyCurrentState(ctx context.Context, projectID, journeyID, userID uuid.UUID, journeyEntryID *uuid.UUID) ([]UserJourneyState, error) {
+	// When a specific journey_entry_id is provided, use it directly.
+	// Otherwise fall back to the most recent entry for this user+journey.
+	entryFilter := `(
+			SELECT journey_entry_id
+			FROM journey_user_state
+			WHERE journey_id = $1
+			AND user_id = $2
+			ORDER BY entered_at DESC
+			LIMIT 1
+		)`
+	args := []interface{}{journeyID, userID}
+
+	if journeyEntryID != nil {
+		entryFilter = "$3"
+		args = append(args, *journeyEntryID)
+	}
+
+	query := `
+	SELECT
+		jus.external_step_id,
+		COALESCE(jvs.type, '') AS step_type,
+		jus.entered_at,
+		jus.completed_at,
+		jus.updated_at AS visited_at
+	FROM journey_user_state jus
+	LEFT JOIN journey_version_steps jvs ON jvs.version_id = jus.pinned_version_id AND jvs.external_id = jus.external_step_id
+	WHERE jus.journey_id = $1
+		AND jus.user_id = $2
+		AND jus.journey_entry_id = ` + entryFilter + `
+		AND jus.occurrence = (
+			SELECT MAX(occurrence)
+			FROM journey_user_state sub
+			WHERE sub.journey_entry_id = jus.journey_entry_id
+			AND sub.external_step_id = jus.external_step_id
+		)
+	ORDER BY jus.entered_at ASC`
+
+	var states []UserJourneyState
+	err := s.db.SelectContext(ctx, &states, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	return states, nil
 }
 
 func (s *JourneysStore) GetJourneyStep(ctx context.Context, journeyID uuid.UUID, externalID string, versionID *uuid.UUID) (JourneyVersionStep, error) {
@@ -761,7 +856,23 @@ func (s *JourneysStore) SetJourneyStepChildren(ctx context.Context, versionID uu
 	return nil
 }
 
-func (s *JourneysStore) SetJourneyStepEventDependencies(ctx context.Context, versionID uuid.UUID, externalID string, eventIDs []uuid.UUID) error {
+// StepEventDependency associates an event with the role it plays for an
+// entrance step: KindEnter triggers enrollment, KindExit completes the user's
+// active runs (used by list triggers to exit a user when they leave the list).
+type StepEventDependency struct {
+	EventID uuid.UUID
+	Kind    string
+}
+
+const (
+	StepEventKindEnter = "enter"
+	StepEventKindExit  = "exit"
+)
+
+// SetJourneyStepEventDependencies replaces all event dependencies for the given
+// entrance step with the supplied set. Both enter and exit dependencies are
+// stored in the same table and distinguished by their kind.
+func (s *JourneysStore) SetJourneyStepEventDependencies(ctx context.Context, versionID uuid.UUID, externalID string, deps []StepEventDependency) error {
 	deleteStmt := `
 	DELETE FROM journey_version_step_events
 	WHERE version_id = $1 AND external_id = $2`
@@ -771,22 +882,120 @@ func (s *JourneysStore) SetJourneyStepEventDependencies(ctx context.Context, ver
 		return err
 	}
 
-	if len(eventIDs) == 0 {
+	if len(deps) == 0 {
 		return nil
 	}
 
 	stmt := `
-	INSERT INTO journey_version_step_events (version_id, external_id, event_id)
-	VALUES ($1, $2, $3)`
+	INSERT INTO journey_version_step_events (version_id, external_id, event_id, kind)
+	VALUES ($1, $2, $3, $4)
+	ON CONFLICT DO NOTHING`
 
-	for _, eventID := range eventIDs {
-		_, err = s.db.ExecContext(ctx, stmt, versionID, externalID, eventID)
+	for _, dep := range deps {
+		kind := dep.Kind
+		if kind == "" {
+			kind = StepEventKindEnter
+		}
+		_, err = s.db.ExecContext(ctx, stmt, versionID, externalID, dep.EventID, kind)
 		if err != nil {
 			return err
 		}
 	}
 
 	return nil
+}
+
+// FindPendingScheduledState finds a single journey_user_state row matching the journey + user +
+// entrance step + expected resume_at, with completed_at IS NULL. Returns nil if no match found
+// (the entrance already fired or was never created).
+func (s *JourneysStore) FindPendingScheduledState(ctx context.Context, journeyID, userID uuid.UUID, externalStepID string, resumeAt time.Time) (*JourneyUserState, error) {
+	query := `
+	SELECT jus.id, j.project_id, jus.journey_id, jus.journey_entry_id, jus.user_id, jus.external_step_id,
+		jus.pinned_version_id, jus.occurrence, jus.entered_at, jus.resume_at, jus.completed_at,
+		COALESCE(jus.data, '{}'::jsonb) AS data, jus.updated_at
+	FROM journey_user_state jus
+	JOIN journeys j ON j.id = jus.journey_id
+	WHERE jus.journey_id = $1
+	AND jus.user_id = $2
+	AND jus.external_step_id = $3
+	AND jus.completed_at IS NULL
+	AND jus.resume_at = $4`
+
+	var state JourneyUserState
+	err := s.db.GetContext(ctx, &state, query, journeyID, userID, externalStepID, resumeAt)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return &state, nil
+}
+
+// UpdateJourneyStateResumeAt updates resume_at on a single journey_user_state row.
+// Used by the update consumer to shift the entrance time when a scheduled instance is rescheduled.
+func (s *JourneysStore) UpdateJourneyStateResumeAt(ctx context.Context, stateID uuid.UUID, resumeAt time.Time) error {
+	stmt := `
+	UPDATE journey_user_state
+	SET resume_at = $1
+	WHERE id = $2`
+
+	_, err := s.db.ExecContext(ctx, stmt, resumeAt, stateID)
+	return err
+}
+
+// CancelActiveStates marks all active (non-completed) journey_user_state rows
+// for the given project+journey+user as completed, effectively cancelling them.
+func (s *JourneysStore) CancelActiveStates(ctx context.Context, projectID, journeyID, userID uuid.UUID) error {
+	stmt := `
+	UPDATE journey_user_state jus
+	SET completed_at = NOW(), resume_at = NULL
+	FROM journeys j
+	WHERE j.id = jus.journey_id
+	AND j.project_id = $1
+	AND jus.journey_id = $2
+	AND jus.user_id = $3
+	AND jus.completed_at IS NULL`
+
+	_, err := s.db.ExecContext(ctx, stmt, projectID, journeyID, userID)
+	return err
+}
+
+// DeleteJourneyState hard-deletes a single journey_user_state row.
+// Used by the delete consumer to cancel a pending entrance when a scheduled instance is deleted.
+func (s *JourneysStore) DeleteJourneyState(ctx context.Context, stateID uuid.UUID) error {
+	stmt := `
+	DELETE FROM journey_user_state
+	WHERE id = $1`
+
+	_, err := s.db.ExecContext(ctx, stmt, stateID)
+	return err
+}
+
+// UpdatePendingScheduledResumeAt bulk-updates resume_at for all pending journey_user_state rows
+// matching the given journey + entrance step + old resume_at. Returns the number of rows updated.
+// Used by the organization update consumer to shift entrance times for all users at once.
+func (s *JourneysStore) UpdatePendingScheduledResumeAt(ctx context.Context, journeyID uuid.UUID, externalStepID string, oldResumeAt, newResumeAt time.Time) (int, error) {
+	stmt := `
+	UPDATE journey_user_state
+	SET resume_at = $1
+	WHERE journey_id = $2
+	AND external_step_id = $3
+	AND completed_at IS NULL
+	AND resume_at = $4`
+
+	result, err := s.db.ExecContext(ctx, stmt, newResumeAt, journeyID, externalStepID, oldResumeAt)
+	if err != nil {
+		return 0, err
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return 0, err
+	}
+
+	return int(rows), nil
 }
 
 // DuplicateJourney creates a new draft version by copying an existing version.
@@ -857,13 +1066,47 @@ func (s *JourneysStore) CopyVersionContent(ctx context.Context, sourceVersionID,
 	}
 
 	copyEvents := `
-	INSERT INTO journey_version_step_events (version_id, external_id, event_id)
-	SELECT $1, external_id, event_id
+	INSERT INTO journey_version_step_events (version_id, external_id, event_id, kind)
+	SELECT $1, external_id, event_id, kind
 	FROM journey_version_step_events
 	WHERE version_id = $2`
 
 	_, err = s.db.ExecContext(ctx, copyEvents, targetVersionID, sourceVersionID)
 	return err
+}
+
+// CheckEntryEligibility checks whether a user is allowed to enter a journey based on
+// the entrance step's multiple/concurrent entry settings.
+//
+//   - If multiple is false: the user cannot re-enter a journey they have any
+//     prior entry for (i.e. an entrance state row exists for this journey+user).
+//   - If multiple is true but concurrent is false: the user can re-enter only if
+//     they have no currently active (non-completed) entrance entry.
+//   - If both are true: entry is always allowed.
+//
+// Returns true if the user is allowed to enter, false otherwise.
+func (s *JourneysStore) CheckEntryEligibility(ctx context.Context, journeyID, userID uuid.UUID, entranceExternalStepID string, multiple, concurrent bool) (bool, error) {
+	// If both flags are enabled, always allow entry
+	if multiple && concurrent {
+		return true, nil
+	}
+
+	// When multiple is true, only active (non-completed) entries block re-entry.
+	// When multiple is false, any prior entry blocks re-entry.
+	query := `
+	SELECT EXISTS(
+		SELECT 1 FROM journey_user_state
+		WHERE journey_id = $1 AND user_id = $2 AND external_step_id = $3
+		AND ($4 = false OR completed_at IS NULL)
+	)`
+
+	var exists bool
+	err := s.db.GetContext(ctx, &exists, query, journeyID, userID, entranceExternalStepID, multiple)
+	if err != nil {
+		return false, err
+	}
+
+	return !exists, nil
 }
 
 func (s *JourneysStore) CreateUserJourneyState(ctx context.Context, state JourneyUserState) (uuid.UUID, error) {
@@ -924,6 +1167,39 @@ func (s *JourneysStore) ListResumeableUserJourneys(ctx context.Context) ([]Journ
 	return states, nil
 }
 
+// ScanResumeableUserJourneys iterates over at most limit resumeable user journey
+// states whose resume_at is in the past. The query uses FOR UPDATE ... SKIP LOCKED
+// so that rows already locked by a concurrent transaction are silently skipped
+// instead of blocking. This is important because the method is called by the
+// cluster leader scheduler's reconciliation tick; during leader transitions two
+// nodes may briefly both act as leader and SKIP LOCKED prevents them from
+// double-processing the same rows.
+func (s *JourneysStore) ScanResumeableUserJourneys(ctx context.Context, limit int, fn func(JourneyUserState) error) (int, error) {
+	query := `
+	SELECT jus.id, j.project_id, jus.journey_id, jus.user_id, jus.pinned_version_id, jus.occurrence, jus.entered_at, jus.resume_at, jus.completed_at, COALESCE(jus.data, '{}'::jsonb) AS data, jus.updated_at, jus.journey_entry_id, jus.external_step_id
+	FROM journey_user_state jus
+	JOIN journeys j ON j.id = jus.journey_id
+	WHERE jus.completed_at IS NULL
+	AND jus.resume_at <= NOW()
+	ORDER BY jus.resume_at ASC
+	LIMIT $1
+	FOR UPDATE OF jus SKIP LOCKED`
+
+	var states []JourneyUserState
+	err := s.db.SelectContext(ctx, &states, query, limit)
+	if err != nil {
+		return 0, err
+	}
+
+	for n, state := range states {
+		if err := fn(state); err != nil {
+			return n, err
+		}
+	}
+
+	return len(states), nil
+}
+
 func (s *JourneysStore) GetJourneyStateByID(ctx context.Context, stateID uuid.UUID) (*JourneyUserState, error) {
 	query := `
 	SELECT jus.id, j.project_id, jus.journey_id, jus.user_id, jus.pinned_version_id, jus.occurrence, jus.entered_at, jus.resume_at, jus.completed_at, COALESCE(jus.data, '{}'::jsonb) AS data, jus.updated_at, jus.journey_entry_id, jus.external_step_id
@@ -959,55 +1235,53 @@ func (s *JourneysStore) GetUserJourneyState(ctx context.Context, journeyEntryID 
 	return &state, nil
 }
 
-func (s *JourneysStore) GetJourneyEntryData(ctx context.Context, journeyEntryID, userID uuid.UUID) (map[string]any, error) {
-	query := `
-	WITH user_json AS (
-		SELECT to_jsonb(u) AS user_data
-		FROM users u
-		WHERE u.id = $2
-	),
+func (s *JourneysStore) GetJourneyEntryData(ctx context.Context, usersDB store.DB, journeyEntryID, userID uuid.UUID) (map[string]any, error) {
+	userQuery := `
+	SELECT to_jsonb(u)
+	FROM users u
+	WHERE u.id = $1`
 
-	journey_state AS (
+	var userRaw json.RawMessage
+	err := usersDB.GetContext(ctx, &userRaw, userQuery, userID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	journeyQuery := `
+	WITH journey_state AS (
 		SELECT step.data_key, jus.data AS state_data
 		FROM journey_user_state jus
 		JOIN journeys j ON j.id = jus.journey_id
 		JOIN journey_version_steps step ON step.external_id = jus.external_step_id AND step.version_id = COALESCE(jus.pinned_version_id, j.version_id)
 		WHERE jus.journey_entry_id = $1
 		AND step.data_key IS NOT NULL
-	),
-
-	journey_json AS (
-		SELECT
-			COALESCE(
-			jsonb_object_agg(js.data_key, js.state_data),
-			'{}'::jsonb
-			) AS journey_data
-		FROM journey_state js
 	)
+	SELECT COALESCE(jsonb_object_agg(js.data_key, js.state_data), '{}'::jsonb)
+	FROM journey_state js`
 
-	SELECT jsonb_build_object(
-		'user', uj.user_data,
-		'journey', jj.journey_data
-	)
-	FROM user_json uj
-	CROSS JOIN journey_json jj`
-
-	var rawResult json.RawMessage
-	err := s.db.GetContext(ctx, &rawResult, query, journeyEntryID, userID)
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil
-	}
-
+	var journeyRaw json.RawMessage
+	err = s.db.GetContext(ctx, &journeyRaw, journeyQuery, journeyEntryID)
 	if err != nil {
 		return nil, err
 	}
 
-	var result map[string]any
-	if err := json.Unmarshal(rawResult, &result); err != nil {
+	var userData map[string]any
+	if err := json.Unmarshal(userRaw, &userData); err != nil {
 		return nil, err
 	}
 
-	return result, nil
+	var journeyData map[string]any
+	if err := json.Unmarshal(journeyRaw, &journeyData); err != nil {
+		return nil, err
+	}
+
+	return map[string]any{
+		"user":    userData,
+		"journey": journeyData,
+	}, nil
 }
 
 type UserJourneyEntrances []UserJourneyEntrance
@@ -1048,12 +1322,38 @@ func (e *UserJourneyEntrance) OAPI() oapi.UserJourneyEntrance {
 
 func (s *JourneysStore) ListUserJourneyEntrances(ctx context.Context, projectID, userID uuid.UUID, pagination store.Pagination) (UserJourneyEntrances, int, error) {
 	query := `
+	WITH unique_entrances AS (
+		SELECT DISTINCT ON (jus.journey_entry_id)
+			jus.id,
+			jus.journey_entry_id,
+			jus.journey_id,
+			jus.entered_at,
+			jus.updated_at
+		FROM journey_user_state jus
+		WHERE jus.user_id = $1
+			AND jus.journey_id IN (
+				SELECT id FROM journeys
+				WHERE project_id = $2
+			)
+		ORDER BY jus.journey_entry_id, jus.entered_at ASC
+	),
+	entry_status AS (
+		SELECT
+			jus.journey_entry_id,
+			CASE
+				WHEN bool_or(jus.completed_at IS NULL) THEN NULL
+				ELSE MAX(jus.completed_at)
+			END AS ended_at
+		FROM journey_user_state jus
+		WHERE jus.user_id = $1
+		GROUP BY jus.journey_entry_id
+	)
 	SELECT
-		jus.id,
-		jus.id AS entrance_id,
-		jus.entered_at AS created_at,
-		jus.updated_at,
-		jus.completed_at AS ended_at,
+		ue.id,
+		ue.journey_entry_id AS entrance_id,
+		ue.entered_at AS created_at,
+		ue.updated_at,
+		es.ended_at,
 		j.id AS journey_id,
 		j.name AS journey_name,
 		j.description AS journey_description,
@@ -1062,14 +1362,10 @@ func (s *JourneysStore) ListUserJourneyEntrances(ctx context.Context, projectID,
 		j.created_at AS journey_created_at,
 		j.updated_at AS journey_updated_at,
 		COUNT(*) OVER () AS total_count
-	FROM journey_user_state jus
-	LEFT JOIN journeys j ON j.id = jus.journey_id AND j.project_id = $2 AND j.deleted_at IS NULL
-	WHERE jus.user_id = $1
-		AND jus.journey_id IN (
-			SELECT id FROM journeys
-			WHERE project_id = $2 AND deleted_at IS NULL
-		)
-	ORDER BY jus.entered_at DESC
+	FROM unique_entrances ue
+	JOIN entry_status es ON es.journey_entry_id = ue.journey_entry_id
+	LEFT JOIN journeys j ON j.id = ue.journey_id AND j.project_id = $2
+	ORDER BY ue.entered_at DESC
 	LIMIT $3 OFFSET $4`
 
 	type row struct {
@@ -1128,6 +1424,31 @@ func (s *JourneysStore) CompleteJourneyEntryStates(ctx context.Context, journeyI
 	return err
 }
 
+// CompleteUserJourneyEntryStates completes the active (non-completed) journey
+// states of a single user for every run that was started from the given
+// entrance step. It is used to exit a user from a journey in response to an
+// external signal, such as the user leaving a list, without going through an
+// in-flow exit step.
+func (s *JourneysStore) CompleteUserJourneyEntryStates(ctx context.Context, journeyID, userID uuid.UUID, entranceExternalID string, completedAt time.Time) (int64, error) {
+	stmt := `
+	UPDATE journey_user_state
+	SET completed_at = $1, resume_at = NULL
+	WHERE journey_id = $2
+	AND user_id = $3
+	AND completed_at IS NULL
+	AND journey_entry_id = ANY(
+		SELECT journey_entry_id FROM journey_user_state
+		WHERE journey_id = $2 AND user_id = $3 AND external_step_id = $4
+	)`
+
+	result, err := s.db.ExecContext(ctx, stmt, completedAt, journeyID, userID, entranceExternalID)
+	if err != nil {
+		return 0, err
+	}
+
+	return result.RowsAffected()
+}
+
 func (s *JourneysStore) ListEventJourneyDependencies(ctx context.Context, eventID uuid.UUID) ([]JourneyEntranceStep, error) {
 	query := `
 	SELECT
@@ -1148,6 +1469,7 @@ func (s *JourneysStore) ListEventJourneyDependencies(ctx context.Context, eventI
 	JOIN journey_version_steps jvs ON jvs.version_id = jv.id AND jvs.external_id = jvse.external_id
 	LEFT JOIN journey_version_step_children c ON jvs.version_id = c.version_id AND jvs.external_id = c.parent_external_id
 	WHERE jvse.event_id = $1
+	AND jvse.kind = 'enter'
 	AND j.deleted_at IS NULL
 	AND jvs.type = 'entrance'
 	GROUP BY j.id, jv.id, jvs.id`
@@ -1155,4 +1477,54 @@ func (s *JourneysStore) ListEventJourneyDependencies(ctx context.Context, eventI
 	var entrances []JourneyEntranceStep
 	err := s.db.SelectContext(ctx, &entrances, query, eventID)
 	return entrances, err
+}
+
+// ListEventJourneyExitDependencies returns published entrance steps that have
+// registered the given event as an exit dependency (kind = 'exit'). These are
+// list-trigger entrances configured to exit a user from the journey when the
+// opposite list membership event fires. Children are not needed for exits.
+func (s *JourneysStore) ListEventJourneyExitDependencies(ctx context.Context, eventID uuid.UUID) ([]JourneyEntranceStep, error) {
+	query := `
+	SELECT
+		j.id AS journey_id,
+		jv.id AS version_id,
+		jvs.id AS step_id,
+		jvs.external_id,
+		jvs.type,
+		jvs.data_key,
+		jvs.data,
+		'[]'::jsonb AS children
+	FROM journeys j
+	JOIN journey_versions jv ON jv.id = j.version_id AND jv.status = 'published'
+	JOIN journey_version_step_events jvse ON jvse.version_id = jv.id
+	JOIN journey_version_steps jvs ON jvs.version_id = jv.id AND jvs.external_id = jvse.external_id
+	WHERE jvse.event_id = $1
+	AND jvse.kind = 'exit'
+	AND j.deleted_at IS NULL
+	AND jvs.type = 'entrance'`
+
+	var entrances []JourneyEntranceStep
+	err := s.db.SelectContext(ctx, &entrances, query, eventID)
+	return entrances, err
+}
+
+func (s *JourneysStore) ResumeUserJourneyStep(ctx context.Context, journeyID uuid.UUID, userID uuid.UUID, externalStepID string) (JourneyUserState, error) {
+	stmt := `
+	WITH updated AS (
+		UPDATE journey_user_state
+		SET resume_at = now()
+		WHERE journey_id = $1 AND user_id = $2 AND external_step_id = $3 AND completed_at IS NULL
+		RETURNING id, journey_id, journey_entry_id, user_id, external_step_id, pinned_version_id, occurrence, entered_at, resume_at, completed_at, COALESCE(data, '{}'::jsonb) AS data, updated_at
+	)
+	SELECT u.id, j.project_id, u.journey_id, u.user_id, u.pinned_version_id, u.occurrence, u.entered_at, u.resume_at, u.completed_at, u.data, u.updated_at, u.journey_entry_id, u.external_step_id
+	FROM updated u
+	JOIN journeys j ON j.id = u.journey_id`
+
+	var state JourneyUserState
+	err := s.db.GetContext(ctx, &state, stmt, journeyID, userID, externalStepID)
+	if err != nil {
+		return state, err
+	}
+
+	return state, nil
 }

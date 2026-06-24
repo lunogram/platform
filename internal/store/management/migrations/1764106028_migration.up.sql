@@ -21,8 +21,8 @@ CREATE TABLE organizations (
     auth JSONB,
     tracking_deeplink_mirror_url VARCHAR(255),
     notification_provider_id UUID,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at TIMESTAMPTZ
 );
 
@@ -38,8 +38,8 @@ CREATE TABLE admins (
     image_url VARCHAR(255),
     role VARCHAR(64) NOT NULL DEFAULT 'member',
     external_id VARCHAR(255),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at TIMESTAMPTZ
 );
 
@@ -61,8 +61,8 @@ CREATE TABLE projects (
     link_wrap_push BOOLEAN DEFAULT false,
     tools TEXT[],
     locale TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at TIMESTAMPTZ
 );
 
@@ -77,8 +77,8 @@ CREATE TABLE project_admins (
     project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     admin_id UUID NOT NULL REFERENCES admins(id) ON DELETE CASCADE,
     role VARCHAR(64) NOT NULL DEFAULT 'support',
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at TIMESTAMPTZ,
     UNIQUE (project_id, admin_id)
 );
@@ -98,8 +98,8 @@ CREATE TABLE project_api_keys (
     name VARCHAR(255) NOT NULL,
     description VARCHAR(2048),
     role VARCHAR(64) NOT NULL DEFAULT 'support',
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at TIMESTAMPTZ
 );
 
@@ -120,8 +120,8 @@ CREATE TABLE providers (
     rate_limit INTEGER,
     rate_interval VARCHAR(12) DEFAULT 'second',
     external_id VARCHAR(255),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at TIMESTAMPTZ
 );
 
@@ -145,8 +145,8 @@ CREATE TABLE subscriptions (
     name VARCHAR(255) DEFAULT '',
     channel VARCHAR(255) NOT NULL,
     is_public BOOLEAN NOT NULL DEFAULT true,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX subscriptions_project_id_idx ON subscriptions(project_id);
@@ -159,8 +159,8 @@ CREATE TABLE user_subscription (
     subscription_id UUID NOT NULL REFERENCES subscriptions(id) ON DELETE CASCADE,
     user_id UUID NOT NULL,
     state SMALLINT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX user_subscription_user_id_idx ON user_subscription(user_id);
@@ -183,8 +183,8 @@ CREATE TABLE campaigns (
     delivery JSONB NOT NULL DEFAULT '{}'::jsonb,
     send_at TIMESTAMPTZ,
     send_in_user_timezone BOOLEAN DEFAULT false,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at TIMESTAMPTZ
 );
 
@@ -204,8 +204,8 @@ CREATE TABLE templates (
     type VARCHAR(50),
     locale VARCHAR(50),
     data JSONB NOT NULL DEFAULT '{}'::jsonb,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX templates_campaign_id_idx ON templates(campaign_id);
@@ -218,8 +218,8 @@ CREATE TABLE tags (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     name VARCHAR(255) DEFAULT '',
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at TIMESTAMPTZ
 );
 
@@ -233,8 +233,8 @@ CREATE TABLE locales (
     project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     key VARCHAR(255),
     label VARCHAR(255),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX locales_project_id_idx ON locales(project_id);
@@ -250,8 +250,8 @@ CREATE TABLE documents (
     content_type VARCHAR(100) NOT NULL,
     size_bytes BIGINT NOT NULL,
     key VARCHAR(255) DEFAULT '',
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at TIMESTAMPTZ
 );
 
@@ -272,8 +272,8 @@ CREATE TABLE audits (
     event VARCHAR(50) NOT NULL,
     object JSONB,
     object_changes JSONB,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX audits_project_id_idx ON audits(project_id);
