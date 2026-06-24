@@ -218,6 +218,25 @@ func (e *Engine) WriteTuples(ctx context.Context, tuples []Tuple) error {
 	return nil
 }
 
+// WriteTuplesIfMissing writes only the tuples that are not already present,
+// making the grant idempotent. OpenFGA rejects writing a tuple that already
+// exists, so re-running a provisioning step (e.g. reconciling access for an
+// already-accepted invite) would otherwise fail. Each tuple is checked with a
+// direct relation lookup before being written; only the absent ones are sent.
+func (e *Engine) WriteTuplesIfMissing(ctx context.Context, tuples []Tuple) error {
+	var missing []Tuple
+	for _, t := range tuples {
+		exists, err := e.Check(ctx, t.User, t.Relation, t.Object)
+		if err != nil {
+			return err
+		}
+		if !exists {
+			missing = append(missing, t)
+		}
+	}
+	return e.WriteTuples(ctx, missing)
+}
+
 // DeleteTuples removes multiple relationship tuples in a single request.
 func (e *Engine) DeleteTuples(ctx context.Context, tuples []Tuple) error {
 	if len(tuples) == 0 {

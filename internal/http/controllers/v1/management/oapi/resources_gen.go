@@ -148,8 +148,8 @@ func (e CreateListType) Valid() bool {
 // Defines values for CreateProjectInviteRole.
 const (
 	CreateProjectInviteRoleAdmin   CreateProjectInviteRole = "admin"
+	CreateProjectInviteRoleClient  CreateProjectInviteRole = "client"
 	CreateProjectInviteRoleEditor  CreateProjectInviteRole = "editor"
-	CreateProjectInviteRoleOwner   CreateProjectInviteRole = "owner"
 	CreateProjectInviteRoleSupport CreateProjectInviteRole = "support"
 )
 
@@ -158,9 +158,9 @@ func (e CreateProjectInviteRole) Valid() bool {
 	switch e {
 	case CreateProjectInviteRoleAdmin:
 		return true
-	case CreateProjectInviteRoleEditor:
+	case CreateProjectInviteRoleClient:
 		return true
-	case CreateProjectInviteRoleOwner:
+	case CreateProjectInviteRoleEditor:
 		return true
 	case CreateProjectInviteRoleSupport:
 		return true
@@ -358,8 +358,8 @@ func (e OrganizationRole) Valid() bool {
 // Defines values for ProjectInviteRole.
 const (
 	ProjectInviteRoleAdmin   ProjectInviteRole = "admin"
+	ProjectInviteRoleClient  ProjectInviteRole = "client"
 	ProjectInviteRoleEditor  ProjectInviteRole = "editor"
-	ProjectInviteRoleOwner   ProjectInviteRole = "owner"
 	ProjectInviteRoleSupport ProjectInviteRole = "support"
 )
 
@@ -368,9 +368,9 @@ func (e ProjectInviteRole) Valid() bool {
 	switch e {
 	case ProjectInviteRoleAdmin:
 		return true
-	case ProjectInviteRoleEditor:
+	case ProjectInviteRoleClient:
 		return true
-	case ProjectInviteRoleOwner:
+	case ProjectInviteRoleEditor:
 		return true
 	case ProjectInviteRoleSupport:
 		return true

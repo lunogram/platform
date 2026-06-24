@@ -3,9 +3,12 @@
 package v1
 
 import (
+	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -43,16 +46,86 @@ type myInvitesResponse struct {
 	Results []oapi.ProjectInvite `json:"results"`
 }
 
+// projectRoleRank ranks the project-level roles for least-privilege comparisons.
+// Project roles form a strict hierarchy: support < client < editor < admin.
+// "owner" is an *organization*-level role, not a project role (the OpenFGA
+// "project" type has no "owner" relation), so it is deliberately absent here —
+// an unknown role ranks 0 and can never out-rank a real project role.
+var projectRoleRank = map[string]int{
+	"support": 1,
+	"client":  2,
+	"editor":  3,
+	"admin":   4,
+}
+
 func isRoleHigher(role1, role2 string) bool {
-	roleHierarchy := map[string]int{
-		"support": 1,
-		"client":  1,
-		"editor":  2,
-		"admin":   3,
-		"owner":   4,
+	return projectRoleRank[role1] > projectRoleRank[role2]
+}
+
+// effectiveProjectRole resolves the inviter's effective role *within a specific
+// project* for least-privilege checks. The actor's global organization role
+// ("owner"/"admin") grants project "admin" by inheritance (see the OpenFGA
+// "project" type, where project admin = ttu organization owner/admin), so an
+// org owner/admin may assign any project role. Otherwise the explicit
+// project_admins role is used; an actor with neither has no authority and
+// resolves to "" (rank 0), which cannot out-rank any real role.
+func (srv *InviteController) effectiveProjectRole(ctx context.Context, orgRole string, projectID, adminID uuid.UUID) (string, error) {
+	if orgRole == rbac.OrganizationOwner || orgRole == rbac.OrganizationAdmin {
+		return rbac.ProjectAdmin, nil
 	}
 
-	return roleHierarchy[role1] > roleHierarchy[role2]
+	role, err := srv.mgmt.GetProjectRole(ctx, projectID, adminID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", nil
+		}
+		return "", err
+	}
+	return role, nil
+}
+
+const (
+	// defaultInviteTTL is used when the caller omits expires_in.
+	defaultInviteTTL = 24 * time.Hour
+	// maxInviteTTL caps how far in the future an invite may be valid. Without an
+	// upper bound a caller could mint an effectively permanent invite.
+	maxInviteTTL = 30 * 24 * time.Hour
+)
+
+// parseInviteTTL parses the user-supplied expires_in value into a duration. It
+// accepts Go-style durations ("24h", "90m", "30s") plus a "<n>d" day form
+// ("7d") that time.ParseDuration does not understand. The result must be
+// strictly positive and is clamped to maxInviteTTL. A malformed value returns
+// an error so the handler can answer 400 rather than letting Postgres reject a
+// bad interval with a 500.
+func parseInviteTTL(raw string) (time.Duration, error) {
+	s := strings.TrimSpace(raw)
+	if s == "" {
+		return 0, errors.New("expires_in must not be empty")
+	}
+
+	var d time.Duration
+	if rest, ok := strings.CutSuffix(s, "d"); ok {
+		days, err := strconv.Atoi(strings.TrimSpace(rest))
+		if err != nil {
+			return 0, fmt.Errorf("invalid expires_in %q: %w", raw, err)
+		}
+		d = time.Duration(days) * 24 * time.Hour
+	} else {
+		parsed, err := time.ParseDuration(s)
+		if err != nil {
+			return 0, fmt.Errorf("invalid expires_in %q: %w", raw, err)
+		}
+		d = parsed
+	}
+
+	if d <= 0 {
+		return 0, fmt.Errorf("expires_in must be positive, got %q", raw)
+	}
+	if d > maxInviteTTL {
+		d = maxInviteTTL
+	}
+	return d, nil
 }
 
 func (srv *InviteController) CreateProjectInvite(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
@@ -95,10 +168,19 @@ func (srv *InviteController) CreateProjectInvite(w http.ResponseWriter, r *http.
 		return
 	}
 
-	actorRole := actorAdmin.Role
-	if actorRole != "" && isRoleHigher(string(body.Role), actorRole) {
-		logger.Debug("invite role is higher than inviter role, cannot create invite", zap.String("invite_role", string(body.Role)), zap.String("inviter_role", actorRole))
-		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("the role assigned by this invite must be equal to or lower than your own global role")))
+	// Least-privilege ceiling: an inviter may only grant a role at or below their
+	// own *project-scoped* role. Evaluating the project role (rather than the
+	// near-uniform global admin role) prevents a low-privilege project member
+	// from minting a higher-privilege invite.
+	actorProjectRole, err := srv.effectiveProjectRole(ctx, actorAdmin.Role, projectID, inviterAdminID)
+	if err != nil {
+		logger.Error("failed to resolve inviter project role", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+	if isRoleHigher(string(body.Role), actorProjectRole) {
+		logger.Debug("invite role is higher than inviter project role, cannot create invite", zap.String("invite_role", string(body.Role)), zap.String("inviter_project_role", actorProjectRole))
+		oapi.WriteProblem(w, problem.ErrForbidden(problem.Describe("the role assigned by this invite must be equal to or lower than your own role in this project")))
 		return
 	}
 
@@ -111,6 +193,8 @@ func (srv *InviteController) CreateProjectInvite(w http.ResponseWriter, r *http.
 	inviteeAdmin, err := srv.mgmt.GetAdminByEmail(ctx, inviteeEmail)
 	switch {
 	case err == nil:
+		// The invitee may belong to a different organization; accepting the invite
+		// adds them as a member of this project's organization (see AcceptProjectInvite).
 		inviteeAdminID = &inviteeAdmin.ID
 	case errors.Is(err, sql.ErrNoRows):
 		// Brand-new invitee — resolved by email when they sign up.
@@ -120,12 +204,17 @@ func (srv *InviteController) CreateProjectInvite(w http.ResponseWriter, r *http.
 		return
 	}
 
-	expiresIn := "24h"
+	ttl := defaultInviteTTL
 	if body.ExpiresIn != nil {
-		expiresIn = *body.ExpiresIn
+		ttl, err = parseInviteTTL(*body.ExpiresIn)
+		if err != nil {
+			logger.Debug("invalid expires_in", zap.Error(err))
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("expires_in must be a positive duration such as \"24h\" or \"7d\"")))
+			return
+		}
 	}
 
-	invite, err := srv.mgmt.CreateProjectInvite(ctx, projectID, inviterAdminID, inviteeEmail, inviteeAdminID, body.Role, expiresIn)
+	invite, err := srv.mgmt.CreateProjectInvite(ctx, projectID, inviterAdminID, inviteeEmail, inviteeAdminID, body.Role, ttl)
 	if err != nil {
 		logger.Error("failed to create project invite", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -142,6 +231,10 @@ func (srv *InviteController) CreateProjectInvite(w http.ResponseWriter, r *http.
 func (srv *InviteController) ListMyInvites(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	actor := rbac.FromContext(ctx)
+	if actor == nil {
+		oapi.WriteProblem(w, problem.ErrUnauthorized())
+		return
+	}
 
 	adminID, err := uuid.Parse(actor.ID)
 	if err != nil {
@@ -175,6 +268,10 @@ func (srv *InviteController) ListMyInvites(w http.ResponseWriter, r *http.Reques
 func (srv *InviteController) AcceptProjectInvite(w http.ResponseWriter, r *http.Request, inviteID uuid.UUID) {
 	ctx := r.Context()
 	actor := rbac.FromContext(ctx)
+	if actor == nil {
+		oapi.WriteProblem(w, problem.ErrUnauthorized())
+		return
+	}
 
 	adminID, err := uuid.Parse(actor.ID)
 	if err != nil {
@@ -211,14 +308,18 @@ func (srv *InviteController) AcceptProjectInvite(w http.ResponseWriter, r *http.
 		return
 	}
 
+	// Revoked and expired invites are terminal — they can never be accepted.
+	// An *already accepted* invite is NOT rejected here: because the OpenFGA
+	// tuple write happens after the Postgres commit (the two stores cannot share
+	// a transaction), a tuple-write failure on the first attempt would leave the
+	// invitee as a project member in Postgres but without RBAC access. Letting
+	// the rightful invitee re-accept reconciles that state by (idempotently)
+	// re-writing the tuples below.
 	switch {
 	case invite.RevokedAt != nil:
 		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("this invite has been revoked")))
 		return
-	case invite.AcceptedAt != nil:
-		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("this invite has already been accepted")))
-		return
-	case invite.ExpiresAt.Before(time.Now()):
+	case invite.AcceptedAt == nil && invite.ExpiresAt.Before(time.Now()):
 		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("this invite has expired")))
 		return
 	}
@@ -240,8 +341,10 @@ func (srv *InviteController) AcceptProjectInvite(w http.ResponseWriter, r *http.
 		return
 	}
 
+	var previousRole string
 	roleUpgraded := false
 	if existingProjectAdmin != nil {
+		previousRole = existingProjectAdmin.Role
 		if isRoleHigher(invite.Role, existingProjectAdmin.Role) {
 			err = managementStore.UpdateProjectAdminRole(ctx, invite.ProjectID, adminID, invite.Role)
 			if err != nil {
@@ -260,10 +363,26 @@ func (srv *InviteController) AcceptProjectInvite(w http.ResponseWriter, r *http.
 		}
 	}
 
+	// Mark the invite accepted. The guarded UPDATE is the real arbiter under
+	// concurrency: it only matches a pending, unexpired invite. sql.ErrNoRows
+	// therefore means the invite was already accepted, or was revoked/expired in
+	// the window between our read and this write. When the invite was already
+	// accepted (by us, the rightful invitee) we proceed to reconcile RBAC tuples
+	// rather than erroring. Otherwise it lost a race to revoke/expire.
 	if _, err = managementStore.AcceptProjectInvite(ctx, inviteID); err != nil {
-		logger.Error("failed to accept project invite", zap.Error(err))
-		oapi.WriteProblem(w, err)
-		return
+		if !errors.Is(err, sql.ErrNoRows) {
+			logger.Error("failed to accept project invite", zap.Error(err))
+			oapi.WriteProblem(w, err)
+			return
+		}
+		if invite.AcceptedAt == nil {
+			// We read it as pending but the UPDATE matched nothing and it was not
+			// already accepted on read — it was concurrently revoked or expired.
+			logger.Debug("invite no longer acceptable (concurrent revoke/expire)")
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("this invite is no longer valid")))
+			return
+		}
+		// Already accepted by the rightful invitee: reconcile path, fall through.
 	}
 
 	project, err := managementStore.GetProject(ctx, invite.ProjectID, &adminID)
@@ -308,8 +427,9 @@ func (srv *InviteController) AcceptProjectInvite(w http.ResponseWriter, r *http.
 	// RBAC tuples are written to OpenFGA, which is not part of the Postgres
 	// transaction, so they are applied only after the membership is durably
 	// committed. This avoids granting access for a membership that rolled back.
-	if roleUpgraded {
-		oldTuples := access.ProjectRoleTuples(adminID, invite.ProjectID, existingProjectAdmin.Role)
+	// On a role upgrade the stale lower-role tuple is removed first.
+	if roleUpgraded && previousRole != invite.Role {
+		oldTuples := access.ProjectRoleTuples(adminID, invite.ProjectID, previousRole)
 		if err = srv.engine.DeleteTuples(ctx, oldTuples); err != nil {
 			logger.Error("failed to delete old RBAC tuples", zap.Error(err))
 			oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("failed to update project role")))
@@ -317,8 +437,11 @@ func (srv *InviteController) AcceptProjectInvite(w http.ResponseWriter, r *http.
 		}
 	}
 
+	// WriteTuplesIfMissing makes the grant idempotent so a re-accept (reconcile)
+	// does not fail on an already-present tuple, while still repairing a
+	// membership whose tuples were never written on a previous attempt.
 	projectTuples := access.ProjectRoleTuples(adminID, invite.ProjectID, invite.Role)
-	if err = srv.engine.WriteTuples(ctx, projectTuples); err != nil {
+	if err = srv.engine.WriteTuplesIfMissing(ctx, projectTuples); err != nil {
 		logger.Error("failed to write RBAC tuples for project admin", zap.Error(err))
 		oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("failed to assign project role")))
 		return
