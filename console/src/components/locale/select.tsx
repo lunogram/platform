@@ -1,6 +1,6 @@
 import { useContext, useState, useEffect, useMemo } from "react"
 import { LocaleContext, ProjectContext } from "@/contexts"
-import api from "@/api"
+import { oapiClient } from "@/oapi/client"
 import type { Locale } from "@/types"
 
 import { Plus, Check, ChevronsUpDown } from "lucide-react"
@@ -53,12 +53,14 @@ export function LocaleSelect({ onChange }: LocaleSelectProps) {
         const fetchFilteredLocales = async () => {
             setIsLoading(true)
 
-            const { results } = await api.locales.search(project.id, {
-                search: searchQuery,
-                limit: 5,
+            const { data } = await oapiClient.GET("/api/admin/projects/{projectID}/locales", {
+                params: {
+                    path: { projectID: project.id },
+                    query: { search: searchQuery, limit: 5 },
+                },
             })
 
-            setLocales(results)
+            setLocales(data?.results ?? [])
             setIsLoading(false)
         }
 
@@ -98,10 +100,14 @@ export function LocaleSelect({ onChange }: LocaleSelectProps) {
         setIsCreating(true)
         try {
             const label = resolveLocaleName(newLocaleKey)
-            const newLocale = await api.locales.create(project.id, {
-                key: newLocaleKey,
-                label,
-            })
+            const { data: newLocale } = await oapiClient.POST(
+                "/api/admin/projects/{projectID}/locales",
+                {
+                    params: { path: { projectID: project.id } },
+                    body: { key: newLocaleKey, label },
+                },
+            )
+            if (!newLocale) return
 
             setLocaleSelection((prev) => ({
                 ...prev,

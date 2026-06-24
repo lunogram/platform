@@ -23,6 +23,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 
 import { ProjectContext } from "@/contexts"
 import api from "@/api"
+import { oapiClient } from "@/oapi/client"
 import type { Image } from "@/types"
 import { cn } from "@/utils"
 
@@ -61,11 +62,20 @@ export function MediaManager({ open, onOpenChange, onSelect }: MediaManagerProps
         async (query?: string) => {
             setLoading(true)
             try {
-                const result = await api.images.search(project.id, {
-                    search: query || undefined,
-                    limit: 50,
-                })
-                setImages(result.results ?? result.data ?? [])
+                const { data, error } = await oapiClient.GET(
+                    "/api/admin/projects/{projectID}/documents",
+                    {
+                        params: {
+                            path: { projectID: project.id },
+                            query: {
+                                search: query || undefined,
+                                limit: 50,
+                            } as { limit: number; search?: string },
+                        },
+                    },
+                )
+                if (error) throw error
+                setImages((data?.results ?? []) as Image[])
                 setHasLoaded(true)
             } catch {
                 setImages([])
@@ -161,7 +171,11 @@ export function MediaManager({ open, onOpenChange, onSelect }: MediaManagerProps
             e.stopPropagation()
             setDeletingId(imageId)
             try {
-                await api.images.delete(project.id, imageId)
+                const { error } = await oapiClient.DELETE(
+                    "/api/admin/projects/{projectID}/documents/{documentID}",
+                    { params: { path: { projectID: project.id, documentID: imageId } } },
+                )
+                if (error) throw error
                 setImages((prev) => prev.filter((img) => img.id !== imageId))
             } catch {
                 // Delete failed – swallow for now

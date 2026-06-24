@@ -1,7 +1,6 @@
 import { useCallback, useContext, useState } from "react"
 import { toast } from "sonner"
-import { AxiosError } from "axios"
-import api from "@/api"
+import { oapiClient } from "@/oapi/client"
 import { TemplateWorkflowContext } from "../../../contexts"
 
 interface UseSendTestEmailOptions {
@@ -50,17 +49,29 @@ export function useSendTestEmail({
                 return
             }
 
-            await api.campaigns.templates.sendTest(projectId, campaignId, templateId, {
-                to: email,
-                props: previewProps,
-            })
+            const { error } = await oapiClient.POST(
+                "/api/admin/projects/{projectID}/campaigns/{campaignID}/templates/{templateID}/test",
+                {
+                    params: {
+                        path: {
+                            projectID: projectId,
+                            campaignID: campaignId,
+                            templateID: templateId,
+                        },
+                    },
+                    body: {
+                        to: email,
+                        props: previewProps,
+                    },
+                },
+            )
+            if (error) {
+                toast.error(error.detail || "Failed to send test email")
+                return
+            }
             toast.success(`Test email sent to ${email}`)
-        } catch (err) {
-            const detail =
-                err instanceof AxiosError && typeof err.response?.data?.detail === "string"
-                    ? err.response.data.detail
-                    : null
-            toast.error(detail || "Failed to send test email")
+        } catch {
+            toast.error("Failed to send test email")
         } finally {
             setSending(false)
         }
