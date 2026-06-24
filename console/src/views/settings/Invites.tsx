@@ -192,7 +192,7 @@ export default function Invites() {
         return { status: "pending", icon: Clock, className: "text-blue-500" }
     }
 
-    const canCreateInvite = ["editor", "admin", "owner"].includes(project.role ?? "")
+    const canCreateInvite = ["editor", "admin"].includes(project.role ?? "")
 
     return (
         <div className="flex flex-col gap-6">

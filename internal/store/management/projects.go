@@ -91,7 +91,7 @@ func (s *ProjectsStore) GetProject(ctx context.Context, id uuid.UUID, adminID *u
 	SELECT id, organization_id, name, description, timezone, text_opt_out_message, text_help_message, locale, created_at, updated_at,
 		COALESCE(pr.integrations_count, 0) AS integrations_count,
 		COALESCE(ca.campaigns_count, 0)    AS campaigns_count,
-		COALESCE(pa.role, 'viewer') AS role
+		COALESCE(pa.role, '') AS role
 	FROM projects
 	LEFT JOIN (
 		SELECT project_id, COUNT(*) AS integrations_count

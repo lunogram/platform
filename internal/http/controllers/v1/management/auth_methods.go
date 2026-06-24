@@ -225,7 +225,7 @@ func (srv *AuthMethodsController) authorizeProject(ctx context.Context, w http.R
 		return false
 	}
 
-	project, err := srv.store.GetProject(ctx, projectID)
+	project, err := srv.store.GetProject(ctx, projectID, nil)
 	if errors.Is(err, store.ErrNoRows) {
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("project not found")))
 		return false

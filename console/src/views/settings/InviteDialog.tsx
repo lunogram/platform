@@ -10,7 +10,6 @@ const roleHierarchy: Record<string, number> = {
     client: 1,
     editor: 2,
     admin: 3,
-    owner: 4,
 }
 
 function getAllowedRoles(userRole: ProjectRole): ProjectRole[] {

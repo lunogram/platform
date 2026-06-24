@@ -3,7 +3,6 @@
 package v1
 
 import (
-	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -68,28 +67,6 @@ func isRoleHigher(role1, role2 string) bool {
 func isKnownProjectRole(role string) bool {
 	_, ok := projectRoleRank[role]
 	return ok
-}
-
-// effectiveProjectRole resolves the inviter's effective role *within a specific
-// project* for least-privilege checks. The actor's global organization role
-// ("owner"/"admin") grants project "admin" by inheritance (see the OpenFGA
-// "project" type, where project admin = ttu organization owner/admin), so an
-// org owner/admin may assign any project role. Otherwise the explicit
-// project_admins role is used; an actor with neither has no authority and
-// resolves to "" (rank 0), which cannot out-rank any real role.
-func (srv *InviteController) effectiveProjectRole(ctx context.Context, orgRole string, projectID, adminID uuid.UUID) (string, error) {
-	if orgRole == rbac.OrganizationOwner || orgRole == rbac.OrganizationAdmin {
-		return rbac.ProjectAdmin, nil
-	}
-
-	role, err := srv.mgmt.GetProjectRole(ctx, projectID, adminID)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return "", nil
-		}
-		return "", err
-	}
-	return role, nil
 }
 
 const (
@@ -191,12 +168,13 @@ func (srv *InviteController) CreateProjectInvite(w http.ResponseWriter, r *http.
 	// own *project-scoped* role. Evaluating the project role (rather than the
 	// near-uniform global admin role) prevents a low-privilege project member
 	// from minting a higher-privilege invite.
-	actorProjectRole, err := srv.effectiveProjectRole(ctx, actorAdmin.Role, projectID, inviterAdminID)
-	if err != nil {
+	explicitRole, err := srv.mgmt.GetProjectRole(ctx, projectID, inviterAdminID)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		logger.Error("failed to resolve inviter project role", zap.Error(err))
 		oapi.WriteProblem(w, err)
 		return
 	}
+	actorProjectRole := effectiveProjectRole(actorAdmin.Role, explicitRole)
 	if isRoleHigher(string(body.Role), actorProjectRole) {
 		logger.Debug("invite role is higher than inviter project role, cannot create invite", zap.String("invite_role", string(body.Role)), zap.String("inviter_project_role", actorProjectRole))
 		oapi.WriteProblem(w, problem.ErrForbidden(problem.Describe("the role assigned by this invite must be equal to or lower than your own role in this project")))

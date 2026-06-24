@@ -153,6 +153,17 @@ func (srv *ProjectsController) GetProject(w http.ResponseWriter, r *http.Request
 
 	srv.loadProjectCounts(ctx, project)
 
+	// GetProject returns only the explicit project_admins role (empty when the
+	// admin has no row). Resolve the effective role so org owners/admins, who
+	// are project admins by inheritance, are not reported as having no role.
+	admin, err := srv.store.GetAdmin(ctx, actorID)
+	if err != nil {
+		logger.Error("failed to load actor for role resolution", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+	project.Role = effectiveProjectRole(admin.Role, project.Role)
+
 	logger.Info("project retrieved")
 	json.Write(w, http.StatusOK, project.OAPI())
 }
