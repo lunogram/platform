@@ -3,8 +3,7 @@ import { useNavigate, useParams } from "react-router"
 import { useTranslation } from "react-i18next"
 import { ChevronLeft } from "lucide-react"
 import { NIL } from "uuid"
-import api from "../../api"
-import oapiClient from "@/oapi/client"
+import { oapiClient } from "@/oapi/client"
 import { ProjectContext } from "../../contexts"
 import { useResolver } from "../../hooks"
 import { snakeToTitle, hasCourierProvider } from "../../utils"
@@ -20,6 +19,7 @@ import {
 } from "@/components/ui/card"
 import { isEnterprise } from "@/config/enterprise"
 import type { UUID } from "@/types/common"
+import type { Project } from "../../types"
 import type { ProviderMeta } from "@/oapi/client"
 
 export default function ProjectOnboardingIntegration() {
@@ -95,8 +95,11 @@ export default function ProjectOnboardingIntegration() {
                             project={project}
                             meta={meta}
                             onChange={async () => {
-                                const updatedProject = await api.projects.get(projectId)
-                                setProject(updatedProject)
+                                const { data: updatedProject } = await oapiClient.GET(
+                                    "/api/admin/projects/{projectID}",
+                                    { params: { path: { projectID: projectId } } },
+                                )
+                                if (updatedProject) setProject(updatedProject as Project)
                                 const step =
                                     isEnterprise && (await hasCourierProvider(projectId))
                                         ? "domain"

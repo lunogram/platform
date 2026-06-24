@@ -1,7 +1,7 @@
 import { useCallback, useContext, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Globe, Plus, Search, MoreHorizontal } from "lucide-react"
-import api from "../../api"
+import { oapiClient } from "@/oapi/client"
 import { ProjectContext } from "../../contexts"
 import { useResolver } from "../../hooks"
 import type { Locale } from "../../types"
@@ -45,7 +45,10 @@ export default function Locales() {
 
     const [result, , reload] = useResolver(
         useCallback(async () => {
-            return await api.locales.search(project.id, { limit: 100 })
+            const { data } = await oapiClient.GET("/api/admin/projects/{projectID}/locales", {
+                params: { path: { projectID: project.id }, query: { limit: 100 } },
+            })
+            return data ?? null
         }, [project.id]),
     )
 
@@ -63,7 +66,9 @@ export default function Locales() {
 
     const handleDeleteLocale = async (locale: Locale) => {
         if (!confirm(t("locale.delete_confirmation"))) return
-        await api.locales.delete(project.id, locale.id)
+        await oapiClient.DELETE("/api/admin/projects/{projectID}/locales/{localeID}", {
+            params: { path: { projectID: project.id, localeID: locale.id } },
+        })
         await reload()
     }
 
@@ -72,7 +77,10 @@ export default function Locales() {
         setIsCreating(true)
         try {
             const label = resolveLocaleName(selectedLocaleKey)
-            await api.locales.create(project.id, { key: selectedLocaleKey, label })
+            await oapiClient.POST("/api/admin/projects/{projectID}/locales", {
+                params: { path: { projectID: project.id } },
+                body: { key: selectedLocaleKey, label },
+            })
             await reload()
             setOpen(false)
             setSelectedLocaleKey(undefined)

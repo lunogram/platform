@@ -1,7 +1,6 @@
 import { useCallback, useContext, useState } from "react"
 import { toast } from "sonner"
-import { AxiosError } from "axios"
-import api from "@/api"
+import { oapiClient } from "@/oapi/client"
 import type { User } from "@/types"
 import { TemplateWorkflowContext } from "../contexts"
 
@@ -50,17 +49,29 @@ export function useSendTestSMS({
                     return
                 }
 
-                await api.campaigns.templates.sendTest(projectId, campaignId, templateId, {
-                    to: phoneNumber,
-                    ...(user ? { props: { user } } : {}),
-                })
+                const { error } = await oapiClient.POST(
+                    "/api/admin/projects/{projectID}/campaigns/{campaignID}/templates/{templateID}/test",
+                    {
+                        params: {
+                            path: {
+                                projectID: projectId,
+                                campaignID: campaignId,
+                                templateID: templateId,
+                            },
+                        },
+                        body: {
+                            to: phoneNumber,
+                            ...(user ? { props: { user } } : {}),
+                        },
+                    },
+                )
+                if (error) {
+                    toast.error(error.detail || "Failed to send test SMS")
+                    return
+                }
                 toast.success(`Test SMS sent to ${phoneNumber}`)
-            } catch (err) {
-                const detail =
-                    err instanceof AxiosError && typeof err.response?.data?.detail === "string"
-                        ? err.response.data.detail
-                        : null
-                toast.error(detail || "Failed to send test SMS")
+            } catch {
+                toast.error("Failed to send test SMS")
             } finally {
                 setSending(false)
             }

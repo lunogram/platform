@@ -5,7 +5,7 @@ import { useController } from "react-hook-form"
 import { useCallback, useContext, useMemo } from "react"
 import { ProjectContext } from "../../../contexts"
 import { useResolver } from "../../../hooks"
-import api from "../../../api"
+import { fetchPathSuggestions } from "@/lib/path-suggestions"
 import { snakeToTitle } from "../../../utils"
 import { emptySuggestions, VariablesContext } from "./RuleHelpers"
 import type { VariableGroup } from "@/views/journey/JourneyVariableContext"
@@ -33,7 +33,7 @@ export default function RuleBuilder({
 }: RuleBuilderParams) {
     const [{ id: projectId }] = useContext(ProjectContext)
     const [suggestions] = useResolver(
-        useCallback(async () => await api.projects.pathSuggestions(projectId), [projectId]),
+        useCallback(async () => await fetchPathSuggestions(projectId), [projectId]),
     )
     return (
         <VariablesContext.Provider

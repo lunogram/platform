@@ -22,7 +22,7 @@ import { getRandomColor } from "@/lib/colors"
 import { useDebounceControl } from "@/hooks"
 import oapiClient from "@/oapi/client"
 import type { User } from "@/types"
-import api from "@/api"
+import { fetchPathSuggestions } from "@/lib/path-suggestions"
 import type { UUID } from "@/types/common"
 
 const PAGE_SIZE = 25
@@ -134,8 +134,7 @@ export function UserSelectionModal({
         }
 
         let cancelled = false
-        api.projects
-            .pathSuggestions(projectId)
+        fetchPathSuggestions(projectId)
             .then((suggestions) => {
                 if (cancelled) return
                 const match = suggestions.eventPaths.find((e) => e.name === eventName)

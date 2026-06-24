@@ -1,6 +1,6 @@
-import { useContext, useEffect, useMemo, useState } from "react"
+import { useCallback, useContext, useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router"
-import api from "../../api"
+import { oapiClient } from "@/oapi/client"
 import { useResolver } from "../../hooks"
 import type { Project } from "../../types"
 import { Button } from "@/components/ui/button"
@@ -17,8 +17,13 @@ export function Projects() {
     const navigate = useNavigate()
     const { t } = useTranslation()
     const [preferences] = useContext(PreferencesContext)
-    const [response] = useResolver(api.projects.all)
-    const projects = response?.results
+    const [response] = useResolver(
+        useCallback(async () => {
+            const { data } = await oapiClient.GET("/api/admin/projects")
+            return data ?? null
+        }, []),
+    )
+    const projects = response?.results as Project[] | undefined
 
     const recents = useMemo(() => {
         const recents = getRecentProjects()
