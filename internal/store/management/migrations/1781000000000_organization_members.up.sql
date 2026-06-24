@@ -11,12 +11,18 @@ CREATE TABLE organization_members (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at TIMESTAMPTZ,
+    -- One row per (organization, admin) for all time. Removal is a soft delete
+    -- (deleted_at is set) and re-adding revives that same row through
+    -- AddMember's ON CONFLICT (organization_id, admin_id) upsert. A bare
+    -- ON CONFLICT target can only use a non-partial constraint/index as its
+    -- arbiter, so this full UNIQUE — not a partial "WHERE deleted_at IS NULL"
+    -- index — is what the upsert resolves against. Keeping both would be
+    -- redundant and make the arbiter ambiguous, so there is no partial index.
     UNIQUE (organization_id, admin_id)
 );
 
 CREATE INDEX organization_members_organization_id_idx ON organization_members(organization_id);
 CREATE INDEX organization_members_admin_id_idx ON organization_members(admin_id);
-CREATE UNIQUE INDEX organization_members_org_admin_uniq ON organization_members(organization_id, admin_id) WHERE deleted_at IS NULL;
 
 CREATE TRIGGER set_updated_at_organization_members BEFORE UPDATE ON organization_members FOR EACH ROW EXECUTE PROCEDURE set_updated_at();
 
