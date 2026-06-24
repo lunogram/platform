@@ -18,13 +18,22 @@ import (
 var trustedIssuerAlgorithms = []string{"RS256", "RS384", "RS512", "ES256", "ES384", "ES512", "PS256", "PS384", "PS512"}
 
 // WithTrustedIssuer authenticates an externally-issued JWT against a
-// trusted_issuer auth method. It resolves the method by the token's `iss`,
-// verifies the signature against the issuer's JWKS (cached) or configured PEM,
-// enforces `exp`/`iss`/`aud` and an asymmetric algorithm, and builds an end-user
-// actor carrying the verified subject.
+// trusted_issuer auth method. It resolves the method by the URL project together
+// with the token's `iss` (an issuer is scoped to its project, so a token can only
+// ever resolve within the project named in its URL), verifies the signature
+// against the issuer's JWKS (cached) or configured PEM, enforces `exp`/`iss`/`aud`
+// and an asymmetric algorithm, and builds an end-user actor carrying the verified
+// subject.
 func WithTrustedIssuer(mgmt *management.State, cache *jwks.Cache) Handler {
 	return func(ctx context.Context, tokenString string) (context.Context, error) {
 		if tokenString == "" {
+			return ctx, ErrUnauthorized
+		}
+
+		// The URL names the project the token must belong to; resolution is scoped
+		// to it so a self-asserted `iss` can never reach another project's method.
+		projectID, ok := projectFromRequest(ctx)
+		if !ok {
 			return ctx, ErrUnauthorized
 		}
 
@@ -34,7 +43,7 @@ func WithTrustedIssuer(mgmt *management.State, cache *jwks.Cache) Handler {
 			return ctx, ErrUnauthorized
 		}
 
-		method, err := mgmt.GetTrustedIssuerByIssuer(ctx, issuer)
+		method, err := mgmt.GetTrustedIssuer(ctx, projectID, issuer)
 		if err != nil {
 			return ctx, ErrUnauthorized
 		}

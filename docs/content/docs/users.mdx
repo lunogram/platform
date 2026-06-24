@@ -107,7 +107,7 @@ Store any data you need on user profiles. Custom properties let you personalize 
   </Tab>
   <Tab value="API">
     ```bash
-    curl -X POST https://your-instance.com/api/client/users \
+    curl -X POST https://your-instance.com/api/client/projects/{projectID}/users \
       -H "Authorization: Bearer sk_..." \
       -H "Content-Type: application/json" \
       -d '{

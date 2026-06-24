@@ -87,7 +87,8 @@ func TestCreateSession(t *testing.T) {
 	req = req.WithContext(rbac.WithActor(req.Context(), actor))
 	w := httptest.NewRecorder()
 
-	controller.CreateSession(w, req, methodID)
+	// The URL names the method's own project, so the mint is authorized.
+	controller.CreateSession(w, req, projectID, methodID)
 
 	require.Equal(t, 201, w.Code)
 
@@ -115,7 +116,7 @@ func TestCreateSessionNonAPIKeyActorForbidden(t *testing.T) {
 	req = req.WithContext(rbac.WithActor(req.Context(), actor))
 	w := httptest.NewRecorder()
 
-	controller.CreateSession(w, req, uuid.New())
+	controller.CreateSession(w, req, uuid.New(), uuid.New())
 
 	assert.Equal(t, 403, w.Code)
 }
@@ -133,7 +134,7 @@ func TestCreateSessionMissingActorForbidden(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 
-	controller.CreateSession(w, req, uuid.New())
+	controller.CreateSession(w, req, uuid.New(), uuid.New())
 
 	assert.Equal(t, 403, w.Code)
 }
@@ -156,7 +157,7 @@ func TestCreateSessionMissingSigner(t *testing.T) {
 	req = req.WithContext(rbac.WithActor(req.Context(), actor))
 	w := httptest.NewRecorder()
 
-	controller.CreateSession(w, req, uuid.New())
+	controller.CreateSession(w, req, uuid.New(), uuid.New())
 
 	assert.Equal(t, 500, w.Code)
 }
@@ -200,7 +201,8 @@ func TestCreateSessionCrossProjectMethodRejected(t *testing.T) {
 	req = req.WithContext(rbac.WithActor(req.Context(), actor))
 	w := httptest.NewRecorder()
 
-	controller.CreateSession(w, req, methodID)
+	// The URL names projectB, but the method belongs to projectA.
+	controller.CreateSession(w, req, projectB, methodID)
 
 	// A method in another project is reported as not found, never minted.
 	assert.Equal(t, 404, w.Code)
@@ -234,7 +236,7 @@ func TestCreateSessionUnknownMethodNotFound(t *testing.T) {
 	req = req.WithContext(rbac.WithActor(req.Context(), actor))
 	w := httptest.NewRecorder()
 
-	controller.CreateSession(w, req, uuid.New())
+	controller.CreateSession(w, req, uuid.New(), uuid.New())
 
 	assert.Equal(t, 404, w.Code)
 }

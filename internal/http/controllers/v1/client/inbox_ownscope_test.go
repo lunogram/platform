@@ -52,7 +52,7 @@ func TestPostUserInboxRead_OwnData_BindsToVerifiedSubject(t *testing.T) {
 	req = req.WithContext(rbac.WithActor(req.Context(), actor))
 	w := httptest.NewRecorder()
 
-	c.PostUserInboxRead(w, req)
+	c.PostUserInboxRead(w, req, uuid.Nil)
 
 	require.Equal(t, http.StatusAccepted, w.Code)
 
@@ -86,7 +86,7 @@ func TestPostUserInboxRead_AllData_Passthrough(t *testing.T) {
 	req = req.WithContext(rbac.WithActor(req.Context(), actor))
 	w := httptest.NewRecorder()
 
-	c.PostUserInboxRead(w, req)
+	c.PostUserInboxRead(w, req, uuid.Nil)
 
 	require.Equal(t, http.StatusAccepted, w.Code)
 
@@ -129,7 +129,7 @@ func TestOrgInbox_OwnData_Forbidden(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/api/client/organizations/inbox", nil)
 		req = req.WithContext(rbac.WithActor(req.Context(), actor))
 		w := httptest.NewRecorder()
-		ic.GetOrganizationInbox(w, req, oapi.GetOrganizationInboxParams{})
+		ic.GetOrganizationInbox(w, req, uuid.Nil, oapi.GetOrganizationInboxParams{})
 		return w
 	}))
 
@@ -137,7 +137,7 @@ func TestOrgInbox_OwnData_Forbidden(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/api/client/organizations/inbox/count", nil)
 		req = req.WithContext(rbac.WithActor(req.Context(), actor))
 		w := httptest.NewRecorder()
-		ic.GetOrganizationInboxCount(w, req, oapi.GetOrganizationInboxCountParams{})
+		ic.GetOrganizationInboxCount(w, req, uuid.Nil, oapi.GetOrganizationInboxCountParams{})
 		return w
 	}))
 
@@ -146,7 +146,7 @@ func TestOrgInbox_OwnData_Forbidden(t *testing.T) {
 		req.Header.Set("Content-Type", "application/json")
 		req = req.WithContext(rbac.WithActor(req.Context(), actor))
 		w := httptest.NewRecorder()
-		ic.PostOrganizationInboxRead(w, req)
+		ic.PostOrganizationInboxRead(w, req, uuid.Nil)
 		return w
 	}))
 
@@ -155,7 +155,7 @@ func TestOrgInbox_OwnData_Forbidden(t *testing.T) {
 		req.Header.Set("Content-Type", "application/json")
 		req = req.WithContext(rbac.WithActor(req.Context(), actor))
 		w := httptest.NewRecorder()
-		ic.PostOrganizationInboxArchived(w, req)
+		ic.PostOrganizationInboxArchived(w, req, uuid.Nil)
 		return w
 	}))
 }

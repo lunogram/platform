@@ -174,7 +174,8 @@ func TestWithSessionBuildsActor(t *testing.T) {
 	token, _, err := signer.Mint(method.ID, "user_42", time.Hour)
 	require.NoError(t, err)
 
-	ctx, err := WithSession(mgmt, signer)(context.Background(), token)
+	// The session is presented on its own project's URL (the post-#262 contract).
+	ctx, err := WithSession(mgmt, signer)(clientRequestCtx(projectID.String()), token)
 	require.NoError(t, err)
 
 	actor := rbac.FromContext(ctx)
@@ -191,13 +192,13 @@ func TestWithSessionScopeAll(t *testing.T) {
 	t.Parallel()
 
 	mgmt := sessionMgmt(t)
-	method, orgID, _ := newSessionMethod(t, mgmt, management.SubjectScopeAll)
+	method, orgID, projectID := newSessionMethod(t, mgmt, management.SubjectScopeAll)
 	signer := testSigner(t, "")
 
 	token, _, err := signer.Mint(method.ID, "user_7", time.Hour)
 	require.NoError(t, err)
 
-	ctx, err := WithSession(mgmt, signer)(context.Background(), token)
+	ctx, err := WithSession(mgmt, signer)(clientRequestCtx(projectID.String()), token)
 	require.NoError(t, err)
 
 	actor := rbac.FromContext(ctx)

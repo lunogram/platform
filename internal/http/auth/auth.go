@@ -10,7 +10,9 @@ import (
 	"time"
 
 	"github.com/getkin/kin-openapi/openapi3filter"
+	"github.com/go-chi/chi/v5"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/config"
 	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/store/management"
@@ -136,6 +138,10 @@ func WithJWT(config config.Auth, mgmt *management.State) Handler {
 // when the request is browser-originated (carries an Origin header); browser and
 // mobile clients authenticate via a trusted issuer or a short-lived session
 // instead. The management surface accepts any valid key.
+//
+// On the client surface the request URL names the project it acts on. A key is
+// rejected (closed) when the URL project cannot be resolved or does not match the
+// key's project, so a credential can never act on a project it is not scoped to.
 func WithKey(mgmt *management.State, surface Surface) Handler {
 	return func(ctx context.Context, tokenString string) (context.Context, error) {
 		if tokenString == "" {
@@ -148,6 +154,10 @@ func WithKey(mgmt *management.State, surface Surface) Handler {
 		}
 
 		if err := enforceSurface(ctx, surface); err != nil {
+			return ctx, err
+		}
+
+		if err := enforceURLProject(ctx, surface, key.ProjectID); err != nil {
 			return ctx, err
 		}
 
@@ -185,6 +195,61 @@ func enforceSurface(ctx context.Context, surface Surface) error {
 func browserOriginated(ctx context.Context) bool {
 	r := RequestFromContext(ctx)
 	return r != nil && r.Header.Get("Origin") != ""
+}
+
+// enforceURLProject binds a resolved credential to the project named in the
+// request URL. On the client surface every route is mounted under
+// /api/client/projects/{projectID}; the credential may act only on that project.
+// It fails closed (ErrUnauthorized) when the URL project cannot be resolved or
+// does not match the credential's project. The management surface carries no
+// project in its URL, so the check is a no-op there.
+func enforceURLProject(ctx context.Context, surface Surface, credentialProject uuid.UUID) error {
+	if surface != SurfaceClient {
+		return nil
+	}
+	urlProject, ok := projectFromRequest(ctx)
+	if !ok || urlProject != credentialProject {
+		return ErrUnauthorized
+	}
+	return nil
+}
+
+// projectFromRequest resolves the {projectID} path parameter of the in-flight
+// request. Authentication runs inside the OpenAPI validator middleware, after chi
+// has matched the route, so the chi route context carries the parameter; it falls
+// back to scanning the URL path so the resolution is robust to middleware
+// ordering. ok is false when no valid project UUID is present.
+func projectFromRequest(ctx context.Context) (uuid.UUID, bool) {
+	r := RequestFromContext(ctx)
+	if r == nil {
+		return uuid.Nil, false
+	}
+	raw := ""
+	if rc := chi.RouteContext(r.Context()); rc != nil {
+		raw = rc.URLParam("projectID")
+	}
+	if raw == "" {
+		raw = projectIDFromPath(r.URL.Path)
+	}
+	id, err := uuid.Parse(raw)
+	if err != nil {
+		return uuid.Nil, false
+	}
+	return id, true
+}
+
+// projectIDFromPath extracts the path segment following /api/client/projects/.
+// It is the fallback for when the chi route context is not populated.
+func projectIDFromPath(path string) string {
+	const prefix = "/api/client/projects/"
+	if !strings.HasPrefix(path, prefix) {
+		return ""
+	}
+	rest := path[len(prefix):]
+	if i := strings.IndexByte(rest, '/'); i >= 0 {
+		return rest[:i]
+	}
+	return rest
 }
 
 // OAuthResponse represents the OAuth token response stored in cookies

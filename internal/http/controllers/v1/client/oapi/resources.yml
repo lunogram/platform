@@ -5,10 +5,12 @@ info:
   version: 1.0.0
 
 paths:
-  /api/client/users:
+  /api/client/projects/{projectID}/users:
+    parameters:
+      - $ref: "#/components/parameters/ProjectID"
     post:
       summary: Upsert user
-      description: Used by client libraries to create or update a user profile. The project is determined from the API key.
+      description: Used by client libraries to create or update a user profile. The project is taken from the projectID path parameter.
       operationId: upsertUserClient
       tags:
         - Client
@@ -33,7 +35,7 @@ paths:
       summary: Delete user
       description: |
         Used by client libraries to delete a user by external_id or anonymous_id.
-        The project is determined from the API key.
+        The project is taken from the projectID path parameter.
       operationId: deleteUserClient
       tags:
         - Client
@@ -51,7 +53,9 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
-  /api/client/users/events:
+  /api/client/projects/{projectID}/users/events:
+    parameters:
+      - $ref: "#/components/parameters/ProjectID"
     post:
       summary: Post user events
       description: |
@@ -59,7 +63,7 @@ paths:
         Multiple events can be sent in a single request and are processed asynchronously.
         Each event is handled independently: if one event fails to be accepted or processed, other events in the same request may still be published successfully.
         Clients requiring deterministic retry or recovery behavior must submit events individually.
-        The project is determined from the API key.
+        The project is taken from the projectID path parameter.
       operationId: postUserEvents
       tags:
         - Client
@@ -77,7 +81,9 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
-  /api/client/users/inbox:
+  /api/client/projects/{projectID}/users/inbox:
+    parameters:
+      - $ref: "#/components/parameters/ProjectID"
     post:
       summary: Create user inbox messages
       description: Creates one or more inbox messages for users identified by external identifiers. Messages are processed asynchronously.
@@ -151,7 +157,9 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
-  /api/client/users/inbox/count:
+  /api/client/projects/{projectID}/users/inbox/count:
+    parameters:
+      - $ref: "#/components/parameters/ProjectID"
     get:
       summary: Count user inbox messages
       description: Returns unread and total visible inbox message counts for a user.
@@ -186,7 +194,9 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
-  /api/client/users/inbox/read:
+  /api/client/projects/{projectID}/users/inbox/read:
+    parameters:
+      - $ref: "#/components/parameters/ProjectID"
     post:
       summary: Mark user inbox messages read
       description: Marks one or more user inbox messages as read. Processed asynchronously.
@@ -207,7 +217,9 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
-  /api/client/users/inbox/archived:
+  /api/client/projects/{projectID}/users/inbox/archived:
+    parameters:
+      - $ref: "#/components/parameters/ProjectID"
     post:
       summary: Mark user inbox messages archived
       description: Marks one or more user inbox messages as archived. Processed asynchronously.
@@ -228,12 +240,14 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
-  /api/client/organizations:
+  /api/client/projects/{projectID}/organizations:
+    parameters:
+      - $ref: "#/components/parameters/ProjectID"
     post:
       summary: Upsert organization
       description: |
         Used by client libraries to create or update an organization by external_id.
-        The project is determined from the API key.
+        The project is taken from the projectID path parameter.
       operationId: upsertOrganizationClient
       tags:
         - Client
@@ -259,7 +273,7 @@ paths:
       description: |
         Used by client libraries to delete an organization by external_id.
         This will also remove all organization memberships.
-        The project is determined from the API key.
+        The project is taken from the projectID path parameter.
       operationId: deleteOrganizationClient
       tags:
         - Client
@@ -277,13 +291,15 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
-  /api/client/organizations/users:
+  /api/client/projects/{projectID}/organizations/users:
+    parameters:
+      - $ref: "#/components/parameters/ProjectID"
     post:
       summary: Add user to organization
       description: |
         Used by client libraries to add a user to an organization with optional org-specific data.
         Both organization and user are identified by their external_id.
-        The project is determined from the API key.
+        The project is taken from the projectID path parameter.
       operationId: addOrganizationUserClient
       tags:
         - Client
@@ -306,7 +322,7 @@ paths:
       description: |
         Used by client libraries to remove a user from an organization.
         Both organization and user are identified by their external_id.
-        The project is determined from the API key.
+        The project is taken from the projectID path parameter.
       operationId: removeOrganizationUserClient
       tags:
         - Client
@@ -324,14 +340,16 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
-  /api/client/users/scheduled:
+  /api/client/projects/{projectID}/users/scheduled:
+    parameters:
+      - $ref: "#/components/parameters/ProjectID"
     post:
       summary: Upsert user scheduled
       description: |
         Used by client libraries to create or update a scheduled resource for a user.
         The user is identified by external_id or anonymous_id.
         This triggers journey entrance recalculation for any journeys that depend on the scheduled resource.
-        The project is determined from the API key.
+        The project is taken from the projectID path parameter.
       operationId: upsertUserScheduledClient
       tags:
         - Client
@@ -358,7 +376,7 @@ paths:
         Used by client libraries to delete all scheduled instances for a user with a given scheduled resource name.
         The user is identified by external_id or anonymous_id.
         This cancels any pending journey entrance states that depend on the scheduled resource.
-        The project is determined from the API key.
+        The project is taken from the projectID path parameter.
       operationId: deleteUserScheduledClient
       tags:
         - Client
@@ -376,14 +394,16 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
-  /api/client/organizations/scheduled:
+  /api/client/projects/{projectID}/organizations/scheduled:
+    parameters:
+      - $ref: "#/components/parameters/ProjectID"
     post:
       summary: Upsert organization scheduled
       description: |
         Used by client libraries to create or update a scheduled resource for an organization.
         The organization is identified by external_id.
         This triggers journey entrance recalculation for any journeys that depend on the scheduled resource.
-        The project is determined from the API key.
+        The project is taken from the projectID path parameter.
       operationId: upsertOrganizationScheduledClient
       tags:
         - Client
@@ -410,7 +430,7 @@ paths:
         Used by client libraries to delete all scheduled instances for an organization with a given scheduled resource name.
         The organization is identified by external_id.
         This cancels any pending journey entrance states that depend on the scheduled resource.
-        The project is determined from the API key.
+        The project is taken from the projectID path parameter.
       operationId: deleteOrganizationScheduledClient
       tags:
         - Client
@@ -428,14 +448,16 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
-  /api/client/organizations/events:
+  /api/client/projects/{projectID}/organizations/events:
+    parameters:
+      - $ref: "#/components/parameters/ProjectID"
     post:
       summary: Post organization events
       description: |
         Used by client libraries to trigger events on an organization.
         The organization is identified by external_id.
         Events are processed asynchronously and can trigger journeys for all users in the organization.
-        The project is determined from the API key.
+        The project is taken from the projectID path parameter.
       operationId: postOrganizationEventsClient
       tags:
         - Client
@@ -453,7 +475,9 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
-  /api/client/organizations/inbox:
+  /api/client/projects/{projectID}/organizations/inbox:
+    parameters:
+      - $ref: "#/components/parameters/ProjectID"
     post:
       summary: Create organization inbox messages
       description: Creates one or more inbox messages for organizations identified by external identifiers. Messages are processed asynchronously.
@@ -527,7 +551,9 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
-  /api/client/organizations/inbox/count:
+  /api/client/projects/{projectID}/organizations/inbox/count:
+    parameters:
+      - $ref: "#/components/parameters/ProjectID"
     get:
       summary: Count organization inbox messages
       description: Returns unread and total visible inbox message counts for an organization.
@@ -562,7 +588,9 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
-  /api/client/organizations/inbox/read:
+  /api/client/projects/{projectID}/organizations/inbox/read:
+    parameters:
+      - $ref: "#/components/parameters/ProjectID"
     post:
       summary: Mark organization inbox messages read
       description: Marks one or more organization inbox messages as read. Processed asynchronously.
@@ -583,7 +611,9 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
-  /api/client/organizations/inbox/archived:
+  /api/client/projects/{projectID}/organizations/inbox/archived:
+    parameters:
+      - $ref: "#/components/parameters/ProjectID"
     post:
       summary: Mark organization inbox messages archived
       description: Marks one or more organization inbox messages as archived. Processed asynchronously.
@@ -706,10 +736,12 @@ paths:
               schema:
                 type: string
 
-  /api/client/users/devices:
+  /api/client/projects/{projectID}/users/devices:
+    parameters:
+      - $ref: "#/components/parameters/ProjectID"
     post:
       summary: Register device
-      description: Register or update a device's push subscription. The project is determined from the API key.
+      description: Register or update a device's push subscription. The project is taken from the projectID path parameter.
       operationId: registerDevice
       tags:
         - Client
@@ -727,7 +759,9 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
-  /api/client/push/vapid:
+  /api/client/projects/{projectID}/push/vapid:
+    parameters:
+      - $ref: "#/components/parameters/ProjectID"
     get:
       summary: Get VAPID public key
       description: Retrieves the VAPID public key for push notifications
@@ -746,7 +780,9 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
-  /api/client/auth-methods/{authMethodID}/sessions:
+  /api/client/projects/{projectID}/auth-methods/{authMethodID}/sessions:
+    parameters:
+      - $ref: "#/components/parameters/ProjectID"
     post:
       summary: Mint a session token
       description: |
@@ -784,6 +820,15 @@ paths:
 
 components:
   parameters:
+    ProjectID:
+      name: projectID
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: The project the request acts on. Must match the project the presented credential is authorized for.
+
     Limit:
       name: limit
       in: query

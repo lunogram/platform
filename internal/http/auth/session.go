@@ -130,6 +130,12 @@ func WithSession(mgmt *management.State, signer *SessionSigner) Handler {
 			return ctx, ErrUnauthorized
 		}
 
+		// The session is only valid on its own project's URL; a token minted for
+		// project A may not be presented on a project-B route.
+		if err := enforceURLProject(ctx, SurfaceClient, method.ProjectID); err != nil {
+			return ctx, err
+		}
+
 		actor := rbac.NewActor(
 			rbac.ActorEndUser,
 			method.ID.String(),

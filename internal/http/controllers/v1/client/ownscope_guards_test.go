@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/rbac"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -38,37 +39,37 @@ func TestOrgEndpoints_OwnData_Forbidden(t *testing.T) {
 		"UpsertOrganizationClient": {
 			req: func() *http.Request { return withBody(http.MethodPost, "/api/client/organizations") },
 			call: func(c *testClientController, r *http.Request, w http.ResponseWriter) {
-				c.UpsertOrganizationClient(w, r)
+				c.UpsertOrganizationClient(w, r, uuid.Nil)
 			},
 		},
 		"DeleteOrganizationClient": {
 			req: func() *http.Request { return withBody(http.MethodDelete, "/api/client/organizations") },
 			call: func(c *testClientController, r *http.Request, w http.ResponseWriter) {
-				c.DeleteOrganizationClient(w, r)
+				c.DeleteOrganizationClient(w, r, uuid.Nil)
 			},
 		},
 		"AddOrganizationUserClient": {
 			req: func() *http.Request { return withBody(http.MethodPost, "/api/client/organizations/users") },
 			call: func(c *testClientController, r *http.Request, w http.ResponseWriter) {
-				c.AddOrganizationUserClient(w, r)
+				c.AddOrganizationUserClient(w, r, uuid.Nil)
 			},
 		},
 		"RemoveOrganizationUserClient": {
 			req: func() *http.Request { return withBody(http.MethodDelete, "/api/client/organizations/users") },
 			call: func(c *testClientController, r *http.Request, w http.ResponseWriter) {
-				c.RemoveOrganizationUserClient(w, r)
+				c.RemoveOrganizationUserClient(w, r, uuid.Nil)
 			},
 		},
 		"UpsertOrganizationScheduledClient": {
 			req: func() *http.Request { return withBody(http.MethodPost, "/api/client/organizations/scheduled") },
 			call: func(c *testClientController, r *http.Request, w http.ResponseWriter) {
-				c.UpsertOrganizationScheduledClient(w, r)
+				c.UpsertOrganizationScheduledClient(w, r, uuid.Nil)
 			},
 		},
 		"DeleteOrganizationScheduledClient": {
 			req: func() *http.Request { return withBody(http.MethodDelete, "/api/client/organizations/scheduled") },
 			call: func(c *testClientController, r *http.Request, w http.ResponseWriter) {
-				c.DeleteOrganizationScheduledClient(w, r)
+				c.DeleteOrganizationScheduledClient(w, r, uuid.Nil)
 			},
 		},
 	}
@@ -112,7 +113,7 @@ func TestUpsertUserClient_OwnData_BindsToVerifiedSubject(t *testing.T) {
 	req = req.WithContext(rbac.WithActor(req.Context(), actor))
 	w := httptest.NewRecorder()
 
-	c.UpsertUserClient(w, req)
+	c.UpsertUserClient(w, req, uuid.Nil)
 
 	require.Equal(t, http.StatusOK, w.Code)
 
@@ -150,7 +151,7 @@ func TestUpsertUserClient_AllData_Passthrough(t *testing.T) {
 	req = req.WithContext(rbac.WithActor(req.Context(), actor))
 	w := httptest.NewRecorder()
 
-	c.UpsertUserClient(w, req)
+	c.UpsertUserClient(w, req, uuid.Nil)
 
 	require.Equal(t, http.StatusOK, w.Code)
 

@@ -23,7 +23,7 @@ func NewEventsController(client *ClientController) *EventsController {
 	return &EventsController{ClientController: client}
 }
 
-func (srv *EventsController) PostUserEvents(w http.ResponseWriter, r *http.Request) {
+func (srv *EventsController) PostUserEvents(w http.ResponseWriter, r *http.Request, _ oapi.ProjectID) {
 	projectID, err := srv.engine.AllowedProject(r.Context(), "events", rbac.Create)
 	if err != nil {
 		oapi.WriteProblem(w, err)
@@ -108,7 +108,7 @@ func (srv *EventsController) PostUserEvents(w http.ResponseWriter, r *http.Reque
 	w.WriteHeader(http.StatusAccepted)
 }
 
-func (srv *EventsController) PostOrganizationEventsClient(w http.ResponseWriter, r *http.Request) {
+func (srv *EventsController) PostOrganizationEventsClient(w http.ResponseWriter, r *http.Request, _ oapi.ProjectID) {
 	projectID, err := srv.engine.AllowedProject(r.Context(), "events", rbac.Create)
 	if err != nil {
 		oapi.WriteProblem(w, err)

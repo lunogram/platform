@@ -22,7 +22,7 @@ func NewOrganizationsController(client *ClientController) *OrganizationsControll
 	return &OrganizationsController{ClientController: client}
 }
 
-func (srv *OrganizationsController) UpsertOrganizationClient(w http.ResponseWriter, r *http.Request) {
+func (srv *OrganizationsController) UpsertOrganizationClient(w http.ResponseWriter, r *http.Request, _ oapi.ProjectID) {
 	projectID, err := srv.engine.AllowedProject(r.Context(), "organizations", rbac.Create)
 	if err != nil {
 		oapi.WriteProblem(w, err)
@@ -113,7 +113,7 @@ func (srv *OrganizationsController) UpsertOrganizationClient(w http.ResponseWrit
 	json.Write(w, http.StatusOK, orgToClientOAPI(org))
 }
 
-func (srv *OrganizationsController) DeleteOrganizationClient(w http.ResponseWriter, r *http.Request) {
+func (srv *OrganizationsController) DeleteOrganizationClient(w http.ResponseWriter, r *http.Request, _ oapi.ProjectID) {
 	projectID, err := srv.engine.AllowedProject(r.Context(), "organizations", rbac.Delete)
 	if err != nil {
 		oapi.WriteProblem(w, err)
@@ -164,7 +164,7 @@ func (srv *OrganizationsController) DeleteOrganizationClient(w http.ResponseWrit
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (srv *OrganizationsController) AddOrganizationUserClient(w http.ResponseWriter, r *http.Request) {
+func (srv *OrganizationsController) AddOrganizationUserClient(w http.ResponseWriter, r *http.Request, _ oapi.ProjectID) {
 	projectID, err := srv.engine.AllowedProject(r.Context(), "organizations", rbac.Update)
 	if err != nil {
 		oapi.WriteProblem(w, err)
@@ -267,7 +267,7 @@ func (srv *OrganizationsController) AddOrganizationUserClient(w http.ResponseWri
 	w.WriteHeader(http.StatusOK)
 }
 
-func (srv *OrganizationsController) RemoveOrganizationUserClient(w http.ResponseWriter, r *http.Request) {
+func (srv *OrganizationsController) RemoveOrganizationUserClient(w http.ResponseWriter, r *http.Request, _ oapi.ProjectID) {
 	projectID, err := srv.engine.AllowedProject(r.Context(), "organizations", rbac.Update)
 	if err != nil {
 		oapi.WriteProblem(w, err)

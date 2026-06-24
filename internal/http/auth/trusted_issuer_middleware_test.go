@@ -25,9 +25,9 @@ import (
 )
 
 // issuerDB is a fake store.DB that resolves a single trusted_issuer row by its
-// issuer. Only GetContext is exercised by GetTrustedIssuerByIssuer; every other
-// method is left to the embedded nil interface (and would panic if called),
-// which keeps the fake to the one query the middleware actually runs.
+// issuer. Only GetContext is exercised by GetTrustedIssuer; every other method is
+// left to the embedded nil interface (and would panic if called), which keeps the
+// fake to the one query the middleware actually runs.
 type issuerDB struct {
 	store.DB
 	method *management.TrustedIssuerAuthMethod // resolved row, or nil to force a lookup miss
@@ -41,10 +41,11 @@ func (d *issuerDB) GetContext(_ context.Context, dest any, _ string, args ...any
 	if d.method == nil {
 		return errors.New("sql: no rows in result set")
 	}
-	// The loader passes the requested issuer as the only arg; mirror the SQL
-	// WHERE t.issuer = $1 so an unknown issuer misses like the real query.
-	if len(args) == 1 {
-		if issuer, ok := args[0].(string); ok && issuer != d.method.Issuer {
+	// GetTrustedIssuer queries by (project_id, issuer); the issuer is the string
+	// argument (project_id is a uuid.UUID). Mirror WHERE t.issuer = $2 so an
+	// unknown issuer misses like the real query.
+	for _, a := range args {
+		if issuer, ok := a.(string); ok && issuer != d.method.Issuer {
 			return errors.New("sql: no rows in result set")
 		}
 	}
@@ -76,17 +77,16 @@ func issuerMethod(t *testing.T) (*rsa.PrivateKey, *management.TrustedIssuerAuthM
 func TestWithTrustedIssuer(t *testing.T) {
 	t.Parallel()
 	cache := jwks.New(jwks.Config{}, nil, nil, nil) // PEM path: never touches the network
-	ctx := context.Background()
 
 	t.Run("rejects an empty token", func(t *testing.T) {
 		_, method := issuerMethod(t)
-		_, err := WithTrustedIssuer(newIssuerState(method), cache)(ctx, "")
+		_, err := WithTrustedIssuer(newIssuerState(method), cache)(clientRequestCtx(method.ProjectID.String()), "")
 		assert.ErrorIs(t, err, ErrUnauthorized)
 	})
 
 	t.Run("rejects an unparseable token (issuer extraction fails)", func(t *testing.T) {
 		_, method := issuerMethod(t)
-		_, err := WithTrustedIssuer(newIssuerState(method), cache)(ctx, "not-a-jwt")
+		_, err := WithTrustedIssuer(newIssuerState(method), cache)(clientRequestCtx(method.ProjectID.String()), "not-a-jwt")
 		assert.ErrorIs(t, err, ErrUnauthorized)
 	})
 
@@ -96,7 +96,7 @@ func TestWithTrustedIssuer(t *testing.T) {
 			"sub": "user_123",
 			"exp": time.Now().Add(time.Hour).Unix(),
 		})
-		_, err := WithTrustedIssuer(newIssuerState(method), cache)(ctx, token)
+		_, err := WithTrustedIssuer(newIssuerState(method), cache)(clientRequestCtx(method.ProjectID.String()), token)
 		assert.ErrorIs(t, err, ErrUnauthorized)
 	})
 
@@ -108,7 +108,7 @@ func TestWithTrustedIssuer(t *testing.T) {
 			"exp": time.Now().Add(time.Hour).Unix(),
 		})
 		// State resolves only method.Issuer; the token's foreign issuer misses.
-		_, err := WithTrustedIssuer(newIssuerState(method), cache)(ctx, token)
+		_, err := WithTrustedIssuer(newIssuerState(method), cache)(clientRequestCtx(method.ProjectID.String()), token)
 		assert.ErrorIs(t, err, ErrUnauthorized)
 	})
 
@@ -121,7 +121,7 @@ func TestWithTrustedIssuer(t *testing.T) {
 			"sub": "user_123",
 			"exp": time.Now().Add(time.Hour).Unix(),
 		})
-		_, err = WithTrustedIssuer(newIssuerState(method), cache)(ctx, token)
+		_, err = WithTrustedIssuer(newIssuerState(method), cache)(clientRequestCtx(method.ProjectID.String()), token)
 		assert.ErrorIs(t, err, ErrUnauthorized)
 	})
 
@@ -132,7 +132,7 @@ func TestWithTrustedIssuer(t *testing.T) {
 			// no "sub": subject resolves to ""
 			"exp": time.Now().Add(time.Hour).Unix(),
 		})
-		_, err := WithTrustedIssuer(newIssuerState(method), cache)(ctx, token)
+		_, err := WithTrustedIssuer(newIssuerState(method), cache)(clientRequestCtx(method.ProjectID.String()), token)
 		assert.ErrorIs(t, err, ErrUnauthorized)
 	})
 
@@ -144,7 +144,7 @@ func TestWithTrustedIssuer(t *testing.T) {
 			"exp": time.Now().Add(time.Hour).Unix(),
 		})
 
-		newCtx, err := WithTrustedIssuer(newIssuerState(method), cache)(ctx, token)
+		newCtx, err := WithTrustedIssuer(newIssuerState(method), cache)(clientRequestCtx(method.ProjectID.String()), token)
 		require.NoError(t, err)
 
 		actor := rbac.FromContext(newCtx)
@@ -167,7 +167,7 @@ func TestWithTrustedIssuer(t *testing.T) {
 			"exp": time.Now().Add(time.Hour).Unix(),
 		})
 
-		newCtx, err := WithTrustedIssuer(newIssuerState(method), cache)(ctx, token)
+		newCtx, err := WithTrustedIssuer(newIssuerState(method), cache)(clientRequestCtx(method.ProjectID.String()), token)
 		require.NoError(t, err)
 		actor := rbac.FromContext(newCtx)
 		require.NotNil(t, actor)
@@ -183,7 +183,7 @@ func TestWithTrustedIssuer(t *testing.T) {
 			"exp":     time.Now().Add(time.Hour).Unix(),
 		})
 
-		newCtx, err := WithTrustedIssuer(newIssuerState(method), cache)(ctx, token)
+		newCtx, err := WithTrustedIssuer(newIssuerState(method), cache)(clientRequestCtx(method.ProjectID.String()), token)
 		require.NoError(t, err)
 		actor := rbac.FromContext(newCtx)
 		require.NotNil(t, actor)

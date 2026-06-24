@@ -26,7 +26,7 @@ func NewInboxController(client *ClientController) *InboxController {
 	return &InboxController{ClientController: client}
 }
 
-func (srv *InboxController) PostUserInboxMessages(w http.ResponseWriter, r *http.Request) {
+func (srv *InboxController) PostUserInboxMessages(w http.ResponseWriter, r *http.Request, _ oapi.ProjectID) {
 	projectID, err := srv.engine.AllowedProject(r.Context(), "inbox", rbac.Create)
 	if err != nil {
 		oapi.WriteProblem(w, err)
@@ -67,7 +67,7 @@ func (srv *InboxController) PostUserInboxMessages(w http.ResponseWriter, r *http
 	w.WriteHeader(http.StatusAccepted)
 }
 
-func (srv *InboxController) GetUserInbox(w http.ResponseWriter, r *http.Request, params oapi.GetUserInboxParams) {
+func (srv *InboxController) GetUserInbox(w http.ResponseWriter, r *http.Request, _ oapi.ProjectID, params oapi.GetUserInboxParams) {
 	projectID, err := srv.engine.AllowedProject(r.Context(), "inbox", rbac.Read)
 	if err != nil {
 		oapi.WriteProblem(w, err)
@@ -101,7 +101,7 @@ func (srv *InboxController) GetUserInbox(w http.ResponseWriter, r *http.Request,
 	})
 }
 
-func (srv *InboxController) GetUserInboxCount(w http.ResponseWriter, r *http.Request, params oapi.GetUserInboxCountParams) {
+func (srv *InboxController) GetUserInboxCount(w http.ResponseWriter, r *http.Request, _ oapi.ProjectID, params oapi.GetUserInboxCountParams) {
 	projectID, err := srv.engine.AllowedProject(r.Context(), "inbox", rbac.Read)
 	if err != nil {
 		oapi.WriteProblem(w, err)
@@ -129,15 +129,15 @@ func (srv *InboxController) GetUserInboxCount(w http.ResponseWriter, r *http.Req
 	json.Write(w, http.StatusOK, oapi.InboxCount{Unread: counts.Unread, Total: counts.Total})
 }
 
-func (srv *InboxController) PostUserInboxRead(w http.ResponseWriter, r *http.Request) {
+func (srv *InboxController) PostUserInboxRead(w http.ResponseWriter, r *http.Request, _ oapi.ProjectID) {
 	srv.publishUserInboxStateEvents(w, r, schemas.UserInboxRead, "read")
 }
 
-func (srv *InboxController) PostUserInboxArchived(w http.ResponseWriter, r *http.Request) {
+func (srv *InboxController) PostUserInboxArchived(w http.ResponseWriter, r *http.Request, _ oapi.ProjectID) {
 	srv.publishUserInboxStateEvents(w, r, schemas.UserInboxArchived, "archived")
 }
 
-func (srv *InboxController) PostOrganizationInboxMessages(w http.ResponseWriter, r *http.Request) {
+func (srv *InboxController) PostOrganizationInboxMessages(w http.ResponseWriter, r *http.Request, _ oapi.ProjectID) {
 	projectID, err := srv.engine.AllowedProject(r.Context(), "inbox", rbac.Create)
 	if err != nil {
 		oapi.WriteProblem(w, err)
@@ -174,7 +174,7 @@ func (srv *InboxController) PostOrganizationInboxMessages(w http.ResponseWriter,
 	w.WriteHeader(http.StatusAccepted)
 }
 
-func (srv *InboxController) GetOrganizationInbox(w http.ResponseWriter, r *http.Request, params oapi.GetOrganizationInboxParams) {
+func (srv *InboxController) GetOrganizationInbox(w http.ResponseWriter, r *http.Request, _ oapi.ProjectID, params oapi.GetOrganizationInboxParams) {
 	projectID, err := srv.engine.AllowedProject(r.Context(), "inbox", rbac.Read)
 	if err != nil {
 		oapi.WriteProblem(w, err)
@@ -213,7 +213,7 @@ func (srv *InboxController) GetOrganizationInbox(w http.ResponseWriter, r *http.
 	})
 }
 
-func (srv *InboxController) GetOrganizationInboxCount(w http.ResponseWriter, r *http.Request, params oapi.GetOrganizationInboxCountParams) {
+func (srv *InboxController) GetOrganizationInboxCount(w http.ResponseWriter, r *http.Request, _ oapi.ProjectID, params oapi.GetOrganizationInboxCountParams) {
 	projectID, err := srv.engine.AllowedProject(r.Context(), "inbox", rbac.Read)
 	if err != nil {
 		oapi.WriteProblem(w, err)
@@ -246,11 +246,11 @@ func (srv *InboxController) GetOrganizationInboxCount(w http.ResponseWriter, r *
 	json.Write(w, http.StatusOK, oapi.InboxCount{Unread: counts.Unread, Total: counts.Total})
 }
 
-func (srv *InboxController) PostOrganizationInboxRead(w http.ResponseWriter, r *http.Request) {
+func (srv *InboxController) PostOrganizationInboxRead(w http.ResponseWriter, r *http.Request, _ oapi.ProjectID) {
 	srv.publishOrganizationInboxStateEvents(w, r, schemas.OrganizationInboxRead, "read")
 }
 
-func (srv *InboxController) PostOrganizationInboxArchived(w http.ResponseWriter, r *http.Request) {
+func (srv *InboxController) PostOrganizationInboxArchived(w http.ResponseWriter, r *http.Request, _ oapi.ProjectID) {
 	srv.publishOrganizationInboxStateEvents(w, r, schemas.OrganizationInboxArchived, "archived")
 }
 

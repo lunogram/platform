@@ -25,7 +25,7 @@ func NewDevicesController(client *ClientController) *DevicesController {
 	return &DevicesController{ClientController: client}
 }
 
-func (srv *DevicesController) GetVapidPublicKey(w http.ResponseWriter, r *http.Request) {
+func (srv *DevicesController) GetVapidPublicKey(w http.ResponseWriter, r *http.Request, _ oapi.ProjectID) {
 	ctx := r.Context()
 	actor := rbac.FromContext(ctx)
 	if actor == nil {
@@ -52,7 +52,7 @@ func (srv *DevicesController) GetVapidPublicKey(w http.ResponseWriter, r *http.R
 	json.Write(w, http.StatusOK, oapi.VapidPublicKey{PublicKey: key.PublicKey})
 }
 
-func (srv *DevicesController) RegisterDevice(w http.ResponseWriter, r *http.Request) {
+func (srv *DevicesController) RegisterDevice(w http.ResponseWriter, r *http.Request, _ oapi.ProjectID) {
 	projectID, err := srv.engine.AllowedProject(r.Context(), "devices", rbac.Create)
 	if err != nil {
 		oapi.WriteProblem(w, err)
