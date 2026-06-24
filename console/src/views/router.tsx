@@ -559,12 +559,12 @@ export const createRouter = ({
                                                 element: <OrganizationDetailEvents />,
                                             },
                                             {
-                                                path: "members",
-                                                element: <OrganizationDetailMembers />,
-                                            },
-                                            {
                                                 path: "scheduled",
                                                 element: <OrganizationDetailScheduled />,
+                                            },
+                                            {
+                                                path: "members",
+                                                element: <OrganizationDetailMembers />,
                                             },
                                             {
                                                 path: "inbox",
