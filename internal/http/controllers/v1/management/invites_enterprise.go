@@ -62,6 +62,14 @@ func isRoleHigher(role1, role2 string) bool {
 	return projectRoleRank[role1] > projectRoleRank[role2]
 }
 
+// isKnownProjectRole reports whether role is one the hierarchy can rank. An
+// unranked role would compare as 0 and slip under the least-privilege ceiling,
+// so callers granting a role must reject anything this rejects.
+func isKnownProjectRole(role string) bool {
+	_, ok := projectRoleRank[role]
+	return ok
+}
+
 // effectiveProjectRole resolves the inviter's effective role *within a specific
 // project* for least-privilege checks. The actor's global organization role
 // ("owner"/"admin") grants project "admin" by inheritance (see the OpenFGA
@@ -144,7 +152,9 @@ func (srv *InviteController) CreateProjectInvite(w http.ResponseWriter, r *http.
 	}
 
 	inviteeEmail := strings.ToLower(strings.TrimSpace(string(body.Email)))
-	logger := srv.logger.With(zap.String("project_id", projectID.String()), zap.String("email", inviteeEmail))
+	// The invitee email is PII and is deliberately not attached to the logger;
+	// invite_id (logged on success) correlates to the row that holds it.
+	logger := srv.logger.With(zap.String("project_id", projectID.String()))
 	logger.Info("creating project invite")
 
 	actor := rbac.FromContext(ctx)
@@ -165,6 +175,15 @@ func (srv *InviteController) CreateProjectInvite(w http.ResponseWriter, r *http.
 	if strings.EqualFold(actorAdmin.Email, inviteeEmail) {
 		logger.Debug("inviter email matches invitee email, cannot create invite")
 		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("you cannot invite yourself to a project")))
+		return
+	}
+
+	// Fail closed on a role the hierarchy cannot rank. The OpenAPI enum already
+	// constrains body.Role, so this is defense in depth: an unranked role would
+	// otherwise rank 0 and slip under the least-privilege ceiling below.
+	if !isKnownProjectRole(string(body.Role)) {
+		logger.Debug("unknown invite role", zap.String("invite_role", string(body.Role)))
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("unknown project role")))
 		return
 	}
 
@@ -345,6 +364,9 @@ func (srv *InviteController) AcceptProjectInvite(w http.ResponseWriter, r *http.
 	roleUpgraded := false
 	if existingProjectAdmin != nil {
 		previousRole = existingProjectAdmin.Role
+		// Only ever raise the role. An invite carrying a role equal to or lower
+		// than the member's current project role is intentionally a no-op on the
+		// role, so accepting a lower-role invite cannot strip existing privileges.
 		if isRoleHigher(invite.Role, existingProjectAdmin.Role) {
 			err = managementStore.UpdateProjectAdminRole(ctx, invite.ProjectID, adminID, invite.Role)
 			if err != nil {
@@ -409,7 +431,7 @@ func (srv *InviteController) AcceptProjectInvite(w http.ResponseWriter, r *http.
 			return
 		}
 		if !isMember {
-			if err := managementStore.AddMember(ctx, orgID, adminID, "member"); err != nil {
+			if err := managementStore.AddMember(ctx, orgID, adminID, rbac.OrganizationMember); err != nil {
 				logger.Error("failed to add organization membership", zap.Error(err))
 				oapi.WriteProblem(w, err)
 				return
@@ -448,7 +470,7 @@ func (srv *InviteController) AcceptProjectInvite(w http.ResponseWriter, r *http.
 	}
 
 	if addedToOrg {
-		if err = srv.engine.WriteTuples(ctx, access.OrganizationRoleTuples(adminID, orgID, "member")); err != nil {
+		if err = srv.engine.WriteTuples(ctx, access.OrganizationRoleTuples(adminID, orgID, rbac.OrganizationMember)); err != nil {
 			logger.Error("failed to write organization RBAC tuples", zap.Error(err))
 			oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("failed to assign organization membership")))
 			return

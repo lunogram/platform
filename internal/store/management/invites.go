@@ -174,10 +174,10 @@ func (s *InvitesStore) ListProjectInvites(ctx context.Context, projectID uuid.UU
 	AND ($2::text IS NULL OR $2::text = '' OR invitee_email ILIKE '%' || $2 || '%')
 	AND ($3::text IS NULL OR role = $3)
 	AND ($4::text IS NULL OR (
-		$4 = 'pending'   AND revoked_at IS NULL AND accepted_at IS NULL AND expires_at > NOW() OR
-		$4 = 'accepted'  AND accepted_at IS NOT NULL OR
-		$4 = 'revoked'   AND revoked_at IS NOT NULL OR
-		$4 = 'expired'   AND expires_at <= NOW() AND accepted_at IS NULL AND revoked_at IS NULL
+		($4 = 'pending'  AND revoked_at IS NULL AND accepted_at IS NULL AND expires_at > NOW()) OR
+		($4 = 'accepted' AND accepted_at IS NOT NULL) OR
+		($4 = 'revoked'  AND revoked_at IS NOT NULL) OR
+		($4 = 'expired'  AND expires_at <= NOW() AND accepted_at IS NULL AND revoked_at IS NULL)
 	))
 	AND ($5::timestamptz IS NULL OR expires_at <= $5::timestamptz)
 	AND ($6::timestamptz IS NULL OR expires_at >= $6::timestamptz)
@@ -198,10 +198,10 @@ func (s *InvitesStore) ListProjectInvites(ctx context.Context, projectID uuid.UU
 	AND ($2::text IS NULL OR $2::text = '' OR pi.invitee_email ILIKE '%' || $2 || '%')
 	AND ($3::text IS NULL OR pi.role = $3)
 	AND ($4::text IS NULL OR (
-		$4 = 'pending'   AND pi.revoked_at IS NULL AND pi.accepted_at IS NULL AND pi.expires_at > NOW() OR
-		$4 = 'accepted'  AND pi.accepted_at IS NOT NULL OR
-		$4 = 'revoked'   AND pi.revoked_at IS NOT NULL OR
-		$4 = 'expired'   AND pi.expires_at <= NOW() AND pi.accepted_at IS NULL AND pi.revoked_at IS NULL
+		($4 = 'pending'  AND pi.revoked_at IS NULL AND pi.accepted_at IS NULL AND pi.expires_at > NOW()) OR
+		($4 = 'accepted' AND pi.accepted_at IS NOT NULL) OR
+		($4 = 'revoked'  AND pi.revoked_at IS NOT NULL) OR
+		($4 = 'expired'  AND pi.expires_at <= NOW() AND pi.accepted_at IS NULL AND pi.revoked_at IS NULL)
 	))
 	AND ($5::timestamptz IS NULL OR pi.expires_at <= $5::timestamptz)
 	AND ($6::timestamptz IS NULL OR pi.expires_at >= $6::timestamptz)
