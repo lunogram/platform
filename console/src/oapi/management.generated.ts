@@ -5112,7 +5112,7 @@ export interface components {
              * @example admin
              * @enum {string}
              */
-            role: "owner" | "admin" | "editor" | "support";
+            role: "support" | "client" | "editor" | "admin";
             /**
              * @description Duration until the invite expires (e.g. "24h", "7d"). Optional, defaults to 24 hours.
              * @example 24h
@@ -5157,7 +5157,7 @@ export interface components {
              * @example admin
              * @enum {string}
              */
-            role?: "owner" | "admin" | "editor" | "support";
+            role?: "support" | "client" | "editor" | "admin";
             /**
              * Format: date-time
              * @example 2025-12-31T23:59:59Z
