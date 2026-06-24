@@ -46,19 +46,6 @@ func mapWebhookEvent(eventType string) (providers.WebhookEventName, bool) {
 	}
 }
 
-// webhookEvents returns the list of Mailgun webhook event types this provider uses.
-func webhookEvents() []string {
-	return []string{
-		"accepted",
-		"delivered",
-		"failed",
-		"opened",
-		"clicked",
-		"complained",
-		"unsubscribed",
-	}
-}
-
 func parseMailgunWebhookEvent(body []byte) (providers.WebhookEvent, bool, error) {
 	var payload mailgunWebhookPayload
 	if err := json.Unmarshal(body, &payload); err != nil {

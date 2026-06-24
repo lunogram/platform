@@ -10,6 +10,7 @@ Email provider using [Amazon SES](https://aws.amazon.com/ses/) for transactional
 | `secretAccessKey` | string | Yes      | AWS Secret Access Key                    |
 | `region`          | string | Yes      | AWS region (for example `us-east-1`)     |
 | `sessionToken`    | string | No       | Optional AWS session token               |
+| `configurationSet` | string | No      | Optional SES configuration set name      |
 
 ## Usage
 

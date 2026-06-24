@@ -22,7 +22,6 @@ type Config struct {
 	APIRegion         string `json:"apiRegion"`
 	Domain            string `json:"domain"`
 	WebhookSigningKey string `json:"webhookSigningKey"`
-	WebhookURL        string `json:"webhookUrl"`
 }
 
 type mailgunSendRequest struct {
