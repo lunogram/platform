@@ -83,7 +83,9 @@ func setupBroadcastsTest(t *testing.T) (
 func seedBroadcast(t *testing.T, ctx graceful.Context, mgmt *management.State, usrs *subjects.State, projectID uuid.UUID) (broadcastID, campaignID, listID uuid.UUID) {
 	t.Helper()
 
-	providerID, err := mgmt.ProvidersStore.CreateProvider(ctx, management.Provider{
+	// A provider must exist for the channel so the broadcast can resolve one
+	// at send time; campaigns no longer reference a provider directly.
+	_, err := mgmt.ProvidersStore.CreateProvider(ctx, management.Provider{
 		ProjectID: projectID,
 		Module:    "test",
 		Channels:  management.Channels{"email"},
@@ -93,10 +95,9 @@ func seedBroadcast(t *testing.T, ctx graceful.Context, mgmt *management.State, u
 	require.NoError(t, err)
 
 	campaignID, err = mgmt.CampaignsStore.CreateCampaign(ctx, management.Campaign{
-		ProjectID:  projectID,
-		Name:       "Test Campaign",
-		Channel:    "email",
-		ProviderID: &providerID,
+		ProjectID: projectID,
+		Name:      "Test Campaign",
+		Channel:   "email",
 	})
 	require.NoError(t, err)
 
@@ -228,12 +229,11 @@ func TestBroadcastProcessHandler_CampaignNoProvider(t *testing.T) {
 
 	pub := pubsub.NewPublisher(jet, string(ns))
 
-	// Create a campaign without a provider.
+	// Create a campaign with no provider configured for its channel.
 	campaignID, err := mgmtState.CampaignsStore.CreateCampaign(ctx, management.Campaign{
 		ProjectID: projectID,
 		Name:      "No Provider Campaign",
 		Channel:   "email",
-		// ProviderID intentionally nil
 	})
 	require.NoError(t, err)
 

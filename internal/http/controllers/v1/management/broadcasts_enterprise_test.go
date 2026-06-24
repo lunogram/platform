@@ -70,7 +70,9 @@ func newBroadcastTestEnv(t *testing.T) broadcastTestEnv {
 	})
 	require.NoError(t, err)
 
-	providerID, err := mgmtState.ProvidersStore.CreateProvider(ctx, management.Provider{
+	// A provider must exist for the channel so the broadcast can resolve one
+	// at send time; campaigns no longer reference a provider directly.
+	_, err = mgmtState.ProvidersStore.CreateProvider(ctx, management.Provider{
 		ProjectID: projectID,
 		Module:    "test",
 		Channels:  management.Channels{"email"},
@@ -80,10 +82,9 @@ func newBroadcastTestEnv(t *testing.T) broadcastTestEnv {
 	require.NoError(t, err)
 
 	campaignID, err := mgmtState.CampaignsStore.CreateCampaign(ctx, management.Campaign{
-		ProjectID:  projectID,
-		Name:       "Broadcast Campaign",
-		Channel:    "email",
-		ProviderID: &providerID,
+		ProjectID: projectID,
+		Name:      "Broadcast Campaign",
+		Channel:   "email",
 	})
 	require.NoError(t, err)
 
