@@ -23,6 +23,10 @@ export function OrganizationSwitcher({ organizations }: { organizations: AdminOr
         return null
     }
 
+    // is_active is set by the API from the RESOLVED active organization, so
+    // exactly one entry is normally flagged. The organizations[0] fallback only
+    // guards the unexpected case where none is (e.g. a stale read); the
+    // length < 2 check above guarantees organizations[0] exists here.
     const current = organizations.find((o) => o.is_active) ?? organizations[0]
 
     const handleSelect = async (organization: AdminOrganization) => {
