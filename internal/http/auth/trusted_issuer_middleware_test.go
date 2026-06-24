@@ -112,7 +112,11 @@ func TestWithTrustedIssuer(t *testing.T) {
 		assert.ErrorIs(t, err, ErrUnauthorized)
 	})
 
-	t.Run("rejects when verification fails (wrong key)", func(t *testing.T) {
+	// Failures before the issuer resolves stay a generic ErrUnauthorized (above);
+	// once the token resolves to a configured issuer, the middleware surfaces a
+	// precise, debuggable reason instead so an integrator can fix their token.
+
+	t.Run("rejects when verification fails (wrong key) with a debuggable reason", func(t *testing.T) {
 		_, method := issuerMethod(t)
 		other, err := rsa.GenerateKey(rand.Reader, 2048)
 		require.NoError(t, err)
@@ -122,10 +126,35 @@ func TestWithTrustedIssuer(t *testing.T) {
 			"exp": time.Now().Add(time.Hour).Unix(),
 		})
 		_, err = WithTrustedIssuer(newIssuerState(method), cache)(clientRequestCtx(method.ProjectID.String()), token)
-		assert.ErrorIs(t, err, ErrUnauthorized)
+		assert.NotErrorIs(t, err, ErrUnauthorized, "a resolved issuer surfaces a reason, not a bare unauthorized")
+		assert.ErrorContains(t, err, "signature could not be verified")
 	})
 
-	t.Run("rejects an empty subject claim", func(t *testing.T) {
+	t.Run("rejects a missing exp claim with a debuggable reason", func(t *testing.T) {
+		key, method := issuerMethod(t)
+		token := signRS256(t, key, jwt.MapClaims{
+			"iss": method.Issuer,
+			"sub": "user_123",
+			// no "exp": WithExpirationRequired rejects it
+		})
+		_, err := WithTrustedIssuer(newIssuerState(method), cache)(clientRequestCtx(method.ProjectID.String()), token)
+		assert.NotErrorIs(t, err, ErrUnauthorized)
+		assert.ErrorContains(t, err, `"exp"`, "the reason names the missing claim")
+	})
+
+	t.Run("rejects an expired token with a debuggable reason", func(t *testing.T) {
+		key, method := issuerMethod(t)
+		token := signRS256(t, key, jwt.MapClaims{
+			"iss": method.Issuer,
+			"sub": "user_123",
+			"exp": time.Now().Add(-time.Hour).Unix(),
+		})
+		_, err := WithTrustedIssuer(newIssuerState(method), cache)(clientRequestCtx(method.ProjectID.String()), token)
+		assert.NotErrorIs(t, err, ErrUnauthorized)
+		assert.ErrorContains(t, err, "expired")
+	})
+
+	t.Run("rejects an empty subject claim with a debuggable reason", func(t *testing.T) {
 		key, method := issuerMethod(t)
 		token := signRS256(t, key, jwt.MapClaims{
 			"iss": method.Issuer,
@@ -133,7 +162,21 @@ func TestWithTrustedIssuer(t *testing.T) {
 			"exp": time.Now().Add(time.Hour).Unix(),
 		})
 		_, err := WithTrustedIssuer(newIssuerState(method), cache)(clientRequestCtx(method.ProjectID.String()), token)
-		assert.ErrorIs(t, err, ErrUnauthorized)
+		assert.NotErrorIs(t, err, ErrUnauthorized)
+		assert.ErrorContains(t, err, `"sub"`, "the reason names the missing subject claim")
+	})
+
+	t.Run("names a custom subject claim in the rejection reason", func(t *testing.T) {
+		key, method := issuerMethod(t)
+		method.SubjectClaim = "user_id"
+		token := signRS256(t, key, jwt.MapClaims{
+			"iss": method.Issuer,
+			// no "user_id": the configured subject claim is absent
+			"exp": time.Now().Add(time.Hour).Unix(),
+		})
+		_, err := WithTrustedIssuer(newIssuerState(method), cache)(clientRequestCtx(method.ProjectID.String()), token)
+		assert.NotErrorIs(t, err, ErrUnauthorized)
+		assert.ErrorContains(t, err, `"user_id"`)
 	})
 
 	t.Run("builds an end-user actor on success", func(t *testing.T) {
