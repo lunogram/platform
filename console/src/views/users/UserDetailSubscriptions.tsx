@@ -5,7 +5,7 @@ import { toast } from "sonner"
 import { ProjectContext, UserContext } from "../../contexts"
 import { useResolver } from "../../hooks"
 import { snakeToTitle } from "../../utils"
-import api from "../../api"
+import { oapiClient } from "@/oapi/client"
 import type { SubscriptionParams, SubscriptionState } from "../../types"
 import type { UUID } from "@/types/common"
 
@@ -42,7 +42,16 @@ export default function UserDetailSubscriptions() {
 
     const [search, , reload] = useResolver(
         useCallback(async () => {
-            return await api.users.subscriptions(project.id, user.id, { limit: 100 })
+            const { data } = await oapiClient.GET(
+                "/api/admin/projects/{projectID}/subjects/users/{userID}/subscriptions",
+                {
+                    params: {
+                        path: { projectID: project.id, userID: user.id },
+                        query: { limit: 100 },
+                    },
+                },
+            )
+            return data ?? null
         }, [project.id, user.id]),
     )
 
@@ -60,19 +69,31 @@ export default function UserDetailSubscriptions() {
         if (!confirmAction) return
 
         if (confirmAction.type === "toggle" && confirmAction.subscriptionId) {
-            await api.users.updateSubscriptions(project.id, user.id, [
+            await oapiClient.PATCH(
+                "/api/admin/projects/{projectID}/subjects/users/{userID}/subscriptions",
                 {
-                    subscription_id: confirmAction.subscriptionId,
-                    state: confirmAction.newState!,
+                    params: { path: { projectID: project.id, userID: user.id } },
+                    body: [
+                        {
+                            subscription_id: confirmAction.subscriptionId,
+                            state: confirmAction.newState!,
+                        },
+                    ],
                 },
-            ])
+            )
         } else if (confirmAction.type === "unsubscribe_all") {
             const params: SubscriptionParams[] =
                 subscriptions?.map((item) => ({
                     subscription_id: item.subscription_id,
                     state: "unsubscribed" as SubscriptionState,
                 })) ?? []
-            await api.users.updateSubscriptions(project.id, user.id, params)
+            await oapiClient.PATCH(
+                "/api/admin/projects/{projectID}/subjects/users/{userID}/subscriptions",
+                {
+                    params: { path: { projectID: project.id, userID: user.id } },
+                    body: params,
+                },
+            )
         }
 
         await reload()

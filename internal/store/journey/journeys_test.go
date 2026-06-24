@@ -321,7 +321,7 @@ func TestJourneysStoreEventDependencies(t *testing.T) {
 		_, err := store.SetJourneySteps(ctx, versionID, stepMap)
 		require.NoError(t, err)
 
-		err = store.SetJourneyStepEventDependencies(ctx, versionID, "entrance-1", []uuid.UUID{eventID})
+		err = store.SetJourneyStepEventDependencies(ctx, versionID, "entrance-1", []StepEventDependency{{EventID: eventID, Kind: StepEventKindEnter}})
 		require.NoError(t, err)
 
 		var count int
@@ -330,6 +330,197 @@ func TestJourneysStoreEventDependencies(t *testing.T) {
 			versionID, "entrance-1", eventID)
 		require.NoError(t, err)
 		assert.Equal(t, 1, count)
+	})
+}
+
+func TestJourneysStoreListExitDependencies(t *testing.T) {
+	t.Parallel()
+
+	store, db := NewContainerStore(t)
+	ctx := context.Background()
+	projectID := uuid.New()
+
+	journeyID, err := store.CreateJourney(ctx, Journey{
+		ProjectID: projectID,
+		Name:      "List Trigger Journey",
+	})
+	require.NoError(t, err)
+
+	versionID, err := store.CreateJourneyVersion(ctx, journeyID, "draft")
+	require.NoError(t, err)
+
+	stepMap := oapi.JourneyStepMap{
+		"entrance-1": {
+			Type: "entrance",
+			Name: ptr.To("List Entrance"),
+			X:    0,
+			Y:    0,
+			Children: []oapi.JourneyStepChild{
+				{ExternalId: "step-2"},
+			},
+		},
+		"step-2": {
+			Type: "exit",
+			X:    100,
+			Y:    100,
+		},
+	}
+
+	_, err = store.SetJourneySteps(ctx, versionID, stepMap)
+	require.NoError(t, err)
+
+	enterEventID := uuid.New()
+	exitEventID := uuid.New()
+
+	// A list-join entrance configured to exit on leave registers both an enter
+	// dependency (list.user.added) and an exit dependency (list.user.removed).
+	err = store.SetJourneyStepEventDependencies(ctx, versionID, "entrance-1", []StepEventDependency{
+		{EventID: enterEventID, Kind: StepEventKindEnter},
+		{EventID: exitEventID, Kind: StepEventKindExit},
+	})
+	require.NoError(t, err)
+
+	t.Run("both kinds are persisted", func(t *testing.T) {
+		var enterCount, exitCount int
+		require.NoError(t, db.GetContext(ctx, &enterCount,
+			`SELECT COUNT(*) FROM journey_version_step_events WHERE version_id = $1 AND kind = 'enter'`, versionID))
+		require.NoError(t, db.GetContext(ctx, &exitCount,
+			`SELECT COUNT(*) FROM journey_version_step_events WHERE version_id = $1 AND kind = 'exit'`, versionID))
+		assert.Equal(t, 1, enterCount)
+		assert.Equal(t, 1, exitCount)
+	})
+
+	t.Run("exit dependencies only surface for published versions", func(t *testing.T) {
+		// Before publishing, the entrance lives on a draft version and must not
+		// be returned: the runtime only acts on published journeys.
+		deps, err := store.ListEventJourneyExitDependencies(ctx, exitEventID)
+		require.NoError(t, err)
+		assert.Empty(t, deps)
+
+		err = store.PublishVersion(ctx, journeyID, versionID)
+		require.NoError(t, err)
+
+		deps, err = store.ListEventJourneyExitDependencies(ctx, exitEventID)
+		require.NoError(t, err)
+		require.Len(t, deps, 1)
+		assert.Equal(t, journeyID, deps[0].JourneyID)
+		assert.Equal(t, "entrance-1", deps[0].ExternalID)
+		assert.Equal(t, "entrance", deps[0].Type)
+	})
+
+	t.Run("the enter event is not returned as an exit dependency", func(t *testing.T) {
+		deps, err := store.ListEventJourneyExitDependencies(ctx, enterEventID)
+		require.NoError(t, err)
+		assert.Empty(t, deps, "enter dependency must not be treated as an exit dependency")
+
+		entrances, err := store.ListEventJourneyDependencies(ctx, enterEventID)
+		require.NoError(t, err)
+		require.Len(t, entrances, 1, "enter event drives enrollment")
+		assert.Equal(t, "entrance-1", entrances[0].ExternalID)
+	})
+}
+
+func TestJourneysStoreCompleteUserJourneyEntryStates(t *testing.T) {
+	t.Parallel()
+
+	store, _ := NewContainerStore(t)
+	ctx := context.Background()
+	projectID := uuid.New()
+
+	journeyID, err := store.CreateJourney(ctx, Journey{
+		ProjectID: projectID,
+		Name:      "Exit On Leave Journey",
+	})
+	require.NoError(t, err)
+
+	versionID, err := store.CreateJourneyVersion(ctx, journeyID, "draft")
+	require.NoError(t, err)
+
+	stepMap := oapi.JourneyStepMap{
+		"entrance-1": {
+			Type: "entrance",
+			X:    0,
+			Y:    0,
+			Children: []oapi.JourneyStepChild{
+				{ExternalId: "delay-1"},
+			},
+		},
+		"delay-1": {
+			Type: "delay",
+			X:    100,
+			Y:    100,
+		},
+	}
+
+	_, err = store.SetJourneySteps(ctx, versionID, stepMap)
+	require.NoError(t, err)
+
+	err = store.PublishVersion(ctx, journeyID, versionID)
+	require.NoError(t, err)
+
+	userID := uuid.New()
+	entryID := uuid.New()
+
+	// The user has an active entrance state plus an in-flight delay state under
+	// the same journey entry. Both belong to the run that started at entrance-1.
+	_, err = store.CreateUserJourneyState(ctx, JourneyUserState{
+		JourneyID:      journeyID,
+		JourneyEntryID: entryID,
+		UserID:         userID,
+		ExternalStepID: "entrance-1",
+	})
+	require.NoError(t, err)
+
+	resumeAt := time.Now().Add(24 * time.Hour)
+	_, err = store.CreateUserJourneyState(ctx, JourneyUserState{
+		JourneyID:      journeyID,
+		JourneyEntryID: entryID,
+		UserID:         userID,
+		ExternalStepID: "delay-1",
+		ResumeAt:       &resumeAt,
+	})
+	require.NoError(t, err)
+
+	t.Run("completes every active state of the matching run", func(t *testing.T) {
+		now := time.Now()
+		affected, err := store.CompleteUserJourneyEntryStates(ctx, journeyID, userID, "entrance-1", now)
+		require.NoError(t, err)
+		assert.Equal(t, int64(2), affected, "both the entrance and the in-flight delay should be completed")
+
+		entrance, err := store.GetUserJourneyState(ctx, entryID, "entrance-1")
+		require.NoError(t, err)
+		require.NotNil(t, entrance.CompletedAt)
+
+		delay, err := store.GetUserJourneyState(ctx, entryID, "delay-1")
+		require.NoError(t, err)
+		require.NotNil(t, delay.CompletedAt)
+		assert.Nil(t, delay.ResumeAt, "resume_at is cleared so the scheduler stops chasing the run")
+	})
+
+	t.Run("is idempotent once the run is completed", func(t *testing.T) {
+		affected, err := store.CompleteUserJourneyEntryStates(ctx, journeyID, userID, "entrance-1", time.Now())
+		require.NoError(t, err)
+		assert.Equal(t, int64(0), affected, "already-completed states are not touched again")
+	})
+
+	t.Run("leaves other users' runs untouched", func(t *testing.T) {
+		otherUserID := uuid.New()
+		otherEntryID := uuid.New()
+		_, err := store.CreateUserJourneyState(ctx, JourneyUserState{
+			JourneyID:      journeyID,
+			JourneyEntryID: otherEntryID,
+			UserID:         otherUserID,
+			ExternalStepID: "entrance-1",
+		})
+		require.NoError(t, err)
+
+		affected, err := store.CompleteUserJourneyEntryStates(ctx, journeyID, userID, "entrance-1", time.Now())
+		require.NoError(t, err)
+		assert.Equal(t, int64(0), affected, "completing the first user must not reach the second user")
+
+		other, err := store.GetUserJourneyState(ctx, otherEntryID, "entrance-1")
+		require.NoError(t, err)
+		assert.Nil(t, other.CompletedAt, "the other user's run is still active")
 	})
 }
 

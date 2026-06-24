@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/lunogram/platform/internal/http/auth"
 	"github.com/lunogram/platform/internal/http/controllers/v1/client/oapi"
 	"github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/http/problem"
@@ -21,7 +22,7 @@ func NewOrganizationsController(client *ClientController) *OrganizationsControll
 	return &OrganizationsController{ClientController: client}
 }
 
-func (srv *OrganizationsController) UpsertOrganizationClient(w http.ResponseWriter, r *http.Request) {
+func (srv *OrganizationsController) UpsertOrganizationClient(w http.ResponseWriter, r *http.Request, _ oapi.ProjectID) {
 	projectID, err := srv.engine.AllowedProject(r.Context(), "organizations", rbac.Create)
 	if err != nil {
 		oapi.WriteProblem(w, err)
@@ -29,6 +30,11 @@ func (srv *OrganizationsController) UpsertOrganizationClient(w http.ResponseWrit
 	}
 
 	ctx := r.Context()
+
+	if err := auth.RequireCrossSubjectAccess(ctx); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
 
 	var req oapi.OrganizationRequest
 	err = json.Decode(r.Body, &req)
@@ -107,7 +113,7 @@ func (srv *OrganizationsController) UpsertOrganizationClient(w http.ResponseWrit
 	json.Write(w, http.StatusOK, orgToClientOAPI(org))
 }
 
-func (srv *OrganizationsController) DeleteOrganizationClient(w http.ResponseWriter, r *http.Request) {
+func (srv *OrganizationsController) DeleteOrganizationClient(w http.ResponseWriter, r *http.Request, _ oapi.ProjectID) {
 	projectID, err := srv.engine.AllowedProject(r.Context(), "organizations", rbac.Delete)
 	if err != nil {
 		oapi.WriteProblem(w, err)
@@ -115,6 +121,11 @@ func (srv *OrganizationsController) DeleteOrganizationClient(w http.ResponseWrit
 	}
 
 	ctx := r.Context()
+
+	if err := auth.RequireCrossSubjectAccess(ctx); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
 
 	var req oapi.DeleteOrganizationRequest
 	err = json.Decode(r.Body, &req)
@@ -153,7 +164,7 @@ func (srv *OrganizationsController) DeleteOrganizationClient(w http.ResponseWrit
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (srv *OrganizationsController) AddOrganizationUserClient(w http.ResponseWriter, r *http.Request) {
+func (srv *OrganizationsController) AddOrganizationUserClient(w http.ResponseWriter, r *http.Request, _ oapi.ProjectID) {
 	projectID, err := srv.engine.AllowedProject(r.Context(), "organizations", rbac.Update)
 	if err != nil {
 		oapi.WriteProblem(w, err)
@@ -161,6 +172,11 @@ func (srv *OrganizationsController) AddOrganizationUserClient(w http.ResponseWri
 	}
 
 	ctx := r.Context()
+
+	if err := auth.RequireCrossSubjectAccess(ctx); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
 
 	var req oapi.OrganizationUserRequest
 	err = json.Decode(r.Body, &req)
@@ -251,7 +267,7 @@ func (srv *OrganizationsController) AddOrganizationUserClient(w http.ResponseWri
 	w.WriteHeader(http.StatusOK)
 }
 
-func (srv *OrganizationsController) RemoveOrganizationUserClient(w http.ResponseWriter, r *http.Request) {
+func (srv *OrganizationsController) RemoveOrganizationUserClient(w http.ResponseWriter, r *http.Request, _ oapi.ProjectID) {
 	projectID, err := srv.engine.AllowedProject(r.Context(), "organizations", rbac.Update)
 	if err != nil {
 		oapi.WriteProblem(w, err)
@@ -259,6 +275,11 @@ func (srv *OrganizationsController) RemoveOrganizationUserClient(w http.Response
 	}
 
 	ctx := r.Context()
+
+	if err := auth.RequireCrossSubjectAccess(ctx); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
 
 	var req oapi.RemoveOrganizationUserRequest
 	err = json.Decode(r.Body, &req)

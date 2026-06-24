@@ -14,8 +14,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ProjectContext } from "@/contexts"
 import { useNavigate, useParams } from "react-router"
 import type { UUID } from "@/types/common"
+import type { Project } from "@/types"
 import { NIL } from "uuid"
-import api from "@/api"
+import { oapiClient } from "@/oapi/client"
+import type { components } from "@/oapi/management.generated"
 import { cn } from "@/utils"
 import { t } from "i18next"
 import { Puzzle } from "lucide-react"
@@ -28,8 +30,10 @@ export default function ProjectGettingStarted() {
 
     useEffect(() => {
         const loadProject = async () => {
-            const projectState = await api.projects.get(projectId)
-            setProject(projectState)
+            const { data } = await oapiClient.GET("/api/admin/projects/{projectID}", {
+                params: { path: { projectID: projectId } },
+            })
+            if (data) setProject(data as Project)
         }
         loadProject().catch(console.error)
     }, [setProject, projectId])
@@ -43,13 +47,19 @@ export default function ProjectGettingStarted() {
     async function createOnboardingJourney() {
         setIsJourneyLoading(true)
         try {
-            const journey = await api.journeys.create(projectId, {
-                name: "Onboarding",
-                description: "Getting started with your first journey",
-                template_id: "onboarding",
-                status: "draft",
-            })
-            await navigate(`/projects/${projectId}/journeys/${journey.id}`)
+            const { data: journey } = await oapiClient.POST(
+                "/api/admin/projects/{projectID}/journeys",
+                {
+                    params: { path: { projectID: projectId } },
+                    body: {
+                        name: "Onboarding",
+                        description: "Getting started with your first journey",
+                        template_id: "onboarding",
+                        status: "draft",
+                    } as components["schemas"]["CreateJourney"],
+                },
+            )
+            if (journey) await navigate(`/projects/${projectId}/journeys/${journey.id}`)
         } finally {
             setIsJourneyLoading(false)
         }

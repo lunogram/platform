@@ -569,8 +569,8 @@ func (s *JourneysStore) CopyVersionSteps(ctx context.Context, fromVersionID, toV
 
 	// Copy event dependencies
 	copyDepsStmt := `
-	INSERT INTO journey_version_step_events (version_id, external_id, event_id)
-	SELECT $1, external_id, event_id
+	INSERT INTO journey_version_step_events (version_id, external_id, event_id, kind)
+	SELECT $1, external_id, event_id, kind
 	FROM journey_version_step_events
 	WHERE version_id = $2`
 
@@ -856,7 +856,23 @@ func (s *JourneysStore) SetJourneyStepChildren(ctx context.Context, versionID uu
 	return nil
 }
 
-func (s *JourneysStore) SetJourneyStepEventDependencies(ctx context.Context, versionID uuid.UUID, externalID string, eventIDs []uuid.UUID) error {
+// StepEventDependency associates an event with the role it plays for an
+// entrance step: KindEnter triggers enrollment, KindExit completes the user's
+// active runs (used by list triggers to exit a user when they leave the list).
+type StepEventDependency struct {
+	EventID uuid.UUID
+	Kind    string
+}
+
+const (
+	StepEventKindEnter = "enter"
+	StepEventKindExit  = "exit"
+)
+
+// SetJourneyStepEventDependencies replaces all event dependencies for the given
+// entrance step with the supplied set. Both enter and exit dependencies are
+// stored in the same table and distinguished by their kind.
+func (s *JourneysStore) SetJourneyStepEventDependencies(ctx context.Context, versionID uuid.UUID, externalID string, deps []StepEventDependency) error {
 	deleteStmt := `
 	DELETE FROM journey_version_step_events
 	WHERE version_id = $1 AND external_id = $2`
@@ -866,16 +882,21 @@ func (s *JourneysStore) SetJourneyStepEventDependencies(ctx context.Context, ver
 		return err
 	}
 
-	if len(eventIDs) == 0 {
+	if len(deps) == 0 {
 		return nil
 	}
 
 	stmt := `
-	INSERT INTO journey_version_step_events (version_id, external_id, event_id)
-	VALUES ($1, $2, $3)`
+	INSERT INTO journey_version_step_events (version_id, external_id, event_id, kind)
+	VALUES ($1, $2, $3, $4)
+	ON CONFLICT DO NOTHING`
 
-	for _, eventID := range eventIDs {
-		_, err = s.db.ExecContext(ctx, stmt, versionID, externalID, eventID)
+	for _, dep := range deps {
+		kind := dep.Kind
+		if kind == "" {
+			kind = StepEventKindEnter
+		}
+		_, err = s.db.ExecContext(ctx, stmt, versionID, externalID, dep.EventID, kind)
 		if err != nil {
 			return err
 		}
@@ -1045,8 +1066,8 @@ func (s *JourneysStore) CopyVersionContent(ctx context.Context, sourceVersionID,
 	}
 
 	copyEvents := `
-	INSERT INTO journey_version_step_events (version_id, external_id, event_id)
-	SELECT $1, external_id, event_id
+	INSERT INTO journey_version_step_events (version_id, external_id, event_id, kind)
+	SELECT $1, external_id, event_id, kind
 	FROM journey_version_step_events
 	WHERE version_id = $2`
 
@@ -1403,6 +1424,31 @@ func (s *JourneysStore) CompleteJourneyEntryStates(ctx context.Context, journeyI
 	return err
 }
 
+// CompleteUserJourneyEntryStates completes the active (non-completed) journey
+// states of a single user for every run that was started from the given
+// entrance step. It is used to exit a user from a journey in response to an
+// external signal, such as the user leaving a list, without going through an
+// in-flow exit step.
+func (s *JourneysStore) CompleteUserJourneyEntryStates(ctx context.Context, journeyID, userID uuid.UUID, entranceExternalID string, completedAt time.Time) (int64, error) {
+	stmt := `
+	UPDATE journey_user_state
+	SET completed_at = $1, resume_at = NULL
+	WHERE journey_id = $2
+	AND user_id = $3
+	AND completed_at IS NULL
+	AND journey_entry_id = ANY(
+		SELECT journey_entry_id FROM journey_user_state
+		WHERE journey_id = $2 AND user_id = $3 AND external_step_id = $4
+	)`
+
+	result, err := s.db.ExecContext(ctx, stmt, completedAt, journeyID, userID, entranceExternalID)
+	if err != nil {
+		return 0, err
+	}
+
+	return result.RowsAffected()
+}
+
 func (s *JourneysStore) ListEventJourneyDependencies(ctx context.Context, eventID uuid.UUID) ([]JourneyEntranceStep, error) {
 	query := `
 	SELECT
@@ -1423,9 +1469,39 @@ func (s *JourneysStore) ListEventJourneyDependencies(ctx context.Context, eventI
 	JOIN journey_version_steps jvs ON jvs.version_id = jv.id AND jvs.external_id = jvse.external_id
 	LEFT JOIN journey_version_step_children c ON jvs.version_id = c.version_id AND jvs.external_id = c.parent_external_id
 	WHERE jvse.event_id = $1
+	AND jvse.kind = 'enter'
 	AND j.deleted_at IS NULL
 	AND jvs.type = 'entrance'
 	GROUP BY j.id, jv.id, jvs.id`
+
+	var entrances []JourneyEntranceStep
+	err := s.db.SelectContext(ctx, &entrances, query, eventID)
+	return entrances, err
+}
+
+// ListEventJourneyExitDependencies returns published entrance steps that have
+// registered the given event as an exit dependency (kind = 'exit'). These are
+// list-trigger entrances configured to exit a user from the journey when the
+// opposite list membership event fires. Children are not needed for exits.
+func (s *JourneysStore) ListEventJourneyExitDependencies(ctx context.Context, eventID uuid.UUID) ([]JourneyEntranceStep, error) {
+	query := `
+	SELECT
+		j.id AS journey_id,
+		jv.id AS version_id,
+		jvs.id AS step_id,
+		jvs.external_id,
+		jvs.type,
+		jvs.data_key,
+		jvs.data,
+		'[]'::jsonb AS children
+	FROM journeys j
+	JOIN journey_versions jv ON jv.id = j.version_id AND jv.status = 'published'
+	JOIN journey_version_step_events jvse ON jvse.version_id = jv.id
+	JOIN journey_version_steps jvs ON jvs.version_id = jv.id AND jvs.external_id = jvse.external_id
+	WHERE jvse.event_id = $1
+	AND jvse.kind = 'exit'
+	AND j.deleted_at IS NULL
+	AND jvs.type = 'entrance'`
 
 	var entrances []JourneyEntranceStep
 	err := s.db.SelectContext(ctx, &entrances, query, eventID)

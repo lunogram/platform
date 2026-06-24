@@ -408,13 +408,31 @@ func (s *ListsStore) PublishVersion(ctx context.Context, listID, versionID uuid.
 }
 
 func (s *ListsStore) AddUserToList(ctx context.Context, listID, userID uuid.UUID) error {
+	_, err := s.AddUserToListReturning(ctx, listID, userID)
+	return err
+}
+
+// AddUserToListReturning adds a user to a list and reports whether a new
+// membership row was actually created (false when the user was already a
+// member). Callers use this to emit list.user.added events only for genuine
+// additions, keeping static lists consistent with dynamic recompute.
+func (s *ListsStore) AddUserToListReturning(ctx context.Context, listID, userID uuid.UUID) (bool, error) {
 	stmt := `
 	INSERT INTO list_users (user_id, list_id)
 	VALUES ($1, $2)
-	ON CONFLICT (user_id, list_id) DO NOTHING`
+	ON CONFLICT (user_id, list_id) DO NOTHING
+	RETURNING user_id`
 
-	_, err := s.db.ExecContext(ctx, stmt, userID, listID)
-	return err
+	var inserted uuid.UUID
+	err := s.db.GetContext(ctx, &inserted, stmt, userID, listID)
+	if err == sql.ErrNoRows {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+
+	return true, nil
 }
 
 func (s *ListsStore) DeleteList(ctx context.Context, projectID, listID uuid.UUID) error {

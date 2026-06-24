@@ -114,6 +114,12 @@ func (e GetUserInboxParamsStatus) Valid() bool {
 // Channel defines model for Channel.
 type Channel string
 
+// CreateSession Request to mint a session token for an end user.
+type CreateSession struct {
+	// UserId The end user's external identifier (the session subject).
+	UserId string `json:"user_id"`
+}
+
 // DeleteOrganizationRequest defines model for DeleteOrganizationRequest.
 type DeleteOrganizationRequest struct {
 	// Identifier One or more external identifiers to identify the organization
@@ -429,6 +435,14 @@ type ScheduledAccepted struct {
 	ScheduledAt time.Time `json:"scheduled_at"`
 }
 
+// SessionToken defines model for SessionToken.
+type SessionToken struct {
+	ExpiresAt time.Time `json:"expires_at"`
+
+	// Token The signed session token (a bearer token for the Client API).
+	Token string `json:"token"`
+}
+
 // UpsertOrganizationScheduledRequest defines model for UpsertOrganizationScheduledRequest.
 type UpsertOrganizationScheduledRequest struct {
 	// Data Scheduled resource data
@@ -517,6 +531,9 @@ type Limit = PaginationLimit
 // Offset defines model for Offset.
 type Offset = PaginationOffset
 
+// ProjectID defines model for ProjectID.
+type ProjectID = openapi_types.UUID
+
 // Error defines model for Error.
 type Error = Problem
 
@@ -592,6 +609,9 @@ type EmailUnsubscribeParams struct {
 	// Link Encoded unsubscribe link with user and campaign data
 	Link string `form:"link" json:"link"`
 }
+
+// CreateSessionJSONRequestBody defines body for CreateSession for application/json ContentType.
+type CreateSessionJSONRequestBody = CreateSession
 
 // DeleteOrganizationClientJSONRequestBody defines body for DeleteOrganizationClient for application/json ContentType.
 type DeleteOrganizationClientJSONRequestBody = DeleteOrganizationRequest
@@ -726,115 +746,120 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 
 // The interface specification for the client above.
 type ClientInterface interface {
-	// DeleteOrganizationClientWithBody request with any body
-	DeleteOrganizationClientWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// CreateSessionWithBody request with any body
+	CreateSessionWithBody(ctx context.Context, projectID ProjectID, authMethodID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	DeleteOrganizationClient(ctx context.Context, body DeleteOrganizationClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CreateSession(ctx context.Context, projectID ProjectID, authMethodID openapi_types.UUID, body CreateSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteOrganizationClientWithBody request with any body
+	DeleteOrganizationClientWithBody(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	DeleteOrganizationClient(ctx context.Context, projectID ProjectID, body DeleteOrganizationClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// UpsertOrganizationClientWithBody request with any body
-	UpsertOrganizationClientWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	UpsertOrganizationClientWithBody(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	UpsertOrganizationClient(ctx context.Context, body UpsertOrganizationClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	UpsertOrganizationClient(ctx context.Context, projectID ProjectID, body UpsertOrganizationClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PostOrganizationEventsClientWithBody request with any body
-	PostOrganizationEventsClientWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PostOrganizationEventsClientWithBody(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	PostOrganizationEventsClient(ctx context.Context, body PostOrganizationEventsClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PostOrganizationEventsClient(ctx context.Context, projectID ProjectID, body PostOrganizationEventsClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetOrganizationInbox request
-	GetOrganizationInbox(ctx context.Context, params *GetOrganizationInboxParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetOrganizationInbox(ctx context.Context, projectID ProjectID, params *GetOrganizationInboxParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PostOrganizationInboxMessagesWithBody request with any body
-	PostOrganizationInboxMessagesWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PostOrganizationInboxMessagesWithBody(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	PostOrganizationInboxMessages(ctx context.Context, body PostOrganizationInboxMessagesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PostOrganizationInboxMessages(ctx context.Context, projectID ProjectID, body PostOrganizationInboxMessagesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PostOrganizationInboxArchivedWithBody request with any body
-	PostOrganizationInboxArchivedWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PostOrganizationInboxArchivedWithBody(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	PostOrganizationInboxArchived(ctx context.Context, body PostOrganizationInboxArchivedJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PostOrganizationInboxArchived(ctx context.Context, projectID ProjectID, body PostOrganizationInboxArchivedJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetOrganizationInboxCount request
-	GetOrganizationInboxCount(ctx context.Context, params *GetOrganizationInboxCountParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetOrganizationInboxCount(ctx context.Context, projectID ProjectID, params *GetOrganizationInboxCountParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PostOrganizationInboxReadWithBody request with any body
-	PostOrganizationInboxReadWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PostOrganizationInboxReadWithBody(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	PostOrganizationInboxRead(ctx context.Context, body PostOrganizationInboxReadJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PostOrganizationInboxRead(ctx context.Context, projectID ProjectID, body PostOrganizationInboxReadJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteOrganizationScheduledClientWithBody request with any body
-	DeleteOrganizationScheduledClientWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DeleteOrganizationScheduledClientWithBody(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	DeleteOrganizationScheduledClient(ctx context.Context, body DeleteOrganizationScheduledClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DeleteOrganizationScheduledClient(ctx context.Context, projectID ProjectID, body DeleteOrganizationScheduledClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// UpsertOrganizationScheduledClientWithBody request with any body
-	UpsertOrganizationScheduledClientWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	UpsertOrganizationScheduledClientWithBody(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	UpsertOrganizationScheduledClient(ctx context.Context, body UpsertOrganizationScheduledClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	UpsertOrganizationScheduledClient(ctx context.Context, projectID ProjectID, body UpsertOrganizationScheduledClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// RemoveOrganizationUserClientWithBody request with any body
-	RemoveOrganizationUserClientWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	RemoveOrganizationUserClientWithBody(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	RemoveOrganizationUserClient(ctx context.Context, body RemoveOrganizationUserClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	RemoveOrganizationUserClient(ctx context.Context, projectID ProjectID, body RemoveOrganizationUserClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// AddOrganizationUserClientWithBody request with any body
-	AddOrganizationUserClientWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	AddOrganizationUserClientWithBody(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	AddOrganizationUserClient(ctx context.Context, body AddOrganizationUserClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	AddOrganizationUserClient(ctx context.Context, projectID ProjectID, body AddOrganizationUserClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetVapidPublicKey request
-	GetVapidPublicKey(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetVapidPublicKey(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteUserClientWithBody request with any body
-	DeleteUserClientWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DeleteUserClientWithBody(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	DeleteUserClient(ctx context.Context, body DeleteUserClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DeleteUserClient(ctx context.Context, projectID ProjectID, body DeleteUserClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// UpsertUserClientWithBody request with any body
-	UpsertUserClientWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	UpsertUserClientWithBody(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	UpsertUserClient(ctx context.Context, body UpsertUserClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	UpsertUserClient(ctx context.Context, projectID ProjectID, body UpsertUserClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// RegisterDeviceWithBody request with any body
-	RegisterDeviceWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	RegisterDeviceWithBody(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	RegisterDevice(ctx context.Context, body RegisterDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	RegisterDevice(ctx context.Context, projectID ProjectID, body RegisterDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PostUserEventsWithBody request with any body
-	PostUserEventsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PostUserEventsWithBody(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	PostUserEvents(ctx context.Context, body PostUserEventsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PostUserEvents(ctx context.Context, projectID ProjectID, body PostUserEventsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetUserInbox request
-	GetUserInbox(ctx context.Context, params *GetUserInboxParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetUserInbox(ctx context.Context, projectID ProjectID, params *GetUserInboxParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PostUserInboxMessagesWithBody request with any body
-	PostUserInboxMessagesWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PostUserInboxMessagesWithBody(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	PostUserInboxMessages(ctx context.Context, body PostUserInboxMessagesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PostUserInboxMessages(ctx context.Context, projectID ProjectID, body PostUserInboxMessagesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PostUserInboxArchivedWithBody request with any body
-	PostUserInboxArchivedWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PostUserInboxArchivedWithBody(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	PostUserInboxArchived(ctx context.Context, body PostUserInboxArchivedJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PostUserInboxArchived(ctx context.Context, projectID ProjectID, body PostUserInboxArchivedJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetUserInboxCount request
-	GetUserInboxCount(ctx context.Context, params *GetUserInboxCountParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetUserInboxCount(ctx context.Context, projectID ProjectID, params *GetUserInboxCountParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PostUserInboxReadWithBody request with any body
-	PostUserInboxReadWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PostUserInboxReadWithBody(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	PostUserInboxRead(ctx context.Context, body PostUserInboxReadJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PostUserInboxRead(ctx context.Context, projectID ProjectID, body PostUserInboxReadJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteUserScheduledClientWithBody request with any body
-	DeleteUserScheduledClientWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DeleteUserScheduledClientWithBody(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	DeleteUserScheduledClient(ctx context.Context, body DeleteUserScheduledClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DeleteUserScheduledClient(ctx context.Context, projectID ProjectID, body DeleteUserScheduledClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// UpsertUserScheduledClientWithBody request with any body
-	UpsertUserScheduledClientWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	UpsertUserScheduledClientWithBody(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	UpsertUserScheduledClient(ctx context.Context, body UpsertUserScheduledClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	UpsertUserScheduledClient(ctx context.Context, projectID ProjectID, body UpsertUserScheduledClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetPreferencesPage request
 	GetPreferencesPage(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -848,8 +873,8 @@ type ClientInterface interface {
 	EmailUnsubscribe(ctx context.Context, params *EmailUnsubscribeParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
-func (c *Client) DeleteOrganizationClientWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteOrganizationClientRequestWithBody(c.Server, contentType, body)
+func (c *Client) CreateSessionWithBody(ctx context.Context, projectID ProjectID, authMethodID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateSessionRequestWithBody(c.Server, projectID, authMethodID, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -860,8 +885,8 @@ func (c *Client) DeleteOrganizationClientWithBody(ctx context.Context, contentTy
 	return c.Client.Do(req)
 }
 
-func (c *Client) DeleteOrganizationClient(ctx context.Context, body DeleteOrganizationClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteOrganizationClientRequest(c.Server, body)
+func (c *Client) CreateSession(ctx context.Context, projectID ProjectID, authMethodID openapi_types.UUID, body CreateSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateSessionRequest(c.Server, projectID, authMethodID, body)
 	if err != nil {
 		return nil, err
 	}
@@ -872,8 +897,8 @@ func (c *Client) DeleteOrganizationClient(ctx context.Context, body DeleteOrgani
 	return c.Client.Do(req)
 }
 
-func (c *Client) UpsertOrganizationClientWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpsertOrganizationClientRequestWithBody(c.Server, contentType, body)
+func (c *Client) DeleteOrganizationClientWithBody(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteOrganizationClientRequestWithBody(c.Server, projectID, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -884,8 +909,8 @@ func (c *Client) UpsertOrganizationClientWithBody(ctx context.Context, contentTy
 	return c.Client.Do(req)
 }
 
-func (c *Client) UpsertOrganizationClient(ctx context.Context, body UpsertOrganizationClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpsertOrganizationClientRequest(c.Server, body)
+func (c *Client) DeleteOrganizationClient(ctx context.Context, projectID ProjectID, body DeleteOrganizationClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteOrganizationClientRequest(c.Server, projectID, body)
 	if err != nil {
 		return nil, err
 	}
@@ -896,8 +921,8 @@ func (c *Client) UpsertOrganizationClient(ctx context.Context, body UpsertOrgani
 	return c.Client.Do(req)
 }
 
-func (c *Client) PostOrganizationEventsClientWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPostOrganizationEventsClientRequestWithBody(c.Server, contentType, body)
+func (c *Client) UpsertOrganizationClientWithBody(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpsertOrganizationClientRequestWithBody(c.Server, projectID, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -908,8 +933,8 @@ func (c *Client) PostOrganizationEventsClientWithBody(ctx context.Context, conte
 	return c.Client.Do(req)
 }
 
-func (c *Client) PostOrganizationEventsClient(ctx context.Context, body PostOrganizationEventsClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPostOrganizationEventsClientRequest(c.Server, body)
+func (c *Client) UpsertOrganizationClient(ctx context.Context, projectID ProjectID, body UpsertOrganizationClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpsertOrganizationClientRequest(c.Server, projectID, body)
 	if err != nil {
 		return nil, err
 	}
@@ -920,8 +945,8 @@ func (c *Client) PostOrganizationEventsClient(ctx context.Context, body PostOrga
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetOrganizationInbox(ctx context.Context, params *GetOrganizationInboxParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetOrganizationInboxRequest(c.Server, params)
+func (c *Client) PostOrganizationEventsClientWithBody(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostOrganizationEventsClientRequestWithBody(c.Server, projectID, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -932,8 +957,8 @@ func (c *Client) GetOrganizationInbox(ctx context.Context, params *GetOrganizati
 	return c.Client.Do(req)
 }
 
-func (c *Client) PostOrganizationInboxMessagesWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPostOrganizationInboxMessagesRequestWithBody(c.Server, contentType, body)
+func (c *Client) PostOrganizationEventsClient(ctx context.Context, projectID ProjectID, body PostOrganizationEventsClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostOrganizationEventsClientRequest(c.Server, projectID, body)
 	if err != nil {
 		return nil, err
 	}
@@ -944,8 +969,8 @@ func (c *Client) PostOrganizationInboxMessagesWithBody(ctx context.Context, cont
 	return c.Client.Do(req)
 }
 
-func (c *Client) PostOrganizationInboxMessages(ctx context.Context, body PostOrganizationInboxMessagesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPostOrganizationInboxMessagesRequest(c.Server, body)
+func (c *Client) GetOrganizationInbox(ctx context.Context, projectID ProjectID, params *GetOrganizationInboxParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetOrganizationInboxRequest(c.Server, projectID, params)
 	if err != nil {
 		return nil, err
 	}
@@ -956,8 +981,8 @@ func (c *Client) PostOrganizationInboxMessages(ctx context.Context, body PostOrg
 	return c.Client.Do(req)
 }
 
-func (c *Client) PostOrganizationInboxArchivedWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPostOrganizationInboxArchivedRequestWithBody(c.Server, contentType, body)
+func (c *Client) PostOrganizationInboxMessagesWithBody(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostOrganizationInboxMessagesRequestWithBody(c.Server, projectID, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -968,8 +993,8 @@ func (c *Client) PostOrganizationInboxArchivedWithBody(ctx context.Context, cont
 	return c.Client.Do(req)
 }
 
-func (c *Client) PostOrganizationInboxArchived(ctx context.Context, body PostOrganizationInboxArchivedJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPostOrganizationInboxArchivedRequest(c.Server, body)
+func (c *Client) PostOrganizationInboxMessages(ctx context.Context, projectID ProjectID, body PostOrganizationInboxMessagesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostOrganizationInboxMessagesRequest(c.Server, projectID, body)
 	if err != nil {
 		return nil, err
 	}
@@ -980,8 +1005,8 @@ func (c *Client) PostOrganizationInboxArchived(ctx context.Context, body PostOrg
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetOrganizationInboxCount(ctx context.Context, params *GetOrganizationInboxCountParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetOrganizationInboxCountRequest(c.Server, params)
+func (c *Client) PostOrganizationInboxArchivedWithBody(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostOrganizationInboxArchivedRequestWithBody(c.Server, projectID, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -992,8 +1017,8 @@ func (c *Client) GetOrganizationInboxCount(ctx context.Context, params *GetOrgan
 	return c.Client.Do(req)
 }
 
-func (c *Client) PostOrganizationInboxReadWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPostOrganizationInboxReadRequestWithBody(c.Server, contentType, body)
+func (c *Client) PostOrganizationInboxArchived(ctx context.Context, projectID ProjectID, body PostOrganizationInboxArchivedJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostOrganizationInboxArchivedRequest(c.Server, projectID, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1004,8 +1029,8 @@ func (c *Client) PostOrganizationInboxReadWithBody(ctx context.Context, contentT
 	return c.Client.Do(req)
 }
 
-func (c *Client) PostOrganizationInboxRead(ctx context.Context, body PostOrganizationInboxReadJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPostOrganizationInboxReadRequest(c.Server, body)
+func (c *Client) GetOrganizationInboxCount(ctx context.Context, projectID ProjectID, params *GetOrganizationInboxCountParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetOrganizationInboxCountRequest(c.Server, projectID, params)
 	if err != nil {
 		return nil, err
 	}
@@ -1016,8 +1041,8 @@ func (c *Client) PostOrganizationInboxRead(ctx context.Context, body PostOrganiz
 	return c.Client.Do(req)
 }
 
-func (c *Client) DeleteOrganizationScheduledClientWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteOrganizationScheduledClientRequestWithBody(c.Server, contentType, body)
+func (c *Client) PostOrganizationInboxReadWithBody(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostOrganizationInboxReadRequestWithBody(c.Server, projectID, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1028,8 +1053,8 @@ func (c *Client) DeleteOrganizationScheduledClientWithBody(ctx context.Context, 
 	return c.Client.Do(req)
 }
 
-func (c *Client) DeleteOrganizationScheduledClient(ctx context.Context, body DeleteOrganizationScheduledClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteOrganizationScheduledClientRequest(c.Server, body)
+func (c *Client) PostOrganizationInboxRead(ctx context.Context, projectID ProjectID, body PostOrganizationInboxReadJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostOrganizationInboxReadRequest(c.Server, projectID, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1040,8 +1065,8 @@ func (c *Client) DeleteOrganizationScheduledClient(ctx context.Context, body Del
 	return c.Client.Do(req)
 }
 
-func (c *Client) UpsertOrganizationScheduledClientWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpsertOrganizationScheduledClientRequestWithBody(c.Server, contentType, body)
+func (c *Client) DeleteOrganizationScheduledClientWithBody(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteOrganizationScheduledClientRequestWithBody(c.Server, projectID, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1052,8 +1077,8 @@ func (c *Client) UpsertOrganizationScheduledClientWithBody(ctx context.Context, 
 	return c.Client.Do(req)
 }
 
-func (c *Client) UpsertOrganizationScheduledClient(ctx context.Context, body UpsertOrganizationScheduledClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpsertOrganizationScheduledClientRequest(c.Server, body)
+func (c *Client) DeleteOrganizationScheduledClient(ctx context.Context, projectID ProjectID, body DeleteOrganizationScheduledClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteOrganizationScheduledClientRequest(c.Server, projectID, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1064,8 +1089,8 @@ func (c *Client) UpsertOrganizationScheduledClient(ctx context.Context, body Ups
 	return c.Client.Do(req)
 }
 
-func (c *Client) RemoveOrganizationUserClientWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewRemoveOrganizationUserClientRequestWithBody(c.Server, contentType, body)
+func (c *Client) UpsertOrganizationScheduledClientWithBody(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpsertOrganizationScheduledClientRequestWithBody(c.Server, projectID, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1076,8 +1101,8 @@ func (c *Client) RemoveOrganizationUserClientWithBody(ctx context.Context, conte
 	return c.Client.Do(req)
 }
 
-func (c *Client) RemoveOrganizationUserClient(ctx context.Context, body RemoveOrganizationUserClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewRemoveOrganizationUserClientRequest(c.Server, body)
+func (c *Client) UpsertOrganizationScheduledClient(ctx context.Context, projectID ProjectID, body UpsertOrganizationScheduledClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpsertOrganizationScheduledClientRequest(c.Server, projectID, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1088,8 +1113,8 @@ func (c *Client) RemoveOrganizationUserClient(ctx context.Context, body RemoveOr
 	return c.Client.Do(req)
 }
 
-func (c *Client) AddOrganizationUserClientWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewAddOrganizationUserClientRequestWithBody(c.Server, contentType, body)
+func (c *Client) RemoveOrganizationUserClientWithBody(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRemoveOrganizationUserClientRequestWithBody(c.Server, projectID, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1100,8 +1125,8 @@ func (c *Client) AddOrganizationUserClientWithBody(ctx context.Context, contentT
 	return c.Client.Do(req)
 }
 
-func (c *Client) AddOrganizationUserClient(ctx context.Context, body AddOrganizationUserClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewAddOrganizationUserClientRequest(c.Server, body)
+func (c *Client) RemoveOrganizationUserClient(ctx context.Context, projectID ProjectID, body RemoveOrganizationUserClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRemoveOrganizationUserClientRequest(c.Server, projectID, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1112,8 +1137,8 @@ func (c *Client) AddOrganizationUserClient(ctx context.Context, body AddOrganiza
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetVapidPublicKey(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetVapidPublicKeyRequest(c.Server)
+func (c *Client) AddOrganizationUserClientWithBody(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAddOrganizationUserClientRequestWithBody(c.Server, projectID, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1124,8 +1149,8 @@ func (c *Client) GetVapidPublicKey(ctx context.Context, reqEditors ...RequestEdi
 	return c.Client.Do(req)
 }
 
-func (c *Client) DeleteUserClientWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteUserClientRequestWithBody(c.Server, contentType, body)
+func (c *Client) AddOrganizationUserClient(ctx context.Context, projectID ProjectID, body AddOrganizationUserClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAddOrganizationUserClientRequest(c.Server, projectID, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1136,8 +1161,8 @@ func (c *Client) DeleteUserClientWithBody(ctx context.Context, contentType strin
 	return c.Client.Do(req)
 }
 
-func (c *Client) DeleteUserClient(ctx context.Context, body DeleteUserClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteUserClientRequest(c.Server, body)
+func (c *Client) GetVapidPublicKey(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetVapidPublicKeyRequest(c.Server, projectID)
 	if err != nil {
 		return nil, err
 	}
@@ -1148,8 +1173,8 @@ func (c *Client) DeleteUserClient(ctx context.Context, body DeleteUserClientJSON
 	return c.Client.Do(req)
 }
 
-func (c *Client) UpsertUserClientWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpsertUserClientRequestWithBody(c.Server, contentType, body)
+func (c *Client) DeleteUserClientWithBody(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteUserClientRequestWithBody(c.Server, projectID, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1160,8 +1185,8 @@ func (c *Client) UpsertUserClientWithBody(ctx context.Context, contentType strin
 	return c.Client.Do(req)
 }
 
-func (c *Client) UpsertUserClient(ctx context.Context, body UpsertUserClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpsertUserClientRequest(c.Server, body)
+func (c *Client) DeleteUserClient(ctx context.Context, projectID ProjectID, body DeleteUserClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteUserClientRequest(c.Server, projectID, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1172,8 +1197,8 @@ func (c *Client) UpsertUserClient(ctx context.Context, body UpsertUserClientJSON
 	return c.Client.Do(req)
 }
 
-func (c *Client) RegisterDeviceWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewRegisterDeviceRequestWithBody(c.Server, contentType, body)
+func (c *Client) UpsertUserClientWithBody(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpsertUserClientRequestWithBody(c.Server, projectID, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1184,8 +1209,8 @@ func (c *Client) RegisterDeviceWithBody(ctx context.Context, contentType string,
 	return c.Client.Do(req)
 }
 
-func (c *Client) RegisterDevice(ctx context.Context, body RegisterDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewRegisterDeviceRequest(c.Server, body)
+func (c *Client) UpsertUserClient(ctx context.Context, projectID ProjectID, body UpsertUserClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpsertUserClientRequest(c.Server, projectID, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1196,8 +1221,8 @@ func (c *Client) RegisterDevice(ctx context.Context, body RegisterDeviceJSONRequ
 	return c.Client.Do(req)
 }
 
-func (c *Client) PostUserEventsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPostUserEventsRequestWithBody(c.Server, contentType, body)
+func (c *Client) RegisterDeviceWithBody(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRegisterDeviceRequestWithBody(c.Server, projectID, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1208,8 +1233,8 @@ func (c *Client) PostUserEventsWithBody(ctx context.Context, contentType string,
 	return c.Client.Do(req)
 }
 
-func (c *Client) PostUserEvents(ctx context.Context, body PostUserEventsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPostUserEventsRequest(c.Server, body)
+func (c *Client) RegisterDevice(ctx context.Context, projectID ProjectID, body RegisterDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRegisterDeviceRequest(c.Server, projectID, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1220,8 +1245,8 @@ func (c *Client) PostUserEvents(ctx context.Context, body PostUserEventsJSONRequ
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetUserInbox(ctx context.Context, params *GetUserInboxParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetUserInboxRequest(c.Server, params)
+func (c *Client) PostUserEventsWithBody(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostUserEventsRequestWithBody(c.Server, projectID, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1232,8 +1257,8 @@ func (c *Client) GetUserInbox(ctx context.Context, params *GetUserInboxParams, r
 	return c.Client.Do(req)
 }
 
-func (c *Client) PostUserInboxMessagesWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPostUserInboxMessagesRequestWithBody(c.Server, contentType, body)
+func (c *Client) PostUserEvents(ctx context.Context, projectID ProjectID, body PostUserEventsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostUserEventsRequest(c.Server, projectID, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1244,8 +1269,8 @@ func (c *Client) PostUserInboxMessagesWithBody(ctx context.Context, contentType 
 	return c.Client.Do(req)
 }
 
-func (c *Client) PostUserInboxMessages(ctx context.Context, body PostUserInboxMessagesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPostUserInboxMessagesRequest(c.Server, body)
+func (c *Client) GetUserInbox(ctx context.Context, projectID ProjectID, params *GetUserInboxParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetUserInboxRequest(c.Server, projectID, params)
 	if err != nil {
 		return nil, err
 	}
@@ -1256,8 +1281,8 @@ func (c *Client) PostUserInboxMessages(ctx context.Context, body PostUserInboxMe
 	return c.Client.Do(req)
 }
 
-func (c *Client) PostUserInboxArchivedWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPostUserInboxArchivedRequestWithBody(c.Server, contentType, body)
+func (c *Client) PostUserInboxMessagesWithBody(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostUserInboxMessagesRequestWithBody(c.Server, projectID, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1268,8 +1293,8 @@ func (c *Client) PostUserInboxArchivedWithBody(ctx context.Context, contentType 
 	return c.Client.Do(req)
 }
 
-func (c *Client) PostUserInboxArchived(ctx context.Context, body PostUserInboxArchivedJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPostUserInboxArchivedRequest(c.Server, body)
+func (c *Client) PostUserInboxMessages(ctx context.Context, projectID ProjectID, body PostUserInboxMessagesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostUserInboxMessagesRequest(c.Server, projectID, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1280,8 +1305,8 @@ func (c *Client) PostUserInboxArchived(ctx context.Context, body PostUserInboxAr
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetUserInboxCount(ctx context.Context, params *GetUserInboxCountParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetUserInboxCountRequest(c.Server, params)
+func (c *Client) PostUserInboxArchivedWithBody(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostUserInboxArchivedRequestWithBody(c.Server, projectID, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1292,8 +1317,8 @@ func (c *Client) GetUserInboxCount(ctx context.Context, params *GetUserInboxCoun
 	return c.Client.Do(req)
 }
 
-func (c *Client) PostUserInboxReadWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPostUserInboxReadRequestWithBody(c.Server, contentType, body)
+func (c *Client) PostUserInboxArchived(ctx context.Context, projectID ProjectID, body PostUserInboxArchivedJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostUserInboxArchivedRequest(c.Server, projectID, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1304,8 +1329,8 @@ func (c *Client) PostUserInboxReadWithBody(ctx context.Context, contentType stri
 	return c.Client.Do(req)
 }
 
-func (c *Client) PostUserInboxRead(ctx context.Context, body PostUserInboxReadJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPostUserInboxReadRequest(c.Server, body)
+func (c *Client) GetUserInboxCount(ctx context.Context, projectID ProjectID, params *GetUserInboxCountParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetUserInboxCountRequest(c.Server, projectID, params)
 	if err != nil {
 		return nil, err
 	}
@@ -1316,8 +1341,8 @@ func (c *Client) PostUserInboxRead(ctx context.Context, body PostUserInboxReadJS
 	return c.Client.Do(req)
 }
 
-func (c *Client) DeleteUserScheduledClientWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteUserScheduledClientRequestWithBody(c.Server, contentType, body)
+func (c *Client) PostUserInboxReadWithBody(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostUserInboxReadRequestWithBody(c.Server, projectID, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1328,8 +1353,8 @@ func (c *Client) DeleteUserScheduledClientWithBody(ctx context.Context, contentT
 	return c.Client.Do(req)
 }
 
-func (c *Client) DeleteUserScheduledClient(ctx context.Context, body DeleteUserScheduledClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteUserScheduledClientRequest(c.Server, body)
+func (c *Client) PostUserInboxRead(ctx context.Context, projectID ProjectID, body PostUserInboxReadJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostUserInboxReadRequest(c.Server, projectID, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1340,8 +1365,8 @@ func (c *Client) DeleteUserScheduledClient(ctx context.Context, body DeleteUserS
 	return c.Client.Do(req)
 }
 
-func (c *Client) UpsertUserScheduledClientWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpsertUserScheduledClientRequestWithBody(c.Server, contentType, body)
+func (c *Client) DeleteUserScheduledClientWithBody(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteUserScheduledClientRequestWithBody(c.Server, projectID, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1352,8 +1377,32 @@ func (c *Client) UpsertUserScheduledClientWithBody(ctx context.Context, contentT
 	return c.Client.Do(req)
 }
 
-func (c *Client) UpsertUserScheduledClient(ctx context.Context, body UpsertUserScheduledClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpsertUserScheduledClientRequest(c.Server, body)
+func (c *Client) DeleteUserScheduledClient(ctx context.Context, projectID ProjectID, body DeleteUserScheduledClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteUserScheduledClientRequest(c.Server, projectID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpsertUserScheduledClientWithBody(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpsertUserScheduledClientRequestWithBody(c.Server, projectID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpsertUserScheduledClient(ctx context.Context, projectID ProjectID, body UpsertUserScheduledClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpsertUserScheduledClientRequest(c.Server, projectID, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1412,27 +1461,88 @@ func (c *Client) EmailUnsubscribe(ctx context.Context, params *EmailUnsubscribeP
 	return c.Client.Do(req)
 }
 
-// NewDeleteOrganizationClientRequest calls the generic DeleteOrganizationClient builder with application/json body
-func NewDeleteOrganizationClientRequest(server string, body DeleteOrganizationClientJSONRequestBody) (*http.Request, error) {
+// NewCreateSessionRequest calls the generic CreateSession builder with application/json body
+func NewCreateSessionRequest(server string, projectID ProjectID, authMethodID openapi_types.UUID, body CreateSessionJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewDeleteOrganizationClientRequestWithBody(server, "application/json", bodyReader)
+	return NewCreateSessionRequestWithBody(server, projectID, authMethodID, "application/json", bodyReader)
 }
 
-// NewDeleteOrganizationClientRequestWithBody generates requests for DeleteOrganizationClient with any type of body
-func NewDeleteOrganizationClientRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+// NewCreateSessionRequestWithBody generates requests for CreateSession with any type of body
+func NewCreateSessionRequestWithBody(server string, projectID ProjectID, authMethodID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "authMethodID", authMethodID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
 
 	serverURL, err := url.Parse(server)
 	if err != nil {
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/client/organizations")
+	operationPath := fmt.Sprintf("/api/client/projects/%s/auth-methods/%s/sessions", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteOrganizationClientRequest calls the generic DeleteOrganizationClient builder with application/json body
+func NewDeleteOrganizationClientRequest(server string, projectID ProjectID, body DeleteOrganizationClientJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewDeleteOrganizationClientRequestWithBody(server, projectID, "application/json", bodyReader)
+}
+
+// NewDeleteOrganizationClientRequestWithBody generates requests for DeleteOrganizationClient with any type of body
+func NewDeleteOrganizationClientRequestWithBody(server string, projectID ProjectID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/client/projects/%s/organizations", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -1453,26 +1563,33 @@ func NewDeleteOrganizationClientRequestWithBody(server string, contentType strin
 }
 
 // NewUpsertOrganizationClientRequest calls the generic UpsertOrganizationClient builder with application/json body
-func NewUpsertOrganizationClientRequest(server string, body UpsertOrganizationClientJSONRequestBody) (*http.Request, error) {
+func NewUpsertOrganizationClientRequest(server string, projectID ProjectID, body UpsertOrganizationClientJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewUpsertOrganizationClientRequestWithBody(server, "application/json", bodyReader)
+	return NewUpsertOrganizationClientRequestWithBody(server, projectID, "application/json", bodyReader)
 }
 
 // NewUpsertOrganizationClientRequestWithBody generates requests for UpsertOrganizationClient with any type of body
-func NewUpsertOrganizationClientRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+func NewUpsertOrganizationClientRequestWithBody(server string, projectID ProjectID, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
 
 	serverURL, err := url.Parse(server)
 	if err != nil {
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/client/organizations")
+	operationPath := fmt.Sprintf("/api/client/projects/%s/organizations", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -1493,26 +1610,33 @@ func NewUpsertOrganizationClientRequestWithBody(server string, contentType strin
 }
 
 // NewPostOrganizationEventsClientRequest calls the generic PostOrganizationEventsClient builder with application/json body
-func NewPostOrganizationEventsClientRequest(server string, body PostOrganizationEventsClientJSONRequestBody) (*http.Request, error) {
+func NewPostOrganizationEventsClientRequest(server string, projectID ProjectID, body PostOrganizationEventsClientJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewPostOrganizationEventsClientRequestWithBody(server, "application/json", bodyReader)
+	return NewPostOrganizationEventsClientRequestWithBody(server, projectID, "application/json", bodyReader)
 }
 
 // NewPostOrganizationEventsClientRequestWithBody generates requests for PostOrganizationEventsClient with any type of body
-func NewPostOrganizationEventsClientRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+func NewPostOrganizationEventsClientRequestWithBody(server string, projectID ProjectID, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
 
 	serverURL, err := url.Parse(server)
 	if err != nil {
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/client/organizations/events")
+	operationPath := fmt.Sprintf("/api/client/projects/%s/organizations/events", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -1533,15 +1657,22 @@ func NewPostOrganizationEventsClientRequestWithBody(server string, contentType s
 }
 
 // NewGetOrganizationInboxRequest generates requests for GetOrganizationInbox
-func NewGetOrganizationInboxRequest(server string, params *GetOrganizationInboxParams) (*http.Request, error) {
+func NewGetOrganizationInboxRequest(server string, projectID ProjectID, params *GetOrganizationInboxParams) (*http.Request, error) {
 	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
 
 	serverURL, err := url.Parse(server)
 	if err != nil {
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/client/organizations/inbox")
+	operationPath := fmt.Sprintf("/api/client/projects/%s/organizations/inbox", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -1671,26 +1802,33 @@ func NewGetOrganizationInboxRequest(server string, params *GetOrganizationInboxP
 }
 
 // NewPostOrganizationInboxMessagesRequest calls the generic PostOrganizationInboxMessages builder with application/json body
-func NewPostOrganizationInboxMessagesRequest(server string, body PostOrganizationInboxMessagesJSONRequestBody) (*http.Request, error) {
+func NewPostOrganizationInboxMessagesRequest(server string, projectID ProjectID, body PostOrganizationInboxMessagesJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewPostOrganizationInboxMessagesRequestWithBody(server, "application/json", bodyReader)
+	return NewPostOrganizationInboxMessagesRequestWithBody(server, projectID, "application/json", bodyReader)
 }
 
 // NewPostOrganizationInboxMessagesRequestWithBody generates requests for PostOrganizationInboxMessages with any type of body
-func NewPostOrganizationInboxMessagesRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+func NewPostOrganizationInboxMessagesRequestWithBody(server string, projectID ProjectID, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
 
 	serverURL, err := url.Parse(server)
 	if err != nil {
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/client/organizations/inbox")
+	operationPath := fmt.Sprintf("/api/client/projects/%s/organizations/inbox", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -1711,26 +1849,33 @@ func NewPostOrganizationInboxMessagesRequestWithBody(server string, contentType 
 }
 
 // NewPostOrganizationInboxArchivedRequest calls the generic PostOrganizationInboxArchived builder with application/json body
-func NewPostOrganizationInboxArchivedRequest(server string, body PostOrganizationInboxArchivedJSONRequestBody) (*http.Request, error) {
+func NewPostOrganizationInboxArchivedRequest(server string, projectID ProjectID, body PostOrganizationInboxArchivedJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewPostOrganizationInboxArchivedRequestWithBody(server, "application/json", bodyReader)
+	return NewPostOrganizationInboxArchivedRequestWithBody(server, projectID, "application/json", bodyReader)
 }
 
 // NewPostOrganizationInboxArchivedRequestWithBody generates requests for PostOrganizationInboxArchived with any type of body
-func NewPostOrganizationInboxArchivedRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+func NewPostOrganizationInboxArchivedRequestWithBody(server string, projectID ProjectID, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
 
 	serverURL, err := url.Parse(server)
 	if err != nil {
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/client/organizations/inbox/archived")
+	operationPath := fmt.Sprintf("/api/client/projects/%s/organizations/inbox/archived", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -1751,15 +1896,22 @@ func NewPostOrganizationInboxArchivedRequestWithBody(server string, contentType 
 }
 
 // NewGetOrganizationInboxCountRequest generates requests for GetOrganizationInboxCount
-func NewGetOrganizationInboxCountRequest(server string, params *GetOrganizationInboxCountParams) (*http.Request, error) {
+func NewGetOrganizationInboxCountRequest(server string, projectID ProjectID, params *GetOrganizationInboxCountParams) (*http.Request, error) {
 	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
 
 	serverURL, err := url.Parse(server)
 	if err != nil {
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/client/organizations/inbox/count")
+	operationPath := fmt.Sprintf("/api/client/projects/%s/organizations/inbox/count", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -1817,26 +1969,33 @@ func NewGetOrganizationInboxCountRequest(server string, params *GetOrganizationI
 }
 
 // NewPostOrganizationInboxReadRequest calls the generic PostOrganizationInboxRead builder with application/json body
-func NewPostOrganizationInboxReadRequest(server string, body PostOrganizationInboxReadJSONRequestBody) (*http.Request, error) {
+func NewPostOrganizationInboxReadRequest(server string, projectID ProjectID, body PostOrganizationInboxReadJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewPostOrganizationInboxReadRequestWithBody(server, "application/json", bodyReader)
+	return NewPostOrganizationInboxReadRequestWithBody(server, projectID, "application/json", bodyReader)
 }
 
 // NewPostOrganizationInboxReadRequestWithBody generates requests for PostOrganizationInboxRead with any type of body
-func NewPostOrganizationInboxReadRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+func NewPostOrganizationInboxReadRequestWithBody(server string, projectID ProjectID, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
 
 	serverURL, err := url.Parse(server)
 	if err != nil {
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/client/organizations/inbox/read")
+	operationPath := fmt.Sprintf("/api/client/projects/%s/organizations/inbox/read", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -1857,26 +2016,33 @@ func NewPostOrganizationInboxReadRequestWithBody(server string, contentType stri
 }
 
 // NewDeleteOrganizationScheduledClientRequest calls the generic DeleteOrganizationScheduledClient builder with application/json body
-func NewDeleteOrganizationScheduledClientRequest(server string, body DeleteOrganizationScheduledClientJSONRequestBody) (*http.Request, error) {
+func NewDeleteOrganizationScheduledClientRequest(server string, projectID ProjectID, body DeleteOrganizationScheduledClientJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewDeleteOrganizationScheduledClientRequestWithBody(server, "application/json", bodyReader)
+	return NewDeleteOrganizationScheduledClientRequestWithBody(server, projectID, "application/json", bodyReader)
 }
 
 // NewDeleteOrganizationScheduledClientRequestWithBody generates requests for DeleteOrganizationScheduledClient with any type of body
-func NewDeleteOrganizationScheduledClientRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+func NewDeleteOrganizationScheduledClientRequestWithBody(server string, projectID ProjectID, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
 
 	serverURL, err := url.Parse(server)
 	if err != nil {
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/client/organizations/scheduled")
+	operationPath := fmt.Sprintf("/api/client/projects/%s/organizations/scheduled", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -1897,26 +2063,33 @@ func NewDeleteOrganizationScheduledClientRequestWithBody(server string, contentT
 }
 
 // NewUpsertOrganizationScheduledClientRequest calls the generic UpsertOrganizationScheduledClient builder with application/json body
-func NewUpsertOrganizationScheduledClientRequest(server string, body UpsertOrganizationScheduledClientJSONRequestBody) (*http.Request, error) {
+func NewUpsertOrganizationScheduledClientRequest(server string, projectID ProjectID, body UpsertOrganizationScheduledClientJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewUpsertOrganizationScheduledClientRequestWithBody(server, "application/json", bodyReader)
+	return NewUpsertOrganizationScheduledClientRequestWithBody(server, projectID, "application/json", bodyReader)
 }
 
 // NewUpsertOrganizationScheduledClientRequestWithBody generates requests for UpsertOrganizationScheduledClient with any type of body
-func NewUpsertOrganizationScheduledClientRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+func NewUpsertOrganizationScheduledClientRequestWithBody(server string, projectID ProjectID, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
 
 	serverURL, err := url.Parse(server)
 	if err != nil {
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/client/organizations/scheduled")
+	operationPath := fmt.Sprintf("/api/client/projects/%s/organizations/scheduled", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -1937,26 +2110,33 @@ func NewUpsertOrganizationScheduledClientRequestWithBody(server string, contentT
 }
 
 // NewRemoveOrganizationUserClientRequest calls the generic RemoveOrganizationUserClient builder with application/json body
-func NewRemoveOrganizationUserClientRequest(server string, body RemoveOrganizationUserClientJSONRequestBody) (*http.Request, error) {
+func NewRemoveOrganizationUserClientRequest(server string, projectID ProjectID, body RemoveOrganizationUserClientJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewRemoveOrganizationUserClientRequestWithBody(server, "application/json", bodyReader)
+	return NewRemoveOrganizationUserClientRequestWithBody(server, projectID, "application/json", bodyReader)
 }
 
 // NewRemoveOrganizationUserClientRequestWithBody generates requests for RemoveOrganizationUserClient with any type of body
-func NewRemoveOrganizationUserClientRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+func NewRemoveOrganizationUserClientRequestWithBody(server string, projectID ProjectID, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
 
 	serverURL, err := url.Parse(server)
 	if err != nil {
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/client/organizations/users")
+	operationPath := fmt.Sprintf("/api/client/projects/%s/organizations/users", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -1977,26 +2157,33 @@ func NewRemoveOrganizationUserClientRequestWithBody(server string, contentType s
 }
 
 // NewAddOrganizationUserClientRequest calls the generic AddOrganizationUserClient builder with application/json body
-func NewAddOrganizationUserClientRequest(server string, body AddOrganizationUserClientJSONRequestBody) (*http.Request, error) {
+func NewAddOrganizationUserClientRequest(server string, projectID ProjectID, body AddOrganizationUserClientJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewAddOrganizationUserClientRequestWithBody(server, "application/json", bodyReader)
+	return NewAddOrganizationUserClientRequestWithBody(server, projectID, "application/json", bodyReader)
 }
 
 // NewAddOrganizationUserClientRequestWithBody generates requests for AddOrganizationUserClient with any type of body
-func NewAddOrganizationUserClientRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+func NewAddOrganizationUserClientRequestWithBody(server string, projectID ProjectID, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
 
 	serverURL, err := url.Parse(server)
 	if err != nil {
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/client/organizations/users")
+	operationPath := fmt.Sprintf("/api/client/projects/%s/organizations/users", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -2017,15 +2204,22 @@ func NewAddOrganizationUserClientRequestWithBody(server string, contentType stri
 }
 
 // NewGetVapidPublicKeyRequest generates requests for GetVapidPublicKey
-func NewGetVapidPublicKeyRequest(server string) (*http.Request, error) {
+func NewGetVapidPublicKeyRequest(server string, projectID ProjectID) (*http.Request, error) {
 	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
 
 	serverURL, err := url.Parse(server)
 	if err != nil {
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/client/push/vapid")
+	operationPath := fmt.Sprintf("/api/client/projects/%s/push/vapid", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -2044,26 +2238,33 @@ func NewGetVapidPublicKeyRequest(server string) (*http.Request, error) {
 }
 
 // NewDeleteUserClientRequest calls the generic DeleteUserClient builder with application/json body
-func NewDeleteUserClientRequest(server string, body DeleteUserClientJSONRequestBody) (*http.Request, error) {
+func NewDeleteUserClientRequest(server string, projectID ProjectID, body DeleteUserClientJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewDeleteUserClientRequestWithBody(server, "application/json", bodyReader)
+	return NewDeleteUserClientRequestWithBody(server, projectID, "application/json", bodyReader)
 }
 
 // NewDeleteUserClientRequestWithBody generates requests for DeleteUserClient with any type of body
-func NewDeleteUserClientRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+func NewDeleteUserClientRequestWithBody(server string, projectID ProjectID, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
 
 	serverURL, err := url.Parse(server)
 	if err != nil {
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/client/users")
+	operationPath := fmt.Sprintf("/api/client/projects/%s/users", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -2084,26 +2285,33 @@ func NewDeleteUserClientRequestWithBody(server string, contentType string, body 
 }
 
 // NewUpsertUserClientRequest calls the generic UpsertUserClient builder with application/json body
-func NewUpsertUserClientRequest(server string, body UpsertUserClientJSONRequestBody) (*http.Request, error) {
+func NewUpsertUserClientRequest(server string, projectID ProjectID, body UpsertUserClientJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewUpsertUserClientRequestWithBody(server, "application/json", bodyReader)
+	return NewUpsertUserClientRequestWithBody(server, projectID, "application/json", bodyReader)
 }
 
 // NewUpsertUserClientRequestWithBody generates requests for UpsertUserClient with any type of body
-func NewUpsertUserClientRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+func NewUpsertUserClientRequestWithBody(server string, projectID ProjectID, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
 
 	serverURL, err := url.Parse(server)
 	if err != nil {
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/client/users")
+	operationPath := fmt.Sprintf("/api/client/projects/%s/users", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -2124,26 +2332,33 @@ func NewUpsertUserClientRequestWithBody(server string, contentType string, body 
 }
 
 // NewRegisterDeviceRequest calls the generic RegisterDevice builder with application/json body
-func NewRegisterDeviceRequest(server string, body RegisterDeviceJSONRequestBody) (*http.Request, error) {
+func NewRegisterDeviceRequest(server string, projectID ProjectID, body RegisterDeviceJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewRegisterDeviceRequestWithBody(server, "application/json", bodyReader)
+	return NewRegisterDeviceRequestWithBody(server, projectID, "application/json", bodyReader)
 }
 
 // NewRegisterDeviceRequestWithBody generates requests for RegisterDevice with any type of body
-func NewRegisterDeviceRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+func NewRegisterDeviceRequestWithBody(server string, projectID ProjectID, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
 
 	serverURL, err := url.Parse(server)
 	if err != nil {
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/client/users/devices")
+	operationPath := fmt.Sprintf("/api/client/projects/%s/users/devices", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -2164,26 +2379,33 @@ func NewRegisterDeviceRequestWithBody(server string, contentType string, body io
 }
 
 // NewPostUserEventsRequest calls the generic PostUserEvents builder with application/json body
-func NewPostUserEventsRequest(server string, body PostUserEventsJSONRequestBody) (*http.Request, error) {
+func NewPostUserEventsRequest(server string, projectID ProjectID, body PostUserEventsJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewPostUserEventsRequestWithBody(server, "application/json", bodyReader)
+	return NewPostUserEventsRequestWithBody(server, projectID, "application/json", bodyReader)
 }
 
 // NewPostUserEventsRequestWithBody generates requests for PostUserEvents with any type of body
-func NewPostUserEventsRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+func NewPostUserEventsRequestWithBody(server string, projectID ProjectID, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
 
 	serverURL, err := url.Parse(server)
 	if err != nil {
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/client/users/events")
+	operationPath := fmt.Sprintf("/api/client/projects/%s/users/events", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -2204,15 +2426,22 @@ func NewPostUserEventsRequestWithBody(server string, contentType string, body io
 }
 
 // NewGetUserInboxRequest generates requests for GetUserInbox
-func NewGetUserInboxRequest(server string, params *GetUserInboxParams) (*http.Request, error) {
+func NewGetUserInboxRequest(server string, projectID ProjectID, params *GetUserInboxParams) (*http.Request, error) {
 	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
 
 	serverURL, err := url.Parse(server)
 	if err != nil {
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/client/users/inbox")
+	operationPath := fmt.Sprintf("/api/client/projects/%s/users/inbox", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -2342,26 +2571,33 @@ func NewGetUserInboxRequest(server string, params *GetUserInboxParams) (*http.Re
 }
 
 // NewPostUserInboxMessagesRequest calls the generic PostUserInboxMessages builder with application/json body
-func NewPostUserInboxMessagesRequest(server string, body PostUserInboxMessagesJSONRequestBody) (*http.Request, error) {
+func NewPostUserInboxMessagesRequest(server string, projectID ProjectID, body PostUserInboxMessagesJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewPostUserInboxMessagesRequestWithBody(server, "application/json", bodyReader)
+	return NewPostUserInboxMessagesRequestWithBody(server, projectID, "application/json", bodyReader)
 }
 
 // NewPostUserInboxMessagesRequestWithBody generates requests for PostUserInboxMessages with any type of body
-func NewPostUserInboxMessagesRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+func NewPostUserInboxMessagesRequestWithBody(server string, projectID ProjectID, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
 
 	serverURL, err := url.Parse(server)
 	if err != nil {
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/client/users/inbox")
+	operationPath := fmt.Sprintf("/api/client/projects/%s/users/inbox", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -2382,26 +2618,33 @@ func NewPostUserInboxMessagesRequestWithBody(server string, contentType string, 
 }
 
 // NewPostUserInboxArchivedRequest calls the generic PostUserInboxArchived builder with application/json body
-func NewPostUserInboxArchivedRequest(server string, body PostUserInboxArchivedJSONRequestBody) (*http.Request, error) {
+func NewPostUserInboxArchivedRequest(server string, projectID ProjectID, body PostUserInboxArchivedJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewPostUserInboxArchivedRequestWithBody(server, "application/json", bodyReader)
+	return NewPostUserInboxArchivedRequestWithBody(server, projectID, "application/json", bodyReader)
 }
 
 // NewPostUserInboxArchivedRequestWithBody generates requests for PostUserInboxArchived with any type of body
-func NewPostUserInboxArchivedRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+func NewPostUserInboxArchivedRequestWithBody(server string, projectID ProjectID, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
 
 	serverURL, err := url.Parse(server)
 	if err != nil {
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/client/users/inbox/archived")
+	operationPath := fmt.Sprintf("/api/client/projects/%s/users/inbox/archived", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -2422,15 +2665,22 @@ func NewPostUserInboxArchivedRequestWithBody(server string, contentType string, 
 }
 
 // NewGetUserInboxCountRequest generates requests for GetUserInboxCount
-func NewGetUserInboxCountRequest(server string, params *GetUserInboxCountParams) (*http.Request, error) {
+func NewGetUserInboxCountRequest(server string, projectID ProjectID, params *GetUserInboxCountParams) (*http.Request, error) {
 	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
 
 	serverURL, err := url.Parse(server)
 	if err != nil {
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/client/users/inbox/count")
+	operationPath := fmt.Sprintf("/api/client/projects/%s/users/inbox/count", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -2488,26 +2738,33 @@ func NewGetUserInboxCountRequest(server string, params *GetUserInboxCountParams)
 }
 
 // NewPostUserInboxReadRequest calls the generic PostUserInboxRead builder with application/json body
-func NewPostUserInboxReadRequest(server string, body PostUserInboxReadJSONRequestBody) (*http.Request, error) {
+func NewPostUserInboxReadRequest(server string, projectID ProjectID, body PostUserInboxReadJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewPostUserInboxReadRequestWithBody(server, "application/json", bodyReader)
+	return NewPostUserInboxReadRequestWithBody(server, projectID, "application/json", bodyReader)
 }
 
 // NewPostUserInboxReadRequestWithBody generates requests for PostUserInboxRead with any type of body
-func NewPostUserInboxReadRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+func NewPostUserInboxReadRequestWithBody(server string, projectID ProjectID, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
 
 	serverURL, err := url.Parse(server)
 	if err != nil {
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/client/users/inbox/read")
+	operationPath := fmt.Sprintf("/api/client/projects/%s/users/inbox/read", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -2528,26 +2785,33 @@ func NewPostUserInboxReadRequestWithBody(server string, contentType string, body
 }
 
 // NewDeleteUserScheduledClientRequest calls the generic DeleteUserScheduledClient builder with application/json body
-func NewDeleteUserScheduledClientRequest(server string, body DeleteUserScheduledClientJSONRequestBody) (*http.Request, error) {
+func NewDeleteUserScheduledClientRequest(server string, projectID ProjectID, body DeleteUserScheduledClientJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewDeleteUserScheduledClientRequestWithBody(server, "application/json", bodyReader)
+	return NewDeleteUserScheduledClientRequestWithBody(server, projectID, "application/json", bodyReader)
 }
 
 // NewDeleteUserScheduledClientRequestWithBody generates requests for DeleteUserScheduledClient with any type of body
-func NewDeleteUserScheduledClientRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+func NewDeleteUserScheduledClientRequestWithBody(server string, projectID ProjectID, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
 
 	serverURL, err := url.Parse(server)
 	if err != nil {
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/client/users/scheduled")
+	operationPath := fmt.Sprintf("/api/client/projects/%s/users/scheduled", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -2568,26 +2832,33 @@ func NewDeleteUserScheduledClientRequestWithBody(server string, contentType stri
 }
 
 // NewUpsertUserScheduledClientRequest calls the generic UpsertUserScheduledClient builder with application/json body
-func NewUpsertUserScheduledClientRequest(server string, body UpsertUserScheduledClientJSONRequestBody) (*http.Request, error) {
+func NewUpsertUserScheduledClientRequest(server string, projectID ProjectID, body UpsertUserScheduledClientJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewUpsertUserScheduledClientRequestWithBody(server, "application/json", bodyReader)
+	return NewUpsertUserScheduledClientRequestWithBody(server, projectID, "application/json", bodyReader)
 }
 
 // NewUpsertUserScheduledClientRequestWithBody generates requests for UpsertUserScheduledClient with any type of body
-func NewUpsertUserScheduledClientRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+func NewUpsertUserScheduledClientRequestWithBody(server string, projectID ProjectID, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "projectID", projectID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
 
 	serverURL, err := url.Parse(server)
 	if err != nil {
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/client/users/scheduled")
+	operationPath := fmt.Sprintf("/api/client/projects/%s/users/scheduled", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -2795,115 +3066,120 @@ func WithBaseURL(baseURL string) ClientOption {
 
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
-	// DeleteOrganizationClientWithBodyWithResponse request with any body
-	DeleteOrganizationClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteOrganizationClientResponse, error)
+	// CreateSessionWithBodyWithResponse request with any body
+	CreateSessionWithBodyWithResponse(ctx context.Context, projectID ProjectID, authMethodID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateSessionResponse, error)
 
-	DeleteOrganizationClientWithResponse(ctx context.Context, body DeleteOrganizationClientJSONRequestBody, reqEditors ...RequestEditorFn) (*DeleteOrganizationClientResponse, error)
+	CreateSessionWithResponse(ctx context.Context, projectID ProjectID, authMethodID openapi_types.UUID, body CreateSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateSessionResponse, error)
+
+	// DeleteOrganizationClientWithBodyWithResponse request with any body
+	DeleteOrganizationClientWithBodyWithResponse(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteOrganizationClientResponse, error)
+
+	DeleteOrganizationClientWithResponse(ctx context.Context, projectID ProjectID, body DeleteOrganizationClientJSONRequestBody, reqEditors ...RequestEditorFn) (*DeleteOrganizationClientResponse, error)
 
 	// UpsertOrganizationClientWithBodyWithResponse request with any body
-	UpsertOrganizationClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpsertOrganizationClientResponse, error)
+	UpsertOrganizationClientWithBodyWithResponse(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpsertOrganizationClientResponse, error)
 
-	UpsertOrganizationClientWithResponse(ctx context.Context, body UpsertOrganizationClientJSONRequestBody, reqEditors ...RequestEditorFn) (*UpsertOrganizationClientResponse, error)
+	UpsertOrganizationClientWithResponse(ctx context.Context, projectID ProjectID, body UpsertOrganizationClientJSONRequestBody, reqEditors ...RequestEditorFn) (*UpsertOrganizationClientResponse, error)
 
 	// PostOrganizationEventsClientWithBodyWithResponse request with any body
-	PostOrganizationEventsClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostOrganizationEventsClientResponse, error)
+	PostOrganizationEventsClientWithBodyWithResponse(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostOrganizationEventsClientResponse, error)
 
-	PostOrganizationEventsClientWithResponse(ctx context.Context, body PostOrganizationEventsClientJSONRequestBody, reqEditors ...RequestEditorFn) (*PostOrganizationEventsClientResponse, error)
+	PostOrganizationEventsClientWithResponse(ctx context.Context, projectID ProjectID, body PostOrganizationEventsClientJSONRequestBody, reqEditors ...RequestEditorFn) (*PostOrganizationEventsClientResponse, error)
 
 	// GetOrganizationInboxWithResponse request
-	GetOrganizationInboxWithResponse(ctx context.Context, params *GetOrganizationInboxParams, reqEditors ...RequestEditorFn) (*GetOrganizationInboxResponse, error)
+	GetOrganizationInboxWithResponse(ctx context.Context, projectID ProjectID, params *GetOrganizationInboxParams, reqEditors ...RequestEditorFn) (*GetOrganizationInboxResponse, error)
 
 	// PostOrganizationInboxMessagesWithBodyWithResponse request with any body
-	PostOrganizationInboxMessagesWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostOrganizationInboxMessagesResponse, error)
+	PostOrganizationInboxMessagesWithBodyWithResponse(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostOrganizationInboxMessagesResponse, error)
 
-	PostOrganizationInboxMessagesWithResponse(ctx context.Context, body PostOrganizationInboxMessagesJSONRequestBody, reqEditors ...RequestEditorFn) (*PostOrganizationInboxMessagesResponse, error)
+	PostOrganizationInboxMessagesWithResponse(ctx context.Context, projectID ProjectID, body PostOrganizationInboxMessagesJSONRequestBody, reqEditors ...RequestEditorFn) (*PostOrganizationInboxMessagesResponse, error)
 
 	// PostOrganizationInboxArchivedWithBodyWithResponse request with any body
-	PostOrganizationInboxArchivedWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostOrganizationInboxArchivedResponse, error)
+	PostOrganizationInboxArchivedWithBodyWithResponse(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostOrganizationInboxArchivedResponse, error)
 
-	PostOrganizationInboxArchivedWithResponse(ctx context.Context, body PostOrganizationInboxArchivedJSONRequestBody, reqEditors ...RequestEditorFn) (*PostOrganizationInboxArchivedResponse, error)
+	PostOrganizationInboxArchivedWithResponse(ctx context.Context, projectID ProjectID, body PostOrganizationInboxArchivedJSONRequestBody, reqEditors ...RequestEditorFn) (*PostOrganizationInboxArchivedResponse, error)
 
 	// GetOrganizationInboxCountWithResponse request
-	GetOrganizationInboxCountWithResponse(ctx context.Context, params *GetOrganizationInboxCountParams, reqEditors ...RequestEditorFn) (*GetOrganizationInboxCountResponse, error)
+	GetOrganizationInboxCountWithResponse(ctx context.Context, projectID ProjectID, params *GetOrganizationInboxCountParams, reqEditors ...RequestEditorFn) (*GetOrganizationInboxCountResponse, error)
 
 	// PostOrganizationInboxReadWithBodyWithResponse request with any body
-	PostOrganizationInboxReadWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostOrganizationInboxReadResponse, error)
+	PostOrganizationInboxReadWithBodyWithResponse(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostOrganizationInboxReadResponse, error)
 
-	PostOrganizationInboxReadWithResponse(ctx context.Context, body PostOrganizationInboxReadJSONRequestBody, reqEditors ...RequestEditorFn) (*PostOrganizationInboxReadResponse, error)
+	PostOrganizationInboxReadWithResponse(ctx context.Context, projectID ProjectID, body PostOrganizationInboxReadJSONRequestBody, reqEditors ...RequestEditorFn) (*PostOrganizationInboxReadResponse, error)
 
 	// DeleteOrganizationScheduledClientWithBodyWithResponse request with any body
-	DeleteOrganizationScheduledClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteOrganizationScheduledClientResponse, error)
+	DeleteOrganizationScheduledClientWithBodyWithResponse(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteOrganizationScheduledClientResponse, error)
 
-	DeleteOrganizationScheduledClientWithResponse(ctx context.Context, body DeleteOrganizationScheduledClientJSONRequestBody, reqEditors ...RequestEditorFn) (*DeleteOrganizationScheduledClientResponse, error)
+	DeleteOrganizationScheduledClientWithResponse(ctx context.Context, projectID ProjectID, body DeleteOrganizationScheduledClientJSONRequestBody, reqEditors ...RequestEditorFn) (*DeleteOrganizationScheduledClientResponse, error)
 
 	// UpsertOrganizationScheduledClientWithBodyWithResponse request with any body
-	UpsertOrganizationScheduledClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpsertOrganizationScheduledClientResponse, error)
+	UpsertOrganizationScheduledClientWithBodyWithResponse(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpsertOrganizationScheduledClientResponse, error)
 
-	UpsertOrganizationScheduledClientWithResponse(ctx context.Context, body UpsertOrganizationScheduledClientJSONRequestBody, reqEditors ...RequestEditorFn) (*UpsertOrganizationScheduledClientResponse, error)
+	UpsertOrganizationScheduledClientWithResponse(ctx context.Context, projectID ProjectID, body UpsertOrganizationScheduledClientJSONRequestBody, reqEditors ...RequestEditorFn) (*UpsertOrganizationScheduledClientResponse, error)
 
 	// RemoveOrganizationUserClientWithBodyWithResponse request with any body
-	RemoveOrganizationUserClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RemoveOrganizationUserClientResponse, error)
+	RemoveOrganizationUserClientWithBodyWithResponse(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RemoveOrganizationUserClientResponse, error)
 
-	RemoveOrganizationUserClientWithResponse(ctx context.Context, body RemoveOrganizationUserClientJSONRequestBody, reqEditors ...RequestEditorFn) (*RemoveOrganizationUserClientResponse, error)
+	RemoveOrganizationUserClientWithResponse(ctx context.Context, projectID ProjectID, body RemoveOrganizationUserClientJSONRequestBody, reqEditors ...RequestEditorFn) (*RemoveOrganizationUserClientResponse, error)
 
 	// AddOrganizationUserClientWithBodyWithResponse request with any body
-	AddOrganizationUserClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AddOrganizationUserClientResponse, error)
+	AddOrganizationUserClientWithBodyWithResponse(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AddOrganizationUserClientResponse, error)
 
-	AddOrganizationUserClientWithResponse(ctx context.Context, body AddOrganizationUserClientJSONRequestBody, reqEditors ...RequestEditorFn) (*AddOrganizationUserClientResponse, error)
+	AddOrganizationUserClientWithResponse(ctx context.Context, projectID ProjectID, body AddOrganizationUserClientJSONRequestBody, reqEditors ...RequestEditorFn) (*AddOrganizationUserClientResponse, error)
 
 	// GetVapidPublicKeyWithResponse request
-	GetVapidPublicKeyWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetVapidPublicKeyResponse, error)
+	GetVapidPublicKeyWithResponse(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*GetVapidPublicKeyResponse, error)
 
 	// DeleteUserClientWithBodyWithResponse request with any body
-	DeleteUserClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteUserClientResponse, error)
+	DeleteUserClientWithBodyWithResponse(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteUserClientResponse, error)
 
-	DeleteUserClientWithResponse(ctx context.Context, body DeleteUserClientJSONRequestBody, reqEditors ...RequestEditorFn) (*DeleteUserClientResponse, error)
+	DeleteUserClientWithResponse(ctx context.Context, projectID ProjectID, body DeleteUserClientJSONRequestBody, reqEditors ...RequestEditorFn) (*DeleteUserClientResponse, error)
 
 	// UpsertUserClientWithBodyWithResponse request with any body
-	UpsertUserClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpsertUserClientResponse, error)
+	UpsertUserClientWithBodyWithResponse(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpsertUserClientResponse, error)
 
-	UpsertUserClientWithResponse(ctx context.Context, body UpsertUserClientJSONRequestBody, reqEditors ...RequestEditorFn) (*UpsertUserClientResponse, error)
+	UpsertUserClientWithResponse(ctx context.Context, projectID ProjectID, body UpsertUserClientJSONRequestBody, reqEditors ...RequestEditorFn) (*UpsertUserClientResponse, error)
 
 	// RegisterDeviceWithBodyWithResponse request with any body
-	RegisterDeviceWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RegisterDeviceResponse, error)
+	RegisterDeviceWithBodyWithResponse(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RegisterDeviceResponse, error)
 
-	RegisterDeviceWithResponse(ctx context.Context, body RegisterDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*RegisterDeviceResponse, error)
+	RegisterDeviceWithResponse(ctx context.Context, projectID ProjectID, body RegisterDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*RegisterDeviceResponse, error)
 
 	// PostUserEventsWithBodyWithResponse request with any body
-	PostUserEventsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostUserEventsResponse, error)
+	PostUserEventsWithBodyWithResponse(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostUserEventsResponse, error)
 
-	PostUserEventsWithResponse(ctx context.Context, body PostUserEventsJSONRequestBody, reqEditors ...RequestEditorFn) (*PostUserEventsResponse, error)
+	PostUserEventsWithResponse(ctx context.Context, projectID ProjectID, body PostUserEventsJSONRequestBody, reqEditors ...RequestEditorFn) (*PostUserEventsResponse, error)
 
 	// GetUserInboxWithResponse request
-	GetUserInboxWithResponse(ctx context.Context, params *GetUserInboxParams, reqEditors ...RequestEditorFn) (*GetUserInboxResponse, error)
+	GetUserInboxWithResponse(ctx context.Context, projectID ProjectID, params *GetUserInboxParams, reqEditors ...RequestEditorFn) (*GetUserInboxResponse, error)
 
 	// PostUserInboxMessagesWithBodyWithResponse request with any body
-	PostUserInboxMessagesWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostUserInboxMessagesResponse, error)
+	PostUserInboxMessagesWithBodyWithResponse(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostUserInboxMessagesResponse, error)
 
-	PostUserInboxMessagesWithResponse(ctx context.Context, body PostUserInboxMessagesJSONRequestBody, reqEditors ...RequestEditorFn) (*PostUserInboxMessagesResponse, error)
+	PostUserInboxMessagesWithResponse(ctx context.Context, projectID ProjectID, body PostUserInboxMessagesJSONRequestBody, reqEditors ...RequestEditorFn) (*PostUserInboxMessagesResponse, error)
 
 	// PostUserInboxArchivedWithBodyWithResponse request with any body
-	PostUserInboxArchivedWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostUserInboxArchivedResponse, error)
+	PostUserInboxArchivedWithBodyWithResponse(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostUserInboxArchivedResponse, error)
 
-	PostUserInboxArchivedWithResponse(ctx context.Context, body PostUserInboxArchivedJSONRequestBody, reqEditors ...RequestEditorFn) (*PostUserInboxArchivedResponse, error)
+	PostUserInboxArchivedWithResponse(ctx context.Context, projectID ProjectID, body PostUserInboxArchivedJSONRequestBody, reqEditors ...RequestEditorFn) (*PostUserInboxArchivedResponse, error)
 
 	// GetUserInboxCountWithResponse request
-	GetUserInboxCountWithResponse(ctx context.Context, params *GetUserInboxCountParams, reqEditors ...RequestEditorFn) (*GetUserInboxCountResponse, error)
+	GetUserInboxCountWithResponse(ctx context.Context, projectID ProjectID, params *GetUserInboxCountParams, reqEditors ...RequestEditorFn) (*GetUserInboxCountResponse, error)
 
 	// PostUserInboxReadWithBodyWithResponse request with any body
-	PostUserInboxReadWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostUserInboxReadResponse, error)
+	PostUserInboxReadWithBodyWithResponse(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostUserInboxReadResponse, error)
 
-	PostUserInboxReadWithResponse(ctx context.Context, body PostUserInboxReadJSONRequestBody, reqEditors ...RequestEditorFn) (*PostUserInboxReadResponse, error)
+	PostUserInboxReadWithResponse(ctx context.Context, projectID ProjectID, body PostUserInboxReadJSONRequestBody, reqEditors ...RequestEditorFn) (*PostUserInboxReadResponse, error)
 
 	// DeleteUserScheduledClientWithBodyWithResponse request with any body
-	DeleteUserScheduledClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteUserScheduledClientResponse, error)
+	DeleteUserScheduledClientWithBodyWithResponse(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteUserScheduledClientResponse, error)
 
-	DeleteUserScheduledClientWithResponse(ctx context.Context, body DeleteUserScheduledClientJSONRequestBody, reqEditors ...RequestEditorFn) (*DeleteUserScheduledClientResponse, error)
+	DeleteUserScheduledClientWithResponse(ctx context.Context, projectID ProjectID, body DeleteUserScheduledClientJSONRequestBody, reqEditors ...RequestEditorFn) (*DeleteUserScheduledClientResponse, error)
 
 	// UpsertUserScheduledClientWithBodyWithResponse request with any body
-	UpsertUserScheduledClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpsertUserScheduledClientResponse, error)
+	UpsertUserScheduledClientWithBodyWithResponse(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpsertUserScheduledClientResponse, error)
 
-	UpsertUserScheduledClientWithResponse(ctx context.Context, body UpsertUserScheduledClientJSONRequestBody, reqEditors ...RequestEditorFn) (*UpsertUserScheduledClientResponse, error)
+	UpsertUserScheduledClientWithResponse(ctx context.Context, projectID ProjectID, body UpsertUserScheduledClientJSONRequestBody, reqEditors ...RequestEditorFn) (*UpsertUserScheduledClientResponse, error)
 
 	// GetPreferencesPageWithResponse request
 	GetPreferencesPageWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetPreferencesPageResponse, error)
@@ -2915,6 +3191,37 @@ type ClientWithResponsesInterface interface {
 
 	// EmailUnsubscribeWithResponse request
 	EmailUnsubscribeWithResponse(ctx context.Context, params *EmailUnsubscribeParams, reqEditors ...RequestEditorFn) (*EmailUnsubscribeResponse, error)
+}
+
+type CreateSessionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *SessionToken
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateSessionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateSessionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateSessionResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
 }
 
 type DeleteOrganizationClientResponse struct {
@@ -3733,17 +4040,34 @@ func (r EmailUnsubscribeResponse) ContentType() string {
 	return ""
 }
 
+// CreateSessionWithBodyWithResponse request with arbitrary body returning *CreateSessionResponse
+func (c *ClientWithResponses) CreateSessionWithBodyWithResponse(ctx context.Context, projectID ProjectID, authMethodID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateSessionResponse, error) {
+	rsp, err := c.CreateSessionWithBody(ctx, projectID, authMethodID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateSessionResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateSessionWithResponse(ctx context.Context, projectID ProjectID, authMethodID openapi_types.UUID, body CreateSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateSessionResponse, error) {
+	rsp, err := c.CreateSession(ctx, projectID, authMethodID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateSessionResponse(rsp)
+}
+
 // DeleteOrganizationClientWithBodyWithResponse request with arbitrary body returning *DeleteOrganizationClientResponse
-func (c *ClientWithResponses) DeleteOrganizationClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteOrganizationClientResponse, error) {
-	rsp, err := c.DeleteOrganizationClientWithBody(ctx, contentType, body, reqEditors...)
+func (c *ClientWithResponses) DeleteOrganizationClientWithBodyWithResponse(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteOrganizationClientResponse, error) {
+	rsp, err := c.DeleteOrganizationClientWithBody(ctx, projectID, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseDeleteOrganizationClientResponse(rsp)
 }
 
-func (c *ClientWithResponses) DeleteOrganizationClientWithResponse(ctx context.Context, body DeleteOrganizationClientJSONRequestBody, reqEditors ...RequestEditorFn) (*DeleteOrganizationClientResponse, error) {
-	rsp, err := c.DeleteOrganizationClient(ctx, body, reqEditors...)
+func (c *ClientWithResponses) DeleteOrganizationClientWithResponse(ctx context.Context, projectID ProjectID, body DeleteOrganizationClientJSONRequestBody, reqEditors ...RequestEditorFn) (*DeleteOrganizationClientResponse, error) {
+	rsp, err := c.DeleteOrganizationClient(ctx, projectID, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -3751,16 +4075,16 @@ func (c *ClientWithResponses) DeleteOrganizationClientWithResponse(ctx context.C
 }
 
 // UpsertOrganizationClientWithBodyWithResponse request with arbitrary body returning *UpsertOrganizationClientResponse
-func (c *ClientWithResponses) UpsertOrganizationClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpsertOrganizationClientResponse, error) {
-	rsp, err := c.UpsertOrganizationClientWithBody(ctx, contentType, body, reqEditors...)
+func (c *ClientWithResponses) UpsertOrganizationClientWithBodyWithResponse(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpsertOrganizationClientResponse, error) {
+	rsp, err := c.UpsertOrganizationClientWithBody(ctx, projectID, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseUpsertOrganizationClientResponse(rsp)
 }
 
-func (c *ClientWithResponses) UpsertOrganizationClientWithResponse(ctx context.Context, body UpsertOrganizationClientJSONRequestBody, reqEditors ...RequestEditorFn) (*UpsertOrganizationClientResponse, error) {
-	rsp, err := c.UpsertOrganizationClient(ctx, body, reqEditors...)
+func (c *ClientWithResponses) UpsertOrganizationClientWithResponse(ctx context.Context, projectID ProjectID, body UpsertOrganizationClientJSONRequestBody, reqEditors ...RequestEditorFn) (*UpsertOrganizationClientResponse, error) {
+	rsp, err := c.UpsertOrganizationClient(ctx, projectID, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -3768,16 +4092,16 @@ func (c *ClientWithResponses) UpsertOrganizationClientWithResponse(ctx context.C
 }
 
 // PostOrganizationEventsClientWithBodyWithResponse request with arbitrary body returning *PostOrganizationEventsClientResponse
-func (c *ClientWithResponses) PostOrganizationEventsClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostOrganizationEventsClientResponse, error) {
-	rsp, err := c.PostOrganizationEventsClientWithBody(ctx, contentType, body, reqEditors...)
+func (c *ClientWithResponses) PostOrganizationEventsClientWithBodyWithResponse(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostOrganizationEventsClientResponse, error) {
+	rsp, err := c.PostOrganizationEventsClientWithBody(ctx, projectID, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParsePostOrganizationEventsClientResponse(rsp)
 }
 
-func (c *ClientWithResponses) PostOrganizationEventsClientWithResponse(ctx context.Context, body PostOrganizationEventsClientJSONRequestBody, reqEditors ...RequestEditorFn) (*PostOrganizationEventsClientResponse, error) {
-	rsp, err := c.PostOrganizationEventsClient(ctx, body, reqEditors...)
+func (c *ClientWithResponses) PostOrganizationEventsClientWithResponse(ctx context.Context, projectID ProjectID, body PostOrganizationEventsClientJSONRequestBody, reqEditors ...RequestEditorFn) (*PostOrganizationEventsClientResponse, error) {
+	rsp, err := c.PostOrganizationEventsClient(ctx, projectID, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -3785,8 +4109,8 @@ func (c *ClientWithResponses) PostOrganizationEventsClientWithResponse(ctx conte
 }
 
 // GetOrganizationInboxWithResponse request returning *GetOrganizationInboxResponse
-func (c *ClientWithResponses) GetOrganizationInboxWithResponse(ctx context.Context, params *GetOrganizationInboxParams, reqEditors ...RequestEditorFn) (*GetOrganizationInboxResponse, error) {
-	rsp, err := c.GetOrganizationInbox(ctx, params, reqEditors...)
+func (c *ClientWithResponses) GetOrganizationInboxWithResponse(ctx context.Context, projectID ProjectID, params *GetOrganizationInboxParams, reqEditors ...RequestEditorFn) (*GetOrganizationInboxResponse, error) {
+	rsp, err := c.GetOrganizationInbox(ctx, projectID, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -3794,16 +4118,16 @@ func (c *ClientWithResponses) GetOrganizationInboxWithResponse(ctx context.Conte
 }
 
 // PostOrganizationInboxMessagesWithBodyWithResponse request with arbitrary body returning *PostOrganizationInboxMessagesResponse
-func (c *ClientWithResponses) PostOrganizationInboxMessagesWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostOrganizationInboxMessagesResponse, error) {
-	rsp, err := c.PostOrganizationInboxMessagesWithBody(ctx, contentType, body, reqEditors...)
+func (c *ClientWithResponses) PostOrganizationInboxMessagesWithBodyWithResponse(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostOrganizationInboxMessagesResponse, error) {
+	rsp, err := c.PostOrganizationInboxMessagesWithBody(ctx, projectID, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParsePostOrganizationInboxMessagesResponse(rsp)
 }
 
-func (c *ClientWithResponses) PostOrganizationInboxMessagesWithResponse(ctx context.Context, body PostOrganizationInboxMessagesJSONRequestBody, reqEditors ...RequestEditorFn) (*PostOrganizationInboxMessagesResponse, error) {
-	rsp, err := c.PostOrganizationInboxMessages(ctx, body, reqEditors...)
+func (c *ClientWithResponses) PostOrganizationInboxMessagesWithResponse(ctx context.Context, projectID ProjectID, body PostOrganizationInboxMessagesJSONRequestBody, reqEditors ...RequestEditorFn) (*PostOrganizationInboxMessagesResponse, error) {
+	rsp, err := c.PostOrganizationInboxMessages(ctx, projectID, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -3811,16 +4135,16 @@ func (c *ClientWithResponses) PostOrganizationInboxMessagesWithResponse(ctx cont
 }
 
 // PostOrganizationInboxArchivedWithBodyWithResponse request with arbitrary body returning *PostOrganizationInboxArchivedResponse
-func (c *ClientWithResponses) PostOrganizationInboxArchivedWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostOrganizationInboxArchivedResponse, error) {
-	rsp, err := c.PostOrganizationInboxArchivedWithBody(ctx, contentType, body, reqEditors...)
+func (c *ClientWithResponses) PostOrganizationInboxArchivedWithBodyWithResponse(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostOrganizationInboxArchivedResponse, error) {
+	rsp, err := c.PostOrganizationInboxArchivedWithBody(ctx, projectID, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParsePostOrganizationInboxArchivedResponse(rsp)
 }
 
-func (c *ClientWithResponses) PostOrganizationInboxArchivedWithResponse(ctx context.Context, body PostOrganizationInboxArchivedJSONRequestBody, reqEditors ...RequestEditorFn) (*PostOrganizationInboxArchivedResponse, error) {
-	rsp, err := c.PostOrganizationInboxArchived(ctx, body, reqEditors...)
+func (c *ClientWithResponses) PostOrganizationInboxArchivedWithResponse(ctx context.Context, projectID ProjectID, body PostOrganizationInboxArchivedJSONRequestBody, reqEditors ...RequestEditorFn) (*PostOrganizationInboxArchivedResponse, error) {
+	rsp, err := c.PostOrganizationInboxArchived(ctx, projectID, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -3828,8 +4152,8 @@ func (c *ClientWithResponses) PostOrganizationInboxArchivedWithResponse(ctx cont
 }
 
 // GetOrganizationInboxCountWithResponse request returning *GetOrganizationInboxCountResponse
-func (c *ClientWithResponses) GetOrganizationInboxCountWithResponse(ctx context.Context, params *GetOrganizationInboxCountParams, reqEditors ...RequestEditorFn) (*GetOrganizationInboxCountResponse, error) {
-	rsp, err := c.GetOrganizationInboxCount(ctx, params, reqEditors...)
+func (c *ClientWithResponses) GetOrganizationInboxCountWithResponse(ctx context.Context, projectID ProjectID, params *GetOrganizationInboxCountParams, reqEditors ...RequestEditorFn) (*GetOrganizationInboxCountResponse, error) {
+	rsp, err := c.GetOrganizationInboxCount(ctx, projectID, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -3837,16 +4161,16 @@ func (c *ClientWithResponses) GetOrganizationInboxCountWithResponse(ctx context.
 }
 
 // PostOrganizationInboxReadWithBodyWithResponse request with arbitrary body returning *PostOrganizationInboxReadResponse
-func (c *ClientWithResponses) PostOrganizationInboxReadWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostOrganizationInboxReadResponse, error) {
-	rsp, err := c.PostOrganizationInboxReadWithBody(ctx, contentType, body, reqEditors...)
+func (c *ClientWithResponses) PostOrganizationInboxReadWithBodyWithResponse(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostOrganizationInboxReadResponse, error) {
+	rsp, err := c.PostOrganizationInboxReadWithBody(ctx, projectID, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParsePostOrganizationInboxReadResponse(rsp)
 }
 
-func (c *ClientWithResponses) PostOrganizationInboxReadWithResponse(ctx context.Context, body PostOrganizationInboxReadJSONRequestBody, reqEditors ...RequestEditorFn) (*PostOrganizationInboxReadResponse, error) {
-	rsp, err := c.PostOrganizationInboxRead(ctx, body, reqEditors...)
+func (c *ClientWithResponses) PostOrganizationInboxReadWithResponse(ctx context.Context, projectID ProjectID, body PostOrganizationInboxReadJSONRequestBody, reqEditors ...RequestEditorFn) (*PostOrganizationInboxReadResponse, error) {
+	rsp, err := c.PostOrganizationInboxRead(ctx, projectID, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -3854,16 +4178,16 @@ func (c *ClientWithResponses) PostOrganizationInboxReadWithResponse(ctx context.
 }
 
 // DeleteOrganizationScheduledClientWithBodyWithResponse request with arbitrary body returning *DeleteOrganizationScheduledClientResponse
-func (c *ClientWithResponses) DeleteOrganizationScheduledClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteOrganizationScheduledClientResponse, error) {
-	rsp, err := c.DeleteOrganizationScheduledClientWithBody(ctx, contentType, body, reqEditors...)
+func (c *ClientWithResponses) DeleteOrganizationScheduledClientWithBodyWithResponse(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteOrganizationScheduledClientResponse, error) {
+	rsp, err := c.DeleteOrganizationScheduledClientWithBody(ctx, projectID, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseDeleteOrganizationScheduledClientResponse(rsp)
 }
 
-func (c *ClientWithResponses) DeleteOrganizationScheduledClientWithResponse(ctx context.Context, body DeleteOrganizationScheduledClientJSONRequestBody, reqEditors ...RequestEditorFn) (*DeleteOrganizationScheduledClientResponse, error) {
-	rsp, err := c.DeleteOrganizationScheduledClient(ctx, body, reqEditors...)
+func (c *ClientWithResponses) DeleteOrganizationScheduledClientWithResponse(ctx context.Context, projectID ProjectID, body DeleteOrganizationScheduledClientJSONRequestBody, reqEditors ...RequestEditorFn) (*DeleteOrganizationScheduledClientResponse, error) {
+	rsp, err := c.DeleteOrganizationScheduledClient(ctx, projectID, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -3871,16 +4195,16 @@ func (c *ClientWithResponses) DeleteOrganizationScheduledClientWithResponse(ctx 
 }
 
 // UpsertOrganizationScheduledClientWithBodyWithResponse request with arbitrary body returning *UpsertOrganizationScheduledClientResponse
-func (c *ClientWithResponses) UpsertOrganizationScheduledClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpsertOrganizationScheduledClientResponse, error) {
-	rsp, err := c.UpsertOrganizationScheduledClientWithBody(ctx, contentType, body, reqEditors...)
+func (c *ClientWithResponses) UpsertOrganizationScheduledClientWithBodyWithResponse(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpsertOrganizationScheduledClientResponse, error) {
+	rsp, err := c.UpsertOrganizationScheduledClientWithBody(ctx, projectID, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseUpsertOrganizationScheduledClientResponse(rsp)
 }
 
-func (c *ClientWithResponses) UpsertOrganizationScheduledClientWithResponse(ctx context.Context, body UpsertOrganizationScheduledClientJSONRequestBody, reqEditors ...RequestEditorFn) (*UpsertOrganizationScheduledClientResponse, error) {
-	rsp, err := c.UpsertOrganizationScheduledClient(ctx, body, reqEditors...)
+func (c *ClientWithResponses) UpsertOrganizationScheduledClientWithResponse(ctx context.Context, projectID ProjectID, body UpsertOrganizationScheduledClientJSONRequestBody, reqEditors ...RequestEditorFn) (*UpsertOrganizationScheduledClientResponse, error) {
+	rsp, err := c.UpsertOrganizationScheduledClient(ctx, projectID, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -3888,16 +4212,16 @@ func (c *ClientWithResponses) UpsertOrganizationScheduledClientWithResponse(ctx 
 }
 
 // RemoveOrganizationUserClientWithBodyWithResponse request with arbitrary body returning *RemoveOrganizationUserClientResponse
-func (c *ClientWithResponses) RemoveOrganizationUserClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RemoveOrganizationUserClientResponse, error) {
-	rsp, err := c.RemoveOrganizationUserClientWithBody(ctx, contentType, body, reqEditors...)
+func (c *ClientWithResponses) RemoveOrganizationUserClientWithBodyWithResponse(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RemoveOrganizationUserClientResponse, error) {
+	rsp, err := c.RemoveOrganizationUserClientWithBody(ctx, projectID, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseRemoveOrganizationUserClientResponse(rsp)
 }
 
-func (c *ClientWithResponses) RemoveOrganizationUserClientWithResponse(ctx context.Context, body RemoveOrganizationUserClientJSONRequestBody, reqEditors ...RequestEditorFn) (*RemoveOrganizationUserClientResponse, error) {
-	rsp, err := c.RemoveOrganizationUserClient(ctx, body, reqEditors...)
+func (c *ClientWithResponses) RemoveOrganizationUserClientWithResponse(ctx context.Context, projectID ProjectID, body RemoveOrganizationUserClientJSONRequestBody, reqEditors ...RequestEditorFn) (*RemoveOrganizationUserClientResponse, error) {
+	rsp, err := c.RemoveOrganizationUserClient(ctx, projectID, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -3905,16 +4229,16 @@ func (c *ClientWithResponses) RemoveOrganizationUserClientWithResponse(ctx conte
 }
 
 // AddOrganizationUserClientWithBodyWithResponse request with arbitrary body returning *AddOrganizationUserClientResponse
-func (c *ClientWithResponses) AddOrganizationUserClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AddOrganizationUserClientResponse, error) {
-	rsp, err := c.AddOrganizationUserClientWithBody(ctx, contentType, body, reqEditors...)
+func (c *ClientWithResponses) AddOrganizationUserClientWithBodyWithResponse(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AddOrganizationUserClientResponse, error) {
+	rsp, err := c.AddOrganizationUserClientWithBody(ctx, projectID, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseAddOrganizationUserClientResponse(rsp)
 }
 
-func (c *ClientWithResponses) AddOrganizationUserClientWithResponse(ctx context.Context, body AddOrganizationUserClientJSONRequestBody, reqEditors ...RequestEditorFn) (*AddOrganizationUserClientResponse, error) {
-	rsp, err := c.AddOrganizationUserClient(ctx, body, reqEditors...)
+func (c *ClientWithResponses) AddOrganizationUserClientWithResponse(ctx context.Context, projectID ProjectID, body AddOrganizationUserClientJSONRequestBody, reqEditors ...RequestEditorFn) (*AddOrganizationUserClientResponse, error) {
+	rsp, err := c.AddOrganizationUserClient(ctx, projectID, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -3922,8 +4246,8 @@ func (c *ClientWithResponses) AddOrganizationUserClientWithResponse(ctx context.
 }
 
 // GetVapidPublicKeyWithResponse request returning *GetVapidPublicKeyResponse
-func (c *ClientWithResponses) GetVapidPublicKeyWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetVapidPublicKeyResponse, error) {
-	rsp, err := c.GetVapidPublicKey(ctx, reqEditors...)
+func (c *ClientWithResponses) GetVapidPublicKeyWithResponse(ctx context.Context, projectID ProjectID, reqEditors ...RequestEditorFn) (*GetVapidPublicKeyResponse, error) {
+	rsp, err := c.GetVapidPublicKey(ctx, projectID, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -3931,16 +4255,16 @@ func (c *ClientWithResponses) GetVapidPublicKeyWithResponse(ctx context.Context,
 }
 
 // DeleteUserClientWithBodyWithResponse request with arbitrary body returning *DeleteUserClientResponse
-func (c *ClientWithResponses) DeleteUserClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteUserClientResponse, error) {
-	rsp, err := c.DeleteUserClientWithBody(ctx, contentType, body, reqEditors...)
+func (c *ClientWithResponses) DeleteUserClientWithBodyWithResponse(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteUserClientResponse, error) {
+	rsp, err := c.DeleteUserClientWithBody(ctx, projectID, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseDeleteUserClientResponse(rsp)
 }
 
-func (c *ClientWithResponses) DeleteUserClientWithResponse(ctx context.Context, body DeleteUserClientJSONRequestBody, reqEditors ...RequestEditorFn) (*DeleteUserClientResponse, error) {
-	rsp, err := c.DeleteUserClient(ctx, body, reqEditors...)
+func (c *ClientWithResponses) DeleteUserClientWithResponse(ctx context.Context, projectID ProjectID, body DeleteUserClientJSONRequestBody, reqEditors ...RequestEditorFn) (*DeleteUserClientResponse, error) {
+	rsp, err := c.DeleteUserClient(ctx, projectID, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -3948,16 +4272,16 @@ func (c *ClientWithResponses) DeleteUserClientWithResponse(ctx context.Context, 
 }
 
 // UpsertUserClientWithBodyWithResponse request with arbitrary body returning *UpsertUserClientResponse
-func (c *ClientWithResponses) UpsertUserClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpsertUserClientResponse, error) {
-	rsp, err := c.UpsertUserClientWithBody(ctx, contentType, body, reqEditors...)
+func (c *ClientWithResponses) UpsertUserClientWithBodyWithResponse(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpsertUserClientResponse, error) {
+	rsp, err := c.UpsertUserClientWithBody(ctx, projectID, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseUpsertUserClientResponse(rsp)
 }
 
-func (c *ClientWithResponses) UpsertUserClientWithResponse(ctx context.Context, body UpsertUserClientJSONRequestBody, reqEditors ...RequestEditorFn) (*UpsertUserClientResponse, error) {
-	rsp, err := c.UpsertUserClient(ctx, body, reqEditors...)
+func (c *ClientWithResponses) UpsertUserClientWithResponse(ctx context.Context, projectID ProjectID, body UpsertUserClientJSONRequestBody, reqEditors ...RequestEditorFn) (*UpsertUserClientResponse, error) {
+	rsp, err := c.UpsertUserClient(ctx, projectID, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -3965,16 +4289,16 @@ func (c *ClientWithResponses) UpsertUserClientWithResponse(ctx context.Context, 
 }
 
 // RegisterDeviceWithBodyWithResponse request with arbitrary body returning *RegisterDeviceResponse
-func (c *ClientWithResponses) RegisterDeviceWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RegisterDeviceResponse, error) {
-	rsp, err := c.RegisterDeviceWithBody(ctx, contentType, body, reqEditors...)
+func (c *ClientWithResponses) RegisterDeviceWithBodyWithResponse(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RegisterDeviceResponse, error) {
+	rsp, err := c.RegisterDeviceWithBody(ctx, projectID, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseRegisterDeviceResponse(rsp)
 }
 
-func (c *ClientWithResponses) RegisterDeviceWithResponse(ctx context.Context, body RegisterDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*RegisterDeviceResponse, error) {
-	rsp, err := c.RegisterDevice(ctx, body, reqEditors...)
+func (c *ClientWithResponses) RegisterDeviceWithResponse(ctx context.Context, projectID ProjectID, body RegisterDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*RegisterDeviceResponse, error) {
+	rsp, err := c.RegisterDevice(ctx, projectID, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -3982,16 +4306,16 @@ func (c *ClientWithResponses) RegisterDeviceWithResponse(ctx context.Context, bo
 }
 
 // PostUserEventsWithBodyWithResponse request with arbitrary body returning *PostUserEventsResponse
-func (c *ClientWithResponses) PostUserEventsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostUserEventsResponse, error) {
-	rsp, err := c.PostUserEventsWithBody(ctx, contentType, body, reqEditors...)
+func (c *ClientWithResponses) PostUserEventsWithBodyWithResponse(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostUserEventsResponse, error) {
+	rsp, err := c.PostUserEventsWithBody(ctx, projectID, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParsePostUserEventsResponse(rsp)
 }
 
-func (c *ClientWithResponses) PostUserEventsWithResponse(ctx context.Context, body PostUserEventsJSONRequestBody, reqEditors ...RequestEditorFn) (*PostUserEventsResponse, error) {
-	rsp, err := c.PostUserEvents(ctx, body, reqEditors...)
+func (c *ClientWithResponses) PostUserEventsWithResponse(ctx context.Context, projectID ProjectID, body PostUserEventsJSONRequestBody, reqEditors ...RequestEditorFn) (*PostUserEventsResponse, error) {
+	rsp, err := c.PostUserEvents(ctx, projectID, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -3999,8 +4323,8 @@ func (c *ClientWithResponses) PostUserEventsWithResponse(ctx context.Context, bo
 }
 
 // GetUserInboxWithResponse request returning *GetUserInboxResponse
-func (c *ClientWithResponses) GetUserInboxWithResponse(ctx context.Context, params *GetUserInboxParams, reqEditors ...RequestEditorFn) (*GetUserInboxResponse, error) {
-	rsp, err := c.GetUserInbox(ctx, params, reqEditors...)
+func (c *ClientWithResponses) GetUserInboxWithResponse(ctx context.Context, projectID ProjectID, params *GetUserInboxParams, reqEditors ...RequestEditorFn) (*GetUserInboxResponse, error) {
+	rsp, err := c.GetUserInbox(ctx, projectID, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -4008,16 +4332,16 @@ func (c *ClientWithResponses) GetUserInboxWithResponse(ctx context.Context, para
 }
 
 // PostUserInboxMessagesWithBodyWithResponse request with arbitrary body returning *PostUserInboxMessagesResponse
-func (c *ClientWithResponses) PostUserInboxMessagesWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostUserInboxMessagesResponse, error) {
-	rsp, err := c.PostUserInboxMessagesWithBody(ctx, contentType, body, reqEditors...)
+func (c *ClientWithResponses) PostUserInboxMessagesWithBodyWithResponse(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostUserInboxMessagesResponse, error) {
+	rsp, err := c.PostUserInboxMessagesWithBody(ctx, projectID, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParsePostUserInboxMessagesResponse(rsp)
 }
 
-func (c *ClientWithResponses) PostUserInboxMessagesWithResponse(ctx context.Context, body PostUserInboxMessagesJSONRequestBody, reqEditors ...RequestEditorFn) (*PostUserInboxMessagesResponse, error) {
-	rsp, err := c.PostUserInboxMessages(ctx, body, reqEditors...)
+func (c *ClientWithResponses) PostUserInboxMessagesWithResponse(ctx context.Context, projectID ProjectID, body PostUserInboxMessagesJSONRequestBody, reqEditors ...RequestEditorFn) (*PostUserInboxMessagesResponse, error) {
+	rsp, err := c.PostUserInboxMessages(ctx, projectID, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -4025,16 +4349,16 @@ func (c *ClientWithResponses) PostUserInboxMessagesWithResponse(ctx context.Cont
 }
 
 // PostUserInboxArchivedWithBodyWithResponse request with arbitrary body returning *PostUserInboxArchivedResponse
-func (c *ClientWithResponses) PostUserInboxArchivedWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostUserInboxArchivedResponse, error) {
-	rsp, err := c.PostUserInboxArchivedWithBody(ctx, contentType, body, reqEditors...)
+func (c *ClientWithResponses) PostUserInboxArchivedWithBodyWithResponse(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostUserInboxArchivedResponse, error) {
+	rsp, err := c.PostUserInboxArchivedWithBody(ctx, projectID, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParsePostUserInboxArchivedResponse(rsp)
 }
 
-func (c *ClientWithResponses) PostUserInboxArchivedWithResponse(ctx context.Context, body PostUserInboxArchivedJSONRequestBody, reqEditors ...RequestEditorFn) (*PostUserInboxArchivedResponse, error) {
-	rsp, err := c.PostUserInboxArchived(ctx, body, reqEditors...)
+func (c *ClientWithResponses) PostUserInboxArchivedWithResponse(ctx context.Context, projectID ProjectID, body PostUserInboxArchivedJSONRequestBody, reqEditors ...RequestEditorFn) (*PostUserInboxArchivedResponse, error) {
+	rsp, err := c.PostUserInboxArchived(ctx, projectID, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -4042,8 +4366,8 @@ func (c *ClientWithResponses) PostUserInboxArchivedWithResponse(ctx context.Cont
 }
 
 // GetUserInboxCountWithResponse request returning *GetUserInboxCountResponse
-func (c *ClientWithResponses) GetUserInboxCountWithResponse(ctx context.Context, params *GetUserInboxCountParams, reqEditors ...RequestEditorFn) (*GetUserInboxCountResponse, error) {
-	rsp, err := c.GetUserInboxCount(ctx, params, reqEditors...)
+func (c *ClientWithResponses) GetUserInboxCountWithResponse(ctx context.Context, projectID ProjectID, params *GetUserInboxCountParams, reqEditors ...RequestEditorFn) (*GetUserInboxCountResponse, error) {
+	rsp, err := c.GetUserInboxCount(ctx, projectID, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -4051,16 +4375,16 @@ func (c *ClientWithResponses) GetUserInboxCountWithResponse(ctx context.Context,
 }
 
 // PostUserInboxReadWithBodyWithResponse request with arbitrary body returning *PostUserInboxReadResponse
-func (c *ClientWithResponses) PostUserInboxReadWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostUserInboxReadResponse, error) {
-	rsp, err := c.PostUserInboxReadWithBody(ctx, contentType, body, reqEditors...)
+func (c *ClientWithResponses) PostUserInboxReadWithBodyWithResponse(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostUserInboxReadResponse, error) {
+	rsp, err := c.PostUserInboxReadWithBody(ctx, projectID, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParsePostUserInboxReadResponse(rsp)
 }
 
-func (c *ClientWithResponses) PostUserInboxReadWithResponse(ctx context.Context, body PostUserInboxReadJSONRequestBody, reqEditors ...RequestEditorFn) (*PostUserInboxReadResponse, error) {
-	rsp, err := c.PostUserInboxRead(ctx, body, reqEditors...)
+func (c *ClientWithResponses) PostUserInboxReadWithResponse(ctx context.Context, projectID ProjectID, body PostUserInboxReadJSONRequestBody, reqEditors ...RequestEditorFn) (*PostUserInboxReadResponse, error) {
+	rsp, err := c.PostUserInboxRead(ctx, projectID, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -4068,16 +4392,16 @@ func (c *ClientWithResponses) PostUserInboxReadWithResponse(ctx context.Context,
 }
 
 // DeleteUserScheduledClientWithBodyWithResponse request with arbitrary body returning *DeleteUserScheduledClientResponse
-func (c *ClientWithResponses) DeleteUserScheduledClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteUserScheduledClientResponse, error) {
-	rsp, err := c.DeleteUserScheduledClientWithBody(ctx, contentType, body, reqEditors...)
+func (c *ClientWithResponses) DeleteUserScheduledClientWithBodyWithResponse(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteUserScheduledClientResponse, error) {
+	rsp, err := c.DeleteUserScheduledClientWithBody(ctx, projectID, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseDeleteUserScheduledClientResponse(rsp)
 }
 
-func (c *ClientWithResponses) DeleteUserScheduledClientWithResponse(ctx context.Context, body DeleteUserScheduledClientJSONRequestBody, reqEditors ...RequestEditorFn) (*DeleteUserScheduledClientResponse, error) {
-	rsp, err := c.DeleteUserScheduledClient(ctx, body, reqEditors...)
+func (c *ClientWithResponses) DeleteUserScheduledClientWithResponse(ctx context.Context, projectID ProjectID, body DeleteUserScheduledClientJSONRequestBody, reqEditors ...RequestEditorFn) (*DeleteUserScheduledClientResponse, error) {
+	rsp, err := c.DeleteUserScheduledClient(ctx, projectID, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -4085,16 +4409,16 @@ func (c *ClientWithResponses) DeleteUserScheduledClientWithResponse(ctx context.
 }
 
 // UpsertUserScheduledClientWithBodyWithResponse request with arbitrary body returning *UpsertUserScheduledClientResponse
-func (c *ClientWithResponses) UpsertUserScheduledClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpsertUserScheduledClientResponse, error) {
-	rsp, err := c.UpsertUserScheduledClientWithBody(ctx, contentType, body, reqEditors...)
+func (c *ClientWithResponses) UpsertUserScheduledClientWithBodyWithResponse(ctx context.Context, projectID ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpsertUserScheduledClientResponse, error) {
+	rsp, err := c.UpsertUserScheduledClientWithBody(ctx, projectID, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseUpsertUserScheduledClientResponse(rsp)
 }
 
-func (c *ClientWithResponses) UpsertUserScheduledClientWithResponse(ctx context.Context, body UpsertUserScheduledClientJSONRequestBody, reqEditors ...RequestEditorFn) (*UpsertUserScheduledClientResponse, error) {
-	rsp, err := c.UpsertUserScheduledClient(ctx, body, reqEditors...)
+func (c *ClientWithResponses) UpsertUserScheduledClientWithResponse(ctx context.Context, projectID ProjectID, body UpsertUserScheduledClientJSONRequestBody, reqEditors ...RequestEditorFn) (*UpsertUserScheduledClientResponse, error) {
+	rsp, err := c.UpsertUserScheduledClient(ctx, projectID, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -4134,6 +4458,39 @@ func (c *ClientWithResponses) EmailUnsubscribeWithResponse(ctx context.Context, 
 		return nil, err
 	}
 	return ParseEmailUnsubscribeResponse(rsp)
+}
+
+// ParseCreateSessionResponse parses an HTTP response from a CreateSessionWithResponse call
+func ParseCreateSessionResponse(rsp *http.Response) (*CreateSessionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateSessionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest SessionToken
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
 }
 
 // ParseDeleteOrganizationClientResponse parses an HTTP response from a DeleteOrganizationClientWithResponse call
@@ -4873,78 +5230,81 @@ func ParseEmailUnsubscribeResponse(rsp *http.Response) (*EmailUnsubscribeRespons
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// Mint a session token
+	// (POST /api/client/projects/{projectID}/auth-methods/{authMethodID}/sessions)
+	CreateSession(w http.ResponseWriter, r *http.Request, projectID ProjectID, authMethodID openapi_types.UUID)
 	// Delete organization
-	// (DELETE /api/client/organizations)
-	DeleteOrganizationClient(w http.ResponseWriter, r *http.Request)
+	// (DELETE /api/client/projects/{projectID}/organizations)
+	DeleteOrganizationClient(w http.ResponseWriter, r *http.Request, projectID ProjectID)
 	// Upsert organization
-	// (POST /api/client/organizations)
-	UpsertOrganizationClient(w http.ResponseWriter, r *http.Request)
+	// (POST /api/client/projects/{projectID}/organizations)
+	UpsertOrganizationClient(w http.ResponseWriter, r *http.Request, projectID ProjectID)
 	// Post organization events
-	// (POST /api/client/organizations/events)
-	PostOrganizationEventsClient(w http.ResponseWriter, r *http.Request)
+	// (POST /api/client/projects/{projectID}/organizations/events)
+	PostOrganizationEventsClient(w http.ResponseWriter, r *http.Request, projectID ProjectID)
 	// Query organization inbox messages
-	// (GET /api/client/organizations/inbox)
-	GetOrganizationInbox(w http.ResponseWriter, r *http.Request, params GetOrganizationInboxParams)
+	// (GET /api/client/projects/{projectID}/organizations/inbox)
+	GetOrganizationInbox(w http.ResponseWriter, r *http.Request, projectID ProjectID, params GetOrganizationInboxParams)
 	// Create organization inbox messages
-	// (POST /api/client/organizations/inbox)
-	PostOrganizationInboxMessages(w http.ResponseWriter, r *http.Request)
+	// (POST /api/client/projects/{projectID}/organizations/inbox)
+	PostOrganizationInboxMessages(w http.ResponseWriter, r *http.Request, projectID ProjectID)
 	// Mark organization inbox messages archived
-	// (POST /api/client/organizations/inbox/archived)
-	PostOrganizationInboxArchived(w http.ResponseWriter, r *http.Request)
+	// (POST /api/client/projects/{projectID}/organizations/inbox/archived)
+	PostOrganizationInboxArchived(w http.ResponseWriter, r *http.Request, projectID ProjectID)
 	// Count organization inbox messages
-	// (GET /api/client/organizations/inbox/count)
-	GetOrganizationInboxCount(w http.ResponseWriter, r *http.Request, params GetOrganizationInboxCountParams)
+	// (GET /api/client/projects/{projectID}/organizations/inbox/count)
+	GetOrganizationInboxCount(w http.ResponseWriter, r *http.Request, projectID ProjectID, params GetOrganizationInboxCountParams)
 	// Mark organization inbox messages read
-	// (POST /api/client/organizations/inbox/read)
-	PostOrganizationInboxRead(w http.ResponseWriter, r *http.Request)
+	// (POST /api/client/projects/{projectID}/organizations/inbox/read)
+	PostOrganizationInboxRead(w http.ResponseWriter, r *http.Request, projectID ProjectID)
 	// Delete organization scheduled
-	// (DELETE /api/client/organizations/scheduled)
-	DeleteOrganizationScheduledClient(w http.ResponseWriter, r *http.Request)
+	// (DELETE /api/client/projects/{projectID}/organizations/scheduled)
+	DeleteOrganizationScheduledClient(w http.ResponseWriter, r *http.Request, projectID ProjectID)
 	// Upsert organization scheduled
-	// (POST /api/client/organizations/scheduled)
-	UpsertOrganizationScheduledClient(w http.ResponseWriter, r *http.Request)
+	// (POST /api/client/projects/{projectID}/organizations/scheduled)
+	UpsertOrganizationScheduledClient(w http.ResponseWriter, r *http.Request, projectID ProjectID)
 	// Remove user from organization
-	// (DELETE /api/client/organizations/users)
-	RemoveOrganizationUserClient(w http.ResponseWriter, r *http.Request)
+	// (DELETE /api/client/projects/{projectID}/organizations/users)
+	RemoveOrganizationUserClient(w http.ResponseWriter, r *http.Request, projectID ProjectID)
 	// Add user to organization
-	// (POST /api/client/organizations/users)
-	AddOrganizationUserClient(w http.ResponseWriter, r *http.Request)
+	// (POST /api/client/projects/{projectID}/organizations/users)
+	AddOrganizationUserClient(w http.ResponseWriter, r *http.Request, projectID ProjectID)
 	// Get VAPID public key
-	// (GET /api/client/push/vapid)
-	GetVapidPublicKey(w http.ResponseWriter, r *http.Request)
+	// (GET /api/client/projects/{projectID}/push/vapid)
+	GetVapidPublicKey(w http.ResponseWriter, r *http.Request, projectID ProjectID)
 	// Delete user
-	// (DELETE /api/client/users)
-	DeleteUserClient(w http.ResponseWriter, r *http.Request)
+	// (DELETE /api/client/projects/{projectID}/users)
+	DeleteUserClient(w http.ResponseWriter, r *http.Request, projectID ProjectID)
 	// Upsert user
-	// (POST /api/client/users)
-	UpsertUserClient(w http.ResponseWriter, r *http.Request)
+	// (POST /api/client/projects/{projectID}/users)
+	UpsertUserClient(w http.ResponseWriter, r *http.Request, projectID ProjectID)
 	// Register device
-	// (POST /api/client/users/devices)
-	RegisterDevice(w http.ResponseWriter, r *http.Request)
+	// (POST /api/client/projects/{projectID}/users/devices)
+	RegisterDevice(w http.ResponseWriter, r *http.Request, projectID ProjectID)
 	// Post user events
-	// (POST /api/client/users/events)
-	PostUserEvents(w http.ResponseWriter, r *http.Request)
+	// (POST /api/client/projects/{projectID}/users/events)
+	PostUserEvents(w http.ResponseWriter, r *http.Request, projectID ProjectID)
 	// Query user inbox messages
-	// (GET /api/client/users/inbox)
-	GetUserInbox(w http.ResponseWriter, r *http.Request, params GetUserInboxParams)
+	// (GET /api/client/projects/{projectID}/users/inbox)
+	GetUserInbox(w http.ResponseWriter, r *http.Request, projectID ProjectID, params GetUserInboxParams)
 	// Create user inbox messages
-	// (POST /api/client/users/inbox)
-	PostUserInboxMessages(w http.ResponseWriter, r *http.Request)
+	// (POST /api/client/projects/{projectID}/users/inbox)
+	PostUserInboxMessages(w http.ResponseWriter, r *http.Request, projectID ProjectID)
 	// Mark user inbox messages archived
-	// (POST /api/client/users/inbox/archived)
-	PostUserInboxArchived(w http.ResponseWriter, r *http.Request)
+	// (POST /api/client/projects/{projectID}/users/inbox/archived)
+	PostUserInboxArchived(w http.ResponseWriter, r *http.Request, projectID ProjectID)
 	// Count user inbox messages
-	// (GET /api/client/users/inbox/count)
-	GetUserInboxCount(w http.ResponseWriter, r *http.Request, params GetUserInboxCountParams)
+	// (GET /api/client/projects/{projectID}/users/inbox/count)
+	GetUserInboxCount(w http.ResponseWriter, r *http.Request, projectID ProjectID, params GetUserInboxCountParams)
 	// Mark user inbox messages read
-	// (POST /api/client/users/inbox/read)
-	PostUserInboxRead(w http.ResponseWriter, r *http.Request)
+	// (POST /api/client/projects/{projectID}/users/inbox/read)
+	PostUserInboxRead(w http.ResponseWriter, r *http.Request, projectID ProjectID)
 	// Delete user scheduled
-	// (DELETE /api/client/users/scheduled)
-	DeleteUserScheduledClient(w http.ResponseWriter, r *http.Request)
+	// (DELETE /api/client/projects/{projectID}/users/scheduled)
+	DeleteUserScheduledClient(w http.ResponseWriter, r *http.Request, projectID ProjectID)
 	// Upsert user scheduled
-	// (POST /api/client/users/scheduled)
-	UpsertUserScheduledClient(w http.ResponseWriter, r *http.Request)
+	// (POST /api/client/projects/{projectID}/users/scheduled)
+	UpsertUserScheduledClient(w http.ResponseWriter, r *http.Request, projectID ProjectID)
 	// Subscription preferences page
 	// (GET /preferences/{projectID}/{userID})
 	GetPreferencesPage(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID)
@@ -4960,147 +5320,153 @@ type ServerInterface interface {
 
 type Unimplemented struct{}
 
+// Mint a session token
+// (POST /api/client/projects/{projectID}/auth-methods/{authMethodID}/sessions)
+func (_ Unimplemented) CreateSession(w http.ResponseWriter, r *http.Request, projectID ProjectID, authMethodID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // Delete organization
-// (DELETE /api/client/organizations)
-func (_ Unimplemented) DeleteOrganizationClient(w http.ResponseWriter, r *http.Request) {
+// (DELETE /api/client/projects/{projectID}/organizations)
+func (_ Unimplemented) DeleteOrganizationClient(w http.ResponseWriter, r *http.Request, projectID ProjectID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Upsert organization
-// (POST /api/client/organizations)
-func (_ Unimplemented) UpsertOrganizationClient(w http.ResponseWriter, r *http.Request) {
+// (POST /api/client/projects/{projectID}/organizations)
+func (_ Unimplemented) UpsertOrganizationClient(w http.ResponseWriter, r *http.Request, projectID ProjectID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Post organization events
-// (POST /api/client/organizations/events)
-func (_ Unimplemented) PostOrganizationEventsClient(w http.ResponseWriter, r *http.Request) {
+// (POST /api/client/projects/{projectID}/organizations/events)
+func (_ Unimplemented) PostOrganizationEventsClient(w http.ResponseWriter, r *http.Request, projectID ProjectID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Query organization inbox messages
-// (GET /api/client/organizations/inbox)
-func (_ Unimplemented) GetOrganizationInbox(w http.ResponseWriter, r *http.Request, params GetOrganizationInboxParams) {
+// (GET /api/client/projects/{projectID}/organizations/inbox)
+func (_ Unimplemented) GetOrganizationInbox(w http.ResponseWriter, r *http.Request, projectID ProjectID, params GetOrganizationInboxParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Create organization inbox messages
-// (POST /api/client/organizations/inbox)
-func (_ Unimplemented) PostOrganizationInboxMessages(w http.ResponseWriter, r *http.Request) {
+// (POST /api/client/projects/{projectID}/organizations/inbox)
+func (_ Unimplemented) PostOrganizationInboxMessages(w http.ResponseWriter, r *http.Request, projectID ProjectID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Mark organization inbox messages archived
-// (POST /api/client/organizations/inbox/archived)
-func (_ Unimplemented) PostOrganizationInboxArchived(w http.ResponseWriter, r *http.Request) {
+// (POST /api/client/projects/{projectID}/organizations/inbox/archived)
+func (_ Unimplemented) PostOrganizationInboxArchived(w http.ResponseWriter, r *http.Request, projectID ProjectID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Count organization inbox messages
-// (GET /api/client/organizations/inbox/count)
-func (_ Unimplemented) GetOrganizationInboxCount(w http.ResponseWriter, r *http.Request, params GetOrganizationInboxCountParams) {
+// (GET /api/client/projects/{projectID}/organizations/inbox/count)
+func (_ Unimplemented) GetOrganizationInboxCount(w http.ResponseWriter, r *http.Request, projectID ProjectID, params GetOrganizationInboxCountParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Mark organization inbox messages read
-// (POST /api/client/organizations/inbox/read)
-func (_ Unimplemented) PostOrganizationInboxRead(w http.ResponseWriter, r *http.Request) {
+// (POST /api/client/projects/{projectID}/organizations/inbox/read)
+func (_ Unimplemented) PostOrganizationInboxRead(w http.ResponseWriter, r *http.Request, projectID ProjectID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Delete organization scheduled
-// (DELETE /api/client/organizations/scheduled)
-func (_ Unimplemented) DeleteOrganizationScheduledClient(w http.ResponseWriter, r *http.Request) {
+// (DELETE /api/client/projects/{projectID}/organizations/scheduled)
+func (_ Unimplemented) DeleteOrganizationScheduledClient(w http.ResponseWriter, r *http.Request, projectID ProjectID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Upsert organization scheduled
-// (POST /api/client/organizations/scheduled)
-func (_ Unimplemented) UpsertOrganizationScheduledClient(w http.ResponseWriter, r *http.Request) {
+// (POST /api/client/projects/{projectID}/organizations/scheduled)
+func (_ Unimplemented) UpsertOrganizationScheduledClient(w http.ResponseWriter, r *http.Request, projectID ProjectID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Remove user from organization
-// (DELETE /api/client/organizations/users)
-func (_ Unimplemented) RemoveOrganizationUserClient(w http.ResponseWriter, r *http.Request) {
+// (DELETE /api/client/projects/{projectID}/organizations/users)
+func (_ Unimplemented) RemoveOrganizationUserClient(w http.ResponseWriter, r *http.Request, projectID ProjectID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Add user to organization
-// (POST /api/client/organizations/users)
-func (_ Unimplemented) AddOrganizationUserClient(w http.ResponseWriter, r *http.Request) {
+// (POST /api/client/projects/{projectID}/organizations/users)
+func (_ Unimplemented) AddOrganizationUserClient(w http.ResponseWriter, r *http.Request, projectID ProjectID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Get VAPID public key
-// (GET /api/client/push/vapid)
-func (_ Unimplemented) GetVapidPublicKey(w http.ResponseWriter, r *http.Request) {
+// (GET /api/client/projects/{projectID}/push/vapid)
+func (_ Unimplemented) GetVapidPublicKey(w http.ResponseWriter, r *http.Request, projectID ProjectID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Delete user
-// (DELETE /api/client/users)
-func (_ Unimplemented) DeleteUserClient(w http.ResponseWriter, r *http.Request) {
+// (DELETE /api/client/projects/{projectID}/users)
+func (_ Unimplemented) DeleteUserClient(w http.ResponseWriter, r *http.Request, projectID ProjectID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Upsert user
-// (POST /api/client/users)
-func (_ Unimplemented) UpsertUserClient(w http.ResponseWriter, r *http.Request) {
+// (POST /api/client/projects/{projectID}/users)
+func (_ Unimplemented) UpsertUserClient(w http.ResponseWriter, r *http.Request, projectID ProjectID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Register device
-// (POST /api/client/users/devices)
-func (_ Unimplemented) RegisterDevice(w http.ResponseWriter, r *http.Request) {
+// (POST /api/client/projects/{projectID}/users/devices)
+func (_ Unimplemented) RegisterDevice(w http.ResponseWriter, r *http.Request, projectID ProjectID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Post user events
-// (POST /api/client/users/events)
-func (_ Unimplemented) PostUserEvents(w http.ResponseWriter, r *http.Request) {
+// (POST /api/client/projects/{projectID}/users/events)
+func (_ Unimplemented) PostUserEvents(w http.ResponseWriter, r *http.Request, projectID ProjectID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Query user inbox messages
-// (GET /api/client/users/inbox)
-func (_ Unimplemented) GetUserInbox(w http.ResponseWriter, r *http.Request, params GetUserInboxParams) {
+// (GET /api/client/projects/{projectID}/users/inbox)
+func (_ Unimplemented) GetUserInbox(w http.ResponseWriter, r *http.Request, projectID ProjectID, params GetUserInboxParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Create user inbox messages
-// (POST /api/client/users/inbox)
-func (_ Unimplemented) PostUserInboxMessages(w http.ResponseWriter, r *http.Request) {
+// (POST /api/client/projects/{projectID}/users/inbox)
+func (_ Unimplemented) PostUserInboxMessages(w http.ResponseWriter, r *http.Request, projectID ProjectID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Mark user inbox messages archived
-// (POST /api/client/users/inbox/archived)
-func (_ Unimplemented) PostUserInboxArchived(w http.ResponseWriter, r *http.Request) {
+// (POST /api/client/projects/{projectID}/users/inbox/archived)
+func (_ Unimplemented) PostUserInboxArchived(w http.ResponseWriter, r *http.Request, projectID ProjectID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Count user inbox messages
-// (GET /api/client/users/inbox/count)
-func (_ Unimplemented) GetUserInboxCount(w http.ResponseWriter, r *http.Request, params GetUserInboxCountParams) {
+// (GET /api/client/projects/{projectID}/users/inbox/count)
+func (_ Unimplemented) GetUserInboxCount(w http.ResponseWriter, r *http.Request, projectID ProjectID, params GetUserInboxCountParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Mark user inbox messages read
-// (POST /api/client/users/inbox/read)
-func (_ Unimplemented) PostUserInboxRead(w http.ResponseWriter, r *http.Request) {
+// (POST /api/client/projects/{projectID}/users/inbox/read)
+func (_ Unimplemented) PostUserInboxRead(w http.ResponseWriter, r *http.Request, projectID ProjectID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Delete user scheduled
-// (DELETE /api/client/users/scheduled)
-func (_ Unimplemented) DeleteUserScheduledClient(w http.ResponseWriter, r *http.Request) {
+// (DELETE /api/client/projects/{projectID}/users/scheduled)
+func (_ Unimplemented) DeleteUserScheduledClient(w http.ResponseWriter, r *http.Request, projectID ProjectID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Upsert user scheduled
-// (POST /api/client/users/scheduled)
-func (_ Unimplemented) UpsertUserScheduledClient(w http.ResponseWriter, r *http.Request) {
+// (POST /api/client/projects/{projectID}/users/scheduled)
+func (_ Unimplemented) UpsertUserScheduledClient(w http.ResponseWriter, r *http.Request, projectID ProjectID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -5131,8 +5497,29 @@ type ServerInterfaceWrapper struct {
 
 type MiddlewareFunc func(http.Handler) http.Handler
 
-// DeleteOrganizationClient operation middleware
-func (siw *ServerInterfaceWrapper) DeleteOrganizationClient(w http.ResponseWriter, r *http.Request) {
+// CreateSession operation middleware
+func (siw *ServerInterfaceWrapper) CreateSession(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "authMethodID" -------------
+	var authMethodID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "authMethodID", chi.URLParam(r, "authMethodID"), &authMethodID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "authMethodID", Err: err})
+		return
+	}
 
 	ctx := r.Context()
 
@@ -5141,7 +5528,39 @@ func (siw *ServerInterfaceWrapper) DeleteOrganizationClient(w http.ResponseWrite
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.DeleteOrganizationClient(w, r)
+		siw.Handler.CreateSession(w, r, projectID, authMethodID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteOrganizationClient operation middleware
+func (siw *ServerInterfaceWrapper) DeleteOrganizationClient(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteOrganizationClient(w, r, projectID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -5154,6 +5573,18 @@ func (siw *ServerInterfaceWrapper) DeleteOrganizationClient(w http.ResponseWrite
 // UpsertOrganizationClient operation middleware
 func (siw *ServerInterfaceWrapper) UpsertOrganizationClient(w http.ResponseWriter, r *http.Request) {
 
+	var err error
+	_ = err
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
 	ctx := r.Context()
 
 	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
@@ -5161,7 +5592,7 @@ func (siw *ServerInterfaceWrapper) UpsertOrganizationClient(w http.ResponseWrite
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.UpsertOrganizationClient(w, r)
+		siw.Handler.UpsertOrganizationClient(w, r, projectID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -5174,6 +5605,18 @@ func (siw *ServerInterfaceWrapper) UpsertOrganizationClient(w http.ResponseWrite
 // PostOrganizationEventsClient operation middleware
 func (siw *ServerInterfaceWrapper) PostOrganizationEventsClient(w http.ResponseWriter, r *http.Request) {
 
+	var err error
+	_ = err
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
 	ctx := r.Context()
 
 	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
@@ -5181,7 +5624,7 @@ func (siw *ServerInterfaceWrapper) PostOrganizationEventsClient(w http.ResponseW
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.PostOrganizationEventsClient(w, r)
+		siw.Handler.PostOrganizationEventsClient(w, r, projectID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -5196,6 +5639,15 @@ func (siw *ServerInterfaceWrapper) GetOrganizationInbox(w http.ResponseWriter, r
 
 	var err error
 	_ = err
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
 
 	ctx := r.Context()
 
@@ -5324,7 +5776,7 @@ func (siw *ServerInterfaceWrapper) GetOrganizationInbox(w http.ResponseWriter, r
 	}
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetOrganizationInbox(w, r, params)
+		siw.Handler.GetOrganizationInbox(w, r, projectID, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -5337,6 +5789,18 @@ func (siw *ServerInterfaceWrapper) GetOrganizationInbox(w http.ResponseWriter, r
 // PostOrganizationInboxMessages operation middleware
 func (siw *ServerInterfaceWrapper) PostOrganizationInboxMessages(w http.ResponseWriter, r *http.Request) {
 
+	var err error
+	_ = err
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
 	ctx := r.Context()
 
 	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
@@ -5344,7 +5808,7 @@ func (siw *ServerInterfaceWrapper) PostOrganizationInboxMessages(w http.Response
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.PostOrganizationInboxMessages(w, r)
+		siw.Handler.PostOrganizationInboxMessages(w, r, projectID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -5357,6 +5821,18 @@ func (siw *ServerInterfaceWrapper) PostOrganizationInboxMessages(w http.Response
 // PostOrganizationInboxArchived operation middleware
 func (siw *ServerInterfaceWrapper) PostOrganizationInboxArchived(w http.ResponseWriter, r *http.Request) {
 
+	var err error
+	_ = err
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
 	ctx := r.Context()
 
 	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
@@ -5364,7 +5840,7 @@ func (siw *ServerInterfaceWrapper) PostOrganizationInboxArchived(w http.Response
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.PostOrganizationInboxArchived(w, r)
+		siw.Handler.PostOrganizationInboxArchived(w, r, projectID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -5379,6 +5855,15 @@ func (siw *ServerInterfaceWrapper) GetOrganizationInboxCount(w http.ResponseWrit
 
 	var err error
 	_ = err
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
 
 	ctx := r.Context()
 
@@ -5429,7 +5914,7 @@ func (siw *ServerInterfaceWrapper) GetOrganizationInboxCount(w http.ResponseWrit
 	}
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetOrganizationInboxCount(w, r, params)
+		siw.Handler.GetOrganizationInboxCount(w, r, projectID, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -5442,6 +5927,18 @@ func (siw *ServerInterfaceWrapper) GetOrganizationInboxCount(w http.ResponseWrit
 // PostOrganizationInboxRead operation middleware
 func (siw *ServerInterfaceWrapper) PostOrganizationInboxRead(w http.ResponseWriter, r *http.Request) {
 
+	var err error
+	_ = err
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
 	ctx := r.Context()
 
 	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
@@ -5449,7 +5946,7 @@ func (siw *ServerInterfaceWrapper) PostOrganizationInboxRead(w http.ResponseWrit
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.PostOrganizationInboxRead(w, r)
+		siw.Handler.PostOrganizationInboxRead(w, r, projectID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -5462,6 +5959,18 @@ func (siw *ServerInterfaceWrapper) PostOrganizationInboxRead(w http.ResponseWrit
 // DeleteOrganizationScheduledClient operation middleware
 func (siw *ServerInterfaceWrapper) DeleteOrganizationScheduledClient(w http.ResponseWriter, r *http.Request) {
 
+	var err error
+	_ = err
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
 	ctx := r.Context()
 
 	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
@@ -5469,7 +5978,7 @@ func (siw *ServerInterfaceWrapper) DeleteOrganizationScheduledClient(w http.Resp
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.DeleteOrganizationScheduledClient(w, r)
+		siw.Handler.DeleteOrganizationScheduledClient(w, r, projectID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -5482,6 +5991,18 @@ func (siw *ServerInterfaceWrapper) DeleteOrganizationScheduledClient(w http.Resp
 // UpsertOrganizationScheduledClient operation middleware
 func (siw *ServerInterfaceWrapper) UpsertOrganizationScheduledClient(w http.ResponseWriter, r *http.Request) {
 
+	var err error
+	_ = err
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
 	ctx := r.Context()
 
 	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
@@ -5489,7 +6010,7 @@ func (siw *ServerInterfaceWrapper) UpsertOrganizationScheduledClient(w http.Resp
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.UpsertOrganizationScheduledClient(w, r)
+		siw.Handler.UpsertOrganizationScheduledClient(w, r, projectID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -5502,6 +6023,18 @@ func (siw *ServerInterfaceWrapper) UpsertOrganizationScheduledClient(w http.Resp
 // RemoveOrganizationUserClient operation middleware
 func (siw *ServerInterfaceWrapper) RemoveOrganizationUserClient(w http.ResponseWriter, r *http.Request) {
 
+	var err error
+	_ = err
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
 	ctx := r.Context()
 
 	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
@@ -5509,7 +6042,7 @@ func (siw *ServerInterfaceWrapper) RemoveOrganizationUserClient(w http.ResponseW
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.RemoveOrganizationUserClient(w, r)
+		siw.Handler.RemoveOrganizationUserClient(w, r, projectID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -5522,6 +6055,18 @@ func (siw *ServerInterfaceWrapper) RemoveOrganizationUserClient(w http.ResponseW
 // AddOrganizationUserClient operation middleware
 func (siw *ServerInterfaceWrapper) AddOrganizationUserClient(w http.ResponseWriter, r *http.Request) {
 
+	var err error
+	_ = err
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
 	ctx := r.Context()
 
 	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
@@ -5529,7 +6074,7 @@ func (siw *ServerInterfaceWrapper) AddOrganizationUserClient(w http.ResponseWrit
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.AddOrganizationUserClient(w, r)
+		siw.Handler.AddOrganizationUserClient(w, r, projectID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -5542,6 +6087,18 @@ func (siw *ServerInterfaceWrapper) AddOrganizationUserClient(w http.ResponseWrit
 // GetVapidPublicKey operation middleware
 func (siw *ServerInterfaceWrapper) GetVapidPublicKey(w http.ResponseWriter, r *http.Request) {
 
+	var err error
+	_ = err
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
 	ctx := r.Context()
 
 	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
@@ -5549,7 +6106,7 @@ func (siw *ServerInterfaceWrapper) GetVapidPublicKey(w http.ResponseWriter, r *h
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetVapidPublicKey(w, r)
+		siw.Handler.GetVapidPublicKey(w, r, projectID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -5562,6 +6119,18 @@ func (siw *ServerInterfaceWrapper) GetVapidPublicKey(w http.ResponseWriter, r *h
 // DeleteUserClient operation middleware
 func (siw *ServerInterfaceWrapper) DeleteUserClient(w http.ResponseWriter, r *http.Request) {
 
+	var err error
+	_ = err
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
 	ctx := r.Context()
 
 	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
@@ -5569,7 +6138,7 @@ func (siw *ServerInterfaceWrapper) DeleteUserClient(w http.ResponseWriter, r *ht
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.DeleteUserClient(w, r)
+		siw.Handler.DeleteUserClient(w, r, projectID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -5582,6 +6151,18 @@ func (siw *ServerInterfaceWrapper) DeleteUserClient(w http.ResponseWriter, r *ht
 // UpsertUserClient operation middleware
 func (siw *ServerInterfaceWrapper) UpsertUserClient(w http.ResponseWriter, r *http.Request) {
 
+	var err error
+	_ = err
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
 	ctx := r.Context()
 
 	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
@@ -5589,7 +6170,7 @@ func (siw *ServerInterfaceWrapper) UpsertUserClient(w http.ResponseWriter, r *ht
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.UpsertUserClient(w, r)
+		siw.Handler.UpsertUserClient(w, r, projectID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -5602,6 +6183,18 @@ func (siw *ServerInterfaceWrapper) UpsertUserClient(w http.ResponseWriter, r *ht
 // RegisterDevice operation middleware
 func (siw *ServerInterfaceWrapper) RegisterDevice(w http.ResponseWriter, r *http.Request) {
 
+	var err error
+	_ = err
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
 	ctx := r.Context()
 
 	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
@@ -5609,7 +6202,7 @@ func (siw *ServerInterfaceWrapper) RegisterDevice(w http.ResponseWriter, r *http
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.RegisterDevice(w, r)
+		siw.Handler.RegisterDevice(w, r, projectID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -5622,6 +6215,18 @@ func (siw *ServerInterfaceWrapper) RegisterDevice(w http.ResponseWriter, r *http
 // PostUserEvents operation middleware
 func (siw *ServerInterfaceWrapper) PostUserEvents(w http.ResponseWriter, r *http.Request) {
 
+	var err error
+	_ = err
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
 	ctx := r.Context()
 
 	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
@@ -5629,7 +6234,7 @@ func (siw *ServerInterfaceWrapper) PostUserEvents(w http.ResponseWriter, r *http
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.PostUserEvents(w, r)
+		siw.Handler.PostUserEvents(w, r, projectID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -5644,6 +6249,15 @@ func (siw *ServerInterfaceWrapper) GetUserInbox(w http.ResponseWriter, r *http.R
 
 	var err error
 	_ = err
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
 
 	ctx := r.Context()
 
@@ -5772,7 +6386,7 @@ func (siw *ServerInterfaceWrapper) GetUserInbox(w http.ResponseWriter, r *http.R
 	}
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetUserInbox(w, r, params)
+		siw.Handler.GetUserInbox(w, r, projectID, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -5785,6 +6399,18 @@ func (siw *ServerInterfaceWrapper) GetUserInbox(w http.ResponseWriter, r *http.R
 // PostUserInboxMessages operation middleware
 func (siw *ServerInterfaceWrapper) PostUserInboxMessages(w http.ResponseWriter, r *http.Request) {
 
+	var err error
+	_ = err
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
 	ctx := r.Context()
 
 	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
@@ -5792,7 +6418,7 @@ func (siw *ServerInterfaceWrapper) PostUserInboxMessages(w http.ResponseWriter, 
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.PostUserInboxMessages(w, r)
+		siw.Handler.PostUserInboxMessages(w, r, projectID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -5805,6 +6431,18 @@ func (siw *ServerInterfaceWrapper) PostUserInboxMessages(w http.ResponseWriter, 
 // PostUserInboxArchived operation middleware
 func (siw *ServerInterfaceWrapper) PostUserInboxArchived(w http.ResponseWriter, r *http.Request) {
 
+	var err error
+	_ = err
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
 	ctx := r.Context()
 
 	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
@@ -5812,7 +6450,7 @@ func (siw *ServerInterfaceWrapper) PostUserInboxArchived(w http.ResponseWriter, 
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.PostUserInboxArchived(w, r)
+		siw.Handler.PostUserInboxArchived(w, r, projectID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -5827,6 +6465,15 @@ func (siw *ServerInterfaceWrapper) GetUserInboxCount(w http.ResponseWriter, r *h
 
 	var err error
 	_ = err
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
 
 	ctx := r.Context()
 
@@ -5877,7 +6524,7 @@ func (siw *ServerInterfaceWrapper) GetUserInboxCount(w http.ResponseWriter, r *h
 	}
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetUserInboxCount(w, r, params)
+		siw.Handler.GetUserInboxCount(w, r, projectID, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -5890,6 +6537,18 @@ func (siw *ServerInterfaceWrapper) GetUserInboxCount(w http.ResponseWriter, r *h
 // PostUserInboxRead operation middleware
 func (siw *ServerInterfaceWrapper) PostUserInboxRead(w http.ResponseWriter, r *http.Request) {
 
+	var err error
+	_ = err
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
 	ctx := r.Context()
 
 	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
@@ -5897,7 +6556,7 @@ func (siw *ServerInterfaceWrapper) PostUserInboxRead(w http.ResponseWriter, r *h
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.PostUserInboxRead(w, r)
+		siw.Handler.PostUserInboxRead(w, r, projectID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -5910,6 +6569,18 @@ func (siw *ServerInterfaceWrapper) PostUserInboxRead(w http.ResponseWriter, r *h
 // DeleteUserScheduledClient operation middleware
 func (siw *ServerInterfaceWrapper) DeleteUserScheduledClient(w http.ResponseWriter, r *http.Request) {
 
+	var err error
+	_ = err
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
 	ctx := r.Context()
 
 	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
@@ -5917,7 +6588,7 @@ func (siw *ServerInterfaceWrapper) DeleteUserScheduledClient(w http.ResponseWrit
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.DeleteUserScheduledClient(w, r)
+		siw.Handler.DeleteUserScheduledClient(w, r, projectID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -5930,6 +6601,18 @@ func (siw *ServerInterfaceWrapper) DeleteUserScheduledClient(w http.ResponseWrit
 // UpsertUserScheduledClient operation middleware
 func (siw *ServerInterfaceWrapper) UpsertUserScheduledClient(w http.ResponseWriter, r *http.Request) {
 
+	var err error
+	_ = err
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
 	ctx := r.Context()
 
 	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
@@ -5937,7 +6620,7 @@ func (siw *ServerInterfaceWrapper) UpsertUserScheduledClient(w http.ResponseWrit
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.UpsertUserScheduledClient(w, r)
+		siw.Handler.UpsertUserScheduledClient(w, r, projectID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -6164,76 +6847,79 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	}
 
 	r.Group(func(r chi.Router) {
-		r.Delete(options.BaseURL+"/api/client/organizations", wrapper.DeleteOrganizationClient)
+		r.Post(options.BaseURL+"/api/client/projects/{projectID}/auth-methods/{authMethodID}/sessions", wrapper.CreateSession)
 	})
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/api/client/organizations", wrapper.UpsertOrganizationClient)
+		r.Delete(options.BaseURL+"/api/client/projects/{projectID}/organizations", wrapper.DeleteOrganizationClient)
 	})
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/api/client/organizations/events", wrapper.PostOrganizationEventsClient)
+		r.Post(options.BaseURL+"/api/client/projects/{projectID}/organizations", wrapper.UpsertOrganizationClient)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/api/client/organizations/inbox", wrapper.GetOrganizationInbox)
+		r.Post(options.BaseURL+"/api/client/projects/{projectID}/organizations/events", wrapper.PostOrganizationEventsClient)
 	})
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/api/client/organizations/inbox", wrapper.PostOrganizationInboxMessages)
+		r.Get(options.BaseURL+"/api/client/projects/{projectID}/organizations/inbox", wrapper.GetOrganizationInbox)
 	})
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/api/client/organizations/inbox/archived", wrapper.PostOrganizationInboxArchived)
+		r.Post(options.BaseURL+"/api/client/projects/{projectID}/organizations/inbox", wrapper.PostOrganizationInboxMessages)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/api/client/organizations/inbox/count", wrapper.GetOrganizationInboxCount)
+		r.Post(options.BaseURL+"/api/client/projects/{projectID}/organizations/inbox/archived", wrapper.PostOrganizationInboxArchived)
 	})
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/api/client/organizations/inbox/read", wrapper.PostOrganizationInboxRead)
+		r.Get(options.BaseURL+"/api/client/projects/{projectID}/organizations/inbox/count", wrapper.GetOrganizationInboxCount)
 	})
 	r.Group(func(r chi.Router) {
-		r.Delete(options.BaseURL+"/api/client/organizations/scheduled", wrapper.DeleteOrganizationScheduledClient)
+		r.Post(options.BaseURL+"/api/client/projects/{projectID}/organizations/inbox/read", wrapper.PostOrganizationInboxRead)
 	})
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/api/client/organizations/scheduled", wrapper.UpsertOrganizationScheduledClient)
+		r.Delete(options.BaseURL+"/api/client/projects/{projectID}/organizations/scheduled", wrapper.DeleteOrganizationScheduledClient)
 	})
 	r.Group(func(r chi.Router) {
-		r.Delete(options.BaseURL+"/api/client/organizations/users", wrapper.RemoveOrganizationUserClient)
+		r.Post(options.BaseURL+"/api/client/projects/{projectID}/organizations/scheduled", wrapper.UpsertOrganizationScheduledClient)
 	})
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/api/client/organizations/users", wrapper.AddOrganizationUserClient)
+		r.Delete(options.BaseURL+"/api/client/projects/{projectID}/organizations/users", wrapper.RemoveOrganizationUserClient)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/api/client/push/vapid", wrapper.GetVapidPublicKey)
+		r.Post(options.BaseURL+"/api/client/projects/{projectID}/organizations/users", wrapper.AddOrganizationUserClient)
 	})
 	r.Group(func(r chi.Router) {
-		r.Delete(options.BaseURL+"/api/client/users", wrapper.DeleteUserClient)
+		r.Get(options.BaseURL+"/api/client/projects/{projectID}/push/vapid", wrapper.GetVapidPublicKey)
 	})
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/api/client/users", wrapper.UpsertUserClient)
+		r.Delete(options.BaseURL+"/api/client/projects/{projectID}/users", wrapper.DeleteUserClient)
 	})
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/api/client/users/devices", wrapper.RegisterDevice)
+		r.Post(options.BaseURL+"/api/client/projects/{projectID}/users", wrapper.UpsertUserClient)
 	})
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/api/client/users/events", wrapper.PostUserEvents)
+		r.Post(options.BaseURL+"/api/client/projects/{projectID}/users/devices", wrapper.RegisterDevice)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/api/client/users/inbox", wrapper.GetUserInbox)
+		r.Post(options.BaseURL+"/api/client/projects/{projectID}/users/events", wrapper.PostUserEvents)
 	})
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/api/client/users/inbox", wrapper.PostUserInboxMessages)
+		r.Get(options.BaseURL+"/api/client/projects/{projectID}/users/inbox", wrapper.GetUserInbox)
 	})
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/api/client/users/inbox/archived", wrapper.PostUserInboxArchived)
+		r.Post(options.BaseURL+"/api/client/projects/{projectID}/users/inbox", wrapper.PostUserInboxMessages)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/api/client/users/inbox/count", wrapper.GetUserInboxCount)
+		r.Post(options.BaseURL+"/api/client/projects/{projectID}/users/inbox/archived", wrapper.PostUserInboxArchived)
 	})
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/api/client/users/inbox/read", wrapper.PostUserInboxRead)
+		r.Get(options.BaseURL+"/api/client/projects/{projectID}/users/inbox/count", wrapper.GetUserInboxCount)
 	})
 	r.Group(func(r chi.Router) {
-		r.Delete(options.BaseURL+"/api/client/users/scheduled", wrapper.DeleteUserScheduledClient)
+		r.Post(options.BaseURL+"/api/client/projects/{projectID}/users/inbox/read", wrapper.PostUserInboxRead)
 	})
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/api/client/users/scheduled", wrapper.UpsertUserScheduledClient)
+		r.Delete(options.BaseURL+"/api/client/projects/{projectID}/users/scheduled", wrapper.DeleteUserScheduledClient)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/client/projects/{projectID}/users/scheduled", wrapper.UpsertUserScheduledClient)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/preferences/{projectID}/{userID}", wrapper.GetPreferencesPage)

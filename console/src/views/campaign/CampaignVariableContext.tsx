@@ -8,7 +8,7 @@ import {
 } from "react"
 import type { VariableGroup } from "@/views/journey/JourneyVariableContext"
 import { CampaignContext, ProjectContext } from "@/contexts"
-import api from "@/api"
+import { fetchPathSuggestions } from "@/lib/path-suggestions"
 import type { VariableSuggestions } from "@/types"
 
 interface CampaignVariableContextValue {
@@ -107,8 +107,7 @@ export function CampaignVariableProvider({ children }: PropsWithChildren) {
     // Fetch user schema paths once per project
     useEffect(() => {
         let cancelled = false
-        api.projects
-            .pathSuggestions(project.id)
+        fetchPathSuggestions(project.id)
             .then((s) => {
                 if (!cancelled) setSuggestions(s)
             })

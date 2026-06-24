@@ -10,8 +10,9 @@ import (
 type ActorType string
 
 const (
-	ActorAdmin  ActorType = "admin"
-	ActorAPIKey ActorType = "api_key"
+	ActorAdmin   ActorType = "admin"
+	ActorAPIKey  ActorType = "api_key"
+	ActorEndUser ActorType = "end_user"
 )
 
 const (
@@ -35,7 +36,36 @@ type Actor struct {
 	ID             string
 	OrganizationID uuid.UUID
 	ProjectID      uuid.UUID
+
+	// Subject and SubjectSource are the verified external identity for end-user
+	// actors: the value of the configured subject claim and the external-ID
+	// source it maps to (the trusted issuer). They let handlers resolve or create
+	// the Lunogram user for the verified subject. Empty for admins and API keys.
+	Subject       string
+	SubjectSource string
+
+	// Scope is the data boundary the actor acts within. The zero value (and
+	// [DataScopeAll]) acts across every subject's records, like a backend key;
+	// [DataScopeOwn] is set only for verified end-user actors ([ActorEndUser])
+	// whose auth method carries the "own" subject scope, binding them to their
+	// verified subject regardless of any client-supplied identifier. Handlers
+	// scope such requests to the verified [Actor.Subject]/[Actor.SubjectSource]
+	// via auth.BoundUserIdentifiers.
+	Scope DataScope
 }
+
+// DataScope is the data boundary an actor acts within. It is a small enum rather
+// than a bool so the boundary can grow new values without changing the actor
+// option signature.
+type DataScope string
+
+const (
+	// DataScopeAll acts across every subject's records (the default: backend
+	// keys and admins).
+	DataScopeAll DataScope = "all"
+	// DataScopeOwn confines a verified end user to its own records.
+	DataScopeOwn DataScope = "own"
+)
 
 // ActorOption configures optional fields on an [Actor].
 type ActorOption func(*Actor)
@@ -51,6 +81,24 @@ func WithOrganizationID(id uuid.UUID) ActorOption {
 func WithProjectID(id uuid.UUID) ActorOption {
 	return func(a *Actor) {
 		a.ProjectID = id
+	}
+}
+
+// WithSubject sets the verified external subject and its external-ID source on
+// the actor. See [Actor.Subject].
+func WithSubject(subject, source string) ActorOption {
+	return func(a *Actor) {
+		a.Subject = subject
+		a.SubjectSource = source
+	}
+}
+
+// WithScope sets the data boundary the actor acts within. Use [DataScopeOwn]
+// for verified end-user actors whose auth method has the "own" subject scope.
+// See [Actor.Scope].
+func WithScope(scope DataScope) ActorOption {
+	return func(a *Actor) {
+		a.Scope = scope
 	}
 }
 

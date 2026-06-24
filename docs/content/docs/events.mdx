@@ -22,7 +22,7 @@ Send events through the [JavaScript SDK](/sdks/javascript) or the client API. Ev
 
 ### User Events
 
-`POST /api/client/users/events`
+`POST /api/client/projects/{projectID}/users/events`
 
 <Tabs items={['JavaScript SDK', 'API']}>
   <Tab value="JavaScript SDK">
@@ -70,8 +70,8 @@ Send events through the [JavaScript SDK](/sdks/javascript) or the client API. Ev
   <Tab value="API">
     ```bash
     # Target a specific user by identifier
-    curl -X POST https://your-instance.com/api/client/users/events \
-      -H "Authorization: Bearer pk_..." \
+    curl -X POST https://your-instance.com/api/client/projects/{projectID}/users/events \
+      -H "Authorization: Bearer sk_..." \
       -H "Content-Type: application/json" \
       -d '[
         {
@@ -87,8 +87,8 @@ Send events through the [JavaScript SDK](/sdks/javascript) or the client API. Ev
       ]'
 
     # Target all users whose data matches a filter
-    curl -X POST https://your-instance.com/api/client/users/events \
-      -H "Authorization: Bearer pk_..." \
+    curl -X POST https://your-instance.com/api/client/projects/{projectID}/users/events \
+      -H "Authorization: Bearer sk_..." \
       -H "Content-Type: application/json" \
       -d '[
         {
@@ -144,7 +144,7 @@ The example above sends the `feature.announcement` event to every user whose dat
 
 ### Organization Events
 
-`POST /api/client/organizations/events`
+`POST /api/client/projects/{projectID}/organizations/events`
 
 <Tabs items={['JavaScript SDK', 'API']}>
   <Tab value="JavaScript SDK">
@@ -174,8 +174,8 @@ The example above sends the `feature.announcement` event to every user whose dat
   <Tab value="API">
     ```bash
     # Target a specific organization by identifier
-    curl -X POST https://your-instance.com/api/client/organizations/events \
-      -H "Authorization: Bearer pk_..." \
+    curl -X POST https://your-instance.com/api/client/projects/{projectID}/organizations/events \
+      -H "Authorization: Bearer sk_..." \
       -H "Content-Type: application/json" \
       -d '[
         {
@@ -190,8 +190,8 @@ The example above sends the `feature.announcement` event to every user whose dat
       ]'
 
     # Target all organizations whose data matches a filter
-    curl -X POST https://your-instance.com/api/client/organizations/events \
-      -H "Authorization: Bearer pk_..." \
+    curl -X POST https://your-instance.com/api/client/projects/{projectID}/organizations/events \
+      -H "Authorization: Bearer sk_..." \
       -H "Content-Type: application/json" \
       -d '[
         {

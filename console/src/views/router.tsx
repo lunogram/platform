@@ -15,7 +15,8 @@ import {
     UserContext,
     OrganizationContext,
 } from "../contexts"
-import ApiKeys from "./settings/ApiKeys"
+import ClientList from "./settings/clients/ClientList"
+import { NewClientRoute, EditClientRoute } from "./settings/clients/ClientEditorLayout"
 import Invites from "./settings/Invites"
 import Lists from "./users/Lists"
 import ListDetail from "./users/ListDetail"
@@ -569,12 +570,12 @@ export const createRouter = ({
                                                 element: <OrganizationDetailEvents />,
                                             },
                                             {
-                                                path: "members",
-                                                element: <OrganizationDetailMembers />,
-                                            },
-                                            {
                                                 path: "scheduled",
                                                 element: <OrganizationDetailScheduled />,
+                                            },
+                                            {
+                                                path: "members",
+                                                element: <OrganizationDetailMembers />,
                                             },
                                             {
                                                 path: "inbox",
@@ -629,8 +630,15 @@ export const createRouter = ({
                                                 element: <Locales />,
                                             },
                                             {
-                                                path: "api-keys",
-                                                element: <ApiKeys />,
+                                                path: "access",
+                                                children: [
+                                                    { index: true, element: <ClientList /> },
+                                                    { path: "new", element: <NewClientRoute /> },
+                                                    {
+                                                        path: ":clientId",
+                                                        element: <EditClientRoute />,
+                                                    },
+                                                ],
                                             },
                                             {
                                                 path: "invites",

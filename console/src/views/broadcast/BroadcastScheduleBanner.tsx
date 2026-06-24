@@ -4,9 +4,11 @@ import { CalendarClock, Clock } from "lucide-react"
 
 import { formatDate } from "@/utils"
 import { PreferencesContext } from "@/contexts/PreferencesContext"
+import { splitLocalDateTimeValue, toLocalDateTimeValue } from "@/lib/date-time"
 
 import { Button } from "@/components/ui/button"
 import { DateTimeEdit } from "@/components/ui/datetime-edit"
+import { Input } from "@/components/ui/input"
 
 interface BroadcastScheduleBannerProps {
     scheduledAt: string | null | undefined
@@ -29,6 +31,8 @@ export function BroadcastScheduleBanner({
 }: BroadcastScheduleBannerProps) {
     const { t } = useTranslation()
     const [preferences] = useContext(PreferencesContext)
+    const { dateValue: scheduleDate, timeValue: scheduleTime } =
+        splitLocalDateTimeValue(scheduleValue)
 
     return (
         <div
@@ -67,16 +71,32 @@ export function BroadcastScheduleBanner({
                     }}
                 >
                     <CalendarClock className="h-4 w-4 text-muted-foreground" />
-                    <input
-                        type="datetime-local"
-                        aria-label={t("schedule_date_time", "Schedule date and time")}
-                        className="h-8 rounded-md border border-input bg-background px-2 text-sm"
-                        value={scheduleValue}
-                        onChange={(e) => onSetScheduleValue(e.target.value)}
-                        autoFocus
-                        required
-                        disabled={isScheduling}
-                    />
+                    <div className="flex items-center gap-2">
+                        <Input
+                            type="date"
+                            aria-label={t("schedule_date", "Schedule date")}
+                            className="h-8 px-2 text-sm"
+                            value={scheduleDate}
+                            onChange={(e) => {
+                                const date = e.target.value
+                                onSetScheduleValue(toLocalDateTimeValue(date, scheduleTime))
+                            }}
+                            autoFocus
+                            required
+                            disabled={isScheduling}
+                        />
+                        <Input
+                            type="time"
+                            aria-label={t("schedule_time", "Schedule time")}
+                            className="h-8 px-2 text-sm"
+                            value={scheduleTime}
+                            onChange={(e) => {
+                                const time = e.target.value
+                                onSetScheduleValue(toLocalDateTimeValue(scheduleDate, time))
+                            }}
+                            disabled={isScheduling || !scheduleDate}
+                        />
+                    </div>
                     <Button type="submit" size="sm" className="h-7 text-xs" disabled={isScheduling}>
                         {isScheduling ? t("saving", "Saving...") : t("save")}
                     </Button>
@@ -114,7 +134,7 @@ export function BroadcastScheduleBanner({
                             const y = tomorrow.getFullYear()
                             const m = String(tomorrow.getMonth() + 1).padStart(2, "0")
                             const d = String(tomorrow.getDate()).padStart(2, "0")
-                            onSetScheduleValue(`${y}-${m}-${d}T09:00`)
+                            onSetScheduleValue(toLocalDateTimeValue(`${y}-${m}-${d}`, "09:00"))
                         }}
                     >
                         <CalendarClock className="mr-1.5 h-3 w-3" />

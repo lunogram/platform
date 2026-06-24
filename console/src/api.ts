@@ -26,10 +26,11 @@ import type {
     ProjectAdmin,
     ProjectAdminInviteParams,
     ProjectAdminParams,
-    ProjectApiKey,
-    ProjectApiKeyParams,
     ProjectInvite,
     ProjectRole,
+    AuthMethod,
+    CreateAuthMethodParams,
+    UpdateAuthMethodParams,
     Resource,
     RulePath,
     SearchParams,
@@ -180,10 +181,10 @@ const api = {
         basicAuth: async (email: string, password: string) => {
             await client.post("/auth/login/basic/callback", { email, password })
         },
-        clerkAuth: async (token: string, redirect: string = "/") => {
+        clerkAuth: async (token: string) => {
             await client.post(
                 "/auth/login/clerk/callback",
-                { redirect },
+                {},
                 { headers: { Authorization: `Bearer ${token}` } },
             )
         },
@@ -368,11 +369,11 @@ const api = {
             await client.post(`${projectUrl(projectId)}/data/paths/sync`).then((r) => r.data),
     },
 
-    apiKeys: createProjectEntityPath<
-        ProjectApiKey,
-        ProjectApiKeyParams,
-        Omit<ProjectApiKeyParams, "scope">
-    >("keys"),
+    authMethods: createProjectEntityPath<
+        AuthMethod,
+        CreateAuthMethodParams,
+        UpdateAuthMethodParams
+    >("auth-methods"),
 
     actions: createProjectEntityPath<Action, ActionCreateParams, ActionUpdateParams>("actions"),
 

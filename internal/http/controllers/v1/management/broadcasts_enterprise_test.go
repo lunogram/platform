@@ -70,6 +70,8 @@ func newBroadcastTestEnv(t *testing.T) broadcastTestEnv {
 	})
 	require.NoError(t, err)
 
+	// A provider must exist for the channel so the broadcast can resolve one
+	// at send time; campaigns no longer reference a provider directly.
 	_, err = mgmtState.ProvidersStore.CreateProvider(ctx, management.Provider{
 		ProjectID: projectID,
 		Module:    "test",

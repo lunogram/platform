@@ -600,6 +600,12 @@ func (srv *ListsController) processUserImport(ctx context.Context, logger *zap.L
 	defer tx.Rollback() //nolint:errcheck
 	stores := subjects.NewState(tx, logger)
 
+	// Track users newly added to the list so that, once the transaction
+	// commits, we can publish list.user.added events. This keeps static lists
+	// consistent with dynamic recompute, which is what list-trigger journeys
+	// listen to.
+	var added []subjects.Recomputed
+
 	for {
 		record, err := reader.Read()
 		if err == io.EOF {
@@ -622,17 +628,32 @@ func (srv *ListsController) processUserImport(ctx context.Context, logger *zap.L
 			return err
 		}
 
-		err = stores.AddUserToList(ctx, listID, id)
+		inserted, err := stores.AddUserToListReturning(ctx, listID, id)
 		if err != nil {
 			logger.Warn("failed to add user to list", zap.Stringer("user_id", id), zap.Error(err))
 			return err
+		}
+
+		if inserted {
+			added = append(added, subjects.Recomputed{UserID: id, Action: subjects.RecomputeActionInserted})
 		}
 
 		imported++
 	}
 
 	logger.Info("import completed", zap.Int("users_added", imported))
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+
+	// Publish membership events after commit so list-trigger journeys are
+	// enrolled. A failure here does not roll back the import; it is logged and
+	// the membership change is still durable.
+	if err := consumer.PublishListRecomputeEvents(ctx, logger, srv.pub, projectID, listID, added); err != nil {
+		logger.Error("failed to publish list membership events after import", zap.Error(err))
+	}
+
+	return nil
 }
 
 func (srv *ListsController) GetListUsers(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, listID uuid.UUID, params oapi.GetListUsersParams) {

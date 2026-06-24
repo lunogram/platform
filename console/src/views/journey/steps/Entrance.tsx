@@ -1,6 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import type {
     JourneyStepType,
+    List,
     Rule,
     RulePath,
     ScheduledSchema,
@@ -32,7 +33,16 @@ import {
     Loader2,
     Plus,
     ArrowLeft,
+    ListChecks,
+    LogOut,
 } from "lucide-react"
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select"
 import { ScheduleOffsetCombobox } from "@/components/schedule-offset-combobox"
 import { formatOffset } from "@/utils"
 import { cn } from "@/utils"
@@ -42,25 +52,48 @@ import { Input } from "@/components/ui/input"
 import { Link } from "react-router"
 import type { UUID } from "@/types/common"
 
-interface EntranceConfig {
-    trigger: "none" | "event" | "scheduled"
+type ListDirection = "joins" | "leaves"
 
-    // event based
-    event_name?: string
+interface EntranceEventTrigger {
+    name?: string
     rule?: Rule
+    user_rule?: Rule
+}
+
+interface EntranceScheduledTrigger {
+    name?: string
+    offset_id?: UUID
+    rule?: Rule
+    user_rule?: Rule
+}
+
+interface EntranceListTrigger {
+    id?: UUID
+    direction?: ListDirection
+    exit_on_leave?: boolean
+}
+
+interface EntranceConfig {
+    trigger: "none" | "event" | "scheduled" | "list"
+
     multiple?: boolean
     concurrent?: boolean
 
-    // scheduled based
+    // Exactly one matches `trigger` (none carries no block).
+    event?: EntranceEventTrigger
+    scheduled?: EntranceScheduledTrigger
+    list?: EntranceListTrigger
+
+    // UI-only working state. The backend ignores these but they are preserved
+    // verbatim in the stored step data so the editor can restore its selections.
     scheduled_name?: string
-    schedule_offset_id?: UUID
     schedule_offset?: string
     schedule_offset_direction?: string
-
+    list_name?: string
     references?: Array<{ id: UUID; name: string }>
 }
 
-const triggers = ["none", "event", "scheduled"] as const
+const triggers = ["none", "event", "scheduled", "list"] as const
 
 type EventOption = Pick<RulePath, "name" | "path">
 type EventComboboxView = "list" | "create"
@@ -69,6 +102,7 @@ const triggerConfig = {
     none: { icon: Webhook, label: "API" },
     event: { icon: Zap, label: "Event" },
     scheduled: { icon: CalendarClock, label: "Scheduled" },
+    list: { icon: ListChecks, label: "List" },
 } as const
 
 const codeExample = (journeyId: UUID, entranceId: UUID) => `curl --request POST \\
@@ -118,11 +152,11 @@ function ScheduledOffsetSelector({
     valueRef.current = value
 
     useEffect(() => {
-        if (!valueRef.current.schedule_offset_id && offsets.length > 0) {
+        if (!valueRef.current.scheduled?.offset_id && offsets.length > 0) {
             const first = offsets[0]
             onChangeRef.current({
                 ...valueRef.current,
-                schedule_offset_id: first.id,
+                scheduled: { ...valueRef.current.scheduled, offset_id: first.id },
                 schedule_offset: first.offset,
                 schedule_offset_direction: first.direction,
             })
@@ -139,11 +173,11 @@ function ScheduledOffsetSelector({
                 projectId={projectId}
                 scheduledId={schedule?.id ?? ("" as UUID)}
                 offsets={offsets}
-                value={value.schedule_offset_id}
+                value={value.scheduled?.offset_id}
                 onChange={(offsetId, offset, direction) => {
                     onChange({
                         ...value,
-                        schedule_offset_id: offsetId,
+                        scheduled: { ...value.scheduled, offset_id: offsetId },
                         schedule_offset: offset,
                         schedule_offset_direction: direction,
                     })
@@ -429,6 +463,119 @@ function EventNameCombobox({ value, onChange, onSearch }: EventNameComboboxProps
     )
 }
 
+interface ListSelectorProps {
+    projectId: UUID
+    value?: UUID
+    displayName?: string
+    onChange: (list: { id: UUID; name: string }) => void
+}
+
+function ListSelector({ projectId, value, displayName, onChange }: ListSelectorProps) {
+    const { t } = useTranslation()
+    const [open, setOpen] = useState(false)
+    const [search, setSearch] = useState("")
+    const [results, setResults] = useState<List[]>([])
+    const [loading, setLoading] = useState(false)
+    const debounceRef = useRef<ReturnType<typeof setTimeout>>()
+
+    useEffect(() => {
+        if (!open) return
+        if (debounceRef.current) clearTimeout(debounceRef.current)
+
+        setLoading(true)
+        debounceRef.current = setTimeout(async () => {
+            try {
+                const res = await api.lists.search(projectId, { limit: 50, search })
+                setResults(res.results)
+            } finally {
+                setLoading(false)
+            }
+        }, 250)
+
+        return () => {
+            if (debounceRef.current) clearTimeout(debounceRef.current)
+        }
+    }, [open, search, projectId])
+
+    useEffect(() => {
+        if (!open) setSearch("")
+    }, [open])
+
+    return (
+        <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+                <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={open}
+                    type="button"
+                    className={cn(
+                        "h-9 w-full justify-between shadow-none font-normal",
+                        !value && "text-muted-foreground",
+                    )}
+                >
+                    <span className="flex items-center gap-2 truncate">
+                        <ListChecks className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        <span className="truncate text-sm">
+                            {displayName || t("select_list", "Select a list...")}
+                        </span>
+                    </span>
+                    <ChevronsUpDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent
+                className="w-[var(--radix-popover-trigger-width)] p-0"
+                align="start"
+                onOpenAutoFocus={(e) => e.preventDefault()}
+            >
+                <Command shouldFilter={false}>
+                    <CommandInput
+                        placeholder={t("search_lists", "Search lists...")}
+                        value={search}
+                        onValueChange={setSearch}
+                    />
+                    <CommandList>
+                        {loading ? (
+                            <div className="flex items-center justify-center py-6">
+                                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                            </div>
+                        ) : results.length === 0 ? (
+                            <div className="py-6 text-center text-sm text-muted-foreground">
+                                {t("no_lists_found", "No lists found.")}
+                            </div>
+                        ) : (
+                            <div className="max-h-64 overflow-y-auto p-1">
+                                {results.map((list) => (
+                                    <CommandItem
+                                        key={list.id}
+                                        value={list.id}
+                                        onSelect={() => {
+                                            onChange({ id: list.id, name: list.name })
+                                            setOpen(false)
+                                        }}
+                                        className="cursor-pointer"
+                                    >
+                                        <Check
+                                            className={cn(
+                                                "mr-2 h-4 w-4 shrink-0",
+                                                value === list.id ? "opacity-100" : "opacity-0",
+                                            )}
+                                        />
+                                        <span className="truncate text-sm">{list.name}</span>
+                                        <Badge variant="secondary" className="ml-auto shrink-0">
+                                            {list.type}
+                                        </Badge>
+                                    </CommandItem>
+                                ))}
+                            </div>
+                        )}
+                    </CommandList>
+                </Command>
+            </PopoverContent>
+        </Popover>
+    )
+}
+
 export const entranceStep: JourneyStepType<EntranceConfig> = {
     name: "entrance",
     icon: <EntranceStepIcon />,
@@ -440,12 +587,13 @@ export const entranceStep: JourneyStepType<EntranceConfig> = {
     Describe({
         value: {
             trigger,
-            event_name,
-            rule,
+            event,
+            scheduled,
             scheduled_name,
-            schedule_offset_id,
             schedule_offset,
             schedule_offset_direction,
+            list,
+            list_name,
             references = [],
         },
     }) {
@@ -453,6 +601,7 @@ export const entranceStep: JourneyStepType<EntranceConfig> = {
         const [preferences] = useContext(PreferencesContext)
 
         if (trigger === "event") {
+            const rule = event?.rule
             const hasConditions = rule && isEventWrapper(rule) && !!rule?.children?.length
             return (
                 <div className="space-y-1.5 max-w-[300px]">
@@ -460,7 +609,7 @@ export const entranceStep: JourneyStepType<EntranceConfig> = {
                         <Zap className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                         <span>
                             {t("entrance_add_everyone_when") + " "}
-                            <strong>{event_name || <>&#8211;</>}</strong>
+                            <strong>{event?.name || <>&#8211;</>}</strong>
                             {t("entrance_occurs")}
                         </span>
                     </div>
@@ -484,7 +633,7 @@ export const entranceStep: JourneyStepType<EntranceConfig> = {
                     <CalendarClock className="size-4 shrink-0 text-muted-foreground" />
                     <span>
                         <span className="font-medium">{scheduled_name}</span>
-                        {schedule_offset_id && schedule_offset != null && (
+                        {scheduled?.offset_id && schedule_offset != null && (
                             <span className="text-muted-foreground">
                                 {" "}
                                 {formatOffset(
@@ -494,6 +643,33 @@ export const entranceStep: JourneyStepType<EntranceConfig> = {
                             </span>
                         )}
                     </span>
+                </div>
+            )
+        }
+
+        if (trigger === "list") {
+            const direction = list?.direction ?? "joins"
+            const exit_on_leave = list?.exit_on_leave
+            return (
+                <div className="space-y-1.5 max-w-[300px]">
+                    <div className="flex items-center gap-1.5 text-sm">
+                        <ListChecks className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                        <span>
+                            {direction === "leaves"
+                                ? t("entrance_list_leaves", "When a user leaves")
+                                : t("entrance_list_joins", "When a user joins")}{" "}
+                            <strong>{list_name || <>&#8211;</>}</strong>
+                        </span>
+                    </div>
+                    {direction === "joins" && exit_on_leave && (
+                        <div className="flex items-center gap-1.5 border-l-2 border-muted pl-2 text-xs text-muted-foreground">
+                            <LogOut className="h-3 w-3 shrink-0" />
+                            {t(
+                                "entrance_list_exit_on_leave_summary",
+                                "Exit when they leave the list",
+                            )}
+                        </div>
+                    )}
                 </div>
             )
         }
@@ -561,6 +737,21 @@ export const entranceStep: JourneyStepType<EntranceConfig> = {
             }
         }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+        // Seed sensible defaults for the list trigger: enter on join, and exit
+        // the journey when the user leaves the list.
+        useEffect(() => {
+            if (value.trigger === "list" && value.list?.direction === undefined) {
+                onChange({
+                    ...value,
+                    list: {
+                        ...value.list,
+                        direction: "joins",
+                        exit_on_leave: value.list?.exit_on_leave ?? true,
+                    },
+                })
+            }
+        }, [value.trigger, value.list?.direction]) // eslint-disable-line react-hooks/exhaustive-deps
+
         const handleSearch = useCallback(
             async (query: string): Promise<RulePath[]> => {
                 await ensureSuggestionsLoaded()
@@ -572,15 +763,14 @@ export const entranceStep: JourneyStepType<EntranceConfig> = {
         )
 
         const handleEventNameChange = useCallback(
-            (event_name: string) => {
-                const currentRule = value.rule
+            (name: string) => {
+                const currentRule = value.event?.rule
                 const updatedRule = currentRule
-                    ? { ...currentRule, value: event_name }
-                    : createSimpleEventRule(event_name)
+                    ? { ...currentRule, value: name }
+                    : createSimpleEventRule(name)
                 onChange({
                     ...value,
-                    event_name,
-                    rule: updatedRule,
+                    event: { ...value.event, name, rule: updatedRule },
                 })
             },
             [onChange, value],
@@ -611,12 +801,19 @@ export const entranceStep: JourneyStepType<EntranceConfig> = {
                     <Label className="text-sm font-medium">{t("trigger")}</Label>
                     <Tabs
                         value={value.trigger}
-                        onValueChange={(trigger) =>
+                        onValueChange={(next) => {
+                            const trigger = next as EntranceConfig["trigger"]
+                            // Keep only the active trigger's block so the stored
+                            // data stays a clean oneOf; the backend rejects an
+                            // entrance that carries a foreign trigger block.
                             onChange({
                                 ...value,
-                                trigger: trigger as EntranceConfig["trigger"],
+                                trigger,
+                                event: trigger === "event" ? value.event : undefined,
+                                scheduled: trigger === "scheduled" ? value.scheduled : undefined,
+                                list: trigger === "list" ? value.list : undefined,
                             })
-                        }
+                        }}
                     >
                         <TabsList className="w-full">
                             {triggers.map((key) => {
@@ -639,24 +836,27 @@ export const entranceStep: JourneyStepType<EntranceConfig> = {
                                 <span className="text-destructive">*</span>
                             </Label>
                             <EventNameCombobox
-                                value={value.event_name ?? ""}
+                                value={value.event?.name ?? ""}
                                 onChange={handleEventNameChange}
                                 onSearch={handleSearch}
                             />
                         </div>
-                        {value.event_name && (
+                        {value.event?.name && (
                             <RuleBuilder
-                                rule={value.rule ?? createSimpleEventRule(value.event_name)}
+                                rule={value.event.rule ?? createSimpleEventRule(value.event.name)}
                                 setRule={(rule) =>
                                     onChange({
                                         ...value,
-                                        rule: {
-                                            ...rule,
-                                            value: value.event_name,
+                                        event: {
+                                            ...value.event,
+                                            rule: {
+                                                ...rule,
+                                                value: value.event?.name,
+                                            },
                                         },
                                     })
                                 }
-                                eventName={value.event_name}
+                                eventName={value.event.name}
                                 headerPrefix={t("entrance_matching")}
                             />
                         )}
@@ -713,10 +913,13 @@ export const entranceStep: JourneyStepType<EntranceConfig> = {
                                     onChange({
                                         ...value,
                                         scheduled_name,
-                                        schedule_offset_id: undefined,
-                                        event_name: scheduled_name
-                                            ? `scheduled.${scheduled_name}`
-                                            : undefined,
+                                        scheduled: {
+                                            ...value.scheduled,
+                                            name: scheduled_name
+                                                ? `scheduled.${scheduled_name}`
+                                                : undefined,
+                                            offset_id: undefined,
+                                        },
                                     })
                                 }}
                                 placeholder={t("scheduled_name", "Scheduled Name")}
@@ -749,22 +952,30 @@ export const entranceStep: JourneyStepType<EntranceConfig> = {
                         )}
 
                         {/* RuleBuilder - shown after schedule + offset are selected */}
-                        {value.scheduled_name && value.schedule_offset_id && value.event_name && (
-                            <RuleBuilder
-                                rule={value.rule ?? createSimpleEventRule(value.event_name)}
-                                setRule={(rule) =>
-                                    onChange({
-                                        ...value,
-                                        rule: {
-                                            ...rule,
-                                            value: value.event_name,
-                                        },
-                                    })
-                                }
-                                eventName={value.event_name}
-                                headerPrefix={t("entrance_matching")}
-                            />
-                        )}
+                        {value.scheduled_name &&
+                            value.scheduled?.offset_id &&
+                            value.scheduled?.name && (
+                                <RuleBuilder
+                                    rule={
+                                        value.scheduled.rule ??
+                                        createSimpleEventRule(value.scheduled.name)
+                                    }
+                                    setRule={(rule) =>
+                                        onChange({
+                                            ...value,
+                                            scheduled: {
+                                                ...value.scheduled,
+                                                rule: {
+                                                    ...rule,
+                                                    value: value.scheduled?.name,
+                                                },
+                                            },
+                                        })
+                                    }
+                                    eventName={value.scheduled.name}
+                                    headerPrefix={t("entrance_matching")}
+                                />
+                            )}
 
                         {/* Multiple entries toggle */}
                         <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
@@ -808,6 +1019,130 @@ export const entranceStep: JourneyStepType<EntranceConfig> = {
                         )}
                     </>
                 )}
+                {value.trigger === "list" && (
+                    <>
+                        <div className="space-y-1.5">
+                            <Label className="inline-flex items-center gap-0.5 text-sm font-medium">
+                                {t("list", "List")}
+                                <span className="text-destructive">*</span>
+                            </Label>
+                            <ListSelector
+                                projectId={projectId as UUID}
+                                value={value.list?.id}
+                                displayName={value.list_name}
+                                onChange={(list) =>
+                                    onChange({
+                                        ...value,
+                                        list: { ...value.list, id: list.id },
+                                        list_name: list.name,
+                                    })
+                                }
+                            />
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <Label className="text-sm font-medium">
+                                {t("entrance_list_when", "Enter the journey when")}
+                            </Label>
+                            <Select
+                                value={value.list?.direction ?? "joins"}
+                                onValueChange={(v) => {
+                                    const direction = v as ListDirection
+                                    onChange({
+                                        ...value,
+                                        list: {
+                                            ...value.list,
+                                            direction,
+                                            exit_on_leave:
+                                                direction === "joins"
+                                                    ? (value.list?.exit_on_leave ?? true)
+                                                    : false,
+                                        },
+                                    })
+                                }}
+                            >
+                                <SelectTrigger className="h-9">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="joins">
+                                        {t("entrance_list_option_joins", "A user joins the list")}
+                                    </SelectItem>
+                                    <SelectItem value="leaves">
+                                        {t("entrance_list_option_leaves", "A user leaves the list")}
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {(value.list?.direction ?? "joins") === "joins" && (
+                            <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
+                                <div className="space-y-0.5">
+                                    <Label htmlFor="exit-on-leave" className="text-sm font-medium">
+                                        {t(
+                                            "entrance_list_exit_on_leave",
+                                            "Exit when they leave the list",
+                                        )}
+                                    </Label>
+                                    <p className="text-xs text-muted-foreground">
+                                        {t(
+                                            "entrance_list_exit_on_leave_desc",
+                                            "Automatically remove users from this journey when they leave the list.",
+                                        )}
+                                    </p>
+                                </div>
+                                <Switch
+                                    id="exit-on-leave"
+                                    checked={value.list?.exit_on_leave ?? true}
+                                    onCheckedChange={(exit_on_leave) =>
+                                        onChange({
+                                            ...value,
+                                            list: { ...value.list, exit_on_leave },
+                                        })
+                                    }
+                                />
+                            </div>
+                        )}
+
+                        <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
+                            <div className="space-y-0.5">
+                                <Label htmlFor="multiple-list" className="text-sm font-medium">
+                                    {t("entrance_multiple_entries")}
+                                </Label>
+                                <p className="text-xs text-muted-foreground">
+                                    {t("entrance_multiple_entries_desc")}
+                                </p>
+                            </div>
+                            <Switch
+                                id="multiple-list"
+                                checked={Boolean(value.multiple)}
+                                onCheckedChange={(multiple) => onChange({ ...value, multiple })}
+                            />
+                        </div>
+                        {value.multiple && (
+                            <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
+                                <div className="space-y-0.5">
+                                    <Label
+                                        htmlFor="concurrent-list"
+                                        className="text-sm font-medium"
+                                    >
+                                        {t("entrance_simultaneous_entries")}
+                                    </Label>
+                                    <p className="text-xs text-muted-foreground">
+                                        {t("entrance_simultaneous_entries_desc")}
+                                    </p>
+                                </div>
+                                <Switch
+                                    id="concurrent-list"
+                                    checked={Boolean(value.concurrent)}
+                                    onCheckedChange={(concurrent) =>
+                                        onChange({ ...value, concurrent })
+                                    }
+                                />
+                            </div>
+                        )}
+                    </>
+                )}
                 {value.trigger === "none" &&
                     (stepId ? (
                         <ApiTriggerSection journeyId={journeyId} stepId={stepId} />
@@ -822,12 +1157,15 @@ export const entranceStep: JourneyStepType<EntranceConfig> = {
             </>
         )
     },
-    validate: ({ trigger, event_name, scheduled_name, schedule_offset_id }) => {
+    validate: ({ trigger, event, scheduled, list }) => {
         if (trigger === "event") {
-            return !!event_name
+            return !!event?.name
         }
         if (trigger === "scheduled") {
-            return !!scheduled_name && !!schedule_offset_id
+            return !!scheduled?.name && !!scheduled?.offset_id
+        }
+        if (trigger === "list") {
+            return !!list?.id
         }
         return true
     },

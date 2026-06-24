@@ -3,32 +3,75 @@ title: Amazon SES
 description: Configure Amazon Simple Email Service for sending emails
 ---
 
-<Callout type="warn">
-Amazon SES provider support is coming soon. This documentation describes the planned functionality.
+[Amazon SES](https://aws.amazon.com/ses/) (Simple Email Service) is a cost-effective email service built on AWS infrastructure. It's ideal for high-volume email sending. Lunogram delivers email through the SES v2 API using AWS Signature V4 authentication.
+
+## Features
+
+- Email sending via the Amazon SES v2 API
+- IAM credential support, including optional STS session tokens
+- Configuration set support for dedicated IP pools and event publishing
+- Works in any SES region
+
+<Callout type="info">
+Delivery and bounce notifications from SES are published through Amazon SNS rather than a direct webhook. Lunogram does not yet ingest SNS notifications, so engagement and bounce tracking are not available for SES today. Sending is fully supported.
 </Callout>
 
-[Amazon SES](https://aws.amazon.com/ses/) (Simple Email Service) is a cost-effective email service built on AWS infrastructure. It's ideal for high-volume email sending.
+## Setup
 
-## Planned Features
+### 1. Enable SES and Verify Your Domain
 
-- Email sending via SES API
-- SNS webhook integration for bounces and complaints
-- Domain and email verification
-- IAM credential support
+1. Open the [SES console](https://console.aws.amazon.com/ses/)
+2. Verify your sending domain (or a specific email address) under **Verified identities**
+3. Add the DKIM and SPF DNS records SES provides
 
-## Setup (Coming Soon)
+### 2. Request Production Access
 
-1. Enable SES in your [AWS Console](https://console.aws.amazon.com/ses/)
-2. Request production access (move out of sandbox)
-3. Verify your sending domain
-4. Create IAM credentials
-5. Configure the integration in Lunogram
+New SES accounts start in the sandbox, which only allows sending to verified addresses. [Request production access](https://docs.aws.amazon.com/ses/latest/dg/request-production-access.html) to send to any recipient.
+
+### 3. Create IAM Credentials
+
+1. In IAM, create a user (or role) with permission to call `ses:SendEmail`
+2. Generate an **Access Key ID** and **Secret Access Key**
+3. If you authenticate with temporary credentials, also capture the **Session Token**
+
+### 4. Configure in Lunogram
+
+1. Open your Lunogram project settings
+2. Navigate to **Integrations** and click **Add Integration**
+3. Select **Amazon SES** from the list of providers
+4. Enter your configuration:
+   - **Access Key ID**: Your IAM access key ID
+   - **Secret Access Key**: Your IAM secret access key
+   - **AWS Region**: The SES region, e.g. `us-east-1`
+   - **Session Token** (optional): Required only when using temporary STS credentials
+   - **Configuration Set** (optional): An SES configuration set name
+5. Click **Save** to create the provider
+
+## Configuration Options
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| Access Key ID | Yes | IAM access key ID with `ses:SendEmail` permission |
+| Secret Access Key | Yes | IAM secret access key |
+| AWS Region | Yes | The SES region (for example `us-east-1`) |
+| Session Token | No | Optional STS session token for temporary credentials |
+| Configuration Set | No | Optional SES configuration set name |
 
 ## Pricing
 
 Amazon SES is one of the most cost-effective email providers:
+
 - $0.10 per 1,000 emails sent
 - Free tier: 62,000 emails/month when sent from EC2
+
+## Troubleshooting
+
+### Emails Not Sending
+
+1. Confirm the IAM credentials have `ses:SendEmail` permission
+2. Check that the **AWS Region** matches the region where your identity is verified
+3. While in the sandbox, you can only send to verified recipients — request production access to send to anyone
+4. Ensure the "from" address uses a verified domain or identity
 
 ## Related Links
 

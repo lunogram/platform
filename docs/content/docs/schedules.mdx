@@ -114,7 +114,7 @@ Schedules are assigned through the client API. The endpoints use an upsert model
 ### User Schedules
 
 ```
-POST /api/client/users/scheduled
+POST /api/client/projects/{projectID}/users/scheduled
 ```
 
 | Field          | Type     | Required | Description                                                |
@@ -131,7 +131,7 @@ POST /api/client/users/scheduled
 ### Organization Schedules
 
 ```
-POST /api/client/organizations/scheduled
+POST /api/client/projects/{projectID}/organizations/scheduled
 ```
 
 | Field                      | Type     | Required | Description                                          |
@@ -148,7 +148,7 @@ POST /api/client/organizations/scheduled
 To remove a schedule assignment:
 
 ```
-DELETE /api/client/users/scheduled
+DELETE /api/client/projects/{projectID}/users/scheduled
 ```
 
 ```json
@@ -159,7 +159,7 @@ DELETE /api/client/users/scheduled
 ```
 
 ```
-DELETE /api/client/organizations/scheduled
+DELETE /api/client/projects/{projectID}/organizations/scheduled
 ```
 
 ```json

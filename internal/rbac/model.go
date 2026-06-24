@@ -109,6 +109,23 @@ func union(children ...*openfgav1.Userset) *openfgav1.Userset {
 //
 // This follows the Google Zanzibar pattern where each resource type inherits
 // permissions from its parent container.
+//
+// # Custom permission sets
+//
+// Each resource CRUD relation is the union of a direct assignment and the
+// project-role path:
+//
+//	read: this OR project.<role-required-for-read>
+//
+// The project-role path expresses the four role presets (support/client/editor/
+// admin). The direct assignment lets an access policy be granted an explicit,
+// arbitrary scope by writing a tuple straight onto the resource, e.g.
+//
+//	user:<policy-id> → read → inbox:<project-id>
+//
+// This is how access policies carry a custom permission set (resource + verb
+// pairs) without being pinned to one of the four presets. See the access
+// package for the tuple-building helpers.
 func Model() []*openfgav1.TypeDefinition {
 	types := []*openfgav1.TypeDefinition{
 		{Type: "user"},
@@ -195,14 +212,21 @@ func Model() []*openfgav1.TypeDefinition {
 			Relations: map[string]*openfgav1.Userset{
 				"project": direct,
 
-				"read":   ttu("project", r.read),
-				"create": ttu("project", r.create),
-				"update": ttu("project", r.update),
-				"delete": ttu("project", r.delete),
+				// Each CRUD relation is the union of a direct grant (a custom
+				// per-policy scope written straight onto the resource) and the
+				// project-role preset path.
+				"read":   union(direct, ttu("project", r.read)),
+				"create": union(direct, ttu("project", r.create)),
+				"update": union(direct, ttu("project", r.update)),
+				"delete": union(direct, ttu("project", r.delete)),
 			},
 			Metadata: &openfgav1.Metadata{
 				Relations: map[string]*openfgav1.RelationMetadata{
 					"project": directlyRelated(typeRef("project")),
+					"read":    directlyRelated(typeRef("user")),
+					"create":  directlyRelated(typeRef("user")),
+					"update":  directlyRelated(typeRef("user")),
+					"delete":  directlyRelated(typeRef("user")),
 				},
 			},
 		})
@@ -224,3 +248,14 @@ func Resources() []string {
 	}
 	return names
 }
+
+// Resource is a typed resource name from the authorization model. Its values are
+// the strings returned by [Resources]; the constants below cover the resources
+// whose create grants can be narrowed by a per-grant constraint.
+type Resource string
+
+const (
+	ResourceEvents        Resource = "events"
+	ResourceSubscriptions Resource = "subscriptions"
+	ResourceScheduled     Resource = "scheduled"
+)
