@@ -13,11 +13,13 @@ import {
     type Client,
 } from "./model"
 
-// useClients loads every auth method for the project as clients, with a reload
-// callback for refreshing after a mutation.
+// useClients loads the project's auth methods as clients, with a reload
+// callback for refreshing after a mutation. The list view has no pagination, so
+// we request a high limit to load every client in one page; revisit with real
+// pagination if projects start exceeding this.
 export function useClients(projectId: UUID) {
     const [result, , reload, loading] = useResolver(
-        useCallback(() => api.authMethods.search(projectId, { limit: 100 }), [projectId]),
+        useCallback(() => api.authMethods.search(projectId, { limit: 200 }), [projectId]),
     )
     const clients = (result?.results ?? []).map(authMethodToClient)
     return { clients, loading, reload }
