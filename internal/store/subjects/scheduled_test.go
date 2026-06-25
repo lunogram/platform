@@ -1907,29 +1907,34 @@ func TestNextScheduleOccurrenceExactCases(t *testing.T) {
 		return v.UTC()
 	}
 
-	cases := []struct {
-		name     string
+	type testCase struct {
 		anchor   string
 		interval string
 		cur      int64
 		asOf     string
 		wantOcc  int64
 		wantNext string
-	}{
-		// The stuck-"Sending" anniversary: yearly, first send is anchor + 1 year.
-		{"yearly anniversary", "2026-03-28T15:45:52Z", "1 year", 0, "2026-06-25T00:00:00Z", 1, "2027-03-28T15:45:52Z"},
-		// as_of exactly on an occurrence boundary must pick the next one (strict >).
-		{"daily on boundary picks next", "2026-01-01T00:00:00Z", "1 day", 0, "2026-01-10T00:00:00Z", 10, "2026-01-11T00:00:00Z"},
-		// Month-end clamping: Jan 31 + 1 month = Feb 29 (leap), + 2 months = Mar 31.
-		{"month-end clamp from Jan 31", "2024-01-31T12:00:00Z", "1 month", 0, "2024-03-15T00:00:00Z", 2, "2024-03-31T12:00:00Z"},
-		// Advancing from a non-zero current occurrence only moves forward.
-		{"advance from current occurrence", "2026-01-01T00:00:00Z", "1 day", 5, "2026-01-03T00:00:00Z", 6, "2026-01-07T00:00:00Z"},
-		// ~470 years of dormancy on a 1-minute interval: far past the old 10000 cap.
-		{"far dormancy beyond old cap", "2026-01-01T00:00:00Z", "1 minute", 0, "2496-01-01T00:00:00Z", 247196161, "2496-01-01T00:01:00Z"},
 	}
 
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
+	cases := map[string]testCase{
+		// The stuck-"Sending" anniversary: yearly, first send is anchor + 1 year.
+		"yearly anniversary": {"2026-03-28T15:45:52Z", "1 year", 0, "2026-06-25T00:00:00Z", 1, "2027-03-28T15:45:52Z"},
+		// Leap-day anchor + yearly clamps to Feb 28 in common years (occurrence 3 = 2027).
+		"leap-day yearly clamps to Feb 28": {"2024-02-29T12:00:00Z", "1 year", 0, "2027-01-01T00:00:00Z", 3, "2027-02-28T12:00:00Z"},
+		// Leap-day anchor + yearly lands back on Feb 29 every 4th year (occurrence 4 = 2028).
+		"leap-day yearly lands on Feb 29": {"2024-02-29T12:00:00Z", "1 year", 0, "2027-06-01T00:00:00Z", 4, "2028-02-29T12:00:00Z"},
+		// as_of exactly on an occurrence boundary must pick the next one (strict >).
+		"daily on boundary picks next": {"2026-01-01T00:00:00Z", "1 day", 0, "2026-01-10T00:00:00Z", 10, "2026-01-11T00:00:00Z"},
+		// Month-end clamping: Jan 31 + 1 month = Feb 29 (leap), + 2 months = Mar 31.
+		"month-end clamp from Jan 31": {"2024-01-31T12:00:00Z", "1 month", 0, "2024-03-15T00:00:00Z", 2, "2024-03-31T12:00:00Z"},
+		// Advancing from a non-zero current occurrence only moves forward.
+		"advance from current occurrence": {"2026-01-01T00:00:00Z", "1 day", 5, "2026-01-03T00:00:00Z", 6, "2026-01-07T00:00:00Z"},
+		// ~470 years of dormancy on a 1-minute interval: far past the old 10000 cap.
+		"far dormancy beyond old cap": {"2026-01-01T00:00:00Z", "1 minute", 0, "2496-01-01T00:00:00Z", 247196161, "2496-01-01T00:01:00Z"},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
 			pr := nextOccurrence(t, db, ts(tc.anchor), tc.interval, tc.cur, ts(tc.asOf))
 			require.Equal(t, tc.wantOcc, pr.Occurrence)
 			require.Truef(t, pr.NextAt.Equal(ts(tc.wantNext)), "next_at = %s, want %s", pr.NextAt, tc.wantNext)
