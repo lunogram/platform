@@ -646,20 +646,33 @@ func TestListUserSchedulesHasPendingEvents(t *testing.T) {
 	_, err = db.CreateUserSchedule(ctx, userID, scheduleID, &futureTime, nil, nil, json.RawMessage(`{}`))
 	require.NoError(t, err)
 
-	// While the generated event is unfired, the schedule reports pending events.
+	// An unfired event whose fire_at is still in the future is NOT "sending":
+	// has_pending_events only reflects events that are actually due. (Regression:
+	// recurring schedules pre-generate the next occurrence's event, which kept the
+	// "Sending" badge lit indefinitely.)
 	items, _, err := db.ListUserSchedules(ctx, projectID, userID, store.Pagination{Limit: 10, Offset: 0})
+	require.NoError(t, err)
+	require.Len(t, items, 1)
+	require.False(t, items[0].HasPendingEvents)
+
+	events, err := db.ListPendingScheduledEventsForUser(ctx, userID, scheduleID)
+	require.NoError(t, err)
+	require.Len(t, events, 1)
+
+	// Once the event is due (fire_at <= now), the schedule reports pending events.
+	pastTime := time.Now().Add(-1 * time.Hour).UTC().Truncate(time.Microsecond)
+	_, err = db.ScheduledStore.db.ExecContext(ctx,
+		`UPDATE user_scheduled_events SET fire_at = $1 WHERE id = $2`,
+		pastTime, events[0].ID)
+	require.NoError(t, err)
+
+	items, _, err = db.ListUserSchedules(ctx, projectID, userID, store.Pagination{Limit: 10, Offset: 0})
 	require.NoError(t, err)
 	require.Len(t, items, 1)
 	require.True(t, items[0].HasPendingEvents)
 
-	// Firing every event must clear the flag (regression: the badge previously
-	// relied on scheduled_at <= now and stayed lit forever).
-	events, err := db.ListPendingScheduledEventsForUser(ctx, userID, scheduleID)
-	require.NoError(t, err)
-	require.NotEmpty(t, events)
-	for _, e := range events {
-		require.NoError(t, db.MarkScheduledEventFired(ctx, e.ID))
-	}
+	// Firing the event clears the flag.
+	require.NoError(t, db.MarkScheduledEventFired(ctx, events[0].ID))
 
 	items, _, err = db.ListUserSchedules(ctx, projectID, userID, store.Pagination{Limit: 10, Offset: 0})
 	require.NoError(t, err)
@@ -1185,19 +1198,33 @@ func TestListOrganizationSchedulesHasPendingEvents(t *testing.T) {
 	_, err = db.CreateOrganizationSchedule(ctx, orgID, scheduleID, &futureTime, nil, nil, json.RawMessage(`{}`))
 	require.NoError(t, err)
 
-	// While the generated event is unfired, the schedule reports pending events.
+	// An unfired event whose fire_at is still in the future is NOT "sending":
+	// has_pending_events only reflects events that are actually due. (Regression:
+	// recurring schedules pre-generate the next occurrence's event, which kept the
+	// "Sending" badge lit indefinitely.)
 	items, _, err := db.ListOrganizationSchedules(ctx, projectID, orgID, store.Pagination{Limit: 10, Offset: 0})
+	require.NoError(t, err)
+	require.Len(t, items, 1)
+	require.False(t, items[0].HasPendingEvents)
+
+	events, err := db.ListPendingOrgScheduledEventsForOrg(ctx, orgID, scheduleID)
+	require.NoError(t, err)
+	require.Len(t, events, 1)
+
+	// Once the event is due (fire_at <= now), the schedule reports pending events.
+	pastTime := time.Now().Add(-1 * time.Hour).UTC().Truncate(time.Microsecond)
+	_, err = db.ScheduledStore.db.ExecContext(ctx,
+		`UPDATE organization_scheduled_events SET fire_at = $1 WHERE id = $2`,
+		pastTime, events[0].ID)
+	require.NoError(t, err)
+
+	items, _, err = db.ListOrganizationSchedules(ctx, projectID, orgID, store.Pagination{Limit: 10, Offset: 0})
 	require.NoError(t, err)
 	require.Len(t, items, 1)
 	require.True(t, items[0].HasPendingEvents)
 
-	// Firing every event must clear the flag.
-	events, err := db.ListPendingOrgScheduledEventsForOrg(ctx, orgID, scheduleID)
-	require.NoError(t, err)
-	require.NotEmpty(t, events)
-	for _, e := range events {
-		require.NoError(t, db.MarkOrgScheduledEventFired(ctx, e.ID))
-	}
+	// Firing the event clears the flag.
+	require.NoError(t, db.MarkOrgScheduledEventFired(ctx, events[0].ID))
 
 	items, _, err = db.ListOrganizationSchedules(ctx, projectID, orgID, store.Pagination{Limit: 10, Offset: 0})
 	require.NoError(t, err)
