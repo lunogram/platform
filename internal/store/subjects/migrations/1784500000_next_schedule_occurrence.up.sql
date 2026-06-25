@@ -18,9 +18,8 @@
 --                                          unless N = current_occurrence + 1
 --   (3) N >= current_occurrence + 1        (never moves backwards)
 -- This is the same triple the old scan satisfied, so behaviour is identical where
--- the old scan was in range and well-defined beyond it. The estimate is within
--- ~1.4% of the true average interval length, so the loops run only a handful of
--- iterations regardless of how far out as_of is -- there is no cap on the gap.
+-- the old scan was in range and well-defined beyond it. The epoch estimate lands
+-- close to N, so the loops do little work, and there is no cap on the gap.
 CREATE OR REPLACE FUNCTION next_schedule_occurrence(
     anchor             TIMESTAMPTZ,
     step               INTERVAL,
@@ -38,9 +37,8 @@ BEGIN
         RAISE EXCEPTION 'schedule interval must be positive, got %', step;
     END IF;
 
-    -- O(1) estimate from the average interval length. EXTRACT(EPOCH FROM step)
-    -- is within ~1.4% of the true average length even for calendar intervals,
-    -- so the estimate is off by at most a handful of occurrences.
+    -- O(1) starting estimate from the average interval length. This only seeds
+    -- the correction loops below; the exact N comes from them, not from here.
     n := GREATEST(
         current_occurrence + 1,
         FLOOR(EXTRACT(EPOCH FROM (as_of - anchor)) / step_secs)::BIGINT
