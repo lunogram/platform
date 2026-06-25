@@ -681,7 +681,7 @@ func (s *ScheduledStore) ListUserSchedules(ctx context.Context, projectID, userI
 		us.occurrence, COALESCE(us.data, '{}'::jsonb) AS data, us.paused_at, us.created_at, us.updated_at,
 		EXISTS (
 			SELECT 1 FROM user_scheduled_events use
-			WHERE use.user_schedule_id = us.id AND use.fired_at IS NULL
+			WHERE use.user_schedule_id = us.id AND use.fired_at IS NULL AND use.fire_at <= NOW()
 		) AS has_pending_events,
 		COUNT(*) OVER () AS total_count
 	FROM user_schedules us
@@ -1288,7 +1288,7 @@ func (s *ScheduledStore) ListOrganizationSchedules(ctx context.Context, projectI
 		os.occurrence, COALESCE(os.data, '{}'::jsonb) AS data, os.paused_at, os.created_at, os.updated_at,
 		EXISTS (
 			SELECT 1 FROM organization_scheduled_events ose
-			WHERE ose.organization_schedule_id = os.id AND ose.fired_at IS NULL
+			WHERE ose.organization_schedule_id = os.id AND ose.fired_at IS NULL AND ose.fire_at <= NOW()
 		) AS has_pending_events,
 		COUNT(*) OVER () AS total_count
 	FROM organization_schedules os
