@@ -86,7 +86,7 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           name: wasm-modules
-          path: internal
+          path: internal/integrations/modules
 
       - name: Download console dist
         uses: actions/download-artifact@v8
@@ -108,6 +108,25 @@ jobs:
           args: release --clean --skip=validate
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Publish the OpenAPI specs as release assets so the SDK repos can pin a
+  # release tag and generate their clients from a stable, versioned spec.
+  openapi-specs:
+    needs: goreleaser
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Stage OpenAPI specs
+        run: |
+          mkdir -p dist-spec
+          cp internal/http/controllers/v1/client/oapi/resources.yml dist-spec/client.yaml
+          cp internal/http/controllers/v1/management/oapi/resources.yml dist-spec/management.yaml
+
+      - name: Upload specs to the release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "${{ github.ref_name }}" dist-spec/client.yaml dist-spec/management.yaml --clobber
 
   renderer:
     runs-on: ubuntu-latest

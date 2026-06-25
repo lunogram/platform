@@ -1,9 +1,16 @@
-import { ArrowRight, CalendarClock, MousePointerClick, Webhook, Zap } from "lucide-react"
+import {
+    ArrowRight,
+    CalendarClock,
+    ListChecks,
+    MousePointerClick,
+    Webhook,
+    Zap,
+} from "lucide-react"
 import { useTranslation } from "react-i18next"
 
 import { cn } from "@/utils"
 
-export type EntranceTrigger = "event" | "scheduled" | "none"
+export type EntranceTrigger = "event" | "scheduled" | "list" | "none"
 
 interface JourneyTriggerSetupProps {
     onSelectTrigger: (trigger: EntranceTrigger) => void
@@ -40,6 +47,17 @@ const triggerOptions: Array<{
             "border-amber-200 bg-amber-50/70 text-amber-700 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300",
     },
     {
+        trigger: "list",
+        icon: ListChecks,
+        titleKey: "journey_trigger_list_title",
+        titleFallback: "Start from a list",
+        descriptionKey: "journey_trigger_list_desc",
+        descriptionFallback:
+            "Add users when they join a list, and optionally exit them when they leave it.",
+        className:
+            "border-violet-200 bg-violet-50/70 text-violet-700 dark:border-violet-900 dark:bg-violet-950/30 dark:text-violet-300",
+    },
+    {
         trigger: "none",
         icon: Webhook,
         titleKey: "journey_trigger_api_title",
@@ -74,7 +92,7 @@ export function JourneyTriggerSetup({ onSelectTrigger }: JourneyTriggerSetupProp
                     </p>
                 </div>
 
-                <div className="grid gap-4 lg:grid-cols-3">
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     {triggerOptions.map((option) => {
                         const Icon = option.icon
                         return (

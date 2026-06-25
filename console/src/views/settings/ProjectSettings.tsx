@@ -3,7 +3,7 @@ import { ProjectContext } from "../../contexts"
 import { toast } from "sonner"
 import ProjectForm from "../project/ProjectForm"
 import { useTranslation } from "react-i18next"
-import api from "../../api"
+import { oapiClient } from "@/oapi/client"
 import { AlertTriangle } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -29,7 +29,10 @@ export default function ProjectSettings() {
     const deleteProject = async () => {
         setIsDeleting(true)
         try {
-            await api.projects.delete(project.id)
+            const { error } = await oapiClient.DELETE("/api/admin/projects/{projectID}", {
+                params: { path: { projectID: project.id } },
+            })
+            if (error) throw error
             window.location.href = "/"
         } catch {
             toast.error(t("delete_project_error"))

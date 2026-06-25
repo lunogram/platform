@@ -13,11 +13,12 @@ import (
 	"github.com/lunogram/platform/internal/store/subjects"
 	"github.com/lunogram/platform/internal/webhook"
 	"github.com/nats-io/nats.go/jetstream"
+	goredis "github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 )
 
-func NewController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB, cfg config.Node, storage storage.Storage, urlResolver *storage.URLResolver, pub pubsub.Publisher, req pubsub.Caller, jet jetstream.JetStream, registry *providers.Registry, actionRegistry *actions.Registry, engine *rbac.Engine) (_ *Controller, err error) {
-	mgmt := management.NewState(managementDB)
+func NewController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB, cfg config.Node, storage storage.Storage, urlResolver *storage.URLResolver, pub pubsub.Publisher, req pubsub.Caller, jet jetstream.JetStream, registry *providers.Registry, actionRegistry *actions.Registry, engine *rbac.Engine, rdb *goredis.Client) (_ *Controller, err error) {
+	mgmt := management.NewState(managementDB, management.WithRedis(rdb, cfg.Redis.KeyPrefix))
 	projects := management.NewProjectsStore(managementDB)
 	usrs := subjects.NewState(usersDB, logger)
 
@@ -36,16 +37,17 @@ func NewController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB
 		TagsController:             NewTagsController(logger, managementDB, engine),
 		LocalesController:          NewLocalesController(logger, managementDB, engine),
 		JourneysController:         NewJourneysController(logger, journeyDB, usersDB, mgmt, pub, jet, engine, consumer.Namespace(cfg.Nats.Namespace)),
-		OrganizationsController:    NewOrganizationsController(logger, usersDB, pub, engine),
+		OrganizationsController:    NewOrganizationsController(logger, usersDB, mgmt, pub, engine),
 		ListsController:            NewListsController(logger, usersDB, projects, pub, cfg.Storage.MaxUploadSize, engine),
 		DocumentsController:        NewDocumentsController(logger, managementDB, storage, cfg.Storage.MaxUploadSize, urlResolver, engine),
 		ProvidersController:        NewProvidersController(logger, managementDB, registry, engine, cfg.PublicBaseURL()),
 		SubscriptionsController:    NewSubscriptionsController(logger, managementDB, engine),
-		ApiKeysController:          NewApiKeysController(logger, managementDB, engine),
+		AuthMethodsController:      NewAuthMethodsController(logger, managementDB, engine),
 		EmailTemplatesController:   NewEmailTemplatesController(logger, webhookCaller, engine),
 		SenderIdentitiesController: NewSenderIdentitiesController(logger, managementDB, engine),
 		PushProvidersController:    NewPushProvidersController(logger, managementDB, registry, engine),
 		BroadcastsController:       NewBroadcastsController(logger, managementDB, usersDB, pub, jet, engine, consumer.Namespace(cfg.Nats.Namespace)),
+		InviteController:           NewInviteController(logger, mgmt, engine, managementDB),
 	}
 
 	controller.AuthController, err = NewAuthController(logger, managementDB, cfg, engine)
@@ -73,10 +75,11 @@ type Controller struct {
 	*ProvidersController
 	*SubscriptionsController
 	*AuthController
-	*ApiKeysController
+	*AuthMethodsController
 	*ActionsController
 	*EmailTemplatesController
 	*SenderIdentitiesController
 	*PushProvidersController
 	*BroadcastsController
+	*InviteController
 }

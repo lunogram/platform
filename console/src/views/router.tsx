@@ -15,7 +15,9 @@ import {
     UserContext,
     OrganizationContext,
 } from "../contexts"
-import ApiKeys from "./settings/ApiKeys"
+import ClientList from "./settings/clients/ClientList"
+import { NewClientRoute, EditClientRoute } from "./settings/clients/ClientEditorLayout"
+import Invites from "./settings/Invites"
 import Lists from "./users/Lists"
 import ListDetail from "./users/ListDetail"
 import Users from "./users/Users"
@@ -26,6 +28,7 @@ import UserDetail from "./users/UserDetail"
 import { createStatefulRoute } from "./createStatefulRoute"
 import UserDetailAttrs from "./users/UserDetailAttrs"
 import UserDetailEvents from "./users/UserDetailEvents"
+import UserDetailInbox from "./users/UserDetailInbox"
 import UserDetailScheduled from "./users/UserDetailScheduled"
 import UserDetailSubscriptions from "./users/UserDetailSubscriptions"
 import Campaigns from "./campaign/Campaigns"
@@ -45,6 +48,8 @@ import NewIntegration from "./settings/NewIntegration"
 import IntegrationSetup from "./settings/IntegrationSetup"
 import Login from "./auth/Login"
 import LoginCallback from "./auth/LoginCallback"
+import Register from "./auth/Register"
+import MyInvites from "./invites/MyInvites"
 import Onboarding from "./auth/Onboarding"
 import OnboardingProject from "./auth/OnboardingProject"
 import {
@@ -81,6 +86,7 @@ import Organizations from "./organizations/Organizations"
 import OrganizationDetail from "./organizations/OrganizationDetail"
 import OrganizationDetailAttrs from "./organizations/OrganizationDetailAttrs"
 import OrganizationDetailEvents from "./organizations/OrganizationDetailEvents"
+import OrganizationDetailInbox from "./organizations/OrganizationDetailInbox"
 import OrganizationDetailMembers from "./organizations/OrganizationDetailMembers"
 import OrganizationDetailScheduled from "./organizations/OrganizationDetailScheduled"
 import { Translation } from "react-i18next"
@@ -106,6 +112,14 @@ export const createRouter = ({
             {
                 path: "/login/:driver/callback",
                 element: <LoginCallback />,
+            },
+            {
+                path: "/register",
+                element: <Register />,
+            },
+            {
+                path: "/invites",
+                element: <MyInvites />,
             },
             {
                 path: "*",
@@ -489,6 +503,10 @@ export const createRouter = ({
                                                 element: <UserDetailScheduled />,
                                             },
                                             {
+                                                path: "inbox",
+                                                element: <UserDetailInbox />,
+                                            },
+                                            {
                                                 path: "subscriptions",
                                                 element: <UserDetailSubscriptions />,
                                             },
@@ -552,12 +570,16 @@ export const createRouter = ({
                                                 element: <OrganizationDetailEvents />,
                                             },
                                             {
+                                                path: "scheduled",
+                                                element: <OrganizationDetailScheduled />,
+                                            },
+                                            {
                                                 path: "members",
                                                 element: <OrganizationDetailMembers />,
                                             },
                                             {
-                                                path: "scheduled",
-                                                element: <OrganizationDetailScheduled />,
+                                                path: "inbox",
+                                                element: <OrganizationDetailInbox />,
                                             },
                                         ],
                                     },
@@ -608,8 +630,19 @@ export const createRouter = ({
                                                 element: <Locales />,
                                             },
                                             {
-                                                path: "api-keys",
-                                                element: <ApiKeys />,
+                                                path: "access",
+                                                children: [
+                                                    { index: true, element: <ClientList /> },
+                                                    { path: "new", element: <NewClientRoute /> },
+                                                    {
+                                                        path: ":clientId",
+                                                        element: <EditClientRoute />,
+                                                    },
+                                                ],
+                                            },
+                                            {
+                                                path: "invites",
+                                                element: <Invites />,
                                             },
                                             {
                                                 path: "subscriptions",

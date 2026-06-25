@@ -6,6 +6,7 @@ import {
     Trash2,
     FileText,
     Activity,
+    CalendarClock,
     Bell,
     Route,
     Building2,
@@ -17,7 +18,7 @@ import {
     Languages,
     Pencil,
     Check,
-    CalendarClock,
+    Inbox,
 } from "lucide-react"
 import { ProjectContext, UserContext } from "../../contexts"
 import { PreferencesContext } from "@/contexts/PreferencesContext"
@@ -58,6 +59,7 @@ import {
     CommandList,
 } from "@/components/ui/command"
 import { InlineEdit } from "@/components/ui/inline-edit"
+import { optionalPhoneSchema } from "@/validation/phone"
 import type { User } from "../../types"
 
 // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -133,7 +135,7 @@ export default function UserDetail() {
     // Determine active tab
     const basePath = `/projects/${project.id}/users/${user.id}`
     const currentPath = location.pathname
-    const activeTab = currentPath === basePath ? "details" : currentPath.split("/").pop()
+    const activeTab = currentPath === basePath ? "details" : currentPath.replace(basePath + "/", "").split("/")[0]
 
     const deleteUser = async () => {
         setIsDeleting(true)
@@ -147,13 +149,9 @@ export default function UserDetail() {
 
     const tabs = [
         { key: "details", to: "", label: t("details"), icon: FileText },
+        { key: "inbox", to: "inbox", label: t("inbox", "Inbox"), icon: Inbox },
         { key: "events", to: "events", label: t("events"), icon: Activity },
-        {
-            key: "scheduled",
-            to: "scheduled",
-            label: t("scheduled", "Scheduled"),
-            icon: CalendarClock,
-        },
+        { key: "scheduled", to: "scheduled", label: t("scheduled", "Scheduled"), icon: CalendarClock },
         { key: "subscriptions", to: "subscriptions", label: t("subscriptions"), icon: Bell },
         { key: "journeys", to: "journeys", label: t("journeys"), icon: Route },
         { key: "organizations", to: "organizations", label: t("organizations"), icon: Building2 },
@@ -253,6 +251,7 @@ export default function UserDetail() {
                                     {/* 2. Phone */}
                                     <InlineEdit
                                         value={user.phone ?? ""}
+                                        validate={optionalPhoneSchema}
                                         onSave={async (value) => {
                                             const updatedUser = await api.users.update(
                                                 project.id,

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/lunogram/platform/internal/ptr"
 	"github.com/lunogram/platform/internal/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -28,7 +29,7 @@ func TestProjectsStore(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotEqual(t, uuid.Nil, projectID)
 
-		project, err := db.GetProject(ctx, projectID)
+		project, err := db.GetProject(ctx, projectID, nil)
 		require.NoError(t, err)
 		assert.Equal(t, "Test Project", project.Name)
 		assert.Equal(t, "UTC", project.Timezone)
@@ -45,13 +46,13 @@ func TestProjectsStore(t *testing.T) {
 		require.NoError(t, err)
 
 		err = db.UpdateProject(ctx, projectID, ProjectUpdate{
-			Name:     ptr("Updated Name"),
-			Timezone: ptr("America/New_York"),
-			Locale:   ptr("en-GB"),
+			Name:     ptr.To("Updated Name"),
+			Timezone: ptr.To("America/New_York"),
+			Locale:   ptr.To("en-GB"),
 		})
 		require.NoError(t, err)
 
-		project, err := db.GetProject(ctx, projectID)
+		project, err := db.GetProject(ctx, projectID, nil)
 		require.NoError(t, err)
 		assert.Equal(t, "Updated Name", project.Name)
 		assert.Equal(t, "America/New_York", project.Timezone)

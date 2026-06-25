@@ -153,24 +153,7 @@ func (srv *BroadcastsController) ListBroadcasts(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	// Populate the computed Sent field from campaign_sends.
-	if len(result) > 0 {
-		ids := make([]uuid.UUID, len(result))
-		for i, b := range result {
-			ids[i] = b.ID
-		}
-		counts, err := srv.usrs.CampaignSendsStore.CountSendsByBroadcastIDs(ctx, ids)
-		if err != nil {
-			logger.Error("failed to count broadcast sends", zap.Error(err))
-			// Non-fatal: Sent stays 0.
-		} else {
-			for i := range result {
-				if c, ok := counts[result[i].ID]; ok {
-					result[i].Sent = c
-				}
-			}
-		}
-	}
+	// Sent is populated directly from the persisted column on campaign_broadcasts.
 
 	logger.Debug("listed broadcasts", zap.Int("count", len(result)))
 	json.Write(w, http.StatusOK, oapi.BroadcastListResponse{
@@ -201,13 +184,6 @@ func (srv *BroadcastsController) GetBroadcast(w http.ResponseWriter, r *http.Req
 
 	if err != nil {
 		logger.Error("failed to fetch broadcast", zap.Error(err))
-		oapi.WriteProblem(w, err)
-		return
-	}
-
-	broadcast.Sent, err = srv.usrs.CampaignSendsStore.CountSendsByBroadcastID(ctx, broadcastID)
-	if err != nil {
-		logger.Error("failed to count broadcast sends", zap.Error(err))
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -437,11 +413,7 @@ func (srv *BroadcastsController) StreamBroadcastProgress(
 			return
 		}
 
-		sent, err := srv.usrs.CampaignSendsStore.CountSendsByBroadcastID(ctx, broadcastID)
-		if err != nil {
-			logger.Error("failed to count sends for progress", zap.Error(err))
-			sent = broadcast.Total
-		}
+		sent := broadcast.Sent
 
 		terminal := isTerminalState(broadcast.State)
 		evt := map[string]any{

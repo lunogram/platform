@@ -74,6 +74,8 @@ export interface TemplateInputProps {
     id?: string
     /** Visual variant. "compact" matches small inline inputs (e.g. rule editor). */
     variant?: keyof typeof variantStyles
+    /** Render as a multi-line, wrapping editor (textarea-like) instead of a single line. */
+    multiline?: boolean
 }
 
 export function TemplateInput({
@@ -85,6 +87,7 @@ export function TemplateInput({
     disabled,
     id,
     variant = "default",
+    multiline = false,
 }: TemplateInputProps) {
     const [pickerOpen, setPickerOpen] = useState(false)
     const editorRef = useRef<HTMLDivElement>(null)
@@ -154,6 +157,12 @@ export function TemplateInput({
         const el = editorRef.current
         if (!el) return
         const plain = domToPlain(el)
+        // Deleting all content leaves a stray <br>/empty node behind, which
+        // suppresses the :empty placeholder and shifts the caret. Reset to a
+        // truly empty element so the caret and placeholder behave.
+        if (plain === "" && el.innerHTML !== "") {
+            el.innerHTML = ""
+        }
         if (plain !== valueRef.current) {
             onChange(plain)
         }
@@ -210,17 +219,36 @@ export function TemplateInput({
         [onChange, value],
     )
 
-    const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-        if (e.key === "Enter") {
+    const handleKeyDown = useCallback(
+        (e: React.KeyboardEvent) => {
+            if (e.key !== "Enter") return
             e.preventDefault()
-        }
-    }, [])
+            // Single-line inputs swallow Enter. Multi-line editors insert a real
+            // newline at the caret; `white-space: pre-wrap` renders it.
+            if (!multiline) return
+            const sel = window.getSelection()
+            if (!sel || sel.rangeCount === 0) return
+            const range = sel.getRangeAt(0)
+            range.deleteContents()
+            const newline = document.createTextNode("\n")
+            range.insertNode(newline)
+            // A trailing ZWS gives the caret somewhere to land on the new line.
+            const caret = document.createTextNode(ZWS)
+            newline.after(caret)
+            range.setStart(caret, caret.length)
+            range.collapse(true)
+            sel.removeAllRanges()
+            sel.addRange(range)
+            handleInput()
+        },
+        [multiline, handleInput],
+    )
 
     const hasVariables = variables.some((g) => g.variables.length > 0)
     const vs = variantStyles[variant]
 
     return (
-        <div className={cn("relative flex items-center", className)}>
+        <div className={cn("relative flex", multiline ? "items-start" : "items-center", className)}>
             {/* Editable area */}
             <div
                 ref={editorRef}
@@ -239,18 +267,19 @@ export function TemplateInput({
                 }}
                 data-placeholder={placeholder}
                 className={cn(
-                    "flex w-full border border-input bg-transparent transition-colors",
+                    "w-full border border-input bg-transparent transition-colors",
                     vs.editor,
                     "placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                     "disabled:cursor-not-allowed disabled:opacity-50",
                     "empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground empty:before:pointer-events-none",
-                    "overflow-x-auto overflow-y-hidden whitespace-nowrap",
-                    "[&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]",
+                    multiline
+                        ? "block min-h-24 resize-y whitespace-pre-wrap break-words overflow-y-auto py-2"
+                        : "flex items-center overflow-x-auto overflow-y-hidden whitespace-nowrap [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]",
                     hasVariables && "pr-9",
                     disabled && "cursor-not-allowed opacity-50",
                     className,
                 )}
-                style={vs.style}
+                style={multiline ? { minHeight: "6rem", lineHeight: "1.5rem" } : vs.style}
             />
 
             {/* Variable picker trigger */}
@@ -260,7 +289,8 @@ export function TemplateInput({
                         <button
                             type="button"
                             className={cn(
-                                "absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center justify-center",
+                                "absolute right-1.5 flex items-center justify-center",
+                                multiline ? "top-2" : "top-1/2 -translate-y-1/2",
                                 "h-6 w-6 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors",
                             )}
                             tabIndex={-1}

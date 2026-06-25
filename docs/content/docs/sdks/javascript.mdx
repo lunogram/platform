@@ -37,14 +37,14 @@ This exposes a global `Lunogram` object on `window`.
 ```typescript
 import { Lunogram } from "@lunogram/js-sdk";
 
-const lunogram = new Lunogram("pk_your_public_api_key");
+const lunogram = new Lunogram("<session-token>");
 ```
 
 If you are self-hosting, pass the URL endpoint as the second argument:
 
 ```typescript
 const lunogram = new Lunogram(
-  "pk_your_public_api_key",
+  "<session-token>",
   "https://your-instance.com/api",
 );
 ```
@@ -291,7 +291,7 @@ For Node.js or other server environments, use the `Client` class directly. Unlik
 import { Client } from "@lunogram/js-sdk";
 
 const client = new Client({
-  apiKey: "pk_your_api_key",
+  apiKey: "sk_your_api_key",
   urlEndpoint: "https://your-instance.com/api",
 });
 
@@ -318,7 +318,7 @@ All methods are async and return promises. The SDK provides typed error classes:
 ```typescript
 import { Lunogram, UnauthorizedError, ValidationError } from "@lunogram/js-sdk";
 
-const lunogram = new Lunogram("pk_your_api_key");
+const lunogram = new Lunogram("<session-token>");
 
 try {
   await lunogram.user.upsert({

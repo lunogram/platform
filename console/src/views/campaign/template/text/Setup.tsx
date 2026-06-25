@@ -1,13 +1,14 @@
 import { Controller, useForm, type UseFormReturn } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { Ellipsis, Rocket, UserRound } from "lucide-react"
+import { Ellipsis, Rocket } from "lucide-react"
 import type { Campaign, Template, User, Locale } from "@/types"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router"
 import api from "@/api"
-import * as z from "zod"
+import type * as z from "zod"
 
 import { Render } from "@/renderTemplates"
+import { PhoneFrame } from "@/components/preview/PhoneFrame"
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { SenderIdentityCombobox } from "@/components/sender-identity-combobox"
 import { TemplateInput } from "@/components/ui/template-input"
@@ -25,22 +26,24 @@ import { ProjectContext, TemplateContext } from "@/contexts"
 import { useCampaignVariableContext } from "../../CampaignVariableContext"
 import { useSendTestSMS } from "./useSendTestSMS"
 
-const textSetupFormSchema = z.object({
-    sender_identity_id: z.string().optional(),
-    body: z.string("Message is required").min(1, "Message is required"),
-})
+import { textSetupFormSchema } from "@/validation/campaign/template/text/setup"
 
-export function TextForm(campaign: Campaign, template?: Template) {
-    const formSchema = textSetupFormSchema.extend({
-        sender_identity_id: z.string("From number is required").min(1),
-    })
+export function TextForm(_campaign: Campaign, template?: Template) {
+    const formSchema = textSetupFormSchema
+
+    const defaultValues: z.infer<typeof textSetupFormSchema> = {
+        sender_identity_id: "",
+        body: "",
+    }
+
+    if (template && template.type === "sms") {
+        defaultValues.sender_identity_id = template.sender_identity_id ?? ""
+        defaultValues.body = template.data.body
+    }
 
     return useForm({
         resolver: zodResolver(formSchema),
-        defaultValues: {
-            sender_identity_id: template?.sender_identity_id ?? "",
-            body: template?.data.body ?? "",
-        },
+        defaultValues: defaultValues,
     })
 }
 
@@ -212,46 +215,16 @@ export function TextPreview({ campaign, form, edit = false }: TextSetupProps) {
                     </>
                 )}
             </div>
-            <div className="w-[390px] h-[533px] bg-zinc-900 rounded-t-[70px] p-3 pb-0 shadow-2xl">
-                <div className="w-full h-full bg-white rounded-t-[58px] overflow-hidden flex flex-col">
-                    <div className="h-12 bg-white flex items-start justify-center px-8 pt-3">
-                        <div className="w-32 h-8 bg-zinc-900 rounded-full" />
-                    </div>
-
-                    <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-center">
-                        <div className="flex flex-col items-center">
-                            <div className="w-12 h-12 bg-gray-300 rounded-full flex items-center justify-center mb-1">
-                                <UserRound className="w-7 h-7 text-gray-500" strokeWidth={1.5} />
-                            </div>
-                            <span className="text-sm font-medium">{phoneNumber}</span>
-                        </div>
-                    </div>
-
-                    <div className="flex-1 bg-white px-4 py-6 overflow-y-auto">
-                        <div className="flex flex-col items-center mb-6">
-                            <span className="text-gray-500 text-xs">
-                                {t("campaign.setup.channels.text.text_message_label")}
-                            </span>
-                            <span className="text-gray-400 text-xs">
-                                {t("campaign.setup.channels.text.today")}
-                            </span>
-                        </div>
-
-                        <div className="flex justify-start mb-6">
-                            <div className="max-w-[75%]">
-                                <div className="bg-gray-200 rounded-3xl rounded-bl-sm px-4 py-3">
-                                    {message || <Ellipsis className="text-gray-500" />}
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="text-center">
-                            <p className="text-gray-400 text-sm">
-                                {t("campaign.setup.channels.text.preview_disclaimer")}
-                            </p>
-                        </div>
-                    </div>
-                </div>
+            <PhoneFrame
+                sender={phoneNumber}
+                message={message || <Ellipsis className="text-gray-500" />}
+                contextLabel={t("campaign.setup.channels.text.text_message_label")}
+                contextDate={t("campaign.setup.channels.text.today")}
+            />
+            <div className="text-center mt-4">
+                <p className="text-gray-400 text-sm">
+                    {t("campaign.setup.channels.text.preview_disclaimer")}
+                </p>
             </div>
         </div>
     )

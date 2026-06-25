@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/lunogram/platform/internal/ptr"
 	"github.com/lunogram/platform/internal/store/management"
 	"github.com/lunogram/platform/internal/store/subjects"
 	"github.com/stretchr/testify/assert"
@@ -45,7 +46,7 @@ func TestComposeSMS(t *testing.T) {
 					"body": "Test message"
 				}`),
 			},
-			user:     &subjects.User{Phone: ptr("+12222222222")},
+			user:     &subjects.User{Phone: ptr.To("+12222222222")},
 			wantFrom: "+11111111111",
 			wantErr:  false,
 		},
@@ -62,7 +63,7 @@ func TestComposeSMS(t *testing.T) {
 					"body": "Test message"
 				}`),
 			},
-			user:     &subjects.User{Phone: ptr("+12222222222")},
+			user:     &subjects.User{Phone: ptr.To("+12222222222")},
 			wantFrom: "+10000000000",
 			wantErr:  false,
 		},
@@ -79,7 +80,7 @@ func TestComposeSMS(t *testing.T) {
 					"body": "Test message"
 				}`),
 			},
-			user:     &subjects.User{Phone: ptr("+12222222222")},
+			user:     &subjects.User{Phone: ptr.To("+12222222222")},
 			wantFrom: "+11111111111",
 			wantErr:  false,
 		},
@@ -96,7 +97,7 @@ func TestComposeSMS(t *testing.T) {
 					"body": "Test message"
 				}`),
 			},
-			user:        &subjects.User{Phone: ptr("+12222222222")},
+			user:        &subjects.User{Phone: ptr.To("+12222222222")},
 			wantErr:     true,
 			errContains: "no from number specified",
 		},
@@ -130,7 +131,7 @@ func TestComposeSMS(t *testing.T) {
 					"body": "Test message"
 				}`),
 			},
-			user:     &subjects.User{Phone: ptr("+12222222222")},
+			user:     &subjects.User{Phone: ptr.To("+12222222222")},
 			wantFrom: "+10000000000",
 			wantErr:  false,
 		},
@@ -144,7 +145,7 @@ func TestComposeSMS(t *testing.T) {
 					"body": "Test message"
 				}`),
 			},
-			user:     &subjects.User{Phone: ptr("+12222222222")},
+			user:     &subjects.User{Phone: ptr.To("+12222222222")},
 			wantFrom: "+11111111111",
 			wantErr:  false,
 		},

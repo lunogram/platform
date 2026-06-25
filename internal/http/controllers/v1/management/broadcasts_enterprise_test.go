@@ -15,6 +15,7 @@ import (
 	"github.com/lunogram/platform/internal/config"
 	"github.com/lunogram/platform/internal/container"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
+	"github.com/lunogram/platform/internal/ptr"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/consumer"
 	"github.com/lunogram/platform/internal/rbac"
@@ -69,7 +70,9 @@ func newBroadcastTestEnv(t *testing.T) broadcastTestEnv {
 	})
 	require.NoError(t, err)
 
-	providerID, err := mgmtState.ProvidersStore.CreateProvider(ctx, management.Provider{
+	// A provider must exist for the channel so the broadcast can resolve one
+	// at send time; campaigns no longer reference a provider directly.
+	_, err = mgmtState.ProvidersStore.CreateProvider(ctx, management.Provider{
 		ProjectID: projectID,
 		Module:    "test",
 		Channels:  management.Channels{"email"},
@@ -79,10 +82,9 @@ func newBroadcastTestEnv(t *testing.T) broadcastTestEnv {
 	require.NoError(t, err)
 
 	campaignID, err := mgmtState.CampaignsStore.CreateCampaign(ctx, management.Campaign{
-		ProjectID:  projectID,
-		Name:       "Broadcast Campaign",
-		Channel:    "email",
-		ProviderID: &providerID,
+		ProjectID: projectID,
+		Name:      "Broadcast Campaign",
+		Channel:   "email",
 	})
 	require.NoError(t, err)
 
@@ -94,7 +96,7 @@ func newBroadcastTestEnv(t *testing.T) broadcastTestEnv {
 	require.NoError(t, err)
 
 	for i := 0; i < 3; i++ {
-		email := ptr("user" + uuid.New().String() + "@test.com")
+		email := ptr.To("user" + uuid.New().String() + "@test.com")
 		_, err := usrsState.UsersStore.CreateUser(ctx, projectID, email, nil, json.RawMessage(`{}`), nil, nil, nil)
 		require.NoError(t, err)
 	}
@@ -146,7 +148,7 @@ func TestCreateBroadcast(t *testing.T) {
 			body: oapi.CreateBroadcastJSONRequestBody{
 				CampaignId:  env.campaignID,
 				ListId:      env.listID,
-				ScheduledAt: ptr(time.Now().Add(24 * time.Hour)),
+				ScheduledAt: ptr.To(time.Now().Add(24 * time.Hour)),
 			},
 			code: 201,
 		},
@@ -154,7 +156,7 @@ func TestCreateBroadcast(t *testing.T) {
 			body: oapi.CreateBroadcastJSONRequestBody{
 				CampaignId:  env.campaignID,
 				ListId:      env.listID,
-				ScheduledAt: ptr(time.Now().Add(-1 * time.Hour)),
+				ScheduledAt: ptr.To(time.Now().Add(-1 * time.Hour)),
 			},
 			code: 400,
 		},
@@ -534,7 +536,7 @@ func TestUpdateBroadcast(t *testing.T) {
 		},
 		"scheduled_at in the past": {
 			id:   pendingBroadcast.ID,
-			body: oapi.UpdateBroadcastJSONRequestBody{ScheduledAt: ptr(time.Now().Add(-1 * time.Hour))},
+			body: oapi.UpdateBroadcastJSONRequestBody{ScheduledAt: ptr.To(time.Now().Add(-1 * time.Hour))},
 			code: 400,
 		},
 	}

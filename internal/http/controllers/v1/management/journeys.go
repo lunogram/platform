@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	stdjson "encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -69,10 +70,11 @@ func (srv *JourneysController) ListJourneys(w http.ResponseWriter, r *http.Reque
 	}
 
 	search := params.Search.ToString()
+	archivedOnly := params.IncludeDeleted != nil && *params.IncludeDeleted
 
 	logger.Info("listing journeys", zap.Int("limit", pagination.Limit), zap.Int("offset", pagination.Offset))
 
-	journeys, total, err := srv.jrny.ListJourneys(ctx, projectID, pagination, search)
+	journeys, total, err := srv.jrny.ListJourneys(ctx, projectID, pagination, search, archivedOnly)
 	if err != nil {
 		logger.Error("failed to list journeys", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -121,7 +123,7 @@ func (srv *JourneysController) CreateJourney(w http.ResponseWriter, r *http.Requ
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.String("name", body.Name))
 	logger.Info("creating journey")
 
-	project, err := srv.mgmt.GetProject(ctx, projectID)
+	project, err := srv.mgmt.GetProject(ctx, projectID, nil)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("project not found", zap.Stringer("project_id", projectID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("project not found")))
@@ -361,6 +363,38 @@ func (srv *JourneysController) DeleteJourney(w http.ResponseWriter, r *http.Requ
 	}
 
 	logger.Info("journey deleted")
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (srv *JourneysController) UnarchiveJourney(w http.ResponseWriter, r *http.Request, projectID, journeyID uuid.UUID) {
+	ctx := r.Context()
+	err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("journeys", projectID))
+	if err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	logger := srv.logger.With(
+		zap.Stringer("project_id", projectID),
+		zap.Stringer("journey_id", journeyID),
+	)
+
+	logger.Info("unarchiving journey")
+
+	err = srv.jrny.UnarchiveJourney(ctx, projectID, journeyID)
+	if errors.Is(err, sql.ErrNoRows) {
+		logger.Info("journey not found")
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("journey not found")))
+		return
+	}
+
+	if err != nil {
+		logger.Error("failed to unarchive journey", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	logger.Info("journey unarchived")
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -763,15 +797,28 @@ func (srv *JourneysController) SetJourneySteps(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	for externalID, eventName := range eventDependencies {
-		eventID, err := events.UpsertEvent(ctx, projectID, eventName, subjects.SubjectTypeUser)
+	for externalID, dep := range eventDependencies {
+		var deps []journey.StepEventDependency
+
+		enterID, err := events.UpsertEvent(ctx, projectID, dep.Enter, subjects.SubjectTypeUser)
 		if err != nil {
-			logger.Error("failed to upsert event", zap.String("event", eventName), zap.Error(err))
+			logger.Error("failed to upsert event", zap.String("event", dep.Enter), zap.Error(err))
 			oapi.WriteProblem(w, err)
 			return
 		}
+		deps = append(deps, journey.StepEventDependency{EventID: enterID, Kind: journey.StepEventKindEnter})
 
-		err = journeys.SetJourneyStepEventDependencies(ctx, versionID, externalID, []uuid.UUID{eventID})
+		if dep.Exit != "" {
+			exitID, err := events.UpsertEvent(ctx, projectID, dep.Exit, subjects.SubjectTypeUser)
+			if err != nil {
+				logger.Error("failed to upsert exit event", zap.String("event", dep.Exit), zap.Error(err))
+				oapi.WriteProblem(w, err)
+				return
+			}
+			deps = append(deps, journey.StepEventDependency{EventID: exitID, Kind: journey.StepEventKindExit})
+		}
+
+		err = journeys.SetJourneyStepEventDependencies(ctx, versionID, externalID, deps)
 		if err != nil {
 			logger.Error("failed to set journey step event dependencies", zap.Error(err))
 			oapi.WriteProblem(w, err)
@@ -997,6 +1044,19 @@ func (srv *JourneysController) PublishJourney(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	draftSteps, err := srv.jrny.GetJourneyVersionSteps(ctx, draftVersion.ID)
+	if err != nil {
+		logger.Error("failed to get draft steps", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	if err := validateEntranceSteps(draftSteps.OAPI()); err != nil {
+		logger.Info("journey failed entrance validation", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	tx, err := srv.journeyDB.BeginTxx(ctx, nil)
 	if err != nil {
 		logger.Error("failed to begin transaction", zap.Error(err))
@@ -1040,9 +1100,39 @@ func (srv *JourneysController) PublishJourney(w http.ResponseWriter, r *http.Req
 	json.Write(w, http.StatusOK, updated.OAPI(versionInfo))
 }
 
-// journeyEntranceEventDependencies extracts event dependencies from entrance steps
-func journeyEntranceEventDependencies(steps oapi.JourneyStepMap) (map[string]string, error) {
-	events := make(map[string]string)
+// entranceEventDeps describes the events an entrance step depends on. Enter is
+// the event that enrolls a user; Exit (optional) is the event that exits a user
+// from the journey, used by list triggers configured to exit on list leave.
+type entranceEventDeps struct {
+	Enter string
+	Exit  string
+}
+
+// listTriggerEvents resolves the enter/exit list membership events for a list
+// trigger entrance from its direction and exit-on-leave setting.
+func listTriggerEvents(list *oapi.ListTrigger) entranceEventDeps {
+	enter := schemas.EventListUserAdded
+	if list.Direction == oapi.ListLeaves {
+		enter = schemas.EventListUserRemoved
+	}
+
+	deps := entranceEventDeps{Enter: enter}
+
+	// Exiting the journey when the user leaves the list only makes sense when
+	// they entered by joining it; the opposite event closes the run.
+	if enter == schemas.EventListUserAdded && list.ExitOnLeave {
+		deps.Exit = schemas.EventListUserRemoved
+	}
+
+	return deps
+}
+
+// journeyEntranceEventDependencies extracts event dependencies from entrance
+// steps. It is lenient: incompletely configured entrances are skipped rather
+// than rejected so drafts can be saved while they are still being built. The
+// union shape is enforced strictly at publish time (see validateEntranceSteps).
+func journeyEntranceEventDependencies(steps oapi.JourneyStepMap) (map[string]entranceEventDeps, error) {
+	events := make(map[string]entranceEventDeps)
 	for id, step := range steps {
 		if step.Type != oapi.JourneyStepTypeEntrance {
 			continue
@@ -1054,10 +1144,44 @@ func journeyEntranceEventDependencies(steps oapi.JourneyStepMap) (map[string]str
 			return nil, err
 		}
 
-		if data.Trigger != nil && (*data.Trigger == "event" || *data.Trigger == "scheduled") && data.EventName != nil {
-			events[id] = *data.EventName
+		switch data.Trigger {
+		case oapi.TriggerEvent:
+			if data.Event != nil && data.Event.Name != "" {
+				events[id] = entranceEventDeps{Enter: data.Event.Name}
+			}
+		case oapi.TriggerScheduled:
+			if data.Scheduled != nil && data.Scheduled.Name != "" {
+				events[id] = entranceEventDeps{Enter: data.Scheduled.Name}
+			}
+		case oapi.TriggerList:
+			if data.List != nil && data.List.ID != uuid.Nil {
+				events[id] = listTriggerEvents(data.List)
+			}
 		}
 	}
 
 	return events, nil
+}
+
+// validateEntranceSteps enforces the entrance trigger union on every entrance
+// step, returning a bad-request problem describing the first violation. It is
+// applied when a journey is published, gating incomplete or malformed
+// entrances that the lenient draft-save path lets through.
+func validateEntranceSteps(steps oapi.JourneyStepMap) error {
+	for id, step := range steps {
+		if step.Type != oapi.JourneyStepTypeEntrance {
+			continue
+		}
+
+		var data oapi.EntranceStepData
+		if err := json.Unmarshal(step.Data, &data); err != nil {
+			return problem.ErrBadRequest(problem.Describe(fmt.Sprintf("entrance %q: %v", id, err)))
+		}
+
+		if err := data.Validate(); err != nil {
+			return problem.ErrBadRequest(problem.Describe(fmt.Sprintf("entrance %q: %v", id, err)))
+		}
+	}
+
+	return nil
 }

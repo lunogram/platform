@@ -4,7 +4,7 @@ import { ProjectContext } from "@/contexts"
 import { useContext, useState } from "react"
 import type { ReactNode } from "react"
 
-import { ArrowRight, Mail, MessageSquareDot, PlusIcon, Smartphone } from "lucide-react"
+import { ArrowRight, Inbox, Mail, MessageSquareDot, PlusIcon, Smartphone } from "lucide-react"
 import type { ChannelType } from "@/types"
 
 import {
@@ -88,6 +88,13 @@ export function CreateCampaign({ open = false, onBeforeCreate, trigger }: Create
             icon: <MessageSquareDot strokeWidth={2} />,
             title: t("channels.push.title"),
             description: t("channels.push.description"),
+        },
+        {
+            key: "inbox",
+            color: "bg-amber-50 text-amber-600",
+            icon: <Inbox strokeWidth={2} />,
+            title: t("channels.inbox.title"),
+            description: t("channels.inbox.description"),
         },
     ]
 

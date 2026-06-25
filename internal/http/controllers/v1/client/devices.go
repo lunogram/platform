@@ -5,7 +5,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/google/uuid"
+	"github.com/lunogram/platform/internal/http/auth"
 	"github.com/lunogram/platform/internal/http/controllers/v1/client/oapi"
 	"github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/http/problem"
@@ -25,7 +25,7 @@ func NewDevicesController(client *ClientController) *DevicesController {
 	return &DevicesController{ClientController: client}
 }
 
-func (srv *DevicesController) GetVapidPublicKey(w http.ResponseWriter, r *http.Request) {
+func (srv *DevicesController) GetVapidPublicKey(w http.ResponseWriter, r *http.Request, _ oapi.ProjectID) {
 	ctx := r.Context()
 	actor := rbac.FromContext(ctx)
 	if actor == nil {
@@ -52,25 +52,14 @@ func (srv *DevicesController) GetVapidPublicKey(w http.ResponseWriter, r *http.R
 	json.Write(w, http.StatusOK, oapi.VapidPublicKey{PublicKey: key.PublicKey})
 }
 
-func (srv *DevicesController) RegisterDevice(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	actor := rbac.FromContext(ctx)
-	if actor == nil {
-		oapi.WriteProblem(w, problem.ErrUnauthorized())
-		return
-	}
-
-	projectID := actor.ProjectID
-	if projectID == uuid.Nil {
-		oapi.WriteProblem(w, problem.ErrUnauthorized())
-		return
-	}
-
-	err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("devices", projectID))
+func (srv *DevicesController) RegisterDevice(w http.ResponseWriter, r *http.Request, _ oapi.ProjectID) {
+	projectID, err := srv.engine.AllowedProject(r.Context(), "devices", rbac.Create)
 	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
+
+	ctx := r.Context()
 
 	var req oapi.DeviceRegistration
 	if err := json.Decode(r.Body, &req); err != nil {
@@ -84,7 +73,7 @@ func (srv *DevicesController) RegisterDevice(w http.ResponseWriter, r *http.Requ
 	)
 	logger.Info("registering device")
 
-	userID, err := srv.users.LookupUserID(ctx, projectID, oapi.ToParams(req.Identifier))
+	userID, err := srv.users.LookupUserID(ctx, projectID, auth.BoundUserIdentifiers(ctx, oapi.ToParams(req.Identifier)))
 	if errors.Is(err, subjects.ErrUserNotFound) {
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
 		return

@@ -3,12 +3,16 @@ package rbac
 import (
 	"context"
 	"fmt"
+	"sort"
 
+	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/http/problem"
 	openfgav1 "github.com/openfga/api/proto/openfga/v1"
 	"github.com/openfga/openfga/pkg/logger"
 	"github.com/openfga/openfga/pkg/server"
 	"github.com/openfga/openfga/pkg/storage"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
@@ -104,6 +108,41 @@ func (e *Engine) Allowed(ctx context.Context, permission Permission, scope Scope
 	return nil
 }
 
+// AllowedProject verifies that the authenticated actor in ctx has a valid
+// project scope and holds the given permission on the specified resource
+// within that project.
+//
+// This combines actor extraction, project scope validation, and permission
+// checking into a single call. It is the recommended way to authorize
+// project-scoped API handlers.
+//
+//	projectID, err := engine.AllowedProject(ctx, "users", rbac.Create)
+//	projectID, err := engine.AllowedProject(ctx, "inbox", rbac.Read)
+//
+// Returns the actor's project ID when authorized, or an error suitable for
+// writing as an HTTP problem response.
+func (e *Engine) AllowedProject(ctx context.Context, resource string, permission Permission) (uuid.UUID, error) {
+	actor := FromContext(ctx)
+	if actor == nil {
+		return uuid.Nil, problem.ErrUnauthorized()
+	}
+
+	if actor.ProjectID == uuid.Nil {
+		return uuid.Nil, problem.ErrUnauthorized(problem.Describe("project scope is required"))
+	}
+
+	allowed, err := e.Check(ctx, actor.UserKey(), string(permission), ProjectResourceScope(resource, actor.ProjectID))
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("rbac: permission check failed: %w", err)
+	}
+
+	if !allowed {
+		return uuid.Nil, problem.ErrForbidden(problem.Describe("missing permission: " + string(permission)))
+	}
+
+	return actor.ProjectID, nil
+}
+
 // Check returns true when the given user has the specified relation on the
 // object. This is the low-level OpenFGA check; prefer [Engine.Allowed] for
 // permission checks that read the actor from context.
@@ -120,6 +159,11 @@ func (e *Engine) Check(ctx context.Context, user, relation, object string) (bool
 			Relation: relation,
 			Object:   object,
 		},
+		// Authorization decisions must reflect the latest tuples: a just-revoked
+		// grant or role must not keep resolving from the short-lived Check cache.
+		// We trade a little latency for read-after-write correctness on the
+		// security-critical path.
+		Consistency: openfgav1.ConsistencyPreference_HIGHER_CONSISTENCY,
 	})
 	if err != nil {
 		return false, fmt.Errorf("openfga check failed: %w", err)
@@ -139,6 +183,30 @@ func (e *Engine) WriteTuple(ctx context.Context, user, relation, object string) 
 		},
 	})
 	if err != nil {
+		return fmt.Errorf("openfga write failed: %w", err)
+	}
+	return nil
+}
+
+// WriteTupleIfAbsent writes a tuple, treating an "already exists" duplicate as
+// success so the call is idempotent. Any other write failure (datastore,
+// validation, connectivity) is returned, so callers can surface real problems
+// instead of silently swallowing them.
+func (e *Engine) WriteTupleIfAbsent(ctx context.Context, user, relation, object string) error {
+	_, err := e.server.Write(ctx, &openfgav1.WriteRequest{
+		StoreId:              e.storeID,
+		AuthorizationModelId: e.modelID,
+		Writes: &openfgav1.WriteRequestWrites{
+			TupleKeys: []*openfgav1.TupleKey{
+				{User: user, Relation: relation, Object: object},
+			},
+		},
+	})
+	if err != nil {
+		// OpenFGA reports a duplicate write as write_failed_due_to_invalid_input.
+		if status.Code(err) == codes.Code(openfgav1.ErrorCode_write_failed_due_to_invalid_input) {
+			return nil
+		}
 		return fmt.Errorf("openfga write failed: %w", err)
 	}
 	return nil
@@ -179,6 +247,25 @@ func (e *Engine) WriteTuples(ctx context.Context, tuples []Tuple) error {
 		return fmt.Errorf("openfga batch write failed: %w", err)
 	}
 	return nil
+}
+
+// WriteTuplesIfMissing writes only the tuples that are not already present,
+// making the grant idempotent. OpenFGA rejects writing a tuple that already
+// exists, so re-running a provisioning step (e.g. reconciling access for an
+// already-accepted invite) would otherwise fail. Each tuple is checked with a
+// direct relation lookup before being written; only the absent ones are sent.
+func (e *Engine) WriteTuplesIfMissing(ctx context.Context, tuples []Tuple) error {
+	var missing []Tuple
+	for _, t := range tuples {
+		exists, err := e.Check(ctx, t.User, t.Relation, t.Object)
+		if err != nil {
+			return err
+		}
+		if !exists {
+			missing = append(missing, t)
+		}
+	}
+	return e.WriteTuples(ctx, missing)
 }
 
 // DeleteTuples removes multiple relationship tuples in a single request.
@@ -264,12 +351,14 @@ func (e *Engine) ModelChanged() bool {
 }
 
 // modelsEqual compares two slices of type definitions using protobuf
-// equality. This catches any change in the model regardless of field
-// ordering within maps.
+// equality. Slices are sorted by type name before comparison so that
+// ordering differences do not cause false negatives.
 func modelsEqual(a, b []*openfgav1.TypeDefinition) bool {
 	if len(a) != len(b) {
 		return false
 	}
+	sort.Slice(a, func(i, j int) bool { return a[i].GetType() < a[j].GetType() })
+	sort.Slice(b, func(i, j int) bool { return b[i].GetType() < b[j].GetType() })
 	for i := range a {
 		if !proto.Equal(a[i], b[i]) {
 			return false

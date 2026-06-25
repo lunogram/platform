@@ -79,6 +79,33 @@ body {
     --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-ring: var(--sidebar-ring);
+
+    /* Lunogram design-system tokens (see DESIGN.md). Named by appearance, theme-aware
+       via the var() indirection below — light values in :root, dark in .dark. */
+    --color-ink: var(--ink);
+    --color-ink-soft: var(--ink-soft);
+    --color-surface: var(--surface);
+    --color-surface-soft: var(--surface-soft);
+    --color-surface-muted: var(--surface-muted);
+    --color-surface-editor: var(--surface-editor);
+    --color-surface-fixed: var(--surface-fixed);
+    --color-border-strong: var(--border-strong);
+
+    --color-red: var(--red);
+    --color-red-soft: var(--red-soft);
+    --color-red-hard: var(--red-hard);
+    --color-blue: var(--blue);
+    --color-blue-soft: var(--blue-soft);
+    --color-blue-hard: var(--blue-hard);
+    --color-amber: var(--amber);
+    --color-amber-soft: var(--amber-soft);
+    --color-amber-hard: var(--amber-hard);
+    --color-green: var(--green);
+    --color-green-soft: var(--green-soft);
+    --color-green-hard: var(--green-hard);
+    --color-purple: var(--purple);
+    --color-purple-soft: var(--purple-soft);
+    --color-purple-hard: var(--purple-hard);
 }
 
 :root {
@@ -114,6 +141,32 @@ body {
     --sidebar-accent-foreground: oklch(0.205 0 0);
     --sidebar-border: oklch(0.922 0 0);
     --sidebar-ring: oklch(0.708 0 0);
+
+    /* Lunogram design-system tokens — light (DESIGN.md `colors`). */
+    --ink: #151c2d;
+    --ink-soft: #6b707b;
+    --surface: #ffffff;
+    --surface-soft: #f9fafb;
+    --surface-muted: #f5f5f7;
+    --surface-editor: #0d121e;
+    --surface-fixed: #ffffff;
+    --border-strong: #cecfd2;
+
+    --red: #d92d20;
+    --red-soft: #fecdca;
+    --red-hard: #b42419;
+    --blue: #2970ff;
+    --blue-soft: #d1e0ff;
+    --blue-hard: #004ebb;
+    --amber: #fec84b;
+    --amber-soft: #fef0c7;
+    --amber-hard: #f79009;
+    --green: #32d583;
+    --green-soft: #d1fadf;
+    --green-hard: #039855;
+    --purple: #8729c1;
+    --purple-soft: #f7d8ff;
+    --purple-hard: #4e0c77;
 }
 
 .dark {
@@ -148,6 +201,18 @@ body {
     --sidebar-accent-foreground: oklch(0.985 0 0);
     --sidebar-border: oklch(1 0 0 / 10%);
     --sidebar-ring: oklch(0.556 0 0);
+
+    /* Lunogram design-system tokens — dark intent (DESIGN.md `colors-dark`); lists only
+       what differs from light. Status base/soft/hard carry over except purple, which
+       inverts. surface-fixed is intentionally NOT overridden so it never inverts. */
+    --ink: #ffffff;
+    --ink-soft: #919496;
+    --surface: #121721;
+    --surface-soft: #1a1f2b;
+    --surface-muted: #252b3a;
+    --border-strong: #3a4358;
+    --purple-soft: #4e0c77;
+    --purple-hard: #d1a7ea;
 }
 
 @layer base {

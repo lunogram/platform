@@ -30,6 +30,18 @@ func OrganizationRoleTuples(adminID, organizationID uuid.UUID, role string) []rb
 	}
 }
 
+// ProjectRoleTuples returns the tuples needed to grant the given role to an
+// admin within a project.
+func ProjectRoleTuples(userID, projectID uuid.UUID, role string) []rbac.Tuple {
+	return []rbac.Tuple{
+		{
+			User:     "user:" + userID.String(),
+			Relation: role,
+			Object:   rbac.ProjectScope(projectID),
+		},
+	}
+}
+
 // ApiKeyRoleTuples returns the tuple that grants a project-level role to an
 // API key. The keyID is the API key's UUID (used as the RBAC user identity)
 // and role must be one of "support", "client", "editor", or "admin".
@@ -76,6 +88,56 @@ func UpdateApiKeyRole(ctx context.Context, engine *rbac.Engine, keyID, projectID
 		return err
 	}
 	return ProvisionApiKey(ctx, engine, keyID, projectID, newRole)
+}
+
+// Grant is a single (resource, verb) entry in a custom permission set. It maps
+// to one direct relation tuple written onto the project-scoped resource object.
+//
+//	{Resource: "inbox", Verb: rbac.Read}  →  user:<policy-id> read inbox:<project-id>
+type Grant struct {
+	Resource string
+	Verb     rbac.Permission
+}
+
+// PolicyGrantTuples returns the tuples that grant an access policy a custom
+// permission set. Each grant becomes a direct relation tuple on the
+// project-scoped resource object. The policyID is the access policy's UUID,
+// used as the RBAC user identity so that checks via [rbac.Actor.UserKey]
+// resolve against these grants.
+//
+// Use this for policies that carry an explicit scope rather than one of the
+// four role presets (see [ApiKeyRoleTuples]).
+func PolicyGrantTuples(policyID, projectID uuid.UUID, grants []Grant) []rbac.Tuple {
+	user := "user:" + policyID.String()
+	tuples := make([]rbac.Tuple, 0, len(grants))
+	for _, g := range grants {
+		tuples = append(tuples, rbac.Tuple{
+			User:     user,
+			Relation: string(g.Verb),
+			Object:   rbac.ProjectResourceScope(g.Resource, projectID),
+		})
+	}
+	return tuples
+}
+
+// ProvisionPolicyGrants writes the custom permission-set tuples for an access
+// policy. Call this when a policy with a custom scope is created. It is a no-op
+// when grants is empty.
+func ProvisionPolicyGrants(ctx context.Context, engine *rbac.Engine, policyID, projectID uuid.UUID, grants []Grant) error {
+	if err := engine.WriteTuples(ctx, PolicyGrantTuples(policyID, projectID, grants)); err != nil {
+		return fmt.Errorf("access: failed to provision grants for policy %s: %w", policyID, err)
+	}
+	return nil
+}
+
+// DeprovisionPolicyGrants removes the custom permission-set tuples created by
+// [ProvisionPolicyGrants]. Call this when a policy is deleted, or before
+// rewriting its scope. It is a no-op when grants is empty.
+func DeprovisionPolicyGrants(ctx context.Context, engine *rbac.Engine, policyID, projectID uuid.UUID, grants []Grant) error {
+	if err := engine.DeleteTuples(ctx, PolicyGrantTuples(policyID, projectID, grants)); err != nil {
+		return fmt.Errorf("access: failed to deprovision grants for policy %s: %w", policyID, err)
+	}
+	return nil
 }
 
 // ProjectTuples returns the tuples that link a project to its parent
@@ -153,17 +215,27 @@ func BackfillProjectTuples(ctx context.Context, logger *zap.Logger, engine *rbac
 	logger.Info("backfilling RBAC resource tuples for existing projects", zap.Int("count", len(projects)))
 
 	resources := rbac.Resources()
+	var failures int
 	for _, p := range projects {
 		projectObject := rbac.ProjectScope(p.ID)
 		for _, resource := range resources {
-			if err := engine.WriteTuple(ctx, projectObject, "project", resource+":"+p.ID.String()); err != nil {
-				// OpenFGA returns an error when a tuple already exists.
-				// This is expected and safe to ignore.
-				continue
+			object := resource + ":" + p.ID.String()
+			// WriteTupleIfAbsent treats an already-exists duplicate as success
+			// (the idempotent case), so any error here is a real failure — a
+			// datastore or validation problem that would otherwise leave the
+			// project without a tuple and silently fail-closed on later checks.
+			if err := engine.WriteTupleIfAbsent(ctx, projectObject, "project", object); err != nil {
+				failures++
+				logger.Warn("failed to backfill RBAC resource tuple",
+					zap.String("object", object), zap.Error(err))
 			}
 		}
 	}
 
-	logger.Info("RBAC resource tuple backfill complete")
+	if failures > 0 {
+		logger.Warn("RBAC resource tuple backfill completed with failures", zap.Int("failures", failures))
+	} else {
+		logger.Info("RBAC resource tuple backfill complete")
+	}
 	return nil
 }

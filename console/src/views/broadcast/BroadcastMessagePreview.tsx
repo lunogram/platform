@@ -10,6 +10,7 @@ import { Render } from "@/renderTemplates"
 import { compileEmail } from "@/views/campaign/template/mail/editor/codeEditor/compileEmail"
 import { getSystemPreviewProps } from "@/views/campaign/template/mail/editor/variableScope"
 import { UserSelection } from "@/views/campaign/template/UserSelection"
+import { InboxNotificationCenter } from "@/views/campaign/template/inbox/InboxNotificationCenter"
 
 interface BroadcastMessagePreviewProps {
     campaignId: UUID
@@ -108,13 +109,16 @@ export function BroadcastMessagePreview({ campaignId, defaultUser }: BroadcastMe
             {campaign.channel === "push" && (
                 <PushBroadcastPreview template={template} user={selectedUser} />
             )}
+            {campaign.channel === "inbox" && (
+                <InboxBroadcastPreview
+                    template={template}
+                    user={selectedUser}
+                    appName={project.name}
+                />
+            )}
         </div>
     )
 }
-
-// ---------------------------------------------------------------------------
-// Email Preview
-// ---------------------------------------------------------------------------
 
 function EmailBroadcastPreview({
     campaign: _campaign,
@@ -229,10 +233,6 @@ function EmailBroadcastPreview({
     )
 }
 
-// ---------------------------------------------------------------------------
-// SMS Preview
-// ---------------------------------------------------------------------------
-
 function SmsBroadcastPreview({
     template,
     user,
@@ -292,10 +292,6 @@ function SmsBroadcastPreview({
     )
 }
 
-// ---------------------------------------------------------------------------
-// Push Preview
-// ---------------------------------------------------------------------------
-
 function PushBroadcastPreview({ template, user }: { template: Template; user: User | null }) {
     const rawTitle = template.data.title ?? ""
     const rawBody = template.data.body ?? ""
@@ -326,4 +322,22 @@ function PushBroadcastPreview({ template, user }: { template: Template; user: Us
             </div>
         </div>
     )
+}
+
+function InboxBroadcastPreview({
+    template,
+    user,
+    appName,
+}: {
+    template: Template
+    user: User | null
+    appName: string
+}) {
+    const rawTitle = template.data.title ?? ""
+    const rawBody = template.data.body ?? ""
+
+    const title = user ? Render(rawTitle, { user }) : rawTitle
+    const body = user ? Render(rawBody, { user }) : rawBody
+
+    return <InboxNotificationCenter title={title} body={body} appName={appName} />
 }

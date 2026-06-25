@@ -116,6 +116,26 @@ export interface paths {
         patch: operations["updateCampaign"];
         trace?: never;
     };
+    "/api/admin/projects/{projectID}/campaigns/{campaignID}/unarchive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Unarchive campaign
+         * @description Restores an archived campaign by clearing its deleted_at timestamp
+         */
+        post: operations["unarchiveCampaign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/campaigns/{campaignID}/templates": {
         parameters: {
             query?: never;
@@ -274,6 +294,26 @@ export interface paths {
          * @description Updates list properties such as name, rule, and tags
          */
         patch: operations["updateList"];
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/lists/{listID}/unarchive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Unarchive list
+         * @description Restores an archived list by clearing its deleted_at timestamp
+         */
+        post: operations["unarchiveList"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/admin/projects/{projectID}/lists/{listID}/duplicate": {
@@ -540,6 +580,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/projects/{projectID}/journeys/{journeyID}/unarchive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Unarchive journey
+         * @description Restores an archived journey by clearing its deleted_at timestamp
+         */
+        post: operations["unarchiveJourney"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/journeys/{journeyID}/duplicate": {
         parameters: {
             query?: never;
@@ -594,6 +654,46 @@ export interface paths {
         get: operations["getProfile"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/organizations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List my organizations
+         * @description Lists the organizations the authenticated admin is a member of, with the active one flagged
+         */
+        get: operations["ListMyOrganizations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/active-organization": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set active organization
+         * @description Switches the authenticated admin's active organization, which scopes subsequent requests
+         */
+        post: operations["SetActiveOrganization"];
         delete?: never;
         options?: never;
         head?: never;
@@ -666,6 +766,90 @@ export interface paths {
         get: operations["whoami"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/invites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List project invites
+         * @description Retrieves a list of active project invites
+         */
+        get: operations["ListProjectInvites"];
+        put?: never;
+        /**
+         * Create a project invite
+         * @description Creates a new project invite for an email address
+         */
+        post: operations["CreateProjectInvite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/invites/{inviteID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke a project invite
+         * @description Revokes a pending project invite, preventing it from being accepted
+         */
+        delete: operations["RevokeProjectInvite"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/invites/mine": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List my invites
+         * @description Lists the pending project invites addressed to the authenticated admin's email
+         */
+        get: operations["ListMyInvites"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/invites/{inviteID}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept a project invite
+         * @description Accepts a pending project invite addressed to the authenticated admin's email, adding them to the invite's project
+         */
+        post: operations["AcceptProjectInvite"];
         delete?: never;
         options?: never;
         head?: never;
@@ -782,6 +966,130 @@ export interface paths {
          * @description Creates a new event for a specific user
          */
         post: operations["createUserEvent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/subjects/users/{userID}/inbox": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get user inbox messages
+         * @description Retrieves inbox messages for a specific user
+         */
+        get: operations["getUserInboxMessages"];
+        put?: never;
+        /**
+         * Create user inbox message
+         * @description Creates an inbox message for a specific user
+         */
+        post: operations["createUserInboxMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/subjects/users/{userID}/inbox/{messageID}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Read user inbox message
+         * @description Marks a user inbox message as read
+         */
+        post: operations["readUserInboxMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/subjects/users/{userID}/inbox/{messageID}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Archive user inbox message
+         * @description Marks a user inbox message as archived
+         */
+        post: operations["archiveUserInboxMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/subjects/users/{userID}/inbox/{messageID}/unarchive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Unarchive user inbox message
+         * @description Removes the archived status from a user inbox message
+         */
+        post: operations["unarchiveUserInboxMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/subjects/users/{userID}/inbox/{messageID}/unread": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark user inbox message as unread
+         * @description Removes the read status from a user inbox message, marking it as unread
+         */
+        post: operations["unreadUserInboxMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/subjects/users/{userID}/inbox/{messageID}/schedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reschedule user inbox message
+         * @description Updates the scheduled send time of a user inbox message before it is dispatched
+         */
+        post: operations["rescheduleUserInboxMessage"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1070,6 +1378,130 @@ export interface paths {
          * @description Creates a new event for a specific organization
          */
         post: operations["createOrganizationEvent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/inbox": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get organization inbox messages
+         * @description Retrieves inbox messages for a specific organization
+         */
+        get: operations["getOrganizationInboxMessages"];
+        put?: never;
+        /**
+         * Create organization inbox message
+         * @description Creates an inbox message for a specific organization
+         */
+        post: operations["createOrganizationInboxMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/inbox/{messageID}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Read organization inbox message
+         * @description Marks an organization inbox message as read
+         */
+        post: operations["readOrganizationInboxMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/inbox/{messageID}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Archive organization inbox message
+         * @description Marks an organization inbox message as archived
+         */
+        post: operations["archiveOrganizationInboxMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/inbox/{messageID}/unarchive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Unarchive organization inbox message
+         * @description Removes the archived status from an organization inbox message
+         */
+        post: operations["unarchiveOrganizationInboxMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/inbox/{messageID}/unread": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark organization inbox message as unread
+         * @description Removes the read status from an organization inbox message, marking it as unread
+         */
+        post: operations["unreadOrganizationInboxMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/inbox/{messageID}/schedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reschedule organization inbox message
+         * @description Updates the scheduled send time of an organization inbox message before it is dispatched
+         */
+        post: operations["rescheduleOrganizationInboxMessage"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1554,7 +1986,7 @@ export interface paths {
         patch: operations["updateProjectAdmin"];
         trace?: never;
     };
-    "/api/admin/projects/{projectID}/keys": {
+    "/api/admin/projects/{projectID}/auth-methods": {
         parameters: {
             query?: never;
             header?: never;
@@ -1562,23 +1994,23 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * List API keys
-         * @description Retrieves a paginated list of API keys for a project
+         * List auth methods
+         * @description Retrieves a paginated list of auth methods for a project
          */
-        get: operations["listApiKeys"];
+        get: operations["listAuthMethods"];
         put?: never;
         /**
-         * Create API key
-         * @description Creates a new API key for a project
+         * Create auth method
+         * @description Creates a new auth method for a project. For api_key methods the secret is returned only in this response.
          */
-        post: operations["createApiKey"];
+        post: operations["createAuthMethod"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/admin/projects/{projectID}/keys/{keyID}": {
+    "/api/admin/projects/{projectID}/auth-methods/{methodID}": {
         parameters: {
             query?: never;
             header?: never;
@@ -1586,24 +2018,24 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Get API key by ID
-         * @description Retrieves a specific API key
+         * Get auth method by ID
+         * @description Retrieves a specific auth method. The secret is never included.
          */
-        get: operations["getApiKey"];
+        get: operations["getAuthMethod"];
         put?: never;
         post?: never;
         /**
-         * Delete API key
-         * @description Deletes an API key, revoking access
+         * Delete auth method
+         * @description Deletes an auth method, revoking access.
          */
-        delete: operations["deleteApiKey"];
+        delete: operations["deleteAuthMethod"];
         options?: never;
         head?: never;
         /**
-         * Update API key
-         * @description Updates an API key's name or description (scope cannot be changed)
+         * Update auth method
+         * @description Updates an auth method's name, description, role or grants.
          */
-        patch: operations["updateApiKey"];
+        patch: operations["updateAuthMethod"];
         trace?: never;
     };
     "/api/admin/projects/{projectID}/actions": {
@@ -2123,7 +2555,7 @@ export interface components {
          * @example email
          * @enum {string}
          */
-        Channel: "email" | "sms" | "push";
+        Channel: "email" | "sms" | "push" | "inbox";
         /**
          * @description Type of action (module ID from registered action modules)
          * @example webhook
@@ -2273,37 +2705,83 @@ export interface components {
          * @enum {string}
          */
         JourneyStepType: "entrance" | "exit" | "delay" | "action" | "campaign" | "gate" | "experiment" | "sticky" | "balancer" | "update" | "event" | "schedule";
-        /** @description Data for entrance step - entry point into journey */
+        /** @description Data for entrance step - entry point into journey. Tagged union: `trigger` selects the kind and the matching sub-object (event, scheduled or list) carries its fields. `concurrent` and `multiple` apply to every kind. `none` is an API/manually triggered entrance with no sub-object. */
         EntranceStepData: {
             /**
-             * @description Trigger type for entrance
+             * @description Selects which trigger sub-object is active
              * @example event
              * @enum {string}
              */
-            trigger?: "none" | "event";
-            /**
-             * @description Event name that triggers entrance
-             * @example user_signup
-             */
-            event_name?: string;
-            /** @description Rule for filtering events */
-            rule?: {
-                [key: string]: unknown;
-            };
-            /** @description Rule for filtering users (used with organization events) */
-            user_rule?: {
-                [key: string]: unknown;
-            };
-            /**
-             * @description Allow multiple entries
-             * @example false
-             */
-            multiple?: boolean;
+            trigger: "none" | "event" | "scheduled" | "list";
             /**
              * @description Allow concurrent journey runs
              * @example false
              */
             concurrent?: boolean;
+            /**
+             * @description Allow re-entry after a previous run completed
+             * @example false
+             */
+            multiple?: boolean;
+            event?: components["schemas"]["EntranceEventTrigger"];
+            scheduled?: components["schemas"]["EntranceScheduledTrigger"];
+            list?: components["schemas"]["EntranceListTrigger"];
+        };
+        /** @description Enters the user when a matching custom event is received */
+        EntranceEventTrigger: {
+            /**
+             * @description Event name that triggers entrance
+             * @example user_signup
+             */
+            name: string;
+            /** @description Optional condition evaluated against the event data */
+            rule?: {
+                [key: string]: unknown;
+            };
+            /** @description Optional filter for organization members */
+            user_rule?: {
+                [key: string]: unknown;
+            };
+        };
+        /** @description Enters the user when a schedule offset fires */
+        EntranceScheduledTrigger: {
+            /**
+             * @description Scheduled event name that triggers entrance
+             * @example scheduled.weekly_digest
+             */
+            name: string;
+            /**
+             * Format: uuid
+             * @description Schedule offset that fires the entrance
+             */
+            offset_id?: string;
+            /** @description Optional condition evaluated against the event data */
+            rule?: {
+                [key: string]: unknown;
+            };
+            /** @description Optional filter for organization members */
+            user_rule?: {
+                [key: string]: unknown;
+            };
+        };
+        /** @description Enters the user when they join or leave the referenced list */
+        EntranceListTrigger: {
+            /**
+             * Format: uuid
+             * @description List whose membership changes trigger entrance
+             */
+            id: string;
+            /**
+             * @description Membership change that fires the trigger (default joins)
+             * @example joins
+             * @enum {string}
+             */
+            direction?: "joins" | "leaves";
+            /**
+             * @description Exit the user when they leave the list (joins direction only)
+             * @example false
+             */
+            exit_on_leave?: boolean;
         };
         /** @description Data for exit step - exits user from journey */
         ExitStepData: {
@@ -2732,6 +3210,11 @@ export interface components {
             templates: components["schemas"]["Template"][];
             variables?: components["schemas"]["CampaignVariable"][];
             delivery: components["schemas"]["Delivery"];
+            /**
+             * @description Whether the campaign has been archived
+             * @example false
+             */
+            archived?: boolean;
         };
         Delivery: {
             /** @example 0 */
@@ -2854,6 +3337,11 @@ export interface components {
              * @example 2025-11-23T17:20:00.021Z
              */
             updated_at: string;
+            /**
+             * @description Whether the list has been archived
+             * @example false
+             */
+            archived?: boolean;
         };
         Provider: {
             /**
@@ -3458,6 +3946,87 @@ export interface components {
         UserEventList: components["schemas"]["PaginatedResponse"] & {
             results: components["schemas"]["UserEvent"][];
         };
+        RescheduleInboxMessageRequest: {
+            /**
+             * Format: date-time
+             * @description Updates the inbox message provider send time before dispatch.
+             */
+            scheduled_at: string;
+        };
+        CreateInboxMessageRequest: {
+            /** @description Optional external identifier for the message. Allows tracing the message back to its origin source. */
+            identifier?: components["schemas"]["ExternalID"];
+            channel: components["schemas"]["Channel"];
+            /**
+             * Format: uuid
+             * @description Required for email and sms messages. Push uses project push provider settings.
+             */
+            sender_identity_id?: string | null;
+            /** Format: uuid */
+            campaign_id?: string | null;
+            /** Format: uuid */
+            broadcast_id?: string | null;
+            /** @description Channel-specific payload content. */
+            content?: {
+                [key: string]: unknown;
+            } | null;
+            data?: {
+                [key: string]: unknown;
+            } | null;
+            tags?: string[];
+            /** @default 3 */
+            priority: number;
+            source?: string | null;
+            /** Format: date-time */
+            scheduled_at?: string | null;
+            /** Format: date-time */
+            expires_at?: string | null;
+        };
+        InboxMessage: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            project_id: string;
+            /** Format: uuid */
+            user_id?: string;
+            /** Format: uuid */
+            organization_id?: string;
+            /** @description External identifier for the message, if one was provided at creation time. */
+            external_id?: string | null;
+            channel: components["schemas"]["Channel"];
+            /** Format: uuid */
+            sender_identity_id?: string | null;
+            /** Format: uuid */
+            campaign_id?: string | null;
+            /** Format: uuid */
+            broadcast_id?: string | null;
+            content: {
+                [key: string]: unknown;
+            };
+            data: {
+                [key: string]: unknown;
+            };
+            tags: string[];
+            priority: number;
+            source?: string | null;
+            /** Format: date-time */
+            scheduled_at: string;
+            /** Format: date-time */
+            expires_at?: string | null;
+            /** Format: date-time */
+            read_at?: string | null;
+            /** Format: date-time */
+            archived_at?: string | null;
+            /** Format: date-time */
+            sent_at?: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        InboxMessageList: components["schemas"]["PaginatedResponse"] & {
+            results: components["schemas"]["InboxMessage"][];
+        };
         CreateUserDevice: {
             /** @example AB12CD34-EF56-GH78-IJ90 */
             device_id: string;
@@ -3886,11 +4455,11 @@ export interface components {
             };
         };
         /**
-         * @description Target platform for push notifications
+         * @description Target platform for providers (push or mail)
          * @example ios
          * @enum {string}
          */
-        ProjectPushProviderPlatform: "ios" | "android" | "web";
+        ProjectPushProviderPlatform: "ios" | "android" | "web" | "mail";
         ProjectPushProvider: {
             /** Format: uuid */
             id: string;
@@ -4011,58 +4580,106 @@ export interface components {
             results: components["schemas"]["ProjectAdmin"][];
         };
         /**
-         * @description API key scope - public keys are safe to expose in client-side code
-         * @example secret
+         * @description Data boundary for an auth method. "all" acts across every subject's records; "own" confines a verified end user to their own records. Only meaningful for verified-subject types (trusted_issuer, session); api_key is always "all".
+         * @example own
          * @enum {string}
          */
-        ApiKeyScope: "public" | "secret";
-        ApiKey: {
+        SubjectScope: "all" | "own";
+        /**
+         * @description How an auth method authenticates a client. `api_key` is a
+         *     Lunogram-issued key; `trusted_issuer` validates external JWTs against a
+         *     configured JWKS/PEM; `session` mints short-lived user-scoped tokens.
+         * @example api_key
+         * @enum {string}
+         */
+        AuthMethodType: "api_key" | "trusted_issuer" | "session";
+        /** @description A single (resource, verb) entry in a custom permission set. */
+        PermissionGrant: {
+            /** @example inbox */
+            resource: string;
             /**
-             * Format: uuid
-             * @example 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
+             * @example read
+             * @enum {string}
              */
+            verb: "read" | "create" | "update" | "delete";
+            /**
+             * @description Optional allow-list of named instances this grant is scoped to. For a create grant the method may only create instances with these names (e.g. event names); omitted/empty = unrestricted. Only meaningful for create today.
+             * @example [
+             *       "purchase",
+             *       "signup"
+             *     ]
+             */
+            instances?: string[] | null;
+        };
+        /** @description Maps identity fields to the JWT claims that carry them. Each field names the claim to read; values follow the JWT spec (e.g. `sub`). */
+        ClaimMapping: {
+            /**
+             * @description JWT claim carrying the external user id (defaults to "sub").
+             * @example sub
+             */
+            sub?: string;
+        };
+        /** @description External-JWT validation config for a trusted_issuer method. Exactly one of jwks_url or public_cert is set. */
+        TrustedIssuer: {
+            /** @example https://acme.example/.well-known/jwks.json */
+            jwks_url?: string;
+            /** @description PEM-encoded public certificate (alternative to jwks_url). */
+            public_cert?: string;
+            /** @example https://acme.example */
+            iss?: string;
+            /** @example lunogram */
+            aud?: string;
+            claim?: components["schemas"]["ClaimMapping"];
+        };
+        /** @description Config for a session method. */
+        SessionConfig: {
+            /**
+             * @description Lifetime of minted session tokens, in seconds.
+             * @example 900
+             */
+            ttl_seconds?: number;
+        };
+        AuthMethod: {
+            /** Format: uuid */
             id: string;
-            /**
-             * Format: uuid
-             * @example 4c9d3163-7b64-4f9e-9068-d2e4b96be56b
-             */
+            /** Format: uuid */
             project_id: string;
-            /** @example Production API Key */
+            type: components["schemas"]["AuthMethodType"];
+            /** @example Production key */
             name: string;
-            /**
-             * @description The API key value
-             * @example a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2
-             */
-            value: string;
-            scope: components["schemas"]["ApiKeyScope"];
-            role: components["schemas"]["ProjectRole"];
-            /** @example API key for production environment */
             description?: string;
+            role: components["schemas"]["ProjectRole"];
+            subject_scope?: components["schemas"]["SubjectScope"];
+            grants?: components["schemas"]["PermissionGrant"][];
+            trusted_issuer?: components["schemas"]["TrustedIssuer"];
+            session?: components["schemas"]["SessionConfig"];
             /**
-             * Format: date-time
-             * @example 2025-11-19T14:18:42.960Z
+             * @description The full secret value. Returned only once, in the response to
+             *     creating an api_key method, and never again.
              */
+            secret?: string;
+            /** Format: date-time */
             created_at: string;
-            /**
-             * Format: date-time
-             * @example 2025-11-23T17:20:00.021Z
-             */
+            /** Format: date-time */
             updated_at: string;
         };
-        CreateApiKey: {
-            /** @example Production API Key */
+        CreateAuthMethod: {
+            type: components["schemas"]["AuthMethodType"];
             name: string;
-            scope: components["schemas"]["ApiKeyScope"];
-            role?: components["schemas"]["ProjectRole"];
-            /** @example API key for production environment */
             description?: string;
+            role?: components["schemas"]["ProjectRole"];
+            subject_scope?: components["schemas"]["SubjectScope"];
+            /** @description Custom permission set. When set, takes precedence over the role preset. */
+            grants?: components["schemas"]["PermissionGrant"][];
+            trusted_issuer?: components["schemas"]["TrustedIssuer"];
+            session?: components["schemas"]["SessionConfig"];
         };
-        UpdateApiKey: {
-            /** @example Updated API Key Name */
+        UpdateAuthMethod: {
             name?: string;
-            role?: components["schemas"]["ProjectRole"];
-            /** @example Updated description */
             description?: string;
+            role?: components["schemas"]["ProjectRole"];
+            subject_scope?: components["schemas"]["SubjectScope"];
+            grants?: components["schemas"]["PermissionGrant"][];
         };
         ClientEvent: {
             /**
@@ -4211,11 +4828,6 @@ export interface components {
              * @example password123
              */
             password?: string;
-            /**
-             * @description URL to redirect after successful auth
-             * @example /
-             */
-            redirect?: string;
         };
         EmailTemplate: {
             /**
@@ -4304,6 +4916,8 @@ export interface components {
              * @example 2025-01-10T08:00:00Z
              */
             updated_at: string;
+            /** @description Whether there are pending scheduled events for this schedule instance */
+            has_pending_events?: boolean;
         };
         UserScheduledList: components["schemas"]["PaginatedResponse"] & {
             results: components["schemas"]["UserScheduled"][];
@@ -4617,6 +5231,109 @@ export interface components {
                 channel?: string;
             };
         };
+        AdminOrganization: {
+            /**
+             * Format: uuid
+             * @example 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
+             */
+            id: string;
+            /** @example Acme Inc */
+            name: string;
+            /**
+             * @description The admin's role within this organization
+             * @example owner
+             */
+            role: string;
+            /**
+             * @description Whether this is the admin's currently active organization
+             * @example true
+             */
+            is_active: boolean;
+        };
+        SetActiveOrganization: {
+            /**
+             * Format: uuid
+             * @example 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
+             */
+            organization_id: string;
+        };
+        CreateProjectInvite: {
+            /**
+             * Format: email
+             * @example user@example.com
+             */
+            email: string;
+            /**
+             * @example admin
+             * @enum {string}
+             */
+            role: "support" | "client" | "editor" | "admin";
+            /**
+             * @description Duration until the invite expires (e.g. "24h", "7d"). Optional, defaults to 24 hours.
+             * @example 24h
+             */
+            expires_in?: string;
+        };
+        ProjectInvite: {
+            /**
+             * Format: uuid
+             * @example 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
+             */
+            id?: string;
+            /**
+             * Format: uuid
+             * @example 4c9d3163-7b64-4f9e-9068-d2e4b96be56b
+             */
+            project_id?: string;
+            /**
+             * @description Name of the project the invite grants access to
+             * @example My Project
+             */
+            project_name?: string;
+            /**
+             * Format: uuid
+             * @example 5143f27c-cca9-4dc4-9059-e1dbb08144ad
+             */
+            inviter_admin_id?: string | null;
+            /** @example admin@example.com */
+            inviter_admin_email?: string | null;
+            /**
+             * Format: email
+             * @example user@example.com
+             */
+            invitee_email?: string;
+            /**
+             * Format: uuid
+             * @description Id of the existing admin that owns the invitee email, if any
+             * @example 7d2c1b0a-0000-4000-8000-000000000000
+             */
+            invitee_admin_id?: string | null;
+            /**
+             * @example admin
+             * @enum {string}
+             */
+            role?: "support" | "client" | "editor" | "admin";
+            /**
+             * Format: date-time
+             * @example 2025-12-31T23:59:59Z
+             */
+            expires_at?: string;
+            /**
+             * Format: date-time
+             * @example null
+             */
+            accepted_at?: string | null;
+            /**
+             * Format: date-time
+             * @example null
+             */
+            revoked_at?: string | null;
+            /**
+             * Format: date-time
+             * @example 2025-12-31T23:59:59Z
+             */
+            created_at?: string;
+        };
     };
     responses: {
         /** @description Error response */
@@ -4636,6 +5353,17 @@ export interface components {
             content: {
                 "application/json": components["schemas"]["PaginatedResponse"] & {
                     results: components["schemas"]["Campaign"][];
+                };
+            };
+        };
+        /** @description Project invites retrieved successfully */
+        ProjectInviteListResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["PaginatedResponse"] & {
+                    results: components["schemas"]["ProjectInvite"][];
                 };
             };
         };
@@ -4738,14 +5466,14 @@ export interface components {
                 };
             };
         };
-        /** @description API keys retrieved successfully */
-        ApiKeyListResponse: {
+        /** @description Auth methods retrieved successfully */
+        AuthMethodListResponse: {
             headers: {
                 [name: string]: unknown;
             };
             content: {
                 "application/json": components["schemas"]["PaginatedResponse"] & {
-                    results: components["schemas"]["ApiKey"][];
+                    results: components["schemas"]["AuthMethod"][];
                 };
             };
         };
@@ -4779,6 +5507,8 @@ export interface components {
         Offset: number;
         /** @description Search query string */
         Search: string;
+        /** @description When true, return only archived (soft-deleted) items instead of active ones */
+        IncludeDeleted: boolean;
     };
     requestBodies: never;
     headers: never;
@@ -4864,6 +5594,8 @@ export interface operations {
                 offset?: components["parameters"]["Offset"];
                 /** @description Search query string */
                 search?: components["parameters"]["Search"];
+                /** @description When true, return only archived (soft-deleted) items instead of active ones */
+                include_deleted?: components["parameters"]["IncludeDeleted"];
             };
             header?: never;
             path: {
@@ -4984,6 +5716,30 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Campaign"];
                 };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    unarchiveCampaign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The campaign ID */
+                campaignID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Campaign unarchived successfully */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             default: components["responses"]["Error"];
         };
@@ -5207,6 +5963,8 @@ export interface operations {
                 offset?: components["parameters"]["Offset"];
                 /** @description Search query string */
                 search?: components["parameters"]["Search"];
+                /** @description When true, return only archived (soft-deleted) items instead of active ones */
+                include_deleted?: components["parameters"]["IncludeDeleted"];
             };
             header?: never;
             path: {
@@ -5325,6 +6083,30 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["List"];
                 };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    unarchiveList: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The list ID */
+                listID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List unarchived successfully */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             default: components["responses"]["Error"];
         };
@@ -5587,6 +6369,8 @@ export interface operations {
                 offset?: components["parameters"]["Offset"];
                 /** @description Search query string */
                 search?: components["parameters"]["Search"];
+                /** @description When true, return only archived (soft-deleted) items instead of active ones */
+                include_deleted?: components["parameters"]["IncludeDeleted"];
             };
             header?: never;
             path: {
@@ -5956,6 +6740,30 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    unarchiveJourney: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The journey ID */
+                journeyID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Journey unarchived successfully */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     duplicateJourney: {
         parameters: {
             query?: never;
@@ -6025,6 +6833,52 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Admin"];
                 };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    ListMyOrganizations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Organizations retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        results: components["schemas"]["AdminOrganization"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    SetActiveOrganization: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetActiveOrganization"];
+            };
+        };
+        responses: {
+            /** @description Active organization updated successfully */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             default: components["responses"]["Error"];
         };
@@ -6172,6 +7026,135 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Admin"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    ListProjectInvites: {
+        parameters: {
+            query?: {
+                /** @description Filter invites by status */
+                status?: "pending" | "accepted" | "revoked" | "expired";
+                role?: "support" | "client" | "editor" | "admin";
+                expires_after?: string;
+                expires_before?: string;
+                /** @description Filter invites by the admin who created them */
+                inviter_admin_id?: string;
+                /** @description Search query string */
+                search?: components["parameters"]["Search"];
+                /** @description Maximum number of items to return */
+                limit?: components["parameters"]["Limit"];
+                /** @description Number of items to skip */
+                offset?: components["parameters"]["Offset"];
+            };
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ProjectInviteListResponse"];
+            default: components["responses"]["Error"];
+        };
+    };
+    CreateProjectInvite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateProjectInvite"];
+            };
+        };
+        responses: {
+            /** @description Project invite created successfully */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectInvite"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    RevokeProjectInvite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The invite ID */
+                inviteID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Project invite revoked successfully */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    ListMyInvites: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Pending invites retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        results: components["schemas"]["ProjectInvite"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    AcceptProjectInvite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The invite ID */
+                inviteID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Project invite accepted successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Project"];
                 };
             };
             default: components["responses"]["Error"];
@@ -6431,6 +7414,221 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getUserInboxMessages: {
+        parameters: {
+            query?: {
+                status?: "unread" | "read" | "archived";
+                /** @description Comma-separated tag filter. All listed tags must be present. */
+                tags?: string;
+                message_source?: string;
+                priority?: number;
+                channel?: components["schemas"]["Channel"];
+                include_archived?: boolean;
+                include_scheduled?: boolean;
+                /** @description Maximum number of items to return */
+                limit?: components["parameters"]["Limit"];
+                /** @description Number of items to skip */
+                offset?: components["parameters"]["Offset"];
+                /** @description Search query string */
+                search?: components["parameters"]["Search"];
+            };
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The user ID */
+                userID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description User inbox messages retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboxMessageList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createUserInboxMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The user ID */
+                userID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateInboxMessageRequest"];
+            };
+        };
+        responses: {
+            /** @description User inbox message created successfully */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboxMessage"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    readUserInboxMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The user ID */
+                userID: string;
+                /** @description The inbox message ID */
+                messageID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description User inbox message read successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboxMessage"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    archiveUserInboxMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The user ID */
+                userID: string;
+                /** @description The inbox message ID */
+                messageID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description User inbox message archived successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboxMessage"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    unarchiveUserInboxMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The user ID */
+                userID: string;
+                /** @description The inbox message ID */
+                messageID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description User inbox message unarchived successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboxMessage"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    unreadUserInboxMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The user ID */
+                userID: string;
+                /** @description The inbox message ID */
+                messageID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description User inbox message marked as unread successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboxMessage"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    rescheduleUserInboxMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The user ID */
+                userID: string;
+                /** @description The inbox message ID */
+                messageID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RescheduleInboxMessageRequest"];
+            };
+        };
+        responses: {
+            /** @description User inbox message rescheduled successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboxMessage"];
+                };
             };
             default: components["responses"]["Error"];
         };
@@ -6980,6 +8178,221 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getOrganizationInboxMessages: {
+        parameters: {
+            query?: {
+                status?: "unread" | "read" | "archived";
+                /** @description Comma-separated tag filter. All listed tags must be present. */
+                tags?: string;
+                message_source?: string;
+                priority?: number;
+                channel?: components["schemas"]["Channel"];
+                include_archived?: boolean;
+                include_scheduled?: boolean;
+                /** @description Maximum number of items to return */
+                limit?: components["parameters"]["Limit"];
+                /** @description Number of items to skip */
+                offset?: components["parameters"]["Offset"];
+                /** @description Search query string */
+                search?: components["parameters"]["Search"];
+            };
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The organization ID */
+                organizationID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Organization inbox messages retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboxMessageList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createOrganizationInboxMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The organization ID */
+                organizationID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateInboxMessageRequest"];
+            };
+        };
+        responses: {
+            /** @description Organization inbox message created successfully */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboxMessage"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    readOrganizationInboxMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The organization ID */
+                organizationID: string;
+                /** @description The inbox message ID */
+                messageID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Organization inbox message read successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboxMessage"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    archiveOrganizationInboxMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The organization ID */
+                organizationID: string;
+                /** @description The inbox message ID */
+                messageID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Organization inbox message archived successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboxMessage"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    unarchiveOrganizationInboxMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The organization ID */
+                organizationID: string;
+                /** @description The inbox message ID */
+                messageID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Organization inbox message unarchived successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboxMessage"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    unreadOrganizationInboxMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The organization ID */
+                organizationID: string;
+                /** @description The inbox message ID */
+                messageID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Organization inbox message marked as unread successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboxMessage"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    rescheduleOrganizationInboxMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The organization ID */
+                organizationID: string;
+                /** @description The inbox message ID */
+                messageID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RescheduleInboxMessageRequest"];
+            };
+        };
+        responses: {
+            /** @description Organization inbox message rescheduled successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboxMessage"];
+                };
             };
             default: components["responses"]["Error"];
         };
@@ -7923,7 +9336,7 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
-    listApiKeys: {
+    listAuthMethods: {
         parameters: {
             query?: {
                 /** @description Maximum number of items to return */
@@ -7940,11 +9353,11 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            200: components["responses"]["ApiKeyListResponse"];
+            200: components["responses"]["AuthMethodListResponse"];
             default: components["responses"]["Error"];
         };
     };
-    createApiKey: {
+    createAuthMethod: {
         parameters: {
             query?: never;
             header?: never;
@@ -7956,63 +9369,63 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CreateApiKey"];
+                "application/json": components["schemas"]["CreateAuthMethod"];
             };
         };
         responses: {
-            /** @description API key created successfully */
+            /** @description Auth method created successfully */
             201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ApiKey"];
+                    "application/json": components["schemas"]["AuthMethod"];
                 };
             };
             default: components["responses"]["Error"];
         };
     };
-    getApiKey: {
+    getAuthMethod: {
         parameters: {
             query?: never;
             header?: never;
             path: {
                 /** @description The project ID */
                 projectID: string;
-                /** @description The API key ID */
-                keyID: string;
+                /** @description The auth method ID */
+                methodID: string;
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description API key retrieved successfully */
+            /** @description Auth method retrieved successfully */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ApiKey"];
+                    "application/json": components["schemas"]["AuthMethod"];
                 };
             };
             default: components["responses"]["Error"];
         };
     };
-    deleteApiKey: {
+    deleteAuthMethod: {
         parameters: {
             query?: never;
             header?: never;
             path: {
                 /** @description The project ID */
                 projectID: string;
-                /** @description The API key ID */
-                keyID: string;
+                /** @description The auth method ID */
+                methodID: string;
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description API key deleted successfully */
+            /** @description Auth method deleted successfully */
             204: {
                 headers: {
                     [name: string]: unknown;
@@ -8022,31 +9435,31 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
-    updateApiKey: {
+    updateAuthMethod: {
         parameters: {
             query?: never;
             header?: never;
             path: {
                 /** @description The project ID */
                 projectID: string;
-                /** @description The API key ID */
-                keyID: string;
+                /** @description The auth method ID */
+                methodID: string;
             };
             cookie?: never;
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["UpdateApiKey"];
+                "application/json": components["schemas"]["UpdateAuthMethod"];
             };
         };
         responses: {
-            /** @description API key updated successfully */
+            /** @description Auth method updated successfully */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ApiKey"];
+                    "application/json": components["schemas"]["AuthMethod"];
                 };
             };
             default: components["responses"]["Error"];

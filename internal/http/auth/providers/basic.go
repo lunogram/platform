@@ -4,12 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 
 	"github.com/lunogram/platform/internal/config"
 	"github.com/lunogram/platform/internal/http/auth"
-	"github.com/lunogram/platform/internal/rbac/access"
 	"github.com/lunogram/platform/internal/store/management"
 )
 
@@ -102,15 +100,11 @@ func (p *BasicProvider) findOrCreateAdmin(ctx context.Context, email string) (*m
 		return nil, err
 	}
 
-	// Grant the new admin the owner role on the organization in the RBAC engine
-	// so that subsequent permission checks (e.g. read profile, list/create
-	// projects) succeed.
-	if p.rbac != nil {
-		for _, t := range access.OrganizationRoleTuples(admin.ID, admin.OrganizationID, admin.Role) {
-			if err := p.rbac.WriteTuple(ctx, t.User, t.Relation, t.Object); err != nil {
-				return nil, fmt.Errorf("failed to write RBAC tuple for new admin: %w", err)
-			}
-		}
+	// Record the home-organization membership and grant the owner role in the
+	// RBAC engine so that subsequent permission checks (e.g. read profile,
+	// list/create projects) succeed.
+	if err := provisionMembership(ctx, p.mgmt, p.rbac, admin.ID, admin.OrganizationID, admin.Role); err != nil {
+		return nil, err
 	}
 
 	return admin, nil

@@ -1,7 +1,7 @@
 import { Controller, useForm, type UseFormReturn } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import type { Campaign, Template, User, Device, Locale } from "@/types"
-import { Bell, Rocket } from "lucide-react"
+import { Rocket } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { useContext, useState, useEffect } from "react"
 import { ProjectContext, TemplateContext } from "@/contexts"
@@ -9,7 +9,7 @@ import { useNavigate } from "react-router"
 import { Button } from "@/components/ui/button"
 import { oapiClient } from "@/oapi/client"
 import api from "@/api"
-import * as z from "zod"
+import type { z } from "zod"
 
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { TemplateInput } from "@/components/ui/template-input"
@@ -24,23 +24,28 @@ import { UserSelection } from "../UserSelection"
 import { useCampaignVariableContext } from "../../CampaignVariableContext"
 import { useSendTestPush } from "./useSendTestPush"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { PushFrame } from "@/components/preview/PushFrame"
 
-const pushSetupFormSchema = z.object({
-    title: z.string("Title is required").min(1, "Title is required"),
-    body: z.string("Body is required").min(1, "Body is required"),
-    custom: z.record(z.string(), z.unknown()).optional(),
-})
+import { pushSetupFormSchema } from "@/validation/campaign/template/push/setup"
 
 export function PushForm(_campaign: Campaign, template?: Template) {
     const formSchema = pushSetupFormSchema.extend({})
 
+    const defaultValues: z.infer<typeof pushSetupFormSchema> = {
+        title: "",
+        body: "",
+        custom: undefined,
+    }
+
+    if (template && template.type == "push") {
+        defaultValues.title = template.data.title
+        defaultValues.body = template.data.body
+        defaultValues.custom = template.data.custom
+    }
+
     return useForm({
         resolver: zodResolver(formSchema),
-        defaultValues: {
-            title: template?.data.title,
-            body: template?.data.body,
-            custom: template?.data.custom,
-        },
+        defaultValues,
     })
 }
 
@@ -173,8 +178,6 @@ export function PushPreview({ campaign, form, edit = false }: PushSetupProps) {
         fetchDevices()
     }, [project?.id, selectedUser?.id])
 
-    const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-
     const [[placeholderTitle, placeholderBody]] = useState(() => randomNotification())
     const title = form.watch("title") ?? placeholderTitle
     const body = form.watch("body") ?? placeholderBody
@@ -288,26 +291,7 @@ export function PushPreview({ campaign, form, edit = false }: PushSetupProps) {
                 )}
             </div>
             <div className="flex w-full items-end justify-end">
-                <div className="w-full max-w-md">
-                    <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-200">
-                        <div className="px-4 py-3 flex items-start gap-3">
-                            <div className="flex-shrink-0 w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
-                                <Bell className="w-5 h-5 text-white" />
-                            </div>
-
-                            <div className="flex-1 flex gap-1 flex-col">
-                                <div className="flex items-center justify-between">
-                                    <span className="text-sm font-semibold text-gray-900">
-                                        {title}
-                                    </span>
-                                    <span className="text-xs text-gray-500">{time}</span>
-                                </div>
-
-                                <p className="text-sm text-gray-600 line-clamp-3">{body}</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                <PushFrame title={title} body={body} />
             </div>
         </>
     )

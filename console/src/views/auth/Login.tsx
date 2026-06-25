@@ -4,9 +4,12 @@ import { useEffect, useState, useCallback } from "react"
 import { useTranslation } from "react-i18next"
 import { Loader2, Mail, Lock, ArrowLeft } from "lucide-react"
 import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { loginSchema } from "@/validation/auth/login"
 
 import api from "../../api"
 import { type AuthDriver, AUTH_DRIVERS } from "../../types"
+import { validateRedirect } from "@/lib/validate-redirect"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -35,9 +38,10 @@ export default function Login() {
     const [selectedDriver, setSelectedDriver] = useState<AuthDriver>()
     const [error, setError] = useState<string>()
     const [isSubmitting, setIsSubmitting] = useState(false)
-    const redirect = searchParams.get("r") ?? "/"
+    const redirect = validateRedirect(searchParams.get("r"))
 
     const form = useForm<LoginFormValues>({
+        resolver: zodResolver(loginSchema),
         defaultValues: {
             email: "",
             password: "",
@@ -102,7 +106,9 @@ export default function Login() {
     if (selectedDriver === AUTH_DRIVERS.CLERK) {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center bg-muted/40 p-4 gap-4">
-                <SignIn forceRedirectUrl={`/login/clerk/callback?r=${redirect}`} />
+                <SignIn
+                    forceRedirectUrl={`/login/clerk/callback?r=${encodeURIComponent(redirect)}`}
+                />
                 {drivers.length > 1 && (
                     <Button variant="ghost" onClick={() => setSelectedDriver(undefined)}>
                         <ArrowLeft className="mr-2 h-4 w-4" />
@@ -160,7 +166,6 @@ export default function Login() {
                                 <FormField
                                     control={form.control}
                                     name="email"
-                                    rules={{ required: t("field_required") }}
                                     render={({ field }) => (
                                         <FormItem>
                                             <FormLabel>{t("email")}</FormLabel>
@@ -183,7 +188,6 @@ export default function Login() {
                                 <FormField
                                     control={form.control}
                                     name="password"
-                                    rules={{ required: t("field_required") }}
                                     render={({ field }) => (
                                         <FormItem>
                                             <FormLabel>{t("password")}</FormLabel>

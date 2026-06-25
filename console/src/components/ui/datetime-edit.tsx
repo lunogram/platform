@@ -3,6 +3,12 @@ import { Pencil } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
 import { cn } from "@/utils"
+import {
+    DEFAULT_TIME_INPUT_VALUE,
+    dateInputValueFromIso,
+    timeInputValueFromIso,
+    toIsoFromDateAndTime,
+} from "@/lib/date-time"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -22,30 +28,6 @@ interface DateTimeEditProps {
     children?: ReactNode
 }
 
-/**
- * Converts an ISO datetime string to the format required by <input type="datetime-local">.
- * datetime-local expects "YYYY-MM-DDTHH:mm" (no seconds, no timezone).
- */
-function toDateTimeLocalValue(iso: string): string {
-    const date = new Date(iso)
-    if (Number.isNaN(date.getTime())) return ""
-    // Format as local datetime for the input
-    const year = date.getFullYear()
-    const month = String(date.getMonth() + 1).padStart(2, "0")
-    const day = String(date.getDate()).padStart(2, "0")
-    const hours = String(date.getHours()).padStart(2, "0")
-    const minutes = String(date.getMinutes()).padStart(2, "0")
-    return `${year}-${month}-${day}T${hours}:${minutes}`
-}
-
-/**
- * Converts a datetime-local value ("YYYY-MM-DDTHH:mm") back to an ISO string.
- */
-function fromDateTimeLocalValue(value: string): string {
-    const date = new Date(value)
-    return date.toISOString()
-}
-
 export function DateTimeEdit({
     value,
     onSave,
@@ -56,12 +38,14 @@ export function DateTimeEdit({
 }: DateTimeEditProps) {
     const { t } = useTranslation()
     const [isOpen, setIsOpen] = useState(false)
-    const [editValue, setEditValue] = useState(() => toDateTimeLocalValue(value))
+    const [editDate, setEditDate] = useState(() => dateInputValueFromIso(value))
+    const [editTime, setEditTime] = useState(() => timeInputValueFromIso(value))
     const [isSaving, setIsSaving] = useState(false)
 
     const handleSave = async () => {
-        if (!editValue) return
-        const newIso = fromDateTimeLocalValue(editValue)
+        const newIso = toIsoFromDateAndTime(editDate, editTime)
+        if (!newIso) return
+
         if (newIso === new Date(value).toISOString()) {
             setIsOpen(false)
             return
@@ -80,7 +64,10 @@ export function DateTimeEdit({
             open={isOpen}
             onOpenChange={(open) => {
                 setIsOpen(open)
-                if (open) setEditValue(toDateTimeLocalValue(value))
+                if (open) {
+                    setEditDate(dateInputValueFromIso(value))
+                    setEditTime(timeInputValueFromIso(value))
+                }
             }}
         >
             <PopoverTrigger asChild>
@@ -108,14 +95,26 @@ export function DateTimeEdit({
                     }}
                     className="flex flex-col gap-2"
                 >
-                    <Input
-                        type="datetime-local"
-                        value={editValue}
-                        onChange={(e) => setEditValue(e.target.value)}
-                        autoFocus
-                        required
-                        disabled={isSaving}
-                    />
+                    <div className="flex gap-2">
+                        <Input
+                            type="date"
+                            value={editDate}
+                            onChange={(e) => {
+                                const nextDate = e.target.value
+                                setEditDate(nextDate)
+                                if (!nextDate) setEditTime(DEFAULT_TIME_INPUT_VALUE)
+                            }}
+                            autoFocus
+                            required
+                            disabled={isSaving}
+                        />
+                        <Input
+                            type="time"
+                            value={editTime}
+                            onChange={(e) => setEditTime(e.target.value)}
+                            disabled={isSaving || !editDate}
+                        />
+                    </div>
                     <div className="flex justify-end gap-2">
                         <Button
                             type="button"

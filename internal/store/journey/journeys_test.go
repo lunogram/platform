@@ -7,13 +7,11 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
+	"github.com/lunogram/platform/internal/ptr"
+	"github.com/lunogram/platform/internal/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-func ptr[T any](v T) *T {
-	return &v
-}
 
 func TestJourneysStoreCreateJourney(t *testing.T) {
 	t.Parallel()
@@ -26,7 +24,7 @@ func TestJourneysStoreCreateJourney(t *testing.T) {
 		journeyID, err := store.CreateJourney(ctx, Journey{
 			ProjectID:   projectID,
 			Name:        "Onboarding Journey",
-			Description: ptr("Welcome new users"),
+			Description: ptr.To("Welcome new users"),
 		})
 		require.NoError(t, err)
 		assert.NotEqual(t, uuid.Nil, journeyID)
@@ -131,7 +129,7 @@ func TestJourneysStoreSetJourneySteps(t *testing.T) {
 		stepMap := oapi.JourneyStepMap{
 			"step-1": {
 				Type: "entrance",
-				Name: ptr("Welcome"),
+				Name: ptr.To("Welcome"),
 				X:    100,
 				Y:    200,
 				Children: []oapi.JourneyStepChild{
@@ -140,7 +138,7 @@ func TestJourneysStoreSetJourneySteps(t *testing.T) {
 			},
 			"step-2": {
 				Type: "exit",
-				Name: ptr("Goodbye"),
+				Name: ptr.To("Goodbye"),
 				X:    300,
 				Y:    400,
 			},
@@ -165,13 +163,13 @@ func TestJourneysStoreSetJourneySteps(t *testing.T) {
 		stepMap := oapi.JourneyStepMap{
 			"step-1": {
 				Type: "entrance",
-				Name: ptr("Updated Welcome"),
+				Name: ptr.To("Updated Welcome"),
 				X:    150,
 				Y:    250,
 			},
 			"step-2": {
 				Type: "exit",
-				Name: ptr("Updated Goodbye"),
+				Name: ptr.To("Updated Goodbye"),
 				X:    350,
 				Y:    450,
 			},
@@ -202,7 +200,7 @@ func TestJourneysStoreSetJourneySteps(t *testing.T) {
 		stepMap := oapi.JourneyStepMap{
 			"step-1": {
 				Type: "entrance",
-				Name: ptr("Welcome"),
+				Name: ptr.To("Welcome"),
 				X:    100,
 				Y:    200,
 			},
@@ -228,7 +226,7 @@ func TestJourneysStoreDuplicateJourney(t *testing.T) {
 	journeyID, err := store.CreateJourney(ctx, Journey{
 		ProjectID:   projectID,
 		Name:        "Original Journey",
-		Description: ptr("Original description"),
+		Description: ptr.To("Original description"),
 	})
 	require.NoError(t, err)
 
@@ -238,7 +236,7 @@ func TestJourneysStoreDuplicateJourney(t *testing.T) {
 	stepMap := oapi.JourneyStepMap{
 		"step-1": {
 			Type: "entrance",
-			Name: ptr("Welcome"),
+			Name: ptr.To("Welcome"),
 			X:    100,
 			Y:    200,
 			Children: []oapi.JourneyStepChild{
@@ -247,7 +245,7 @@ func TestJourneysStoreDuplicateJourney(t *testing.T) {
 		},
 		"step-2": {
 			Type: "exit",
-			Name: ptr("Goodbye"),
+			Name: ptr.To("Goodbye"),
 			X:    300,
 			Y:    400,
 		},
@@ -314,7 +312,7 @@ func TestJourneysStoreEventDependencies(t *testing.T) {
 		stepMap := oapi.JourneyStepMap{
 			"entrance-1": {
 				Type: "entrance",
-				Name: ptr("Signup Entrance"),
+				Name: ptr.To("Signup Entrance"),
 				X:    100,
 				Y:    200,
 			},
@@ -323,7 +321,7 @@ func TestJourneysStoreEventDependencies(t *testing.T) {
 		_, err := store.SetJourneySteps(ctx, versionID, stepMap)
 		require.NoError(t, err)
 
-		err = store.SetJourneyStepEventDependencies(ctx, versionID, "entrance-1", []uuid.UUID{eventID})
+		err = store.SetJourneyStepEventDependencies(ctx, versionID, "entrance-1", []StepEventDependency{{EventID: eventID, Kind: StepEventKindEnter}})
 		require.NoError(t, err)
 
 		var count int
@@ -332,6 +330,197 @@ func TestJourneysStoreEventDependencies(t *testing.T) {
 			versionID, "entrance-1", eventID)
 		require.NoError(t, err)
 		assert.Equal(t, 1, count)
+	})
+}
+
+func TestJourneysStoreListExitDependencies(t *testing.T) {
+	t.Parallel()
+
+	store, db := NewContainerStore(t)
+	ctx := context.Background()
+	projectID := uuid.New()
+
+	journeyID, err := store.CreateJourney(ctx, Journey{
+		ProjectID: projectID,
+		Name:      "List Trigger Journey",
+	})
+	require.NoError(t, err)
+
+	versionID, err := store.CreateJourneyVersion(ctx, journeyID, "draft")
+	require.NoError(t, err)
+
+	stepMap := oapi.JourneyStepMap{
+		"entrance-1": {
+			Type: "entrance",
+			Name: ptr.To("List Entrance"),
+			X:    0,
+			Y:    0,
+			Children: []oapi.JourneyStepChild{
+				{ExternalId: "step-2"},
+			},
+		},
+		"step-2": {
+			Type: "exit",
+			X:    100,
+			Y:    100,
+		},
+	}
+
+	_, err = store.SetJourneySteps(ctx, versionID, stepMap)
+	require.NoError(t, err)
+
+	enterEventID := uuid.New()
+	exitEventID := uuid.New()
+
+	// A list-join entrance configured to exit on leave registers both an enter
+	// dependency (list.user.added) and an exit dependency (list.user.removed).
+	err = store.SetJourneyStepEventDependencies(ctx, versionID, "entrance-1", []StepEventDependency{
+		{EventID: enterEventID, Kind: StepEventKindEnter},
+		{EventID: exitEventID, Kind: StepEventKindExit},
+	})
+	require.NoError(t, err)
+
+	t.Run("both kinds are persisted", func(t *testing.T) {
+		var enterCount, exitCount int
+		require.NoError(t, db.GetContext(ctx, &enterCount,
+			`SELECT COUNT(*) FROM journey_version_step_events WHERE version_id = $1 AND kind = 'enter'`, versionID))
+		require.NoError(t, db.GetContext(ctx, &exitCount,
+			`SELECT COUNT(*) FROM journey_version_step_events WHERE version_id = $1 AND kind = 'exit'`, versionID))
+		assert.Equal(t, 1, enterCount)
+		assert.Equal(t, 1, exitCount)
+	})
+
+	t.Run("exit dependencies only surface for published versions", func(t *testing.T) {
+		// Before publishing, the entrance lives on a draft version and must not
+		// be returned: the runtime only acts on published journeys.
+		deps, err := store.ListEventJourneyExitDependencies(ctx, exitEventID)
+		require.NoError(t, err)
+		assert.Empty(t, deps)
+
+		err = store.PublishVersion(ctx, journeyID, versionID)
+		require.NoError(t, err)
+
+		deps, err = store.ListEventJourneyExitDependencies(ctx, exitEventID)
+		require.NoError(t, err)
+		require.Len(t, deps, 1)
+		assert.Equal(t, journeyID, deps[0].JourneyID)
+		assert.Equal(t, "entrance-1", deps[0].ExternalID)
+		assert.Equal(t, "entrance", deps[0].Type)
+	})
+
+	t.Run("the enter event is not returned as an exit dependency", func(t *testing.T) {
+		deps, err := store.ListEventJourneyExitDependencies(ctx, enterEventID)
+		require.NoError(t, err)
+		assert.Empty(t, deps, "enter dependency must not be treated as an exit dependency")
+
+		entrances, err := store.ListEventJourneyDependencies(ctx, enterEventID)
+		require.NoError(t, err)
+		require.Len(t, entrances, 1, "enter event drives enrollment")
+		assert.Equal(t, "entrance-1", entrances[0].ExternalID)
+	})
+}
+
+func TestJourneysStoreCompleteUserJourneyEntryStates(t *testing.T) {
+	t.Parallel()
+
+	store, _ := NewContainerStore(t)
+	ctx := context.Background()
+	projectID := uuid.New()
+
+	journeyID, err := store.CreateJourney(ctx, Journey{
+		ProjectID: projectID,
+		Name:      "Exit On Leave Journey",
+	})
+	require.NoError(t, err)
+
+	versionID, err := store.CreateJourneyVersion(ctx, journeyID, "draft")
+	require.NoError(t, err)
+
+	stepMap := oapi.JourneyStepMap{
+		"entrance-1": {
+			Type: "entrance",
+			X:    0,
+			Y:    0,
+			Children: []oapi.JourneyStepChild{
+				{ExternalId: "delay-1"},
+			},
+		},
+		"delay-1": {
+			Type: "delay",
+			X:    100,
+			Y:    100,
+		},
+	}
+
+	_, err = store.SetJourneySteps(ctx, versionID, stepMap)
+	require.NoError(t, err)
+
+	err = store.PublishVersion(ctx, journeyID, versionID)
+	require.NoError(t, err)
+
+	userID := uuid.New()
+	entryID := uuid.New()
+
+	// The user has an active entrance state plus an in-flight delay state under
+	// the same journey entry. Both belong to the run that started at entrance-1.
+	_, err = store.CreateUserJourneyState(ctx, JourneyUserState{
+		JourneyID:      journeyID,
+		JourneyEntryID: entryID,
+		UserID:         userID,
+		ExternalStepID: "entrance-1",
+	})
+	require.NoError(t, err)
+
+	resumeAt := time.Now().Add(24 * time.Hour)
+	_, err = store.CreateUserJourneyState(ctx, JourneyUserState{
+		JourneyID:      journeyID,
+		JourneyEntryID: entryID,
+		UserID:         userID,
+		ExternalStepID: "delay-1",
+		ResumeAt:       &resumeAt,
+	})
+	require.NoError(t, err)
+
+	t.Run("completes every active state of the matching run", func(t *testing.T) {
+		now := time.Now()
+		affected, err := store.CompleteUserJourneyEntryStates(ctx, journeyID, userID, "entrance-1", now)
+		require.NoError(t, err)
+		assert.Equal(t, int64(2), affected, "both the entrance and the in-flight delay should be completed")
+
+		entrance, err := store.GetUserJourneyState(ctx, entryID, "entrance-1")
+		require.NoError(t, err)
+		require.NotNil(t, entrance.CompletedAt)
+
+		delay, err := store.GetUserJourneyState(ctx, entryID, "delay-1")
+		require.NoError(t, err)
+		require.NotNil(t, delay.CompletedAt)
+		assert.Nil(t, delay.ResumeAt, "resume_at is cleared so the scheduler stops chasing the run")
+	})
+
+	t.Run("is idempotent once the run is completed", func(t *testing.T) {
+		affected, err := store.CompleteUserJourneyEntryStates(ctx, journeyID, userID, "entrance-1", time.Now())
+		require.NoError(t, err)
+		assert.Equal(t, int64(0), affected, "already-completed states are not touched again")
+	})
+
+	t.Run("leaves other users' runs untouched", func(t *testing.T) {
+		otherUserID := uuid.New()
+		otherEntryID := uuid.New()
+		_, err := store.CreateUserJourneyState(ctx, JourneyUserState{
+			JourneyID:      journeyID,
+			JourneyEntryID: otherEntryID,
+			UserID:         otherUserID,
+			ExternalStepID: "entrance-1",
+		})
+		require.NoError(t, err)
+
+		affected, err := store.CompleteUserJourneyEntryStates(ctx, journeyID, userID, "entrance-1", time.Now())
+		require.NoError(t, err)
+		assert.Equal(t, int64(0), affected, "completing the first user must not reach the second user")
+
+		other, err := store.GetUserJourneyState(ctx, otherEntryID, "entrance-1")
+		require.NoError(t, err)
+		assert.Nil(t, other.CompletedAt, "the other user's run is still active")
 	})
 }
 
@@ -513,7 +702,7 @@ func TestJourneysStoreEnsureDraftVersionCopiesSteps(t *testing.T) {
 	stepMap := oapi.JourneyStepMap{
 		"step-1": {
 			Type: "entrance",
-			Name: ptr("Entrance"),
+			Name: ptr.To("Entrance"),
 			X:    100,
 			Y:    100,
 			Children: []oapi.JourneyStepChild{
@@ -522,7 +711,7 @@ func TestJourneysStoreEnsureDraftVersionCopiesSteps(t *testing.T) {
 		},
 		"step-2": {
 			Type: "email",
-			Name: ptr("Send Email"),
+			Name: ptr.To("Send Email"),
 			X:    200,
 			Y:    200,
 		},
@@ -752,4 +941,66 @@ func TestJourneysStoreMultiExecutionSteps(t *testing.T) {
 		require.NoError(t, err)
 		assert.JSONEq(t, `{"updated": true}`, string(reloaded.Data))
 	})
+}
+
+func TestListJourneys_ArchivedFilter(t *testing.T) {
+	t.Parallel()
+
+	db, _ := NewContainerStore(t)
+	projectID := uuid.New()
+	ctx := context.Background()
+
+	activeID, err := db.CreateJourney(ctx, Journey{ProjectID: projectID, Name: "Active Journey"})
+	require.NoError(t, err)
+
+	archivedID, err := db.CreateJourney(ctx, Journey{ProjectID: projectID, Name: "Archived Journey"})
+	require.NoError(t, err)
+	require.NoError(t, db.DeleteJourney(ctx, projectID, archivedID))
+
+	page := store.Pagination{Limit: 10, Offset: 0}
+
+	// archivedOnly=false returns only active journeys, with a total that excludes archived ones.
+	active, total, err := db.ListJourneys(ctx, projectID, page, "", false)
+	require.NoError(t, err)
+	require.Equal(t, 1, total)
+	require.Len(t, active, 1)
+	require.Equal(t, activeID, active[0].ID)
+	require.Nil(t, active[0].DeletedAt)
+
+	// archivedOnly=true returns only archived journeys, with a matching total for pagination.
+	archived, total, err := db.ListJourneys(ctx, projectID, page, "", true)
+	require.NoError(t, err)
+	require.Equal(t, 1, total)
+	require.Len(t, archived, 1)
+	require.Equal(t, archivedID, archived[0].ID)
+	require.NotNil(t, archived[0].DeletedAt)
+}
+
+func TestUnarchiveJourney(t *testing.T) {
+	t.Parallel()
+
+	db, _ := NewContainerStore(t)
+	projectID := uuid.New()
+	ctx := context.Background()
+
+	journeyID, err := db.CreateJourney(ctx, Journey{ProjectID: projectID, Name: "Restore Me"})
+	require.NoError(t, err)
+	require.NoError(t, db.DeleteJourney(ctx, projectID, journeyID))
+
+	// Restoring an archived journey clears deleted_at and brings it back to the active list.
+	require.NoError(t, db.UnarchiveJourney(ctx, projectID, journeyID))
+
+	active, total, err := db.ListJourneys(ctx, projectID, store.Pagination{Limit: 10, Offset: 0}, "", false)
+	require.NoError(t, err)
+	require.Equal(t, 1, total)
+	require.Len(t, active, 1)
+	require.Equal(t, journeyID, active[0].ID)
+
+	// Unarchiving a journey that is not archived (already active) reports no rows affected.
+	err = db.UnarchiveJourney(ctx, projectID, journeyID)
+	require.ErrorIs(t, err, store.ErrNoRows)
+
+	// Unarchiving a non-existent journey reports no rows affected.
+	err = db.UnarchiveJourney(ctx, projectID, uuid.New())
+	require.ErrorIs(t, err, store.ErrNoRows)
 }

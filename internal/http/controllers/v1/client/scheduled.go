@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lunogram/platform/internal/http/auth"
 	"github.com/lunogram/platform/internal/http/controllers/v1/client/oapi"
 	"github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/http/problem"
@@ -24,26 +25,14 @@ func NewScheduledController(client *ClientController) *ScheduledController {
 	return &ScheduledController{ClientController: client}
 }
 
-func (srv *ScheduledController) UpsertUserScheduledClient(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	actor := rbac.FromContext(ctx)
-	if actor == nil {
-		oapi.WriteProblem(w, problem.ErrUnauthorized())
-		return
-	}
-
-	projectID := actor.ProjectID
-	if projectID == uuid.Nil {
-		srv.logger.Warn("project_id is required")
-		oapi.WriteProblem(w, problem.ErrUnauthorized())
-		return
-	}
-
-	err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("scheduled", projectID))
+func (srv *ScheduledController) UpsertUserScheduledClient(w http.ResponseWriter, r *http.Request, _ oapi.ProjectID) {
+	projectID, err := srv.engine.AllowedProject(r.Context(), "scheduled", rbac.Create)
 	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
+
+	ctx := r.Context()
 
 	var req oapi.UpsertUserScheduledRequest
 	err = json.Decode(r.Body, &req)
@@ -86,7 +75,7 @@ func (srv *ScheduledController) UpsertUserScheduledClient(w http.ResponseWriter,
 		data = *req.Data
 	}
 
-	userIDParams := oapi.ToParams(*req.Identifier)
+	userIDParams := auth.BoundUserIdentifiers(r.Context(), oapi.ToParams(*req.Identifier))
 	msg := schemas.ScheduledMsg{
 		ID:          uuid.New(),
 		ProjectID:   projectID,
@@ -127,26 +116,14 @@ func (srv *ScheduledController) UpsertUserScheduledClient(w http.ResponseWriter,
 	})
 }
 
-func (srv *ScheduledController) DeleteUserScheduledClient(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	actor := rbac.FromContext(ctx)
-	if actor == nil {
-		oapi.WriteProblem(w, problem.ErrUnauthorized())
-		return
-	}
-
-	projectID := actor.ProjectID
-	if projectID == uuid.Nil {
-		srv.logger.Warn("project_id is required")
-		oapi.WriteProblem(w, problem.ErrUnauthorized())
-		return
-	}
-
-	err := srv.engine.Allowed(ctx, rbac.Delete, rbac.ProjectResourceScope("scheduled", projectID))
+func (srv *ScheduledController) DeleteUserScheduledClient(w http.ResponseWriter, r *http.Request, _ oapi.ProjectID) {
+	projectID, err := srv.engine.AllowedProject(r.Context(), "scheduled", rbac.Delete)
 	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
+
+	ctx := r.Context()
 
 	var req oapi.DeleteUserScheduledRequest
 	err = json.Decode(r.Body, &req)
@@ -165,7 +142,7 @@ func (srv *ScheduledController) DeleteUserScheduledClient(w http.ResponseWriter,
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.String("scheduled_name", req.Name))
 	logger.Info("deleting user scheduled")
 
-	userID, err := srv.users.LookupUserID(ctx, projectID, oapi.ToParams(*req.Identifier))
+	userID, err := srv.users.LookupUserID(ctx, projectID, auth.BoundUserIdentifiers(ctx, oapi.ToParams(*req.Identifier)))
 	if errors.Is(err, subjects.ErrUserNotFound) {
 		logger.Info("user not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
@@ -200,23 +177,16 @@ func (srv *ScheduledController) DeleteUserScheduledClient(w http.ResponseWriter,
 	w.WriteHeader(http.StatusOK)
 }
 
-func (srv *ScheduledController) UpsertOrganizationScheduledClient(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	actor := rbac.FromContext(ctx)
-	if actor == nil {
-		oapi.WriteProblem(w, problem.ErrUnauthorized())
-		return
-	}
-
-	projectID := actor.ProjectID
-	if projectID == uuid.Nil {
-		srv.logger.Warn("project_id is required")
-		oapi.WriteProblem(w, problem.ErrUnauthorized())
-		return
-	}
-
-	err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("scheduled", projectID))
+func (srv *ScheduledController) UpsertOrganizationScheduledClient(w http.ResponseWriter, r *http.Request, _ oapi.ProjectID) {
+	projectID, err := srv.engine.AllowedProject(r.Context(), "scheduled", rbac.Create)
 	if err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	ctx := r.Context()
+
+	if err := auth.RequireCrossSubjectAccess(ctx); err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -310,23 +280,16 @@ func (srv *ScheduledController) UpsertOrganizationScheduledClient(w http.Respons
 	})
 }
 
-func (srv *ScheduledController) DeleteOrganizationScheduledClient(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	actor := rbac.FromContext(ctx)
-	if actor == nil {
-		oapi.WriteProblem(w, problem.ErrUnauthorized())
-		return
-	}
-
-	projectID := actor.ProjectID
-	if projectID == uuid.Nil {
-		srv.logger.Warn("project_id is required")
-		oapi.WriteProblem(w, problem.ErrUnauthorized())
-		return
-	}
-
-	err := srv.engine.Allowed(ctx, rbac.Delete, rbac.ProjectResourceScope("scheduled", projectID))
+func (srv *ScheduledController) DeleteOrganizationScheduledClient(w http.ResponseWriter, r *http.Request, _ oapi.ProjectID) {
+	projectID, err := srv.engine.AllowedProject(r.Context(), "scheduled", rbac.Delete)
 	if err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	ctx := r.Context()
+
+	if err := auth.RequireCrossSubjectAccess(ctx); err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
