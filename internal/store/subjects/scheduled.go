@@ -820,14 +820,7 @@ type nextOccurrenceResult struct {
 // such that anchor + N * interval > NOW(), and returns both the timestamp and
 // the occurrence number N so it can be persisted to avoid drift.
 func (s *ScheduledStore) computeNextOccurrence(ctx context.Context, interval string, anchor time.Time) (nextOccurrenceResult, error) {
-	stmt := `
-	SELECT
-		$1::timestamptz + n * $2::interval AS next_at,
-		n AS occurrence
-	FROM generate_series(1, 10000) AS n
-	WHERE $1::timestamptz + n * $2::interval > NOW()
-	ORDER BY n
-	LIMIT 1`
+	stmt := `SELECT next_at, occurrence FROM next_schedule_occurrence($1::timestamptz, $2::interval, 0)`
 
 	var result nextOccurrenceResult
 	err := s.db.GetContext(ctx, &result, stmt, anchor, interval)
@@ -918,19 +911,14 @@ func (s *ScheduledStore) AdvanceAndGenerateUserScheduleEvents(ctx context.Contex
 		return nil
 	}
 
-	// Atomically increment occurrence and compute scheduled_at = anchor_at + occurrence * interval.
-	// The new occurrence is the smallest N > current occurrence where anchor_at + N * interval > NOW().
+	// Atomically advance occurrence and scheduled_at to the next future occurrence
+	// (anchor_at + N * interval, smallest N > current occurrence). See the
+	// next_schedule_occurrence migration: it has no upper bound on the catch-up gap.
 	advanceStmt := `
 	UPDATE user_schedules
-	SET occurrence = sub.n,
-	    scheduled_at = sub.next_at
-	FROM (
-		SELECT n, $2::timestamptz + n * $3::interval AS next_at
-		FROM generate_series($4::int + 1, $4::int + 10000) AS n
-		WHERE $2::timestamptz + n * $3::interval > NOW()
-		ORDER BY n
-		LIMIT 1
-	) sub
+	SET occurrence = f.occurrence,
+	    scheduled_at = f.next_at
+	FROM next_schedule_occurrence($2::timestamptz, $3::interval, $4::bigint) f
 	WHERE id = $1
 	RETURNING user_schedules.scheduled_at, user_schedules.occurrence`
 
@@ -1570,19 +1558,14 @@ func (s *ScheduledStore) AdvanceAndGenerateOrgScheduleEvents(ctx context.Context
 		return nil
 	}
 
-	// Atomically increment occurrence and compute scheduled_at = anchor_at + occurrence * interval.
-	// The new occurrence is the smallest N > current occurrence where anchor_at + N * interval > NOW().
+	// Atomically advance occurrence and scheduled_at to the next future occurrence
+	// (anchor_at + N * interval, smallest N > current occurrence). See the
+	// next_schedule_occurrence migration: it has no upper bound on the catch-up gap.
 	advanceStmt := `
 	UPDATE organization_schedules
-	SET occurrence = sub.n,
-	    scheduled_at = sub.next_at
-	FROM (
-		SELECT n, $2::timestamptz + n * $3::interval AS next_at
-		FROM generate_series($4::int + 1, $4::int + 10000) AS n
-		WHERE $2::timestamptz + n * $3::interval > NOW()
-		ORDER BY n
-		LIMIT 1
-	) sub
+	SET occurrence = f.occurrence,
+	    scheduled_at = f.next_at
+	FROM next_schedule_occurrence($2::timestamptz, $3::interval, $4::bigint) f
 	WHERE id = $1
 	RETURNING organization_schedules.scheduled_at, organization_schedules.occurrence`
 
