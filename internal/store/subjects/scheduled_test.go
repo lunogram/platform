@@ -1832,3 +1832,139 @@ func TestOrgScheduleDataPropagatedToEvents(t *testing.T) {
 	require.Len(t, events, 1)
 	require.JSONEq(t, `{"meeting":"standup"}`, string(events[0].Data))
 }
+
+// nextOccurrence calls the next_schedule_occurrence SQL function with an explicit
+// as_of so results are deterministic, and returns the occurrence number, its
+// timestamp, and whether the defining properties (1)-(3) hold for that result.
+type occurrenceProps struct {
+	Occurrence int64     `db:"occurrence"`
+	NextAt     time.Time `db:"next_at"`
+	P1Future   bool      `db:"p1_future"`
+	P2First    bool      `db:"p2_first"`
+	P3Forward  bool      `db:"p3_forward"`
+}
+
+func nextOccurrence(t *testing.T, db *State, anchor time.Time, interval string, cur int64, asOf time.Time) occurrenceProps {
+	t.Helper()
+	// Properties are evaluated with interval arithmetic in Postgres (the only place
+	// calendar math is exact). next_at > as_of (in the future); the previous
+	// occurrence is at or before as_of unless it is the first one (it is the
+	// earliest such occurrence); and the occurrence never moves backwards.
+	const q = `
+	WITH r AS (
+		SELECT next_at, occurrence
+		FROM next_schedule_occurrence($1::timestamptz, $2::interval, $3::bigint, $4::timestamptz)
+	)
+	SELECT
+		r.occurrence,
+		r.next_at,
+		(r.next_at > $4)                                                              AS p1_future,
+		(r.occurrence = $3 + 1 OR $1::timestamptz + (r.occurrence - 1) * $2::interval <= $4) AS p2_first,
+		(r.occurrence >= $3 + 1)                                                      AS p3_forward
+	FROM r`
+
+	var pr occurrenceProps
+	err := db.ScheduledStore.db.QueryRowxContext(context.Background(), q, anchor, interval, cur, asOf).StructScan(&pr)
+	require.NoError(t, err)
+	return pr
+}
+
+func TestNextScheduleOccurrenceExactCases(t *testing.T) {
+	t.Parallel()
+
+	db := NewContainerStore(t)
+
+	ts := func(s string) time.Time {
+		v, err := time.Parse(time.RFC3339, s)
+		require.NoError(t, err)
+		return v.UTC()
+	}
+
+	cases := []struct {
+		name     string
+		anchor   string
+		interval string
+		cur      int64
+		asOf     string
+		wantOcc  int64
+		wantNext string
+	}{
+		// The stuck-"Sending" anniversary: yearly, first send is anchor + 1 year.
+		{"yearly anniversary", "2026-03-28T15:45:52Z", "1 year", 0, "2026-06-25T00:00:00Z", 1, "2027-03-28T15:45:52Z"},
+		// as_of exactly on an occurrence boundary must pick the next one (strict >).
+		{"daily on boundary picks next", "2026-01-01T00:00:00Z", "1 day", 0, "2026-01-10T00:00:00Z", 10, "2026-01-11T00:00:00Z"},
+		// Month-end clamping: Jan 31 + 1 month = Feb 29 (leap), + 2 months = Mar 31.
+		{"month-end clamp from Jan 31", "2024-01-31T12:00:00Z", "1 month", 0, "2024-03-15T00:00:00Z", 2, "2024-03-31T12:00:00Z"},
+		// Advancing from a non-zero current occurrence only moves forward.
+		{"advance from current occurrence", "2026-01-01T00:00:00Z", "1 day", 5, "2026-01-03T00:00:00Z", 6, "2026-01-07T00:00:00Z"},
+		// ~470 years of dormancy on a 1-minute interval: far past the old 10000 cap.
+		{"far dormancy beyond old cap", "2026-01-01T00:00:00Z", "1 minute", 0, "2496-01-01T00:00:00Z", 247196161, "2496-01-01T00:01:00Z"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			pr := nextOccurrence(t, db, ts(tc.anchor), tc.interval, tc.cur, ts(tc.asOf))
+			require.Equal(t, tc.wantOcc, pr.Occurrence)
+			require.Truef(t, pr.NextAt.Equal(ts(tc.wantNext)), "next_at = %s, want %s", pr.NextAt, tc.wantNext)
+			require.True(t, pr.P1Future && pr.P2First && pr.P3Forward, "defining properties must hold")
+		})
+	}
+}
+
+// TestNextScheduleOccurrenceProperties asserts the result is exact across a broad
+// grid (leap years, month-end clamping, mixed calendar intervals, horizons out to
+// year 3025) by checking the three defining properties for every combination.
+func TestNextScheduleOccurrenceProperties(t *testing.T) {
+	t.Parallel()
+
+	db := NewContainerStore(t)
+
+	ts := func(s string) time.Time {
+		v, err := time.Parse(time.RFC3339, s)
+		require.NoError(t, err)
+		return v.UTC()
+	}
+
+	anchors := []string{
+		"2024-01-31T12:00:00Z", "2020-12-31T06:00:00Z",
+		"2026-03-28T15:45:52Z", "1999-11-15T09:00:00Z",
+	}
+	intervals := []string{
+		"1 minute", "1 hour", "1 day", "1 week", "30 days",
+		"1 month", "3 months", "1 year", "5 years", "1 mon 15 days",
+	}
+	curs := []int64{0, 1, 7, 99}
+	asOfs := []string{
+		"2026-06-25T14:00:00Z", "2030-02-28T00:00:00Z",
+		"2520-06-01T00:00:00Z", "3025-09-09T00:00:00Z",
+	}
+
+	for _, a := range anchors {
+		for _, iv := range intervals {
+			for _, cur := range curs {
+				for _, asOf := range asOfs {
+					pr := nextOccurrence(t, db, ts(a), iv, cur, ts(asOf))
+					require.Truef(t, pr.P1Future && pr.P2First && pr.P3Forward,
+						"anchor=%s interval=%s cur=%d asOf=%s -> occ=%d (p1=%v p2=%v p3=%v)",
+						a, iv, cur, asOf, pr.Occurrence, pr.P1Future, pr.P2First, pr.P3Forward)
+				}
+			}
+		}
+	}
+}
+
+func TestNextScheduleOccurrenceRejectsNonPositiveInterval(t *testing.T) {
+	t.Parallel()
+
+	db := NewContainerStore(t)
+
+	const q = `SELECT next_at FROM next_schedule_occurrence($1::timestamptz, $2::interval, 0, $3::timestamptz)`
+	for _, interval := range []string{"0 seconds", "-1 day"} {
+		var nextAt time.Time
+		err := db.ScheduledStore.db.QueryRowxContext(context.Background(), q,
+			time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), interval,
+			time.Date(2026, 6, 25, 0, 0, 0, 0, time.UTC)).Scan(&nextAt)
+		require.Error(t, err, "interval %q should be rejected", interval)
+		require.Contains(t, err.Error(), "interval must be positive")
+	}
+}
