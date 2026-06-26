@@ -83,7 +83,7 @@ function EmailPreviewContent({
     }, [data?.code?.source])
 
     return (
-        <EmailFrame subject={data.subject} fromName={data.from?.name} labels={labels}>
+        <EmailFrame subject={data.subject} fromName={data.from?.name} size={size} labels={labels}>
             <Iframe content={compiledHtml} allowScroll={size !== "small"} />
         </EmailFrame>
     )
