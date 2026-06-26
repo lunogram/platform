@@ -100,6 +100,21 @@ export function createEdge({ data, sourceId, targetId, path }: CreateEdgeParams)
     }
 }
 
+/**
+ * The trigger event payload captured by an entrance is only referenceable from
+ * downstream steps (gates, campaigns, …) as `journey.<data_key>.data.*`, and the
+ * backend only exposes a step's state when it has a non-empty `data_key`. Pick a
+ * readable, unique default ("entrance", "entrance_2", …) so the input event
+ * variables are available without the user having to discover the data_key field.
+ */
+export function defaultEntranceDataKey(existingKeys: Iterable<string>): string {
+    const used = new Set(existingKeys)
+    if (!used.has("entrance")) return "entrance"
+    let i = 2
+    while (used.has(`entrance_${i}`)) i++
+    return `entrance_${i}`
+}
+
 export function stepsToNodes(
     stepMap: JourneyStepMap,
     actions: {
@@ -113,6 +128,11 @@ export function stepsToNodes(
     const entries = Object.entries(stepMap)
     const nodeIds = new Set(entries.map(([id]) => id))
 
+    // Backfill a default data_key for entrances that predate auto-assignment so
+    // their input event variables surface in downstream pickers. This only fills
+    // empty keys (non-destructive) and is persisted on the next manual save.
+    const usedDataKeys = new Set(entries.map(([, s]) => s.data_key).filter((k): k is string => !!k))
+
     for (const [
         id,
         { x, y, type, data, name, data_key, children, stats, stats_at, id: stepId },
@@ -120,6 +140,13 @@ export function stepsToNodes(
         const { width, height, ...restData } = (data as Record<string, unknown>) ?? {}
         const sizeStyle =
             typeof width === "number" && typeof height === "number" ? { width, height } : undefined
+
+        let resolvedDataKey = data_key
+        if (!resolvedDataKey && type === "entrance") {
+            resolvedDataKey = defaultEntranceDataKey(usedDataKeys)
+            usedDataKeys.add(resolvedDataKey)
+        }
+
         nodes.push({
             id,
             position: { x, y },
@@ -128,7 +155,7 @@ export function stepsToNodes(
             data: {
                 type,
                 name,
-                data_key,
+                data_key: resolvedDataKey,
                 data: restData,
                 stats,
                 stats_at,

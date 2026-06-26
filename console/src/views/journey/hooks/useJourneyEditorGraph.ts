@@ -8,7 +8,12 @@ import type { EntranceTrigger } from "../components/JourneyTriggerSetup"
 import type { JourneyEditorActionsValue } from "../editor/JourneyEditorActions"
 import type { JourneyHintsValue } from "../editor/JourneyHints"
 import type { JourneyEdge, JourneyNode } from "../editor/JourneyEditor.types"
-import { cloneNodes, getStepType, isValidJourneyConnection } from "../editor/JourneyEditor.utils"
+import {
+    cloneNodes,
+    defaultEntranceDataKey,
+    getStepType,
+    isValidJourneyConnection,
+} from "../editor/JourneyEditor.utils"
 import { useJourneyFlowHandlers } from "./useJourneyFlowHandlers"
 import { useKeyboardShortcuts } from "./useKeyboardShortcuts"
 import { useStepEditing } from "./useStepEditing"
@@ -347,6 +352,7 @@ export function useJourneyEditorGraph({
                     data: {
                         type: "entrance",
                         name: t("entrance"),
+                        data_key: defaultEntranceDataKey([]),
                         data: { ...defaultData, trigger },
                         editing: true,
                     },
