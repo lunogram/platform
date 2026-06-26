@@ -105,7 +105,9 @@ export default function NewCampaign() {
         )
 
         if (!hasValidSelection) {
-            form.setValue("subscription_id", filteredSubscriptions[0].id)
+            form.setValue("subscription_id", filteredSubscriptions[0].id, {
+                shouldValidate: true,
+            })
         }
     }, [isTransactional, subscriptionsLoading, filteredSubscriptions, subscriptionId, form])
 
@@ -323,7 +325,9 @@ export default function NewCampaign() {
                                         onCheckedChange={(checked) => {
                                             field.onChange(checked)
                                             if (checked) {
-                                                form.setValue("subscription_id", "")
+                                                form.setValue("subscription_id", "", {
+                                                    shouldValidate: true,
+                                                })
                                             }
                                         }}
                                     />
