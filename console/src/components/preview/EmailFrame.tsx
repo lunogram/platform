@@ -1,5 +1,4 @@
 import type { ReactNode } from "react"
-import clsx from "clsx"
 
 function ArchiveIcon() {
     return (
@@ -94,12 +93,6 @@ export interface EmailFrameProps {
     emptyLabel?: string
     /** Override container classes (defaults to rounded card style) */
     className?: string
-    /**
-     * Layout density. "small" renders a condensed header (smaller type, tighter
-     * padding, action icons hidden) so the frame fits inside a thumbnail-sized
-     * container such as the Journey editor's Send node.
-     */
-    size?: "small" | "large"
     /** Translated labels for static UI text */
     labels?: {
         noSubject?: string
@@ -116,7 +109,6 @@ export function EmailFrame({
     children,
     emptyLabel,
     className,
-    size = "large",
     labels,
 }: EmailFrameProps) {
     const noSubjectLabel = labels?.noSubject ?? "No subject"
@@ -128,7 +120,6 @@ export function EmailFrame({
             hour: "numeric",
             minute: "2-digit",
         })
-    const compact = size === "small"
 
     return (
         <div
@@ -137,92 +128,57 @@ export function EmailFrame({
                 "bg-white border rounded-lg w-full overflow-hidden flex flex-col flex-1"
             }
         >
-            <div className={compact ? "px-3 py-2.5" : "px-6 py-4"}>
-                <div
-                    className={clsx(
-                        "flex items-start justify-between",
-                        compact ? "mb-2" : "mb-4",
-                    )}
-                >
-                    <h1
-                        className={clsx(
-                            "font-normal text-gray-900 flex-1 pr-4",
-                            compact ? "text-sm leading-snug truncate" : "text-[22px]",
-                        )}
-                    >
+            <div className="px-6 py-4">
+                <div className="flex items-start justify-between mb-4">
+                    <h1 className="text-[22px] font-normal text-gray-900 flex-1 pr-4">
                         {subject || <span className="text-gray-400 italic">{noSubjectLabel}</span>}
                     </h1>
-                    {!compact && (
-                        <div
-                            className="flex items-center gap-1 text-gray-600 flex-shrink-0"
-                            aria-hidden="true"
-                        >
-                            <span className="p-2 hover:bg-gray-100 rounded-full">
-                                <ArchiveIcon />
-                            </span>
-                            <span className="p-2 hover:bg-gray-100 rounded-full">
-                                <ReportIcon />
-                            </span>
-                            <span className="p-2 hover:bg-gray-100 rounded-full">
-                                <TrashIcon />
-                            </span>
-                        </div>
-                    )}
+                    <div className="flex items-center gap-1 text-gray-600 flex-shrink-0" aria-hidden="true">
+                        <span className="p-2 hover:bg-gray-100 rounded-full">
+                            <ArchiveIcon />
+                        </span>
+                        <span className="p-2 hover:bg-gray-100 rounded-full">
+                            <ReportIcon />
+                        </span>
+                        <span className="p-2 hover:bg-gray-100 rounded-full">
+                            <TrashIcon />
+                        </span>
+                    </div>
                 </div>
 
-                <div className={clsx("flex items-start", compact ? "gap-2" : "gap-3")}>
-                    <div
-                        className={clsx(
-                            "rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-medium flex-shrink-0",
-                            compact ? "w-7 h-7 text-xs" : "w-10 h-10",
-                        )}
-                    >
+                <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-medium flex-shrink-0">
                         {fromName ? fromName.charAt(0).toUpperCase() : "?"}
                     </div>
 
                     <div className="flex-1 min-w-0">
                         <div className="flex items-baseline gap-2 mb-1">
-                            <span
-                                className={clsx(
-                                    "font-medium text-gray-900 truncate",
-                                    compact ? "text-xs" : "text-sm",
-                                )}
-                            >
+                            <span className="font-medium text-gray-900 text-sm">
                                 {fromName || (
                                     <span className="text-gray-400 italic">{unknownSenderLabel}</span>
                                 )}
                             </span>
-                            <span className="text-xs text-gray-500 flex-shrink-0">{displayTime}</span>
+                            <span className="text-xs text-gray-500">{displayTime}</span>
                         </div>
-                        <div
-                            className="flex items-center gap-1 text-xs text-gray-600"
-                            aria-hidden="true"
-                        >
+                        <div className="flex items-center gap-1 text-xs text-gray-600" aria-hidden="true">
                             <span>to me</span>
                             <span className="hover:bg-gray-100 px-1 rounded">
                                 <ChevronDownIcon />
                             </span>
                         </div>
                         {replyTo && (
-                            <div className="text-xs text-gray-500 mt-1 truncate">
-                                Reply-To: {replyTo}
-                            </div>
+                            <div className="text-xs text-gray-500 mt-1">Reply-To: {replyTo}</div>
                         )}
                     </div>
 
-                    {!compact && (
-                        <div
-                            className="flex items-center gap-1 flex-shrink-0"
-                            aria-hidden="true"
-                        >
-                            <span className="p-2 hover:bg-gray-100 rounded-full">
-                                <ReplyIcon />
-                            </span>
-                            <span className="p-2 hover:bg-gray-100 rounded-full">
-                                <MoreVertIcon />
-                            </span>
-                        </div>
-                    )}
+                    <div className="flex items-center gap-1 flex-shrink-0" aria-hidden="true">
+                        <span className="p-2 hover:bg-gray-100 rounded-full">
+                            <ReplyIcon />
+                        </span>
+                        <span className="p-2 hover:bg-gray-100 rounded-full">
+                            <MoreVertIcon />
+                        </span>
+                    </div>
                 </div>
             </div>
 
