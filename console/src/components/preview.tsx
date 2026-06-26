@@ -82,9 +82,24 @@ function EmailPreviewContent({
         }
     }, [data?.code?.source])
 
+    // In the small thumbnail (e.g. the Journey Send node) the Gmail-style
+    // header chrome doesn't fit and just looks broken — show the rendered
+    // email itself instead, clipped to the thumbnail height.
+    if (size === "small") {
+        return compiledHtml ? (
+            <div className="h-full w-full overflow-hidden bg-white">
+                <Iframe content={compiledHtml} allowScroll={false} width="100%" />
+            </div>
+        ) : (
+            <div className="flex h-full w-full items-center justify-center bg-white text-sm italic text-gray-400">
+                {labels.noContent}
+            </div>
+        )
+    }
+
     return (
-        <EmailFrame subject={data.subject} fromName={data.from?.name} size={size} labels={labels}>
-            <Iframe content={compiledHtml} allowScroll={size !== "small"} />
+        <EmailFrame subject={data.subject} fromName={data.from?.name} labels={labels}>
+            <Iframe content={compiledHtml} allowScroll />
         </EmailFrame>
     )
 }
