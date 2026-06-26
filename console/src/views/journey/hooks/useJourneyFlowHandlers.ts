@@ -87,6 +87,17 @@ export function useJourneyFlowHandlers(
                           )
                         : undefined
 
+                // An exit must target an entrance (required field). Default to the
+                // first entrance so single-entrance journeys need no manual pick.
+                let stepData = data
+                if (
+                    payload.type === "exit" &&
+                    !(stepData as { entrance_uuid?: string }).entrance_uuid
+                ) {
+                    const firstEntrance = nds.find((n) => n.data.type === "entrance")
+                    if (firstEntrance) stepData = { ...stepData, entrance_uuid: firstEntrance.id }
+                }
+
                 const newNode: JourneyNode = {
                     id: createUuid(),
                     position: { x, y },
@@ -95,7 +106,7 @@ export function useJourneyFlowHandlers(
                         type: payload.type,
                         name,
                         data_key,
-                        data,
+                        data: stepData,
                         ...(isSticky ? { width: 275, height: 150 } : {}),
                     },
                     ...(isSticky ? { style: { width: 275, height: 150 } } : {}),
