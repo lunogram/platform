@@ -127,6 +127,73 @@ func TestRateLimitFailsOpenOnBackendError(t *testing.T) {
 	require.Empty(t, rec.Header().Get("Retry-After"))
 }
 
+// authSetter mimics the validator's AuthenticationFunc: it resolves an actor
+// (here from a test header) and puts it on the request context for the inner
+// chain, exactly as auth.Middleware does via an in-place request mutation.
+func authSetter(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if id := r.Header.Get("X-Test-Actor"); id != "" {
+			actor := rbac.NewActor(rbac.ActorAPIKey, id)
+			r = r.WithContext(rbac.WithActor(r.Context(), actor))
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// TestRateLimitRunsAfterAuth guards the middleware ordering. The generated oapi
+// wrapper composes middlewares with a forward-wrapping loop
+// (handler = mw(handler)), so the LAST slice entry runs FIRST. RateLimit must
+// therefore be listed before the validator so it runs *after* authentication
+// and keys on the resolved actor. If the order regresses, the limiter runs
+// before auth, every request falls back to the shared ip: bucket, and two
+// distinct keys from the same IP starve a single budget.
+func TestRateLimitRunsAfterAuth(t *testing.T) {
+	t.Parallel()
+
+	limiter := newRedisLimiter(t)
+	rl := RateLimit(limiter, 1, time.Minute, 0, oapi.WriteProblem)
+
+	var reached int
+	final := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		reached++
+		w.WriteHeader(http.StatusOK)
+	})
+
+	// Compose exactly like the generated HandlerWithOptions wrapper: the slice
+	// is ordered [RateLimit, validator] and applied front-to-back, making the
+	// validator (authSetter) the outermost so it runs first.
+	middlewares := []func(http.Handler) http.Handler{rl, authSetter}
+	handler := http.Handler(final)
+	for _, mw := range middlewares {
+		handler = mw(handler)
+	}
+
+	// All requests share one RemoteAddr, so a buggy (pre-auth) limiter would
+	// key them all to a single ip: bucket.
+	newReq := func(actor string) *http.Request {
+		r := httptest.NewRequest(http.MethodPost, "/api/client/v1/events", nil)
+		r.RemoteAddr = "198.51.100.30:6666"
+		r.Header.Set("X-Test-Actor", actor)
+		return r
+	}
+
+	do := func(actor string) int {
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, newReq(actor))
+		return rec.Code
+	}
+
+	// Actor A spends its budget of one, then is denied on the second request.
+	require.Equal(t, http.StatusOK, do("ak_A"))
+	require.Equal(t, http.StatusTooManyRequests, do("ak_A"))
+
+	// Actor B shares the same IP but must have its own budget — this only holds
+	// if the limiter keyed on the actor, i.e. it ran after auth.
+	require.Equal(t, http.StatusOK, do("ak_B"))
+
+	require.Equal(t, 2, reached, "only the two allowed requests reach the handler")
+}
+
 func TestRateLimitKey(t *testing.T) {
 	t.Parallel()
 
