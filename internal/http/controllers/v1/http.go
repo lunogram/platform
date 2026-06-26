@@ -89,18 +89,20 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *st
 	// Mount management routes with JWT+API Key auth
 	mgmtoapi.HandlerWithOptions(mgmtController, mgmtoapi.ChiServerOptions{
 		BaseRouter: router,
+		// The generated wrapper applies these middlewares by wrapping forward
+		// (handler = mw(handler)), so the LAST entry becomes the outermost and
+		// runs FIRST. RateLimit is therefore listed before the validator so it
+		// runs *after* authentication and keys on the resolved auth method; the
+		// budget is shared with the client API, so a key cannot get a separate
+		// allowance per surface.
 		Middlewares: []mgmtoapi.MiddlewareFunc{
+			http.RateLimit(limiter, cfg.RateLimit.PerMinute, time.Minute, cfg.RateLimit.TrustedProxyHops, mgmtoapi.WriteProblem),
 			mgmtoapi.Validator(mgmtSpec, openapi3filter.Options{
 				AuthenticationFunc: auth.Middleware(
 					auth.WithJWT(cfg.Auth, mgmtStores),
 					auth.WithKey(mgmtStores, auth.SurfaceManagement),
 				),
 			}),
-			// Runs after the validator (and thus after authentication) so the
-			// limiter keys on the resolved auth method. The budget is shared
-			// with the client API, so a key cannot get a separate allowance per
-			// surface.
-			http.RateLimit(limiter, cfg.RateLimit.PerMinute, time.Minute, cfg.RateLimit.TrustedProxyHops, mgmtoapi.WriteProblem),
 		},
 	})
 
@@ -110,7 +112,10 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *st
 		r.Options("/api/client/*", func(w nethttp.ResponseWriter, r *nethttp.Request) {})
 		clientoapi.HandlerWithOptions(clientController, clientoapi.ChiServerOptions{
 			BaseRouter: r,
+			// Listed before the validator so it runs *after* authentication —
+			// see the management mount above for why the order is reversed.
 			Middlewares: []clientoapi.MiddlewareFunc{
+				http.RateLimit(limiter, cfg.RateLimit.PerMinute, time.Minute, cfg.RateLimit.TrustedProxyHops, clientoapi.WriteProblem),
 				clientoapi.Validator(clientSpec, openapi3filter.Options{
 					AuthenticationFunc: auth.Middleware(
 						auth.WithKey(mgmtStores, auth.SurfaceClient),
@@ -118,9 +123,6 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *st
 						auth.WithTrustedIssuer(mgmtStores, jwksCache),
 					),
 				}),
-				// Runs after the validator (and thus after authentication) so
-				// the limiter keys on the resolved auth method.
-				http.RateLimit(limiter, cfg.RateLimit.PerMinute, time.Minute, cfg.RateLimit.TrustedProxyHops, clientoapi.WriteProblem),
 			},
 		})
 	})
