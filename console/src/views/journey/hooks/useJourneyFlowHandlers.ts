@@ -3,7 +3,11 @@ import { addEdge, type Connection, MarkerType, type ReactFlowInstance } from "@x
 import { useTranslation } from "react-i18next"
 import { createUuid } from "@/utils"
 import { DATA_FORMAT, STEP_STYLE } from "./JourneyEditor.constants"
-import { getStepType, isValidJourneyConnection } from "../editor/JourneyEditor.utils"
+import {
+    defaultEntranceDataKey,
+    getStepType,
+    isValidJourneyConnection,
+} from "../editor/JourneyEditor.utils"
 import type { JourneyEdge, JourneyNode } from "../editor/JourneyEditor.types"
 
 export function useJourneyFlowHandlers(
@@ -74,6 +78,15 @@ export function useJourneyFlowHandlers(
                     if (entranceCount > 0) name = `${t("entrance")} ${entranceCount + 1}`
                 }
 
+                // Give entrances a default data_key so their trigger event data is
+                // immediately referenceable downstream as `journey.<data_key>.data.*`.
+                const data_key =
+                    payload.type === "entrance"
+                        ? defaultEntranceDataKey(
+                              nds.map((n) => n.data.data_key).filter((k): k is string => !!k),
+                          )
+                        : undefined
+
                 const newNode: JourneyNode = {
                     id: createUuid(),
                     position: { x, y },
@@ -81,6 +94,7 @@ export function useJourneyFlowHandlers(
                     data: {
                         type: payload.type,
                         name,
+                        data_key,
                         data,
                         ...(isSticky ? { width: 275, height: 150 } : {}),
                     },
