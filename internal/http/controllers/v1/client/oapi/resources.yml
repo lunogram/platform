@@ -1732,13 +1732,18 @@ components:
 
     DeleteUserScheduledRequest:
       type: object
-      required:
-        - name
       properties:
+        id:
+          type: string
+          format: uuid
+          nullable: true
+          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+          description: The id of a specific schedule assignment to delete. When provided, only that instance is removed. Either id or name is required.
         name:
           type: string
+          nullable: true
           example: "renewal_date"
-          description: The name of the scheduled resource to delete
+          description: The name of the scheduled resource to delete. When provided (and id is omitted), every assignment with this name for the user is removed. Either id or name is required.
         identifier:
           $ref: "#/components/schemas/UserIdentifier"
 
@@ -1773,13 +1778,19 @@ components:
     DeleteOrganizationScheduledRequest:
       type: object
       required:
-        - name
         - identifier
       properties:
+        id:
+          type: string
+          format: uuid
+          nullable: true
+          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+          description: The id of a specific schedule assignment to delete. When provided, only that instance is removed. Either id or name is required.
         name:
           type: string
+          nullable: true
           example: "contract_renewal"
-          description: The name of the scheduled resource to delete
+          description: The name of the scheduled resource to delete. When provided (and id is omitted), every assignment with this name for the organization is removed. Either id or name is required.
         identifier:
           $ref: "#/components/schemas/OrganizationIdentifier"
 
