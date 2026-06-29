@@ -589,16 +589,66 @@ func TestUpsertUserSchedule(t *testing.T) {
 	require.NoError(t, err)
 
 	time1 := time.Now().Add(24 * time.Hour).UTC().Truncate(time.Microsecond)
-	us1, err := db.UpsertUserSchedule(ctx, userID, scheduleID, &time1, nil, nil, json.RawMessage(`{"v":1}`))
+	us1, err := db.UpsertUserSchedule(ctx, uuid.Nil, userID, scheduleID, &time1, nil, nil, json.RawMessage(`{"v":1}`))
+	require.NoError(t, err)
+
+	// Re-upserting with the same assignment id updates that row in place.
+	time2 := time.Now().Add(48 * time.Hour).UTC().Truncate(time.Microsecond)
+	us2, err := db.UpsertUserSchedule(ctx, us1.ID, userID, scheduleID, &time2, nil, nil, json.RawMessage(`{"v":2}`))
+	require.NoError(t, err)
+
+	require.Equal(t, us1.ID, us2.ID)
+	require.WithinDuration(t, time2, *us2.ScheduledAt, time.Second)
+}
+
+func TestUpsertUserScheduleCreatesDistinctInstances(t *testing.T) {
+	t.Parallel()
+
+	db := NewContainerStore(t)
+	projectID := uuid.New()
+	ctx := context.Background()
+
+	userID := createTestUserForSchedules(t, db, ctx, projectID)
+	scheduleID, err := db.UpsertSchedule(ctx, projectID, "multi_instance", "single")
+	require.NoError(t, err)
+
+	// Two upserts without an id create two distinct assignments for the same
+	// (user, schedule) — the same name can now be scheduled multiple times.
+	time1 := time.Now().Add(24 * time.Hour).UTC().Truncate(time.Microsecond)
+	us1, err := db.UpsertUserSchedule(ctx, uuid.Nil, userID, scheduleID, &time1, nil, nil, json.RawMessage(`{"v":1}`))
 	require.NoError(t, err)
 
 	time2 := time.Now().Add(48 * time.Hour).UTC().Truncate(time.Microsecond)
-	us2, err := db.UpsertUserSchedule(ctx, userID, scheduleID, &time2, nil, nil, json.RawMessage(`{"v":2}`))
+	us2, err := db.UpsertUserSchedule(ctx, uuid.Nil, userID, scheduleID, &time2, nil, nil, json.RawMessage(`{"v":2}`))
 	require.NoError(t, err)
 
-	// Same user + schedule = same user_schedule row
-	require.Equal(t, us1.ID, us2.ID)
-	require.WithinDuration(t, time2, *us2.ScheduledAt, time.Second)
+	require.NotEqual(t, us1.ID, us2.ID)
+
+	all, err := db.ListUserSchedulesByScheduleID(ctx, userID, scheduleID)
+	require.NoError(t, err)
+	require.Len(t, all, 2)
+}
+
+func TestUpsertUserScheduleOwnershipMismatch(t *testing.T) {
+	t.Parallel()
+
+	db := NewContainerStore(t)
+	projectID := uuid.New()
+	ctx := context.Background()
+
+	userA := createTestUserForSchedules(t, db, ctx, projectID)
+	userB := createTestUserForSchedules(t, db, ctx, projectID)
+	scheduleID, err := db.UpsertSchedule(ctx, projectID, "ownership", "single")
+	require.NoError(t, err)
+
+	at := time.Now().Add(24 * time.Hour).UTC().Truncate(time.Microsecond)
+	owned, err := db.UpsertUserSchedule(ctx, uuid.Nil, userA, scheduleID, &at, nil, nil, json.RawMessage(`{}`))
+	require.NoError(t, err)
+
+	// Re-using userA's assignment id under a different user must be rejected
+	// rather than silently rewriting userA's row.
+	_, err = db.UpsertUserSchedule(ctx, owned.ID, userB, scheduleID, &at, nil, nil, json.RawMessage(`{}`))
+	require.ErrorIs(t, err, ErrScheduleOwnershipMismatch)
 }
 
 func TestListUserSchedules(t *testing.T) {
@@ -1141,14 +1191,14 @@ func TestUpsertOrganizationSchedule(t *testing.T) {
 	require.NoError(t, err)
 
 	time1 := time.Now().Add(24 * time.Hour).UTC().Truncate(time.Microsecond)
-	os1, err := db.UpsertOrganizationSchedule(ctx, orgID, scheduleID, &time1, nil, nil, json.RawMessage(`{"v":1}`))
+	os1, err := db.UpsertOrganizationSchedule(ctx, uuid.Nil, orgID, scheduleID, &time1, nil, nil, json.RawMessage(`{"v":1}`))
 	require.NoError(t, err)
 
+	// Re-upserting with the same assignment id updates that row in place.
 	time2 := time.Now().Add(48 * time.Hour).UTC().Truncate(time.Microsecond)
-	os2, err := db.UpsertOrganizationSchedule(ctx, orgID, scheduleID, &time2, nil, nil, json.RawMessage(`{"v":2}`))
+	os2, err := db.UpsertOrganizationSchedule(ctx, os1.ID, orgID, scheduleID, &time2, nil, nil, json.RawMessage(`{"v":2}`))
 	require.NoError(t, err)
 
-	// Same org + schedule = same row
 	require.Equal(t, os1.ID, os2.ID)
 	require.WithinDuration(t, time2, *os2.ScheduledAt, time.Second)
 }
@@ -1745,14 +1795,14 @@ func TestUpsertUserScheduleRecurring(t *testing.T) {
 	startAt := time.Now().Add(-14 * 24 * time.Hour).UTC().Truncate(time.Microsecond)
 	interval := "7 days"
 
-	us, err := db.UpsertUserSchedule(ctx, userID, scheduleID, nil, &startAt, &interval, json.RawMessage(`{}`))
+	us, err := db.UpsertUserSchedule(ctx, uuid.Nil, userID, scheduleID, nil, &startAt, &interval, json.RawMessage(`{}`))
 	require.NoError(t, err)
 	require.NotNil(t, us.ScheduledAt)
 	require.True(t, us.ScheduledAt.After(time.Now()))
 	require.Greater(t, us.Occurrence, 0)
 
-	// Upsert again with different data – same row
-	us2, err := db.UpsertUserSchedule(ctx, userID, scheduleID, nil, &startAt, &interval, json.RawMessage(`{"updated":true}`))
+	// Upsert again with the same id and different data – same row
+	us2, err := db.UpsertUserSchedule(ctx, us.ID, userID, scheduleID, nil, &startAt, &interval, json.RawMessage(`{"updated":true}`))
 	require.NoError(t, err)
 	require.Equal(t, us.ID, us2.ID)
 }
@@ -1771,13 +1821,13 @@ func TestUpsertOrganizationScheduleRecurring(t *testing.T) {
 	startAt := time.Now().Add(-14 * 24 * time.Hour).UTC().Truncate(time.Microsecond)
 	interval := "7 days"
 
-	os, err := db.UpsertOrganizationSchedule(ctx, orgID, scheduleID, nil, &startAt, &interval, json.RawMessage(`{}`))
+	os, err := db.UpsertOrganizationSchedule(ctx, uuid.Nil, orgID, scheduleID, nil, &startAt, &interval, json.RawMessage(`{}`))
 	require.NoError(t, err)
 	require.NotNil(t, os.ScheduledAt)
 	require.True(t, os.ScheduledAt.After(time.Now()))
 	require.Greater(t, os.Occurrence, 0)
 
-	os2, err := db.UpsertOrganizationSchedule(ctx, orgID, scheduleID, nil, &startAt, &interval, json.RawMessage(`{"updated":true}`))
+	os2, err := db.UpsertOrganizationSchedule(ctx, os.ID, orgID, scheduleID, nil, &startAt, &interval, json.RawMessage(`{"updated":true}`))
 	require.NoError(t, err)
 	require.Equal(t, os.ID, os2.ID)
 }

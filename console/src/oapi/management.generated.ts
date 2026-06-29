@@ -4980,6 +4980,12 @@ export interface components {
         UpsertUserScheduledRequest: {
             /**
              * Format: uuid
+             * @description The schedule assignment instance id. Omit to create a new assignment (multiple assignments may share the same name per user); supply an existing id to update that assignment in place.
+             * @example a1b2c3d4-e5f6-7890-abcd-ef1234567890
+             */
+            id?: string;
+            /**
+             * Format: uuid
              * @description The scheduled definition ID. Either scheduled_id or scheduled_name must be provided.
              * @example 550e8400-e29b-41d4-a716-446655440002
              */
@@ -5018,6 +5024,12 @@ export interface components {
             } | null;
         };
         UpsertOrganizationScheduledRequest: {
+            /**
+             * Format: uuid
+             * @description The schedule assignment instance id. Omit to create a new assignment (multiple assignments may share the same name per organization); supply an existing id to update that assignment in place.
+             * @example a1b2c3d4-e5f6-7890-abcd-ef1234567890
+             */
+            id?: string;
             /**
              * Format: uuid
              * @description The scheduled definition ID. Either scheduled_id or scheduled_name must be provided.

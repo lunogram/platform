@@ -128,11 +128,14 @@ type DeleteOrganizationRequest struct {
 
 // DeleteOrganizationScheduledRequest defines model for DeleteOrganizationScheduledRequest.
 type DeleteOrganizationScheduledRequest struct {
+	// Id The id of a specific schedule assignment to delete. When provided, only that instance is removed. Either id or name is required.
+	Id *openapi_types.UUID `json:"id,omitempty"`
+
 	// Identifier One or more external identifiers to identify the organization
 	Identifier OrganizationIdentifier `json:"identifier"`
 
-	// Name The name of the scheduled resource to delete
-	Name string `json:"name"`
+	// Name The name of the scheduled resource to delete. When provided (and id is omitted), every assignment with this name for the organization is removed. Either id or name is required.
+	Name *string `json:"name,omitempty"`
 }
 
 // DeleteUserRequest defines model for DeleteUserRequest.
@@ -143,11 +146,14 @@ type DeleteUserRequest struct {
 
 // DeleteUserScheduledRequest defines model for DeleteUserScheduledRequest.
 type DeleteUserScheduledRequest struct {
-	// Identifier One or more external identifiers to identify the user
-	Identifier *UserIdentifier `json:"identifier,omitempty"`
+	// Id The id of a specific schedule assignment to delete. When provided, only that instance is removed. Either id or name is required.
+	Id *openapi_types.UUID `json:"id,omitempty"`
 
-	// Name The name of the scheduled resource to delete
-	Name string `json:"name"`
+	// Identifier One or more external identifiers to identify the user
+	Identifier UserIdentifier `json:"identifier"`
+
+	// Name The name of the scheduled resource to delete. When provided (and id is omitted), every assignment with this name for the user is removed. Either id or name is required.
+	Name *string `json:"name,omitempty"`
 }
 
 // DeviceRegistration defines model for DeviceRegistration.
@@ -448,6 +454,9 @@ type UpsertOrganizationScheduledRequest struct {
 	// Data Scheduled resource data
 	Data *map[string]any `json:"data,omitempty"`
 
+	// Id The id of the schedule assignment. Omit to create a new assignment (multiple assignments may share the same name per organization); supply an existing id to update that assignment in place. The id is returned in the response.
+	Id *openapi_types.UUID `json:"id,omitempty"`
+
 	// Identifier One or more external identifiers to identify the organization
 	Identifier OrganizationIdentifier `json:"identifier"`
 
@@ -468,6 +477,9 @@ type UpsertOrganizationScheduledRequest struct {
 type UpsertUserScheduledRequest struct {
 	// Data Scheduled resource data
 	Data *map[string]any `json:"data,omitempty"`
+
+	// Id The id of the schedule assignment. Omit to create a new assignment (multiple assignments may share the same name per user); supply an existing id to update that assignment in place. The id is returned in the response.
+	Id *openapi_types.UUID `json:"id,omitempty"`
 
 	// Identifier One or more external identifiers to identify the user
 	Identifier *UserIdentifier `json:"identifier,omitempty"`

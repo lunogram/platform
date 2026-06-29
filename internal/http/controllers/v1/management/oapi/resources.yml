@@ -9930,6 +9930,11 @@ components:
     UpsertUserScheduledRequest:
       type: object
       properties:
+        id:
+          type: string
+          format: uuid
+          description: The schedule assignment instance id. Omit to create a new assignment (multiple assignments may share the same name per user); supply an existing id to update that assignment in place.
+          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
         scheduled_id:
           type: string
           format: uuid
@@ -9969,6 +9974,11 @@ components:
     UpsertOrganizationScheduledRequest:
       type: object
       properties:
+        id:
+          type: string
+          format: uuid
+          description: The schedule assignment instance id. Omit to create a new assignment (multiple assignments may share the same name per organization); supply an existing id to update that assignment in place.
+          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
         scheduled_id:
           type: string
           format: uuid

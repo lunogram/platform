@@ -3,6 +3,7 @@ package subjects
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -12,6 +13,13 @@ import (
 	"github.com/lunogram/platform/internal/store"
 	"go.uber.org/zap"
 )
+
+// ErrScheduleOwnershipMismatch is returned when an upsert targets an existing
+// schedule-assignment id that belongs to a different subject or schedule
+// definition. Assignments are addressed by their own id, but the id must
+// resolve to a row for the same (subject, schedule) pair; otherwise the upsert
+// is rejected rather than silently rewriting another subject's assignment.
+var ErrScheduleOwnershipMismatch = errors.New("schedule assignment id belongs to a different subject or schedule")
 
 func (s *ScheduledStore) ValidateInterval(ctx context.Context, interval string) bool {
 	var positive bool
@@ -487,10 +495,20 @@ func (s *ScheduledStore) UpdateUserSchedule(ctx context.Context, id uuid.UUID, s
 	return &us, nil
 }
 
-// UpsertUserSchedule inserts a new user schedule or updates the existing one
-// for the given (userID, scheduleID) pair using ON CONFLICT. After the upsert
-// it recomputes pending scheduled events.
-func (s *ScheduledStore) UpsertUserSchedule(ctx context.Context, userID, scheduleID uuid.UUID, scheduledAt *time.Time, startAt *time.Time, interval *string, data json.RawMessage) (*UserSchedule, error) {
+// UpsertUserSchedule creates or updates a user schedule assignment addressed by
+// its own id: a nil id (or one not yet stored) inserts a new assignment, while an
+// existing id updates that assignment in place. Assignments are keyed by id
+// rather than (userID, scheduleID), so a user may hold multiple assignments for
+// the same schedule. A supplied id must resolve to a row for the same
+// (userID, scheduleID); otherwise ErrScheduleOwnershipMismatch is returned. After
+// the upsert it recomputes pending scheduled events.
+func (s *ScheduledStore) UpsertUserSchedule(ctx context.Context, id, userID, scheduleID uuid.UUID, scheduledAt *time.Time, startAt *time.Time, interval *string, data json.RawMessage) (*UserSchedule, error) {
+	// A nil id means "create a new assignment"; mint one so the row is
+	// addressable by the caller afterwards.
+	if id == uuid.Nil {
+		id = uuid.New()
+	}
+
 	// For recurring schedules, anchor_at starts equal to start_at.
 	anchorAt := startAt
 
@@ -506,20 +524,28 @@ func (s *ScheduledStore) UpsertUserSchedule(ctx context.Context, userID, schedul
 		occurrence = result.Occurrence
 	}
 
+	// Assignments are keyed by their own id: a new id inserts a fresh instance,
+	// an existing id updates it. The ON CONFLICT guard ensures a supplied id
+	// cannot be used to overwrite a different subject's or schedule's assignment.
 	stmt := `
-	INSERT INTO user_schedules (user_id, schedule_id, scheduled_at, start_at, anchor_at, interval, occurrence, data)
-	VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-	ON CONFLICT (user_id, schedule_id) DO UPDATE SET
+	INSERT INTO user_schedules (id, user_id, schedule_id, scheduled_at, start_at, anchor_at, interval, occurrence, data)
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+	ON CONFLICT (id) DO UPDATE SET
 		scheduled_at = COALESCE(EXCLUDED.scheduled_at, user_schedules.scheduled_at),
 		start_at     = COALESCE(EXCLUDED.start_at, user_schedules.start_at),
 		anchor_at    = COALESCE(EXCLUDED.anchor_at, user_schedules.anchor_at),
 		interval     = COALESCE(EXCLUDED.interval, user_schedules.interval),
 		occurrence   = COALESCE(EXCLUDED.occurrence, user_schedules.occurrence),
 		data         = COALESCE(EXCLUDED.data, user_schedules.data)
+	WHERE user_schedules.user_id = EXCLUDED.user_id AND user_schedules.schedule_id = EXCLUDED.schedule_id
 	RETURNING id, user_id, schedule_id, scheduled_at, start_at, anchor_at, interval, occurrence, COALESCE(data, '{}'::jsonb) AS data, paused_at, created_at, updated_at`
 
 	var us UserSchedule
-	err := s.db.GetContext(ctx, &us, stmt, userID, scheduleID, scheduledAt, startAt, anchorAt, interval, occurrence, data)
+	err := s.db.GetContext(ctx, &us, stmt, id, userID, scheduleID, scheduledAt, startAt, anchorAt, interval, occurrence, data)
+	if errors.Is(err, store.ErrNoRows) {
+		// The id exists but its (user, schedule) did not satisfy the guard.
+		return nil, ErrScheduleOwnershipMismatch
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -1082,10 +1108,21 @@ func (s *ScheduledStore) UpdateOrganizationSchedule(ctx context.Context, id uuid
 	return &os, nil
 }
 
-// UpsertOrganizationSchedule inserts a new organization schedule or updates the
-// existing one for the given (organizationID, scheduleID) pair using ON CONFLICT.
-// After the upsert it recomputes pending scheduled events.
-func (s *ScheduledStore) UpsertOrganizationSchedule(ctx context.Context, organizationID, scheduleID uuid.UUID, scheduledAt *time.Time, startAt *time.Time, interval *string, data json.RawMessage) (*OrganizationSchedule, error) {
+// UpsertOrganizationSchedule creates or updates an organization schedule
+// assignment addressed by its own id: a nil id (or one not yet stored) inserts a
+// new assignment, while an existing id updates that assignment in place.
+// Assignments are keyed by id rather than (organizationID, scheduleID), so an
+// organization may hold multiple assignments for the same schedule. A supplied id
+// must resolve to a row for the same (organizationID, scheduleID); otherwise
+// ErrScheduleOwnershipMismatch is returned. After the upsert it recomputes
+// pending scheduled events.
+func (s *ScheduledStore) UpsertOrganizationSchedule(ctx context.Context, id, organizationID, scheduleID uuid.UUID, scheduledAt *time.Time, startAt *time.Time, interval *string, data json.RawMessage) (*OrganizationSchedule, error) {
+	// A nil id means "create a new assignment"; mint one so the row is
+	// addressable by the caller afterwards.
+	if id == uuid.Nil {
+		id = uuid.New()
+	}
+
 	// For recurring schedules, anchor_at starts equal to start_at.
 	anchorAt := startAt
 
@@ -1101,20 +1138,28 @@ func (s *ScheduledStore) UpsertOrganizationSchedule(ctx context.Context, organiz
 		occurrence = result.Occurrence
 	}
 
+	// Assignments are keyed by their own id: a new id inserts a fresh instance,
+	// an existing id updates it. The ON CONFLICT guard ensures a supplied id
+	// cannot be used to overwrite a different subject's or schedule's assignment.
 	stmt := `
-	INSERT INTO organization_schedules (organization_id, schedule_id, scheduled_at, start_at, anchor_at, interval, occurrence, data)
-	VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-	ON CONFLICT (organization_id, schedule_id) DO UPDATE SET
+	INSERT INTO organization_schedules (id, organization_id, schedule_id, scheduled_at, start_at, anchor_at, interval, occurrence, data)
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+	ON CONFLICT (id) DO UPDATE SET
 		scheduled_at = COALESCE(EXCLUDED.scheduled_at, organization_schedules.scheduled_at),
 		start_at     = COALESCE(EXCLUDED.start_at, organization_schedules.start_at),
 		anchor_at    = COALESCE(EXCLUDED.anchor_at, organization_schedules.anchor_at),
 		interval     = COALESCE(EXCLUDED.interval, organization_schedules.interval),
 		occurrence   = COALESCE(EXCLUDED.occurrence, organization_schedules.occurrence),
 		data         = COALESCE(EXCLUDED.data, organization_schedules.data)
+	WHERE organization_schedules.organization_id = EXCLUDED.organization_id AND organization_schedules.schedule_id = EXCLUDED.schedule_id
 	RETURNING id, organization_id, schedule_id, scheduled_at, start_at, anchor_at, interval, occurrence, COALESCE(data, '{}'::jsonb) AS data, paused_at, created_at, updated_at`
 
 	var os OrganizationSchedule
-	err := s.db.GetContext(ctx, &os, stmt, organizationID, scheduleID, scheduledAt, startAt, anchorAt, interval, occurrence, data)
+	err := s.db.GetContext(ctx, &os, stmt, id, organizationID, scheduleID, scheduledAt, startAt, anchorAt, interval, occurrence, data)
+	if errors.Is(err, store.ErrNoRows) {
+		// The id exists but its (organization, schedule) did not satisfy the guard.
+		return nil, ErrScheduleOwnershipMismatch
+	}
 	if err != nil {
 		return nil, err
 	}

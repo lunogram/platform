@@ -231,3 +231,61 @@ func TestHandleSchedule(t *testing.T) {
 		})
 	}
 }
+
+func TestHandleScheduleMultipleEntries(t *testing.T) {
+	t.Parallel()
+
+	_, usersState, dbConn := setupStore(t)
+	pub := pubsub.NewNoopPublisher()
+	ctx := context.Background()
+	projectID := uuid.New()
+
+	userID, err := usersState.CreateUser(ctx, projectID, nil, nil, json.RawMessage(`{}`), nil, nil, []subjects.ExternalIDParam{
+		{Source: "anonymous", ExternalID: "anon_" + uuid.New().String()},
+	})
+	require.NoError(t, err)
+
+	step := journey.JourneyVersionStep{
+		ID:   uuid.New(),
+		Type: ScheduleStepType,
+		Data: json.RawMessage(`{"schedule_name":"reentry_reminder","scheduled_at":"2030-01-01T00:00:00Z"}`),
+		Children: []journey.JourneyVersionStepChild{
+			{ChildExternalID: "next-step"},
+		},
+	}
+
+	run := func(entryID uuid.UUID) {
+		hctx := HandlerContext{
+			Context:   ctx,
+			DB:        dbConn,
+			Publisher: pub,
+			ProjectID: projectID,
+			UserID:    userID,
+			Data:      map[string]any{},
+		}
+		_, _, runErr := HandleSchedule(hctx, step, journey.JourneyUserState{JourneyEntryID: entryID})
+		require.NoError(t, runErr)
+	}
+
+	scheduledStore := subjects.NewScheduledStore(dbConn, zap.NewNop())
+
+	entry1 := uuid.New()
+	run(entry1)
+	// A redelivered/retried step message within the same journey entry must not
+	// duplicate the assignment.
+	run(entry1)
+
+	schedule, err := scheduledStore.GetScheduleByName(ctx, projectID, "reentry_reminder")
+	require.NoError(t, err)
+
+	afterFirst, err := scheduledStore.ListUserSchedulesByScheduleID(ctx, userID, schedule.ID)
+	require.NoError(t, err)
+	require.Len(t, afterFirst, 1, "same journey entry must not duplicate the assignment")
+
+	// A second journey entry schedules an additional instance with the same name.
+	run(uuid.New())
+
+	afterSecond, err := scheduledStore.ListUserSchedulesByScheduleID(ctx, userID, schedule.ID)
+	require.NoError(t, err)
+	require.Len(t, afterSecond, 2, "a new journey entry must create an additional assignment")
+}

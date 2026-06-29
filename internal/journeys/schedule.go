@@ -5,12 +5,17 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/render"
 	"github.com/lunogram/platform/internal/store/journey"
 	"github.com/lunogram/platform/internal/store/subjects"
 	"go.uber.org/zap"
 )
+
+// scheduleAssignmentNamespace is a fixed namespace for deriving deterministic
+// schedule-assignment ids from (journey entry, step) in journey steps.
+var scheduleAssignmentNamespace = uuid.MustParse("8e0f6a2c-3b4d-5e6f-7a8b-9c0d1e2f3a4b")
 
 func HandleSchedule(ctx HandlerContext, step journey.JourneyVersionStep, state journey.JourneyUserState) (journey.JourneyUserState, journey.JourneyVersionStepChildren, error) {
 	config, err := DecodeStepData[oapi.ScheduleStepData](step.Data)
@@ -87,7 +92,14 @@ func HandleSchedule(ctx HandlerContext, step journey.JourneyVersionStep, state j
 		data = json.RawMessage(rendered)
 	}
 
-	userSchedule, err := scheduledStore.UpsertUserSchedule(ctx, ctx.UserID, scheduleID, scheduledAt, startAt, interval, data)
+	// Each journey entry (one pass of a user through the journey) schedules its
+	// own instance, so re-entering the journey creates an additional schedule.
+	// The id is derived deterministically from (journey entry, step) rather than
+	// minted randomly so that a redelivered/retried step message updates the same
+	// instance instead of duplicating it.
+	assignmentID := uuid.NewSHA1(scheduleAssignmentNamespace, append(state.JourneyEntryID[:], step.ID[:]...))
+
+	userSchedule, err := scheduledStore.UpsertUserSchedule(ctx, assignmentID, ctx.UserID, scheduleID, scheduledAt, startAt, interval, data)
 	if err != nil {
 		return state, nil, fmt.Errorf("failed to upsert user schedule: %w", err)
 	}

@@ -2255,6 +2255,9 @@ type UpsertOrganizationScheduledRequest struct {
 	// Data Scheduled resource data
 	Data *json.RawMessage `json:"data,omitempty"`
 
+	// Id The schedule assignment instance id. Omit to create a new assignment (multiple assignments may share the same name per organization); supply an existing id to update that assignment in place.
+	Id *openapi_types.UUID `json:"id,omitempty"`
+
 	// Interval Interval for recurring schedules. When set, the schedule type is automatically set to recurring.
 	Interval *string `json:"interval,omitempty"`
 
@@ -2281,6 +2284,9 @@ type UpsertProjectPushProvider struct {
 type UpsertUserScheduledRequest struct {
 	// Data Scheduled resource data
 	Data *json.RawMessage `json:"data,omitempty"`
+
+	// Id The schedule assignment instance id. Omit to create a new assignment (multiple assignments may share the same name per user); supply an existing id to update that assignment in place.
+	Id *openapi_types.UUID `json:"id,omitempty"`
 
 	// Interval Interval for recurring schedules. When set, the schedule type is automatically set to recurring.
 	Interval *string `json:"interval,omitempty"`
