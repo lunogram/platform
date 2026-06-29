@@ -75,17 +75,26 @@ func (srv *ScheduledController) UpsertUserScheduledClient(w http.ResponseWriter,
 		data = *req.Data
 	}
 
+	// Resolve the assignment id: a supplied id upserts that specific instance,
+	// otherwise mint a new one so this submission creates a fresh assignment.
+	// Multiple assignments may share the same name per user.
+	assignmentID := uuid.New()
+	if req.Id != nil {
+		assignmentID = *req.Id
+	}
+
 	userIDParams := auth.BoundUserIdentifiers(r.Context(), oapi.ToParams(*req.Identifier))
 	msg := schemas.ScheduledMsg{
-		ID:          uuid.New(),
-		ProjectID:   projectID,
-		Name:        req.Name,
-		Type:        scheduleType,
-		SubjectType: "user",
-		Data:        data,
-		Identifiers: userIDParams,
-		StartAt:     req.StartAt,
-		Interval:    req.Interval,
+		ID:           uuid.New(),
+		ProjectID:    projectID,
+		AssignmentID: assignmentID,
+		Name:         req.Name,
+		Type:         scheduleType,
+		SubjectType:  "user",
+		Data:         data,
+		Identifiers:  userIDParams,
+		StartAt:      req.StartAt,
+		Interval:     req.Interval,
 	}
 
 	if req.ScheduledAt != nil {
@@ -99,7 +108,7 @@ func (srv *ScheduledController) UpsertUserScheduledClient(w http.ResponseWriter,
 		return
 	}
 
-	logger.Info("user scheduled accepted for processing", zap.Stringer("id", msg.ID))
+	logger.Info("user scheduled accepted for processing", zap.Stringer("assignment_id", assignmentID))
 
 	var scheduledAt time.Time
 	if req.ScheduledAt != nil {
@@ -109,7 +118,7 @@ func (srv *ScheduledController) UpsertUserScheduledClient(w http.ResponseWriter,
 	}
 
 	json.Write(w, http.StatusAccepted, oapi.ScheduledAccepted{
-		Id:          msg.ID,
+		Id:          assignmentID,
 		Name:        req.Name,
 		ScheduledAt: scheduledAt,
 		Data:        req.Data,
@@ -133,16 +142,16 @@ func (srv *ScheduledController) DeleteUserScheduledClient(w http.ResponseWriter,
 		return
 	}
 
-	if req.Identifier == nil || len(*req.Identifier) == 0 {
+	if len(req.Identifier) == 0 {
 		srv.logger.Error("at least one identifier is required")
 		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("at least one identifier is required")))
 		return
 	}
 
-	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.String("scheduled_name", req.Name))
+	logger := srv.logger.With(zap.Stringer("project_id", projectID))
 	logger.Info("deleting user scheduled")
 
-	userID, err := srv.users.LookupUserID(ctx, projectID, auth.BoundUserIdentifiers(ctx, oapi.ToParams(*req.Identifier)))
+	userID, err := srv.users.LookupUserID(ctx, projectID, auth.BoundUserIdentifiers(ctx, oapi.ToParams(req.Identifier)))
 	if errors.Is(err, subjects.ErrUserNotFound) {
 		logger.Info("user not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
@@ -154,7 +163,41 @@ func (srv *ScheduledController) DeleteUserScheduledClient(w http.ResponseWriter,
 		return
 	}
 
-	schedule, err := srv.users.GetScheduleByName(ctx, projectID, req.Name)
+	// Delete a single assignment by id when provided (after verifying it belongs
+	// to the resolved user); otherwise delete every assignment with the given name.
+	if req.Id != nil {
+		existing, err := srv.users.GetUserScheduleByID(ctx, *req.Id)
+		if errors.Is(err, sql.ErrNoRows) {
+			logger.Info("scheduled instance not found")
+			oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("scheduled instance not found")))
+			return
+		}
+		if err != nil {
+			logger.Error("failed to get user schedule by id", zap.Error(err))
+			oapi.WriteProblem(w, problem.ErrInternal())
+			return
+		}
+		if existing.UserID != userID {
+			logger.Warn("scheduled instance does not belong to user")
+			oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("scheduled instance not found")))
+			return
+		}
+		if err := srv.users.DeleteUserSchedule(ctx, *req.Id); err != nil {
+			logger.Error("failed to delete user schedule", zap.Error(err))
+			oapi.WriteProblem(w, problem.ErrInternal())
+			return
+		}
+		logger.Info("user scheduled instance deleted")
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	if req.Name == nil || *req.Name == "" {
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("either id or name is required")))
+		return
+	}
+
+	schedule, err := srv.users.GetScheduleByName(ctx, projectID, *req.Name)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("schedule not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("schedule not found")))
@@ -166,8 +209,7 @@ func (srv *ScheduledController) DeleteUserScheduledClient(w http.ResponseWriter,
 		return
 	}
 
-	err = srv.users.DeleteUserScheduleByScheduleID(ctx, userID, schedule.ID)
-	if err != nil {
+	if err := srv.users.DeleteUserScheduleByScheduleID(ctx, userID, schedule.ID); err != nil {
 		logger.Error("failed to delete user schedule", zap.Error(err))
 		oapi.WriteProblem(w, problem.ErrInternal())
 		return
@@ -239,9 +281,18 @@ func (srv *ScheduledController) UpsertOrganizationScheduledClient(w http.Respons
 		data = *req.Data
 	}
 
+	// Resolve the assignment id: a supplied id upserts that specific instance,
+	// otherwise mint a new one so this submission creates a fresh assignment.
+	// Multiple assignments may share the same name per organization.
+	assignmentID := uuid.New()
+	if req.Id != nil {
+		assignmentID = *req.Id
+	}
+
 	msg := schemas.ScheduledMsg{
 		ID:             uuid.New(),
 		ProjectID:      projectID,
+		AssignmentID:   assignmentID,
 		Name:           req.Name,
 		Type:           scheduleType,
 		SubjectType:    "organization",
@@ -263,7 +314,7 @@ func (srv *ScheduledController) UpsertOrganizationScheduledClient(w http.Respons
 		return
 	}
 
-	logger.Info("organization scheduled accepted for processing", zap.Stringer("id", msg.ID))
+	logger.Info("organization scheduled accepted for processing", zap.Stringer("assignment_id", assignmentID))
 
 	var scheduledAt time.Time
 	if req.ScheduledAt != nil {
@@ -273,7 +324,7 @@ func (srv *ScheduledController) UpsertOrganizationScheduledClient(w http.Respons
 	}
 
 	json.Write(w, http.StatusAccepted, oapi.ScheduledAccepted{
-		Id:          msg.ID,
+		Id:          assignmentID,
 		Name:        req.Name,
 		ScheduledAt: scheduledAt,
 		Data:        req.Data,
@@ -302,7 +353,7 @@ func (srv *ScheduledController) DeleteOrganizationScheduledClient(w http.Respons
 		return
 	}
 
-	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.String("scheduled_name", req.Name))
+	logger := srv.logger.With(zap.Stringer("project_id", projectID))
 	logger.Info("deleting organization scheduled")
 
 	orgID, err := srv.users.LookupOrganizationID(ctx, projectID, oapi.ToParams(req.Identifier))
@@ -317,7 +368,41 @@ func (srv *ScheduledController) DeleteOrganizationScheduledClient(w http.Respons
 		return
 	}
 
-	schedule, err := srv.users.GetScheduleByName(ctx, projectID, req.Name)
+	// Delete a single assignment by id when provided (after verifying it belongs
+	// to the resolved organization); otherwise delete every assignment with the name.
+	if req.Id != nil {
+		existing, err := srv.users.GetOrganizationScheduleByID(ctx, *req.Id)
+		if errors.Is(err, sql.ErrNoRows) {
+			logger.Info("scheduled instance not found")
+			oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("scheduled instance not found")))
+			return
+		}
+		if err != nil {
+			logger.Error("failed to get organization schedule by id", zap.Error(err))
+			oapi.WriteProblem(w, problem.ErrInternal())
+			return
+		}
+		if existing.OrganizationID != orgID {
+			logger.Warn("scheduled instance does not belong to organization")
+			oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("scheduled instance not found")))
+			return
+		}
+		if err := srv.users.DeleteOrganizationSchedule(ctx, *req.Id); err != nil {
+			logger.Error("failed to delete organization schedule", zap.Error(err))
+			oapi.WriteProblem(w, problem.ErrInternal())
+			return
+		}
+		logger.Info("organization scheduled instance deleted")
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	if req.Name == nil || *req.Name == "" {
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("either id or name is required")))
+		return
+	}
+
+	schedule, err := srv.users.GetScheduleByName(ctx, projectID, *req.Name)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("schedule not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("schedule not found")))
@@ -329,8 +414,7 @@ func (srv *ScheduledController) DeleteOrganizationScheduledClient(w http.Respons
 		return
 	}
 
-	err = srv.users.DeleteOrganizationScheduleByScheduleID(ctx, orgID, schedule.ID)
-	if err != nil {
+	if err := srv.users.DeleteOrganizationScheduleByScheduleID(ctx, orgID, schedule.ID); err != nil {
 		logger.Error("failed to delete organization schedule", zap.Error(err))
 		oapi.WriteProblem(w, problem.ErrInternal())
 		return

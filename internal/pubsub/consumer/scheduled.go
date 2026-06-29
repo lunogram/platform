@@ -3,6 +3,7 @@ package consumer
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -17,6 +18,22 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 	"go.uber.org/zap"
 )
+
+// scheduledAssignmentNamespace derives a stable assignment id for scheduled
+// messages that omit assignment_id, keyed by (subject, schedule). Producers that
+// do not set an id (e.g. the user/organization anniversary schedules) thereby
+// stay idempotent under at-least-once redelivery — a redelivered message upserts
+// the same assignment instead of minting a fresh one and duplicating it.
+var scheduledAssignmentNamespace = uuid.MustParse("c1d2e3f4-5a6b-7c8d-9e0f-1a2b3c4d5e6f")
+
+// resolveAssignmentID returns the message's assignment id, or a deterministic id
+// derived from (subjectID, scheduleID) when the message omits one.
+func resolveAssignmentID(provided, subjectID, scheduleID uuid.UUID) uuid.UUID {
+	if provided != uuid.Nil {
+		return provided
+	}
+	return uuid.NewSHA1(scheduledAssignmentNamespace, append(subjectID[:], scheduleID[:]...))
+}
 
 // resolveUserID ensures scheduled.UserID is populated, looking it up by
 // identifiers when necessary.
@@ -122,7 +139,12 @@ func ScheduledHandler(logger *zap.Logger, db *sqlx.DB, usrs *subjects.State, pub
 			if err := resolveUserID(ctx, logger, txState, &scheduled); err != nil {
 				return err
 			}
-			if _, err := txState.UpsertUserSchedule(ctx, scheduled.UserID, scheduled.ScheduledID, scheduledAt, scheduled.StartAt, scheduled.Interval, data); err != nil {
+			assignmentID := resolveAssignmentID(scheduled.AssignmentID, scheduled.UserID, scheduled.ScheduledID)
+			if _, err := txState.UpsertUserSchedule(ctx, assignmentID, scheduled.UserID, scheduled.ScheduledID, scheduledAt, scheduled.StartAt, scheduled.Interval, data); err != nil {
+				if errors.Is(err, subjects.ErrScheduleOwnershipMismatch) {
+					logger.Error("user schedule assignment id does not match subject/schedule", zap.Error(err))
+					return Permanent(err)
+				}
 				logger.Error("failed to upsert user schedule", zap.Error(err))
 				return err
 			}
@@ -131,7 +153,12 @@ func ScheduledHandler(logger *zap.Logger, db *sqlx.DB, usrs *subjects.State, pub
 			if err := resolveOrganizationID(ctx, logger, txState, &scheduled); err != nil {
 				return err
 			}
-			if _, err := txState.UpsertOrganizationSchedule(ctx, scheduled.OrganizationID, scheduled.ScheduledID, scheduledAt, scheduled.StartAt, scheduled.Interval, data); err != nil {
+			assignmentID := resolveAssignmentID(scheduled.AssignmentID, scheduled.OrganizationID, scheduled.ScheduledID)
+			if _, err := txState.UpsertOrganizationSchedule(ctx, assignmentID, scheduled.OrganizationID, scheduled.ScheduledID, scheduledAt, scheduled.StartAt, scheduled.Interval, data); err != nil {
+				if errors.Is(err, subjects.ErrScheduleOwnershipMismatch) {
+					logger.Error("organization schedule assignment id does not match subject/schedule", zap.Error(err))
+					return Permanent(err)
+				}
 				logger.Error("failed to upsert organization schedule", zap.Error(err))
 				return err
 			}
