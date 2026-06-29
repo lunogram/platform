@@ -495,9 +495,13 @@ func (s *ScheduledStore) UpdateUserSchedule(ctx context.Context, id uuid.UUID, s
 	return &us, nil
 }
 
-// UpsertUserSchedule inserts a new user schedule or updates the existing one
-// for the given (userID, scheduleID) pair using ON CONFLICT. After the upsert
-// it recomputes pending scheduled events.
+// UpsertUserSchedule creates or updates a user schedule assignment addressed by
+// its own id: a nil id (or one not yet stored) inserts a new assignment, while an
+// existing id updates that assignment in place. Assignments are keyed by id
+// rather than (userID, scheduleID), so a user may hold multiple assignments for
+// the same schedule. A supplied id must resolve to a row for the same
+// (userID, scheduleID); otherwise ErrScheduleOwnershipMismatch is returned. After
+// the upsert it recomputes pending scheduled events.
 func (s *ScheduledStore) UpsertUserSchedule(ctx context.Context, id, userID, scheduleID uuid.UUID, scheduledAt *time.Time, startAt *time.Time, interval *string, data json.RawMessage) (*UserSchedule, error) {
 	// A nil id means "create a new assignment"; mint one so the row is
 	// addressable by the caller afterwards.
@@ -1104,9 +1108,14 @@ func (s *ScheduledStore) UpdateOrganizationSchedule(ctx context.Context, id uuid
 	return &os, nil
 }
 
-// UpsertOrganizationSchedule inserts a new organization schedule or updates the
-// existing one for the given (organizationID, scheduleID) pair using ON CONFLICT.
-// After the upsert it recomputes pending scheduled events.
+// UpsertOrganizationSchedule creates or updates an organization schedule
+// assignment addressed by its own id: a nil id (or one not yet stored) inserts a
+// new assignment, while an existing id updates that assignment in place.
+// Assignments are keyed by id rather than (organizationID, scheduleID), so an
+// organization may hold multiple assignments for the same schedule. A supplied id
+// must resolve to a row for the same (organizationID, scheduleID); otherwise
+// ErrScheduleOwnershipMismatch is returned. After the upsert it recomputes
+// pending scheduled events.
 func (s *ScheduledStore) UpsertOrganizationSchedule(ctx context.Context, id, organizationID, scheduleID uuid.UUID, scheduledAt *time.Time, startAt *time.Time, interval *string, data json.RawMessage) (*OrganizationSchedule, error) {
 	// A nil id means "create a new assignment"; mint one so the row is
 	// addressable by the caller afterwards.
