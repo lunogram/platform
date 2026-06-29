@@ -1732,6 +1732,8 @@ components:
 
     DeleteUserScheduledRequest:
       type: object
+      required:
+        - identifier
       properties:
         id:
           type: string

@@ -142,7 +142,7 @@ func (srv *ScheduledController) DeleteUserScheduledClient(w http.ResponseWriter,
 		return
 	}
 
-	if req.Identifier == nil || len(*req.Identifier) == 0 {
+	if len(req.Identifier) == 0 {
 		srv.logger.Error("at least one identifier is required")
 		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("at least one identifier is required")))
 		return
@@ -151,7 +151,7 @@ func (srv *ScheduledController) DeleteUserScheduledClient(w http.ResponseWriter,
 	logger := srv.logger.With(zap.Stringer("project_id", projectID))
 	logger.Info("deleting user scheduled")
 
-	userID, err := srv.users.LookupUserID(ctx, projectID, auth.BoundUserIdentifiers(ctx, oapi.ToParams(*req.Identifier)))
+	userID, err := srv.users.LookupUserID(ctx, projectID, auth.BoundUserIdentifiers(ctx, oapi.ToParams(req.Identifier)))
 	if errors.Is(err, subjects.ErrUserNotFound) {
 		logger.Info("user not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))

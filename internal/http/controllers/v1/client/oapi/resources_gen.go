@@ -150,7 +150,7 @@ type DeleteUserScheduledRequest struct {
 	Id *openapi_types.UUID `json:"id,omitempty"`
 
 	// Identifier One or more external identifiers to identify the user
-	Identifier *UserIdentifier `json:"identifier,omitempty"`
+	Identifier UserIdentifier `json:"identifier"`
 
 	// Name The name of the scheduled resource to delete. When provided (and id is omitted), every assignment with this name for the user is removed. Either id or name is required.
 	Name *string `json:"name,omitempty"`
