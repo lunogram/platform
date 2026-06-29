@@ -686,6 +686,7 @@ type ScheduledMsg struct {
 	ID             uuid.UUID      `json:"id"`
 	ProjectID      uuid.UUID      `json:"project_id"`
 	ScheduledID    uuid.UUID      `json:"scheduled_id"`
+	AssignmentID   uuid.UUID      `json:"assignment_id,omitempty"` // the per-subject assignment (user_schedules/organization_schedules) id; zero means create a new assignment
 	Name           string         `json:"name"`
 	Type           string         `json:"type"`         // "single" or "recurring"
 	SubjectType    string         `json:"subject_type"` // "user" or "organization"

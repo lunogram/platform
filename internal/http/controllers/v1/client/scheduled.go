@@ -75,17 +75,26 @@ func (srv *ScheduledController) UpsertUserScheduledClient(w http.ResponseWriter,
 		data = *req.Data
 	}
 
+	// Resolve the assignment id: a supplied id upserts that specific instance,
+	// otherwise mint a new one so this submission creates a fresh assignment.
+	// Multiple assignments may share the same name per user.
+	assignmentID := uuid.New()
+	if req.Id != nil {
+		assignmentID = *req.Id
+	}
+
 	userIDParams := auth.BoundUserIdentifiers(r.Context(), oapi.ToParams(*req.Identifier))
 	msg := schemas.ScheduledMsg{
-		ID:          uuid.New(),
-		ProjectID:   projectID,
-		Name:        req.Name,
-		Type:        scheduleType,
-		SubjectType: "user",
-		Data:        data,
-		Identifiers: userIDParams,
-		StartAt:     req.StartAt,
-		Interval:    req.Interval,
+		ID:           uuid.New(),
+		ProjectID:    projectID,
+		AssignmentID: assignmentID,
+		Name:         req.Name,
+		Type:         scheduleType,
+		SubjectType:  "user",
+		Data:         data,
+		Identifiers:  userIDParams,
+		StartAt:      req.StartAt,
+		Interval:     req.Interval,
 	}
 
 	if req.ScheduledAt != nil {
@@ -99,7 +108,7 @@ func (srv *ScheduledController) UpsertUserScheduledClient(w http.ResponseWriter,
 		return
 	}
 
-	logger.Info("user scheduled accepted for processing", zap.Stringer("id", msg.ID))
+	logger.Info("user scheduled accepted for processing", zap.Stringer("assignment_id", assignmentID))
 
 	var scheduledAt time.Time
 	if req.ScheduledAt != nil {
@@ -109,7 +118,7 @@ func (srv *ScheduledController) UpsertUserScheduledClient(w http.ResponseWriter,
 	}
 
 	json.Write(w, http.StatusAccepted, oapi.ScheduledAccepted{
-		Id:          msg.ID,
+		Id:          assignmentID,
 		Name:        req.Name,
 		ScheduledAt: scheduledAt,
 		Data:        req.Data,
@@ -239,9 +248,18 @@ func (srv *ScheduledController) UpsertOrganizationScheduledClient(w http.Respons
 		data = *req.Data
 	}
 
+	// Resolve the assignment id: a supplied id upserts that specific instance,
+	// otherwise mint a new one so this submission creates a fresh assignment.
+	// Multiple assignments may share the same name per organization.
+	assignmentID := uuid.New()
+	if req.Id != nil {
+		assignmentID = *req.Id
+	}
+
 	msg := schemas.ScheduledMsg{
 		ID:             uuid.New(),
 		ProjectID:      projectID,
+		AssignmentID:   assignmentID,
 		Name:           req.Name,
 		Type:           scheduleType,
 		SubjectType:    "organization",
@@ -263,7 +281,7 @@ func (srv *ScheduledController) UpsertOrganizationScheduledClient(w http.Respons
 		return
 	}
 
-	logger.Info("organization scheduled accepted for processing", zap.Stringer("id", msg.ID))
+	logger.Info("organization scheduled accepted for processing", zap.Stringer("assignment_id", assignmentID))
 
 	var scheduledAt time.Time
 	if req.ScheduledAt != nil {
@@ -273,7 +291,7 @@ func (srv *ScheduledController) UpsertOrganizationScheduledClient(w http.Respons
 	}
 
 	json.Write(w, http.StatusAccepted, oapi.ScheduledAccepted{
-		Id:          msg.ID,
+		Id:          assignmentID,
 		Name:        req.Name,
 		ScheduledAt: scheduledAt,
 		Data:        req.Data,

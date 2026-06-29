@@ -364,7 +364,19 @@ func (srv *ScheduledController) UpsertUserScheduled(w http.ResponseWriter, r *ht
 		body.StartAt = &now
 	}
 
-	upserted, err := srv.store.UpsertUserSchedule(ctx, userID, scheduleID, body.ScheduledAt, body.StartAt, body.Interval, data)
+	// A supplied id updates that specific assignment; omitting it creates a new
+	// one (the store mints an id). Multiple assignments may share the same name.
+	var assignmentID uuid.UUID
+	if body.Id != nil {
+		assignmentID = *body.Id
+	}
+
+	upserted, err := srv.store.UpsertUserSchedule(ctx, assignmentID, userID, scheduleID, body.ScheduledAt, body.StartAt, body.Interval, data)
+	if errors.Is(err, subjects.ErrScheduleOwnershipMismatch) {
+		logger.Warn("scheduled instance id does not match user or schedule", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("scheduled instance id does not match the user or schedule")))
+		return
+	}
 	if err != nil {
 		logger.Error("failed to upsert user schedule", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -643,7 +655,19 @@ func (srv *ScheduledController) UpsertOrganizationScheduled(w http.ResponseWrite
 		body.StartAt = &now
 	}
 
-	upserted, err := srv.store.UpsertOrganizationSchedule(ctx, organizationID, scheduleID, body.ScheduledAt, body.StartAt, body.Interval, data)
+	// A supplied id updates that specific assignment; omitting it creates a new
+	// one (the store mints an id). Multiple assignments may share the same name.
+	var assignmentID uuid.UUID
+	if body.Id != nil {
+		assignmentID = *body.Id
+	}
+
+	upserted, err := srv.store.UpsertOrganizationSchedule(ctx, assignmentID, organizationID, scheduleID, body.ScheduledAt, body.StartAt, body.Interval, data)
+	if errors.Is(err, subjects.ErrScheduleOwnershipMismatch) {
+		logger.Warn("scheduled instance id does not match organization or schedule", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("scheduled instance id does not match the organization or schedule")))
+		return
+	}
 	if err != nil {
 		logger.Error("failed to upsert organization schedule", zap.Error(err))
 		oapi.WriteProblem(w, err)

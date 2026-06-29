@@ -3,6 +3,7 @@ package consumer
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -122,7 +123,11 @@ func ScheduledHandler(logger *zap.Logger, db *sqlx.DB, usrs *subjects.State, pub
 			if err := resolveUserID(ctx, logger, txState, &scheduled); err != nil {
 				return err
 			}
-			if _, err := txState.UpsertUserSchedule(ctx, scheduled.UserID, scheduled.ScheduledID, scheduledAt, scheduled.StartAt, scheduled.Interval, data); err != nil {
+			if _, err := txState.UpsertUserSchedule(ctx, scheduled.AssignmentID, scheduled.UserID, scheduled.ScheduledID, scheduledAt, scheduled.StartAt, scheduled.Interval, data); err != nil {
+				if errors.Is(err, subjects.ErrScheduleOwnershipMismatch) {
+					logger.Error("user schedule assignment id does not match subject/schedule", zap.Error(err))
+					return Permanent(err)
+				}
 				logger.Error("failed to upsert user schedule", zap.Error(err))
 				return err
 			}
@@ -131,7 +136,11 @@ func ScheduledHandler(logger *zap.Logger, db *sqlx.DB, usrs *subjects.State, pub
 			if err := resolveOrganizationID(ctx, logger, txState, &scheduled); err != nil {
 				return err
 			}
-			if _, err := txState.UpsertOrganizationSchedule(ctx, scheduled.OrganizationID, scheduled.ScheduledID, scheduledAt, scheduled.StartAt, scheduled.Interval, data); err != nil {
+			if _, err := txState.UpsertOrganizationSchedule(ctx, scheduled.AssignmentID, scheduled.OrganizationID, scheduled.ScheduledID, scheduledAt, scheduled.StartAt, scheduled.Interval, data); err != nil {
+				if errors.Is(err, subjects.ErrScheduleOwnershipMismatch) {
+					logger.Error("organization schedule assignment id does not match subject/schedule", zap.Error(err))
+					return Permanent(err)
+				}
 				logger.Error("failed to upsert organization schedule", zap.Error(err))
 				return err
 			}

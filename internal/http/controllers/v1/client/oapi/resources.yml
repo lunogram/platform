@@ -1646,6 +1646,12 @@ components:
       required:
         - name
       properties:
+        id:
+          type: string
+          format: uuid
+          nullable: true
+          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+          description: The id of the schedule assignment. Omit to create a new assignment (multiple assignments may share the same name per user); supply an existing id to update that assignment in place. The id is returned in the response.
         name:
           type: string
           example: "renewal_date"
@@ -1685,6 +1691,12 @@ components:
         - name
         - identifier
       properties:
+        id:
+          type: string
+          format: uuid
+          nullable: true
+          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+          description: The id of the schedule assignment. Omit to create a new assignment (multiple assignments may share the same name per organization); supply an existing id to update that assignment in place. The id is returned in the response.
         name:
           type: string
           example: "contract_renewal"

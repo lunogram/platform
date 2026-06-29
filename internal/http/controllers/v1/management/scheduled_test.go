@@ -653,8 +653,10 @@ func TestUpsertUserScheduledIdempotent(t *testing.T) {
 	var result1 oapi.UserScheduled
 	require.NoError(t, json.Unmarshal(res1.Body.Bytes(), &result1))
 
+	// Re-upserting with the returned instance id updates that assignment in place.
 	time2 := time.Now().Add(72 * time.Hour).UTC().Truncate(time.Microsecond)
 	body2, _ := json.Marshal(oapi.UpsertUserScheduledRequest{
+		Id:          &result1.Id,
 		ScheduledId: &sid,
 		ScheduledAt: &time2,
 		Data:        &data,
@@ -669,8 +671,41 @@ func TestUpsertUserScheduledIdempotent(t *testing.T) {
 	var result2 oapi.UserScheduled
 	require.NoError(t, json.Unmarshal(res2.Body.Bytes(), &result2))
 
-	require.Equal(t, result1.Id, result2.Id, "upsert should return same instance ID")
+	require.Equal(t, result1.Id, result2.Id, "upsert with id should return same instance ID")
 	require.WithinDuration(t, time2, result2.ScheduledAt, time.Second)
+}
+
+func TestUpsertUserScheduledCreatesNewInstance(t *testing.T) {
+	t.Parallel()
+
+	tc := setupScheduledController(t)
+
+	userID := tc.createUser(t)
+	sid := tc.createSchedule(t, "user_multi", "single")
+	data := json.RawMessage(`{}`)
+
+	upsert := func(at time.Time) oapi.UserScheduled {
+		body, _ := json.Marshal(oapi.UpsertUserScheduledRequest{
+			ScheduledId: &sid,
+			ScheduledAt: &at,
+			Data:        &data,
+		})
+		res := httptest.NewRecorder()
+		req := httptest.NewRequest("PUT", "/", bytes.NewReader(body))
+		req = req.WithContext(tc.actorCtx)
+		tc.controller.UpsertUserScheduled(res, req, tc.projectID, userID)
+		require.Equal(t, 200, res.Code)
+
+		var result oapi.UserScheduled
+		require.NoError(t, json.Unmarshal(res.Body.Bytes(), &result))
+		return result
+	}
+
+	// Without an id, each upsert creates a distinct assignment for the same name.
+	first := upsert(time.Now().Add(24 * time.Hour).UTC().Truncate(time.Microsecond))
+	second := upsert(time.Now().Add(48 * time.Hour).UTC().Truncate(time.Microsecond))
+
+	require.NotEqual(t, first.Id, second.Id)
 }
 
 func TestDeleteUserScheduled(t *testing.T) {
@@ -1066,8 +1101,10 @@ func TestUpsertOrganizationScheduledIdempotent(t *testing.T) {
 	var result1 oapi.UserScheduled
 	require.NoError(t, json.Unmarshal(res1.Body.Bytes(), &result1))
 
+	// Re-upserting with the returned instance id updates that assignment in place.
 	time2 := time.Now().Add(72 * time.Hour).UTC().Truncate(time.Microsecond)
 	body2, _ := json.Marshal(oapi.UpsertOrganizationScheduledRequest{
+		Id:          &result1.Id,
 		ScheduledId: &sid,
 		ScheduledAt: &time2,
 		Data:        &data,
@@ -1082,7 +1119,7 @@ func TestUpsertOrganizationScheduledIdempotent(t *testing.T) {
 	var result2 oapi.UserScheduled
 	require.NoError(t, json.Unmarshal(res2.Body.Bytes(), &result2))
 
-	require.Equal(t, result1.Id, result2.Id, "upsert should return same instance ID")
+	require.Equal(t, result1.Id, result2.Id, "upsert with id should return same instance ID")
 	require.WithinDuration(t, time2, result2.ScheduledAt, time.Second)
 }
 
