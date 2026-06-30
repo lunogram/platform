@@ -18,7 +18,8 @@ import {
 import { UserImportDialog } from "@/components/ui/user-import-dialog"
 import { NIL } from "uuid"
 import { useRoute } from "@/hooks/use-route"
-import { useResolver } from "../../hooks"
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { queryKeys } from "@/lib/query-keys"
 import { formatDate, cn } from "../../utils"
 import { getRandomColor } from "@/lib/colors"
 import { getUserDisplayName, getUserInitials, getPrimaryExternalId } from "@/lib/name"
@@ -94,7 +95,6 @@ export default function Users() {
     const [searchQuery, setSearchQuery] = useState("")
     const [debouncedQuery, setDebouncedQuery] = useState("")
     const [isCreateOpen, setIsCreateOpen] = useState(false)
-    const [isCreating, setIsCreating] = useState(false)
     const [isBulkImportOpen, setIsBulkImportOpen] = useState(false)
     const [isNewUserTimezoneOpen, setIsNewUserTimezoneOpen] = useState(false)
     const timezones = useMemo(() => Intl.supportedValuesOf("timeZone"), [])
@@ -124,15 +124,22 @@ export default function Users() {
         }, 300)
     }, [])
 
-    const [result, , reload] = useResolver(
-        useCallback(async () => {
-            return await api.users.search(projectId, {
-                limit,
-                offset: (page - 1) * limit,
-                search: debouncedQuery || undefined,
-            })
-        }, [projectId, debouncedQuery, page]),
-    )
+    const searchParams = {
+        limit,
+        offset: (page - 1) * limit,
+        search: debouncedQuery || undefined,
+    }
+    const { data: result } = useQuery({
+        queryKey: queryKeys.users.list(projectId, searchParams),
+        queryFn: () => api.users.search(projectId, searchParams),
+        // Keep the previous page's rows visible while the next page loads, so
+        // paging and typing in search don't flash an empty table.
+        placeholderData: keepPreviousData,
+    })
+
+    const queryClient = useQueryClient()
+    const invalidateUsers = () =>
+        queryClient.invalidateQueries({ queryKey: queryKeys.users.all(projectId) })
 
     const users = result?.results
     const total = result?.total ?? 0
@@ -140,11 +147,8 @@ export default function Users() {
     const hasNextPage = page < totalPages
     const hasPrevPage = page > 1
 
-    const createUser = async (data: CreateUserFormValues) => {
-        if (!data.external_id?.trim() && !data.email) return
-
-        setIsCreating(true)
-        try {
+    const createUserMutation = useMutation({
+        mutationFn: async (data: CreateUserFormValues) => {
             const newUser: User = {
                 identifier: data.external_id?.trim()
                     ? [{ source: "default", external_id: data.external_id.trim() }]
@@ -156,20 +160,28 @@ export default function Users() {
                 data: newUserData,
             } as User
 
-            await api.users.create(projectId, newUser)
-            await reload()
+            return await api.users.create(projectId, newUser)
+        },
+        onSuccess: async () => {
+            await invalidateUsers()
             setIsCreateOpen(false)
             form.reset()
             setNewUserData({})
-        } finally {
-            setIsCreating(false)
-        }
+        },
+    })
+    const isCreating = createUserMutation.isPending
+
+    const createUser = (data: CreateUserFormValues) => {
+        if (!data.external_id?.trim() && !data.email) return
+        createUserMutation.mutate(data)
     }
 
-    const handleImportUsers = async (file: File) => {
-        await api.users.addImport(projectId, file)
-        await reload()
-    }
+    const importUsersMutation = useMutation({
+        mutationFn: (file: File) => api.users.addImport(projectId, file),
+        onSuccess: () => invalidateUsers(),
+    })
+
+    const handleImportUsers = (file: File) => importUsersMutation.mutateAsync(file)
 
     const handleRowClick = (user: User) => {
         route(`users/${user.id}`)
