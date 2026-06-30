@@ -78,10 +78,8 @@ import ProjectOnboardingDomain from "./project/ProjectOnboardingDomain"
 import Locales from "./settings/Locales"
 import Domains from "./settings/Domains"
 import { isEnterprise } from "@/config/enterprise"
-import JourneyUserEntrances from "./journey/JourneyUserEntrances"
 import UserDetailJourneys from "./users/UserDetailJourneys"
 import UserDetailOrganizations from "./users/UserDetailOrganizations"
-import EntranceDetails from "./journey/EntranceDetails"
 import Organizations from "./organizations/Organizations"
 import OrganizationDetail from "./organizations/OrganizationDetail"
 import OrganizationDetailAttrs from "./organizations/OrganizationDetailAttrs"
@@ -472,10 +470,6 @@ export const createRouter = ({
                                                 index: true,
                                                 element: <JourneyEditor />,
                                             },
-                                            {
-                                                path: "entrances",
-                                                element: <JourneyUserEntrances />,
-                                            },
                                         ],
                                     }),
                                     createStatefulRoute({
@@ -582,16 +576,6 @@ export const createRouter = ({
                                                 element: <OrganizationDetailInbox />,
                                             },
                                         ],
-                                    },
-                                    {
-                                        path: "entrances/:entranceId",
-                                        loader: async ({ params }) =>
-                                            await api.journeys.entrances.log(
-                                                params.projectId! as UUID,
-                                                params.entranceId! as UUID,
-                                            ),
-                                        element: <EntranceDetails />,
-                                        errorElement: <ErrorPage />,
                                     },
                                     {
                                         path: "integrations",

@@ -118,7 +118,6 @@ export function defaultEntranceDataKey(existingKeys: Iterable<string>): string {
 export function stepsToNodes(
     stepMap: JourneyStepMap,
     actions: {
-        setViewUsersStep?: (step: { stepId: UUID; stepType: string; stepName?: string }) => void
         skipDelay?: (stepId: string) => Promise<void>
         openUserModal?: (nodeId: string) => void
     },

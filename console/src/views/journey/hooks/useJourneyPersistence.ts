@@ -8,7 +8,6 @@ import type { Journey, Project } from "@/types"
 import type { UUID } from "@/types/common"
 
 type Actions = {
-    setViewUsersStep?: (step: { stepId: UUID; stepType: string; stepName?: string }) => void
     skipDelay?: (stepId: string) => Promise<void>
     openUserModal?: (nodeId: string) => void
 }

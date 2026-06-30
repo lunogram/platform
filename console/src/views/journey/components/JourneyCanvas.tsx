@@ -32,7 +32,6 @@ interface JourneyCanvasProps {
     sidebar: {
         tab: "components" | "actions"
         onTabChange: (tab: "components" | "actions") => void
-        onViewUsers: (stepId: string, stepType: string, stepName: string) => void
         onSaveDraft: () => Promise<void>
     }
     runtime: {
@@ -164,7 +163,6 @@ export function JourneyCanvas({
                             journey={journey}
                             onUpdate={handlers.onUpdateEditNode}
                             onDelete={handlers.onDeleteNode}
-                            onViewUsers={sidebar.onViewUsers}
                             onSaveDraft={sidebar.onSaveDraft}
                         />
                     ) : (

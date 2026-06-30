@@ -1,6 +1,6 @@
 import { createElement } from "react"
 import { useTranslation } from "react-i18next"
-import { MoreHorizontal, Trash2, CheckCircle2, Clock, Zap, ArrowRight } from "lucide-react"
+import { MoreHorizontal, Trash2, CheckCircle2, Clock, Zap } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -24,7 +24,6 @@ interface JourneyStepSidebarProps {
     journey: Journey
     onUpdate: (partial: Partial<JourneyNode["data"]>) => void
     onDelete: (id: string) => void
-    onViewUsers: (stepId: string, stepType: string, stepName: string) => void
     onSaveDraft: () => Promise<void>
 }
 
@@ -35,7 +34,6 @@ export function JourneyStepSidebar({
     journey,
     onUpdate,
     onDelete,
-    onViewUsers,
     onSaveDraft,
 }: JourneyStepSidebarProps) {
     const { t } = useTranslation()
@@ -85,17 +83,7 @@ export function JourneyStepSidebar({
             {/* User Stats */}
             {editNode.data.stepId && (
                 <div className="px-4 pt-3">
-                    <button
-                        type="button"
-                        className="w-full rounded-lg border p-3 text-left hover:bg-muted/50 transition-colors cursor-pointer"
-                        onClick={() =>
-                            onViewUsers(
-                                editNode.data.stepId!,
-                                editNode.data.type!,
-                                editNode.data.name ?? t(type.name),
-                            )
-                        }
-                    >
+                    <div className="w-full rounded-lg border p-3 text-left">
                         <div className="flex items-center gap-3">
                             <div className="flex items-center gap-1.5">
                                 <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
@@ -128,13 +116,8 @@ export function JourneyStepSidebar({
                                     </span>
                                 </div>
                             )}
-                            <div className="flex-1" />
-                            <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                                {t("view")}
-                                <ArrowRight className="h-3 w-3" />
-                            </span>
                         </div>
-                    </button>
+                    </div>
                 </div>
             )}
 
