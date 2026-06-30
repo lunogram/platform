@@ -230,7 +230,7 @@ export default function ScheduledDetailTable({
     }
 
     // Fetch scheduled schemas to get id→name mapping
-    const [schemasResult] = useResolver(
+    const [schemasResult, , reloadSchemas] = useResolver(
         useCallback(async () => {
             try {
                 const { data } = await client.get<{ results: ScheduledSchema[] }>(
@@ -312,7 +312,10 @@ export default function ScheduledDetailTable({
                 )
             }
 
-            await reloadScheduled()
+            // Creating with a new name registers a new schedule schema, so refresh
+            // the id→name map too — otherwise the new row falls back to showing its
+            // raw scheduled_id (a UUID) instead of the name the user just entered.
+            await Promise.all([reloadScheduled(), reloadSchemas()])
             setIsCreateOpen(false)
             scheduledForm.reset()
             setNewScheduledData({})
