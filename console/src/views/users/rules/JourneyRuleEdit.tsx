@@ -103,13 +103,7 @@ export default function JourneyRuleEdit({
                         required
                         inputClassName="rounded-none border-l-0"
                         buttonClassName="rounded-none"
-                        renderOption={(option, search) => (
-                            <span
-                                dangerouslySetInnerHTML={{
-                                    __html: highlightSearch(option.path, search),
-                                }}
-                            />
-                        )}
+                        renderOption={(option, search) => highlightSearch(option.path, search)}
                     />
                 </div>
                 <div className="flex items-center">

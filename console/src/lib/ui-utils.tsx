@@ -1,4 +1,4 @@
-import type { Key } from "react"
+import type { Key, ReactNode } from "react"
 import { useState } from "react"
 import type { Modifier } from "react-popper"
 import { usePopper } from "react-popper"
@@ -61,10 +61,27 @@ export const defaultGetOptionDisplay = (option: unknown) =>
         ? ((option as Record<string, unknown>).label ?? (option as Record<string, unknown>).name)
         : option) as string
 
-export const highlightSearch = (text: string, search: string, matchClassName = "match") =>
-    text && search
-        ? text.replaceAll(search, `<strong class="${matchClassName}">$&</strong>`)
-        : (text ?? "")
+export const highlightSearch = (
+    text: string,
+    search: string,
+    matchClassName = "match",
+): ReactNode => {
+    if (!text || !search) return text ?? ""
+
+    const parts = text.split(search)
+    if (parts.length === 1) return text
+
+    return parts.flatMap((part, index) =>
+        index < parts.length - 1
+            ? [
+                  part,
+                  <strong key={`${matchClassName}-${index}`} className={matchClassName}>
+                      {search}
+                  </strong>,
+              ]
+            : [part],
+    )
+}
 
 /**
  * Navigate from inside a Radix-based overlay (Sheet, Dialog, DropdownMenu).

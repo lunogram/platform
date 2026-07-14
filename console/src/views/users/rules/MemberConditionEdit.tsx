@@ -113,13 +113,9 @@ export default function MemberConditionEdit({
                     required
                     inputClassName="rounded-none border-l-0"
                     buttonClassName="rounded-none"
-                    renderOption={(option, search) => (
-                        <span
-                            dangerouslySetInnerHTML={{
-                                __html: highlightSearch(option.name || option.path, search),
-                            }}
-                        />
-                    )}
+                    renderOption={(option, search) =>
+                        highlightSearch(option.name || option.path, search)
+                    }
                 />
                 <Select
                     value={rule?.operator}
