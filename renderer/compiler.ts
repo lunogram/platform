@@ -3,6 +3,28 @@ import React from "react";
 import { jsx, jsxs, Fragment } from "react/jsx-runtime";
 import { render } from "@react-email/render";
 import * as ReactEmailComponents from "@react-email/components";
+import {
+  isTemplaticalDocument,
+  renderTemplaticalDocument,
+} from "./templatical.ts";
+
+/**
+ * Marks a bundle produced from a Templatical document rather than React Email
+ * JSX. Bundles without a `kind` predate this branch and are React Email, so
+ * existing templates keep working untouched.
+ */
+const TEMPLATICAL_KIND = "templatical";
+
+/** Parse `source` as a Templatical document, or return null if it is JSX. */
+function asTemplaticalDocument(source: string) {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(source);
+  } catch {
+    return null;
+  }
+  return isTemplaticalDocument(parsed) ? parsed : null;
+}
 
 /**
  * The scope available to user templates at runtime.
@@ -17,15 +39,24 @@ const REACT_EMAIL_SCOPE: Record<string, unknown> = {
 };
 
 /**
- * Transpile and compile a React Email JSX source string into executable JS.
+ * Compile a template source into a bundle that render time can reuse.
  *
- * The compiled output is a self-contained function body that:
- * 1. Receives the react-email scope + any tailwind config bindings as arguments
- * 2. Returns the default-exported React component
+ * Two kinds of source are accepted:
  *
- * The compiled string is stored and reused at render time with different props.
+ * - A **Templatical document** (JSON). Rendering it depends only on the
+ *   document — merge tags resolve downstream via Liquid, not from props — so
+ *   the final HTML is produced here, once, and every recipient reuses it.
+ * - **React Email JSX**, which is transpiled to a self-contained function body
+ *   that receives the react-email scope and returns the default export. It is
+ *   executed per render because its output depends on props.
  */
-export function compile(source: string): string {
+export async function compile(source: string): Promise<string> {
+  const doc = asTemplaticalDocument(source);
+  if (doc) {
+    const { html, plainText } = await renderTemplaticalDocument(doc);
+    return JSON.stringify({ kind: TEMPLATICAL_KIND, html, plainText });
+  }
+
   const transformed = transform(source, {
     transforms: ["jsx", "typescript"],
     jsxRuntime: "automatic",
@@ -77,7 +108,15 @@ export async function renderTemplate(
   compiledBundle: string,
   props: Record<string, unknown>
 ): Promise<{ html: string; plainText: string }> {
-  const { code, tailwindConfigBindings } = JSON.parse(compiledBundle);
+  const bundle = JSON.parse(compiledBundle);
+
+  // Templatical bundles were fully rendered at compile time — there is nothing
+  // props could change, so hand back the stored output.
+  if (bundle.kind === TEMPLATICAL_KIND) {
+    return { html: bundle.html, plainText: bundle.plainText };
+  }
+
+  const { code, tailwindConfigBindings } = bundle;
 
   const scope: Record<string, unknown> = {
     ...REACT_EMAIL_SCOPE,

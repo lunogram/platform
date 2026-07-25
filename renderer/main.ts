@@ -32,13 +32,13 @@ function encodeJSON(data: unknown): Uint8Array {
   return new TextEncoder().encode(JSON.stringify(data));
 }
 
-function handleCompile(msg: Msg): void {
+async function handleCompile(msg: Msg): Promise<void> {
   try {
     const request: CompileRequest = JSON.parse(
       new TextDecoder().decode(msg.data),
     );
 
-    const compiledJs = compile(request.source);
+    const compiledJs = await compile(request.source);
 
     const response: CompileResponse = { compiled_js: compiledJs };
     msg.respond(encodeJSON(response));
@@ -91,11 +91,9 @@ async function main(): Promise<void> {
   // Process compile requests
   (async () => {
     for await (const msg of compileSub) {
-      try {
-        handleCompile(msg);
-      } catch (err) {
-        console.error("unhandled compile error:", err);
-      }
+      handleCompile(msg).catch((err) =>
+        console.error("unhandled compile error:", err),
+      );
     }
   })();
 
