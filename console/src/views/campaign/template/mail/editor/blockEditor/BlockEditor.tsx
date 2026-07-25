@@ -42,18 +42,26 @@ export function BlockEditor({ initialContent, onChange, onError, theme }: BlockE
     themeRef.current = theme
 
     useEffect(() => {
-        const container = containerRef.current
-        if (!container) return
+        const host = containerRef.current
+        if (!host) return
 
-        // `init` is async, and StrictMode invokes this effect twice in
-        // development. `disposed` covers the window where cleanup runs before
-        // the promise settles — without it the first editor would be orphaned,
-        // still mounted and still emitting changes.
+        // Every mount gets its own node rather than sharing the ref'd element.
+        // `init` is async and StrictMode invokes this effect twice, so two
+        // editors can be initialising into the same parent at once; whichever
+        // settles second would have its DOM torn down by the other's unmount,
+        // leaving an empty shadow root and a blank editor.
+        const mountPoint = document.createElement("div")
+        mountPoint.className = "h-full w-full"
+        host.appendChild(mountPoint)
+
+        // Covers the window where cleanup runs before the promise settles —
+        // without it the editor would be orphaned, still mounted and still
+        // emitting changes.
         let disposed = false
         let instance: TemplaticalEditor | null = null
 
         void init({
-            container,
+            container: mountPoint,
             content: initialContentRef.current,
             // Set at init as well as through setTheme below, so the editor's
             // first paint already matches the console instead of flashing the
@@ -68,6 +76,7 @@ export function BlockEditor({ initialContent, onChange, onError, theme }: BlockE
             .then((editor) => {
                 if (disposed) {
                     editor.unmount()
+                    mountPoint.remove()
                     return
                 }
                 instance = editor
@@ -80,7 +89,12 @@ export function BlockEditor({ initialContent, onChange, onError, theme }: BlockE
         return () => {
             disposed = true
             instance?.unmount()
-            editorRef.current = null
+            mountPoint.remove()
+            // Only clear the shared ref if it still points at this instance —
+            // a concurrent mount may already have replaced it.
+            if (editorRef.current === instance) {
+                editorRef.current = null
+            }
         }
     }, [])
 

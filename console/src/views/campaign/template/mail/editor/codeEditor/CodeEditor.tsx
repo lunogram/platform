@@ -1,4 +1,13 @@
-import { useCallback, useContext, useEffect, useRef, useState, lazy, Suspense } from "react"
+import {
+    useCallback,
+    useContext,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+    lazy,
+    Suspense,
+} from "react"
 import { Editor } from "@monaco-editor/react"
 import {
     Smartphone,
@@ -64,6 +73,7 @@ import { MediaManager } from "@/components/media-manager"
 import { EditorToolbar } from "./EditorToolbar"
 import { TabButton, PreviewTab } from "./TabButton"
 import { DEFAULT_REACT_EMAIL_TEMPLATE } from "./defaultTemplate"
+import { templaticalPlainText } from "@/lib/templatical-preview"
 import { UserSelection } from "../../../UserSelection"
 
 import type { Viewport, EditorTab } from "./types"
@@ -554,6 +564,15 @@ function CodeEditorInner() {
 
     const { compiledHtml, compileError, autoPlainText } = useCompilation(code, previewProps)
 
+    // A visually authored template is rendered by the backend, which also
+    // derives its plain text, so the value lands in the bundle at save time.
+    // It therefore reflects the last save rather than unsaved edits.
+    const blocksPlainText = useMemo(
+        () => templaticalPlainText(template?.data?.code?.bundle),
+        // @ts-expect-error data is a channel union; code exists on the email arm.
+        [template?.data?.code?.bundle],
+    )
+
     const { sending, handleSendTest } = useSendTestEmail({
         previewProps,
         projectId: project.id,
@@ -641,16 +660,35 @@ function CodeEditorInner() {
                 </div>
 
                 <div className="flex-1 min-h-0">
-                    {LazyBlockEditorWrapped && (
-                        <Suspense fallback={<div className="flex-1" />}>
-                            <LazyBlockEditorWrapped
-                                initialDocument={blocksData ?? undefined}
-                                onChange={handleBlocksChange}
-                                activeTab={blockEditorTab}
-                                onTabChange={setBlockEditorTab}
-                                variableGroups={variableGroups}
-                            />
-                        </Suspense>
+                    {/* The enterprise block editor renders the plain-text tab
+                        itself; Templatical does not, so the host swaps panels.
+                        Keep the editor mounted underneath — remounting it on
+                        every tab change would discard undo history. */}
+                    <div className={cn("h-full", blockEditorTab !== "editor" && "hidden")}>
+                        {LazyBlockEditorWrapped && (
+                            <Suspense fallback={<div className="flex-1" />}>
+                                <LazyBlockEditorWrapped
+                                    initialDocument={blocksData ?? undefined}
+                                    onChange={handleBlocksChange}
+                                    activeTab={blockEditorTab}
+                                    onTabChange={setBlockEditorTab}
+                                    variableGroups={variableGroups}
+                                />
+                            </Suspense>
+                        )}
+                    </div>
+                    {!isEnterprise && blockEditorTab === "preview-text" && (
+                        <PlainTextEditor
+                            ref={plainTextEditorRef}
+                            autoText={blocksPlainText}
+                            customText={customPlainText}
+                            onCustomTextChange={setCustomPlainText}
+                            useCustom={useCustomPlainText}
+                            onToggleCustom={setUseCustomPlainText}
+                            onImageClick={() => setImageModalOpen(true)}
+                            onInsertVariable={insertVariable}
+                            variableGroups={variableGroups}
+                        />
                     )}
                 </div>
 

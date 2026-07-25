@@ -11,11 +11,28 @@
  * previews as blank — the same as a code template that has not compiled.
  */
 export function templaticalPreviewHtml(bundle: string | undefined | null): string {
-    if (!bundle) return ""
+    return readBundle(bundle).html ?? ""
+}
+
+/**
+ * Plain-text alternative for a visually authored template.
+ *
+ * Derived by the backend from the rendered HTML, so like the HTML it reflects
+ * the last save rather than unsaved edits.
+ */
+export function templaticalPlainText(bundle: string | undefined | null): string {
+    return readBundle(bundle).plainText ?? ""
+}
+
+function readBundle(bundle: string | undefined | null): {
+    kind?: string
+    html?: string
+    plainText?: string
+} {
+    if (!bundle) return {}
     try {
-        const parsed = JSON.parse(bundle) as { kind?: string; html?: string }
-        return parsed.html ?? ""
+        return JSON.parse(bundle) as { kind?: string; html?: string; plainText?: string }
     } catch {
-        return ""
+        return {}
     }
 }
