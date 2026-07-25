@@ -17,6 +17,8 @@ interface BlockEditorProps {
     theme: "light" | "dark"
     /** Offered by the tag picker and typing autocomplete. Read once, on mount. */
     mergeTags: TemplaticalMergeTag[]
+    /** Opens the host's media library; resolves null when dismissed. */
+    onRequestMedia: () => Promise<{ url: string; alt?: string } | null>
 }
 
 /**
@@ -37,6 +39,7 @@ export function BlockEditor({
     onError,
     theme,
     mergeTags,
+    onRequestMedia,
 }: BlockEditorProps) {
     const containerRef = useRef<HTMLDivElement>(null)
     const editorRef = useRef<TemplaticalEditor | null>(null)
@@ -50,6 +53,8 @@ export function BlockEditor({
     const themeRef = useRef(theme)
     themeRef.current = theme
     const mergeTagsRef = useRef(mergeTags)
+    const onRequestMediaRef = useRef(onRequestMedia)
+    onRequestMediaRef.current = onRequestMedia
 
     useEffect(() => {
         const host = containerRef.current
@@ -80,6 +85,7 @@ export function BlockEditor({
             // Liquid matches the platform's own template syntax, so merge tags
             // authored here resolve in the send pipeline unchanged.
             mergeTags: { syntax: "liquid", tags: mergeTagsRef.current },
+            onRequestMedia: () => onRequestMediaRef.current(),
             onChange: (content) => onChangeRef.current(content),
             onError: (error) => onErrorRef.current?.(error),
         })

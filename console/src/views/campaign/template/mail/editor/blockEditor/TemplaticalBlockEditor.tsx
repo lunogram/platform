@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useRef } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { createDefaultTemplateContent } from "@templatical/types"
 import type { TemplateContent } from "@templatical/types"
 import { toast } from "sonner"
 import type { EmailDocument } from "../codeEditor/hooks/useEditorMode"
 import { BlockEditor } from "./BlockEditor"
+import { MediaManager } from "@/components/media-manager"
+import type { Image } from "@/types"
 import { useConsoleTheme } from "./useConsoleTheme"
 import { toMergeTags } from "./mergeTags"
 import type { VariableGroup } from "@/views/journey/JourneyVariableContext"
@@ -31,6 +33,32 @@ export function TemplaticalBlockEditor({
     // Read once on mount, matching how the editor consumes them.
     const mergeTags = useMemo(() => toMergeTags(variableGroups), [variableGroups])
 
+    // The editor asks for media imperatively and waits on a promise, while the
+    // media manager is a React modal. Park the resolver until the user either
+    // picks an image or dismisses the dialog, so the editor is never left
+    // waiting on a promise that cannot settle.
+    const [mediaOpen, setMediaOpen] = useState(false)
+    const resolveMediaRef = useRef<((result: { url: string; alt?: string } | null) => void) | null>(
+        null,
+    )
+
+    const requestMedia = useCallback(
+        () =>
+            new Promise<{ url: string; alt?: string } | null>((resolve) => {
+                resolveMediaRef.current = resolve
+                setMediaOpen(true)
+            }),
+        [],
+    )
+
+    const settleMedia = useCallback((result: { url: string; alt?: string } | null) => {
+        resolveMediaRef.current?.(result)
+        resolveMediaRef.current = null
+    }, [])
+
+    // Resolve any pending request on unmount for the same reason.
+    useEffect(() => () => settleMedia(null), [settleMedia])
+
     // A template switched over from the code editor has no document yet, so
     // start from an empty one rather than mounting the editor with nothing.
     const seededRef = useRef(initialDocument === undefined)
@@ -56,12 +84,26 @@ export function TemplaticalBlockEditor({
     }, [initialContent])
 
     return (
-        <BlockEditor
-            initialContent={initialContent}
-            onChange={(content) => onChange(content as unknown as EmailDocument)}
-            onError={(error) => toast.error(error.message)}
-            theme={theme}
-            mergeTags={mergeTags}
-        />
+        <>
+            <BlockEditor
+                initialContent={initialContent}
+                onChange={(content) => onChange(content as unknown as EmailDocument)}
+                onError={(error) => toast.error(error.message)}
+                theme={theme}
+                mergeTags={mergeTags}
+                onRequestMedia={requestMedia}
+            />
+            <MediaManager
+                open={mediaOpen}
+                onOpenChange={(open) => {
+                    if (!open) settleMedia(null)
+                    setMediaOpen(open)
+                }}
+                onSelect={(image: Image) => {
+                    settleMedia({ url: image.url, alt: image.name })
+                    setMediaOpen(false)
+                }}
+            />
+        </>
     )
 }
