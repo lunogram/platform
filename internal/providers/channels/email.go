@@ -31,6 +31,16 @@ type EmailPlaintextData struct {
 	Custom string `json:"custom,omitempty"`
 }
 
+// Template document types. The type selects which source the renderer
+// compiles; an empty value means React Email, so templates stored before
+// this field existed keep working unchanged.
+const (
+	// TemplateTypeReactEmail compiles the JSX in Code.Source.
+	TemplateTypeReactEmail = "react-email"
+	// TemplateTypeTemplatical compiles the visual document in Blocks.
+	TemplateTypeTemplatical = "templatical"
+)
+
 // EmailTemplateData represents the structure of email template data.
 type EmailTemplateData struct {
 	From      EmailFromData      `json:"from"`
@@ -41,8 +51,20 @@ type EmailTemplateData struct {
 	ReplyTo   string             `json:"reply_to,omitempty"`
 	Cc        string             `json:"cc,omitempty"`
 	Bcc       string             `json:"bcc,omitempty"`
+	Type      string             `json:"type,omitempty"`
 	Code      EmailCodeData      `json:"code,omitempty"`
+	Blocks    json.RawMessage    `json:"blocks,omitempty"`
 	Plaintext EmailPlaintextData `json:"plaintext,omitempty"`
+}
+
+// CompileSource returns the source the renderer should compile for this
+// template, which differs by document type: a Templatical template compiles
+// its visual document, a React Email one its JSX.
+func (d EmailTemplateData) CompileSource() string {
+	if d.Type == TemplateTypeTemplatical {
+		return string(d.Blocks)
+	}
+	return d.Code.Source
 }
 
 // ComposeEmail creates a SendRequest for email delivery to a user.
@@ -66,12 +88,13 @@ func ComposeEmailTemplateData(ctx context.Context, renderer *pubsub.EmailRendere
 		return data, nil
 	}
 
-	if email.Code.Source == "" && email.Code.Bundle == "" {
+	source := email.CompileSource()
+	if source == "" && email.Code.Bundle == "" {
 		return data, nil
 	}
 
 	if email.Code.Bundle == "" {
-		email.Code.Bundle, email.Code.BundleHash, err = renderer.Compile(ctx, projectID, email.Code.Source)
+		email.Code.Bundle, email.Code.BundleHash, err = renderer.Compile(ctx, projectID, source)
 		if err != nil {
 			return nil, fmt.Errorf("compile email template: %w", err)
 		}
@@ -91,10 +114,13 @@ func ComposeEmailTemplateData(ctx context.Context, renderer *pubsub.EmailRendere
 		email.Text = email.Plaintext.Custom
 	}
 
-	// Clear Code fields after rendering. The source and bundle contain JSX/JS
-	// which may include {{ }} style objects (e.g. inline styles) that the
-	// downstream Liquid renderer would incorrectly try to evaluate.
+	// Clear the authoring fields after rendering. Both carry {{ }} sequences the
+	// downstream Liquid renderer would incorrectly try to evaluate: JSX/JS
+	// inline style objects in Code, and merge tags plus arbitrary text content
+	// in the Templatical document. Only the rendered HTML and text should reach
+	// it.
 	email.Code = EmailCodeData{}
+	email.Blocks = nil
 
 	out, err := json.Marshal(email)
 	if err != nil {

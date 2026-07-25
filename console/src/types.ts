@@ -802,12 +802,18 @@ export interface EmailTemplateData {
     subject: string
     preheader?: string
     editor: "code" | "visual"
-    type?: "react-email"
+    /**
+     * Which document the backend compiles. Absent means "react-email", so
+     * templates stored before this field existed keep working.
+     */
+    type?: "react-email" | "templatical"
     code?: {
         source: string
         bundle?: string
         bundle_hash?: string
     }
+    /** The Templatical document. Present only when `type` is "templatical". */
+    blocks?: Record<string, unknown>
     plaintext?: {
         generated?: string
         custom?: string

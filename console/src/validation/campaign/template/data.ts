@@ -13,7 +13,8 @@ export const emailTemplateDataSchema = z.object({
     bcc: z.string().optional(),
     reply_to: z.string().optional(),
     preheader: z.string().optional(),
-    type: z.literal("react-email").optional(),
+    // Which document the backend compiles. Absent means "react-email".
+    type: z.enum(["react-email", "templatical"]).optional(),
     code: z
         .object({
             source: z.string(),
@@ -21,6 +22,8 @@ export const emailTemplateDataSchema = z.object({
             bundle_hash: z.string().optional(),
         })
         .optional(),
+    // The Templatical document, present only when type is "templatical".
+    blocks: z.record(z.string(), z.unknown()).optional(),
     plaintext: z
         .object({
             generated: z.string().optional(),

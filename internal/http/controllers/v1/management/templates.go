@@ -49,6 +49,23 @@ func (t *templateDataEnvelope) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// compileSource returns the source the renderer should compile. Which field
+// holds it depends on the template's document type: a Templatical template
+// compiles its visual document from "blocks", everything else compiles the
+// React Email JSX in "code.source".
+func (t templateDataEnvelope) compileSource() string {
+	var docType string
+	if raw, ok := t.Remaining["type"]; ok {
+		// A malformed type falls back to the React Email path rather than
+		// failing the save.
+		_ = json.Unmarshal(raw, &docType)
+	}
+	if docType == channels.TemplateTypeTemplatical {
+		return string(t.Remaining["blocks"])
+	}
+	return t.Code.Source
+}
+
 func (t templateDataEnvelope) MarshalJSON() ([]byte, error) {
 	// Start from a copy of the remaining fields so we don't mutate the original.
 	merged := make(map[string]json.RawMessage, len(t.Remaining)+1)
@@ -245,10 +262,11 @@ func (srv *TemplatesController) UpdateTemplate(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	// If the template data contains React Email source code, compile it via
-	// the Deno renderer service and store the compiled JS alongside the source.
-	// Extra fields stored by the frontend (e.g. blocks, editorMode) are
-	// preserved through the marshal/unmarshal round-trip via templateDataEnvelope.
+	// If the template data carries a compilable source — React Email JSX or a
+	// Templatical document — compile it via the Deno renderer service and store
+	// the resulting bundle alongside it. Extra fields stored by the frontend
+	// (e.g. editorMode) are preserved through the marshal/unmarshal round-trip
+	// via templateDataEnvelope.
 	if body.Data != nil {
 		var envelope templateDataEnvelope
 		if err := json.Unmarshal(*body.Data, &envelope); err != nil {
@@ -257,8 +275,8 @@ func (srv *TemplatesController) UpdateTemplate(w http.ResponseWriter, r *http.Re
 			return
 		}
 
-		if envelope.Code.Source != "" {
-			envelope.Code.Bundle, envelope.Code.BundleHash, err = srv.renderer.Compile(ctx, projectID, envelope.Code.Source)
+		if source := envelope.compileSource(); source != "" {
+			envelope.Code.Bundle, envelope.Code.BundleHash, err = srv.renderer.Compile(ctx, projectID, source)
 			if err != nil {
 				logger.Error("failed to compile template", zap.Error(err))
 				oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("failed to compile email template")))
