@@ -1,10 +1,10 @@
-import { useContext, useEffect, useMemo, useRef } from "react"
+import { useEffect, useMemo, useRef } from "react"
 import { createDefaultTemplateContent } from "@templatical/types"
 import type { TemplateContent } from "@templatical/types"
 import { toast } from "sonner"
-import { PreferencesContext } from "@/contexts/PreferencesContext"
 import type { EmailDocument } from "../codeEditor/hooks/useEditorMode"
 import { BlockEditor } from "./BlockEditor"
+import { useConsoleTheme } from "./useConsoleTheme"
 
 interface TemplaticalBlockEditorProps {
     /** Stored document, absent for a template that has never used this editor. */
@@ -19,7 +19,7 @@ interface TemplaticalBlockEditorProps {
  * `TemplateContent` is confined to this file and the wrapper beneath it.
  */
 export function TemplaticalBlockEditor({ initialDocument, onChange }: TemplaticalBlockEditorProps) {
-    const [preferences] = useContext(PreferencesContext)
+    const theme = useConsoleTheme()
 
     // A template switched over from the code editor has no document yet, so
     // start from an empty one rather than mounting the editor with nothing.
@@ -50,7 +50,7 @@ export function TemplaticalBlockEditor({ initialDocument, onChange }: Templatica
             initialContent={initialContent}
             onChange={(content) => onChange(content as unknown as EmailDocument)}
             onError={(error) => toast.error(error.message)}
-            theme={preferences.mode}
+            theme={theme}
         />
     )
 }

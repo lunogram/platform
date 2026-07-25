@@ -38,6 +38,8 @@ export function BlockEditor({ initialContent, onChange, onError, theme }: BlockE
     const onErrorRef = useRef(onError)
     onErrorRef.current = onError
     const initialContentRef = useRef(initialContent)
+    const themeRef = useRef(theme)
+    themeRef.current = theme
 
     useEffect(() => {
         const container = containerRef.current
@@ -53,6 +55,10 @@ export function BlockEditor({ initialContent, onChange, onError, theme }: BlockE
         void init({
             container,
             content: initialContentRef.current,
+            // Set at init as well as through setTheme below, so the editor's
+            // first paint already matches the console instead of flashing the
+            // library default.
+            uiTheme: themeRef.current,
             // Liquid matches the platform's own template syntax, so merge tags
             // authored here resolve in the send pipeline unchanged.
             mergeTags: { syntax: "liquid" },

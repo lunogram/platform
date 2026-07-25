@@ -9,6 +9,7 @@ import oapiClient from "@/oapi/client"
 import * as z from "zod"
 import { Render } from "@/renderTemplates"
 import { compileEmail } from "./editor/codeEditor/compileEmail"
+import { templaticalPreviewHtml } from "@/lib/templatical-preview"
 import { getSystemPreviewProps } from "./editor/variableScope"
 
 import { Input } from "@/components/ui/input"
@@ -341,6 +342,13 @@ export function EmailContentPreview({ campaign, form, edit = false }: EmailSetup
             return
         }
 
+        // Visually authored templates are rendered by the backend on save;
+        // compiling code.source would show the JSX kept only for reversibility.
+        if (template?.data?.type === "templatical") {
+            setCompiledHtml(templaticalPreviewHtml(template?.data?.code?.bundle))
+            return
+        }
+
         const source = template?.data?.code?.source
         if (!source) {
             setCompiledHtml("")
@@ -376,7 +384,13 @@ export function EmailContentPreview({ campaign, form, edit = false }: EmailSetup
         }
         // @ts-expect-error template.data.code can not be undefined here because this page doesn't load without the email being selected,
         // and the email template type requires code to be defined.
-    }, [template?.data?.code?.source, selectedUser, template?.type])
+    }, [
+        template?.data?.type,
+        template?.data?.code?.bundle,
+        template?.data?.code?.source,
+        selectedUser,
+        template?.type,
+    ])
 
     const { subject, from, replyTo } = form.watch()
 
