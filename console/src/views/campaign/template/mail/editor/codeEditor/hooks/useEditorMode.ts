@@ -7,7 +7,11 @@ import { isEnterprise } from "@/config/enterprise"
  * around. Its concrete shape is Templatical's `TemplateContent`.
  */
 export type EmailDocument = Record<string, unknown>
-export type BlockEditorTab = "editor" | "preview-text"
+/**
+ * Panels of the visual editor. "preview" is open-source only — the enterprise
+ * block editor renders its own preview and only knows the other two.
+ */
+export type BlockEditorTab = "editor" | "preview" | "preview-text"
 
 /**
  * Identifier for the visual editing mode, persisted per template in

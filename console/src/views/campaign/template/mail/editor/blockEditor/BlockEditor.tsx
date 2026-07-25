@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react"
 import { init } from "@templatical/editor"
 import type { TemplaticalEditor } from "@templatical/editor"
 import type { TemplateContent } from "@templatical/types"
+import type { TemplaticalMergeTag } from "./mergeTags"
 import "@templatical/editor/style.css"
 
 interface BlockEditorProps {
@@ -14,6 +15,8 @@ interface BlockEditorProps {
     onChange: (content: TemplateContent) => void
     onError?: (error: Error) => void
     theme: "light" | "dark"
+    /** Offered by the tag picker and typing autocomplete. Read once, on mount. */
+    mergeTags: TemplaticalMergeTag[]
 }
 
 /**
@@ -28,7 +31,13 @@ interface BlockEditorProps {
  * containing block for `position: fixed`, which detaches the editor's floating
  * UI (colour pickers, text toolbars) and drag ghost from their anchors.
  */
-export function BlockEditor({ initialContent, onChange, onError, theme }: BlockEditorProps) {
+export function BlockEditor({
+    initialContent,
+    onChange,
+    onError,
+    theme,
+    mergeTags,
+}: BlockEditorProps) {
     const containerRef = useRef<HTMLDivElement>(null)
     const editorRef = useRef<TemplaticalEditor | null>(null)
 
@@ -40,6 +49,7 @@ export function BlockEditor({ initialContent, onChange, onError, theme }: BlockE
     const initialContentRef = useRef(initialContent)
     const themeRef = useRef(theme)
     themeRef.current = theme
+    const mergeTagsRef = useRef(mergeTags)
 
     useEffect(() => {
         const host = containerRef.current
@@ -69,7 +79,7 @@ export function BlockEditor({ initialContent, onChange, onError, theme }: BlockE
             uiTheme: themeRef.current,
             // Liquid matches the platform's own template syntax, so merge tags
             // authored here resolve in the send pipeline unchanged.
-            mergeTags: { syntax: "liquid" },
+            mergeTags: { syntax: "liquid", tags: mergeTagsRef.current },
             onChange: (content) => onChangeRef.current(content),
             onError: (error) => onErrorRef.current?.(error),
         })

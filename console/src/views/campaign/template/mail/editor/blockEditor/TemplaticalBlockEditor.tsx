@@ -5,11 +5,15 @@ import { toast } from "sonner"
 import type { EmailDocument } from "../codeEditor/hooks/useEditorMode"
 import { BlockEditor } from "./BlockEditor"
 import { useConsoleTheme } from "./useConsoleTheme"
+import { toMergeTags } from "./mergeTags"
+import type { VariableGroup } from "@/views/journey/JourneyVariableContext"
 
 interface TemplaticalBlockEditorProps {
     /** Stored document, absent for a template that has never used this editor. */
     initialDocument?: EmailDocument
     onChange: (doc: EmailDocument) => void
+    /** Campaign variables, offered as merge tags in the editor. */
+    variableGroups: VariableGroup[]
 }
 
 /**
@@ -18,8 +22,14 @@ interface TemplaticalBlockEditorProps {
  * The slot's contract is the opaque `EmailDocument`; Templatical's concrete
  * `TemplateContent` is confined to this file and the wrapper beneath it.
  */
-export function TemplaticalBlockEditor({ initialDocument, onChange }: TemplaticalBlockEditorProps) {
+export function TemplaticalBlockEditor({
+    initialDocument,
+    onChange,
+    variableGroups,
+}: TemplaticalBlockEditorProps) {
     const theme = useConsoleTheme()
+    // Read once on mount, matching how the editor consumes them.
+    const mergeTags = useMemo(() => toMergeTags(variableGroups), [variableGroups])
 
     // A template switched over from the code editor has no document yet, so
     // start from an empty one rather than mounting the editor with nothing.
@@ -51,6 +61,7 @@ export function TemplaticalBlockEditor({ initialDocument, onChange }: Templatica
             onChange={(content) => onChange(content as unknown as EmailDocument)}
             onError={(error) => toast.error(error.message)}
             theme={theme}
+            mergeTags={mergeTags}
         />
     )
 }

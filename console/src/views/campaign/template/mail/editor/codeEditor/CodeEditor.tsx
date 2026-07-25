@@ -73,7 +73,9 @@ import { MediaManager } from "@/components/media-manager"
 import { EditorToolbar } from "./EditorToolbar"
 import { TabButton, PreviewTab } from "./TabButton"
 import { DEFAULT_REACT_EMAIL_TEMPLATE } from "./defaultTemplate"
-import { templaticalPlainText } from "@/lib/templatical-preview"
+import { templaticalPlainText, templaticalPreviewHtml } from "@/lib/templatical-preview"
+import Iframe from "@/components/iframe"
+import { Render } from "@/renderTemplates"
 import { UserSelection } from "../../../UserSelection"
 
 import type { Viewport, EditorTab } from "./types"
@@ -573,6 +575,17 @@ function CodeEditorInner() {
         [template?.data?.code?.bundle],
     )
 
+    // The rendered email with the selected recipient's data substituted. The
+    // HTML comes from the backend render and carries merge tags literally, so
+    // resolving them here is the same Handlebars pass the other previews use.
+    // With no user selected the tags stay visible, which is the honest default.
+    const blocksPreviewHtml = useMemo(() => {
+        const html = templaticalPreviewHtml(template?.data?.code?.bundle)
+        if (!html || !selectedUser) return html
+        return Render(html, { user: selectedUser })
+        // @ts-expect-error data is a channel union; code exists on the email arm.
+    }, [template?.data?.code?.bundle, selectedUser])
+
     const { sending, handleSendTest } = useSendTestEmail({
         previewProps,
         projectId: project.id,
@@ -628,6 +641,14 @@ function CodeEditorInner() {
                             icon={<LayoutGrid className="h-4 w-4" />}
                             label="Editor"
                         />
+                        {!isEnterprise && (
+                            <TabButton
+                                active={blockEditorTab === "preview"}
+                                onClick={() => setBlockEditorTab("preview")}
+                                icon={<Eye className="h-4 w-4" />}
+                                label="Preview"
+                            />
+                        )}
                         <TabButton
                             active={blockEditorTab === "preview-text"}
                             onClick={() => setBlockEditorTab("preview-text")}
@@ -677,6 +698,13 @@ function CodeEditorInner() {
                             </Suspense>
                         )}
                     </div>
+                    {!isEnterprise && blockEditorTab === "preview" && (
+                        <div className="h-full w-full overflow-auto bg-muted/20 p-6">
+                            <div className="mx-auto max-w-[700px] bg-white shadow-sm">
+                                <Iframe content={blocksPreviewHtml} allowScroll={false} />
+                            </div>
+                        </div>
+                    )}
                     {!isEnterprise && blockEditorTab === "preview-text" && (
                         <PlainTextEditor
                             ref={plainTextEditorRef}
