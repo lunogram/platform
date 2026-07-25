@@ -91,6 +91,7 @@ export function BlockEditor({
                 }
                 instance = editor
                 editorRef.current = editor
+                hideDarkModePreview(mountPoint)
             })
             .catch((error: unknown) => {
                 onErrorRef.current?.(error instanceof Error ? error : new Error(String(error)))
@@ -113,4 +114,37 @@ export function BlockEditor({
     }, [theme])
 
     return <div ref={containerRef} className="h-full w-full" />
+}
+
+/**
+ * Hide the editor's built-in dark-mode preview control.
+ *
+ * It toggles a preview of how the *email* renders in a dark-mode mail client,
+ * which is a separate concern from the console's own appearance and is not
+ * something this integration supports yet — the backend renders one HTML
+ * variant, so what the toggle previews would not match what is sent.
+ *
+ * The editor has no config option for it, and its UI lives behind a shadow
+ * boundary that host stylesheets cannot cross, so the rule is injected into
+ * the shadow root itself.
+ */
+function hideDarkModePreview(mountPoint: HTMLElement) {
+    const host = mountPoint.shadowRoot
+        ? mountPoint
+        : mountPoint.querySelector<HTMLElement>("*:not(style)")
+    const root = host?.shadowRoot ?? findShadowRoot(mountPoint)
+    if (!root) return
+
+    const style = document.createElement("style")
+    style.textContent = ".tpl-dark-mode-toggle { display: none !important; }"
+    root.appendChild(style)
+}
+
+function findShadowRoot(node: HTMLElement): ShadowRoot | null {
+    if (node.shadowRoot) return node.shadowRoot
+    for (const child of node.querySelectorAll("*")) {
+        const shadow = (child as HTMLElement).shadowRoot
+        if (shadow) return shadow
+    }
+    return null
 }
