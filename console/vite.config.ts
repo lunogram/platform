@@ -297,6 +297,12 @@ export default defineConfig(({ mode }) => {
         resolve: {
             alias: {
                 "@": path.resolve(__dirname, "./src"),
+                // @templatical/editor's cloud chunk dynamically imports
+                // pusher-js, which is not one of its declared dependencies.
+                // Only initCloud() reaches it and the console uses the
+                // self-hosted init(), so stub it out rather than bundling a
+                // realtime transport we never call. See src/stubs/pusher-js.ts.
+                "pusher-js": path.resolve(__dirname, "./src/stubs/pusher-js.ts"),
             },
             // Deduplicate React across the monorepo so that workspace
             // packages (e.g. block-editor) share the same React instance

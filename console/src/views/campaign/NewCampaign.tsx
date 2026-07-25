@@ -3,7 +3,7 @@ import { Controller, useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useNavigate, useParams } from "react-router"
 import { useTranslation } from "react-i18next"
-import { Inbox, Info, Mail, MessageSquareDot, Smartphone } from "lucide-react"
+import { Code2, Inbox, Info, LayoutGrid, Mail, MessageSquareDot, Smartphone } from "lucide-react"
 import { toast } from "sonner"
 
 import api from "@/api"
@@ -23,9 +23,11 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select"
+import { SelectableCard } from "@/components/ui/selectable-card"
 import { Switch } from "@/components/ui/switch"
 
 import { CampaignVariables } from "./CampaignVariables"
+import { BLOCKS_MODE, type EditorMode } from "./template/mail/editor/codeEditor/hooks/useEditorMode"
 import { newCampaignSchema, type NewCampaignFormValues } from "@/validation/campaign/new-campaign"
 import {
     emailTemplateDataSchema,
@@ -53,6 +55,8 @@ export default function NewCampaign() {
 
     const [variables, setVariables] = useState<CampaignVariable[]>([])
     const [isCreating, setIsCreating] = useState(false)
+    // Visual is the default: most campaigns are built by non-engineers.
+    const [editorMode, setEditorMode] = useState<EditorMode>(BLOCKS_MODE)
 
     const channel = isChannelType(channelParam) ? channelParam : null
     // Inbox campaigns have no subscription model — they are always transactional.
@@ -200,9 +204,20 @@ export default function NewCampaign() {
                 })
             }
 
+            // The editor choice is made here rather than inside the editor:
+            // switching afterwards starts the other editor empty, so it is a
+            // decision worth making before any content exists.
+            const templateData = templateSchemaMap[channel].parse({})
             const template = await api.campaigns.templates.create(project.id, campaignId, {
                 locale: project.locale,
-                data: templateSchemaMap[channel].parse({}),
+                data:
+                    channel === "email"
+                        ? {
+                              ...templateData,
+                              editorMode,
+                              type: editorMode === BLOCKS_MODE ? "templatical" : "react-email",
+                          }
+                        : templateData,
             })
 
             navigate(`/projects/${project.id}/campaigns/${campaignId}/templates/${template.id}`)
@@ -272,6 +287,42 @@ export default function NewCampaign() {
                             )}
                         </Field>
                     </FieldGroup>
+
+                    {channel === "email" && (
+                        <FieldGroup>
+                            <Field className="gap-2">
+                                <FieldLabel>{t("campaign.editor.label", "Editor")}</FieldLabel>
+                                <FieldDescription>
+                                    {t(
+                                        "campaign.editor.description",
+                                        "How you'll build this email. Switching later is possible but starts the other editor from scratch.",
+                                    )}
+                                </FieldDescription>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <SelectableCard
+                                        title={t("campaign.editor.visual.title", "Visual editor")}
+                                        summary={t(
+                                            "campaign.editor.visual.summary",
+                                            "Drag and drop blocks. No code required.",
+                                        )}
+                                        icon={<LayoutGrid className="h-4 w-4" />}
+                                        active={editorMode === BLOCKS_MODE}
+                                        onClick={() => setEditorMode(BLOCKS_MODE)}
+                                    />
+                                    <SelectableCard
+                                        title={t("campaign.editor.code.title", "Code editor")}
+                                        summary={t(
+                                            "campaign.editor.code.summary",
+                                            "Write React Email components directly.",
+                                        )}
+                                        icon={<Code2 className="h-4 w-4" />}
+                                        active={editorMode === "code"}
+                                        onClick={() => setEditorMode("code")}
+                                    />
+                                </div>
+                            </Field>
+                        </FieldGroup>
+                    )}
 
                     <FieldGroup>
                         <Field className="gap-2">

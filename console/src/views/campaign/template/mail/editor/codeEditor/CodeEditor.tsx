@@ -172,12 +172,21 @@ const LazyBlockEditorWrapped = __ENTERPRISE__
               },
           })),
       )
-    : null
+    : lazy(() =>
+          import("../blockEditor/TemplaticalBlockEditor").then((mod) => ({
+              default: mod.TemplaticalBlockEditor,
+          })),
+      )
 
 // Extracted hooks
 import { useCompilation } from "./hooks/useCompilation"
 import { usePreviewProps } from "../hooks/usePreviewProps"
-import { useEditorMode, getInitialEditorMode, type EditorMode } from "./hooks/useEditorMode"
+import {
+    useEditorMode,
+    getInitialEditorMode,
+    BLOCKS_MODE,
+    type EditorMode,
+} from "./hooks/useEditorMode"
 import { useSendTestEmail } from "../hooks/useSendTestEmail"
 import { useMonacoSetup } from "./hooks/useMonacoSetup"
 import { useInsertActions } from "./hooks/useInsertActions"
@@ -281,21 +290,19 @@ function ModeToggle({
 }) {
     return (
         <div className="flex items-center gap-1">
-            {isEnterprise && (
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        <Button
-                            variant={editorMode === "blocks" ? "secondary" : "ghost"}
-                            size="sm"
-                            className="h-8 w-8 p-0"
-                            onClick={() => onModeSwitch("blocks")}
-                        >
-                            <LayoutGrid className="h-4 w-4" />
-                        </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Block Editor</TooltipContent>
-                </Tooltip>
-            )}
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <Button
+                        variant={editorMode === BLOCKS_MODE ? "secondary" : "ghost"}
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        onClick={() => onModeSwitch(BLOCKS_MODE)}
+                    >
+                        <LayoutGrid className="h-4 w-4" />
+                    </Button>
+                </TooltipTrigger>
+                <TooltipContent>Visual Editor</TooltipContent>
+            </Tooltip>
             <Tooltip>
                 <TooltipTrigger asChild>
                     <Button
@@ -483,9 +490,15 @@ function CodeEditorInner() {
 
     const plainTextEditorRef = useRef<PlainTextEditorRef | null>(null)
 
-    // Editor state — shared between code editor and builder
+    const initialEditorMode = getInitialEditorMode(template?.data)
+
+    // Editor state — shared between code editor and builder. A template
+    // authored visually has no JSX and must not be seeded with the starter
+    // template: persistence would then store it as code.source and the
+    // starter would resurface if the user ever switched to the code editor.
     const [code, setCode] = useState<string>(
-        template?.data?.code?.source ?? DEFAULT_REACT_EMAIL_TEMPLATE,
+        template?.data?.code?.source ??
+            (initialEditorMode === BLOCKS_MODE ? "" : DEFAULT_REACT_EMAIL_TEMPLATE),
     )
 
     // Plain text state
@@ -532,7 +545,7 @@ function CodeEditorInner() {
         cancelModeSwitch,
         handleBlocksChange,
     } = useEditorMode({
-        initialMode: getInitialEditorMode(template?.data),
+        initialMode: initialEditorMode,
         code,
         setCode,
         editorRef,

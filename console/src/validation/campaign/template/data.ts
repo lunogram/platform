@@ -8,7 +8,11 @@ export const emailTemplateDataSchema = z.object({
         })
         .default({ name: "", address: "" }),
     subject: z.string().default(""),
-    editor: z.enum(["code", "visual"]).default("visual"),
+    // Which editor authored this template. Set at creation from the choice in
+    // the New Campaign form, then kept in step by the editor itself. Replaces
+    // an earlier `editor: "code" | "visual"` field that nothing ever read;
+    // rows still carrying it are inert.
+    editorMode: z.enum(["code", "builder", "blocks"]).optional(),
     cc: z.string().optional(),
     bcc: z.string().optional(),
     reply_to: z.string().optional(),
