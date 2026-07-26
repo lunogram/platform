@@ -22,7 +22,10 @@ import {
     Crosshair,
     LayoutGrid,
     AlertTriangle,
+    Upload,
+    Download,
 } from "lucide-react"
+import { toast } from "sonner"
 
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable"
 import { Button } from "@/components/ui/button"
@@ -51,6 +54,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import {
     Select,
     SelectTrigger,
@@ -81,7 +85,12 @@ import { UserSelection } from "../../../UserSelection"
 import type { Viewport, EditorTab } from "./types"
 import { VIEWPORT_WIDTHS } from "./types"
 import { isEnterprise } from "@/config/enterprise"
-import type { EmailDocument, BlockEditorTab } from "./hooks/useEditorMode"
+import type { EmailDocument, BlockEditorTab, BlockEditorHandle } from "./hooks/useEditorMode"
+import {
+    exportFileName,
+    parseTemplaticalDocument,
+    serializeTemplaticalDocument,
+} from "../blockEditor/documentJson"
 
 import {
     BuilderProvider,
@@ -396,6 +405,90 @@ function ModeSwitchDialog({
     )
 }
 
+/**
+ * Paste or upload a Templatical document to replace the current one.
+ *
+ * Import replaces the whole document rather than merging: the format has no
+ * meaningful merge, and a partial import would leave the template in a state
+ * neither the user nor the renderer could reason about.
+ */
+function ImportDocumentDialog({
+    open,
+    onOpenChange,
+    value,
+    onValueChange,
+    error,
+    fileInputRef,
+    onFileSelected,
+    onApply,
+}: {
+    open: boolean
+    onOpenChange: (open: boolean) => void
+    value: string
+    onValueChange: (value: string) => void
+    error: string | null
+    fileInputRef: React.RefObject<HTMLInputElement | null>
+    onFileSelected: (file: File) => void
+    onApply: () => void
+}) {
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="max-w-xl">
+                <DialogHeader>
+                    <DialogTitle>Import template JSON</DialogTitle>
+                    <DialogDescription>
+                        Paste a document exported from another template, or choose a{" "}
+                        <code>.json</code> file. This replaces the current layout — it is not saved
+                        until you save the template.
+                    </DialogDescription>
+                </DialogHeader>
+
+                <Textarea
+                    value={value}
+                    onChange={(e) => onValueChange(e.target.value)}
+                    placeholder='{ "blocks": [ … ], "settings": { … } }'
+                    className="h-56 font-mono text-xs"
+                    aria-label="Template JSON"
+                />
+
+                {error && (
+                    <p className="flex items-start gap-1.5 text-sm text-destructive" role="alert">
+                        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                        {error}
+                    </p>
+                )}
+
+                <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="application/json,.json"
+                    className="hidden"
+                    onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file) onFileSelected(file)
+                        // Clear so picking the same file twice still fires.
+                        e.target.value = ""
+                    }}
+                />
+
+                <DialogFooter className="sm:flex-row sm:justify-between sm:gap-2">
+                    <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
+                        Choose file…
+                    </Button>
+                    <div className="flex gap-2">
+                        <Button variant="outline" onClick={() => onOpenChange(false)}>
+                            Cancel
+                        </Button>
+                        <Button onClick={onApply} disabled={!value.trim()}>
+                            Import
+                        </Button>
+                    </div>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    )
+}
+
 function PreviewToolbar({
     viewport,
     setViewport,
@@ -586,6 +679,69 @@ function CodeEditorInner() {
         // @ts-expect-error data is a channel union; code exists on the email arm.
     }, [template?.data?.code?.bundle, selectedUser])
 
+    // --- Document import/export -------------------------------------------
+    // The document is portable JSON by design, so moving one between templates
+    // needs no server support: export reads the copy already in `blocksData`,
+    // and import pushes one into the mounted editor.
+    const blockEditorHandleRef = useRef<BlockEditorHandle | null>(null)
+    const [importOpen, setImportOpen] = useState(false)
+    const [importText, setImportText] = useState("")
+    const [importError, setImportError] = useState<string | null>(null)
+    const importFileRef = useRef<HTMLInputElement>(null)
+
+    const handleCopyDocument = useCallback(async () => {
+        if (!blocksData) return
+        try {
+            await navigator.clipboard.writeText(serializeTemplaticalDocument(blocksData))
+            toast.success("Template JSON copied to clipboard")
+        } catch {
+            toast.error("Couldn't copy to the clipboard")
+        }
+    }, [blocksData])
+
+    const handleDownloadDocument = useCallback(() => {
+        if (!blocksData) return
+        const blob = new Blob([serializeTemplaticalDocument(blocksData)], {
+            type: "application/json",
+        })
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement("a")
+        link.href = url
+        link.download = exportFileName(campaign.name, template.locale)
+        link.click()
+        URL.revokeObjectURL(url)
+    }, [blocksData, campaign.name, template.locale])
+
+    const handleImportFile = useCallback((file: File) => {
+        void file
+            .text()
+            .then((text) => {
+                setImportText(text)
+                setImportError(null)
+            })
+            .catch(() => setImportError("Couldn't read that file."))
+    }, [])
+
+    const handleApplyImport = useCallback(() => {
+        const result = parseTemplaticalDocument(importText)
+        if (!result.ok) {
+            setImportError(result.error)
+            return
+        }
+
+        const handle = blockEditorHandleRef.current
+        if (!handle) {
+            setImportError("The editor is still loading — try again in a moment.")
+            return
+        }
+
+        handle.setContent(result.doc)
+        setImportOpen(false)
+        setImportText("")
+        setImportError(null)
+        toast.success("Template imported. Save to keep it.")
+    }, [importText])
+
     const { sending, handleSendTest } = useSendTestEmail({
         previewProps,
         projectId: project.id,
@@ -657,6 +813,49 @@ function CodeEditorInner() {
                         />
                     </div>
                     <div className="flex items-center gap-1 pr-3">
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 w-8 p-0"
+                                    onClick={() => {
+                                        setImportText("")
+                                        setImportError(null)
+                                        setImportOpen(true)
+                                    }}
+                                >
+                                    <Upload className="h-4 w-4" />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Import JSON</TooltipContent>
+                        </Tooltip>
+                        <DropdownMenu>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-8 w-8 p-0"
+                                            disabled={!blocksData}
+                                        >
+                                            <Download className="h-4 w-4" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                </TooltipTrigger>
+                                <TooltipContent>Export JSON</TooltipContent>
+                            </Tooltip>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuItem onSelect={() => void handleCopyDocument()}>
+                                    Copy to clipboard
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onSelect={handleDownloadDocument}>
+                                    Download .json
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                        <div className="mx-1 h-4 w-px bg-border" />
                         <ModeToggle editorMode={editorMode} onModeSwitch={handleModeSwitch} />
                         <div className="mx-1 h-4 w-px bg-border" />
                         <UserSelection
@@ -694,6 +893,9 @@ function CodeEditorInner() {
                                     activeTab={blockEditorTab}
                                     onTabChange={setBlockEditorTab}
                                     variableGroups={variableGroups}
+                                    onReady={(handle: BlockEditorHandle | null) => {
+                                        blockEditorHandleRef.current = handle
+                                    }}
                                 />
                             </Suspense>
                         )}
@@ -732,6 +934,19 @@ function CodeEditorInner() {
                     open={imageModalOpen}
                     onOpenChange={setImageModalOpen}
                     onSelect={insertImage}
+                />
+                <ImportDocumentDialog
+                    open={importOpen}
+                    onOpenChange={setImportOpen}
+                    value={importText}
+                    onValueChange={(value) => {
+                        setImportText(value)
+                        setImportError(null)
+                    }}
+                    error={importError}
+                    fileInputRef={importFileRef}
+                    onFileSelected={handleImportFile}
+                    onApply={handleApplyImport}
                 />
             </div>
         )

@@ -5,6 +5,15 @@ import type { TemplateContent } from "@templatical/types"
 import type { TemplaticalMergeTag } from "./mergeTags"
 import "@templatical/editor/style.css"
 
+/**
+ * Imperative operations exposed once the editor is mounted, in Templatical's
+ * own types. The wrapper above adapts this to the host-facing
+ * `BlockEditorHandle`, which speaks the opaque `EmailDocument`.
+ */
+export interface TemplaticalEditorHandle {
+    setContent: (content: TemplateContent) => void
+}
+
 interface BlockEditorProps {
     /**
      * Document to open. Read once, on mount — the editor owns its content
@@ -19,6 +28,13 @@ interface BlockEditorProps {
     mergeTags: TemplaticalMergeTag[]
     /** Opens the host's media library; resolves null when dismissed. */
     onRequestMedia: () => Promise<{ url: string; alt?: string } | null>
+    /**
+     * Called with a handle once the editor is mounted, and with null when it is
+     * torn down. A callback rather than a forwarded ref because the component
+     * sits behind `React.lazy` and mounts asynchronously, so there is no render
+     * at which a ref would be reliably populated.
+     */
+    onReady?: (handle: TemplaticalEditorHandle | null) => void
 }
 
 /**
@@ -40,6 +56,7 @@ export function BlockEditor({
     theme,
     mergeTags,
     onRequestMedia,
+    onReady,
 }: BlockEditorProps) {
     const containerRef = useRef<HTMLDivElement>(null)
     const editorRef = useRef<TemplaticalEditor | null>(null)
@@ -55,6 +72,8 @@ export function BlockEditor({
     const mergeTagsRef = useRef(mergeTags)
     const onRequestMediaRef = useRef(onRequestMedia)
     onRequestMediaRef.current = onRequestMedia
+    const onReadyRef = useRef(onReady)
+    onReadyRef.current = onReady
 
     useEffect(() => {
         const host = containerRef.current
@@ -98,6 +117,9 @@ export function BlockEditor({
                 instance = editor
                 editorRef.current = editor
                 hideDarkModePreview(mountPoint)
+                onReadyRef.current?.({
+                    setContent: (content) => editor.setContent(content),
+                })
             })
             .catch((error: unknown) => {
                 onErrorRef.current?.(error instanceof Error ? error : new Error(String(error)))
@@ -111,6 +133,7 @@ export function BlockEditor({
             // a concurrent mount may already have replaced it.
             if (editorRef.current === instance) {
                 editorRef.current = null
+                onReadyRef.current?.(null)
             }
         }
     }, [])

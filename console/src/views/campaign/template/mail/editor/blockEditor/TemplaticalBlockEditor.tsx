@@ -2,8 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { createDefaultTemplateContent } from "@templatical/types"
 import type { TemplateContent } from "@templatical/types"
 import { toast } from "sonner"
-import type { EmailDocument } from "../codeEditor/hooks/useEditorMode"
-import { BlockEditor } from "./BlockEditor"
+import type { BlockEditorHandle, EmailDocument } from "../codeEditor/hooks/useEditorMode"
+import { BlockEditor, type TemplaticalEditorHandle } from "./BlockEditor"
 import { MediaManager } from "@/components/media-manager"
 import type { Image } from "@/types"
 import { useConsoleTheme } from "./useConsoleTheme"
@@ -16,6 +16,8 @@ interface TemplaticalBlockEditorProps {
     onChange: (doc: EmailDocument) => void
     /** Campaign variables, offered as merge tags in the editor. */
     variableGroups: VariableGroup[]
+    /** Receives the import handle once mounted; null on teardown. */
+    onReady?: (handle: BlockEditorHandle | null) => void
 }
 
 /**
@@ -28,6 +30,7 @@ export function TemplaticalBlockEditor({
     initialDocument,
     onChange,
     variableGroups,
+    onReady,
 }: TemplaticalBlockEditorProps) {
     const theme = useConsoleTheme()
     // Read once on mount, matching how the editor consumes them.
@@ -72,6 +75,23 @@ export function TemplaticalBlockEditor({
     const onChangeRef = useRef(onChange)
     onChangeRef.current = onChange
 
+    // Wrap the handle so an import also reports the new document upward.
+    // `setContent` repaints the canvas but does not necessarily emit `onChange`,
+    // and without that the imported document would never reach `blocksData` —
+    // the next save would persist the pre-import template.
+    const onReadyRef = useRef(onReady)
+    onReadyRef.current = onReady
+    const handleReady = useCallback((handle: TemplaticalEditorHandle | null) => {
+        onReadyRef.current?.(
+            handle && {
+                setContent: (doc: EmailDocument) => {
+                    handle.setContent(doc as unknown as TemplateContent)
+                    onChangeRef.current(doc)
+                },
+            },
+        )
+    }, [])
+
     // Report a freshly seeded document upward immediately. Templatical only
     // emits onChange once the user edits something, so without this a template
     // saved straight after switching would store no document at all — and the
@@ -92,6 +112,7 @@ export function TemplaticalBlockEditor({
                 theme={theme}
                 mergeTags={mergeTags}
                 onRequestMedia={requestMedia}
+                onReady={handleReady}
             />
             <MediaManager
                 open={mediaOpen}

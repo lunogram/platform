@@ -7,6 +7,17 @@ import { isEnterprise } from "@/config/enterprise"
  * around. Its concrete shape is Templatical's `TemplateContent`.
  */
 export type EmailDocument = Record<string, unknown>
+
+/**
+ * Imperative operations the blocks toolbar needs from a mounted block editor.
+ *
+ * Declared against the opaque `EmailDocument` so the host toolbar never has to
+ * name Templatical's concrete types — the implementation adapts at its own
+ * boundary.
+ */
+export interface BlockEditorHandle {
+    setContent: (doc: EmailDocument) => void
+}
 /**
  * Panels of the visual editor. "preview" is open-source only — the enterprise
  * block editor renders its own preview and only knows the other two.
