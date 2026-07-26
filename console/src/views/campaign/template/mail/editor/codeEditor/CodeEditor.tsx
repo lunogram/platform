@@ -77,9 +77,12 @@ import { MediaManager } from "@/components/media-manager"
 import { EditorToolbar } from "./EditorToolbar"
 import { TabButton, PreviewTab } from "./TabButton"
 import { DEFAULT_REACT_EMAIL_TEMPLATE } from "./defaultTemplate"
-import { templaticalPlainText, templaticalPreviewHtml } from "@/lib/templatical-preview"
+import {
+    resolveMergeTags,
+    templaticalPlainText,
+    templaticalPreviewHtml,
+} from "@/lib/templatical-preview"
 import Iframe from "@/components/iframe"
-import { Render } from "@/renderTemplates"
 import { UserSelection } from "../../../UserSelection"
 
 import type { Viewport, EditorTab } from "./types"
@@ -662,22 +665,35 @@ function CodeEditorInner() {
     // A visually authored template is rendered by the backend, which also
     // derives its plain text, so the value lands in the bundle at save time.
     // It therefore reflects the last save rather than unsaved edits.
-    const blocksPlainText = useMemo(
-        () => templaticalPlainText(template?.data?.code?.bundle),
+    //
+    // Display only — the persisted `plaintext.generated` comes from
+    // `autoPlainText`, so substituting preview values here cannot leak into a
+    // send. Resolved against the same context as the HTML preview below, so the
+    // two tabs agree.
+    const blocksPlainText = useMemo(() => {
+        const text = templaticalPlainText(template?.data?.code?.bundle)
+        if (!text || !selectedUser) return text
+        return resolveMergeTags(text, previewProps)
         // @ts-expect-error data is a channel union; code exists on the email arm.
-        [template?.data?.code?.bundle],
-    )
+    }, [template?.data?.code?.bundle, selectedUser, previewProps])
 
     // The rendered email with the selected recipient's data substituted. The
     // HTML comes from the backend render and carries merge tags literally, so
-    // resolving them here is the same Handlebars pass the other previews use.
+    // resolving them here runs the same Liquid pass the send pipeline does.
     // With no user selected the tags stay visible, which is the honest default.
+    //
+    // The context is the full `previewProps` rather than just the user: the
+    // merge-tag picker also offers campaign variables, `unsubscribe_url`,
+    // `preferences_url` and `now`, none of which resolve under a user-only
+    // scope. `previewProps` already carries sample values for every variable
+    // group with the selected recipient merged in — the same object the code
+    // editor renders with, and the one its props.json panel shows.
     const blocksPreviewHtml = useMemo(() => {
         const html = templaticalPreviewHtml(template?.data?.code?.bundle)
         if (!html || !selectedUser) return html
-        return Render(html, { user: selectedUser })
+        return resolveMergeTags(html, previewProps)
         // @ts-expect-error data is a channel union; code exists on the email arm.
-    }, [template?.data?.code?.bundle, selectedUser])
+    }, [template?.data?.code?.bundle, selectedUser, previewProps])
 
     // --- Document import/export -------------------------------------------
     // The document is portable JSON by design, so moving one between templates
