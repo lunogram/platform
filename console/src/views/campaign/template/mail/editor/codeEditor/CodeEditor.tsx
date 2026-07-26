@@ -22,6 +22,7 @@ import {
     Crosshair,
     LayoutGrid,
     AlertTriangle,
+    Loader2,
     Upload,
     Download,
 } from "lucide-react"
@@ -68,6 +69,7 @@ import { TemplateInput } from "@/components/ui/template-input"
 import { cn } from "@/utils"
 
 import { CampaignContext, ProjectContext, TemplateContext } from "@/contexts"
+import { TemplateWorkflowContext } from "../../../contexts"
 import { useCampaignVariableContext } from "@/views/campaign/CampaignVariableContext"
 
 import { PlainTextEditor, type PlainTextEditorRef } from "./PlainTextEditor"
@@ -593,6 +595,7 @@ function CodeEditorInner() {
     const [project] = useContext(ProjectContext)
     const [campaign] = useContext(CampaignContext)
     const [template] = useContext(TemplateContext)
+    const { save } = useContext(TemplateWorkflowContext)
     const { variableGroups, variablesReady } = useCampaignVariableContext()
     const { selectSection, deselectSection } = useBuilderActionsOptional()
 
@@ -694,6 +697,33 @@ function CodeEditorInner() {
         return resolveMergeTags(html, previewProps)
         // @ts-expect-error data is a channel union; code exists on the email arm.
     }, [template?.data?.code?.bundle, selectedUser, previewProps])
+
+    // Both preview panels render what the backend produced at save time, so
+    // opening one without saving first shows the previous edit. Persist on the
+    // way in — the same thing "Send test" does before dispatching, and for the
+    // same reason. Saving is idempotent, so an unchanged template just costs a
+    // round trip.
+    const [previewSyncing, setPreviewSyncing] = useState(false)
+    const handleBlockEditorTabChange = useCallback(
+        (tab: BlockEditorTab) => {
+            setBlockEditorTab(tab)
+            if (tab === "editor") return
+
+            setPreviewSyncing(true)
+            void (async () => {
+                try {
+                    if (!(await save())) {
+                        toast.error("Couldn't refresh the preview — saving the template failed")
+                    }
+                } catch {
+                    toast.error("Couldn't refresh the preview — saving the template failed")
+                } finally {
+                    setPreviewSyncing(false)
+                }
+            })()
+        },
+        [setBlockEditorTab, save],
+    )
 
     // --- Document import/export -------------------------------------------
     // The document is portable JSON by design, so moving one between templates
@@ -816,17 +846,26 @@ function CodeEditorInner() {
                         {!isEnterprise && (
                             <TabButton
                                 active={blockEditorTab === "preview"}
-                                onClick={() => setBlockEditorTab("preview")}
+                                onClick={() => handleBlockEditorTabChange("preview")}
                                 icon={<Eye className="h-4 w-4" />}
                                 label="Preview"
                             />
                         )}
                         <TabButton
                             active={blockEditorTab === "preview-text"}
-                            onClick={() => setBlockEditorTab("preview-text")}
+                            onClick={() => handleBlockEditorTabChange("preview-text")}
                             icon={<FileText className="h-4 w-4" />}
                             label="Preview Text"
                         />
+                        {previewSyncing && (
+                            <span
+                                className="flex items-center gap-1.5 pl-2 text-xs text-muted-foreground"
+                                role="status"
+                            >
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                                Updating preview…
+                            </span>
+                        )}
                     </div>
                     <div className="flex items-center gap-1 pr-3">
                         <Tooltip>
@@ -917,7 +956,7 @@ function CodeEditorInner() {
                                     initialDocument={blocksData ?? undefined}
                                     onChange={handleBlocksChange}
                                     activeTab={blockEditorTab}
-                                    onTabChange={setBlockEditorTab}
+                                    onTabChange={handleBlockEditorTabChange}
                                     variableGroups={variableGroups}
                                     onReady={(handle: BlockEditorHandle | null) => {
                                         blockEditorHandleRef.current = handle
@@ -929,7 +968,18 @@ function CodeEditorInner() {
                     {!isEnterprise && blockEditorTab === "preview" && (
                         <div className="h-full w-full overflow-auto bg-muted/20 p-6">
                             <div className="mx-auto max-w-[700px] bg-white shadow-sm">
-                                <Iframe content={blocksPreviewHtml} allowScroll={false} />
+                                {/* An iframe with no width/height falls back to
+                                    the CSS default 300x150, which squeezes the
+                                    email's 600px body and wraps headings
+                                    mid-word. Fill the frame and let it grow to
+                                    the content, so this container does the
+                                    scrolling. */}
+                                <Iframe
+                                    content={blocksPreviewHtml}
+                                    allowScroll={false}
+                                    fullHeight
+                                    width="100%"
+                                />
                             </div>
                         </div>
                     )}

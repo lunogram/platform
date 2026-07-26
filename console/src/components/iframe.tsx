@@ -24,7 +24,21 @@ export default function Iframe({
                 frame.contentDocument.documentElement.style.overflow = allowScroll ? "" : "hidden"
             }
             if (fullHeight) {
-                frame.style.minHeight = `${frame.contentWindow?.document.documentElement.scrollHeight}px`
+                // Collapse before measuring. A document can never report a
+                // scrollHeight smaller than the frame rendering it, so measuring
+                // in place only ever grows the frame — a short document inherits
+                // the height of whatever was shown before it, and the first
+                // measurement is pinned to the 300x150 default an iframe gets
+                // when no size is set.
+                const root = frame.contentDocument?.documentElement
+                if (root) {
+                    const previous = frame.style.height
+                    frame.style.height = "0px"
+                    const contentHeight = root.scrollHeight
+                    // Keep the previous height rather than collapsing to nothing
+                    // if the document is not measurable yet.
+                    frame.style.height = contentHeight > 0 ? `${contentHeight}px` : previous
+                }
             }
         }
     }, [allowScroll, content, fullHeight])
