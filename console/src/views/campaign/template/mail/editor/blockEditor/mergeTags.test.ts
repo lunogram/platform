@@ -6,9 +6,7 @@ describe("toMergeTags", () => {
         const tags = toMergeTags([
             {
                 label: "User",
-                variables: [
-                    { path: "user.first_name", label: "First name", types: ["string"] },
-                ],
+                variables: [{ path: "user.first_name", label: "First name", types: ["string"] }],
             },
         ])
 
