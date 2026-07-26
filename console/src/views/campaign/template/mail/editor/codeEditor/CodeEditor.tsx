@@ -590,7 +590,7 @@ function CodeEditorInner() {
     const [project] = useContext(ProjectContext)
     const [campaign] = useContext(CampaignContext)
     const [template] = useContext(TemplateContext)
-    const { variableGroups } = useCampaignVariableContext()
+    const { variableGroups, variablesReady } = useCampaignVariableContext()
     const { selectSection, deselectSection } = useBuilderActionsOptional()
 
     const plainTextEditorRef = useRef<PlainTextEditorRef | null>(null)
@@ -884,8 +884,18 @@ function CodeEditorInner() {
                         itself; Templatical does not, so the host swaps panels.
                         Keep the editor mounted underneath — remounting it on
                         every tab change would discard undo history. */}
+                    {/* Wait for the schema fetch before mounting. The editor
+                        reads its merge tags and display conditions once, at
+                        init, and exposes no way to update them afterwards — so
+                        mounting while `variableGroups` still holds only the
+                        hardcoded base variables pins it to those for the rest
+                        of the session. That is invisible for merge tags, which
+                        keep working minus the project's own attributes, but
+                        total for display conditions: none of the base variables
+                        is a boolean, so the editor is handed an empty list and
+                        hides the control entirely. */}
                     <div className={cn("h-full", blockEditorTab !== "editor" && "hidden")}>
-                        {LazyBlockEditorWrapped && (
+                        {LazyBlockEditorWrapped && variablesReady && (
                             <Suspense fallback={<div className="flex-1" />}>
                                 <LazyBlockEditorWrapped
                                     initialDocument={blocksData ?? undefined}

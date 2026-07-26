@@ -8,6 +8,7 @@ import { MediaManager } from "@/components/media-manager"
 import type { Image } from "@/types"
 import { useConsoleTheme } from "./useConsoleTheme"
 import { toMergeTags } from "./mergeTags"
+import { toDisplayConditions } from "./displayConditions"
 import type { VariableGroup } from "@/views/journey/JourneyVariableContext"
 
 interface TemplaticalBlockEditorProps {
@@ -35,6 +36,7 @@ export function TemplaticalBlockEditor({
     const theme = useConsoleTheme()
     // Read once on mount, matching how the editor consumes them.
     const mergeTags = useMemo(() => toMergeTags(variableGroups), [variableGroups])
+    const displayConditions = useMemo(() => toDisplayConditions(variableGroups), [variableGroups])
 
     // The editor asks for media imperatively and waits on a promise, while the
     // media manager is a React modal. Park the resolver until the user either
@@ -111,6 +113,7 @@ export function TemplaticalBlockEditor({
                 onError={(error) => toast.error(error.message)}
                 theme={theme}
                 mergeTags={mergeTags}
+                displayConditions={displayConditions}
                 onRequestMedia={requestMedia}
                 onReady={handleReady}
             />

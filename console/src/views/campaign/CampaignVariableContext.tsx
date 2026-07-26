@@ -14,10 +14,22 @@ import type { VariableSuggestions } from "@/types"
 interface CampaignVariableContextValue {
     /** Variable groups available for campaign template editors */
     variableGroups: VariableGroup[]
+    /**
+     * Whether the schema fetch has settled, so `variableGroups` is as complete
+     * as it will get. Until then the groups hold only the hardcoded base
+     * variables and none of the project's own attributes.
+     *
+     * Editors that read their configuration once, at mount, must wait for this:
+     * mounting early silently pins them to the base set for the rest of the
+     * session. Set on failure as well as success — a project whose schema
+     * endpoints are down still needs a usable editor.
+     */
+    variablesReady: boolean
 }
 
 const CampaignVariableContext = createContext<CampaignVariableContextValue>({
     variableGroups: [],
+    variablesReady: false,
 })
 
 // eslint-disable-next-line react-refresh/only-export-components
@@ -103,15 +115,20 @@ export function CampaignVariableProvider({ children }: PropsWithChildren) {
     const [project] = useContext(ProjectContext)
     const [campaign] = useContext(CampaignContext)
     const [suggestions, setSuggestions] = useState<VariableSuggestions | null>(null)
+    const [variablesReady, setVariablesReady] = useState(false)
 
     // Fetch user schema paths once per project
     useEffect(() => {
         let cancelled = false
+        setVariablesReady(false)
         fetchPathSuggestions(project.id)
             .then((s) => {
                 if (!cancelled) setSuggestions(s)
             })
             .catch(console.error)
+            .finally(() => {
+                if (!cancelled) setVariablesReady(true)
+            })
         return () => {
             cancelled = true
         }
@@ -166,8 +183,8 @@ export function CampaignVariableProvider({ children }: PropsWithChildren) {
     }, [suggestions, campaign.variables, campaign.channel])
 
     const value = useMemo<CampaignVariableContextValue>(
-        () => ({ variableGroups }),
-        [variableGroups],
+        () => ({ variableGroups, variablesReady }),
+        [variableGroups, variablesReady],
     )
 
     return (

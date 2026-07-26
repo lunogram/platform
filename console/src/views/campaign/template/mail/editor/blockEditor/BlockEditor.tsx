@@ -3,6 +3,7 @@ import { init } from "@templatical/editor"
 import type { TemplaticalEditor } from "@templatical/editor"
 import type { TemplateContent } from "@templatical/types"
 import type { TemplaticalMergeTag } from "./mergeTags"
+import type { TemplaticalDisplayCondition } from "./displayConditions"
 import "@templatical/editor/style.css"
 
 /**
@@ -26,6 +27,8 @@ interface BlockEditorProps {
     theme: "light" | "dark"
     /** Offered by the tag picker and typing autocomplete. Read once, on mount. */
     mergeTags: TemplaticalMergeTag[]
+    /** Conditions offered for showing or hiding an individual block. */
+    displayConditions: TemplaticalDisplayCondition[]
     /** Opens the host's media library; resolves null when dismissed. */
     onRequestMedia: () => Promise<{ url: string; alt?: string } | null>
     /**
@@ -55,6 +58,7 @@ export function BlockEditor({
     onError,
     theme,
     mergeTags,
+    displayConditions,
     onRequestMedia,
     onReady,
 }: BlockEditorProps) {
@@ -70,6 +74,7 @@ export function BlockEditor({
     const themeRef = useRef(theme)
     themeRef.current = theme
     const mergeTagsRef = useRef(mergeTags)
+    const displayConditionsRef = useRef(displayConditions)
     const onRequestMediaRef = useRef(onRequestMedia)
     onRequestMediaRef.current = onRequestMedia
     const onReadyRef = useRef(onReady)
@@ -104,6 +109,11 @@ export function BlockEditor({
             // Liquid matches the platform's own template syntax, so merge tags
             // authored here resolve in the send pipeline unchanged.
             mergeTags: { syntax: "liquid", tags: mergeTagsRef.current },
+            // `allowCustom` stays off: a condition is raw markup the renderer
+            // wraps a block in unchecked, so a hand-written guard that does not
+            // close cleanly corrupts every block after it in the email. The
+            // generated pairs are balanced by construction.
+            displayConditions: { conditions: displayConditionsRef.current, allowCustom: false },
             onRequestMedia: () => onRequestMediaRef.current(),
             onChange: (content) => onChangeRef.current(content),
             onError: (error) => onErrorRef.current?.(error),
