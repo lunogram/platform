@@ -1,4 +1,13 @@
-import { useCallback, useContext, useEffect, useRef, useState, lazy, Suspense } from "react"
+import {
+    useCallback,
+    useContext,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+    lazy,
+    Suspense,
+} from "react"
 import { Editor } from "@monaco-editor/react"
 import {
     Smartphone,
@@ -13,7 +22,11 @@ import {
     Crosshair,
     LayoutGrid,
     AlertTriangle,
+    Loader2,
+    Upload,
+    Download,
 } from "lucide-react"
+import { toast } from "sonner"
 
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable"
 import { Button } from "@/components/ui/button"
@@ -42,6 +55,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import {
     Select,
     SelectTrigger,
@@ -55,6 +69,7 @@ import { TemplateInput } from "@/components/ui/template-input"
 import { cn } from "@/utils"
 
 import { CampaignContext, ProjectContext, TemplateContext } from "@/contexts"
+import { TemplateWorkflowContext } from "../../../contexts"
 import { useCampaignVariableContext } from "@/views/campaign/CampaignVariableContext"
 
 import { PlainTextEditor, type PlainTextEditorRef } from "./PlainTextEditor"
@@ -64,12 +79,23 @@ import { MediaManager } from "@/components/media-manager"
 import { EditorToolbar } from "./EditorToolbar"
 import { TabButton, PreviewTab } from "./TabButton"
 import { DEFAULT_REACT_EMAIL_TEMPLATE } from "./defaultTemplate"
+import {
+    resolveMergeTags,
+    templaticalPlainText,
+    templaticalPreviewHtml,
+} from "@/lib/templatical-preview"
+import Iframe from "@/components/iframe"
 import { UserSelection } from "../../../UserSelection"
 
 import type { Viewport, EditorTab } from "./types"
 import { VIEWPORT_WIDTHS } from "./types"
 import { isEnterprise } from "@/config/enterprise"
-import type { EmailDocument, BlockEditorTab } from "./hooks/useEditorMode"
+import type { EmailDocument, BlockEditorTab, BlockEditorHandle } from "./hooks/useEditorMode"
+import {
+    exportFileName,
+    parseTemplaticalDocument,
+    serializeTemplaticalDocument,
+} from "../blockEditor/documentJson"
 
 import {
     BuilderProvider,
@@ -172,12 +198,21 @@ const LazyBlockEditorWrapped = __ENTERPRISE__
               },
           })),
       )
-    : null
+    : lazy(() =>
+          import("../blockEditor/TemplaticalBlockEditor").then((mod) => ({
+              default: mod.TemplaticalBlockEditor,
+          })),
+      )
 
 // Extracted hooks
 import { useCompilation } from "./hooks/useCompilation"
 import { usePreviewProps } from "../hooks/usePreviewProps"
-import { useEditorMode, getInitialEditorMode, type EditorMode } from "./hooks/useEditorMode"
+import {
+    useEditorMode,
+    getInitialEditorMode,
+    BLOCKS_MODE,
+    type EditorMode,
+} from "./hooks/useEditorMode"
 import { useSendTestEmail } from "../hooks/useSendTestEmail"
 import { useMonacoSetup } from "./hooks/useMonacoSetup"
 import { useInsertActions } from "./hooks/useInsertActions"
@@ -281,21 +316,19 @@ function ModeToggle({
 }) {
     return (
         <div className="flex items-center gap-1">
-            {isEnterprise && (
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        <Button
-                            variant={editorMode === "blocks" ? "secondary" : "ghost"}
-                            size="sm"
-                            className="h-8 w-8 p-0"
-                            onClick={() => onModeSwitch("blocks")}
-                        >
-                            <LayoutGrid className="h-4 w-4" />
-                        </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Block Editor</TooltipContent>
-                </Tooltip>
-            )}
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <Button
+                        variant={editorMode === BLOCKS_MODE ? "secondary" : "ghost"}
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        onClick={() => onModeSwitch(BLOCKS_MODE)}
+                    >
+                        <LayoutGrid className="h-4 w-4" />
+                    </Button>
+                </TooltipTrigger>
+                <TooltipContent>Visual Editor</TooltipContent>
+            </Tooltip>
             <Tooltip>
                 <TooltipTrigger asChild>
                     <Button
@@ -371,6 +404,90 @@ function ModeSwitchDialog({
                     <Button className="flex-1" onClick={onConfirm}>
                         Switch editor
                     </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    )
+}
+
+/**
+ * Paste or upload a Templatical document to replace the current one.
+ *
+ * Import replaces the whole document rather than merging: the format has no
+ * meaningful merge, and a partial import would leave the template in a state
+ * neither the user nor the renderer could reason about.
+ */
+function ImportDocumentDialog({
+    open,
+    onOpenChange,
+    value,
+    onValueChange,
+    error,
+    fileInputRef,
+    onFileSelected,
+    onApply,
+}: {
+    open: boolean
+    onOpenChange: (open: boolean) => void
+    value: string
+    onValueChange: (value: string) => void
+    error: string | null
+    fileInputRef: React.RefObject<HTMLInputElement | null>
+    onFileSelected: (file: File) => void
+    onApply: () => void
+}) {
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="max-w-xl">
+                <DialogHeader>
+                    <DialogTitle>Import template JSON</DialogTitle>
+                    <DialogDescription>
+                        Paste a document exported from another template, or choose a{" "}
+                        <code>.json</code> file. This replaces the current layout — it is not saved
+                        until you save the template.
+                    </DialogDescription>
+                </DialogHeader>
+
+                <Textarea
+                    value={value}
+                    onChange={(e) => onValueChange(e.target.value)}
+                    placeholder='{ "blocks": [ … ], "settings": { … } }'
+                    className="h-56 font-mono text-xs"
+                    aria-label="Template JSON"
+                />
+
+                {error && (
+                    <p className="flex items-start gap-1.5 text-sm text-destructive" role="alert">
+                        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                        {error}
+                    </p>
+                )}
+
+                <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="application/json,.json"
+                    className="hidden"
+                    onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file) onFileSelected(file)
+                        // Clear so picking the same file twice still fires.
+                        e.target.value = ""
+                    }}
+                />
+
+                <DialogFooter className="sm:flex-row sm:justify-between sm:gap-2">
+                    <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
+                        Choose file…
+                    </Button>
+                    <div className="flex gap-2">
+                        <Button variant="outline" onClick={() => onOpenChange(false)}>
+                            Cancel
+                        </Button>
+                        <Button onClick={onApply} disabled={!value.trim()}>
+                            Import
+                        </Button>
+                    </div>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
@@ -478,14 +595,21 @@ function CodeEditorInner() {
     const [project] = useContext(ProjectContext)
     const [campaign] = useContext(CampaignContext)
     const [template] = useContext(TemplateContext)
-    const { variableGroups } = useCampaignVariableContext()
+    const { save } = useContext(TemplateWorkflowContext)
+    const { variableGroups, variablesReady } = useCampaignVariableContext()
     const { selectSection, deselectSection } = useBuilderActionsOptional()
 
     const plainTextEditorRef = useRef<PlainTextEditorRef | null>(null)
 
-    // Editor state — shared between code editor and builder
+    const initialEditorMode = getInitialEditorMode(template?.data)
+
+    // Editor state — shared between code editor and builder. A template
+    // authored visually has no JSX and must not be seeded with the starter
+    // template: persistence would then store it as code.source and the
+    // starter would resurface if the user ever switched to the code editor.
     const [code, setCode] = useState<string>(
-        template?.data?.code?.source ?? DEFAULT_REACT_EMAIL_TEMPLATE,
+        template?.data?.code?.source ??
+            (initialEditorMode === BLOCKS_MODE ? "" : DEFAULT_REACT_EMAIL_TEMPLATE),
     )
 
     // Plain text state
@@ -532,7 +656,7 @@ function CodeEditorInner() {
         cancelModeSwitch,
         handleBlocksChange,
     } = useEditorMode({
-        initialMode: getInitialEditorMode(template?.data),
+        initialMode: initialEditorMode,
         code,
         setCode,
         editorRef,
@@ -540,6 +664,129 @@ function CodeEditorInner() {
     })
 
     const { compiledHtml, compileError, autoPlainText } = useCompilation(code, previewProps)
+
+    // A visually authored template is rendered by the backend, which also
+    // derives its plain text, so the value lands in the bundle at save time.
+    // It therefore reflects the last save rather than unsaved edits.
+    //
+    // Display only — the persisted `plaintext.generated` comes from
+    // `autoPlainText`, so substituting preview values here cannot leak into a
+    // send. Resolved against the same context as the HTML preview below, so the
+    // two tabs agree.
+    const blocksPlainText = useMemo(() => {
+        const text = templaticalPlainText(template?.data?.code?.bundle)
+        if (!text || !selectedUser) return text
+        return resolveMergeTags(text, previewProps)
+        // @ts-expect-error data is a channel union; code exists on the email arm.
+    }, [template?.data?.code?.bundle, selectedUser, previewProps])
+
+    // The rendered email with the selected recipient's data substituted. The
+    // HTML comes from the backend render and carries merge tags literally, so
+    // resolving them here runs the same Liquid pass the send pipeline does.
+    // With no user selected the tags stay visible, which is the honest default.
+    //
+    // The context is the full `previewProps` rather than just the user: the
+    // merge-tag picker also offers campaign variables, `unsubscribe_url`,
+    // `preferences_url` and `now`, none of which resolve under a user-only
+    // scope. `previewProps` already carries sample values for every variable
+    // group with the selected recipient merged in — the same object the code
+    // editor renders with, and the one its props.json panel shows.
+    const blocksPreviewHtml = useMemo(() => {
+        const html = templaticalPreviewHtml(template?.data?.code?.bundle)
+        if (!html || !selectedUser) return html
+        return resolveMergeTags(html, previewProps)
+        // @ts-expect-error data is a channel union; code exists on the email arm.
+    }, [template?.data?.code?.bundle, selectedUser, previewProps])
+
+    // Both preview panels render what the backend produced at save time, so
+    // opening one without saving first shows the previous edit. Persist on the
+    // way in — the same thing "Send test" does before dispatching, and for the
+    // same reason. Saving is idempotent, so an unchanged template just costs a
+    // round trip.
+    const [previewSyncing, setPreviewSyncing] = useState(false)
+    const handleBlockEditorTabChange = useCallback(
+        (tab: BlockEditorTab) => {
+            setBlockEditorTab(tab)
+            if (tab === "editor") return
+
+            setPreviewSyncing(true)
+            void (async () => {
+                try {
+                    if (!(await save())) {
+                        toast.error("Couldn't refresh the preview — saving the template failed")
+                    }
+                } catch {
+                    toast.error("Couldn't refresh the preview — saving the template failed")
+                } finally {
+                    setPreviewSyncing(false)
+                }
+            })()
+        },
+        [setBlockEditorTab, save],
+    )
+
+    // --- Document import/export -------------------------------------------
+    // The document is portable JSON by design, so moving one between templates
+    // needs no server support: export reads the copy already in `blocksData`,
+    // and import pushes one into the mounted editor.
+    const blockEditorHandleRef = useRef<BlockEditorHandle | null>(null)
+    const [importOpen, setImportOpen] = useState(false)
+    const [importText, setImportText] = useState("")
+    const [importError, setImportError] = useState<string | null>(null)
+    const importFileRef = useRef<HTMLInputElement>(null)
+
+    const handleCopyDocument = useCallback(async () => {
+        if (!blocksData) return
+        try {
+            await navigator.clipboard.writeText(serializeTemplaticalDocument(blocksData))
+            toast.success("Template JSON copied to clipboard")
+        } catch {
+            toast.error("Couldn't copy to the clipboard")
+        }
+    }, [blocksData])
+
+    const handleDownloadDocument = useCallback(() => {
+        if (!blocksData) return
+        const blob = new Blob([serializeTemplaticalDocument(blocksData)], {
+            type: "application/json",
+        })
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement("a")
+        link.href = url
+        link.download = exportFileName(campaign.name, template.locale)
+        link.click()
+        URL.revokeObjectURL(url)
+    }, [blocksData, campaign.name, template.locale])
+
+    const handleImportFile = useCallback((file: File) => {
+        void file
+            .text()
+            .then((text) => {
+                setImportText(text)
+                setImportError(null)
+            })
+            .catch(() => setImportError("Couldn't read that file."))
+    }, [])
+
+    const handleApplyImport = useCallback(() => {
+        const result = parseTemplaticalDocument(importText)
+        if (!result.ok) {
+            setImportError(result.error)
+            return
+        }
+
+        const handle = blockEditorHandleRef.current
+        if (!handle) {
+            setImportError("The editor is still loading — try again in a moment.")
+            return
+        }
+
+        handle.setContent(result.doc)
+        setImportOpen(false)
+        setImportText("")
+        setImportError(null)
+        toast.success("Template imported. Save to keep it.")
+    }, [importText])
 
     const { sending, handleSendTest } = useSendTestEmail({
         previewProps,
@@ -596,14 +843,74 @@ function CodeEditorInner() {
                             icon={<LayoutGrid className="h-4 w-4" />}
                             label="Editor"
                         />
+                        {!isEnterprise && (
+                            <TabButton
+                                active={blockEditorTab === "preview"}
+                                onClick={() => handleBlockEditorTabChange("preview")}
+                                icon={<Eye className="h-4 w-4" />}
+                                label="Preview"
+                            />
+                        )}
                         <TabButton
                             active={blockEditorTab === "preview-text"}
-                            onClick={() => setBlockEditorTab("preview-text")}
+                            onClick={() => handleBlockEditorTabChange("preview-text")}
                             icon={<FileText className="h-4 w-4" />}
                             label="Preview Text"
                         />
+                        {previewSyncing && (
+                            <span
+                                className="flex items-center gap-1.5 pl-2 text-xs text-muted-foreground"
+                                role="status"
+                            >
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                                Updating preview…
+                            </span>
+                        )}
                     </div>
                     <div className="flex items-center gap-1 pr-3">
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 w-8 p-0"
+                                    onClick={() => {
+                                        setImportText("")
+                                        setImportError(null)
+                                        setImportOpen(true)
+                                    }}
+                                >
+                                    <Upload className="h-4 w-4" />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Import JSON</TooltipContent>
+                        </Tooltip>
+                        <DropdownMenu>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-8 w-8 p-0"
+                                            disabled={!blocksData}
+                                        >
+                                            <Download className="h-4 w-4" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                </TooltipTrigger>
+                                <TooltipContent>Export JSON</TooltipContent>
+                            </Tooltip>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuItem onSelect={() => void handleCopyDocument()}>
+                                    Copy to clipboard
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onSelect={handleDownloadDocument}>
+                                    Download .json
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                        <div className="mx-1 h-4 w-px bg-border" />
                         <ModeToggle editorMode={editorMode} onModeSwitch={handleModeSwitch} />
                         <div className="mx-1 h-4 w-px bg-border" />
                         <UserSelection
@@ -628,16 +935,66 @@ function CodeEditorInner() {
                 </div>
 
                 <div className="flex-1 min-h-0">
-                    {LazyBlockEditorWrapped && (
-                        <Suspense fallback={<div className="flex-1" />}>
-                            <LazyBlockEditorWrapped
-                                initialDocument={blocksData ?? undefined}
-                                onChange={handleBlocksChange}
-                                activeTab={blockEditorTab}
-                                onTabChange={setBlockEditorTab}
-                                variableGroups={variableGroups}
-                            />
-                        </Suspense>
+                    {/* The enterprise block editor renders the plain-text tab
+                        itself; Templatical does not, so the host swaps panels.
+                        Keep the editor mounted underneath — remounting it on
+                        every tab change would discard undo history. */}
+                    {/* Wait for the schema fetch before mounting. The editor
+                        reads its merge tags and display conditions once, at
+                        init, and exposes no way to update them afterwards — so
+                        mounting while `variableGroups` still holds only the
+                        hardcoded base variables pins it to those for the rest
+                        of the session. That is invisible for merge tags, which
+                        keep working minus the project's own attributes, but
+                        total for display conditions: none of the base variables
+                        is a boolean, so the editor is handed an empty list and
+                        hides the control entirely. */}
+                    <div className={cn("h-full", blockEditorTab !== "editor" && "hidden")}>
+                        {LazyBlockEditorWrapped && variablesReady && (
+                            <Suspense fallback={<div className="flex-1" />}>
+                                <LazyBlockEditorWrapped
+                                    initialDocument={blocksData ?? undefined}
+                                    onChange={handleBlocksChange}
+                                    activeTab={blockEditorTab}
+                                    onTabChange={handleBlockEditorTabChange}
+                                    variableGroups={variableGroups}
+                                    onReady={(handle: BlockEditorHandle | null) => {
+                                        blockEditorHandleRef.current = handle
+                                    }}
+                                />
+                            </Suspense>
+                        )}
+                    </div>
+                    {!isEnterprise && blockEditorTab === "preview" && (
+                        <div className="h-full w-full overflow-auto bg-muted/20 p-6">
+                            <div className="mx-auto max-w-[700px] bg-white shadow-sm">
+                                {/* An iframe with no width/height falls back to
+                                    the CSS default 300x150, which squeezes the
+                                    email's 600px body and wraps headings
+                                    mid-word. Fill the frame and let it grow to
+                                    the content, so this container does the
+                                    scrolling. */}
+                                <Iframe
+                                    content={blocksPreviewHtml}
+                                    allowScroll={false}
+                                    fullHeight
+                                    width="100%"
+                                />
+                            </div>
+                        </div>
+                    )}
+                    {!isEnterprise && blockEditorTab === "preview-text" && (
+                        <PlainTextEditor
+                            ref={plainTextEditorRef}
+                            autoText={blocksPlainText}
+                            customText={customPlainText}
+                            onCustomTextChange={setCustomPlainText}
+                            useCustom={useCustomPlainText}
+                            onToggleCustom={setUseCustomPlainText}
+                            onImageClick={() => setImageModalOpen(true)}
+                            onInsertVariable={insertVariable}
+                            variableGroups={variableGroups}
+                        />
                     )}
                 </div>
 
@@ -653,6 +1010,19 @@ function CodeEditorInner() {
                     open={imageModalOpen}
                     onOpenChange={setImageModalOpen}
                     onSelect={insertImage}
+                />
+                <ImportDocumentDialog
+                    open={importOpen}
+                    onOpenChange={setImportOpen}
+                    value={importText}
+                    onValueChange={(value) => {
+                        setImportText(value)
+                        setImportError(null)
+                    }}
+                    error={importError}
+                    fileInputRef={importFileRef}
+                    onFileSelected={handleImportFile}
+                    onApply={handleApplyImport}
                 />
             </div>
         )

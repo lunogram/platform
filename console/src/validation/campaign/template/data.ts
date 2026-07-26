@@ -8,12 +8,17 @@ export const emailTemplateDataSchema = z.object({
         })
         .default({ name: "", address: "" }),
     subject: z.string().default(""),
-    editor: z.enum(["code", "visual"]).default("visual"),
+    // Which editor authored this template. Set at creation from the choice in
+    // the New Campaign form, then kept in step by the editor itself. Replaces
+    // an earlier `editor: "code" | "visual"` field that nothing ever read;
+    // rows still carrying it are inert.
+    editorMode: z.enum(["code", "builder", "blocks"]).optional(),
     cc: z.string().optional(),
     bcc: z.string().optional(),
     reply_to: z.string().optional(),
     preheader: z.string().optional(),
-    type: z.literal("react-email").optional(),
+    // Which document the backend compiles. Absent means "react-email".
+    type: z.enum(["react-email", "templatical"]).optional(),
     code: z
         .object({
             source: z.string(),
@@ -21,6 +26,8 @@ export const emailTemplateDataSchema = z.object({
             bundle_hash: z.string().optional(),
         })
         .optional(),
+    // The Templatical document, present only when type is "templatical".
+    blocks: z.record(z.string(), z.unknown()).optional(),
     plaintext: z
         .object({
             generated: z.string().optional(),

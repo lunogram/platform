@@ -15,6 +15,7 @@ import { useTranslation } from "react-i18next"
 import { ProjectContext } from "../contexts"
 import clsx from "clsx"
 import { compileEmail } from "@/views/campaign/template/mail/editor/codeEditor/compileEmail"
+import { templaticalPreviewHtml } from "@/lib/templatical-preview"
 import { getSystemPreviewProps } from "@/views/campaign/template/mail/editor/variableScope"
 import { EmailFrame } from "@/components/preview/EmailFrame"
 import { PhoneFrame } from "@/components/preview/PhoneFrame"
@@ -52,6 +53,15 @@ function EmailPreviewContent({
     const abortRef = useRef<AbortController | null>(null)
 
     useEffect(() => {
+        // A visually authored template is rendered by the backend at save time,
+        // and the resulting HTML is what the bundle holds. Compiling code.source
+        // here instead would show the JSX the template carried before it was
+        // switched, which is kept only so the switch stays reversible.
+        if (data?.type === "templatical") {
+            setCompiledHtml(templaticalPreviewHtml(data?.code?.bundle))
+            return
+        }
+
         const source = data?.code?.source
         if (!source) {
             setCompiledHtml("")
@@ -80,7 +90,7 @@ function EmailPreviewContent({
         return () => {
             abortController.abort()
         }
-    }, [data?.code?.source])
+    }, [data?.type, data?.code?.bundle, data?.code?.source])
 
     // In the small thumbnail (e.g. the Journey Send node) the Gmail-style
     // header chrome doesn't fit and just looks broken — show the rendered

@@ -9,7 +9,8 @@ import oapiClient from "@/oapi/client"
 import * as z from "zod"
 import { Render } from "@/renderTemplates"
 import { compileEmail } from "./editor/codeEditor/compileEmail"
-import { getSystemPreviewProps } from "./editor/variableScope"
+import { resolveMergeTags, templaticalPreviewHtml } from "@/lib/templatical-preview"
+import { getSystemPreviewProps, mergeUserIntoProps } from "./editor/variableScope"
 
 import { Input } from "@/components/ui/input"
 import { TemplateInput } from "@/components/ui/template-input"
@@ -341,6 +342,30 @@ export function EmailContentPreview({ campaign, form, edit = false }: EmailSetup
             return
         }
 
+        const previewProps: Record<string, unknown> = {
+            ...getSystemPreviewProps(),
+            ...(selectedUser ? { user: selectedUser } : {}),
+        }
+
+        // Visually authored templates are rendered by the backend on save;
+        // compiling code.source would show the JSX kept only for reversibility.
+        // That render leaves merge tags literal for the per-recipient Liquid
+        // pass, so picking a user means running that pass here — without it the
+        // body never changes and only the subject and sender react.
+        //
+        // The context goes through mergeUserIntoProps rather than spreading the
+        // user directly, so tags like `{{ user.external_id }}` resolve to the
+        // same values the editor's preview shows.
+        if (template?.data?.type === "templatical") {
+            const html = templaticalPreviewHtml(template?.data?.code?.bundle)
+            setCompiledHtml(
+                selectedUser
+                    ? resolveMergeTags(html, mergeUserIntoProps(previewProps, selectedUser))
+                    : html,
+            )
+            return
+        }
+
         const source = template?.data?.code?.source
         if (!source) {
             setCompiledHtml("")
@@ -352,11 +377,6 @@ export function EmailContentPreview({ campaign, form, edit = false }: EmailSetup
         }
         const abortController = new AbortController()
         abortRef.current = abortController
-
-        const previewProps: Record<string, unknown> = {
-            ...getSystemPreviewProps(),
-            ...(selectedUser ? { user: selectedUser } : {}),
-        }
 
         compileEmail(source, previewProps, abortController.signal)
             .then((result) => {
@@ -376,7 +396,13 @@ export function EmailContentPreview({ campaign, form, edit = false }: EmailSetup
         }
         // @ts-expect-error template.data.code can not be undefined here because this page doesn't load without the email being selected,
         // and the email template type requires code to be defined.
-    }, [template?.data?.code?.source, selectedUser, template?.type])
+    }, [
+        template?.data?.type,
+        template?.data?.code?.bundle,
+        template?.data?.code?.source,
+        selectedUser,
+        template?.type,
+    ])
 
     const { subject, from, replyTo } = form.watch()
 

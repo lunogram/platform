@@ -3,6 +3,7 @@ import { TemplateWorkflowContext } from "../../../contexts"
 import { CampaignContext, ProjectContext, TemplateContext } from "@/contexts"
 import type { EmailDocument } from "../codeEditor/hooks/useEditorMode"
 import type { EditorMode } from "../codeEditor/hooks/useEditorMode"
+import { BLOCKS_MODE } from "../codeEditor/hooks/useEditorMode"
 import api from "@/api"
 
 interface UseTemplatePersistenceOptions {
@@ -40,12 +41,18 @@ export function useTemplatePersistence({
                 {
                     data: {
                         ...template.data,
-                        type: "react-email",
+                        // Selects which document the backend compiles. It must
+                        // follow the mode: left pinned to react-email, a
+                        // template switched to the visual editor would save its
+                        // document but keep compiling stale JSX.
+                        type: editorMode === BLOCKS_MODE ? "templatical" : "react-email",
                         editorMode,
                         code: {
                             source: code,
                         },
-                        ...(blocksData ? { blocks: blocksData } : { blocks: undefined }),
+                        // Both representations are kept once they exist, so
+                        // switching modes never destroys the other one.
+                        ...(blocksData ? { blocks: blocksData } : {}),
                         plaintext: {
                             generated: autoPlainText,
                             ...(useCustomPlainText && customPlainText

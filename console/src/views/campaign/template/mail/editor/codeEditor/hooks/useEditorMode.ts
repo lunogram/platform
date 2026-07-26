@@ -3,15 +3,36 @@ import type { editor } from "monaco-editor"
 import { isEnterprise } from "@/config/enterprise"
 
 /**
- * Minimal local type aliases for the block editor data model.
- * The full types live in @lunogram-enterprise/block-editor (enterprise only).
- * These are kept intentionally opaque — the hooks only pass them around.
+ * The visual editor's document, kept opaque here — these hooks only pass it
+ * around. Its concrete shape is Templatical's `TemplateContent`.
  */
 export type EmailDocument = Record<string, unknown>
-export type BlockEditorTab = "editor" | "preview-text"
+
+/**
+ * Imperative operations the blocks toolbar needs from a mounted block editor.
+ *
+ * Declared against the opaque `EmailDocument` so the host toolbar never has to
+ * name Templatical's concrete types — the implementation adapts at its own
+ * boundary.
+ */
+export interface BlockEditorHandle {
+    setContent: (doc: EmailDocument) => void
+}
+/**
+ * Panels of the visual editor. "preview" is open-source only — the enterprise
+ * block editor renders its own preview and only knows the other two.
+ */
+export type BlockEditorTab = "editor" | "preview" | "preview-text"
+
+/**
+ * Identifier for the visual editing mode, persisted per template in
+ * `data.editorMode`. Declared once so renaming the mode is a single edit plus
+ * a read-side alias in getInitialEditorMode for already-stored templates.
+ */
+export const BLOCKS_MODE = "blocks"
 
 /** The top-level editing mode: code editor, AI builder, or block editor */
-export type EditorMode = "code" | "builder" | "blocks"
+export type EditorMode = "code" | "builder" | typeof BLOCKS_MODE
 
 interface UseEditorModeOptions {
     initialMode: EditorMode
@@ -32,7 +53,7 @@ export interface UseEditorModeResult {
     handleModeSwitch: (mode: EditorMode) => void
     confirmModeSwitch: () => void
     cancelModeSwitch: () => void
-    handleBlocksChange: (doc: EmailDocument, jsxSource: string) => void
+    handleBlocksChange: (doc: EmailDocument, jsxSource?: string) => void
 }
 
 /**
@@ -86,11 +107,11 @@ export function useEditorMode({
     const confirmModeSwitch = useCallback(() => {
         if (!pendingMode) return
 
-        const leavingBlocks = editorMode === "blocks"
-
-        if (leavingBlocks) {
-            setBlocksData(null)
-        }
+        // The document is deliberately kept when leaving the visual editor.
+        // The JSX survives a switch in the other direction (persistence always
+        // writes code.source), so keeping both makes the switch reversible in
+        // both directions and nothing the user authored is destroyed. Only
+        // data.type decides which one the backend compiles.
 
         if (pendingMode === "code" && editorRef.current) {
             const model = editorRef.current.getModel()
@@ -104,16 +125,22 @@ export function useEditorMode({
             setSelectorActive(false)
         }
         setPendingMode(null)
-    }, [pendingMode, editorMode, editorRef])
+    }, [pendingMode, editorRef])
 
     const cancelModeSwitch = useCallback(() => {
         setPendingMode(null)
     }, [])
 
     const handleBlocksChange = useCallback(
-        (doc: EmailDocument, jsxSource: string) => {
+        (doc: EmailDocument, jsxSource?: string) => {
             setBlocksData(doc)
-            setCode(jsxSource)
+            // The enterprise block editor emits a JSX representation of the
+            // document. Templatical has none — the backend renders its document
+            // to HTML directly — so `code` is left untouched, which also
+            // preserves any JSX the template had before switching.
+            if (jsxSource !== undefined) {
+                setCode(jsxSource)
+            }
         },
         [setCode],
     )
@@ -140,8 +167,10 @@ export function getInitialEditorMode(
     templateData: Record<string, unknown> | undefined,
 ): EditorMode {
     const stored = templateData?.editorMode as EditorMode | undefined
-    if (stored === "blocks" && isEnterprise) return "blocks"
+    if (stored === BLOCKS_MODE) return BLOCKS_MODE
     if (stored === "builder" && isEnterprise) return "builder"
     if (stored === "code") return "code"
-    return isEnterprise ? "blocks" : "code"
+    // Templates saved before a mode was recorded are React Email. Anything
+    // created from now on has its mode chosen at creation time.
+    return "code"
 }
