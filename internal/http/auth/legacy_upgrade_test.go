@@ -54,7 +54,7 @@ func TestUpgradeLegacySession(t *testing.T) {
 	// The downstream handler authenticates exactly as the real stack does, so a
 	// 200 here means the in-flight request really was upgraded rather than
 	// merely queued behind a new cookie.
-	authenticate := WithAdminSession(env.mgmt, env.signer, "")
+	authenticate := WithAdminSession(env.mgmt, env.signer, "", zaptest.NewLogger(t))
 	downstream := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if _, err := authenticate(withRequest(r.Context(), r), GetSession(r)); err != nil {
 			w.WriteHeader(http.StatusUnauthorized)
@@ -162,7 +162,7 @@ func TestUpgradeLegacySessionScopesTheActor(t *testing.T) {
 	}
 
 	var actor *rbac.Actor
-	authenticate := WithAdminSession(env.mgmt, env.signer, "")
+	authenticate := WithAdminSession(env.mgmt, env.signer, "", zaptest.NewLogger(t))
 	downstream := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		got, err := authenticate(withRequest(r.Context(), r), GetSession(r))
 		require.NoError(t, err)

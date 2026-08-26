@@ -117,7 +117,7 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *st
 			http.RateLimit(limiter, cfg.RateLimit.PerMinute, time.Minute, cfg.RateLimit.TrustedProxyHops, mgmtoapi.WriteProblem),
 			mgmtoapi.Validator(mgmtSpec, openapi3filter.Options{
 				AuthenticationFunc: auth.Middleware(
-					auth.WithAdminSession(mgmtStores, consoleSigner, cfg.PublicBaseURL()),
+					auth.WithAdminSession(mgmtStores, consoleSigner, cfg.PublicBaseURL(), logger),
 					auth.WithKey(mgmtStores, auth.SurfaceManagement),
 				),
 			}),

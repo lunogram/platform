@@ -7,6 +7,7 @@ import (
 
 	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/store/management"
+	"go.uber.org/zap"
 )
 
 // WithAdminSession authenticates a console request. It is the single hot-path
@@ -26,7 +27,7 @@ import (
 // Step 5 is the reason a demoted or removed admin loses access immediately
 // rather than at token expiry, and it is why no role, organization or email is
 // carried in the token at all.
-func WithAdminSession(mgmt *management.State, signer *ConsoleSigner, publicBaseURL string) Handler {
+func WithAdminSession(mgmt *management.State, signer *ConsoleSigner, publicBaseURL string, logger *zap.Logger) Handler {
 	return func(ctx context.Context, tokenString string) (context.Context, error) {
 		if tokenString == "" || signer == nil {
 			return ctx, ErrUnauthorized
@@ -83,6 +84,20 @@ func WithAdminSession(mgmt *management.State, signer *ConsoleSigner, publicBaseU
 				impersonator = session.ImpersonatorAdminID.String()
 			}
 			options = append(options, rbac.WithImpersonation(impersonator))
+
+			// Every impersonated request is recorded. The actor carries the
+			// attribution too, but nothing downstream is obliged to log it, and
+			// "who was actually driving this session" is precisely the question
+			// an audit needs answered.
+			if logger != nil {
+				logger.Info("authenticated an impersonated session",
+					zap.String("admin_id", session.AdminID.String()),
+					zap.String("session_id", session.ID.String()),
+					zap.String("impersonator_subject", stringValue(session.ImpersonatorSubject)),
+					zap.String("impersonator_admin_id", impersonator),
+					zap.String("method", requestMethod(ctx)),
+					zap.String("path", requestPath(ctx)))
+			}
 		}
 
 		actor := rbac.NewActor(rbac.ActorAdmin, admin.ID.String(), options...)
@@ -127,4 +142,25 @@ func safeMethod(method string) bool {
 	default:
 		return false
 	}
+}
+
+func stringValue(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
+}
+
+func requestMethod(ctx context.Context) string {
+	if r := RequestFromContext(ctx); r != nil {
+		return r.Method
+	}
+	return ""
+}
+
+func requestPath(ctx context.Context) string {
+	if r := RequestFromContext(ctx); r != nil {
+		return r.URL.Path
+	}
+	return ""
 }

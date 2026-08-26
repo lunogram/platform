@@ -14,6 +14,7 @@ import (
 	teststore "github.com/lunogram/platform/internal/store/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 )
 
 const testPublicBaseURL = "https://console.lunogram.test"
@@ -45,7 +46,7 @@ func newMiddlewareEnv(t *testing.T) *middlewareEnv {
 	return &middlewareEnv{
 		mgmt:    mgmt,
 		signer:  signer,
-		handler: WithAdminSession(mgmt, signer, testPublicBaseURL),
+		handler: WithAdminSession(mgmt, signer, testPublicBaseURL, zaptest.NewLogger(t)),
 		orgID:   orgID,
 		adminID: adminID,
 	}
