@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 	"testing"
-	"time"
 
+	"github.com/google/uuid"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
@@ -63,7 +63,7 @@ func createTestDatabase(t *testing.T) string {
 	admin.SetMaxIdleConns(1)
 	defer admin.Close()
 
-	database := fmt.Sprintf("app_%d", time.Now().UnixNano())
+	database := "app_" + strings.ReplaceAll(uuid.NewString(), "-", "")
 	_, err = admin.Exec(fmt.Sprintf("CREATE DATABASE %s", database))
 	require.NoError(t, err)
 
