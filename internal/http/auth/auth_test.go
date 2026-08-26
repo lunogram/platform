@@ -215,21 +215,29 @@ func TestWithJWTDriverBoundAlgorithms(t *testing.T) {
 		assert.Equal(t, adminID.String(), actor.ID, "the token authenticates as the admin named in sub")
 	})
 
-	t.Run("clerk driver rejects that same token even though the secret signing it is configured", func(t *testing.T) {
+	t.Run("THE VULNERABILITY: clerk driver rejects an HS256 token signed with the configured AUTH_JWT_SECRET", func(t *testing.T) {
 		t.Parallel()
-		// THIS IS THE VULNERABILITY. The deployment authenticates through Clerk
-		// but also carries AUTH_JWT_SECRET (a leftover, or the published
-		// docker-compose default that everyone can read). The attacker knows the
-		// secret and signs their own admin token with it.
+		// The reported vulnerability, reproduced end to end. The deployment
+		// authenticates through Clerk and ALSO carries AUTH_JWT_SECRET -- a
+		// leftover, or the placeholder that shipped as a public docker-compose
+		// default. Note the secret here is a STRONG one: strength is irrelevant
+		// when the attacker knows the value, which is precisely the case for a
+		// default published in the repository.
+		//
+		// The attacker signs their own HS256 token naming an admin (the control
+		// subtest proves this exact token is a working session where HS256 is
+		// the driver's algorithm) and presents it. Before the fix the HS256
+		// branch was enabled by the secret's mere presence, so it verified and
+		// they were authenticated as that admin. It must now be rejected.
 		cfg := clerkConfig(t, rsaKey)
 		cfg.JWTSecret = strongSecret
 
 		handler, err := WithJWT(cfg, mgmt)
-		require.NoError(t, err)
+		require.NoError(t, err, "a clerk deployment carrying a JWT secret must still start")
 
 		_, err = handler(ctx, forged)
 		require.ErrorIs(t, err, ErrUnauthorized,
-			"a clerk deployment must accept RS256/JWKS only; a configured JWT secret must not enable an HS256 verification path")
+			"a clerk deployment must verify RS256/JWKS only; a configured AUTH_JWT_SECRET must never enable an HS256 verification path")
 	})
 
 	t.Run("clerk driver rejects an HS256 token when no secret is configured", func(t *testing.T) {
@@ -354,6 +362,21 @@ func TestWithJWTRejectsWeakSecret(t *testing.T) {
 			assert.Contains(t, err.Error(), "openssl rand", "the error must show how to generate a good value")
 		})
 	}
+}
+
+// TestWithJWTRequiresJWKSForClerk is the clerk-side mirror of
+// TestWithJWTRejectsWeakSecret: each driver validates its own key material at
+// construction. Without AUTH_JWKS_URL the clerk driver has no key to verify
+// against, so every admin login fails. That is fail-closed and not a security
+// hole, but it starts anyway and presents as "Clerk login is broken" rather
+// than as a missing variable, so refuse to start and say which one.
+func TestWithJWTRequiresJWKSForClerk(t *testing.T) {
+	t.Parallel()
+
+	handler, err := WithJWT(config.Auth{Driver: "clerk"}, nil)
+	require.ErrorIs(t, err, ErrMissingJWKS)
+	require.Nil(t, handler)
+	assert.Contains(t, err.Error(), "AUTH_JWKS_URL", "the error must name the variable to fix")
 }
 
 // TestWithJWTSecretIsIrrelevantToClerk asserts the other half of the driver

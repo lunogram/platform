@@ -39,6 +39,10 @@ var ErrUnauthorized = errors.New("unauthorized")
 // signing secret cannot be trusted to keep admin sessions private.
 var ErrInsecureJWTSecret = errors.New("insecure AUTH_JWT_SECRET")
 
+// ErrMissingJWKS is returned at construction when the clerk driver has no JWKS
+// to verify admin sessions against.
+var ErrMissingJWKS = errors.New("missing AUTH_JWKS_URL")
+
 const (
 	driverBasic = "basic"
 	driverClerk = "clerk"
@@ -87,7 +91,15 @@ func adminTokenVerifier(cfg config.Auth) ([]string, jwt.Keyfunc, error) {
 		}
 		return []string{"HS256"}, HMAC([]byte(cfg.JWTSecret)), nil
 	case driverClerk:
-		return []string{"RS256"}, cfg.JWKS.Unwrap(), nil
+		// Symmetry with the basic branch: refuse to start on key material that
+		// cannot verify anything. Without a JWKS the parse below has no key and
+		// every admin login fails — fail closed, but silently, and it presents
+		// as "Clerk login is broken" rather than as a missing variable.
+		jwks := cfg.JWKS.Unwrap()
+		if jwks == nil {
+			return nil, nil, fmt.Errorf("%w: the %q auth driver verifies admin sessions against the provider's JWKS; set AUTH_JWKS_URL to your Clerk instance's JWKS endpoint (https://<your-instance>/.well-known/jwks.json)", ErrMissingJWKS, driverClerk)
+		}
+		return []string{"RS256"}, jwks, nil
 	default:
 		return nil, nil, fmt.Errorf("unsupported auth driver %q: set AUTH_DRIVER to %q or %q", cfg.Driver, driverBasic, driverClerk)
 	}
