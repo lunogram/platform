@@ -1,0 +1,325 @@
+---
+title: Webhooks
+description: Notify your own services when something happens inside Lunogram — configured hooks, JSONNet bodies, auth strategies, retries, and SSRF policy
+---
+
+import { Tabs, Tab } from "fumadocs-ui/components/tabs";
+
+Lunogram can call your own HTTP endpoints when something happens inside the product. An **event** occurs (a project is created), and every **hook** bound to that event fires: Lunogram renders a request body from a template you write, authenticates with a credential you configure, and delivers it.
+
+Hooks are declared in a YAML file, not in environment variables. A hook set has more than one dimension — several subscribers per event, each with its own template, credential, retry policy and network policy — and that does not fit in a flat environment.
+
+```bash
+WEBHOOK_CONFIG_FILE=/etc/lunogram/webhooks.yaml
+```
+
+The file is read once, at startup. Everything that can be checked up front is: every URL is validated against its network policy, every template is parsed, and every credential is built. A broken template or an unreachable template file **stops the service from starting**, rather than failing on the first event at three in the morning.
+
+---
+
+## A complete example
+
+```yaml title="/etc/lunogram/webhooks.yaml"
+version: v1
+
+defaults:
+  timeout: 10s
+  max_dispatch_time: 30s
+  retry:
+    max_attempts: 3
+    initial_interval: 250ms
+    max_interval: 5s
+  network:
+    allow_private: false
+    allow_http: false
+
+hooks:
+  project.created:
+    - id: provisioning
+      url: https://provisioning.internal.example.com/v1/projects
+      method: POST
+      body: file://project.created.jsonnet
+      can_interrupt: true
+      timeout: 20s
+      network:
+        allow_private: true
+      response:
+        parse: true
+      retry:
+        max_attempts: 4
+      auth:
+        type: oauth2_client_credentials
+        config:
+          token_url: https://idp.example.com/oauth2/token
+          client_id: lunogram-platform
+          client_secret: ${PROVISIONING_CLIENT_SECRET}
+          scopes: [projects.write]
+
+    - id: ops-notification
+      url: https://hooks.example.com/services/T000/B000/XXXX
+      body: |
+        function(ctx) {
+          text: 'Project "' + ctx.payload.project.name + '" was created by ' + ctx.actor.id,
+        }
+      can_interrupt: false
+      auth:
+        type: api_key
+        config:
+          in: header
+          name: X-Token
+          value: ${OPS_WEBHOOK_TOKEN}
+
+email_templates:
+  url: https://gallery.example.com/templates
+  timeout: 10s
+  auth:
+    type: basic_auth
+    config:
+      user: lunogram
+      password: ${GALLERY_PASSWORD}
+```
+
+### Secrets
+
+Any `${NAME}` in the file is replaced with the environment variable of that name when the file is read. Keep credentials in the environment (or a secret store) and reference them here, so the file itself can live in a ConfigMap or in version control.
+
+A referenced variable that is not set is a startup error. Lunogram will not quietly send an empty API key.
+
+---
+
+## Events
+
+| Event | Version | `ctx.payload` |
+| --- | --- | --- |
+| `project.created` | `v1` | `{ project: { id, organization_id, name, timezone, locale, created_at } }` |
+
+A hook bound to an event name that does not exist is a startup error, and the message lists the names that do.
+
+<Callout type="info">
+`project.created` also flows onto Lunogram's internal event stream under the same name. That path is durable but is not yet used to deliver hooks; hooks are delivered synchronously, in the request that created the project. Only a synchronous hook can use `can_interrupt`, which is why that path is the one wired today.
+</Callout>
+
+---
+
+## Bodies
+
+A hook's body is a [JSONNet](https://jsonnet.org) function of one argument — the event context:
+
+```jsonnet title="project.created.jsonnet"
+function(ctx) {
+  event: ctx.event,
+  timestamp: ctx.occurred_at,
+  project: ctx.payload.project,
+  triggered_by: ctx.actor.id,
+}
+```
+
+`body` is either a `file://` reference or an inline snippet. Relative `file://` paths resolve against the directory holding the configuration file, so a config and its templates travel together. Omit `body` entirely and the event's built-in template is used — for `project.created` that produces exactly the payload documented in the webhooks OpenAPI spec.
+
+Templates cannot import files. Everything a template needs arrives in `ctx`.
+
+### The event context
+
+```json
+{
+  "event": "project.created",
+  "version": "v1",
+  "occurred_at": "2026-01-02T03:04:05Z",
+  "actor": {
+    "type": "admin",
+    "id": "6f1b…",
+    "organization_id": "0c9a…",
+    "project_id": ""
+  },
+  "payload": { "project": { "…": "…" } }
+}
+```
+
+`actor` is the authenticated identity that triggered the event. Use it when your receiver needs to know who did something. Identifiers that are not set render as empty strings, never as a nil UUID.
+
+---
+
+## Authentication
+
+Each hook authenticates with its own credential. Lunogram never forwards the credentials of whoever triggered the event.
+
+<Tabs items={['api_key', 'basic_auth', 'oauth2_client_credentials']}>
+<Tab value="api_key">
+
+```yaml
+auth:
+  type: api_key
+  config:
+    in: header      # or: cookie
+    name: X-Token
+    value: ${TOKEN}
+```
+
+</Tab>
+<Tab value="basic_auth">
+
+```yaml
+auth:
+  type: basic_auth
+  config:
+    user: lunogram
+    password: ${PASSWORD}
+```
+
+</Tab>
+<Tab value="oauth2_client_credentials">
+
+```yaml
+auth:
+  type: oauth2_client_credentials
+  config:
+    token_url: https://idp.example.com/oauth2/token
+    client_id: lunogram-platform
+    client_secret: ${CLIENT_SECRET}
+    scopes: [projects.write]
+```
+
+The token is cached until shortly before it expires and then refreshed. The token endpoint is subject to the same network policy as the hook's own URL.
+
+</Tab>
+</Tabs>
+
+Omit `auth` (or set `type: none`) for an unauthenticated hook.
+
+---
+
+## Failure handling
+
+### `can_interrupt`
+
+| | Behaviour |
+| --- | --- |
+| `can_interrupt: true` | A failure fails the operation that triggered the event. Creating a project returns an error to the API caller. |
+| `can_interrupt: false` (default) | Best effort. Failures are logged and the operation succeeds. |
+
+Hooks run **sequentially, in the order they are declared**. If a `can_interrupt: true` hook fails, the hooks after it do not run — once the operation is going to be reported as failed, firing more side effects for it is worse than firing none.
+
+Put interrupting hooks first if you want them to gate the rest.
+
+### Retries
+
+Failed deliveries are retried with exponential backoff. Server errors (5xx) and the two "come back later" client errors — `408 Request Timeout` and `429 Too Many Requests` — are retried. Every other 4xx is not: a `401` will be a `401` next time too, and retrying it only makes the caller wait longer. A `Retry-After` header expressed in seconds is honoured.
+
+### Time budget
+
+Three limits nest, so that no combination of settings can make an API caller wait an unbounded time:
+
+| Setting | Bounds |
+| --- | --- |
+| `timeout` | one HTTP attempt |
+| `retry.max_elapsed_time` | one hook's whole attempt sequence |
+| `defaults.max_dispatch_time` | every hook fired for one event, in aggregate |
+
+`max_elapsed_time` defaults to `max_attempts × timeout` and is clamped to the dispatch budget. `max_dispatch_time` defaults to 30 seconds. A `timeout` larger than the dispatch budget is a startup error.
+
+### Responses
+
+```yaml
+response:
+  parse: true    # capture the response body as JSON
+  ignore: false  # do not inspect the response at all
+```
+
+By default the response body is read and discarded, and the status decides whether the hook succeeded.
+
+`parse: true` captures the body, which is what makes `can_interrupt` useful — a hook can return information that shapes the operation that triggered it. A body that is not valid JSON is a delivery failure. `parse` and `ignore` cannot both be set.
+
+---
+
+## Network policy
+
+By default a hook URL must be **https** and must resolve to a **public** address. The resolved IP is re-checked at connection time, so a hostname that resolves to a private address is refused even if the URL looked fine at startup. Redirects are not followed.
+
+Self-hosted deployments legitimately point hooks at services inside their own network, so each guard can be dropped individually, per hook:
+
+```yaml
+network:
+  allow_private: true   # permit loopback, RFC 1918, ULA, link-local, CGNAT
+  allow_http: true      # permit plaintext http://
+```
+
+<Callout type="warn">
+Only relax a guard for a hook whose URL you control, and prefer naming an internal service over accepting a URL from elsewhere. Every relaxation is logged at startup, naming the hook that made it.
+</Callout>
+
+Some destinations are refused under **every** policy, including `allow_private: true`:
+
+- the cloud instance metadata endpoints, `169.254.169.254` and `fd00:ec2::254`
+- link-local addresses generally (`169.254.0.0/16`, `fe80::/10`)
+- multicast, broadcast, and unspecified addresses
+
+`allow_private` is for receivers inside your own network — Kubernetes ClusterIPs, sidecars, RFC 1918 and IPv6 ULA addresses. Those are never link-local, so blocking link-local costs nothing and closes the single highest-value SSRF target.
+
+---
+
+## Email template gallery
+
+The `email_templates` block is not a hook. It configures a single endpoint that Lunogram fetches the email starter-template gallery from, synchronously, when the console asks for it. It shares the transport, auth and network settings above; it has no `body`, no `can_interrupt`, and is not bound to an event.
+
+```yaml
+email_templates:
+  url: https://gallery.example.com/templates
+  timeout: 10s
+  network:
+    allow_private: true
+  auth:
+    type: api_key
+    config:
+      name: X-Gallery-Key
+      value: ${GALLERY_KEY}
+```
+
+Only `limit`, `offset` and `search` are forwarded to the endpoint, and the response is decoded against the documented gallery schema rather than relayed to the console verbatim. When no gallery is configured, the endpoint returns an empty list.
+
+---
+
+## Migrating from the environment variables
+
+Earlier releases configured two fixed URLs through the environment. They still work, and are translated into an equivalent configuration at startup with a deprecation warning, but they cannot express more than one subscriber, any authentication, templating, retries or network policy. Move to a configuration file.
+
+| Deprecated variable | Replacement |
+| --- | --- |
+| `WEBHOOK_PROJECT_CREATED_URL` | a `project.created` hook's `url` |
+| `WEBHOOK_PROJECT_CREATED_TIMEOUT` | that hook's `timeout` |
+| `WEBHOOK_EMAIL_TEMPLATES_URL` | `email_templates.url` |
+| `WEBHOOK_EMAIL_TEMPLATES_TIMEOUT` | `email_templates.timeout` |
+
+Setting `WEBHOOK_CONFIG_FILE` makes the deprecated variables inert; they are ignored, and a warning says so, rather than being merged into something neither source describes.
+
+The synthesised hook keeps the old behaviour where the old behaviour was sound: it uses `can_interrupt: true`, so a failed delivery still fails project creation, and it permits private and plaintext URLs, since URLs that worked before were never checked.
+
+### One behaviour did change
+
+The previous implementation copied **every** header from the triggering API request onto the outbound webhook request — including the caller's `Authorization` header. That handed the configured endpoint the caller's full API privileges. It no longer happens.
+
+If your receiver relied on that token to call back into the management API, give it its own credential: create an API key under **Settings → Access** and have the receiver use that. It can read who triggered the event from `ctx.actor` in the body template.
+
+As a temporary bridge while you make that change:
+
+```bash
+WEBHOOK_LEGACY_FORWARD_AUTHORIZATION=true
+```
+
+This restores forwarding of the `Authorization` header — and only that header — to the `project.created` receiver, and logs a warning at startup. In a configuration file the equivalent is:
+
+```yaml
+hooks:
+  project.created:
+    - id: legacy
+      url: https://receiver.example.com/hook
+      forward_headers: [Authorization]   # deprecated
+```
+
+Both are deprecated and will be removed. A hook that forwards headers is warned about at every startup.
+
+---
+
+## Known gaps
+
+- **Deliveries are not durable.** Hooks fire inside the request that triggered the event. A `can_interrupt: false` hook whose delivery is still retrying when the process restarts is lost. Interrupting hooks are unaffected, since their failure is reported to the caller.
+- **Request bodies are not signed.** Receivers authenticate Lunogram by the credential the hook presents, not by an HMAC over the body. Use a credential your receiver can verify, and TLS.

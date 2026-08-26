@@ -9,8 +9,13 @@ paths:
     post:
       summary: Project Created Webhook
       description: |
-        Called when a new project is created. The original request headers are forwarded,
-        including the Authorization header for authenticating API calls back to the Lunogram management API.
+        Called when a new project is created.
+
+        The request carries only the hook's own configured credential. Earlier releases forwarded the
+        triggering API caller's headers, including their Authorization header; that is no longer done,
+        because it handed the receiver the caller's full API privileges. Receivers authenticate calls
+        back to the Lunogram management API with their own credential, and read the triggering identity
+        from the `actor` block available to the body template.
       operationId: projectCreatedWebhook
       requestBody:
         required: true

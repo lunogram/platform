@@ -1,14 +1,16 @@
 // Package ssrf provides SSRF guards for outbound requests to operator-supplied
-// URLs (e.g. a trusted issuer's JWKS endpoint): an up-front URL validator and an
-// HTTP client that refuses to connect to non-public addresses at dial time.
+// URLs (e.g. a trusted issuer's JWKS endpoint, a configured webhook receiver):
+// an up-front URL validator and an HTTP client that refuses to connect to
+// non-public addresses at dial time.
+//
+// The strict behaviour is the default. Destinations that legitimately live
+// inside the deployment's own network opt out of individual guards through
+// [Policy]; see [ValidateURL] and [PolicyHTTPClient].
 package ssrf
 
 import (
-	"fmt"
 	"net"
 	"net/http"
-	neturl "net/url"
-	"syscall"
 	"time"
 )
 
@@ -18,21 +20,7 @@ import (
 // The authoritative protection against DNS rebinding is the dialer in
 // [SafeHTTPClient], which re-checks the resolved IP at connection time.
 func ValidateSourceURL(raw string) error {
-	u, err := neturl.Parse(raw)
-	if err != nil {
-		return fmt.Errorf("ssrf: invalid url: %w", err)
-	}
-	if u.Scheme != "https" {
-		return fmt.Errorf("ssrf: url must use https")
-	}
-	host := u.Hostname()
-	if host == "" {
-		return fmt.Errorf("ssrf: url must have a host")
-	}
-	if ip := net.ParseIP(host); ip != nil && !isPublicIP(ip) {
-		return fmt.Errorf("ssrf: url host is not a public address")
-	}
-	return nil
+	return ValidateURL(raw, Policy{})
 }
 
 // isPublicIP reports whether ip is a globally-routable unicast address, i.e. not
@@ -56,29 +44,5 @@ func isPublicIP(ip net.IP) bool {
 // after DNS resolution — which closes the DNS-rebinding gap a URL-string check
 // alone cannot.
 func SafeHTTPClient(timeout time.Duration) *http.Client {
-	dialer := &net.Dialer{
-		Timeout: timeout,
-		Control: func(_, address string, _ syscall.RawConn) error {
-			host, _, err := net.SplitHostPort(address)
-			if err != nil {
-				return err
-			}
-			ip := net.ParseIP(host)
-			if ip == nil || !isPublicIP(ip) {
-				return fmt.Errorf("ssrf: refusing to connect to non-public address %q", host)
-			}
-			return nil
-		},
-	}
-	return &http.Client{
-		Timeout: timeout,
-		Transport: &http.Transport{
-			DialContext:           dialer.DialContext,
-			TLSHandshakeTimeout:   timeout,
-			ResponseHeaderTimeout: timeout,
-		},
-		CheckRedirect: func(*http.Request, []*http.Request) error {
-			return http.ErrUseLastResponse // do not follow redirects to other hosts
-		},
-	}
+	return PolicyHTTPClient(timeout, Policy{})
 }

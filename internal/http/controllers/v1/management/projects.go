@@ -28,14 +28,14 @@ import (
 	"golang.org/x/text/language/display"
 )
 
-func NewProjectsController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB, webhookCaller *webhook.Caller, pub pubsub.Publisher, engine *rbac.Engine) *ProjectsController {
+func NewProjectsController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB, hooks *webhook.Engine, pub pubsub.Publisher, engine *rbac.Engine) *ProjectsController {
 	return &ProjectsController{
 		logger:       logger,
 		managementDB: managementDB,
 		store:        management.NewState(managementDB),
 		journey:      journey.NewState(journeyDB),
 		users:        subjects.NewState(usersDB, logger),
-		webhook:      webhookCaller,
+		hooks:        hooks,
 		pub:          pub,
 		engine:       engine,
 	}
@@ -47,7 +47,7 @@ type ProjectsController struct {
 	store        *management.State
 	journey      *journey.State
 	users        *subjects.State
-	webhook      *webhook.Caller
+	hooks        *webhook.Engine
 	pub          pubsub.Publisher
 	engine       *rbac.Engine
 }
@@ -264,6 +264,14 @@ func (srv *ProjectsController) CreateProject(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	// project.created has two delivery paths, and they are the same event: this
+	// publish and the hook dispatch below both key off
+	// schemas.EventProjectCreated, which is also the name webhook.ProjectCreated
+	// registers under. The JetStream path is durable and redelivering but has no
+	// consumer yet; the hook path is synchronous, which is what lets a
+	// can_interrupt hook fail this request and what makes the inbound headers
+	// available at all. They are not interchangeable, so neither replaces the
+	// other here.
 	if srv.pub != nil {
 		err = srv.pub.Publish(ctx, schemas.ProjectEventsProcess(actor.OrganizationID), schemas.ProjectEvent{
 			ID:             projectID,
@@ -318,16 +326,26 @@ func (srv *ProjectsController) CreateProject(w http.ResponseWriter, r *http.Requ
 
 	srv.loadProjectCounts(ctx, project)
 
-	err = srv.webhook.ProjectCreated(ctx, r, webhookoapi.ProjectDetails{
-		Id:             project.ID,
-		OrganizationId: *project.OrganizationID,
-		Name:           project.Name,
-		Timezone:       &project.Timezone,
-		Locale:         &project.Locale,
-		CreatedAt:      project.CreatedAt,
-	})
+	// WithInboundRequest is only honoured by hooks that name headers in their
+	// deprecated forward_headers allowlist; without such a hook nothing from
+	// this request reaches the receiver. It is passed here, and only here,
+	// because this is the one call site that predates the engine and may still
+	// be talking to a receiver that expects the forwarded Authorization header.
+	//nolint:staticcheck // SA1019: the deprecated bridge for receivers not yet migrated off the forwarded header
+	forwardInboundHeaders := webhook.WithInboundRequest(r)
+
+	_, err = srv.hooks.Dispatch(ctx, webhook.ProjectCreated.Occurred(webhook.ProjectCreatedPayload{
+		Project: webhookoapi.ProjectDetails{
+			Id:             project.ID,
+			OrganizationId: *project.OrganizationID,
+			Name:           project.Name,
+			Timezone:       &project.Timezone,
+			Locale:         &project.Locale,
+			CreatedAt:      project.CreatedAt,
+		},
+	}), forwardInboundHeaders)
 	if err != nil {
-		logger.Error("failed to call project created webhook", zap.Error(err))
+		logger.Error("project created hook failed", zap.Error(err))
 		oapi.WriteProblem(w, err)
 		return
 	}
