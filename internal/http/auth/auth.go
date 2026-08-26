@@ -2,8 +2,6 @@ package auth
 
 import (
 	"context"
-	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"strings"
@@ -338,45 +336,16 @@ func projectIDFromPath(path string) string {
 	return rest
 }
 
-// OAuthResponse represents the OAuth token response stored in cookies
-type OAuthResponse struct {
-	AccessToken  string `json:"access_token"`
-	TokenType    string `json:"token_type,omitempty"`
-	ExpiresIn    int    `json:"expires_in,omitempty"`
-	RefreshToken string `json:"refresh_token,omitempty"`
-	Scope        string `json:"scope,omitempty"`
-}
-
-// getCookieOAuthToken retrieves and parses the OAuth token from the 'oauth' cookie
-func getCookieOAuthToken(r *http.Request) *OAuthResponse {
-	cookie, err := r.Cookie("oauth")
-	if err != nil {
-		return nil
-	}
-
-	decoded, err := base64.StdEncoding.DecodeString(cookie.Value)
-	if err != nil {
-		return nil
-	}
-
-	var res OAuthResponse
-	if err := json.Unmarshal(decoded, &res); err != nil {
-		return nil
-	}
-
-	return &res
-}
-
 // GetSession extracts the authentication token from the request.
 // It checks (in priority order):
-// 1. OAuth access token from 'oauth' cookie
-// 2. Session token from '__session' cookie
-// 3. Authorization header (with or without Bearer prefix)
+// 1. Session token from the HttpOnly '__session' cookie
+// 2. Authorization header (with or without Bearer prefix)
+//
+// Only these two intakes are honoured. An 'oauth' cookie is deliberately NOT
+// read: nothing in the platform ever writes one, so accepting it only offered
+// script running on the origin a non-HttpOnly channel for outranking the real
+// session cookie. Do not reintroduce it.
 func GetSession(r *http.Request) string {
-	if oauthToken := getCookieOAuthToken(r); oauthToken != nil && oauthToken.AccessToken != "" {
-		return oauthToken.AccessToken
-	}
-
 	if sessionCookie, err := r.Cookie("__session"); err == nil && sessionCookie.Value != "" {
 		return sessionCookie.Value
 	}

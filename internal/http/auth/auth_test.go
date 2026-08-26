@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
+	"encoding/base64"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -197,6 +198,46 @@ func TestWithJWTAlgorithmPinning(t *testing.T) {
 		handler := WithJWT(config.Auth{JWTSecret: secret}, nil)
 		_, err := handler(context.Background(), "not-a-jwt")
 		require.ErrorIs(t, err, ErrUnauthorized)
+	})
+}
+
+// TestGetSessionIgnoresOAuthCookie pins the removal of the "oauth" cookie
+// intake. Nothing in the platform ever wrote that cookie, yet GetSession read
+// it at the HIGHEST precedence — so anything able to set a (non-HttpOnly)
+// cookie on the origin could outrank the real session. Do not reintroduce it.
+func TestGetSessionIgnoresOAuthCookie(t *testing.T) {
+	t.Parallel()
+
+	// The shape the removed code accepted: base64 of an OAuth token response.
+	attacker := base64.StdEncoding.EncodeToString([]byte(`{"access_token":"attacker-token"}`))
+
+	t.Run("an oauth cookie alone yields no session", func(t *testing.T) {
+		t.Parallel()
+
+		r := httptest.NewRequest(http.MethodGet, "http://example.com/", nil)
+		r.AddCookie(&http.Cookie{Name: "oauth", Value: attacker})
+
+		assert.Empty(t, GetSession(r), "the oauth cookie must not be a token intake")
+	})
+
+	t.Run("an oauth cookie cannot outrank the session cookie", func(t *testing.T) {
+		t.Parallel()
+
+		r := httptest.NewRequest(http.MethodGet, "http://example.com/", nil)
+		r.AddCookie(&http.Cookie{Name: "oauth", Value: attacker})
+		r.AddCookie(&http.Cookie{Name: "__session", Value: "real-session-token"})
+
+		assert.Equal(t, "real-session-token", GetSession(r))
+	})
+
+	t.Run("an oauth cookie cannot outrank the Authorization header", func(t *testing.T) {
+		t.Parallel()
+
+		r := httptest.NewRequest(http.MethodGet, "http://example.com/", nil)
+		r.AddCookie(&http.Cookie{Name: "oauth", Value: attacker})
+		r.Header.Set("Authorization", "Bearer real-bearer-token")
+
+		assert.Equal(t, "real-bearer-token", GetSession(r))
 	})
 }
 
