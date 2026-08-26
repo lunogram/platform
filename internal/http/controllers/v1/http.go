@@ -86,6 +86,14 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *st
 	// Serve unified API documentation with both specs
 	router.Use(apiDocsMiddleware())
 
+	// Admin JWT verification is bound to the configured auth driver and refuses
+	// to build on a signing secret that cannot keep sessions private, so a
+	// misconfigured deployment fails to start instead of accepting forgeries.
+	adminJWT, err := auth.WithJWT(cfg.Auth, mgmtStores)
+	if err != nil {
+		return nil, fmt.Errorf("failed to configure admin JWT authentication: %w", err)
+	}
+
 	// Mount management routes with JWT+API Key auth
 	mgmtoapi.HandlerWithOptions(mgmtController, mgmtoapi.ChiServerOptions{
 		BaseRouter: router,
@@ -99,7 +107,7 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *st
 			http.RateLimit(limiter, cfg.RateLimit.PerMinute, time.Minute, cfg.RateLimit.TrustedProxyHops, mgmtoapi.WriteProblem),
 			mgmtoapi.Validator(mgmtSpec, openapi3filter.Options{
 				AuthenticationFunc: auth.Middleware(
-					auth.WithJWT(cfg.Auth, mgmtStores),
+					adminJWT,
 					auth.WithKey(mgmtStores, auth.SurfaceManagement),
 				),
 			}),

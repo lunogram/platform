@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 
 	"github.com/lunogram/platform/internal/claim"
 	"github.com/lunogram/platform/internal/config"
+	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/store/management"
 	teststore "github.com/lunogram/platform/internal/store/test"
 )
@@ -114,15 +116,25 @@ func jwksServer(t *testing.T, rsaKey *rsa.PrivateKey, kid string) string {
 	return srv.URL
 }
 
-// jwksConfig returns an Auth config in JWKS/RS256 verification mode whose keys
-// match rsaKey, plus that key's matching kid.
-func jwksConfig(t *testing.T, rsaKey *rsa.PrivateKey) config.Auth {
+// strongSecret is an HS256 signing secret that passes [validateJWTSecret]:
+// private to the test, and comfortably over the minimum length.
+const strongSecret = "R4TQ8yb1ZK0mfPuLd93sXvHnE7WqAjCt"
+
+// clerkConfig returns an Auth config for the clerk driver (RS256 verified
+// against a JWKS serving rsaKey's public half).
+func clerkConfig(t *testing.T, rsaKey *rsa.PrivateKey) config.Auth {
 	t.Helper()
 
 	url := jwksServer(t, rsaKey, "kid-1")
 	var jwks claim.JWKS
 	require.NoError(t, jwks.UnmarshalText([]byte(url)))
-	return config.Auth{JWKS: jwks}
+	return config.Auth{Driver: "clerk", JWKS: jwks}
+}
+
+// basicConfig returns an Auth config for the basic driver (HS256 verified
+// against the local signing secret).
+func basicConfig(secret string) config.Auth {
+	return config.Auth{Driver: "basic", JWTSecret: secret}
 }
 
 func signHS256(t *testing.T, secret []byte, claims jwt.MapClaims) string {
@@ -141,64 +153,215 @@ func signRS256Key(t *testing.T, key *rsa.PrivateKey, kid string, claims jwt.MapC
 	return signed
 }
 
-// TestWithJWTAlgorithmPinning is the regression test for the alg-confusion
-// hardening in WithJWT: each verification mode must accept only its own
-// algorithm and reject the other, so an attacker cannot present an HS256 forgery
-// to an RS256 verifier (or vice versa).
-func TestWithJWTAlgorithmPinning(t *testing.T) {
+// TestWithJWTDriverBoundAlgorithms is the regression test for the admin-session
+// forgery this release fixes. The accepted signature algorithms follow the
+// CONFIGURED DRIVER, never the mere presence of a JWT secret:
+//
+//   - clerk  -> RS256 verified against the provider JWKS, nothing else
+//   - basic  -> HS256 verified against the local signing secret, nothing else
+//
+// Previously the HS256 branch was enabled by any non-empty AUTH_JWT_SECRET,
+// including on a clerk deployment that never issues HS256 tokens. A secret the
+// attacker knows (the placeholder that shipped as a docker-compose default was
+// published in the repository) was therefore enough to mint an admin session,
+// because HS256 was a fully trusted verification path regardless of driver.
+func TestWithJWTDriverBoundAlgorithms(t *testing.T) {
 	t.Parallel()
 
-	const secret = "hmac-shared-secret"
+	ctx := context.Background()
+	mgmtDB, _, _ := teststore.RunPostgreSQL(t)
+	mgmt := management.NewState(mgmtDB)
+
+	orgID, err := mgmt.CreateOrganization(ctx, "Target Org")
+	require.NoError(t, err)
+	adminID, err := mgmt.CreateAdmin(ctx, management.Admin{
+		OrganizationID: orgID,
+		Email:          "target-admin@example.com",
+		Role:           "owner",
+	})
+	require.NoError(t, err)
+	require.NoError(t, mgmt.AddMember(ctx, orgID, adminID, "owner"))
+
 	rsaKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	require.NoError(t, err)
 
-	claims := func() jwt.MapClaims {
+	// Claims naming a real admin — exactly what an attacker would forge. The
+	// subject is that admin's UUID, so everything downstream of signature
+	// verification resolves and authorizes them.
+	adminClaims := func() jwt.MapClaims {
 		return jwt.MapClaims{
-			"iss": "https://idp.example",
-			"sub": "admin-1",
+			"sub": adminID.String(),
 			"exp": time.Now().Add(time.Hour).Unix(),
 		}
 	}
 
-	t.Run("RS256/JWKS mode rejects an HS256 token", func(t *testing.T) {
-		t.Parallel()
-		// In JWKS mode the verifier holds the RSA public key. The classic attack
-		// signs an HS256 token (here even using the configured RSA key's identity)
-		// hoping the public key is accepted as an HMAC secret. Method pinning
-		// rejects it before the keyfunc is ever consulted.
-		handler := WithJWT(jwksConfig(t, rsaKey), nil)
-		token := signHS256(t, []byte(secret), claims())
+	// The forgery: an HS256 token signed with the deployment's JWT secret.
+	forged := signHS256(t, []byte(strongSecret), adminClaims())
 
-		_, err := handler(context.Background(), token)
-		require.ErrorIs(t, err, ErrUnauthorized, "HS256 token must be rejected in RS256/JWKS mode")
+	t.Run("control: the forged token authenticates where HS256 is the driver's algorithm", func(t *testing.T) {
+		t.Parallel()
+		// Without this control the rejections below would prove nothing — a
+		// malformed token would fail the same way. On a basic-driver deployment
+		// this byte-identical token is a legitimate session and authenticates as
+		// the admin it names.
+		handler, err := WithJWT(basicConfig(strongSecret), mgmt)
+		require.NoError(t, err)
+
+		authed, err := handler(ctx, forged)
+		require.NoError(t, err, "an HS256 token signed with the basic driver's secret is a valid session")
+
+		actor := rbac.FromContext(authed)
+		require.NotNil(t, actor)
+		assert.Equal(t, adminID.String(), actor.ID, "the token authenticates as the admin named in sub")
 	})
 
-	t.Run("HMAC mode rejects an RS256 token", func(t *testing.T) {
+	t.Run("clerk driver rejects that same token even though the secret signing it is configured", func(t *testing.T) {
 		t.Parallel()
-		// In HMAC mode the verifier holds a shared secret. An RS256 token signed
-		// with an RSA private key must be rejected by method pinning.
-		handler := WithJWT(config.Auth{JWTSecret: secret}, nil)
-		token := signRS256Key(t, rsaKey, "kid-1", claims())
+		// THIS IS THE VULNERABILITY. The deployment authenticates through Clerk
+		// but also carries AUTH_JWT_SECRET (a leftover, or the published
+		// docker-compose default that everyone can read). The attacker knows the
+		// secret and signs their own admin token with it.
+		cfg := clerkConfig(t, rsaKey)
+		cfg.JWTSecret = strongSecret
 
-		_, err := handler(context.Background(), token)
-		require.ErrorIs(t, err, ErrUnauthorized, "RS256 token must be rejected in HMAC mode")
+		handler, err := WithJWT(cfg, mgmt)
+		require.NoError(t, err)
+
+		_, err = handler(ctx, forged)
+		require.ErrorIs(t, err, ErrUnauthorized,
+			"a clerk deployment must accept RS256/JWKS only; a configured JWT secret must not enable an HS256 verification path")
 	})
 
-	t.Run("HMAC mode rejects a token signed with the wrong secret", func(t *testing.T) {
+	t.Run("clerk driver rejects an HS256 token when no secret is configured", func(t *testing.T) {
 		t.Parallel()
-		handler := WithJWT(config.Auth{JWTSecret: secret}, nil)
-		token := signHS256(t, []byte("a-different-secret"), claims())
+		handler, err := WithJWT(clerkConfig(t, rsaKey), mgmt)
+		require.NoError(t, err)
 
-		_, err := handler(context.Background(), token)
+		_, err = handler(ctx, forged)
+		require.ErrorIs(t, err, ErrUnauthorized)
+	})
+
+	t.Run("basic driver rejects an RS256 token", func(t *testing.T) {
+		t.Parallel()
+		// The mirror image: an HS256 deployment must not accept an asymmetric
+		// token, whoever signed it.
+		handler, err := WithJWT(basicConfig(strongSecret), mgmt)
+		require.NoError(t, err)
+
+		_, err = handler(ctx, signRS256Key(t, rsaKey, "kid-1", adminClaims()))
+		require.ErrorIs(t, err, ErrUnauthorized, "RS256 token must be rejected under the basic driver")
+	})
+
+	t.Run("basic driver rejects a token signed with the wrong secret", func(t *testing.T) {
+		t.Parallel()
+		handler, err := WithJWT(basicConfig(strongSecret), mgmt)
+		require.NoError(t, err)
+
+		_, err = handler(ctx, signHS256(t, []byte("a-different-secret-of-sufficient-length"), adminClaims()))
 		require.ErrorIs(t, err, ErrUnauthorized, "a forged-secret HS256 token must be rejected")
 	})
 
 	t.Run("garbage token is rejected", func(t *testing.T) {
 		t.Parallel()
-		handler := WithJWT(config.Auth{JWTSecret: secret}, nil)
-		_, err := handler(context.Background(), "not-a-jwt")
+		handler, err := WithJWT(basicConfig(strongSecret), mgmt)
+		require.NoError(t, err)
+
+		_, err = handler(ctx, "not-a-jwt")
 		require.ErrorIs(t, err, ErrUnauthorized)
 	})
+}
+
+// TestWithJWTRejectsWeakSecret pins the fail-fast check on the admin signing
+// secret. A deployment whose driver issues HS256 tokens must refuse to START on
+// a secret that cannot keep those tokens private, rather than serving requests
+// and accepting forgeries until someone notices. The published docker-compose
+// placeholder is called out by value: it is public knowledge, so length alone
+// would not disqualify it.
+func TestWithJWTRejectsWeakSecret(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		secret  string
+		wantErr bool
+	}{
+		"empty secret": {
+			secret:  "",
+			wantErr: true,
+		},
+		"the default published in the repository": {
+			secret:  "dev-secret-change-in-production",
+			wantErr: true,
+		},
+		"too short to resist offline guessing": {
+			secret:  "short-secret",
+			wantErr: true,
+		},
+		"one byte under the minimum": {
+			secret:  strings.Repeat("k", minJWTSecretBytes-1),
+			wantErr: true,
+		},
+		"exactly the minimum length": {
+			secret:  strings.Repeat("k", minJWTSecretBytes),
+			wantErr: false,
+		},
+		"a strong secret": {
+			secret:  strongSecret,
+			wantErr: false,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			handler, err := WithJWT(basicConfig(tc.secret), nil)
+			if !tc.wantErr {
+				require.NoError(t, err)
+				require.NotNil(t, handler)
+				return
+			}
+
+			require.ErrorIs(t, err, ErrInsecureJWTSecret)
+			require.Nil(t, handler, "no handler may be returned for a secret that cannot be trusted")
+			assert.Contains(t, err.Error(), "AUTH_JWT_SECRET", "the error must name the variable to fix")
+			assert.Contains(t, err.Error(), "openssl rand", "the error must show how to generate a good value")
+		})
+	}
+}
+
+// TestWithJWTSecretIsIrrelevantToClerk asserts the other half of the driver
+// binding at construction: a clerk deployment neither needs nor is weakened by
+// AUTH_JWT_SECRET, so a weak one must not block startup — it simply is not key
+// material for that driver.
+func TestWithJWTSecretIsIrrelevantToClerk(t *testing.T) {
+	t.Parallel()
+
+	rsaKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	require.NoError(t, err)
+
+	cfg := clerkConfig(t, rsaKey)
+	cfg.JWTSecret = "dev-secret-change-in-production"
+
+	handler, err := WithJWT(cfg, nil)
+	require.NoError(t, err)
+	require.NotNil(t, handler)
+}
+
+// TestWithJWTUnknownDriver asserts construction fails closed on a driver it
+// cannot map to an algorithm, instead of silently defaulting to some accepted
+// set.
+func TestWithJWTUnknownDriver(t *testing.T) {
+	t.Parallel()
+
+	for _, driver := range []string{"", "oauth2", "none"} {
+		t.Run("driver "+driver, func(t *testing.T) {
+			t.Parallel()
+
+			handler, err := WithJWT(config.Auth{Driver: driver, JWTSecret: strongSecret}, nil)
+			require.Error(t, err)
+			require.Nil(t, handler)
+		})
+	}
 }
 
 // TestGetSessionIgnoresOAuthCookie pins the removal of the "oauth" cookie
