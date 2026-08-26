@@ -28,3 +28,22 @@ func adminActorID(actor *rbac.Actor) (uuid.UUID, error) {
 	}
 	return id, nil
 }
+
+// personalAdminID is the admin id to personalise a response with -- the caller's
+// project role, their own project list -- or nil when the caller is not an admin.
+//
+// It is the counterpart to [adminActorID] for endpoints an API key may legitimately
+// call: those callers get the unpersonalised view rather than a 403. Passing them
+// through as an admin id would silently query project_admins for an auth-method
+// id, which matches nothing, so the caller would be told they have no role rather
+// than that the question does not apply to them.
+func personalAdminID(actor *rbac.Actor) *uuid.UUID {
+	if actor == nil || actor.Type != rbac.ActorAdmin {
+		return nil
+	}
+	id, err := uuid.Parse(actor.ID)
+	if err != nil {
+		return nil
+	}
+	return &id
+}

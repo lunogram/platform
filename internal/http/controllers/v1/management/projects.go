@@ -92,9 +92,12 @@ func (srv *ProjectsController) ListProjects(w http.ResponseWriter, r *http.Reque
 		search = string(*params.Search)
 	}
 
-	actorID, err := uuid.Parse(actor.ID)
+	// This lists the projects the CALLER is a member of, which only an admin can
+	// be. An API key used to reach the query with its auth-method id, which
+	// matches no project_admins row, so the caller was told they have no
+	// projects rather than that the question does not apply to them.
+	actorID, err := adminActorID(actor)
 	if err != nil {
-		logger.Error("failed to parse actor ID as UUID", zap.Error(err))
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -131,14 +134,11 @@ func (srv *ProjectsController) GetProject(w http.ResponseWriter, r *http.Request
 
 	logger := srv.logger.With(zap.Stringer("project_id", projectID))
 
-	actorID, err := uuid.Parse(actor.ID)
-	if err != nil {
-		logger.Error("failed to parse actor ID as UUID", zap.Error(err))
-		oapi.WriteProblem(w, err)
-		return
-	}
-
-	project, err := srv.store.GetProject(ctx, projectID, &actorID)
+	// The admin id only decorates the response with the caller's own project
+	// role; authorization was settled by the check above. A non-admin caller has
+	// no such role, so it is left out rather than looked up under an id that
+	// means something else.
+	project, err := srv.store.GetProject(ctx, projectID, personalAdminID(actor))
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("project not found", zap.Stringer("project_id", projectID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("project not found")))
@@ -156,13 +156,19 @@ func (srv *ProjectsController) GetProject(w http.ResponseWriter, r *http.Request
 	// GetProject returns only the explicit project_admins role (empty when the
 	// admin has no row). Resolve the effective role so org owners/admins, who
 	// are project admins by inheritance, are not reported as having no role.
-	admin, err := srv.store.GetAdmin(ctx, actorID)
-	if err != nil {
-		logger.Error("failed to load actor for role resolution", zap.Error(err))
-		oapi.WriteProblem(w, err)
-		return
+	//
+	// Only an admin has one. A non-admin caller used to reach GetAdmin with an
+	// auth-method id, which resolves to no admin, turning the role decoration
+	// into a 500 on an otherwise valid request.
+	if adminID := personalAdminID(actor); adminID != nil {
+		admin, err := srv.store.GetAdmin(ctx, *adminID)
+		if err != nil {
+			logger.Error("failed to load actor for role resolution", zap.Error(err))
+			oapi.WriteProblem(w, err)
+			return
+		}
+		project.Role = effectiveProjectRole(admin.Role, project.Role)
 	}
-	project.Role = effectiveProjectRole(admin.Role, project.Role)
 
 	logger.Info("project retrieved")
 	json.Write(w, http.StatusOK, project.OAPI())
@@ -216,15 +222,8 @@ func (srv *ProjectsController) CreateProject(w http.ResponseWriter, r *http.Requ
 
 	// NOTE: we add the admin as a project admin after creation if the
 	// caller is a human (JWT). API key callers don't get added.
-	if actor.Type == rbac.ActorAdmin {
-		adminID, parseErr := uuid.Parse(actor.ID)
-		if parseErr != nil {
-			logger.Error("failed to parse actor ID as UUID", zap.Error(parseErr))
-			oapi.WriteProblem(w, parseErr)
-			return
-		}
-
-		err = projects.AddProjectAdmin(ctx, projectID, adminID, "admin")
+	if adminID := personalAdminID(actor); adminID != nil {
+		err = projects.AddProjectAdmin(ctx, projectID, *adminID, "admin")
 		if err != nil {
 			logger.Error("failed to add admin to project", zap.Error(err))
 			oapi.WriteProblem(w, err)
@@ -301,15 +300,8 @@ func (srv *ProjectsController) CreateProject(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	actorID, err := uuid.Parse(actor.ID)
-	if err != nil {
-		logger.Error("failed to parse actor ID as UUID", zap.Error(err))
-		oapi.WriteProblem(w, err)
-		return
-	}
-
 	logger.Info("project created", zap.Stringer("project_id", projectID))
-	project, err := srv.store.GetProject(ctx, projectID, &actorID)
+	project, err := srv.store.GetProject(ctx, projectID, personalAdminID(actor))
 	if err != nil {
 		logger.Error("failed to fetch created project", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -370,14 +362,7 @@ func (srv *ProjectsController) UpdateProject(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	actorID, err := uuid.Parse(actor.ID)
-	if err != nil {
-		logger.Error("failed to parse actor ID as UUID", zap.Error(err))
-		oapi.WriteProblem(w, err)
-		return
-	}
-
-	project, err := srv.store.GetProject(ctx, projectID, &actorID)
+	project, err := srv.store.GetProject(ctx, projectID, personalAdminID(actor))
 	if err != nil {
 		logger.Error("failed to fetch updated project", zap.Error(err))
 		oapi.WriteProblem(w, err)

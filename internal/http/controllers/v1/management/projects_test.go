@@ -517,3 +517,106 @@ func TestCreateProjectRollbackOnPublishFailure(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 0, total, "project should not exist after rollback")
 }
+
+// TestProjectEndpointsWithAnAPIKeyActor covers the guards that used to read
+// "does the actor id parse as a UUID?" as "is the caller an admin?".
+//
+// An API key's id is an auth-method UUID, so it parsed cleanly and the request
+// continued with a key id where an admin id was expected -- querying
+// project_admins for an id that can never appear there. The type is what
+// actually answers the question, so it is what gets checked.
+func TestProjectEndpointsWithAnAPIKeyActor(t *testing.T) {
+	t.Parallel()
+
+	logger := zaptest.NewLogger(t)
+	ctx := t.Context()
+	mgmt, usrs, jrny := teststore.RunPostgreSQL(t)
+
+	state := management.NewState(mgmt)
+	orgID, err := state.CreateOrganization(ctx, "Key Organization")
+	require.NoError(t, err)
+
+	projectID, err := state.CreateProject(ctx, management.Project{
+		OrganizationID: &orgID,
+		Name:           "Key Project",
+	})
+	require.NoError(t, err)
+
+	// The key's id is an auth-method UUID: a perfectly well-formed UUID that is
+	// not, and can never be, an admin id.
+	keyActor := rbac.NewActor(rbac.ActorAPIKey, uuid.New().String(),
+		rbac.WithOrganizationID(orgID),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, keyActor, "owner", "")
+
+	projects := NewProjectsController(logger, mgmt, usrs, jrny, nil, nil, engine)
+
+	t.Run("listing projects is refused rather than silently empty", func(t *testing.T) {
+		res := httptest.NewRecorder()
+		req := httptest.NewRequest("GET", "/api/admin/projects", nil).WithContext(actorCtx)
+
+		projects.ListProjects(res, req, oapi.ListProjectsParams{})
+
+		require.Equal(t, http.StatusForbidden, res.Code, res.Body.String())
+	})
+
+	t.Run("getting a project succeeds with no personal role", func(t *testing.T) {
+		res := httptest.NewRecorder()
+		req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String(), nil).WithContext(actorCtx)
+
+		projects.GetProject(res, req, projectID)
+
+		// Authorization was already settled by the permission check; only the
+		// role decoration does not apply. Previously the effective-role lookup
+		// resolved the key id as an admin and turned this into a 500.
+		require.Equal(t, http.StatusOK, res.Code, res.Body.String())
+
+		var project oapi.Project
+		require.NoError(t, json.Unmarshal(res.Body.Bytes(), &project))
+		require.Empty(t, project.Role, "an API key has no personal project role")
+	})
+}
+
+// TestGetProjectReportsTheAdminsEffectiveRole is the counterpart: an admin still
+// gets their inherited role, so the guard above did not cost the feature it
+// protects.
+func TestGetProjectReportsTheAdminsEffectiveRole(t *testing.T) {
+	t.Parallel()
+
+	logger := zaptest.NewLogger(t)
+	ctx := t.Context()
+	mgmt, usrs, jrny := teststore.RunPostgreSQL(t)
+
+	state := management.NewState(mgmt)
+	orgID, err := state.CreateOrganization(ctx, "Role Organization")
+	require.NoError(t, err)
+
+	adminID, err := state.CreateAdmin(ctx, management.Admin{
+		OrganizationID: orgID,
+		Email:          "owner@example.com",
+		Role:           "owner",
+	})
+	require.NoError(t, err)
+
+	projectID, err := state.CreateProject(ctx, management.Project{
+		OrganizationID: &orgID,
+		Name:           "Role Project",
+	})
+	require.NoError(t, err)
+
+	actor := rbac.NewActor(rbac.ActorAdmin, adminID.String(), rbac.WithOrganizationID(orgID))
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "")
+
+	projects := NewProjectsController(logger, mgmt, usrs, jrny, nil, nil, engine)
+
+	res := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String(), nil).WithContext(actorCtx)
+
+	projects.GetProject(res, req, projectID)
+	require.Equal(t, http.StatusOK, res.Code, res.Body.String())
+
+	var project oapi.Project
+	require.NoError(t, json.Unmarshal(res.Body.Bytes(), &project))
+	require.NotEmpty(t, project.Role, "an org owner is a project admin by inheritance")
+}
