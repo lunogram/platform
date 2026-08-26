@@ -18,6 +18,25 @@ import (
 	"go.uber.org/zap"
 )
 
+// revoke removes tuples, treating one that is already absent as revoked. The
+// organization- and project-role revocations go through it because they are
+// replayed: the ordering rule is that a tuple is removed BEFORE the record that
+// justified it, so a failure part-way leaves the record in place and the retry
+// re-attempts deletes that may already have succeeded. A strict delete would
+// turn that retry into a permanent failure.
+//
+// The API-key and policy-grant paths still use a strict delete; they have not
+// been moved onto this ordering.
+func revoke(ctx context.Context, engine *rbac.Engine, tuples []rbac.Tuple) error {
+	var firstErr error
+	for _, t := range tuples {
+		if err := engine.DeleteTupleIfPresent(ctx, t.User, t.Relation, t.Object); err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
+	return firstErr
+}
+
 // OrganizationRoleTuples returns the tuples needed to grant the given role to
 // an admin within an organization.
 func OrganizationRoleTuples(adminID, organizationID uuid.UUID, role string) []rbac.Tuple {
@@ -40,6 +59,102 @@ func ProjectRoleTuples(userID, projectID uuid.UUID, role string) []rbac.Tuple {
 			Object:   rbac.ProjectScope(projectID),
 		},
 	}
+}
+
+// DeprovisionOrganizationRole removes the organization role tuple granted by
+// [provisionMembership]. Call it when a membership is revoked, before the
+// membership row itself is removed.
+func DeprovisionOrganizationRole(ctx context.Context, engine *rbac.Engine, adminID, organizationID uuid.UUID, role string) error {
+	if err := revoke(ctx, engine, OrganizationRoleTuples(adminID, organizationID, role)); err != nil {
+		return fmt.Errorf("access: failed to deprovision organization role for admin %s: %w", adminID, err)
+	}
+	return nil
+}
+
+// ProjectRoleGrant pairs an RBAC subject with the project role it holds. It
+// exists so a set of grants spanning several projects (revoking one admin from
+// every project of an organization) or several admins (deleting a project) can
+// be revoked in a single batch.
+type ProjectRoleGrant struct {
+	UserID    uuid.UUID
+	ProjectID uuid.UUID
+	Role      string
+}
+
+// ProjectRoleGrantTuples returns the tuples for a set of project role grants.
+func ProjectRoleGrantTuples(grants []ProjectRoleGrant) []rbac.Tuple {
+	tuples := make([]rbac.Tuple, 0, len(grants))
+	for _, g := range grants {
+		tuples = append(tuples, ProjectRoleTuples(g.UserID, g.ProjectID, g.Role)...)
+	}
+	return tuples
+}
+
+// ProvisionProjectRole writes the RBAC tuple that grants an admin the given
+// role in a project. It must be called whenever a project_admins row is created
+// so that project-scoped permission checks resolve for that admin; a row
+// without its tuple is a member the authorization model cannot see.
+//
+// The write is idempotent: OpenFGA rejects re-writing an existing tuple, and
+// because the tuple write happens after the Postgres commit (the two stores
+// cannot share a transaction) a provisioning step may legitimately be re-run to
+// reconcile a membership whose tuples were never written.
+func ProvisionProjectRole(ctx context.Context, engine *rbac.Engine, adminID, projectID uuid.UUID, role string) error {
+	tuples := ProjectRoleTuples(adminID, projectID, role)
+	if err := engine.WriteTuplesIfMissing(ctx, tuples); err != nil {
+		return fmt.Errorf("access: failed to provision project role for admin %s: %w", adminID, err)
+	}
+	return nil
+}
+
+// DeprovisionProjectRole removes the RBAC tuple written by
+// [ProvisionProjectRole]. Call this whenever a project_admins row is removed:
+// the row is only the record of membership, the tuple is the access itself, so
+// a delete that skips this leaves the removed member with working API access.
+func DeprovisionProjectRole(ctx context.Context, engine *rbac.Engine, adminID, projectID uuid.UUID, role string) error {
+	tuples := ProjectRoleTuples(adminID, projectID, role)
+	if err := revoke(ctx, engine, tuples); err != nil {
+		return fmt.Errorf("access: failed to deprovision project role for admin %s: %w", adminID, err)
+	}
+	return nil
+}
+
+// DeprovisionProjectRoles revokes several project role grants at once. Use it
+// when a single event invalidates many grants (an admin removed from an
+// organization, or a project deleted).
+//
+// Each grant is revoked independently and a grant whose tuple is already gone
+// counts as revoked, so one stale record cannot block the revocation of the
+// others. The first real failure is returned after every grant has been
+// attempted — a revocation cascade must get as far as it can and still report
+// that it did not finish.
+func DeprovisionProjectRoles(ctx context.Context, engine *rbac.Engine, grants []ProjectRoleGrant) error {
+	if err := revoke(ctx, engine, ProjectRoleGrantTuples(grants)); err != nil {
+		return fmt.Errorf("access: failed to deprovision %d project role grants: %w", len(grants), err)
+	}
+	return nil
+}
+
+// UpdateProjectRole removes the old role tuple and writes the new one. The old
+// tuple is removed FIRST: a promotion that fails halfway must not leave the
+// admin holding both roles, and on a demotion the stale higher-privilege tuple
+// is the one that must not survive.
+//
+// Use this where the role change is recorded before the tuples are touched (the
+// invite-accept flow, whose Postgres work is already committed by then). Where
+// the record is written by the same handler, split the two halves around it
+// instead — see UpdateProjectAdmin — so the revoke precedes the write and the
+// grant follows it.
+func UpdateProjectRole(ctx context.Context, engine *rbac.Engine, adminID, projectID uuid.UUID, oldRole, newRole string) error {
+	if oldRole == newRole {
+		return nil
+	}
+	if oldRole != "" {
+		if err := DeprovisionProjectRole(ctx, engine, adminID, projectID, oldRole); err != nil {
+			return err
+		}
+	}
+	return ProvisionProjectRole(ctx, engine, adminID, projectID, newRole)
 }
 
 // ApiKeyRoleTuples returns the tuple that grants a project-level role to an
@@ -186,7 +301,7 @@ func ProvisionProject(ctx context.Context, engine *rbac.Engine, organizationID, 
 // authorization store.
 func DeprovisionProject(ctx context.Context, engine *rbac.Engine, organizationID, projectID uuid.UUID) error {
 	tuples := ProjectTuples(organizationID, projectID)
-	if err := engine.DeleteTuples(ctx, tuples); err != nil {
+	if err := revoke(ctx, engine, tuples); err != nil {
 		return fmt.Errorf("access: failed to deprovision project %s: %w", projectID, err)
 	}
 	return nil
@@ -236,6 +351,63 @@ func BackfillProjectTuples(ctx context.Context, logger *zap.Logger, engine *rbac
 		logger.Warn("RBAC resource tuple backfill completed with failures", zap.Int("failures", failures))
 	} else {
 		logger.Info("RBAC resource tuple backfill complete")
+	}
+	return nil
+}
+
+// BackfillProjectRoleTuples writes the per-admin project role tuples for every
+// active project_admins row. It repairs the divergence left by paths that
+// recorded a project role in Postgres without writing the matching tuple
+// (project creation, historically): such a member holds a role on paper that
+// the authorization model cannot see, and only reaches the project at all while
+// some other grant — usually organization owner/admin inheritance — happens to
+// cover them.
+//
+// Writes are idempotent, so this is safe to run on every start alongside
+// [BackfillProjectTuples]. It only ever grants what the database already says
+// the admin has; it never invents a grant.
+func BackfillProjectRoleTuples(ctx context.Context, logger *zap.Logger, engine *rbac.Engine, db *sqlx.DB) error {
+	type row struct {
+		ProjectID uuid.UUID `db:"project_id"`
+		AdminID   uuid.UUID `db:"admin_id"`
+		Role      string    `db:"role"`
+	}
+
+	query := `
+	SELECT pa.project_id, pa.admin_id, pa.role
+	FROM project_admins pa
+	JOIN projects p ON p.id = pa.project_id AND p.deleted_at IS NULL
+	WHERE pa.deleted_at IS NULL`
+
+	var grants []row
+	if err := db.SelectContext(ctx, &grants, query); err != nil {
+		return fmt.Errorf("access: failed to list project admins for backfill: %w", err)
+	}
+
+	logger.Info("backfilling RBAC project role tuples", zap.Int("count", len(grants)))
+
+	var failures int
+	for _, g := range grants {
+		// An unranked role is not a relation in the authorization model; writing
+		// it would fail anyway, and skipping it keeps one bad row from failing
+		// the whole backfill.
+		if !rbac.IsKnownProjectRole(g.Role) {
+			failures++
+			logger.Warn("skipping project role tuple with unknown role",
+				zap.String("project_id", g.ProjectID.String()), zap.String("role", g.Role))
+			continue
+		}
+		if err := engine.WriteTupleIfAbsent(ctx, "user:"+g.AdminID.String(), g.Role, rbac.ProjectScope(g.ProjectID)); err != nil {
+			failures++
+			logger.Warn("failed to backfill RBAC project role tuple",
+				zap.String("project_id", g.ProjectID.String()), zap.Error(err))
+		}
+	}
+
+	if failures > 0 {
+		logger.Warn("RBAC project role tuple backfill completed with failures", zap.Int("failures", failures))
+	} else {
+		logger.Info("RBAC project role tuple backfill complete")
 	}
 	return nil
 }

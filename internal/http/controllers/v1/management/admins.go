@@ -550,11 +550,57 @@ func (srv *AdminsController) DeleteAdmin(w http.ResponseWriter, r *http.Request,
 
 	logger.Info("removing admin from organization")
 
+	// Read the grants to revoke before anything is torn down; project access
+	// resolves from the direct project:<id>#<role> tuple alone, so dropping the
+	// organization membership without these leaves a removed person with full,
+	// working access to every project they were ever added to.
+	projectRoles, err := srv.store.ListProjectRolesInOrganization(ctx, actor.OrganizationID, adminID)
+	if err != nil {
+		logger.Error("failed to list project roles for admin", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	// Revocation inverts the provisioning order: tuples come out BEFORE the rows
+	// that justified them, including before the transaction that removes those
+	// rows. The provisioning path (see provisionMembership) is the mirror image
+	// and writes tuples only after its commit.
+	//
+	// The asymmetry is deliberate, and it is the reason this cannot simply run
+	// after the commit like a grant does. OpenFGA is not part of the Postgres
+	// transaction, so one of the two orders has to lose:
+	//
+	//   - tuples last: a tuple failure leaves the membership rows deleted and the
+	//     access live, with no row left for a replay to find. The endpoint answers
+	//     404 on retry and the access is stranded forever — fail-open, permanent.
+	//   - tuples first: a rollback (or a failure before the commit) leaves the
+	//     person without access they are still recorded as having — fail-closed,
+	//     visible, and repaired either by replaying the removal or by re-adding
+	//     them, which re-provisions the tuples.
+	//
+	// The second failure is the one worth having. Losing access you should still
+	// hold is an outage; keeping access you should have lost is a breach.
+	grants := make([]access.ProjectRoleGrant, len(projectRoles))
+	for i, pr := range projectRoles {
+		grants[i] = access.ProjectRoleGrant{UserID: adminID, ProjectID: pr.ProjectID, Role: pr.Role}
+	}
+	if err := access.DeprovisionProjectRoles(ctx, srv.engine, grants); err != nil {
+		logger.Error("failed to revoke project RBAC tuples", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("failed to revoke project roles")))
+		return
+	}
+
+	if err := access.DeprovisionOrganizationRole(ctx, srv.engine, adminID, actor.OrganizationID, member.Role); err != nil {
+		logger.Error("failed to revoke organization RBAC tuple", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("failed to revoke organization role")))
+		return
+	}
+
 	// Membership is the unit of removal now that an admin can belong to several
 	// organizations; the admin record is preserved so their other memberships
 	// keep working. The soft-delete and the home/active-org reconciliation run in
 	// one transaction so an admin can never be left pointing at an org they no
-	// longer belong to. Tuples are deleted only after the transaction commits.
+	// longer belong to.
 	tx, err := srv.db.BeginTxx(ctx, nil)
 	if err != nil {
 		logger.Error("failed to begin transaction", zap.Error(err))
@@ -564,6 +610,12 @@ func (srv *AdminsController) DeleteAdmin(w http.ResponseWriter, r *http.Request,
 	defer tx.Rollback() //nolint:errcheck
 
 	txStore := management.NewState(tx)
+
+	if err := txStore.RemoveProjectAdminsInOrganization(ctx, actor.OrganizationID, adminID); err != nil {
+		logger.Error("failed to remove project memberships", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
 
 	if err := txStore.RemoveMember(ctx, actor.OrganizationID, adminID); err != nil {
 		logger.Error("failed to remove organization membership", zap.Error(err))
@@ -586,20 +638,20 @@ func (srv *AdminsController) DeleteAdmin(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
-	if err := srv.engine.DeleteTuples(ctx, access.OrganizationRoleTuples(adminID, actor.OrganizationID, member.Role)); err != nil {
-		logger.Error("failed to delete RBAC tuples", zap.Error(err))
-		oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("failed to revoke organization role")))
-		return
-	}
-
 	logger.Info("admin removed from organization")
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// Project Admin methods
+// membersResource is the RBAC resource type that governs the project_admins
+// roster: who may see, add, re-role and remove the members of a project.
+const membersResource = "members"
 
 func (srv *AdminsController) ListProjectAdmins(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, params oapi.ListProjectAdminsParams) {
 	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope(membersResource, projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
 
 	logger := srv.logger.With(
 		zap.String("project_id", projectID.String()),
@@ -642,6 +694,10 @@ func (srv *AdminsController) ListProjectAdmins(w http.ResponseWriter, r *http.Re
 
 func (srv *AdminsController) GetProjectAdmin(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, adminID uuid.UUID) {
 	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope(membersResource, projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
 
 	logger := srv.logger.With(
 		zap.String("project_id", projectID.String()),
@@ -669,6 +725,10 @@ func (srv *AdminsController) GetProjectAdmin(w http.ResponseWriter, r *http.Requ
 
 func (srv *AdminsController) UpdateProjectAdmin(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, adminID uuid.UUID) {
 	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope(membersResource, projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
 
 	var body oapi.UpdateProjectAdmin
 	if err := json.Decode(r.Body, &body); err != nil {
@@ -685,7 +745,35 @@ func (srv *AdminsController) UpdateProjectAdmin(w http.ResponseWriter, r *http.R
 
 	logger.Info("updating project admin role")
 
-	_, err := srv.store.GetProjectAdmin(ctx, projectID, adminID)
+	newRole := string(body.Role)
+
+	// Fail closed on a role the hierarchy cannot rank. The OpenAPI enum already
+	// constrains body.Role, so this is defense in depth: an unranked role would
+	// rank 0 and slip under the least-privilege ceiling below, and it would be
+	// written to OpenFGA as a relation the model does not define.
+	if !rbac.IsKnownProjectRole(newRole) {
+		logger.Debug("unknown project role")
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("unknown project role")))
+		return
+	}
+
+	// Least-privilege ceiling, identical to the one the invite flow applies: a
+	// caller may only assign a role at or below their own effective role in this
+	// project. The two paths grant the same thing and must not disagree, or the
+	// weaker one becomes the way around the stronger.
+	actorRole, err := srv.actorProjectRole(ctx, projectID)
+	if err != nil {
+		logger.Error("failed to resolve actor project role", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal())
+		return
+	}
+	if rbac.IsProjectRoleHigher(newRole, actorRole) {
+		logger.Debug("assigned role is higher than actor project role", zap.String("actor_project_role", actorRole))
+		oapi.WriteProblem(w, problem.ErrForbidden(problem.Describe("the role you assign must be equal to or lower than your own role in this project")))
+		return
+	}
+
+	projectAdmin, err := srv.store.GetProjectAdmin(ctx, projectID, adminID)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("project admin not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("project admin not found")))
@@ -698,10 +786,40 @@ func (srv *AdminsController) UpdateProjectAdmin(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	err = srv.store.UpdateProjectAdminRole(ctx, projectID, adminID, string(body.Role))
+	if err := srv.guardLastProjectAdmin(ctx, projectID, adminID, projectAdmin.Role, newRole); err != nil {
+		logger.Info("project admin role change refused", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	// A role change is a revoke and a grant at once, so it obeys both halves of
+	// the ordering rule: the old role's tuple goes BEFORE the row is rewritten,
+	// the new role's tuple AFTER. Never the other way round — updating the row
+	// first would make the retry unrepairable, because the retry reads its
+	// "before" value from the very field the failed attempt overwrote and would
+	// compute a no-op swap, stranding a demoted member's admin tuple forever.
+	//
+	// Failing between the steps leaves the member holding no role while the row
+	// still names the old one: fail-closed, and a replay re-reads the untouched
+	// row and redoes both halves, each of which is idempotent.
+	if projectAdmin.Role != newRole {
+		if err := access.DeprovisionProjectRole(ctx, srv.engine, adminID, projectID, projectAdmin.Role); err != nil {
+			logger.Error("failed to revoke previous RBAC project role", zap.Error(err))
+			oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("failed to update project role")))
+			return
+		}
+	}
+
+	err = srv.store.UpdateProjectAdminRole(ctx, projectID, adminID, newRole)
 	if err != nil {
 		logger.Error("failed to update project admin role", zap.Error(err))
 		oapi.WriteProblem(w, err)
+		return
+	}
+
+	if err := access.ProvisionProjectRole(ctx, srv.engine, adminID, projectID, newRole); err != nil {
+		logger.Error("failed to write RBAC project role", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("failed to update project role")))
 		return
 	}
 
@@ -718,6 +836,10 @@ func (srv *AdminsController) UpdateProjectAdmin(w http.ResponseWriter, r *http.R
 
 func (srv *AdminsController) DeleteProjectAdmin(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, adminID uuid.UUID) {
 	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Delete, rbac.ProjectResourceScope(membersResource, projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
 
 	logger := srv.logger.With(
 		zap.String("project_id", projectID.String()),
@@ -726,7 +848,7 @@ func (srv *AdminsController) DeleteProjectAdmin(w http.ResponseWriter, r *http.R
 
 	logger.Info("deleting project admin")
 
-	_, err := srv.store.GetProjectAdmin(ctx, projectID, adminID)
+	projectAdmin, err := srv.store.GetProjectAdmin(ctx, projectID, adminID)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("project admin not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("project admin not found")))
@@ -739,6 +861,23 @@ func (srv *AdminsController) DeleteProjectAdmin(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	if err := srv.guardLastProjectAdmin(ctx, projectID, adminID, projectAdmin.Role, ""); err != nil {
+		logger.Info("project admin removal refused", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	// The tuple goes first, the row second. Deleting the row first and failing
+	// on the tuple would be unrecoverable: the access would remain while the
+	// only record pointing at it is gone, and a replay would answer 404 instead
+	// of finishing the job. This way a failure leaves access already revoked and
+	// a stale roster entry that a replay reads and cleans up.
+	if err := access.DeprovisionProjectRole(ctx, srv.engine, adminID, projectID, projectAdmin.Role); err != nil {
+		logger.Error("failed to revoke RBAC tuples for project admin", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("failed to revoke project role")))
+		return
+	}
+
 	err = srv.store.DeleteProjectAdmin(ctx, projectID, adminID)
 	if err != nil {
 		logger.Error("failed to delete project admin", zap.Error(err))
@@ -748,4 +887,68 @@ func (srv *AdminsController) DeleteProjectAdmin(w http.ResponseWriter, r *http.R
 
 	logger.Info("project admin deleted")
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// guardLastProjectAdmin refuses a change that would leave the project with
+// nobody able to administer it. currentRole is the member's role today and
+// newRole the role they are moving to ("" when they are being removed
+// entirely); the guard only engages when project admin is actually being given
+// up.
+//
+// Organization owners and admins count as administrators here even without a
+// project_admins row, because they hold project admin by inheritance. Ignoring
+// them would turn this guard into a permanent block on removing a departed
+// project admin from an organization that is perfectly able to manage it.
+func (srv *AdminsController) guardLastProjectAdmin(ctx context.Context, projectID, adminID uuid.UUID, currentRole, newRole string) error {
+	if currentRole != rbac.ProjectAdmin || newRole == rbac.ProjectAdmin {
+		return nil
+	}
+
+	hasOther, err := srv.store.HasOtherProjectAdmin(ctx, projectID, adminID, rbac.ProjectAdmin, rbac.OrganizationRolesInheritingProjectAdmin())
+	if err != nil {
+		// Fail closed: an unanswered "is anyone else in charge?" must not be
+		// read as a yes.
+		return err
+	}
+	if !hasOther {
+		return problem.ErrConflict(problem.Describe("this is the last administrator of the project; assign another administrator first"))
+	}
+	return nil
+}
+
+// actorProjectRole returns the effective project role of the request's actor,
+// for use as a least-privilege ceiling.
+//
+// An admin is resolved from the database — their membership role in the active
+// organization folded with any explicit project_admins row — because that is the
+// resolution the invite flow applies, and the two grant paths must not disagree.
+//
+// Any other subject (an API key, an access policy) has no organization
+// membership to read; its project role lives in OpenFGA as the direct grant
+// written when it was provisioned, so it is resolved from there. Refusing such
+// an actor instead would break a configuration the model explicitly supports:
+// every resource relation is a union of a direct grant and the project-role
+// path, so a policy carrying a custom permission set can hold members:update
+// without being a project admin. Such a policy holds no project role at all and
+// resolves to "", which ranks below every role and lets it assign none — the
+// ceiling doing its job rather than a blanket refusal.
+func (srv *AdminsController) actorProjectRole(ctx context.Context, projectID uuid.UUID) (string, error) {
+	actor := rbac.FromContext(ctx)
+	if actor == nil {
+		return "", problem.ErrUnauthorized()
+	}
+
+	if actor.Type == rbac.ActorAdmin {
+		// Authentication always builds an admin actor from admin.ID, so this
+		// never fails in practice. It stays an error rather than a fallback: a
+		// fallback would resolve to no role and deny silently, which is a far
+		// harder thing to diagnose than a failed request.
+		adminID, err := uuid.Parse(actor.ID)
+		if err != nil {
+			return "", err
+		}
+		return resolveProjectRole(ctx, srv.store, actor.OrganizationID, projectID, adminID)
+	}
+
+	return srv.engine.ProjectRole(ctx, actor.UserKey(), projectID)
 }

@@ -203,6 +203,11 @@ func Model() []*openfgav1.TypeDefinition {
 		{name: "scheduled", read: "support", create: "client", update: "client", delete: "editor"},
 		{name: "devices", read: "support", create: "client", update: "client", delete: "client"},
 		{name: "invites", read: "admin", create: "admin", update: "admin", delete: "admin"},
+		// "members" governs the project_admins roster. Reading it is open to
+		// everyone on the project so a member can see who they work with, but
+		// granting, changing and revoking a project role is an admin-only act —
+		// anything weaker would let a member widen their own project access.
+		{name: "members", read: "support", create: "admin", update: "admin", delete: "admin"},
 		{name: "inbox", read: "support", create: "client", update: "client", delete: "admin"},
 	}
 

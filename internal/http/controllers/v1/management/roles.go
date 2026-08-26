@@ -1,21 +1,43 @@
 package v1
 
-import "github.com/lunogram/platform/internal/rbac"
+import (
+	"context"
+	"database/sql"
+	"errors"
 
-// effectiveProjectRole applies org→project inheritance to an admin's explicit
-// project role. An organization owner or admin is a project admin by
-// inheritance (see the OpenFGA "project" type, where project admin = ttu
-// organization owner/admin), so they always resolve to project admin regardless
-// of any explicit project_admins row. Everyone else gets their explicit role,
-// which is "" when they have none — a value that ranks below every real role
-// and therefore grants no authority and gates no UI.
+	"github.com/google/uuid"
+	"github.com/lunogram/platform/internal/rbac"
+	"github.com/lunogram/platform/internal/store/management"
+)
+
+// resolveProjectRole returns the admin's effective role in the project, folding
+// their membership role in the organization that scopes the request together
+// with any explicit project_admins row (see [rbac.EffectiveProjectRole]).
 //
-// This is the single source of truth for the role shown to and enforced for an
-// admin in a project at the application layer; the SQL stays free of role
-// business logic and backend authorization is always enforced via OpenFGA.
-func effectiveProjectRole(orgRole, explicitProjectRole string) string {
-	if orgRole == rbac.OrganizationOwner || orgRole == rbac.OrganizationAdmin {
-		return rbac.ProjectAdmin
+// The organization role MUST come from organization_members for the active
+// organization, never from admins.role: that column is the admin's role in
+// their *home* organization, so an owner of org A would otherwise resolve to
+// project admin inside org B's projects.
+//
+// A missing membership or a missing project_admins row is not an error — both
+// mean "no role here" and resolve to "", which ranks below every real role.
+// Only a genuine query failure is returned, so a transient database error can
+// never be mistaken for a role.
+func resolveProjectRole(ctx context.Context, store *management.State, organizationID, projectID, adminID uuid.UUID) (string, error) {
+	var orgRole string
+	member, err := store.GetMember(ctx, organizationID, adminID)
+	switch {
+	case err == nil:
+		orgRole = member.Role
+	case errors.Is(err, sql.ErrNoRows):
+	default:
+		return "", err
 	}
-	return explicitProjectRole
+
+	explicitRole, err := store.GetProjectRole(ctx, projectID, adminID)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return "", err
+	}
+
+	return rbac.EffectiveProjectRole(orgRole, explicitRole), nil
 }

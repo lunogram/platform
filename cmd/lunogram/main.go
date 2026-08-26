@@ -184,6 +184,10 @@ func run() error {
 		return fmt.Errorf("failed to backfill rbac resource tuples: %w", err)
 	}
 
+	if err := access.BackfillProjectRoleTuples(ctx, logger, rbacEngine, db.Management); err != nil {
+		return fmt.Errorf("failed to backfill rbac project role tuples: %w", err)
+	}
+
 	logger.Info("starting http server")
 
 	jwksL2 := iredis.NewCache[json.RawMessage](rclient, conf.Redis.KeyPrefix+"jwks:", conf.JWKSCache.TTL, logger)
