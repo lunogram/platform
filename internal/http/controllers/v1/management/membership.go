@@ -12,8 +12,8 @@ import (
 
 // provisionMembership grants an admin membership of an organization atomically:
 // it records (or revives) the organization_members row inside a database
-// transaction and, only after that transaction commits, writes the RBAC tuples
-// to OpenFGA.
+// transaction and, only after that transaction commits, reconciles the RBAC
+// tuples in OpenFGA.
 //
 // Splitting the two phases this way is deliberate. OpenFGA is not part of the
 // Postgres transaction, so writing tuples first could grant access for a
@@ -23,6 +23,12 @@ import (
 // never persisted. The invite-accept flow follows the same ordering; this helper
 // exists so the admin-management paths reuse it instead of duplicating the
 // fragile sequencing.
+//
+// Both phases are idempotent, because both halves of a membership can already
+// exist: AddMember upserts the row and [access.SyncOrganizationRole] reconciles
+// the tuples to the committed role. Granting a membership that is already
+// present therefore succeeds, and a role change drops the tuple for the role it
+// replaces instead of leaving the admin holding both.
 //
 // resolveAdmin runs inside the transaction and returns the admin id that the
 // membership is granted to. It is where any prerequisite DB work (e.g. inserting
@@ -58,9 +64,9 @@ func provisionMembership(
 		return uuid.Nil, err
 	}
 
-	// Tuples are written only after the membership is durably committed; see the
-	// doc comment for why the ordering matters.
-	if err := engine.WriteTuples(ctx, access.OrganizationRoleTuples(adminID, organizationID, role)); err != nil {
+	// Tuples are reconciled only after the membership is durably committed; see
+	// the doc comment for why the ordering matters.
+	if err := access.SyncOrganizationRole(ctx, engine, adminID, organizationID, role); err != nil {
 		return uuid.Nil, err
 	}
 
