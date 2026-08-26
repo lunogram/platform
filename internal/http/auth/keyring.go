@@ -8,6 +8,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
 )
@@ -117,7 +118,15 @@ func KeyID(pub *ecdsa.PublicKey) (string, error) {
 }
 
 // parseECPrivateKeyPEM decodes a PEM block and parses the EC private key inside.
+//
+// A literal `\n` two-character sequence is treated as a newline first. PEM is
+// multi-line and most deployment surfaces (compose files, Kubernetes env vars,
+// PaaS dashboards) only carry single-line values, so the escaped form is how a
+// key actually reaches the process; refusing it would push operators towards
+// keeping their signing key in a file instead.
 func parseECPrivateKeyPEM(pemKey string) (*ecdsa.PrivateKey, error) {
+	pemKey = strings.ReplaceAll(pemKey, `\n`, "\n")
+
 	block, _ := pem.Decode([]byte(pemKey))
 	if block == nil {
 		return nil, errors.New("auth: signing key is not valid PEM")

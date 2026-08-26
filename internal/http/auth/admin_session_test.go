@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"crypto/x509"
 	"encoding/pem"
+	"strings"
 	"testing"
 	"time"
 
@@ -250,6 +251,18 @@ func TestConsoleTokenCarriesNoAuthorization(t *testing.T) {
 	}
 }
 
+// TestConsoleSignerDisabled covers the "no key configured" case. The signer is
+// nil rather than error, and it is the caller (startup) that decides whether
+// that is a disabled feature or a fatal misconfiguration -- see
+// [ErrConsoleSigningKeyMissing].
+func TestConsoleSignerDisabled(t *testing.T) {
+	t.Parallel()
+
+	signer, err := NewConsoleSigner(config.ConsoleAuth{})
+	require.NoError(t, err)
+	assert.Nil(t, signer)
+}
+
 func TestKeyring(t *testing.T) {
 	t.Parallel()
 
@@ -310,5 +323,20 @@ func TestKeyring(t *testing.T) {
 	t.Run("rejects a key that is not PEM", func(t *testing.T) {
 		_, err := NewKeyring("not a pem block", nil)
 		require.Error(t, err)
+	})
+
+	t.Run("accepts a key whose newlines are escaped", func(t *testing.T) {
+		// How a multi-line PEM actually reaches the process from a compose file,
+		// a Kubernetes env var, or a PaaS dashboard.
+		pemKey := newECKeyPEM(t)
+		escaped := strings.ReplaceAll(strings.TrimSpace(pemKey), "\n", `\n`)
+
+		ring, err := NewKeyring(escaped, nil)
+		require.NoError(t, err)
+		require.NotNil(t, ring)
+
+		direct, err := NewKeyring(pemKey, nil)
+		require.NoError(t, err)
+		assert.Equal(t, direct.ActiveKID(), ring.ActiveKID(), "the same key however it was transported")
 	})
 }
