@@ -140,6 +140,51 @@ func (s *AdminSessionsStore) RefreshAdminSession(ctx context.Context, id uuid.UU
 	return &session, nil
 }
 
+// ReuseAdminSession extends and returns the newest session an admin already
+// holds through a given identity, or sql.ErrNoRows when there is none to reuse.
+//
+// The console token is a rotating proof of a session row, not the session
+// itself, so a credential being migrated should be re-proved against the row the
+// browser already has rather than opening another one. Without this, every
+// request arriving during the rollout window -- and a page load fires many in
+// parallel -- would insert its own row, growing the table with concurrency and
+// making the session list useless for showing somebody where they are signed in.
+//
+// Selection and extension are one statement so the liveness predicates are
+// re-checked at write time: a session revoked between a read and a write cannot
+// be resurrected by this. An impersonated session is never reused -- it is
+// non-refreshable by construction and clamped to the upstream session that
+// authorised it, so it must not be silently handed to a fresh credential.
+func (s *AdminSessionsStore) ReuseAdminSession(ctx context.Context, adminID, identityID uuid.UUID, expiresAt time.Time) (*AdminSession, error) {
+	stmt := `
+	UPDATE admin_sessions
+	SET expires_at = GREATEST(expires_at, LEAST($3, absolute_expires_at)),
+	    last_seen_at = NOW()
+	WHERE id = (
+		SELECT id
+		FROM admin_sessions
+		WHERE admin_id = $1
+		AND admin_identity_id = $2
+		AND revoked_at IS NULL
+		AND refreshable
+		AND NOT impersonated
+		AND expires_at > NOW()
+		AND absolute_expires_at > NOW()
+		ORDER BY issued_at DESC
+		LIMIT 1
+	)
+	RETURNING ` + adminSessionColumns
+
+	var session AdminSession
+	err := s.db.GetContext(ctx, &session, stmt, adminID, identityID, expiresAt)
+	if err != nil {
+		return nil, err
+	}
+
+	s.cache.invalidate(ctx, session.ID)
+	return &session, nil
+}
+
 // RevokeAdminSession ends a session immediately. It is idempotent: re-revoking
 // keeps the original revocation time.
 func (s *AdminSessionsStore) RevokeAdminSession(ctx context.Context, id uuid.UUID) error {

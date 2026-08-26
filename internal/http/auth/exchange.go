@@ -188,6 +188,57 @@ func (e *Exchanger) Exchange(ctx context.Context, w http.ResponseWriter, r *http
 	return &ExchangeResult{Token: token, ExpiresAt: session.ExpiresAt, Session: session}, nil
 }
 
+// Upgrade re-proves a credential that is being MIGRATED rather than freshly
+// presented, returning a console session for it without touching the response.
+//
+// It differs from [Exchanger.Exchange] in one way that matters: it reuses the
+// session the browser already holds when there is one, extending its idle window
+// instead of opening another. A login is an event and deserves its own session;
+// a migration is the same session arriving under a different proof.
+//
+// An impersonated credential always takes the full [Exchanger.Exchange] path, so
+// its clamped, non-refreshable lifetime is computed from scratch and can never
+// be inherited from an ordinary session.
+func (e *Exchanger) Upgrade(ctx context.Context, r *http.Request, identity *VerifiedIdentity) (*ExchangeResult, error) {
+	if e.signer == nil {
+		return nil, problem.ErrInternal(problem.Describe("console sessions are not configured"))
+	}
+
+	resolved, err := e.resolve(ctx, identity)
+	if err != nil {
+		return nil, err
+	}
+
+	if identity.Actor == nil {
+		session, err := e.mgmt.ReuseAdminSession(ctx, resolved.adminID, resolved.identityID, time.Now().Add(e.signer.IdleTTL()))
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return nil, err
+		}
+		if session != nil {
+			token, err := e.signer.Mint(session, []string{identity.Provider})
+			if err != nil {
+				return nil, err
+			}
+			return &ExchangeResult{Token: token, ExpiresAt: session.ExpiresAt, Session: session}, nil
+		}
+	}
+
+	if err := e.mgmt.TouchAdminIdentity(ctx, resolved.identityID, identity.Email, identity.EmailVerified); err != nil {
+		return nil, err
+	}
+
+	session, err := e.recordSession(ctx, r, identity, resolved)
+	if err != nil {
+		return nil, err
+	}
+
+	token, err := e.signer.Mint(session, []string{identity.Provider})
+	if err != nil {
+		return nil, err
+	}
+	return &ExchangeResult{Token: token, ExpiresAt: session.ExpiresAt, Session: session}, nil
+}
+
 // Provision resolves a verified identity to an admin WITHOUT minting a session,
 // creating the admin if none of the resolution steps found one.
 //
