@@ -140,7 +140,7 @@ func (h *OrganizationInboxHandler) Messages() HandlerFunc {
 			return err
 		}
 		if marked {
-			if err := PublishInboxLifecycleEvent(ctx, h.pub, created, schemas.EventInboxMessageSent); err != nil {
+			if err := PublishInboxOutcome(ctx, h.pub, created, schemas.EventInboxMessageSent); err != nil {
 				h.logger.Error("failed to publish inbox sent event", zap.Error(err), zap.Stringer("message_id", created.ID))
 			}
 		}
@@ -284,7 +284,7 @@ func (h *OrganizationInboxHandler) Dispatch() HandlerFunc {
 			if err != nil {
 				logger.Error("failed to load inbox message for sent event", zap.Error(err))
 			} else {
-				if pubErr := PublishInboxLifecycleEvent(ctx, h.pub, message, schemas.EventInboxMessageSent); pubErr != nil {
+				if pubErr := PublishInboxOutcome(ctx, h.pub, message, schemas.EventInboxMessageSent); pubErr != nil {
 					logger.Error("failed to publish inbox sent event", zap.Error(pubErr))
 				}
 			}

@@ -1,13 +1,16 @@
 package consumer
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/ptr"
+	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
+	"github.com/lunogram/platform/internal/store/subjects"
 	"github.com/lunogram/platform/pkg/modules"
 	providers "github.com/lunogram/platform/pkg/modules/providers"
 	"github.com/stretchr/testify/require"
@@ -139,3 +142,52 @@ func TestInboxProcessMsgIDIsStableAndDistinct(t *testing.T) {
 // channel ingestion, idempotent re-delivery) requires fakes for
 // management.State, providers.Registry, and jetstream.Msg.
 // See migration-execution-plan.md T05.
+
+type publishedMessage struct {
+	Subject schemas.Subject
+	Value   any
+}
+
+type fakePublisher struct {
+	published []publishedMessage
+}
+
+func (f *fakePublisher) Publish(_ context.Context, subject schemas.Subject, v any, _ ...pubsub.PublishOption) error {
+	f.published = append(f.published, publishedMessage{Subject: subject, Value: v})
+	return nil
+}
+
+func (f *fakePublisher) subjects() []schemas.Subject {
+	out := make([]schemas.Subject, 0, len(f.published))
+	for _, p := range f.published {
+		out = append(out, p.Subject)
+	}
+	return out
+}
+
+// TestPublishInboxOutcomeRoutesSettlementBySubject asserts the sent and failed
+// outcomes settle on their own subjects, so the two broadcast counters can
+// never be advanced by each other's events.
+func TestPublishInboxOutcomeRoutesSettlementBySubject(t *testing.T) {
+	t.Parallel()
+
+	userID := uuid.New()
+	message := &subjects.InboxMessage{ID: uuid.New(), ProjectID: uuid.New(), UserID: &userID}
+
+	sent := &fakePublisher{}
+	require.NoError(t, PublishInboxOutcome(t.Context(), sent, message, schemas.EventInboxMessageSent))
+	require.Contains(t, sent.subjects(), schemas.UserInboxSent(message.ProjectID))
+	require.NotContains(t, sent.subjects(), schemas.UserInboxFailed(message.ProjectID))
+
+	failed := &fakePublisher{}
+	require.NoError(t, PublishInboxOutcome(t.Context(), failed, message, schemas.EventInboxMessageFailed))
+	require.Contains(t, failed.subjects(), schemas.UserInboxFailed(message.ProjectID))
+	require.NotContains(t, failed.subjects(), schemas.UserInboxSent(message.ProjectID))
+
+	orgID := uuid.New()
+	orgMessage := &subjects.InboxMessage{ID: uuid.New(), ProjectID: uuid.New(), OrganizationID: &orgID}
+
+	org := &fakePublisher{}
+	require.NoError(t, PublishInboxOutcome(t.Context(), org, orgMessage, schemas.EventInboxMessageFailed))
+	require.Contains(t, org.subjects(), schemas.OrganizationInboxFailed(orgMessage.ProjectID))
+}

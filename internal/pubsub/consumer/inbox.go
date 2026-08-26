@@ -79,6 +79,49 @@ func PublishInboxLifecycleEvent(ctx context.Context, pub pubsub.Publisher, messa
 	}
 }
 
+// PublishInboxOutcome announces that a message reached a terminal outcome,
+// either sent or failed.
+//
+// It publishes twice on purpose. The tracked lifecycle event goes onto the
+// user/organization events subject, where it is stored and countable by rules
+// like every other lifecycle transition. The same payload also goes onto the
+// inbox settlement subject the broadcast consumer reads, which is what advances
+// the broadcast's counters and completes it.
+func PublishInboxOutcome(ctx context.Context, pub pubsub.Publisher, message *subjects.InboxMessage, eventName string) error {
+	if err := PublishInboxLifecycleEvent(ctx, pub, message, eventName); err != nil {
+		return err
+	}
+
+	data := map[string]any{"message_id": message.ID.String()}
+
+	switch {
+	case message.UserID != nil:
+		subject := schemas.UserInboxSent(message.ProjectID)
+		if eventName == schemas.EventInboxMessageFailed {
+			subject = schemas.UserInboxFailed(message.ProjectID)
+		}
+		return pub.Publish(ctx, subject, schemas.UserEvent{
+			ProjectID: message.ProjectID,
+			UserID:    *message.UserID,
+			Name:      eventName,
+			Data:      data,
+		})
+	case message.OrganizationID != nil:
+		subject := schemas.OrganizationInboxSent(message.ProjectID)
+		if eventName == schemas.EventInboxMessageFailed {
+			subject = schemas.OrganizationInboxFailed(message.ProjectID)
+		}
+		return pub.Publish(ctx, subject, schemas.OrganizationEvent{
+			ProjectID:      message.ProjectID,
+			OrganizationID: *message.OrganizationID,
+			Name:           eventName,
+			Data:           data,
+		})
+	default:
+		return fmt.Errorf("inbox events: message %s has neither user_id nor organization_id", message.ID)
+	}
+}
+
 type providerDispatchConfig struct {
 	Provider *management.Provider
 	Config   map[string]any
