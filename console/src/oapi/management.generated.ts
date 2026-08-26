@@ -44,6 +44,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * End the current console session
+         * @description Revokes the caller's console session server-side and clears the session cookies. The session is revoked rather than merely forgotten, so a copy of the token cannot keep authenticating.
+         */
+        post: operations["logout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Extend the current console session
+         * @description Extends the idle window of the caller's own session and reissues the session cookie. A revoked, expired, or impersonated session cannot be refreshed.
+         */
+        post: operations["refreshSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/{driver}/webhook": {
         parameters: {
             query?: never;
@@ -3563,8 +3603,6 @@ export interface components {
              * @example 7c1e3c5a-2b4d-4e8f-9a1b-3c5d7e9f1a2b
              */
             organization_id: string;
-            /** @example user_2abc123def */
-            external_id?: string;
             /**
              * Format: email
              * @example admin@example.com
@@ -5262,6 +5300,14 @@ export interface components {
              */
             is_active: boolean;
         };
+        SessionRefresh: {
+            /**
+             * Format: date-time
+             * @description When the refreshed session expires if it is not used again
+             * @example 2025-11-19T14:18:42.960Z
+             */
+            expires_at: string;
+        };
         SetActiveOrganization: {
             /**
              * Format: uuid
@@ -5571,6 +5617,46 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    logout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Session ended */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    refreshSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Session refreshed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionRefresh"];
+                };
             };
             default: components["responses"]["Error"];
         };

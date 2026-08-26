@@ -331,6 +331,10 @@ export interface Admin {
     role: OrganizationRole
 }
 
+export interface SessionRefresh {
+    expires_at: string
+}
+
 export const projectRoles = ["support", "client", "editor", "admin"] as const
 
 export interface AdminOrganization {
