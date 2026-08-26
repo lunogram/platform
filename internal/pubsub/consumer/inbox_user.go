@@ -10,7 +10,9 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/lunogram/platform/internal/compliance"
 	internalProviders "github.com/lunogram/platform/internal/providers"
+	"github.com/lunogram/platform/internal/ptr"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
 	"github.com/lunogram/platform/internal/store/management"
@@ -42,15 +44,8 @@ func NewUserInboxHandler(
 	limiter *Limiter,
 ) *UserInboxHandler {
 	return &UserInboxHandler{
-		InboxHandler: InboxHandler{
-			logger:   logger,
-			db:       db,
-			mgmt:     mgmt,
-			registry: registry,
-			pub:      pub,
-			limiter:  limiter,
-		},
-		usrs: usrs,
+		InboxHandler: newInboxHandler(logger, db, mgmt, usrs, registry, pub, limiter),
+		usrs:         usrs,
 	}
 }
 
@@ -322,24 +317,37 @@ func (h *UserInboxHandler) Dispatch() HandlerFunc {
 // have been dispatched.
 func (h *UserInboxHandler) Sent() HandlerFunc {
 	return func(ctx context.Context, msg jetstream.Msg) error {
-		messageID, err := parseSentMessageID(msg)
-		if err != nil {
-			h.logger.Error("invalid inbox sent event", zap.Error(err))
-			return Permanent(err)
-		}
-
-		message, err := h.usrs.InboxStore.GetUserInboxMessageByID(ctx, messageID)
-		if errors.Is(err, sql.ErrNoRows) {
-			h.logger.Error("inbox message not found for sent handler", zap.Stringer("message_id", messageID))
-			return Permanent(err)
-		}
-		if err != nil {
-			h.logger.Error("failed to load inbox message for sent handler", zap.Error(err), zap.Stringer("message_id", messageID))
-			return err
-		}
-
-		return h.completeBroadcastIfDone(ctx, message)
+		return h.settleBroadcast(ctx, msg, broadcastOutcomeSent)
 	}
+}
+
+// Failed reacts to inbox.message.failed events for user-scoped messages. It is
+// the terminal counterpart of Sent: a message that will never be delivered must
+// still settle its broadcast, or the broadcast never reaches its total.
+func (h *UserInboxHandler) Failed() HandlerFunc {
+	return func(ctx context.Context, msg jetstream.Msg) error {
+		return h.settleBroadcast(ctx, msg, broadcastOutcomeFailed)
+	}
+}
+
+func (h *UserInboxHandler) settleBroadcast(ctx context.Context, msg jetstream.Msg, outcome broadcastOutcome) error {
+	messageID, err := parseInboxLifecycleMessageID(msg)
+	if err != nil {
+		h.logger.Error("invalid inbox lifecycle event", zap.Error(err))
+		return Permanent(err)
+	}
+
+	message, err := h.usrs.InboxStore.GetUserInboxMessageByID(ctx, messageID)
+	if errors.Is(err, sql.ErrNoRows) {
+		h.logger.Error("inbox message not found for lifecycle handler", zap.Stringer("message_id", messageID))
+		return Permanent(err)
+	}
+	if err != nil {
+		h.logger.Error("failed to load inbox message for lifecycle handler", zap.Error(err), zap.Stringer("message_id", messageID))
+		return err
+	}
+
+	return h.completeBroadcastIfDone(ctx, message, outcome)
 }
 
 // resolveUserID returns subjectID unchanged when already set, otherwise
@@ -381,8 +389,11 @@ func (h *UserInboxHandler) createAndPublish(ctx context.Context, inbox schemas.I
 		}
 	}()
 
+	params := inboxMessageParams(inbox)
+	params.RecipientTimezone = h.resolveRecipientTimezone(ctx, inbox.ProjectID, inbox.SubjectID, params.Channel)
+
 	txStore := subjects.NewInboxStore(tx)
-	created, err = txStore.CreateUserInboxMessage(ctx, inbox.ProjectID, inbox.SubjectID, inboxMessageParams(inbox))
+	created, err = txStore.CreateUserInboxMessage(ctx, inbox.ProjectID, inbox.SubjectID, params)
 	if err != nil {
 		return nil, err
 	}
@@ -397,6 +408,36 @@ func (h *UserInboxHandler) createAndPublish(ctx context.Context, inbox schemas.I
 		}
 	}
 	return created, nil
+}
+
+// resolveRecipientTimezone gathers the facts the timezone chain needs for a
+// directly created SMS message. Campaign-created messages take the same value
+// from the campaign handler, which already holds both records.
+//
+// A lookup that fails yields nil rather than an error: the zone is
+// observational and must never keep a message from being created.
+func (h *UserInboxHandler) resolveRecipientTimezone(ctx context.Context, projectID, userID uuid.UUID, channel modules.Channel) *string {
+	if providers.Channel(channel) != providers.ChannelSMS {
+		return nil
+	}
+
+	user, err := h.usrs.UsersStore.GetUser(ctx, projectID, userID)
+	if err != nil {
+		h.logger.Warn("failed to load user for recipient timezone", zap.Error(err), zap.Stringer("user_id", userID))
+		return nil
+	}
+
+	project, err := h.mgmt.GetProject(ctx, projectID, nil)
+	if err != nil {
+		h.logger.Warn("failed to load project for recipient timezone", zap.Error(err), zap.Stringer("project_id", projectID))
+		return nil
+	}
+
+	return inboxRecipientTimezone(channel, compliance.RecipientTimezoneInput{
+		UserTimezone:    ptr.From(user.Timezone),
+		Phone:           ptr.From(user.Phone),
+		ProjectTimezone: project.Timezone,
+	})
 }
 
 // resolveUserRecipient looks up the user's email or phone based on the message

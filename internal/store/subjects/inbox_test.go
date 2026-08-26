@@ -12,6 +12,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func containsInboxMessage(messages InboxMessages, id uuid.UUID) bool {
+	for i := range messages {
+		if messages[i].ID == id {
+			return true
+		}
+	}
+	return false
+}
+
 // titleContent is a tiny helper so tests can keep reading like "Title: ..."
 // while the column is JSONB. Production code builds Content via the renderer.
 func titleContent(title string) json.RawMessage {
@@ -210,4 +219,139 @@ func inboxMessageIDs(messages InboxMessages) []uuid.UUID {
 		ids[i] = messages[i].ID
 	}
 	return ids
+}
+
+func TestMarkInboxMessageTerminalOutcomes(t *testing.T) {
+	t.Parallel()
+
+	db := NewContainerStore(t)
+	ctx := context.Background()
+	projectID := uuid.New()
+	userID, err := db.UpsertUser(ctx, projectID, UpsertUserParams{
+		Identifiers: []ExternalIDParam{{Source: "default", ExternalID: "user-terminal"}},
+	})
+	require.NoError(t, err)
+
+	newMessage := func(title string) uuid.UUID {
+		t.Helper()
+		message, err := db.CreateUserInboxMessage(ctx, projectID, userID, InboxMessageParams{
+			Channel: "push",
+			Content: titleContent(title),
+		})
+		require.NoError(t, err)
+		return message.ID
+	}
+
+	t.Run("failure is recorded once", func(t *testing.T) {
+		id := newMessage("Failing")
+
+		failed, err := db.MarkUserInboxMessageFailed(ctx, id, "suppressed: recipient opted out")
+		require.NoError(t, err)
+		require.True(t, failed)
+
+		failed, err = db.MarkUserInboxMessageFailed(ctx, id, "a different reason")
+		require.NoError(t, err)
+		require.False(t, failed)
+
+		message, err := db.GetUserInboxMessageByID(ctx, id)
+		require.NoError(t, err)
+		require.NotNil(t, message.FailedAt)
+		require.NotNil(t, message.FailureReason)
+		require.Equal(t, "suppressed: recipient opted out", *message.FailureReason)
+	})
+
+	t.Run("a failed message can never be marked sent", func(t *testing.T) {
+		id := newMessage("Failed then sent")
+
+		failed, err := db.MarkUserInboxMessageFailed(ctx, id, "permanent provider rejection")
+		require.NoError(t, err)
+		require.True(t, failed)
+
+		sent, err := db.MarkUserInboxMessageSent(ctx, id)
+		require.NoError(t, err)
+		require.False(t, sent)
+	})
+
+	t.Run("a sent message can never be marked failed", func(t *testing.T) {
+		id := newMessage("Sent then failed")
+
+		sent, err := db.MarkUserInboxMessageSent(ctx, id)
+		require.NoError(t, err)
+		require.True(t, sent)
+
+		failed, err := db.MarkUserInboxMessageFailed(ctx, id, "too late")
+		require.NoError(t, err)
+		require.False(t, failed)
+	})
+
+	t.Run("a failed message drops out of the due scan", func(t *testing.T) {
+		id := newMessage("Not rescanned")
+
+		failed, err := db.MarkUserInboxMessageFailed(ctx, id, "permanent provider rejection")
+		require.NoError(t, err)
+		require.True(t, failed)
+
+		var scanned []uuid.UUID
+		_, err = db.ScanDueUserInboxMessages(ctx, 100, func(m InboxMessage) error {
+			scanned = append(scanned, m.ID)
+			return nil
+		})
+		require.NoError(t, err)
+		require.NotContains(t, scanned, id)
+	})
+
+	t.Run("class defaults to standard", func(t *testing.T) {
+		id := newMessage("Classified")
+
+		message, err := db.GetUserInboxMessageByID(ctx, id)
+		require.NoError(t, err)
+		require.Equal(t, InboxClassStandard, message.Class)
+		require.Nil(t, message.RecipientTimezone)
+	})
+
+	t.Run("a failed message is hidden only when the filter asks", func(t *testing.T) {
+		failedID := newMessage("Suppressed")
+		liveID := newMessage("Delivered")
+
+		failed, err := db.MarkUserInboxMessageFailed(ctx, failedID, "suppressed: recipient opted out")
+		require.NoError(t, err)
+		require.True(t, failed)
+
+		pagination := store.Pagination{Limit: 100}
+
+		console, _, err := db.ListUserInboxMessages(ctx, projectID, userID, pagination, InboxListFilter{})
+		require.NoError(t, err)
+		require.True(t, containsInboxMessage(console, failedID), "the console must still see a failed message")
+		require.True(t, containsInboxMessage(console, liveID))
+
+		enduser, _, err := db.ListUserInboxMessages(ctx, projectID, userID, pagination, InboxListFilter{ExcludeFailed: true})
+		require.NoError(t, err)
+		require.False(t, containsInboxMessage(enduser, failedID), "the end user must not see a failed message")
+		require.True(t, containsInboxMessage(enduser, liveID), "filtering must not hide messages that did not fail")
+	})
+
+	t.Run("organization messages settle the same way", func(t *testing.T) {
+		organizationID, err := db.UpsertOrganization(ctx, projectID, UpsertOrganizationParams{
+			Identifiers: []ExternalIDParam{{Source: "default", ExternalID: "org-terminal"}},
+		})
+		require.NoError(t, err)
+
+		message, err := db.CreateOrganizationInboxMessage(ctx, projectID, organizationID, InboxMessageParams{
+			Channel: "push",
+			Content: titleContent("Org failing"),
+		})
+		require.NoError(t, err)
+
+		failed, err := db.MarkOrganizationInboxMessageFailed(ctx, message.ID, "permanent provider rejection")
+		require.NoError(t, err)
+		require.True(t, failed)
+
+		failed, err = db.MarkOrganizationInboxMessageFailed(ctx, message.ID, "again")
+		require.NoError(t, err)
+		require.False(t, failed)
+
+		sent, err := db.MarkOrganizationInboxMessageSent(ctx, message.ID)
+		require.NoError(t, err)
+		require.False(t, sent)
+	})
 }

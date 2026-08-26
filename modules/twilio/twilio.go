@@ -122,12 +122,15 @@ func NewTwilioClient(accountSid, authToken string) *TwilioClient {
 }
 
 // SendResult holds the outcome of a CreateMessage call. On success, Response
-// is populated. On failure, Err is set and HTTPStatus contains the status code
-// returned by the Twilio API (0 if the request never reached Twilio).
+// is populated. On failure, Err is set, HTTPStatus contains the status code
+// returned by the Twilio API (0 if the request never reached Twilio) and
+// ErrorCode carries Twilio's own numeric error code (0 when the response
+// carried none), which is more specific than the HTTP status.
 type SendResult struct {
 	Response   *CreateMessageResponse
 	Err        error
 	HTTPStatus int
+	ErrorCode  int
 }
 
 // CreateMessage sends an SMS/MMS via the Twilio Messages API.
@@ -177,6 +180,7 @@ func (c *TwilioClient) CreateMessage(params *CreateMessageParams) SendResult {
 		restErr.Status = resp.StatusCode
 		return SendResult{
 			HTTPStatus: resp.StatusCode,
+			ErrorCode:  restErr.Code,
 			Err:        fmt.Errorf("twilio API error (status=%d, code=%d): %s", restErr.Status, restErr.Code, restErr.Message),
 		}
 	}

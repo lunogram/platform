@@ -3,7 +3,6 @@ package consumer
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -13,7 +12,6 @@ import (
 	"github.com/lunogram/platform/internal/pubsub/schemas"
 	"github.com/lunogram/platform/internal/store/management"
 	"github.com/lunogram/platform/internal/store/subjects"
-	wasmProviders "github.com/lunogram/platform/internal/wasm/providers"
 	"github.com/lunogram/platform/pkg/modules"
 	providers "github.com/lunogram/platform/pkg/modules/providers"
 	"github.com/nats-io/nats.go/jetstream"
@@ -31,6 +29,35 @@ type InboxHandler struct {
 	registry *internalProviders.Registry
 	pub      pubsub.Publisher
 	limiter  *Limiter
+	gate     *complianceGate
+}
+
+// newInboxHandler builds the infrastructure shared by the user- and
+// organisation-scoped inbox handlers, including the compliance gate every
+// outbound message is offered to.
+func newInboxHandler(
+	logger *zap.Logger,
+	db *sqlx.DB,
+	mgmt *management.State,
+	usrs *subjects.State,
+	registry *internalProviders.Registry,
+	pub pubsub.Publisher,
+	limiter *Limiter,
+) InboxHandler {
+	return InboxHandler{
+		logger:   logger,
+		db:       db,
+		mgmt:     mgmt,
+		registry: registry,
+		pub:      pub,
+		limiter:  limiter,
+		gate: &complianceGate{
+			suppressions: mgmt,
+			outcomes:     usrs.InboxStore,
+			pub:          pub,
+			logger:       logger,
+		},
+	}
 }
 
 // PublishInboxLifecycleEvent publishes an inbox lifecycle event (created,
@@ -277,13 +304,14 @@ func (h *InboxHandler) DispatchDirect(ctx context.Context, msg jetstream.Msg, me
 		},
 	}
 
+	recipient := dispatchRecipient(providers.Channel(message.Channel), payload, to)
+	if err := h.gate.Allow(ctx, message, recipient); err != nil {
+		return err
+	}
+
 	if _, err := providerModule.Send(ctx, request); err != nil {
 		h.logger.Error("failed to send inbox message via provider", zap.Error(err), zap.Stringer("message_id", message.ID))
-		var providerErr *wasmProviders.ProviderError
-		if errors.As(err, &providerErr) && providerErr.IsPermanent() {
-			return Permanent(err)
-		}
-		return err
+		return h.gate.SendFailed(ctx, message, recipient, err)
 	}
 
 	return nil

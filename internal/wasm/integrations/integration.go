@@ -27,10 +27,11 @@ const exitCodePermanent uint32 = 0xFFFFFFFE
 
 // ProviderError is returned when a provider send or webhook call fails.
 // It carries the exit code so callers can distinguish permanent from transient
-// failures.
+// failures, plus the canonical reason the module reported for the failure.
 type ProviderError struct {
 	Code    uint32
 	Message string
+	Reason  providertypes.FailureReason
 
 	cause error
 }
@@ -54,14 +55,27 @@ func (e *ProviderError) IsPermanent() bool {
 //
 // A module reports failure over the guest error channel (pdk.SetError), which
 // surfaces here as callErr; res is only consulted when a module returned a
-// non-zero code without setting an error.
+// non-zero code without setting an error. Modules that emit a
+// providertypes.ModuleError JSON body keep their canonical reason; modules
+// that emit a plain error string — the original module contract — are
+// reported verbatim as ReasonUnknown.
 func newProviderError(code uint32, res []byte, callErr error) *ProviderError {
 	body := res
 	if callErr != nil {
 		body = []byte(callErr.Error())
 	}
 
-	return &ProviderError{Code: code, Message: string(body), cause: callErr}
+	var moduleErr providertypes.ModuleError
+	if err := json.Unmarshal(body, &moduleErr); err == nil && moduleErr.Reason != "" {
+		reason := moduleErr.Reason
+		if !reason.Valid() {
+			reason = providertypes.ReasonUnknown
+		}
+
+		return &ProviderError{Code: code, Message: moduleErr.Message, Reason: reason, cause: callErr}
+	}
+
+	return &ProviderError{Code: code, Message: string(body), Reason: providertypes.ReasonUnknown, cause: callErr}
 }
 
 // ProviderSpec finds and decodes the provider capability spec.
