@@ -153,25 +153,48 @@ func RequestFromContext(ctx context.Context) *http.Request {
 func Middleware(middleware ...Handler) openapi3filter.AuthenticationFunc {
 	return func(ctx context.Context, filter *openapi3filter.AuthenticationInput) error {
 		req := filter.RequestValidationInput.Request
-		tokenString := GetSession(req)
-		ctx = withRequest(ctx, req)
 
-		for _, m := range middleware {
-			ctx, err := m(ctx, tokenString)
-			if err == nil {
-				*req = *req.WithContext(ctx)
-				return nil
-			}
-
-			if errors.Is(err, ErrUnauthorized) {
-				continue
-			}
-
+		authenticated, err := authenticate(ctx, req, middleware)
+		if err != nil {
 			return err
 		}
 
-		return ErrUnauthorized
+		*req = *req.WithContext(authenticated)
+		return nil
 	}
+}
+
+// authenticate walks the handler chain until one accepts the request's
+// credential, and returns the context that handler produced. A handler that
+// rejects the credential (ErrUnauthorized) hands over to the next one; any other
+// error aborts the walk, so a failure to *evaluate* a credential is never read
+// as "this credential does not apply" and retried against a weaker one.
+//
+// Every handler is given the incoming context rather than the previous
+// handler's, so a rejected attempt leaves nothing behind on the context that
+// follows it.
+//
+// It is shared by [Middleware], which authenticates the OpenAPI surfaces, and
+// [Require], which authenticates routes mounted outside the validator, so both
+// resolve credentials identically.
+func authenticate(ctx context.Context, r *http.Request, handlers []Handler) (context.Context, error) {
+	token := GetSession(r)
+	ctx = withRequest(ctx, r)
+
+	for _, handler := range handlers {
+		authenticated, err := handler(ctx, token)
+		if err == nil {
+			return authenticated, nil
+		}
+
+		if errors.Is(err, ErrUnauthorized) {
+			continue
+		}
+
+		return ctx, err
+	}
+
+	return ctx, ErrUnauthorized
 }
 
 // WithJWT authenticates an admin session token. The accepted algorithms and the
