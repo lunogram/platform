@@ -69,7 +69,10 @@ func (p *ClerkProvider) Authenticate(ctx context.Context, w http.ResponseWriter,
 	}
 
 	claims := jwt.RegisteredClaims{}
-	token, err := jwt.ParseWithClaims(session, &claims, p.keyFunc, jwt.WithValidMethods([]string{"RS256", "HS256"}))
+	// Clerk signs session tokens with RS256 and this provider is given a
+	// JWKS-only keyfunc, so HMAC could never resolve a key here anyway. Pinning
+	// RS256 alone keeps the accepted set honest about what this provider trusts.
+	token, err := jwt.ParseWithClaims(session, &claims, p.keyFunc, jwt.WithValidMethods([]string{"RS256"}))
 	if err != nil {
 		return ctx, err
 	}
