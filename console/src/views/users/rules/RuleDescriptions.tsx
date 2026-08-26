@@ -11,8 +11,11 @@ import {
     isEventWrapper,
     isOrganizationEventWrapper,
     isOrganizationWrapper,
+    isStepVisitRule,
     isWrapper,
     operatorTypes,
+    stepVisitOperators,
+    stepVisitScopes,
     trimPathDisplay,
 } from "./RuleHelpers"
 import { formatDate } from "../../../utils"
@@ -24,6 +27,20 @@ export function ruleDescription(
     wrapperOperator?: Operator,
 ): ReactNode {
     const root = nodes.length === 0
+
+    if (isStepVisitRule(rule)) {
+        const operator =
+            stepVisitOperators.find((op) => op.key === rule.operator)?.label ?? rule.operator
+        const scope = stepVisitScopes.find((s) => s.key === (rule.step_scope ?? "entry"))?.label
+
+        nodes.push(<strong key={nodes.length}>{rule.path || "this step"}</strong>)
+        nodes.push(` ${operator} `)
+        nodes.push(<strong key={nodes.length}>{rule.value ?? ""}</strong>)
+        nodes.push(scope ? ` times ${scope}` : " times")
+
+        return root ? <span className="inline text-sm">{nodes}</span> : nodes
+    }
+
     if (isWrapper(rule)) {
         if (isOrganizationEventWrapper(rule)) {
             const orgRule = rule as OrganizationEventRule

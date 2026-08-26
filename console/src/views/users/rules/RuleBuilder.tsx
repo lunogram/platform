@@ -8,7 +8,7 @@ import { useResolver } from "../../../hooks"
 import { fetchPathSuggestions } from "@/lib/path-suggestions"
 import { snakeToTitle } from "../../../utils"
 import { emptySuggestions, VariablesContext } from "./RuleHelpers"
-import type { VariableGroup } from "@/views/journey/JourneyVariableContext"
+import type { JourneyStepOption, VariableGroup } from "@/views/journey/JourneyVariableContext"
 import RuleEdit from "./RuleEdit"
 import { Label } from "@/components/ui/label"
 
@@ -20,6 +20,8 @@ interface RuleBuilderParams {
     userOnly?: boolean
     journeyContext?: boolean
     journeyVariables?: VariableGroup[]
+    journeySteps?: JourneyStepOption[]
+    currentStepId?: string
 }
 
 export default function RuleBuilder({
@@ -30,6 +32,8 @@ export default function RuleBuilder({
     userOnly,
     journeyContext,
     journeyVariables,
+    journeySteps,
+    currentStepId,
 }: RuleBuilderParams) {
     const [{ id: projectId }] = useContext(ProjectContext)
     const [suggestions] = useResolver(
@@ -49,6 +53,8 @@ export default function RuleBuilder({
                 userOnly={userOnly}
                 journeyContext={journeyContext}
                 journeyVariables={journeyVariables}
+                journeySteps={journeySteps}
+                currentStepId={currentStepId}
             />
         </VariablesContext.Provider>
     )

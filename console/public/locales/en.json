@@ -1023,5 +1023,10 @@
     "client_scope_subscriptions_search": "Search or add a subscription…",
     "client_scope_scheduled_title": "Allowed scheduled events",
     "client_scope_scheduled_help": "Only these scheduled event names may be created or changed by this client.",
-    "client_scope_scheduled_search": "Search or add a scheduled event…"
+    "client_scope_scheduled_search": "Search or add a scheduled event…",
+    "rule_add_step_visit_condition": "Add Step Visit Condition",
+    "rule_step_visit_has_passed": "Has passed",
+    "rule_step_visit_this_step": "this step",
+    "rule_step_visit_times": "times",
+    "rule_step_visit_hint": "The visit in progress is counted, so a user standing on this step for the third time compares against 3."
 }
