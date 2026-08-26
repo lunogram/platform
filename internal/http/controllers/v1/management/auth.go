@@ -118,9 +118,12 @@ func (c *AuthController) AuthWebhook(w http.ResponseWriter, r *http.Request, dri
 func (c *AuthController) Logout(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	// Cookies are cleared even when no session resolves, so a browser holding a
-	// credential we cannot read is not left stuck with it.
-	defer auth.ClearConsoleSessionCookies(w, r)
+	// Cleared FIRST, and deliberately not deferred: a Set-Cookie header written
+	// after the status line is silently dropped, so a deferred clear would leave
+	// the browser holding every cookie it arrived with. Clearing up front also
+	// means a browser presenting a credential we cannot read, or a revoke that
+	// then fails, is still not left stuck with it.
+	auth.ClearConsoleSessionCookies(w, r)
 
 	claims, ok := c.currentSession(r)
 	if !ok {
@@ -142,8 +145,14 @@ func (c *AuthController) Logout(w http.ResponseWriter, r *http.Request) {
 //
 // The session is re-read and re-checked in the database rather than trusted from
 // the presented token, so a revoked, expired or non-refreshable session cannot
-// be extended. An impersonated session is recorded non-refreshable and is
-// refused here by that same check.
+// be extended.
+//
+// Those two failures are told apart deliberately. A session that is gone answers
+// 401, and the caller should send its holder to the login page. A session that
+// is alive but cannot be extended -- impersonation is recorded non-refreshable
+// by construction -- answers 403: nothing is wrong, there is simply nothing to
+// do, and treating that as a logout would eject an operator from a session that
+// is working perfectly well.
 func (c *AuthController) RefreshSession(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -153,9 +162,22 @@ func (c *AuthController) RefreshSession(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	current, err := c.mgmt.GetAdminSession(ctx, claims.SessionID)
+	if err != nil || !current.Active(time.Now()) {
+		oapi.WriteProblem(w, problem.ErrUnauthorized())
+		return
+	}
+
+	if !current.Refreshable {
+		oapi.WriteProblem(w, problem.ErrForbidden(problem.Describe("this session cannot be extended")))
+		return
+	}
+
 	session, err := c.mgmt.RefreshAdminSession(ctx, claims.SessionID, time.Now().Add(c.signer.IdleTTL()))
 	if err != nil {
-		oapi.WriteProblem(w, problem.ErrUnauthorized(problem.Describe("this session cannot be refreshed")))
+		// It was live a moment ago, so it has just been revoked or has expired
+		// between the two statements.
+		oapi.WriteProblem(w, problem.ErrUnauthorized())
 		return
 	}
 

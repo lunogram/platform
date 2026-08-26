@@ -75,7 +75,7 @@ export interface paths {
         put?: never;
         /**
          * Extend the current console session
-         * @description Extends the idle window of the caller's own session and reissues the session cookie. A revoked, expired, or impersonated session cannot be refreshed.
+         * @description Extends the idle window of the caller's own session and reissues the session cookie. Answers 401 when the session is gone (revoked or expired), and 403 when it is alive but cannot be extended -- an impersonated session is recorded non-refreshable by construction.
          */
         post: operations["refreshSession"];
         delete?: never;
