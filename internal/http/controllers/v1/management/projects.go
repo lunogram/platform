@@ -220,8 +220,8 @@ func (srv *ProjectsController) CreateProject(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// NOTE: we add the admin as a project admin after creation if the
-	// caller is a human (JWT). API key callers don't get added.
+	// A person who creates a project becomes its admin. An API key does not:
+	// project_admins is a roster of people, and a credential is not one.
 	if adminID := personalAdminID(actor); adminID != nil {
 		err = projects.AddProjectAdmin(ctx, projectID, *adminID, "admin")
 		if err != nil {
