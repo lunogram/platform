@@ -75,8 +75,13 @@ func ProvisionMembership(
 
 	// Tuples are written only after the membership is durably committed; see the
 	// doc comment for why the ordering matters.
+	//
+	// The write tolerates an already-present tuple. The membership upsert above
+	// is idempotent, so granting a membership somebody already holds at the same
+	// role has to be idempotent here too -- otherwise re-adding an existing
+	// member fails on the tuple write with the database half already committed.
 	if engine != nil {
-		if err := engine.WriteTuples(ctx, OrganizationRoleTuples(adminID, membership.OrganizationID, membership.Role)); err != nil {
+		if err := engine.WriteTuplesIfAbsent(ctx, OrganizationRoleTuples(adminID, membership.OrganizationID, membership.Role)); err != nil {
 			return uuid.Nil, err
 		}
 	}

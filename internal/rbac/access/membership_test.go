@@ -86,4 +86,47 @@ func TestProvisionMembershipOrdering(t *testing.T) {
 		assert.False(t, allowed, "no tuple may be written for a membership that was never persisted")
 	})
 
+	// Re-granting a membership somebody already holds is reachable from the
+	// admin-management path ("this email already belongs to a registered admin,
+	// add them to my organization"). The membership upsert is idempotent, so the
+	// tuple write has to be too -- otherwise the request fails with the database
+	// half already committed.
+	t.Run("re-granting the same role is idempotent", func(t *testing.T) {
+		adminID, err := mgmt.CreateAdmin(ctx, management.Admin{
+			OrganizationID: orgID, Email: "repeat@example.com", Role: rbac.OrganizationMember,
+		})
+		require.NoError(t, err)
+
+		resolve := func(ctx context.Context, _ *management.State) (uuid.UUID, Membership, error) {
+			return adminID, Membership{OrganizationID: orgID, Role: rbac.OrganizationMember}, nil
+		}
+
+		_, err = ProvisionMembership(ctx, mgmtDB, engine, resolve)
+		require.NoError(t, err)
+		_, err = ProvisionMembership(ctx, mgmtDB, engine, resolve)
+		require.NoError(t, err, "re-granting an existing membership must not fail")
+
+		member, err := mgmt.GetMember(ctx, orgID, adminID)
+		require.NoError(t, err)
+		assert.Equal(t, rbac.OrganizationMember, member.Role)
+
+		allowed, err := engine.Check(ctx, "user:"+adminID.String(), rbac.OrganizationMember, rbac.OrganizationScope(orgID))
+		require.NoError(t, err)
+		assert.True(t, allowed)
+	})
+
+	// Tolerating a duplicate must not turn into tolerating everything: a write
+	// that fails for a real reason still has to surface.
+	t.Run("a genuinely invalid tuple still fails", func(t *testing.T) {
+		adminID, err := mgmt.CreateAdmin(ctx, management.Admin{
+			OrganizationID: orgID, Email: "invalid-role@example.com", Role: "owner",
+		})
+		require.NoError(t, err)
+
+		_, err = ProvisionMembership(ctx, mgmtDB, engine,
+			func(ctx context.Context, _ *management.State) (uuid.UUID, Membership, error) {
+				return adminID, Membership{OrganizationID: orgID, Role: "not_a_real_relation"}, nil
+			})
+		require.Error(t, err)
+	})
 }
