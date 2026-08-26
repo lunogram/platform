@@ -307,3 +307,49 @@ func TestDuplicateEmailReconciliationIsDeterministic(t *testing.T) {
 		})
 	}
 }
+
+// TestAdminAuthMigrationsAreReversible walks the three admin-auth migrations
+// down and back up again.
+//
+// They are split so each is independently reversible, and reversibility is the
+// justification for dropping admins.external_id outright rather than deprecating
+// it: the data now lives in admin_identities, so going back can reconstruct the
+// column. A migration nobody has ever run backwards is not reversible, it is
+// only assumed to be.
+func TestAdminAuthMigrationsAreReversible(t *testing.T) {
+	t.Parallel()
+
+	uri := container.CreateSchema(t, container.RunPostgreSQL(t), "reversible")
+	migrateTo(t, uri, versionBeforeEmailReconciliation)
+	seedDuplicateEmails(t, uri, []int{0, 1, 2, 3, 4, 5, 6})
+	require.NoError(t, Migrate(uri))
+
+	conn, err := sql.Open("pgx", uri)
+	require.NoError(t, err)
+	defer conn.Close()
+
+	ctx := context.Background()
+
+	// All the way back down, one migration at a time, then all the way up.
+	for _, version := range []uint{1787000000002, 1787000000001, versionBeforeEmailReconciliation} {
+		migrateTo(t, uri, version)
+	}
+
+	var externalIDs int
+	require.NoError(t, conn.QueryRowContext(ctx,
+		`SELECT count(*) FROM admins WHERE external_id IS NOT NULL`).Scan(&externalIDs),
+		"external_id must be reconstructible from admin_identities")
+	assert.Equal(t, len(duplicateEmailFixtures(t)), externalIDs)
+
+	require.NoError(t, Migrate(uri), "and forwards again from the reverted state")
+
+	var identities int
+	require.NoError(t, conn.QueryRowContext(ctx,
+		`SELECT count(*) FROM admin_identities WHERE issuer = $1`, LegacyExternalIDIssuer).Scan(&identities))
+	assert.Equal(t, len(duplicateEmailFixtures(t)), identities)
+
+	var keepers int
+	require.NoError(t, conn.QueryRowContext(ctx,
+		`SELECT count(*) FROM admins WHERE deleted_at IS NULL AND email_conflict_at IS NULL`).Scan(&keepers))
+	assert.Equal(t, len(expectedKeepers), keepers, "the reconciliation must elect the same keepers on a re-run")
+}

@@ -11,23 +11,30 @@ import (
 	"github.com/lunogram/platform/internal/store"
 )
 
-// ErrAmbiguousEmail is returned when an email address resolves to more than one
-// live admin. The duplicate-email migration quarantines the surplus rows rather
-// than merging them, because two rows sharing an address may be two real people.
-// Every path that would act on "the admin with this email" therefore fails
-// closed here instead of guessing which account was meant.
-var ErrAmbiguousEmail = errors.New("management: email resolves to more than one admin")
+// ErrAmbiguousEmail is returned when an email address does not resolve to a
+// single, unambiguous admin. The duplicate-email migration quarantines the
+// surplus rows rather than merging them, because two rows sharing an address may
+// be two real people; an address touched by that reconciliation stays unresolvable
+// until an operator says which account it belongs to. Every path that would act
+// on "the admin with this email" fails closed here instead of guessing.
+var ErrAmbiguousEmail = errors.New("management: email does not resolve to a single admin")
 
-// AmbiguousEmailError carries the colliding admin ids so the caller can log
-// exactly which accounts need an operator to reconcile them. It matches
-// [ErrAmbiguousEmail] under errors.Is.
+// AmbiguousEmailError carries every live admin on the address so the caller can
+// log exactly which accounts need reconciling. It matches [ErrAmbiguousEmail]
+// under errors.Is.
 type AmbiguousEmailError struct {
 	Email    string
 	AdminIDs []uuid.UUID
 }
 
 func (e *AmbiguousEmailError) Error() string {
-	return fmt.Sprintf("management: email %q resolves to %d admins", e.Email, len(e.AdminIDs))
+	if len(e.AdminIDs) == 1 {
+		// The other side of the collision has since been deleted, but the
+		// survivor is still quarantined and so is still not the address's
+		// confirmed owner.
+		return fmt.Sprintf("management: email %q belongs to an admin quarantined by duplicate-email reconciliation", e.Email)
+	}
+	return fmt.Sprintf("management: email %q resolves to %d live admins", e.Email, len(e.AdminIDs))
 }
 
 func (e *AmbiguousEmailError) Unwrap() error { return ErrAmbiguousEmail }
