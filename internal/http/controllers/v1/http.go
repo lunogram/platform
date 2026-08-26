@@ -162,7 +162,15 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *st
 	// Mount enterprise proxy routes (backoffice, courier).
 	// In OSS builds this is a no-op; in enterprise builds it registers
 	// reverse proxy handlers based on PROXY_*_URL environment variables.
-	MountProxyRoutes(logger, router, cfg.Enterprise)
+	//
+	// Both upstreams are reached from the browser by the enterprise console —
+	// the AI builder and custom sending domains — which authenticates with the
+	// admin session cookie, so an admin session is the only credential accepted
+	// here. The machine-to-machine traffic those services handle (the
+	// project-created webhook and provider sends) addresses them directly over
+	// the cluster network and never passes through this proxy, so requiring a
+	// session does not touch message delivery.
+	MountProxyRoutes(logger, router, cfg.Enterprise, auth.Require(mgmtoapi.WriteProblem, adminJWT))
 
 	// Serve console (admin UI) as fallback
 	consoleHandler, err := console.Handler(console.Config{
