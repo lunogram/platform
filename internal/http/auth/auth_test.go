@@ -327,6 +327,18 @@ func TestWithJWTRejectsWeakSecret(t *testing.T) {
 			secret:  "dev-secret-change-in-production",
 			wantErr: true,
 		},
+		"a published example that is long enough to pass the length rule": {
+			secret:  "dev-secret-change-in-production-padded-to-length",
+			wantErr: false,
+		},
+		"the e2e compose default": {
+			secret:  "e2e-local-secret",
+			wantErr: true,
+		},
+		"a published value recased and padded with whitespace": {
+			secret:  "  Dev-Secret-Change-In-Production  ",
+			wantErr: true,
+		},
 		"too short to resist offline guessing": {
 			secret:  "short-secret",
 			wantErr: true,

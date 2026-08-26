@@ -47,11 +47,6 @@ const (
 	driverBasic = "basic"
 	driverClerk = "clerk"
 
-	// publishedJWTSecret is the placeholder that shipped as a docker-compose
-	// default in the public repository. It is known to everyone who has read
-	// the repo, so it must never be accepted as admin signing key material.
-	publishedJWTSecret = "dev-secret-change-in-production"
-
 	// minJWTSecretBytes is the shortest admin signing secret accepted. HS256
 	// keys below the 32-byte HMAC-SHA256 block size leave no margin against
 	// offline guessing of a captured token.
@@ -61,6 +56,17 @@ const (
 	// rejected.
 	generateJWTSecret = "openssl rand -base64 48"
 )
+
+// publishedJWTSecrets are values that have appeared in this repository, its
+// compose files or its documentation. Anyone who has read the repo knows them,
+// so none may serve as admin signing key material — a copied example is exactly
+// how a deployment ends up with a secret its operator believes is private.
+// Extend this list whenever an example secret is added anywhere public.
+var publishedJWTSecrets = map[string]struct{}{
+	"dev-secret-change-in-production": {},
+	"never-gonna-give-you-up":         {},
+	"e2e-local-secret":                {},
+}
 
 func HMAC(secret []byte) jwt.Keyfunc {
 	return func(token *jwt.Token) (any, error) {
@@ -113,12 +119,20 @@ func validateJWTSecret(secret string) error {
 	switch {
 	case secret == "":
 		return fmt.Errorf("%w: not set, but the %q auth driver signs admin sessions with it; generate one with `%s`", ErrInsecureJWTSecret, driverBasic, generateJWTSecret)
-	case secret == publishedJWTSecret:
+	case isPublishedJWTSecret(secret):
 		return fmt.Errorf("%w: set to the example value published in the repository, so anyone can mint admin sessions with it; generate a private one with `%s`", ErrInsecureJWTSecret, generateJWTSecret)
 	case len(secret) < minJWTSecretBytes:
 		return fmt.Errorf("%w: %d bytes, at least %d are required; generate one with `%s`", ErrInsecureJWTSecret, len(secret), minJWTSecretBytes, generateJWTSecret)
 	}
 	return nil
+}
+
+// isPublishedJWTSecret reports whether the secret is one this project has made
+// public. The comparison is case-insensitive and ignores surrounding whitespace
+// so that a value copied out of a guide is still recognised.
+func isPublishedJWTSecret(secret string) bool {
+	_, published := publishedJWTSecrets[strings.ToLower(strings.TrimSpace(secret))]
+	return published
 }
 
 type Handler func(ctx context.Context, token string) (context.Context, error)

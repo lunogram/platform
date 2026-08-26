@@ -30,8 +30,10 @@ services:
       #   echo "AUTH_JWT_SECRET=$(openssl rand -base64 48)" >> .env
       #
       # Lunogram refuses to start without it when AUTH_DRIVER=basic.
+      # It is not marked required here so that `docker compose down`, `ps` and
+      # `config` keep working in a shell that has not exported it.
       AUTH_DRIVER: ${AUTH_DRIVER:-basic}
-      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET:?required - generate a private random value with "openssl rand -base64 48" and set it in a .env file next to this compose file}
+      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET}
       AUTH_BASIC_EMAIL: ${AUTH_BASIC_EMAIL:-admin@localhost}
       AUTH_BASIC_PASSWORD: ${AUTH_BASIC_PASSWORD:-admin}
       AUTH_CLERK_SECRET_KEY: ${AUTH_CLERK_SECRET_KEY:-}
