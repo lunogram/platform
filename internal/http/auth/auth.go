@@ -175,7 +175,10 @@ func WithJWT(config config.Auth, mgmt *management.State) (Handler, error) {
 
 	return func(ctx context.Context, value string) (context.Context, error) {
 		claims := jwt.RegisteredClaims{}
-		token, err := jwt.ParseWithClaims(value, &claims, keyFunc, jwt.WithValidMethods(methods))
+		token, err := jwt.ParseWithClaims(value, &claims, keyFunc,
+			jwt.WithValidMethods(methods),
+			jwt.WithExpirationRequired(),
+		)
 		if err != nil {
 			return ctx, ErrUnauthorized
 		}

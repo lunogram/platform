@@ -261,6 +261,33 @@ func TestWithJWTDriverBoundAlgorithms(t *testing.T) {
 		require.ErrorIs(t, err, ErrUnauthorized, "a forged-secret HS256 token must be rejected")
 	})
 
+	t.Run("a token without exp is rejected", func(t *testing.T) {
+		t.Parallel()
+		// Every token this codebase mints sets exp. A token without one would
+		// otherwise be an admin session that never expires and cannot be aged
+		// out, so the parse requires the claim rather than treating it as
+		// optional.
+		handler, err := WithJWT(basicConfig(strongSecret), mgmt)
+		require.NoError(t, err)
+
+		noExp := signHS256(t, []byte(strongSecret), jwt.MapClaims{"sub": adminID.String()})
+		_, err = handler(ctx, noExp)
+		require.ErrorIs(t, err, ErrUnauthorized, "an admin token without an expiry must be rejected")
+	})
+
+	t.Run("an expired token is rejected", func(t *testing.T) {
+		t.Parallel()
+		handler, err := WithJWT(basicConfig(strongSecret), mgmt)
+		require.NoError(t, err)
+
+		expired := signHS256(t, []byte(strongSecret), jwt.MapClaims{
+			"sub": adminID.String(),
+			"exp": time.Now().Add(-time.Minute).Unix(),
+		})
+		_, err = handler(ctx, expired)
+		require.ErrorIs(t, err, ErrUnauthorized)
+	})
+
 	t.Run("garbage token is rejected", func(t *testing.T) {
 		t.Parallel()
 		handler, err := WithJWT(basicConfig(strongSecret), mgmt)
