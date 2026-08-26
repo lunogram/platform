@@ -104,9 +104,32 @@ func TestGetProfileErrors(t *testing.T) {
 			},
 			code: 404,
 		},
-		"invalid UUID format": {
+		// The actor type, not the shape of its id, is what says "this is an
+		// admin". An API-key actor's id parses as a UUID too, so a bare
+		// uuid.Parse used to let one through into admin-only handlers.
+		"api key actor": {
 			setup: func(t *testing.T, ctx context.Context) (*rbac.Engine, context.Context) {
-				actor := &rbac.Actor{ID: "not-a-valid-uuid"}
+				actor := rbac.NewActor(rbac.ActorAPIKey, uuid.New().String(),
+					rbac.WithOrganizationID(uuid.New()),
+				)
+				return rbac.NewTestEngine(t), rbac.WithActor(ctx, actor)
+			},
+			code: 403,
+		},
+		"end user actor": {
+			setup: func(t *testing.T, ctx context.Context) (*rbac.Engine, context.Context) {
+				actor := rbac.NewActor(rbac.ActorEndUser, uuid.New().String(),
+					rbac.WithOrganizationID(uuid.New()),
+				)
+				return rbac.NewTestEngine(t), rbac.WithActor(ctx, actor)
+			},
+			code: 403,
+		},
+		"admin actor whose id is not a UUID": {
+			// Unreachable through the middleware, which parses `sub` as a UUID
+			// before it builds the actor. Kept as defence in depth.
+			setup: func(t *testing.T, ctx context.Context) (*rbac.Engine, context.Context) {
+				actor := &rbac.Actor{Type: rbac.ActorAdmin, ID: "not-a-valid-uuid"}
 				return rbac.NewTestEngine(t), rbac.WithActor(ctx, actor)
 			},
 			code: 401,

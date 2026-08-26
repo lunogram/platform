@@ -32,18 +32,17 @@ func (e *AmbiguousEmailError) Error() string {
 
 func (e *AmbiguousEmailError) Unwrap() error { return ErrAmbiguousEmail }
 
-// NewAdminsStore builds the admin store. sessions may be nil, in which case the
-// writes that end or re-scope a session skip cache invalidation (there is no
-// cache to invalidate).
+// NewAdminsStore builds the admin store. sessions may be nil, in which case
+// deleting an admin does not end the sessions they hold.
 func NewAdminsStore(db store.DB, sessions *AdminSessionsStore) *AdminsStore {
 	return &AdminsStore{db: db, sessions: sessions}
 }
 
 type AdminsStore struct {
 	db store.DB
-	// sessions is held so writes that change what a live session resolves to can
-	// invalidate the session cache from inside the store. Leaving that to callers
-	// makes it something a future path can forget.
+	// sessions is held so a write that must end a session can do it from inside
+	// the store. Leaving that to callers makes it something a future path can
+	// forget, and forgetting means a deleted admin keeps a working console.
 	sessions *AdminSessionsStore
 }
 
@@ -274,16 +273,15 @@ func (s *AdminsStore) DeleteAdmin(ctx context.Context, id uuid.UUID) error {
 // SetActiveOrganization updates the admin's active organization, the one that
 // scopes their session. Callers must verify the admin is a member of the
 // organization first.
+//
+// The active organization is deliberately NOT part of the cached session: it
+// lives here, on the admin, and is re-read and re-validated against current
+// membership on every request. Nothing cached changes here, so there is nothing
+// to invalidate.
 func (s *AdminsStore) SetActiveOrganization(ctx context.Context, adminID, organizationID uuid.UUID) error {
 	stmt := `UPDATE admins SET active_organization_id = $2 WHERE id = $1 AND deleted_at IS NULL`
-	if _, err := s.db.ExecContext(ctx, stmt, adminID, organizationID); err != nil {
-		return err
-	}
-
-	if s.sessions != nil {
-		return s.sessions.InvalidateAdminSessionsForAdmin(ctx, adminID)
-	}
-	return nil
+	_, err := s.db.ExecContext(ctx, stmt, adminID, organizationID)
+	return err
 }
 
 // Project Admin methods

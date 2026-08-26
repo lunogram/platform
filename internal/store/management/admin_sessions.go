@@ -203,23 +203,6 @@ func (s *AdminSessionsStore) ListAdminSessions(ctx context.Context, adminID uuid
 	return sessions, nil
 }
 
-// InvalidateAdminSessionsForAdmin drops every cached session row for an admin
-// without ending the sessions. Callers use it after a write that changes what a
-// session resolves to, so the change is observed on the next request rather than
-// after the cache TTL.
-func (s *AdminSessionsStore) InvalidateAdminSessionsForAdmin(ctx context.Context, adminID uuid.UUID) error {
-	stmt := `SELECT id FROM admin_sessions WHERE admin_id = $1 AND revoked_at IS NULL`
-
-	var ids []uuid.UUID
-	if err := s.db.SelectContext(ctx, &ids, stmt, adminID); err != nil {
-		return err
-	}
-	for _, id := range ids {
-		s.cache.invalidate(ctx, id)
-	}
-	return nil
-}
-
 // PurgeExpiredAdminSessions deletes sessions that ended more than retain ago.
 // Sessions are events with no soft-delete flag, so retention is a purge rather
 // than a liveness predicate on the hot lookup.

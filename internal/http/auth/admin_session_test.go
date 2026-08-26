@@ -263,6 +263,29 @@ func TestConsoleSignerDisabled(t *testing.T) {
 	assert.Nil(t, signer)
 }
 
+func TestConsoleSignerRejectsBadLifetimes(t *testing.T) {
+	t.Parallel()
+
+	base := testConsoleConfig(t)
+
+	tests := map[string]func(*config.ConsoleAuth){
+		"idle longer than absolute": func(c *config.ConsoleAuth) { c.IdleTTL = c.AbsoluteTTL + time.Hour },
+		"zero idle":                 func(c *config.ConsoleAuth) { c.IdleTTL = 0 },
+		"zero absolute":             func(c *config.ConsoleAuth) { c.AbsoluteTTL = 0 },
+		"no audience":               func(c *config.ConsoleAuth) { c.Audience = "" },
+		"no issuer":                 func(c *config.ConsoleAuth) { c.Issuer = "" },
+	}
+
+	for name, mutate := range tests {
+		t.Run(name, func(t *testing.T) {
+			cfg := base
+			mutate(&cfg)
+			_, err := NewConsoleSigner(cfg)
+			require.Error(t, err, "a misconfiguration must fail at startup, not at the first login")
+		})
+	}
+}
+
 func TestKeyring(t *testing.T) {
 	t.Parallel()
 

@@ -62,6 +62,18 @@ func NewConsoleSigner(cfg config.ConsoleAuth) (*ConsoleSigner, error) {
 	if cfg.Audience == "" {
 		return nil, errors.New("auth: console audience must not be empty")
 	}
+	if cfg.Issuer == "" {
+		return nil, errors.New("auth: console issuer must not be empty")
+	}
+	// Caught here rather than at the first login: an idle window longer than the
+	// absolute lifetime violates a CHECK on admin_sessions, so the
+	// misconfiguration would otherwise surface as every login failing with a
+	// constraint violation.
+	if cfg.IdleTTL <= 0 || cfg.AbsoluteTTL <= 0 || cfg.IdleTTL > cfg.AbsoluteTTL {
+		return nil, fmt.Errorf(
+			"auth: console session lifetimes must satisfy 0 < AUTH_CONSOLE_IDLE_TTL (%s) <= AUTH_CONSOLE_ABSOLUTE_TTL (%s)",
+			cfg.IdleTTL, cfg.AbsoluteTTL)
+	}
 	return &ConsoleSigner{
 		keyring:     keyring,
 		issuer:      cfg.Issuer,

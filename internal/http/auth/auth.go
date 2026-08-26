@@ -9,35 +9,13 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/go-chi/chi/v5"
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/store/management"
 )
 
-// TokenClaims represents the claims from a JWT token
-type TokenClaims struct {
-	jwt.RegisteredClaims
-}
-
-// Subject returns the subject claim
-func (c *TokenClaims) Subject() string {
-	return c.RegisteredClaims.Subject
-}
-
-// Issuer returns the issuer claim
-func (c *TokenClaims) Issuer() string {
-	return c.RegisteredClaims.Issuer
-}
-
 // ErrUnauthorized is returned when the authentication fails.
 var ErrUnauthorized = errors.New("unauthorized")
-
-func HMAC(secret []byte) jwt.Keyfunc {
-	return func(token *jwt.Token) (any, error) {
-		return secret, nil
-	}
-}
 
 type Handler func(ctx context.Context, token string) (context.Context, error)
 
