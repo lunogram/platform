@@ -41,12 +41,18 @@ func (n Node) PublicBaseURL() string {
 }
 
 type Auth struct {
-	Driver    string        `env:"DRIVER"`
-	JWTSecret string        `env:"JWT_SECRET"`
-	JWKS      claim.JWKS    `env:"JWKS_URL"`
-	TokenLife time.Duration `env:"TOKEN_LIFE" envDefault:"24h"`
-	Basic     BasicAuth     `envPrefix:"BASIC_"`
-	Clerk     ClerkAuth     `envPrefix:"CLERK_"`
+	Driver  string      `env:"DRIVER"`
+	JWKS    claim.JWKS  `env:"JWKS_URL"`
+	Basic   BasicAuth   `envPrefix:"BASIC_"`
+	Clerk   ClerkAuth   `envPrefix:"CLERK_"`
+	Console ConsoleAuth `envPrefix:"CONSOLE_"`
+
+	// LegacyIdentityAdoption lets an upstream identity claim a
+	// pre-existing admin whose identity row still carries the sentinel issuer
+	// the dropped admins.external_id column was backfilled under. It matches on
+	// subject alone, so it is a transitional allowance rather than a permanent
+	// resolution step; it ships disabled once no rows carry the sentinel.
+	LegacyIdentityAdoption bool `env:"LEGACY_IDENTITY_ADOPTION" envDefault:"true"`
 
 	// SessionSigningKey is a PEM-encoded EC (P-256) private key used to sign and
 	// verify short-lived client session tokens (ES256). When empty, session
@@ -54,6 +60,30 @@ type Auth struct {
 	SessionSigningKey string `env:"SESSION_SIGNING_KEY"`
 	// SessionIssuer is the `iss` stamped on (and required of) session tokens.
 	SessionIssuer string `env:"SESSION_ISSUER" envDefault:"https://lunogram.com"`
+}
+
+// ConsoleAuth configures the Lunogram-issued console session: the credential
+// every admin login is exchanged for. Its signing key is deliberately separate
+// from the client SessionSigningKey. If one key signed both, the only thing
+// separating a console token from a client one would be claim shape; with
+// separate keys the boundary is cryptographic, and a console token fails
+// signature verification at the client middleware before a single claim is read.
+type ConsoleAuth struct {
+	// SigningKey is a PEM-encoded EC (P-256) private key. Console sessions are
+	// ES256.
+	SigningKey string `env:"SIGNING_KEY"`
+	// PreviousSigningKeys are retired keys that must still verify so a rotation
+	// does not log everyone out. Comma-separated PEM blocks.
+	PreviousSigningKeys []string `env:"PREVIOUS_SIGNING_KEYS" envSeparator:","`
+	// Issuer is distinct from the client session issuer so the two token
+	// populations are never confusable, even before signatures are considered.
+	Issuer string `env:"ISSUER" envDefault:"https://lunogram.com/console"`
+	// Audience is required on every console token.
+	Audience string `env:"AUDIENCE" envDefault:"lunogram-console"`
+	// IdleTTL is how long a session survives without being refreshed.
+	IdleTTL time.Duration `env:"IDLE_TTL" envDefault:"8h"`
+	// AbsoluteTTL caps a session's total life however often it is refreshed.
+	AbsoluteTTL time.Duration `env:"ABSOLUTE_TTL" envDefault:"168h"`
 }
 
 type BasicAuth struct {
@@ -64,6 +94,12 @@ type BasicAuth struct {
 type ClerkAuth struct {
 	SecretKey     string `env:"SECRET_KEY"`
 	WebhookSecret string `env:"WEBHOOK_SECRET"`
+	// Issuer is the `iss` this Clerk instance stamps on its session tokens
+	// (e.g. https://your-app.clerk.accounts.dev). Logins take the issuer from
+	// the verified token, so this is only needed by webhooks, whose payloads
+	// carry no issuer: without it a user.created event is skipped and the admin
+	// is provisioned by the exchange on first login instead.
+	Issuer string `env:"ISSUER"`
 }
 
 type Redis struct {

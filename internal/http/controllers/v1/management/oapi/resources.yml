@@ -53,6 +53,46 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
+  /api/auth/logout:
+    post:
+      summary: End the current console session
+      description: >-
+        Revokes the caller's console session server-side and clears the session
+        cookies. The session is revoked rather than merely forgotten, so a copy
+        of the token cannot keep authenticating.
+      operationId: logout
+      tags:
+        - Auth
+      security:
+        - HttpBearerAuth: []
+      responses:
+        "204":
+          description: Session ended
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/auth/refresh:
+    post:
+      summary: Extend the current console session
+      description: >-
+        Extends the idle window of the caller's own session and reissues the
+        session cookie. A revoked, expired, or impersonated session cannot be
+        refreshed.
+      operationId: refreshSession
+      tags:
+        - Auth
+      security:
+        - HttpBearerAuth: []
+      responses:
+        "200":
+          description: Session refreshed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionRefresh"
+        default:
+          $ref: "#/components/responses/Error"
+
   /api/auth/{driver}/webhook:
     post:
       summary: Auth provider webhook
@@ -7964,9 +8004,6 @@ components:
           type: string
           format: uuid
           example: "7c1e3c5a-2b4d-4e8f-9a1b-3c5d7e9f1a2b"
-        external_id:
-          type: string
-          example: "user_2abc123def"
         email:
           type: string
           format: email
@@ -10247,6 +10284,17 @@ components:
           type: boolean
           description: Whether this is the admin's currently active organization
           example: true
+
+    SessionRefresh:
+      type: object
+      required:
+        - expires_at
+      properties:
+        expires_at:
+          type: string
+          format: date-time
+          description: When the refreshed session expires if it is not used again
+          example: "2025-11-19T14:18:42.960Z"
 
     SetActiveOrganization:
       type: object

@@ -29,7 +29,7 @@ func TestGetProfileWithInternalAdmin(t *testing.T) {
 	orgID, err := orgsStore.CreateOrganization(ctx, "Test Org")
 	require.NoError(t, err)
 
-	adminsStore := management.NewAdminsStore(mgmt)
+	adminsStore := management.NewState(mgmt)
 	adminID, err := adminsStore.CreateAdmin(ctx, management.Admin{
 		OrganizationID: orgID,
 		Email:          "admin@example.com",
@@ -49,67 +49,6 @@ func TestGetProfileWithInternalAdmin(t *testing.T) {
 				rbac.WithOrganizationID(orgID),
 			),
 			orgRole: "member",
-			code:    200,
-		},
-	}
-
-	for name, tt := range tests {
-		t.Run(name, func(t *testing.T) {
-			engine, actorCtx := rbac.TestSetup(t, ctx, tt.actor, tt.orgRole, "")
-			admins := NewAdminsController(logger, mgmt, engine)
-
-			res := httptest.NewRecorder()
-			req := httptest.NewRequest("GET", "/api/admin/profile", nil)
-
-			req = req.WithContext(actorCtx)
-
-			admins.GetProfile(res, req)
-
-			require.Equal(t, tt.code, res.Code, res.Body.String())
-		})
-	}
-}
-
-func TestGetProfileWithExternalAdmin(t *testing.T) {
-	t.Parallel()
-
-	logger := zaptest.NewLogger(t)
-	ctx := t.Context()
-	mgmt, _, _ := teststore.RunPostgreSQL(t)
-
-	orgsStore := management.NewOrganizationsStore(mgmt)
-	orgID, err := orgsStore.CreateOrganization(ctx, "Test Org")
-	require.NoError(t, err)
-
-	externalID := "user_2abc123def"
-	adminsStore := management.NewAdminsStore(mgmt)
-	adminID, err := adminsStore.CreateAdmin(ctx, management.Admin{
-		OrganizationID: orgID,
-		ExternalID:     &externalID,
-		Email:          "external@example.com",
-		Role:           "owner",
-	})
-	require.NoError(t, err)
-
-	type test struct {
-		actor   *rbac.Actor
-		orgRole string
-		code    int
-	}
-
-	tests := map[string]test{
-		"success with external ID": {
-			actor: rbac.NewActor(rbac.ActorAdmin, externalID,
-				rbac.WithOrganizationID(orgID),
-			),
-			orgRole: "owner",
-			code:    200,
-		},
-		"fallback to UUID when external ID not found": {
-			actor: rbac.NewActor(rbac.ActorAdmin, adminID.String(),
-				rbac.WithOrganizationID(orgID),
-			),
-			orgRole: "owner",
 			code:    200,
 		},
 	}
@@ -344,7 +283,7 @@ func TestListProjectAdmins(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	admins := management.NewAdminsStore(mgmt)
+	admins := management.NewState(mgmt)
 
 	emails := []string{"admin1@example.com", "admin2@example.com", "admin3@example.com"}
 	for _, email := range emails {
@@ -445,7 +384,7 @@ func TestGetProjectAdmin(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	admins := management.NewAdminsStore(mgmt)
+	admins := management.NewState(mgmt)
 	admin := management.Admin{
 		OrganizationID: orgID,
 		Email:          "admin@example.com",
@@ -521,7 +460,7 @@ func TestUpdateProjectAdmin(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	admins := management.NewAdminsStore(mgmt)
+	admins := management.NewState(mgmt)
 	admin := management.Admin{
 		OrganizationID: orgID,
 		Email:          "admin@example.com",
@@ -603,7 +542,7 @@ func TestDeleteProjectAdmin(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	admins := management.NewAdminsStore(mgmt)
+	admins := management.NewState(mgmt)
 	admin := management.Admin{
 		OrganizationID: orgID,
 		Email:          "admin@example.com",

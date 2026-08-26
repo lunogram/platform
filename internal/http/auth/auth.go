@@ -2,8 +2,6 @@ package auth
 
 import (
 	"context"
-	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"strings"
@@ -13,7 +11,6 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
-	"github.com/lunogram/platform/internal/config"
 	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/store/management"
 )
@@ -39,25 +36,6 @@ var ErrUnauthorized = errors.New("unauthorized")
 func HMAC(secret []byte) jwt.Keyfunc {
 	return func(token *jwt.Token) (any, error) {
 		return secret, nil
-	}
-}
-
-// multiKeyfunc returns a keyfunc that dispatches to jwks for RS256 tokens and
-// hmac for HS256 tokens, allowing both Clerk (RS256) and basic auth (HS256) to
-// coexist when both are configured.
-func multiKeyfunc(jwks, hmac jwt.Keyfunc) jwt.Keyfunc {
-	return func(token *jwt.Token) (any, error) {
-		switch token.Method.(type) {
-		case *jwt.SigningMethodRSA:
-			if jwks != nil {
-				return jwks(token)
-			}
-		case *jwt.SigningMethodHMAC:
-			if hmac != nil {
-				return hmac(token)
-			}
-		}
-		return nil, jwt.ErrTokenSignatureInvalid
 	}
 }
 
@@ -111,56 +89,6 @@ func Middleware(middleware ...Handler) openapi3filter.AuthenticationFunc {
 		}
 
 		return ErrUnauthorized
-	}
-}
-
-func WithJWT(config config.Auth, mgmt *management.State) Handler {
-	// multiKeyfunc binds each algorithm to its own key material: RS256 verifies
-	// against JWKS (Clerk), HS256 against the shared secret (basic auth). Because
-	// the two never share key material, the classic RS256→HS256 confusion attack
-	// (verifying an HS256 forgery with the RSA public key as the secret) cannot
-	// happen here. WithValidMethods additionally pins the accepted algorithm set:
-	// HS256 is only accepted when a secret is configured.
-	var hmacFunc jwt.Keyfunc
-	methods := []string{"RS256"}
-	if config.JWTSecret != "" {
-		hmacFunc = HMAC([]byte(config.JWTSecret))
-		methods = append(methods, "HS256")
-	}
-	keyFunc := multiKeyfunc(config.JWKS.Unwrap(), hmacFunc)
-
-	return func(ctx context.Context, value string) (context.Context, error) {
-		claims := jwt.RegisteredClaims{}
-		token, err := jwt.ParseWithClaims(value, &claims, keyFunc, jwt.WithValidMethods(methods))
-		if err != nil {
-			return ctx, ErrUnauthorized
-		}
-
-		if !token.Valid {
-			return ctx, ErrUnauthorized
-		}
-
-		admin, err := mgmt.GetAdminBySubject(ctx, claims.Issuer, claims.Subject)
-		if err != nil {
-			return ctx, ErrUnauthorized
-		}
-
-		orgID, err := resolveActiveOrganization(ctx, mgmt, admin)
-		if err != nil {
-			// A real failure resolving the active organization (e.g. a transient
-			// DB error) must NOT fail open onto the home org — that would bypass
-			// the revoked-membership check on a hot security path. Surface the
-			// error so the request fails instead of silently granting scope.
-			return ctx, err
-		}
-
-		actor := rbac.NewActor(
-			rbac.ActorAdmin,
-			admin.ID.String(),
-			rbac.WithOrganizationID(orgID),
-		)
-
-		return rbac.WithActor(ctx, actor), nil
 	}
 }
 
@@ -338,51 +266,48 @@ func projectIDFromPath(path string) string {
 	return rest
 }
 
-// OAuthResponse represents the OAuth token response stored in cookies
-type OAuthResponse struct {
-	AccessToken  string `json:"access_token"`
-	TokenType    string `json:"token_type,omitempty"`
-	ExpiresIn    int    `json:"expires_in,omitempty"`
-	RefreshToken string `json:"refresh_token,omitempty"`
-	Scope        string `json:"scope,omitempty"`
+// Console session cookie names. The console cookie deliberately is NOT
+// `__session`: Clerk's browser SDK owns that name on our own origin and
+// rewrites it on every token refresh, so a token minted into it would be
+// overwritten out from under us.
+//
+// `__Host-` is not decoration. The prefix is browser-enforced: the cookie is
+// only accepted when it is Secure, Path=/ and carries no Domain attribute,
+// which means a sibling subdomain cannot set it. That guarantee is unavailable
+// over plain HTTP, so local development falls back to the unprefixed name.
+const (
+	ConsoleCookieSecure   = "__Host-lunogram_session"
+	ConsoleCookieInsecure = "lunogram_session"
+
+	// LegacySessionCookie is the cookie name the Clerk SDK writes. It is still
+	// READ so that admins holding one at deploy time are not logged out; see
+	// [UpgradeLegacySession]. Nothing writes it any more.
+	LegacySessionCookie = "__session"
+)
+
+// consoleCookieName picks the cookie name the browser will actually accept for
+// this request: the `__Host-` prefixed one requires a secure context.
+func consoleCookieName(r *http.Request) string {
+	if requestIsSecure(r) {
+		return ConsoleCookieSecure
+	}
+	return ConsoleCookieInsecure
 }
 
-// getCookieOAuthToken retrieves and parses the OAuth token from the 'oauth' cookie
-func getCookieOAuthToken(r *http.Request) *OAuthResponse {
-	cookie, err := r.Cookie("oauth")
-	if err != nil {
-		return nil
-	}
-
-	decoded, err := base64.StdEncoding.DecodeString(cookie.Value)
-	if err != nil {
-		return nil
-	}
-
-	var res OAuthResponse
-	if err := json.Unmarshal(decoded, &res); err != nil {
-		return nil
-	}
-
-	return &res
-}
-
-// GetSession extracts the authentication token from the request.
-// It checks (in priority order):
-// 1. OAuth access token from 'oauth' cookie
-// 2. Session token from '__session' cookie
-// 3. Authorization header (with or without Bearer prefix)
+// GetSession extracts the authentication credential from the request, in
+// priority order: the console session cookie, the legacy Clerk cookie, then the
+// Authorization header.
+//
+// There is deliberately no `oauth` cookie intake. It used to sit at the HIGHEST
+// precedence here while nothing in the platform ever wrote it, which made it a
+// cookie-forcing hazard: anything able to set a cookie on the origin could
+// override the credential every other path had already agreed on.
 func GetSession(r *http.Request) string {
-	if oauthToken := getCookieOAuthToken(r); oauthToken != nil && oauthToken.AccessToken != "" {
-		return oauthToken.AccessToken
-	}
-
-	if sessionCookie, err := r.Cookie("__session"); err == nil && sessionCookie.Value != "" {
-		return sessionCookie.Value
+	if token, ok := cookieCredential(r); ok {
+		return token
 	}
 
 	if authHeader := r.Header.Get("Authorization"); authHeader != "" {
-		// Remove "Bearer " prefix if present
 		token := strings.TrimSpace(authHeader)
 		token = strings.TrimPrefix(token, "Bearer ")
 		return token
@@ -391,14 +316,27 @@ func GetSession(r *http.Request) string {
 	return ""
 }
 
-// SetSessionCookie stores the session token in a secure HTTP cookie. It sets
-// the token directly as the "__session" cookie value. The cookie is configured
-// with HttpOnly flag for security, and Secure flag is set based on whether the
-// request was made over TLS. SameSite is set to Lax mode to prevent CSRF while
-// allowing normal navigation.
-func SetSessionCookie(w http.ResponseWriter, r *http.Request, token string, expiresAt time.Time) {
+// cookieCredential returns the credential carried by a cookie, and whether one
+// was present at all. The second result is what lets [WithAdminSession] apply
+// CSRF hardening only to cookie-borne credentials -- an Authorization header is
+// not attached by the browser automatically and so is not forgeable across
+// origins in the same way.
+func cookieCredential(r *http.Request) (string, bool) {
+	for _, name := range []string{ConsoleCookieSecure, ConsoleCookieInsecure, LegacySessionCookie} {
+		if cookie, err := r.Cookie(name); err == nil && cookie.Value != "" {
+			return cookie.Value, true
+		}
+	}
+	return "", false
+}
+
+// SetConsoleSessionCookie stores a minted console session token. HttpOnly keeps
+// it out of reach of page scripts, SameSite=Lax keeps it off cross-site
+// sub-requests while still surviving ordinary navigation, and Secure follows
+// [requestIsSecure].
+func SetConsoleSessionCookie(w http.ResponseWriter, r *http.Request, token string, expiresAt time.Time) {
 	http.SetCookie(w, &http.Cookie{
-		Name:     "__session",
+		Name:     consoleCookieName(r),
 		Value:    token,
 		Path:     "/",
 		Expires:  expiresAt,
@@ -406,6 +344,24 @@ func SetSessionCookie(w http.ResponseWriter, r *http.Request, token string, expi
 		Secure:   requestIsSecure(r),
 		SameSite: http.SameSiteLaxMode,
 	})
+}
+
+// ClearConsoleSessionCookies expires every cookie name a credential could have
+// arrived in, including the legacy one. Logging out must not depend on guessing
+// which name the browser happens to hold.
+func ClearConsoleSessionCookies(w http.ResponseWriter, r *http.Request) {
+	for _, name := range []string{ConsoleCookieSecure, ConsoleCookieInsecure, LegacySessionCookie} {
+		http.SetCookie(w, &http.Cookie{
+			Name:     name,
+			Value:    "",
+			Path:     "/",
+			Expires:  time.Unix(0, 0),
+			MaxAge:   -1,
+			HttpOnly: true,
+			Secure:   requestIsSecure(r),
+			SameSite: http.SameSiteLaxMode,
+		})
+	}
 }
 
 // requestIsSecure reports whether the original client request reached us over

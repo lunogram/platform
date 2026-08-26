@@ -18,6 +18,10 @@ const LegacyExternalIDIssuer = "urn:lunogram:legacy-external-id"
 // Identity providers. The set is mirrored by a CHECK constraint on
 // admin_identities.provider.
 const (
+	// IdentityProviderBasic is the statically configured AUTH_BASIC_ credential.
+	// It is distinct from IdentityProviderPassword because its secret lives in
+	// configuration rather than in secret_hash.
+	IdentityProviderBasic    = "basic"
 	IdentityProviderPassword = "password"
 	IdentityProviderClerk    = "clerk"
 	IdentityProviderOIDC     = "oidc"

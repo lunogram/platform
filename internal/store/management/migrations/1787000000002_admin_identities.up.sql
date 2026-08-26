@@ -10,8 +10,11 @@
 CREATE TABLE admin_identities (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     admin_id UUID NOT NULL REFERENCES admins(id) ON DELETE CASCADE,
+    -- 'basic' is the statically configured AUTH_BASIC_EMAIL credential, whose
+    -- secret lives in configuration rather than here; it is therefore distinct
+    -- from 'password', which the CHECK below binds to a stored secret_hash.
     provider VARCHAR(32) NOT NULL
-        CHECK (provider IN ('password', 'clerk', 'oidc', 'saml')),
+        CHECK (provider IN ('basic', 'password', 'clerk', 'oidc', 'saml')),
     issuer VARCHAR(512) NOT NULL,
     subject VARCHAR(255) NOT NULL,
     email VARCHAR(255),
