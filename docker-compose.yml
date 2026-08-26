@@ -20,8 +20,18 @@ services:
       REDIS_ADDRESS: redis://redis:6379
       NATS_URL: nats://nats:4222
       # Authentication
+      #
+      # AUTH_JWT_SECRET signs admin sessions and has no default on purpose:
+      # a fallback published here would be public knowledge, and anyone could
+      # use it to mint a valid admin session against your deployment. Generate
+      # a private one (at least 32 bytes) and put it in a .env file next to
+      # this compose file, or export it in your shell:
+      #
+      #   echo "AUTH_JWT_SECRET=$(openssl rand -base64 48)" >> .env
+      #
+      # Lunogram refuses to start without it when AUTH_DRIVER=basic.
       AUTH_DRIVER: ${AUTH_DRIVER:-basic}
-      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET:-dev-secret-change-in-production}
+      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET:?required - generate a private random value with "openssl rand -base64 48" and set it in a .env file next to this compose file}
       AUTH_BASIC_EMAIL: ${AUTH_BASIC_EMAIL:-admin@localhost}
       AUTH_BASIC_PASSWORD: ${AUTH_BASIC_PASSWORD:-admin}
       AUTH_CLERK_SECRET_KEY: ${AUTH_CLERK_SECRET_KEY:-}

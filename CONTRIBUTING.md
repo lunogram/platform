@@ -81,7 +81,13 @@ NATS_URL=nats://localhost:4222
 AUTH_DRIVER=basic
 AUTH_BASIC_EMAIL=admin@localhost
 AUTH_BASIC_PASSWORD=admin
+AUTH_JWT_SECRET=<at least 32 bytes, e.g. `openssl rand -base64 48`>
 ```
+
+`AUTH_JWT_SECRET` signs admin session tokens. It has no default and the server
+refuses to start without a private value of at least 32 bytes, so generate your
+own rather than copying one from a guide — a shared or published secret lets
+anyone mint a valid admin session.
 
 ## How to Contribute
 
