@@ -135,6 +135,11 @@ func (srv *InviteController) CreateProjectInvite(w http.ResponseWriter, r *http.
 	logger.Info("creating project invite")
 
 	actor := rbac.FromContext(ctx)
+	if actor == nil {
+		oapi.WriteProblem(w, problem.ErrUnauthorized())
+		return
+	}
+
 	inviterAdminID, err := adminActorID(actor)
 	if err != nil {
 		logger.Error("actor is not an admin", zap.String("actor_id", actor.ID), zap.Error(err))
