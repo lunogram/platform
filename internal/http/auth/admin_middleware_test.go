@@ -304,6 +304,35 @@ func TestWithAdminSessionOriginCheck(t *testing.T) {
 	}
 }
 
+// TestWithAdminSessionOriginFallsBackToTheRequestOrigin covers a PUBLIC_URL that
+// does not match how the console is actually reached. That must degrade to
+// ordinary same-origin enforcement rather than rejecting every write the console
+// makes, and it is safe because the browser sets Origin to the ATTACKER's page
+// on a cross-site request while the URL stays ours -- so the two can only agree
+// when the request really is same-origin.
+func TestWithAdminSessionOriginFallsBackToTheRequestOrigin(t *testing.T) {
+	t.Parallel()
+	env := newMiddlewareEnv(t)
+
+	session := env.session(t)
+	token, err := env.signer.Mint(session, nil)
+	require.NoError(t, err)
+
+	misconfigured := WithAdminSession(env.mgmt, env.signer, "https://stale.example", zaptest.NewLogger(t))
+
+	authenticate := func(origin string) error {
+		r := httptest.NewRequest(http.MethodPost, testPublicBaseURL+"/api/admin/profile", nil)
+		r.AddCookie(&http.Cookie{Name: ConsoleCookieInsecure, Value: token})
+		r.Header.Set("Origin", origin)
+		_, err := misconfigured(withRequest(context.Background(), r), token)
+		return err
+	}
+
+	require.NoError(t, authenticate(testPublicBaseURL), "a same-origin write must still be accepted")
+	require.ErrorIs(t, authenticate("https://evil.example"), ErrUnauthorized,
+		"a cross-origin write must still be rejected")
+}
+
 // TestWithAdminSessionDoesNotFailOpen pins the rule that a backing-store failure
 // is never a pass.
 func TestWithAdminSessionDoesNotFailOpen(t *testing.T) {

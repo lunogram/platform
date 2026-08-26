@@ -111,13 +111,19 @@ func WithAdminSession(mgmt *management.State, signer *ConsoleSigner, publicBaseU
 // Authorization header cannot be set cross-origin without our consent and is
 // therefore left alone.
 //
-// It fails closed on a mismatch and is a single string comparison. A request
-// with no Origin header at all is permitted: browsers omit it on same-origin
-// navigations, and non-browser clients (which are not subject to CSRF) never
-// send it.
+// The Origin must name either the configured public URL or the origin of the
+// request itself. The second is not a loophole: on a cross-site request the
+// browser sets Origin to the ATTACKER's page while the URL (and therefore Host)
+// is still ours, so the two can only agree on a same-origin request. Accepting
+// it means a PUBLIC_URL that does not match how the console is actually reached
+// degrades to ordinary same-origin enforcement instead of rejecting every write
+// the console makes.
+//
+// A request with no Origin header at all is permitted: browsers omit it on
+// same-origin navigations, and non-browser clients are not subject to CSRF.
 func enforceConsoleOrigin(ctx context.Context, publicBaseURL string) error {
 	r := RequestFromContext(ctx)
-	if r == nil || publicBaseURL == "" {
+	if r == nil {
 		return nil
 	}
 	if _, fromCookie := cookieCredential(r); !fromCookie {
@@ -126,11 +132,25 @@ func enforceConsoleOrigin(ctx context.Context, publicBaseURL string) error {
 	if safeMethod(r.Method) {
 		return nil
 	}
+
 	origin := r.Header.Get("Origin")
-	if origin == "" || origin == publicBaseURL {
+	if origin == "" || origin == publicBaseURL || origin == requestOrigin(r) {
 		return nil
 	}
 	return ErrUnauthorized
+}
+
+// requestOrigin reconstructs the origin the browser would have sent for a
+// same-origin request to this URL.
+func requestOrigin(r *http.Request) string {
+	scheme := "http"
+	if requestIsSecure(r) {
+		scheme = "https"
+	}
+	if r.Host == "" {
+		return ""
+	}
+	return scheme + "://" + r.Host
 }
 
 // safeMethod reports whether the method is one RFC 9110 defines as safe, and so
