@@ -28,3 +28,27 @@ func adminActorID(actor *rbac.Actor) (uuid.UUID, error) {
 	}
 	return id, nil
 }
+
+// optionalAdminActorID returns the admin id for an admin actor and nil for any
+// other actor type.
+//
+// It is for handlers every actor may call -- authorization is already settled by
+// the permission check -- but whose answer carries a personal decoration only an
+// admin has, such as the caller's role on a project. That decoration is looked up
+// by admin id, and an API-key or auth-method id is a UUID that simply belongs to
+// a different table, so the nil says "no personal view to add" rather than
+// quietly resolving the wrong one. Use [adminActorID] where the endpoint itself
+// only makes sense for an admin.
+func optionalAdminActorID(actor *rbac.Actor) (*uuid.UUID, error) {
+	if actor == nil || actor.ID == "" {
+		return nil, problem.ErrUnauthorized()
+	}
+	if actor.Type != rbac.ActorAdmin {
+		return nil, nil
+	}
+	id, err := uuid.Parse(actor.ID)
+	if err != nil {
+		return nil, problem.ErrUnauthorized()
+	}
+	return &id, nil
+}
