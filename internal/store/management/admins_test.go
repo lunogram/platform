@@ -21,7 +21,6 @@ func TestAdminsStore(t *testing.T) {
 	t.Run("creates admin", func(t *testing.T) {
 		adminID, err := db.CreateAdmin(ctx, Admin{
 			OrganizationID: orgID,
-			ExternalID:     ptr.To("ext-123"),
 			Email:          "admin@example.com",
 			FirstName:      ptr.To("Test"),
 			LastName:       ptr.To("Admin"),
