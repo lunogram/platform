@@ -10,6 +10,7 @@ type Config struct {
 	BaseURL       string      `env:"STORAGE_BASE_URL"`
 	MaxUploadSize int64       `env:"STORAGE_MAX_UPLOAD_SIZE" envDefault:"10485760"` // 10MB default
 	S3            S3Config    `envPrefix:"STORAGE_S3_"`
+	Azure         AzureConfig `envPrefix:"STORAGE_AZURE_"`
 	Local         LocalConfig `envPrefix:"STORAGE_LOCAL_"`
 }
 
@@ -27,6 +28,8 @@ func New(cfg Config) (Storage, error) {
 	switch cfg.Type {
 	case "s3":
 		return NewS3Storage(cfg.S3)
+	case "azure":
+		return NewAzureStorage(cfg.Azure)
 	default:
 		return NewLocalStorage(cfg.Local)
 	}
