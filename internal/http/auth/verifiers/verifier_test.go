@@ -91,9 +91,8 @@ func TestNewVerifier(t *testing.T) {
 		// Starting would leave the verifier with no key at all: every login
 		// would fail closed but silently, looking like a broken Clerk instance
 		// rather than an unset variable.
-		_, err := New(config.Auth{
-			Driver: "clerk",
-			Clerk:  config.ClerkAuth{SecretKey: "sk_test_xxx"},
+		_, err := New(ClerkDriver, config.Auth{
+			Clerk: config.ClerkAuth{SecretKey: "sk_test_xxx"},
 		}, nil, logger, nil)
 		require.ErrorIs(t, err, ErrMissingJWKS)
 		assert.Contains(t, err.Error(), "AUTH_JWKS_URL")
@@ -116,6 +115,7 @@ func TestBuildVerifiers(t *testing.T) {
 	t.Run("builds every configured driver", func(t *testing.T) {
 		built, err := Build(config.Auth{
 			Drivers: []string{"password", " CLERK "},
+			JWKS:    clerkJWKS(t),
 			Clerk:   config.ClerkAuth{SecretKey: "sk_test_xxx"},
 		}, nil, logger, nil)
 		require.NoError(t, err)

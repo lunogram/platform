@@ -812,6 +812,7 @@ func TestGetAuthMethodsListsEveryConfiguredDriver(t *testing.T) {
 	controller, err := NewAuthController(logger, mgmtDB, management.NewState(mgmtDB), config.Node{
 		Auth: config.Auth{
 			Drivers: []string{"password", "clerk"},
+			JWKS:    clerkJWKS(t),
 			Clerk:   config.ClerkAuth{SecretKey: "sk_test_xxx"},
 		},
 	}, nil, consoleSignerFor(t), nil)
@@ -835,7 +836,7 @@ func TestPasswordFlowsAreOffWhenTheDriverIsNotConfigured(t *testing.T) {
 	mgmtDB, _, _ := teststore.RunPostgreSQL(t)
 
 	controller, err := NewAuthController(logger, mgmtDB, management.NewState(mgmtDB), config.Node{
-		Auth: config.Auth{Drivers: []string{"clerk"}, Clerk: config.ClerkAuth{SecretKey: "sk_test_xxx"}},
+		Auth: config.Auth{Drivers: []string{"clerk"}, JWKS: clerkJWKS(t), Clerk: config.ClerkAuth{SecretKey: "sk_test_xxx"}},
 	}, nil, consoleSignerFor(t), nil)
 	require.NoError(t, err)
 
