@@ -340,7 +340,7 @@ func (srv *ProjectsController) CreateProject(w http.ResponseWriter, r *http.Requ
 	}
 
 	logger.Info("project created", zap.Stringer("project_id", projectID))
-	project, err := srv.store.GetProject(ctx, projectID, adminID)
+	project, err := srv.store.GetProjectInOrganization(ctx, projectID, actor.OrganizationID, adminID)
 	if err != nil {
 		logger.Error("failed to fetch created project", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -423,14 +423,20 @@ func (srv *ProjectsController) UpdateProject(w http.ResponseWriter, r *http.Requ
 		TextHelpMessage:   body.TextHelpMessage,
 	}
 
-	err = srv.store.UpdateProject(ctx, projectID, update)
+	err = srv.store.UpdateProject(ctx, projectID, actor.OrganizationID, update)
+	if errors.Is(err, sql.ErrNoRows) {
+		logger.Info("project not found")
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("project not found")))
+		return
+	}
+
 	if err != nil {
 		logger.Error("failed to update project", zap.Error(err))
 		oapi.WriteProblem(w, err)
 		return
 	}
 
-	project, err := srv.store.GetProject(ctx, projectID, adminID)
+	project, err := srv.store.GetProjectInOrganization(ctx, projectID, actor.OrganizationID, adminID)
 	if err != nil {
 		logger.Error("failed to fetch updated project", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -521,7 +527,7 @@ func (srv *ProjectsController) DeleteProject(w http.ResponseWriter, r *http.Requ
 
 	txStore := management.NewState(tx)
 
-	if err := txStore.DeleteProject(ctx, projectID); err != nil {
+	if err := txStore.DeleteProject(ctx, projectID, actor.OrganizationID); err != nil {
 		logger.Error("failed to delete project", zap.Error(err))
 		oapi.WriteProblem(w, err)
 		return

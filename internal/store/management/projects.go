@@ -2,6 +2,7 @@ package management
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
 	"github.com/google/uuid"
@@ -249,30 +250,63 @@ type ProjectUpdate struct {
 	TextHelpMessage   *string
 }
 
-func (s *ProjectsStore) UpdateProject(ctx context.Context, projectID uuid.UUID, update ProjectUpdate) error {
+// UpdateProject applies an update to a project the given organization owns, and
+// returns sql.ErrNoRows when it owns no such project. The ownership test is part
+// of the statement rather than a preceding read, so there is no window between
+// the two for the project to change hands.
+func (s *ProjectsStore) UpdateProject(ctx context.Context, projectID, organizationID uuid.UUID, update ProjectUpdate) error {
 	query := `
 	UPDATE projects
-	SET name = COALESCE($2, name),
-	    description = COALESCE($3, description),
-	    timezone = COALESCE($4, timezone),
-	    locale = COALESCE($5, locale),
-	    text_opt_out_message = COALESCE($6, text_opt_out_message),
-	    text_help_message = COALESCE($7, text_help_message)
+	SET name = COALESCE($3, name),
+	    description = COALESCE($4, description),
+	    timezone = COALESCE($5, timezone),
+	    locale = COALESCE($6, locale),
+	    text_opt_out_message = COALESCE($7, text_opt_out_message),
+	    text_help_message = COALESCE($8, text_help_message)
 	WHERE id = $1
+	  AND organization_id = $2
 	  AND deleted_at IS NULL`
 
-	_, err := s.db.ExecContext(ctx, query, projectID, update.Name, update.Description, update.Timezone, update.Locale, update.TextOptOutMessage, update.TextHelpMessage)
-	return err
+	result, err := s.db.ExecContext(ctx, query, projectID, organizationID, update.Name, update.Description, update.Timezone, update.Locale, update.TextOptOutMessage, update.TextHelpMessage)
+	if err != nil {
+		return err
+	}
+
+	return affected(result)
 }
 
-func (s *ProjectsStore) DeleteProject(ctx context.Context, projectID uuid.UUID) error {
+// DeleteProject soft-deletes a project the given organization owns, and returns
+// sql.ErrNoRows when it owns no such project.
+func (s *ProjectsStore) DeleteProject(ctx context.Context, projectID, organizationID uuid.UUID) error {
 	query := `
 	UPDATE projects
 	SET deleted_at = NOW()
-	WHERE id = $1 AND deleted_at IS NULL`
+	WHERE id = $1
+	  AND organization_id = $2
+	  AND deleted_at IS NULL`
 
-	_, err := s.db.ExecContext(ctx, query, projectID)
-	return err
+	result, err := s.db.ExecContext(ctx, query, projectID, organizationID)
+	if err != nil {
+		return err
+	}
+
+	return affected(result)
+}
+
+// affected translates a statement that matched nothing into sql.ErrNoRows, so
+// callers branch on a missing project the same way whether they read it or wrote
+// it.
+func affected(result sql.Result) error {
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rows == 0 {
+		return sql.ErrNoRows
+	}
+
+	return nil
 }
 
 // RemoveProjectAdmins soft-deletes the whole roster of a project. It runs with
