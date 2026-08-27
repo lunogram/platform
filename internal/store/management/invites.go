@@ -216,3 +216,28 @@ func (s *InvitesStore) ListProjectInvites(ctx context.Context, projectID uuid.UU
 	}
 	return invites, total, nil
 }
+
+// GetPendingInviteOrganization returns the organization behind the newest
+// pending invite addressed to an email, or sql.ErrNoRows when there is none.
+//
+// It is how somebody who was invited before they had an account lands in the
+// organization that invited them, instead of getting an organization of their
+// own that nobody meant to create. The invite itself stays pending: accepting
+// it is what grants the project role, and that flow already exists.
+func (s *InvitesStore) GetPendingInviteOrganization(ctx context.Context, email string) (uuid.UUID, error) {
+	stmt := `
+	SELECT p.organization_id
+	FROM project_invites pi
+	JOIN projects p ON p.id = pi.project_id
+	WHERE lower(pi.invitee_email) = lower($1)
+	AND pi.accepted_at IS NULL AND pi.revoked_at IS NULL AND pi.expires_at > NOW()
+	AND p.organization_id IS NOT NULL AND p.deleted_at IS NULL
+	ORDER BY pi.created_at DESC
+	LIMIT 1`
+
+	var organizationID uuid.UUID
+	if err := s.db.GetContext(ctx, &organizationID, stmt, email); err != nil {
+		return uuid.Nil, err
+	}
+	return organizationID, nil
+}

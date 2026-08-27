@@ -52,6 +52,7 @@ func NewState(db store.DB, opts ...StateOption) *State {
 	return &State{
 		AdminSessionsStore:        sessions,
 		AdminIdentitiesStore:      NewAdminIdentitiesStore(db, sessions),
+		AdminActionTokensStore:    NewAdminActionTokensStore(db),
 		AdminsStore:               NewAdminsStore(db, sessions),
 		ProjectsStore:             NewProjectsStore(db),
 		CampaignsStore:            NewCampaignsStore(db),
@@ -78,6 +79,7 @@ func NewState(db store.DB, opts ...StateOption) *State {
 type State struct {
 	*AdminsStore
 	*AdminIdentitiesStore
+	*AdminActionTokensStore
 	*AdminSessionsStore
 	*ProjectsStore
 	*CampaignsStore

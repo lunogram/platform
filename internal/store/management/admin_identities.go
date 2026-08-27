@@ -179,3 +179,50 @@ func (s *AdminIdentitiesStore) DeleteAdminIdentity(ctx context.Context, id uuid.
 	}
 	return nil
 }
+
+// PasswordIssuer namespaces identities proved by a password this deployment
+// holds the hash of. It is a URN rather than a URL because there is no upstream
+// to dereference: the issuer is this deployment itself.
+const PasswordIssuer = "urn:lunogram:password"
+
+// GetPasswordIdentity returns the local password identity of an admin, or
+// sql.ErrNoRows when they authenticate some other way.
+//
+// There is at most one: the identity is keyed on (issuer, subject) and a
+// password identity's subject is the admin's own id, so the partial unique
+// index makes a second one impossible.
+func (s *AdminIdentitiesStore) GetPasswordIdentity(ctx context.Context, adminID uuid.UUID) (*AdminIdentity, error) {
+	return s.GetAdminIdentity(ctx, PasswordIssuer, adminID.String())
+}
+
+// SetAdminIdentitySecret replaces the stored secret of a local identity.
+//
+// The WHERE clause pins the password provider: the CHECK constraint on the
+// table already forbids a secret on a federated identity, and this makes the
+// failure a no-op rather than a constraint violation surfacing as a 500.
+func (s *AdminIdentitiesStore) SetAdminIdentitySecret(ctx context.Context, id uuid.UUID, secretHash string) error {
+	stmt := `
+	UPDATE admin_identities
+	SET secret_hash = $2
+	WHERE id = $1 AND provider = $3
+	AND deleted_at IS NULL`
+
+	_, err := s.db.ExecContext(ctx, stmt, id, secretHash, IdentityProviderPassword)
+	return err
+}
+
+// MarkAdminIdentityEmailVerified records that the address on an identity has
+// been proved.
+//
+// It is one-way. Nothing in the platform un-verifies an address, and a path
+// that could would be a way to strip the gate that identity linking depends on.
+func (s *AdminIdentitiesStore) MarkAdminIdentityEmailVerified(ctx context.Context, id uuid.UUID) error {
+	stmt := `
+	UPDATE admin_identities
+	SET email_verified = TRUE
+	WHERE id = $1
+	AND deleted_at IS NULL`
+
+	_, err := s.db.ExecContext(ctx, stmt, id)
+	return err
+}

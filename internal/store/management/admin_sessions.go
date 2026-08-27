@@ -214,6 +214,28 @@ func (s *AdminSessionsStore) RevokeAdminSessionsForAdmin(ctx context.Context, ad
 	return err
 }
 
+// RevokeAdminSessionsForAdminExcept ends every live session an admin holds
+// apart from one.
+//
+// It is what a self-service password change runs. Changing a password must end
+// the sessions an attacker may hold, but ending the caller's own session too
+// would log somebody out for doing the right thing, and a security action that
+// punishes the user is one they stop taking.
+func (s *AdminSessionsStore) RevokeAdminSessionsForAdminExcept(ctx context.Context, adminID, keep uuid.UUID) error {
+	stmt := `
+	UPDATE admin_sessions
+	SET revoked_at = NOW()
+	WHERE admin_id = $1 AND id <> $2 AND revoked_at IS NULL
+	RETURNING id`
+
+	var ids []uuid.UUID
+	err := s.db.SelectContext(ctx, &ids, stmt, adminID, keep)
+	for _, id := range ids {
+		s.cache.invalidate(ctx, id)
+	}
+	return err
+}
+
 // RevokeAdminSessionsForIdentity ends every live session established through a
 // single identity, leaving sessions the admin holds via their other identities
 // untouched.

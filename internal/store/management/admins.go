@@ -460,3 +460,18 @@ func (s *AdminsStore) HardDeleteProjectAdmin(ctx context.Context, projectID, adm
 	_, err := s.db.ExecContext(ctx, query, projectID, adminID)
 	return err
 }
+
+// AdminsExist reports whether this deployment has any admin at all.
+//
+// It is what makes an invite-only deployment bootstrappable: the very first
+// account cannot have been invited by anybody, so registration is open until
+// exactly one admin exists and closed from then on.
+func (s *AdminsStore) AdminsExist(ctx context.Context) (bool, error) {
+	stmt := `SELECT EXISTS (SELECT 1 FROM admins WHERE deleted_at IS NULL)`
+
+	var exists bool
+	if err := s.db.GetContext(ctx, &exists, stmt); err != nil {
+		return false, err
+	}
+	return exists, nil
+}
