@@ -366,8 +366,15 @@ func (c *AuthController) ConfirmPasswordReset(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// The token is redeemed before the new password is validated, so a rejected
-	// password does not burn the link the caller is holding.
+	// Everything the policy can judge without knowing whose account this is runs
+	// BEFORE the token is redeemed, so a password that is simply too short does
+	// not burn the one link the caller has. Only the "not your own address"
+	// rule needs the account, and it is re-checked below.
+	if err := password.Validate(body.Password, ""); err != nil {
+		oapi.WriteProblem(w, passwordPolicyProblem(err))
+		return
+	}
+
 	adminID, identity, err := c.resolveResetTarget(ctx, body.Token)
 	if err != nil {
 		oapi.WriteProblem(w, err)

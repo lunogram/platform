@@ -94,7 +94,7 @@ func (r *Renderer) PasswordReset(to, token string, ttl time.Duration) Message {
 		ActionLabel: "Choose a new password",
 		ActionURL:   actionURL,
 		Footer: fmt.Sprintf(
-			"This link expires in %s and can be used once. If you did not ask for it, ignore this message -- your password stays as it is.",
+			"This link expires in %s and can be used once. If you did not ask for it, ignore this message: your password stays as it is.",
 			humaniseTTL(ttl)),
 	}, to, actionURL)
 }
@@ -112,7 +112,7 @@ func (r *Renderer) AccountExists(to, resetToken string) Message {
 		Subject: "You already have an account",
 		Heading: "You already have an account",
 		Body: []string{
-			fmt.Sprintf("Someone tried to register a %s account with this address, but it already has one. There is nothing to do -- sign in as usual.", r.productName),
+			fmt.Sprintf("Someone tried to register a %s account with this address, but it already has one. There is nothing to do: sign in as usual.", r.productName),
 			"If that was you and you cannot remember your password, you can set a new one.",
 		},
 		ActionLabel: "Set a new password",

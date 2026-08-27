@@ -474,6 +474,33 @@ func TestPasswordReset(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, replay.Code, "a reset link is worth one redemption")
 }
 
+// A password the policy rejects must not cost the caller the one link they
+// have; they get to try again with a longer one.
+func TestRejectedPasswordDoesNotBurnTheResetLink(t *testing.T) {
+	t.Parallel()
+	env := newPasswordEnv(t, config.RegistrationOpen)
+
+	require.Equal(t, http.StatusNoContent, env.register("retry@example.test", testPassword).Code)
+	env.mail.awaitSubject(t, "Confirm your email address")
+
+	require.Equal(t, http.StatusNoContent,
+		env.post(env.controller.RequestPasswordReset, map[string]string{"email": "retry@example.test"}).Code)
+	message := env.mail.awaitSubject(t, "Reset your password")
+	token := tokenFrom(t, message)
+
+	rejected := env.post(env.controller.ConfirmPasswordReset, map[string]string{
+		"token": token, "password": "short",
+	})
+	require.Equal(t, http.StatusBadRequest, rejected.Code)
+
+	const replacement = "a brand new and different passphrase"
+	accepted := env.post(env.controller.ConfirmPasswordReset, map[string]string{
+		"token": token, "password": replacement,
+	})
+	require.Equal(t, http.StatusNoContent, accepted.Code, accepted.Body.String())
+	assert.Equal(t, http.StatusOK, env.login("retry@example.test", replacement).Code)
+}
+
 func TestPasswordResetDoesNotRevealExistingAccounts(t *testing.T) {
 	t.Parallel()
 	env := newPasswordEnv(t, config.RegistrationOpen)
