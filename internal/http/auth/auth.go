@@ -58,10 +58,13 @@ const (
 )
 
 // publishedJWTSecrets are values that have appeared in this repository, its
-// compose files or its documentation. Anyone who has read the repo knows them,
-// so none may serve as admin signing key material — a copied example is exactly
-// how a deployment ends up with a secret its operator believes is private.
-// Extend this list whenever an example secret is added anywhere public.
+// compose files or its documentation, including ones the working tree no longer
+// contains — git history is as public as a checkout, and a deployment stood up
+// from an older compose file is still running the value it shipped with.
+// Anyone who has read the repo knows them, so none may serve as admin signing
+// key material — a copied example is exactly how a deployment ends up with a
+// secret its operator believes is private. Extend this list whenever an example
+// secret is added anywhere public.
 var publishedJWTSecrets = map[string]struct{}{
 	"dev-secret-change-in-production": {},
 	"never-gonna-give-you-up":         {},
