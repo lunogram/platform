@@ -1,0 +1,74 @@
+# Example outbound hook configuration. Point WEBHOOK_CONFIG_FILE at a copy of
+# this file. See docs/content/docs/settings/webhooks.mdx for the full reference.
+#
+# ${NAME} is expanded from the process environment when the file is read, so
+# credentials stay out of the file. A referenced variable that is not set is a
+# startup error.
+
+version: v1
+
+defaults:
+  timeout: 10s
+  # Bounds every hook fired for one event, in aggregate. A caller waiting on the
+  # originating API request never waits longer than this.
+  max_dispatch_time: 30s
+  retry:
+    max_attempts: 3
+    initial_interval: 250ms
+    max_interval: 5s
+  # Hook URLs must be https and resolve to a public address unless a hook opts
+  # out below. The cloud metadata endpoints and link-local addresses stay
+  # blocked even when a hook sets allow_private.
+  network:
+    allow_private: false
+    allow_http: false
+
+hooks:
+  project.created:
+    # A receiver inside the cluster that must succeed for project creation to
+    # succeed. It authenticates as itself; the API caller's credentials are
+    # never forwarded.
+    - id: provisioning
+      url: https://provisioning.internal.example.com/v1/projects
+      method: POST
+      body: file://project.created.jsonnet
+      can_interrupt: true
+      timeout: 20s
+      network:
+        allow_private: true
+      response:
+        parse: true
+      auth:
+        type: oauth2_client_credentials
+        config:
+          token_url: https://idp.example.com/oauth2/token
+          client_id: lunogram-platform
+          client_secret: ${PROVISIONING_CLIENT_SECRET}
+          scopes: [projects.write]
+
+    # Best effort: a failure here is logged and swallowed, and project creation
+    # still succeeds.
+    - id: ops-notification
+      url: https://hooks.example.com/services/T000/B000/XXXX
+      body: |
+        function(ctx) {
+          text: 'Project "' + ctx.payload.project.name + '" was created',
+        }
+      can_interrupt: false
+      auth:
+        type: api_key
+        config:
+          in: header
+          name: X-Token
+          value: ${OPS_WEBHOOK_TOKEN}
+
+# Not a hook: a single endpoint fetched synchronously when the console asks for
+# the email starter-template gallery.
+email_templates:
+  url: https://gallery.example.com/templates
+  timeout: 10s
+  auth:
+    type: basic_auth
+    config:
+      user: lunogram
+      password: ${GALLERY_PASSWORD}

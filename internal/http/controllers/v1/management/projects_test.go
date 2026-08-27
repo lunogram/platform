@@ -11,7 +11,6 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/lunogram/platform/internal/config"
 	"github.com/lunogram/platform/internal/ptr"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/rbac"
@@ -365,6 +364,7 @@ func TestCreateProjectWebhook(t *testing.T) {
 
 	var called atomic.Bool
 	var receivedEvent webhookoapi.ProjectCreatedEvent
+	var receivedAuthorization string
 
 	webhookServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		called.Store(true)
@@ -373,6 +373,8 @@ func TestCreateProjectWebhook(t *testing.T) {
 		require.Equal(t, "application/json", r.Header.Get("Content-Type"))
 		require.Equal(t, string(webhookoapi.ProjectCreated), r.Header.Get("X-Webhook-Event"))
 
+		receivedAuthorization = r.Header.Get("Authorization")
+
 		err := json.NewDecoder(r.Body).Decode(&receivedEvent)
 		require.NoError(t, err)
 
@@ -380,16 +382,18 @@ func TestCreateProjectWebhook(t *testing.T) {
 	}))
 	defer webhookServer.Close()
 
-	caller := webhook.NewCaller(logger, config.Webhook{
+	//nolint:staticcheck // SA1019: this test covers the deprecated compatibility path
+	hooks, err := webhook.NewEngine(logger, "", webhook.LegacyEnv{
 		ProjectCreatedURL: webhookServer.URL,
 	})
+	require.NoError(t, err)
 
 	actor := rbac.NewActor(rbac.ActorAdmin, adminID.String(),
 		rbac.WithOrganizationID(orgID),
 	)
 	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "")
 
-	projects := NewProjectsController(logger, mgmt, usrs, jrny, caller, nil, engine)
+	projects := NewProjectsController(logger, mgmt, usrs, jrny, hooks, nil, engine)
 
 	body := oapi.CreateProjectJSONRequestBody{
 		Name:     "Webhook Test Project",
@@ -402,12 +406,17 @@ func TestCreateProjectWebhook(t *testing.T) {
 
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/api/admin/projects", bytes.NewReader(bb))
+	req.Header.Set("Authorization", "Bearer caller-token")
 	req = req.WithContext(actorCtx)
 
 	projects.CreateProject(res, req)
 
 	require.Equal(t, http.StatusCreated, res.Code, res.Body.String())
 	require.True(t, called.Load(), "webhook should have been called")
+
+	// The previous implementation copied every inbound header onto the outbound
+	// request, handing the receiver the caller's bearer token.
+	require.Empty(t, receivedAuthorization, "the caller's Authorization header must not be forwarded")
 
 	require.Equal(t, webhookoapi.ProjectCreated, receivedEvent.Event)
 	require.Equal(t, "Webhook Test Project", receivedEvent.Project.Name)

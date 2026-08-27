@@ -156,20 +156,46 @@ type WASM struct {
 }
 
 type Webhook struct {
-	// ProjectCreatedURL is the webhook URL called after project creation
+	// ConfigFile is the path to the YAML file declaring outbound hooks. A hook
+	// set cannot be expressed in environment variables — many subscribers per
+	// event, each with its own template, credential, retry and network policy —
+	// so it lives in a file, and this is the only environment variable involved
+	// in reaching it. When empty, the deprecated single-URL variables below are
+	// used instead.
+	ConfigFile string `env:"CONFIG_FILE"`
+
+	// ProjectCreatedURL is the webhook URL called after project creation.
+	//
+	// Deprecated: use ConfigFile. Synthesised into an equivalent single-hook
+	// configuration at boot; see [webhook.LegacyEnv].
 	ProjectCreatedURL string `env:"PROJECT_CREATED_URL"`
-	// ProjectCreatedTimeout is the HTTP timeout for the webhook call
+	// ProjectCreatedTimeout is the HTTP timeout for the webhook call.
+	//
+	// Deprecated: use ConfigFile.
 	ProjectCreatedTimeout time.Duration `env:"PROJECT_CREATED_TIMEOUT" envDefault:"30s"`
 
-	// EmailTemplatesURL is the webhook URL called to fetch email starter templates.
-	// When configured, the backend proxies gallery requests to this endpoint.
+	// LegacyForwardAuthorization restores the pre-engine behaviour of
+	// forwarding the API caller's Authorization header to ProjectCreatedURL.
+	//
+	// Deprecated: the old implementation copied every inbound header, including
+	// the caller's bearer token, onto a request to an operator-configured URL.
+	// Forwarding is off by default now. This exists only as a bridge for a
+	// receiver that has not yet been given its own credential.
+	LegacyForwardAuthorization bool `env:"LEGACY_FORWARD_AUTHORIZATION" envDefault:"false"`
+
+	// EmailTemplatesURL is the URL fetched for email starter templates.
 	// When not configured, the endpoint returns an empty list.
+	//
+	// Deprecated: use ConfigFile's email_templates block.
 	EmailTemplatesURL string `env:"EMAIL_TEMPLATES_URL"`
-	// EmailTemplatesTimeout is the HTTP timeout for the email templates webhook call
+	// EmailTemplatesTimeout is the HTTP timeout for the gallery fetch.
+	//
+	// Deprecated: use ConfigFile's email_templates block.
 	EmailTemplatesTimeout time.Duration `env:"EMAIL_TEMPLATES_TIMEOUT" envDefault:"10s"`
 
 	// MaxBodySize is the maximum allowed request body size in bytes for
-	// inbound provider webhook payloads. Defaults to 1 MB.
+	// inbound provider webhook payloads. Defaults to 1 MB. Unrelated to
+	// outbound hooks.
 	MaxBodySize int64 `env:"MAX_BODY_SIZE" envDefault:"1048576"`
 }
 
