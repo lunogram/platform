@@ -27,7 +27,7 @@ func RunRedis(t *testing.T) string {
 			ContainerFilePath: "/usr/local/redis.conf",
 			FileMode:          0o755,
 		}),
-		testcontainers.WithReuseByName("testcontainer-redis"),
+		testcontainers.WithReuseByName(containerName("redis")),
 	)
 	require.NoError(t, err)
 
