@@ -74,6 +74,39 @@ deploying:
 AUTH_CONSOLE_SIGNING_KEY="$(openssl ecparam -name prime256v1 -genkey -noout)"
 ```
 
+### Signing in with your own email and password
+
+`AUTH_DRIVER=basic` authenticates the single credential above, which is fine for
+a quickstart and is not multi-user. To give every admin their own account, add
+the password driver:
+
+```
+AUTH_DRIVER=password
+AUTH_PASSWORD_REGISTRATION=invite_only
+```
+
+`AUTH_DRIVER` accepts a comma-separated list, so `password,clerk` offers both at
+once — useful while an organization moves onto SSO.
+
+`AUTH_PASSWORD_REGISTRATION` decides who may create an account: `open` for a
+public sign-up, `disabled` to provision admins some other way, and the default
+`invite_only`, which admits addresses holding a pending invite plus the very
+first account (nobody could have invited that one).
+
+Account confirmation and password resets are sent by email. With no `MAIL_HOST`
+configured the platform writes each message — link included — to its log instead
+of delivering it, so you can create, confirm and recover an account without
+standing up an SMTP server. Before production, point it at a real one:
+
+```
+MAIL_HOST=smtp.example.com
+MAIL_PORT=587
+MAIL_USERNAME=lunogram
+MAIL_PASSWORD=...
+MAIL_FROM_ADDRESS=no-reply@example.com
+MAIL_TLS=starttls          # or implicit, or none
+```
+
 For full documentation on the platform and more information on deployment, check out our docs.
 
 **[Explore the Docs »](https://docs.lunogram.com)**

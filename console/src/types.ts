@@ -326,6 +326,7 @@ export type AuthDriver = "basic" | "clerk"
 
 export const AUTH_DRIVERS = {
     BASIC: "basic" as const,
+    PASSWORD: "password" as const,
     CLERK: "clerk" as const,
 }
 

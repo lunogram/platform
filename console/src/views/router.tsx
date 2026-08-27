@@ -49,6 +49,9 @@ import IntegrationSetup from "./settings/IntegrationSetup"
 import Login from "./auth/Login"
 import LoginCallback from "./auth/LoginCallback"
 import Register from "./auth/Register"
+import ForgotPassword from "./auth/ForgotPassword"
+import ResetPassword from "./auth/ResetPassword"
+import VerifyEmail from "./auth/VerifyEmail"
 import MyInvites from "./invites/MyInvites"
 import Onboarding from "./auth/Onboarding"
 import OnboardingProject from "./auth/OnboardingProject"
@@ -116,6 +119,20 @@ export const createRouter = ({
             {
                 path: "/register",
                 element: <Register />,
+            },
+            {
+                path: "/forgot-password",
+                element: <ForgotPassword />,
+            },
+            // Both of these are reached from an emailed link carrying a
+            // single-use token in the query string.
+            {
+                path: "/reset-password",
+                element: <ResetPassword />,
+            },
+            {
+                path: "/verify-email",
+                element: <VerifyEmail />,
             },
             {
                 path: "/invites",

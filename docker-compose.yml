@@ -19,7 +19,9 @@ services:
       RBAC_POSTGRES_URI: postgres://postgres:postgrespw@postgres:5432/rbac?sslmode=disable
       REDIS_ADDRESS: redis://redis:6379
       NATS_URL: nats://nats:4222
-      # Authentication
+      # Authentication. AUTH_DRIVER takes a comma-separated list, so a
+      # deployment can offer several login methods at once — for example
+      # "password,clerk" while an organization migrates onto SSO.
       AUTH_DRIVER: ${AUTH_DRIVER:-basic}
       # Signs the console session token (ES256). The default below is a PUBLICLY
       # KNOWN development key: anyone holding it can mint a valid console session
@@ -31,9 +33,25 @@ services:
       AUTH_CONSOLE_SIGNING_KEY: ${AUTH_CONSOLE_SIGNING_KEY:------BEGIN EC PRIVATE KEY-----\nMHcCAQEEIG6W7Oa4GaiOyuS/Fo18FOUVb840oWDlAC8cJuB2IuW8oAoGCCqGSM49\nAwEHoUQDQgAEwXeD5bykWmYlPbqqoxk0hUjxwp+DEyU+HPo0q/OCly3HHGk+yS9w\nck0TgwNlj1B6bKTJwKVmkeL76aKDuBFmQg==\n-----END EC PRIVATE KEY-----}
       AUTH_BASIC_EMAIL: ${AUTH_BASIC_EMAIL:-admin@localhost}
       AUTH_BASIC_PASSWORD: ${AUTH_BASIC_PASSWORD:-admin}
+      # Who may create an account with AUTH_DRIVER=password: open, invite_only
+      # or disabled. invite_only is the default and additionally admits the very
+      # first account, which nobody could have invited.
+      AUTH_PASSWORD_REGISTRATION: ${AUTH_PASSWORD_REGISTRATION:-invite_only}
       AUTH_CLERK_SECRET_KEY: ${AUTH_CLERK_SECRET_KEY:-}
       AUTH_CLERK_WEBHOOK_SECRET: ${AUTH_CLERK_WEBHOOK_SECRET:-}
       AUTH_JWKS_URL: ${AUTH_JWKS_URL:-}
+      # Where account confirmation and password reset mail is sent from. With no
+      # MAIL_HOST the platform writes the message — including the link — to its
+      # log instead of delivering it, so a fresh install can create and recover
+      # an account without an SMTP server. Set these before production.
+      MAIL_HOST: ${MAIL_HOST:-}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Lunogram}
+      # starttls, implicit or none.
+      MAIL_TLS: ${MAIL_TLS:-starttls}
       # Public URL used to generate user-facing links (e.g. preference center, unsubscribe)
       PUBLIC_URL: ${PUBLIC_URL:-http://localhost:8080}
     volumes:

@@ -86,10 +86,15 @@ export const client = Axios.create({
     },
 })
 
+const PUBLIC_PATHS = ["/login", "/register", "/forgot-password", "/reset-password", "/verify-email"]
+
 client.interceptors.response.use(
     (response) => response,
     async (error) => {
-        const isPublicPage = window.location.pathname.startsWith("/login")
+        // The unauthenticated views. A 401 on one of them is the answer to a
+        // question the page asked, not a session that expired, so bouncing to
+        // the login page would throw away what the caller was told.
+        const isPublicPage = PUBLIC_PATHS.some((path) => window.location.pathname.startsWith(path))
         const isUserNotAuthenticated = error.response?.status === 401
         const skipRedirect = error.config?.skipAuthRedirect
 
@@ -172,15 +177,60 @@ function createProjectEntityPath<T, C = Omit<T, OmitFields>, U = Omit<T, OmitFie
 
 const cache: {
     profile: null | Admin
+    authDrivers: null | Promise<AuthDriver[]>
 } = {
     profile: null,
+    authDrivers: null,
 }
 
 const api = {
     auth: {
         methods: async () => await client.get<AuthDriver[]>("/auth/methods").then((r) => r.data),
+        // cachedMethods answers the same question as methods() for callers that
+        // only need to know whether a driver is available (a "change password"
+        // control, say). The in-flight promise is cached, not just the result,
+        // so several components mounting at once share one request.
+        cachedMethods: async () => {
+            if (!cache.authDrivers) {
+                cache.authDrivers = api.auth.methods().catch((err) => {
+                    cache.authDrivers = null
+                    throw err
+                })
+            }
+            return await cache.authDrivers
+        },
         basicAuth: async (email: string, password: string) => {
             await client.post("/auth/login/basic/callback", { email, password })
+        },
+        passwordAuth: async (email: string, password: string) => {
+            await client.post("/auth/login/password/callback", { email, password })
+        },
+        // register always succeeds from the caller's point of view, whether or
+        // not the address already has an account. What actually happened is
+        // told to the address itself, by email.
+        register: async (params: {
+            email: string
+            password: string
+            first_name?: string
+            last_name?: string
+        }) => {
+            await client.post("/auth/register", params)
+        },
+        verifyEmail: async (token: string) => {
+            await client.post("/auth/verify", { token }, { skipAuthRedirect: true })
+        },
+        requestPasswordReset: async (email: string) => {
+            await client.post("/auth/password/reset", { email })
+        },
+        confirmPasswordReset: async (token: string, password: string) => {
+            await client.post(
+                "/auth/password/reset/confirm",
+                { token, password },
+                { skipAuthRedirect: true },
+            )
+        },
+        changePassword: async (current_password: string, password: string) => {
+            await client.post("/admin/profile/password", { current_password, password })
         },
         clerkAuth: async (token: string) => {
             await client.post(

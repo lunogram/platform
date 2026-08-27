@@ -1,11 +1,12 @@
-import { useCallback } from "react"
-import { LogOut } from "lucide-react"
+import { useCallback, useEffect, useState } from "react"
+import { KeyRound, LogOut } from "lucide-react"
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
+    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
@@ -15,6 +16,9 @@ import {
     useSidebar,
 } from "@/components/ui/sidebar"
 import { logout, cn } from "@/utils"
+import api from "@/api"
+import { AUTH_DRIVERS } from "@/types"
+import { ChangePasswordDialog } from "./change-password-dialog"
 import type { UserDropdownProps } from "./types"
 
 function getInitials(name: string): string {
@@ -30,6 +34,18 @@ export function DefaultUserDropdown({ user }: UserDropdownProps) {
     const isCollapsed = state === "collapsed"
 
     const initials = getInitials(user.name)
+    const [changingPassword, setChangingPassword] = useState(false)
+    const [hasPasswordDriver, setHasPasswordDriver] = useState(false)
+
+    // Offered only where it can work. On a deployment that authenticates through
+    // an upstream there is no password here to change, and the endpoint would
+    // answer as much.
+    useEffect(() => {
+        api.auth
+            .cachedMethods()
+            .then((methods) => setHasPasswordDriver(methods.includes(AUTH_DRIVERS.PASSWORD)))
+            .catch(() => setHasPasswordDriver(false))
+    }, [])
 
     const handleLogout = useCallback(async () => {
         await logout(undefined)
@@ -73,6 +89,18 @@ export function DefaultUserDropdown({ user }: UserDropdownProps) {
                         align="start"
                         sideOffset={4}
                     >
+                        {hasPasswordDriver && (
+                            <>
+                                <DropdownMenuItem
+                                    onSelect={() => setChangingPassword(true)}
+                                    className="cursor-pointer"
+                                >
+                                    <KeyRound className="mr-2 size-4" />
+                                    Change password
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                            </>
+                        )}
                         <DropdownMenuItem onSelect={handleLogout} className="cursor-pointer">
                             <LogOut className="mr-2 size-4" />
                             Sign out
@@ -80,6 +108,8 @@ export function DefaultUserDropdown({ user }: UserDropdownProps) {
                     </DropdownMenuContent>
                 </DropdownMenu>
             </SidebarMenuItem>
+
+            <ChangePasswordDialog open={changingPassword} onOpenChange={setChangingPassword} />
         </SidebarMenu>
     )
 }
