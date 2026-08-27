@@ -37,42 +37,16 @@ type AdminsController struct {
 func (srv *AdminsController) GetProfile(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	actor := rbac.FromContext(ctx)
-	if actor == nil || actor.ID == "" {
-		oapi.WriteProblem(w, problem.ErrUnauthorized())
+	adminID, err := adminActorID(actor)
+	if err != nil {
+		oapi.WriteProblem(w, err)
 		return
 	}
 
 	logger := srv.logger.With(zap.String("admin_id", actor.ID))
 	logger.Info("getting profile")
 
-	// Try to resolve the admin: first attempt as UUID, then as external ID.
-	adminID, parseErr := uuid.Parse(actor.ID)
-	if parseErr != nil {
-		// Not a valid UUID — treat as external ID.
-		admin, err := srv.store.GetAdminByExternalID(ctx, actor.ID)
-		if errors.Is(err, sql.ErrNoRows) {
-			oapi.WriteProblem(w, problem.ErrUnauthorized())
-			return
-		}
-		if err != nil {
-			logger.Error("failed to get admin by external ID", zap.Error(err))
-			oapi.WriteProblem(w, problem.ErrInternal())
-			return
-		}
-
-		err = srv.engine.Allowed(ctx, rbac.Read, rbac.OrganizationScope(actor.OrganizationID))
-		if err != nil {
-			oapi.WriteProblem(w, err)
-			return
-		}
-
-		logger.Info("profile retrieved")
-		json.Write(w, http.StatusOK, admin.OAPI())
-		return
-	}
-
-	err := srv.engine.Allowed(ctx, rbac.Read, rbac.OrganizationScope(actor.OrganizationID))
-	if err != nil {
+	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.OrganizationScope(actor.OrganizationID)); err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -97,37 +71,19 @@ func (srv *AdminsController) GetProfile(w http.ResponseWriter, r *http.Request) 
 func (srv *AdminsController) Whoami(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	actor := rbac.FromContext(ctx)
-	if actor == nil || actor.ID == "" {
-		oapi.WriteProblem(w, problem.ErrUnauthorized())
+	adminID, err := adminActorID(actor)
+	if err != nil {
+		oapi.WriteProblem(w, err)
 		return
 	}
 
-	err := srv.engine.Allowed(ctx, rbac.Read, rbac.OrganizationScope(actor.OrganizationID))
-	if err != nil {
+	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.OrganizationScope(actor.OrganizationID)); err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
 
 	logger := srv.logger.With(zap.String("admin_id", actor.ID))
 	logger.Info("getting current admin")
-
-	adminID, parseErr := uuid.Parse(actor.ID)
-	if parseErr != nil {
-		admin, err := srv.store.GetAdminByExternalID(ctx, actor.ID)
-		if errors.Is(err, sql.ErrNoRows) {
-			oapi.WriteProblem(w, problem.ErrUnauthorized())
-			return
-		}
-		if err != nil {
-			logger.Error("failed to get admin by external ID", zap.Error(err))
-			oapi.WriteProblem(w, problem.ErrInternal())
-			return
-		}
-
-		logger.Info("current admin retrieved")
-		json.Write(w, http.StatusOK, admin.OAPI())
-		return
-	}
 
 	admin, err := srv.store.GetAdmin(ctx, adminID)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -242,9 +198,12 @@ func (srv *AdminsController) CreateAdmin(w http.ResponseWriter, r *http.Request)
 		// is purely an organization-scoped membership grant; their global record
 		// is left untouched. The requested role becomes their membership role in
 		// THIS organization only.
-		_, err := provisionMembership(ctx, srv.db, srv.engine, actor.OrganizationID, string(body.Role),
-			func(ctx context.Context, _ *management.State) (uuid.UUID, error) {
-				return existingAdmin.ID, nil
+		_, err := access.ProvisionMembership(ctx, srv.db, srv.engine,
+			func(ctx context.Context, _ *management.State) (uuid.UUID, access.Membership, error) {
+				return existingAdmin.ID, access.Membership{
+					OrganizationID: actor.OrganizationID,
+					Role:           string(body.Role),
+				}, nil
 			},
 		)
 		if err != nil {
@@ -271,15 +230,22 @@ func (srv *AdminsController) CreateAdmin(w http.ResponseWriter, r *http.Request)
 	// and the RBAC tuples are written only after the transaction commits. This
 	// prevents partial state (an admin with no membership, or a membership with
 	// no role tuples) on a mid-sequence failure.
-	adminID, err := provisionMembership(ctx, srv.db, srv.engine, actor.OrganizationID, string(body.Role),
-		func(ctx context.Context, tx *management.State) (uuid.UUID, error) {
-			return tx.CreateAdmin(ctx, management.Admin{
+	adminID, err := access.ProvisionMembership(ctx, srv.db, srv.engine,
+		func(ctx context.Context, tx *management.State) (uuid.UUID, access.Membership, error) {
+			adminID, err := tx.CreateAdmin(ctx, management.Admin{
 				OrganizationID: actor.OrganizationID,
 				Email:          string(body.Email),
 				FirstName:      body.FirstName,
 				LastName:       body.LastName,
 				Role:           string(body.Role),
 			})
+			if err != nil {
+				return uuid.Nil, access.Membership{}, err
+			}
+			return adminID, access.Membership{
+				OrganizationID: actor.OrganizationID,
+				Role:           string(body.Role),
+			}, nil
 		},
 	)
 	if err != nil {
@@ -304,14 +270,9 @@ func (srv *AdminsController) CreateAdmin(w http.ResponseWriter, r *http.Request)
 func (srv *AdminsController) ListMyOrganizations(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	actor := rbac.FromContext(ctx)
-	if actor == nil || actor.ID == "" {
-		oapi.WriteProblem(w, problem.ErrUnauthorized())
-		return
-	}
-
-	adminID, err := uuid.Parse(actor.ID)
+	adminID, err := adminActorID(actor)
 	if err != nil {
-		oapi.WriteProblem(w, problem.ErrForbidden(problem.Describe("only admins have organizations")))
+		oapi.WriteProblem(w, err)
 		return
 	}
 
@@ -349,14 +310,9 @@ func (srv *AdminsController) ListMyOrganizations(w http.ResponseWriter, r *http.
 func (srv *AdminsController) SetActiveOrganization(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	actor := rbac.FromContext(ctx)
-	if actor == nil || actor.ID == "" {
-		oapi.WriteProblem(w, problem.ErrUnauthorized())
-		return
-	}
-
-	adminID, err := uuid.Parse(actor.ID)
+	adminID, err := adminActorID(actor)
 	if err != nil {
-		oapi.WriteProblem(w, problem.ErrForbidden(problem.Describe("only admins have organizations")))
+		oapi.WriteProblem(w, err)
 		return
 	}
 

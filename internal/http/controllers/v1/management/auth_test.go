@@ -8,6 +8,7 @@ import (
 	"github.com/lunogram/platform/internal/config"
 
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
+	"github.com/lunogram/platform/internal/store/management"
 	teststore "github.com/lunogram/platform/internal/store/test"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
@@ -28,7 +29,7 @@ func TestGetAuthMethods(t *testing.T) {
 		},
 	}
 
-	controller, err := NewAuthController(logger, mgmt, cfg, nil)
+	controller, err := NewAuthController(logger, mgmt, management.NewState(mgmt), cfg, nil, nil)
 	require.NoError(t, err)
 
 	type test struct {
@@ -74,7 +75,7 @@ func TestAuthCallbackWithInvalidDriver(t *testing.T) {
 		},
 	}
 
-	controller, err := NewAuthController(logger, mgmt, cfg, nil)
+	controller, err := NewAuthController(logger, mgmt, management.NewState(mgmt), cfg, nil, nil)
 	require.NoError(t, err)
 
 	type test struct {
@@ -115,7 +116,7 @@ func TestAuthWebhookWithInvalidDriver(t *testing.T) {
 		},
 	}
 
-	controller, err := NewAuthController(logger, mgmt, cfg, nil)
+	controller, err := NewAuthController(logger, mgmt, management.NewState(mgmt), cfg, nil, nil)
 	require.NoError(t, err)
 
 	type test struct {
