@@ -172,6 +172,28 @@ func (e *Engine) Check(ctx context.Context, user, relation, object string) (bool
 	return resp.Allowed, nil
 }
 
+// HasTuple reports whether the exact relationship tuple is stored. Unlike
+// [Engine.Check] it does not resolve through the authorization model, so a
+// relation an admin only inherits (an organization "owner" tuple satisfies a
+// "member" check, see [Model]) does not count as present. Use it to reason
+// about what was actually written; use [Engine.Check] for access decisions.
+func (e *Engine) HasTuple(ctx context.Context, user, relation, object string) (bool, error) {
+	resp, err := e.server.Read(ctx, &openfgav1.ReadRequest{
+		StoreId: e.storeID,
+		TupleKey: &openfgav1.ReadRequestTupleKey{
+			User:     user,
+			Relation: relation,
+			Object:   object,
+		},
+		PageSize:    wrapperspb.Int32(1),
+		Consistency: openfgav1.ConsistencyPreference_HIGHER_CONSISTENCY,
+	})
+	if err != nil {
+		return false, fmt.Errorf("openfga read failed: %w", err)
+	}
+	return len(resp.GetTuples()) > 0, nil
+}
+
 // ProjectRole returns the highest-ranked project role the user holds in the
 // project, or "" when they hold none. It asks the authorization model rather
 // than the database, so it answers for any subject that can hold a project role
@@ -300,11 +322,12 @@ func (e *Engine) writeTuples(ctx context.Context, tuples []Tuple) error {
 // WriteTuplesIfAbsent writes tuples, treating an already-existing tuple as
 // success so the grant is idempotent.
 //
-// It differs from [Engine.WriteTuplesIfMissing] in what it asks. That one calls
-// Check first, which resolves through the model's relation graph, so a tuple can
-// look "present" because some other relation implies it -- and the direct tuple
-// then never gets written. This one asks the write itself, so only an actually
-// identical tuple counts as already present.
+// Presence is decided by the write itself, never by asking Check first. Check
+// resolves through the model's relation graph, so a tuple can look "present"
+// because some other relation implies it -- an organization owner already
+// resolves as a project admin -- and the direct tuple would then never get
+// written. Asking the write means only an actually identical tuple counts as
+// already present.
 //
 // The batch is attempted first, keeping OpenFGA's all-or-nothing write for the
 // common case; a batch rejected for containing a duplicate is retried per tuple,
@@ -337,25 +360,6 @@ func isDuplicateWrite(err error) bool {
 	return status.Code(err) == codes.Code(openfgav1.ErrorCode_write_failed_due_to_invalid_input)
 }
 
-// WriteTuplesIfMissing writes only the tuples that are not already present,
-// making the grant idempotent. OpenFGA rejects writing a tuple that already
-// exists, so re-running a provisioning step (e.g. reconciling access for an
-// already-accepted invite) would otherwise fail. Each tuple is checked with a
-// direct relation lookup before being written; only the absent ones are sent.
-func (e *Engine) WriteTuplesIfMissing(ctx context.Context, tuples []Tuple) error {
-	var missing []Tuple
-	for _, t := range tuples {
-		exists, err := e.Check(ctx, t.User, t.Relation, t.Object)
-		if err != nil {
-			return err
-		}
-		if !exists {
-			missing = append(missing, t)
-		}
-	}
-	return e.WriteTuples(ctx, missing)
-}
-
 // DeleteTuples removes multiple relationship tuples in a single request.
 func (e *Engine) DeleteTuples(ctx context.Context, tuples []Tuple) error {
 	if len(tuples) == 0 {
@@ -369,6 +373,37 @@ func (e *Engine) DeleteTuples(ctx context.Context, tuples []Tuple) error {
 		StoreId:              e.storeID,
 		AuthorizationModelId: e.modelID,
 		Deletes:              &openfgav1.WriteRequestDeletes{TupleKeys: keys},
+	})
+	if err != nil {
+		return fmt.Errorf("openfga batch delete failed: %w", err)
+	}
+	return nil
+}
+
+// DeleteTuplesIfPresent removes tuples, treating an already-absent tuple as
+// success so the revocation is idempotent. It is the delete-side counterpart of
+// [Engine.WriteTuplesIfAbsent], and reconciling a role an admin never held has
+// to be a no-op rather than a failure.
+//
+// The tolerance comes from OpenFGA's own on_missing="ignore" option, so only the
+// exact not-present condition is absorbed, per tuple, inside the datastore
+// write. Every other delete failure still surfaces instead of being mistaken for
+// a revocation that already happened.
+func (e *Engine) DeleteTuplesIfPresent(ctx context.Context, tuples []Tuple) error {
+	if len(tuples) == 0 {
+		return nil
+	}
+	keys := make([]*openfgav1.TupleKeyWithoutCondition, len(tuples))
+	for i, t := range tuples {
+		keys[i] = &openfgav1.TupleKeyWithoutCondition{User: t.User, Relation: t.Relation, Object: t.Object}
+	}
+	_, err := e.server.Write(ctx, &openfgav1.WriteRequest{
+		StoreId:              e.storeID,
+		AuthorizationModelId: e.modelID,
+		Deletes: &openfgav1.WriteRequestDeletes{
+			TupleKeys: keys,
+			OnMissing: "ignore",
+		},
 	})
 	if err != nil {
 		return fmt.Errorf("openfga batch delete failed: %w", err)

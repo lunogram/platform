@@ -100,11 +100,12 @@ func ProjectRoleGrantTuples(grants []ProjectRoleGrant) []rbac.Tuple {
 // cannot share a transaction) a provisioning step may legitimately be re-run to
 // reconcile a membership whose tuples were never written.
 //
-// It must be [rbac.Engine.WriteTuplesIfAbsent] and not WriteTuplesIfMissing: the
-// latter asks Check, which resolves through the model, so an organization owner
-// already looks like a project admin by inheritance and the direct grant would
-// never be written — leaving them to lose the project the moment their
-// organization role changes, which is the very defect this exists to close.
+// It must be [rbac.Engine.WriteTuplesIfAbsent], which decides presence from the
+// write, and never a Check-then-write: Check resolves through the model, so an
+// organization owner already looks like a project admin by inheritance and the
+// direct grant would never be written — leaving them to lose the project the
+// moment their organization role changes, which is the very defect this exists
+// to close.
 func ProvisionProjectRole(ctx context.Context, engine *rbac.Engine, adminID, projectID uuid.UUID, role string) error {
 	tuples := ProjectRoleTuples(adminID, projectID, role)
 	if err := engine.WriteTuplesIfAbsent(ctx, tuples); err != nil {
