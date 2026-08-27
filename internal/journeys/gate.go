@@ -1,6 +1,8 @@
 package journeys
 
 import (
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/node/metrics"
@@ -180,13 +182,26 @@ func evaluateLocalRules(rs rules.RuleSet, data map[string]any) (bool, error) {
 
 // evaluateHistoricalRules evaluates historical rules via SQL query.
 func evaluateHistoricalRules(ctx HandlerContext, rs rules.RuleSet, state journey.JourneyUserState) (bool, error) {
+	start := time.Now()
+
 	builder := query.NewQueryBuilder(ctx.ProjectID, &ctx.UserID).WithSinceTimestamp(state.EnteredAt)
 	q, err := builder.Query(rs)
 	if err != nil {
+		metrics.ObserveDatasetQuery(metrics.QueryGateHistorical, ctx.ProjectID, start, 0, err)
 		return false, err
 	}
 
 	var match uuid.UUID
 	err = ctx.DB.GetContext(ctx, &match, q.SQL, q.Args...)
-	return err == nil, nil
+	matched := err == nil
+
+	// A miss and a query failure are indistinguishable to the caller, which
+	// treats both as "did not match", so neither is recorded as an error here.
+	rows := 0
+	if matched {
+		rows = 1
+	}
+	metrics.ObserveDatasetQuery(metrics.QueryGateHistorical, ctx.ProjectID, start, rows, nil)
+
+	return matched, nil
 }

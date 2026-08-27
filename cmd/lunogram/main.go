@@ -18,6 +18,7 @@ import (
 	v1 "github.com/lunogram/platform/internal/http/controllers/v1"
 	"github.com/lunogram/platform/internal/integrations"
 	"github.com/lunogram/platform/internal/jwks"
+	"github.com/lunogram/platform/internal/node/metrics"
 	"github.com/lunogram/platform/internal/providers"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/consumer"
@@ -203,6 +204,10 @@ func run() error {
 
 	logger.Info("serving http server")
 	go server.Serve(ctx, conf.HTTPAddress)
+
+	if conf.MetricsAddress != "" {
+		go metrics.Serve(ctx, logger, conf.MetricsAddress)
+	}
 
 	logger.Info("service up and running!")
 	ctx.AwaitKillSignal()

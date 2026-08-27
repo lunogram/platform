@@ -2,7 +2,9 @@ package metrics
 
 import (
 	"net/http"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -243,6 +245,76 @@ var AuthLegacySessionUpgradeTotal = promauto.NewCounterVec(prometheus.CounterOpt
 	Name: "lunogram_auth_legacy_session_upgrade_total",
 	Help: "Total legacy session cookies exchanged for a Lunogram console session",
 }, []string{"result"})
+
+// ============================================================================
+// Dataset Queries
+// ============================================================================
+
+// Labels for the rule-driven dataset queries below. Each compiles a
+// customer-authored ruleset into SQL, so its cost is bounded by the customer's
+// data rather than by anything Lunogram controls.
+const (
+	// QueryListRecompute recomputes a list's membership. Unbounded: it MERGEs
+	// the full match set against list_users, which makes a broad rule over a
+	// large project the most expensive query the platform runs.
+	QueryListRecompute = "list_recompute"
+	// QueryListPreview previews a draft rule for the console. Bounded by a
+	// limit, but runs interactively while someone waits on it.
+	QueryListPreview = "list_preview"
+	// QueryGateHistorical evaluates a journey gate's historical rules. Cheap
+	// individually, but runs once per user per gate, so it shows up as volume.
+	QueryGateHistorical = "gate_historical"
+	// QueryOrganizationMembers scans an organization's members through a rule.
+	QueryOrganizationMembers = "organization_members"
+)
+
+var DatasetQueryDurationSeconds = promauto.NewHistogramVec(prometheus.HistogramOpts{
+	Name: "lunogram_dataset_query_duration_seconds",
+	Help: "Duration of rule-driven dataset queries in seconds",
+	// Reaches well past DefBuckets' 10s ceiling: a list recompute over a large
+	// project is expected to take tens of seconds, and clipping it at the top
+	// bucket would hide exactly the spikes worth alerting on.
+	Buckets: []float64{0.005, 0.025, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30, 60, 120},
+}, []string{"query", "project_id"})
+
+var DatasetQueryRows = promauto.NewHistogramVec(prometheus.HistogramOpts{
+	Name:    "lunogram_dataset_query_rows",
+	Help:    "Rows returned by a single rule-driven dataset query",
+	Buckets: []float64{1, 10, 100, 1000, 10000, 100000, 1000000},
+}, []string{"query", "project_id"})
+
+var DatasetQueryRowsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "lunogram_dataset_query_rows_total",
+	Help: "Total rows returned by rule-driven dataset queries",
+}, []string{"query", "project_id"})
+
+var DatasetQueriesTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "lunogram_dataset_queries_total",
+	Help: "Total rule-driven dataset queries run",
+}, []string{"query", "project_id"})
+
+var DatasetQueryErrorsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "lunogram_dataset_query_errors_total",
+	Help: "Total rule-driven dataset queries that failed",
+}, []string{"query", "project_id"})
+
+// ObserveDatasetQuery records one rule-driven dataset query. The timing is
+// expected to cover compiling the ruleset as well as running the SQL, since a
+// caller waiting on a segment cannot tell the two apart.
+func ObserveDatasetQuery(query string, projectID uuid.UUID, start time.Time, rows int, err error) {
+	project := projectID.String()
+
+	DatasetQueriesTotal.WithLabelValues(query, project).Inc()
+	DatasetQueryDurationSeconds.WithLabelValues(query, project).Observe(time.Since(start).Seconds())
+
+	if err != nil {
+		DatasetQueryErrorsTotal.WithLabelValues(query, project).Inc()
+		return
+	}
+
+	DatasetQueryRows.WithLabelValues(query, project).Observe(float64(rows))
+	DatasetQueryRowsTotal.WithLabelValues(query, project).Add(float64(rows))
+}
 
 func NewHandler() http.Handler {
 	return promhttp.Handler()

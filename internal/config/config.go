@@ -12,8 +12,12 @@ import (
 )
 
 type Node struct {
-	NodeID          string `env:"NODE_ID" envDefault:""`
-	HTTPAddress     string `env:"HTTP_ADDRESS" envDefault:":8080"`
+	NodeID      string `env:"NODE_ID" envDefault:""`
+	HTTPAddress string `env:"HTTP_ADDRESS" envDefault:":8080"`
+	// MetricsAddress is where the Prometheus registry is exposed. It is
+	// deliberately not the public HTTP port, which is reachable through the
+	// ingress. Set it to an empty string to disable the endpoint.
+	MetricsAddress  string `env:"METRICS_ADDRESS" envDefault:":9101"`
 	DatabaseMigrate bool   `env:"DATABASE_MIGRATE" envDefault:"true"`
 
 	PublicURL  string      `env:"PUBLIC_URL" envDefault:"http://localhost:8080"`
