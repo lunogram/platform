@@ -155,8 +155,9 @@ func NewExchanger(
 }
 
 // Exchange completes a login. When w is non-nil the console session cookie is
-// set on it; passing nil mints the session without touching the response, which
-// is what the legacy upgrade path needs when it rewrites a request in flight.
+// set on it; passing nil mints the session without touching the response.
+//
+// A login is an event, so it always opens its own session.
 func (e *Exchanger) Exchange(ctx context.Context, w http.ResponseWriter, r *http.Request, identity *VerifiedIdentity) (*ExchangeResult, error) {
 	if e.signer == nil {
 		return nil, problem.ErrInternal(problem.Describe("console sessions are not configured"))
@@ -167,6 +168,56 @@ func (e *Exchanger) Exchange(ctx context.Context, w http.ResponseWriter, r *http
 		return nil, err
 	}
 
+	result, err := e.openSession(ctx, r, identity, resolved)
+	if err != nil {
+		return nil, err
+	}
+
+	if w != nil {
+		SetConsoleSessionCookie(w, r, result.Token, result.ExpiresAt)
+	}
+	return result, nil
+}
+
+// Upgrade re-proves a credential that is being MIGRATED rather than freshly
+// presented, returning a console session for it without touching the response.
+//
+// It differs from [Exchanger.Exchange] in one way that matters: it reuses the
+// session the browser already holds when there is one, extending its idle window
+// instead of opening another. A login is an event and deserves its own session;
+// a migration is the same session arriving under a different proof.
+//
+// An impersonated credential never reuses, so its clamped, non-refreshable
+// lifetime is always computed from scratch rather than inherited from an
+// ordinary session.
+func (e *Exchanger) Upgrade(ctx context.Context, r *http.Request, identity *VerifiedIdentity) (*ExchangeResult, error) {
+	if e.signer == nil {
+		return nil, problem.ErrInternal(problem.Describe("console sessions are not configured"))
+	}
+
+	resolved, err := e.resolve(ctx, identity)
+	if err != nil {
+		return nil, err
+	}
+
+	if identity.Actor == nil {
+		session, err := e.mgmt.ReuseAdminSession(ctx, resolved.adminID, resolved.identityID, time.Now().Add(e.signer.IdleTTL()))
+		switch {
+		case err == nil:
+			// Reuse is not a login, so the identity's last_login_at is left
+			// alone: nobody signed in here, an existing session simply arrived
+			// under a new proof.
+			return e.mint(session, identity)
+		case !errors.Is(err, sql.ErrNoRows):
+			return nil, err
+		}
+	}
+
+	return e.openSession(ctx, r, identity, resolved)
+}
+
+// openSession records a new session for a resolved identity and mints its token.
+func (e *Exchanger) openSession(ctx context.Context, r *http.Request, identity *VerifiedIdentity, resolved *resolvedIdentity) (*ExchangeResult, error) {
 	if err := e.mgmt.TouchAdminIdentity(ctx, resolved.identityID, identity.Email, identity.EmailVerified); err != nil {
 		return nil, err
 	}
@@ -176,15 +227,16 @@ func (e *Exchanger) Exchange(ctx context.Context, w http.ResponseWriter, r *http
 		return nil, err
 	}
 
+	return e.mint(session, identity)
+}
+
+// mint issues the token that proves a session. The token's expiry is the
+// session's, so a credential can never outlive the row it names.
+func (e *Exchanger) mint(session *management.AdminSession, identity *VerifiedIdentity) (*ExchangeResult, error) {
 	token, err := e.signer.Mint(session, []string{identity.Provider})
 	if err != nil {
 		return nil, err
 	}
-
-	if w != nil {
-		SetConsoleSessionCookie(w, r, token, session.ExpiresAt)
-	}
-
 	return &ExchangeResult{Token: token, ExpiresAt: session.ExpiresAt, Session: session}, nil
 }
 
