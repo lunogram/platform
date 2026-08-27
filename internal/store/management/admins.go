@@ -2,29 +2,61 @@ package management
 
 import (
 	"context"
-	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
-	"github.com/lunogram/platform/internal/http/problem"
 	"github.com/lunogram/platform/internal/store"
 )
 
-func NewAdminsStore(db store.DB) *AdminsStore {
-	return &AdminsStore{db: db}
+// ErrAmbiguousEmail is returned when an email address does not resolve to a
+// single, unambiguous admin. The duplicate-email migration quarantines the
+// surplus rows rather than merging them, because two rows sharing an address may
+// be two real people; an address touched by that reconciliation stays unresolvable
+// until an operator says which account it belongs to. Every path that would act
+// on "the admin with this email" fails closed here instead of guessing.
+var ErrAmbiguousEmail = errors.New("management: email does not resolve to a single admin")
+
+// AmbiguousEmailError carries every live admin on the address so the caller can
+// log exactly which accounts need reconciling. It matches [ErrAmbiguousEmail]
+// under errors.Is.
+type AmbiguousEmailError struct {
+	Email    string
+	AdminIDs []uuid.UUID
+}
+
+func (e *AmbiguousEmailError) Error() string {
+	if len(e.AdminIDs) == 1 {
+		// The other side of the collision has since been deleted, but the
+		// survivor is still quarantined and so is still not the address's
+		// confirmed owner.
+		return fmt.Sprintf("management: email %q belongs to an admin quarantined by duplicate-email reconciliation", e.Email)
+	}
+	return fmt.Sprintf("management: email %q resolves to %d live admins", e.Email, len(e.AdminIDs))
+}
+
+func (e *AmbiguousEmailError) Unwrap() error { return ErrAmbiguousEmail }
+
+// NewAdminsStore builds the admin store. sessions may be nil, in which case
+// deleting an admin does not end the sessions they hold.
+func NewAdminsStore(db store.DB, sessions *AdminSessionsStore) *AdminsStore {
+	return &AdminsStore{db: db, sessions: sessions}
 }
 
 type AdminsStore struct {
 	db store.DB
+	// sessions is held so a write that must end a session can do it from inside
+	// the store. Leaving that to callers makes it something a future path can
+	// forget, and forgetting means a deleted admin keeps a working console.
+	sessions *AdminSessionsStore
 }
 
 type Admin struct {
 	ID                   uuid.UUID  `db:"id"`
 	OrganizationID       uuid.UUID  `db:"organization_id"`
 	ActiveOrganizationID *uuid.UUID `db:"active_organization_id"`
-	ExternalID           *string    `db:"external_id"`
 	Email                string     `db:"email"`
 	FirstName            *string    `db:"first_name"`
 	LastName             *string    `db:"last_name"`
@@ -38,7 +70,6 @@ func (admin *Admin) OAPI() oapi.Admin {
 	return oapi.Admin{
 		Id:             admin.ID,
 		OrganizationId: admin.OrganizationID,
-		ExternalId:     admin.ExternalID,
 		Email:          admin.Email,
 		FirstName:      admin.FirstName,
 		LastName:       admin.LastName,
@@ -51,7 +82,7 @@ func (admin *Admin) OAPI() oapi.Admin {
 
 func (s *AdminsStore) GetAdmin(ctx context.Context, id uuid.UUID) (*Admin, error) {
 	stmt := `
-	SELECT id, organization_id, active_organization_id, external_id, email, first_name, last_name, image_url, role, created_at, updated_at
+	SELECT id, organization_id, active_organization_id, email, first_name, last_name, image_url, role, created_at, updated_at
 	FROM admins
 	WHERE id = $1
 	AND deleted_at IS NULL`
@@ -65,54 +96,18 @@ func (s *AdminsStore) GetAdmin(ctx context.Context, id uuid.UUID) (*Admin, error
 	return &admin, nil
 }
 
-func (s *AdminsStore) GetAdminByExternalID(ctx context.Context, externalID string) (*Admin, error) {
-	stmt := `
-	SELECT id, organization_id, active_organization_id, external_id, email, first_name, last_name, image_url, role, created_at, updated_at
-	FROM admins
-	WHERE external_id = $1
-	AND deleted_at IS NULL`
-
-	var admin Admin
-	err := s.db.GetContext(ctx, &admin, stmt, externalID)
-	if err != nil {
-		return nil, err
-	}
-
-	return &admin, nil
-}
-
-func (s *AdminsStore) GetAdminBySubject(ctx context.Context, issuer, subject string) (*Admin, error) {
-	if issuer != "" {
-		admin, err := s.GetAdminByExternalID(ctx, subject)
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return nil, err
-		}
-		if admin != nil {
-			return admin, nil
-		}
-	}
-
-	adminID, err := uuid.Parse(subject)
-	if err != nil {
-		return nil, problem.ErrUnauthorized(problem.Describe("invalid token"))
-	}
-
-	return s.GetAdmin(ctx, adminID)
-}
-
 func (s *AdminsStore) CreateAdmin(ctx context.Context, admin Admin) (uuid.UUID, error) {
 	// A newly created admin's active organization defaults to its home
 	// organization; the switcher can change it later.
 	stmt := `
-	INSERT INTO admins (organization_id, active_organization_id, external_id, email, first_name, last_name, image_url, role)
-	VALUES ($1, $1, $2, $3, $4, $5, $6, $7)
+	INSERT INTO admins (organization_id, active_organization_id, email, first_name, last_name, image_url, role)
+	VALUES ($1, $1, $2, $3, $4, $5, $6)
 	RETURNING id
 	`
 
 	var id uuid.UUID
 	err := s.db.GetContext(ctx, &id, stmt,
 		admin.OrganizationID,
-		admin.ExternalID,
 		admin.Email,
 		admin.FirstName,
 		admin.LastName,
@@ -135,7 +130,7 @@ func (s *AdminsStore) ListAdmins(ctx context.Context, organizationID uuid.UUID, 
 	// organization_members rather than filtering admins.organization_id.
 	query := `
 	SELECT
-		a.id, a.organization_id, a.active_organization_id, a.external_id, a.email, a.first_name, a.last_name, a.image_url, a.role, a.created_at, a.updated_at,
+		a.id, a.organization_id, a.active_organization_id, a.email, a.first_name, a.last_name, a.image_url, a.role, a.created_at, a.updated_at,
 		COUNT(*) OVER () AS total_count
 	FROM admins a
 	JOIN organization_members om ON om.admin_id = a.id AND om.organization_id = $1 AND om.deleted_at IS NULL
@@ -176,12 +171,20 @@ func (s *AdminsStore) ListAdmins(ctx context.Context, organizationID uuid.UUID, 
 // matching must be case-insensitive everywhere it affects authorization (e.g.
 // the cross-organization invite guard and login provisioning); an exact match
 // would let an uppercase-stored email silently bypass those checks.
+//
+// Quarantined admins (email_conflict_at set) are excluded. They keep their real
+// address and keep authenticating through admin_identities; it is only the email
+// JOIN -- the part that would have to guess which of several accounts an address
+// means -- that skips them. Callers that link an identity onto an address must
+// use [AdminsStore.ResolveAdminByEmail], which reports the ambiguity instead of
+// silently returning the surviving row.
 func (s *AdminsStore) GetAdminByEmail(ctx context.Context, email string) (*Admin, error) {
 	stmt := `
-	SELECT id, organization_id, active_organization_id, external_id, email, first_name, last_name, image_url, role, created_at, updated_at
+	SELECT id, organization_id, active_organization_id, email, first_name, last_name, image_url, role, created_at, updated_at
 	FROM admins
 	WHERE lower(email) = lower($1)
-	AND deleted_at IS NULL`
+	AND deleted_at IS NULL
+	AND email_conflict_at IS NULL`
 
 	var admin Admin
 	err := s.db.GetContext(ctx, &admin, stmt, email)
@@ -190,6 +193,50 @@ func (s *AdminsStore) GetAdminByEmail(ctx context.Context, email string) (*Admin
 	}
 
 	return &admin, nil
+}
+
+// ResolveAdminByEmail resolves the single admin that owns an address, for the
+// paths that use email as an identity key rather than as a display field.
+//
+// It returns [ErrAmbiguousEmail] (as an [AmbiguousEmailError] naming every
+// colliding admin) when the address is shared by more than one live admin, even
+// if exactly one of them is canonical. That is the whole point: a quarantined
+// duplicate means nobody can tell which of the two accounts the address
+// identifies, so binding a new identity to either is a guess -- and guessing
+// wrong hands one person's console to another. Failing closed leaves an operator
+// to reconcile the accounts. sql.ErrNoRows means the address is unclaimed.
+func (s *AdminsStore) ResolveAdminByEmail(ctx context.Context, email string) (*Admin, error) {
+	stmt := `
+	SELECT id, organization_id, active_organization_id, email, first_name, last_name, image_url, role, created_at, updated_at,
+	       email_conflict_at IS NOT NULL AS quarantined
+	FROM admins
+	WHERE lower(email) = lower($1)
+	AND deleted_at IS NULL
+	ORDER BY email_conflict_at NULLS FIRST, created_at ASC, id ASC`
+
+	type row struct {
+		Admin
+		Quarantined bool `db:"quarantined"`
+	}
+
+	var rows []row
+	if err := s.db.SelectContext(ctx, &rows, stmt, email); err != nil {
+		return nil, err
+	}
+
+	switch {
+	case len(rows) == 0:
+		return nil, store.ErrNoRows
+	case len(rows) == 1 && !rows[0].Quarantined:
+		admin := rows[0].Admin
+		return &admin, nil
+	}
+
+	ids := make([]uuid.UUID, len(rows))
+	for i, r := range rows {
+		ids[i] = r.ID
+	}
+	return nil, &AmbiguousEmailError{Email: email, AdminIDs: ids}
 }
 
 type AdminUpdate struct {
@@ -214,15 +261,30 @@ func (s *AdminsStore) UpdateAdmin(ctx context.Context, id uuid.UUID, update Admi
 	return err
 }
 
+// DeleteAdmin soft-deletes an admin and ends every session they hold. Revoking
+// the sessions is not housekeeping: without it a deleted admin keeps a working
+// console until their token expires, because the middleware resolves a session
+// by id and never re-checks that the admin still exists.
 func (s *AdminsStore) DeleteAdmin(ctx context.Context, id uuid.UUID) error {
 	stmt := `UPDATE admins SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL`
-	_, err := s.db.ExecContext(ctx, stmt, id)
-	return err
+	if _, err := s.db.ExecContext(ctx, stmt, id); err != nil {
+		return err
+	}
+
+	if s.sessions != nil {
+		return s.sessions.RevokeAdminSessionsForAdmin(ctx, id)
+	}
+	return nil
 }
 
 // SetActiveOrganization updates the admin's active organization, the one that
 // scopes their session. Callers must verify the admin is a member of the
 // organization first.
+//
+// The active organization is deliberately NOT part of the cached session: it
+// lives here, on the admin, and is re-read and re-validated against current
+// membership on every request. Nothing cached changes here, so there is nothing
+// to invalidate.
 func (s *AdminsStore) SetActiveOrganization(ctx context.Context, adminID, organizationID uuid.UUID) error {
 	stmt := `UPDATE admins SET active_organization_id = $2 WHERE id = $1 AND deleted_at IS NULL`
 	_, err := s.db.ExecContext(ctx, stmt, adminID, organizationID)

@@ -53,6 +53,47 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
+  /api/auth/logout:
+    post:
+      summary: End the current console session
+      description: >-
+        Revokes the caller's console session server-side and clears the session
+        cookies. The session is revoked rather than merely forgotten, so a copy
+        of the token cannot keep authenticating.
+      operationId: logout
+      tags:
+        - Auth
+      security:
+        - HttpBearerAuth: []
+      responses:
+        "204":
+          description: Session ended
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/auth/refresh:
+    post:
+      summary: Extend the current console session
+      description: >-
+        Extends the idle window of the caller's own session and reissues the
+        session cookie. Answers 401 when the session is gone (revoked or
+        expired), and 403 when it is alive but cannot be extended -- an
+        impersonated session is recorded non-refreshable by construction.
+      operationId: refreshSession
+      tags:
+        - Auth
+      security:
+        - HttpBearerAuth: []
+      responses:
+        "200":
+          description: Session refreshed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionRefresh"
+        default:
+          $ref: "#/components/responses/Error"
+
   /api/auth/{driver}/webhook:
     post:
       summary: Auth provider webhook
@@ -2356,9 +2397,13 @@ paths:
           description: The user ID
         - name: status
           in: query
+          description: >-
+            Filters by read state, or by delivery outcome when set to failed. Selecting failed
+            returns messages that were terminally settled without being delivered, such as a
+            recipient suppressed by an opt-out, regardless of their read state.
           schema:
             type: string
-            enum: [unread, read, archived]
+            enum: [unread, read, archived, failed]
         - name: tags
           in: query
           schema:
@@ -3358,9 +3403,13 @@ paths:
           description: The organization ID
         - name: status
           in: query
+          description: >-
+            Filters by read state, or by delivery outcome when set to failed. Selecting failed
+            returns messages that were terminally settled without being delivered, such as a
+            recipient suppressed by an opt-out, regardless of their read state.
           schema:
             type: string
-            enum: [unread, read, archived]
+            enum: [unread, read, archived, failed]
         - name: tags
           in: query
           schema:
@@ -6188,6 +6237,14 @@ paths:
                         sent_at:
                           type: string
                           format: date-time
+                        failure_reason:
+                          type: string
+                          nullable: true
+                          description: >-
+                            Why the recipient was not reached, set only when state is failed.
+                            Distinguishes a suppressed recipient (recipient_opted_out) from a
+                            genuine delivery failure such as invalid_recipient. Left
+                            unconstrained for the same reason as InboxMessage.failure_reason.
                         full_name:
                           type: string
                         email:
@@ -7964,9 +8021,6 @@ components:
           type: string
           format: uuid
           example: "7c1e3c5a-2b4d-4e8f-9a1b-3c5d7e9f1a2b"
-        external_id:
-          type: string
-          example: "user_2abc123def"
         email:
           type: string
           format: email
@@ -8609,6 +8663,19 @@ components:
           type: string
           format: date-time
           nullable: true
+        failed_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the message was permanently settled as failed. Mutually exclusive with sent_at.
+        failure_reason:
+          type: string
+          nullable: true
+          description: >-
+            Why the message will never be delivered, set alongside failed_at. Carries one of the
+            canonical reasons recipient_opted_out, invalid_recipient, sender_unregistered,
+            rate_limited or unknown. Left unconstrained so a newly classified reason does not
+            require a breaking schema change; treat an unrecognised value as unknown.
         created_at:
           type: string
           format: date-time
@@ -10192,6 +10259,10 @@ components:
           type: integer
           description: Number of messages actually delivered so far
           example: 0
+        failed:
+          type: integer
+          description: Number of messages that terminally will not be delivered, such as a suppressed recipient or a permanent provider rejection
+          example: 0
         error:
           type: string
           description: Error message if the broadcast failed
@@ -10247,6 +10318,17 @@ components:
           type: boolean
           description: Whether this is the admin's currently active organization
           example: true
+
+    SessionRefresh:
+      type: object
+      required:
+        - expires_at
+      properties:
+        expires_at:
+          type: string
+          format: date-time
+          description: When the refreshed session expires if it is not used again
+          example: "2025-11-19T14:18:42.960Z"
 
     SetActiveOrganization:
       type: object

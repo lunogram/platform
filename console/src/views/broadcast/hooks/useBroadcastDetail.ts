@@ -32,6 +32,7 @@ export interface UseBroadcastDetailResult {
 
     // SSE progress
     streamedSent: number | null
+    streamedFailed: number | null
     streamedTotal: number | null
 
     // Action states
@@ -166,7 +167,11 @@ export function useBroadcastDetail(broadcastId: UUID): UseBroadcastDetailResult 
     }, [])
 
     // SSE: stream sent count while broadcast is sending.
-    const { sent: streamedSent, total: streamedTotal } = useBroadcastProgress({
+    const {
+        sent: streamedSent,
+        failed: streamedFailed,
+        total: streamedTotal,
+    } = useBroadcastProgress({
         projectId: project.id,
         broadcastId,
         enabled: broadcastState === "sending",
@@ -320,6 +325,7 @@ export function useBroadcastDetail(broadcastId: UUID): UseBroadcastDetailResult 
         handleUsersSearch,
 
         streamedSent,
+        streamedFailed,
         streamedTotal,
 
         isSending,

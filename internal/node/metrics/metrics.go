@@ -231,6 +231,19 @@ var NATSMessageProcessingDurationSeconds = promauto.NewHistogramVec(prometheus.H
 	Buckets: prometheus.DefBuckets,
 }, []string{"stream", "consumer"})
 
+// ============================================================================
+// Auth
+// ============================================================================
+
+// AuthLegacySessionUpgradeTotal counts requests whose legacy provider-issued
+// session cookie was exchanged in flight for a Lunogram console session. It is
+// the deletion criterion for that transitional path: once it has been flat at
+// zero for a full legacy-cookie lifetime, no browser is holding one any more.
+var AuthLegacySessionUpgradeTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "lunogram_auth_legacy_session_upgrade_total",
+	Help: "Total legacy session cookies exchanged for a Lunogram console session",
+}, []string{"result"})
+
 func NewHandler() http.Handler {
 	return promhttp.Handler()
 }

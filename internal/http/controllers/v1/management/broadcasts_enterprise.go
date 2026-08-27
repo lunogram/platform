@@ -74,7 +74,6 @@ func (srv *BroadcastsController) CreateBroadcast(w http.ResponseWriter, r *http.
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("campaign_id", body.CampaignId), zap.Stringer("list_id", body.ListId))
 	logger.Info("creating broadcast")
 
-	// Load campaign and verify it has a provider configured
 	campaign, err := srv.mgmt.GetCampaign(ctx, projectID, body.CampaignId)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("campaign not found", zap.Stringer("campaign_id", body.CampaignId))
@@ -419,6 +418,7 @@ func (srv *BroadcastsController) StreamBroadcastProgress(
 		evt := map[string]any{
 			"state":    string(broadcast.State),
 			"sent":     sent,
+			"failed":   broadcast.Failed,
 			"total":    broadcast.Total,
 			"terminal": terminal,
 		}

@@ -214,8 +214,10 @@ func TestCreateBroadcast(t *testing.T) {
 	}
 }
 
-// TestCreateBroadcastCampaignWithoutProvider verifies that creating a broadcast
-// for a campaign that has no provider configured returns 400.
+// TestCreateBroadcastCampaignWithoutProvider verifies that a broadcast can be
+// created for a campaign that has no provider configured. Providers are owned
+// by the project and resolved per message at dispatch time, so provider
+// configuration is not a precondition for creating a broadcast.
 func TestCreateBroadcastCampaignWithoutProvider(t *testing.T) {
 	t.Parallel()
 
@@ -286,7 +288,16 @@ func TestCreateBroadcastCampaignWithoutProvider(t *testing.T) {
 	req = req.WithContext(actorCtx)
 	controller.CreateBroadcast(res, req, projectID)
 
-	require.Equal(t, 400, res.Code, res.Body.String())
+	require.Equal(t, 201, res.Code, res.Body.String())
+
+	var broadcast oapi.Broadcast
+	err = json.Unmarshal(res.Body.Bytes(), &broadcast)
+	require.NoError(t, err)
+
+	require.Equal(t, projectID, broadcast.ProjectId)
+	require.Equal(t, campaignID, broadcast.CampaignId)
+	require.Equal(t, listID, broadcast.ListId)
+	require.Equal(t, oapi.BroadcastState("pending"), broadcast.State)
 }
 
 func TestListBroadcasts(t *testing.T) {

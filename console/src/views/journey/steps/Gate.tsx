@@ -5,11 +5,28 @@ import RuleBuilder from "../../users/rules/RuleBuilder"
 import { PreferencesContext } from "@/contexts/PreferencesContext"
 import { useTranslation } from "react-i18next"
 import { ruleDescription } from "../../users/rules/RuleDescriptions"
-import { createWrapperRule } from "../../users/rules/RuleHelpers"
+import { createWrapperRule, isStepVisitRule, isWrapper } from "../../users/rules/RuleHelpers"
+import type { JourneyStepOption } from "../JourneyVariableContext"
 import { useJourneyVariableContext } from "../JourneyVariableContext"
 
 interface GateConfig {
     rule: Rule
+}
+
+/**
+ * Replaces the step id a step visit rule points at with the name shown on the
+ * canvas, so the gate summary reads as the journey does.
+ */
+function withStepNames(rule: Rule, steps: JourneyStepOption[]): Rule {
+    if (isStepVisitRule(rule)) {
+        return { ...rule, path: steps.find(({ id }) => id === rule.path)?.label ?? rule.path }
+    }
+
+    if (isWrapper(rule)) {
+        return { ...rule, children: rule.children.map((child) => withStepNames(child, steps)) }
+    }
+
+    return rule
 }
 
 export const gateStep: JourneyStepType<GateConfig> = {
@@ -20,11 +37,13 @@ export const gateStep: JourneyStepType<GateConfig> = {
     Describe({ value }) {
         const { t } = useTranslation()
         const [preferences] = useContext(PreferencesContext)
+        const { steps } = useJourneyVariableContext()
         if (value.rule) {
+            const rule = withStepNames(value.rule, steps)
             return (
                 <div className="max-w-[300px]">
                     {t("has_done") + " "}
-                    {ruleDescription(preferences, value.rule, [], value.rule.operator)}
+                    {ruleDescription(preferences, rule, [], rule.operator)}
                 </div>
             )
         }
@@ -35,7 +54,7 @@ export const gateStep: JourneyStepType<GateConfig> = {
     }),
     Edit({ onChange, value, nodeId }) {
         const { t } = useTranslation()
-        const { getVariablesForNode } = useJourneyVariableContext()
+        const { getVariablesForNode, steps } = useJourneyVariableContext()
         const journeyVariables = nodeId ? getVariablesForNode(nodeId) : []
         return (
             <RuleBuilder
@@ -45,6 +64,8 @@ export const gateStep: JourneyStepType<GateConfig> = {
                 userOnly={true}
                 journeyContext={true}
                 journeyVariables={journeyVariables}
+                journeySteps={steps}
+                currentStepId={nodeId}
             />
         )
     },

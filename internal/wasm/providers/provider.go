@@ -36,12 +36,13 @@ func (p *Provider) Manifest() providertypes.ProviderManifest {
 
 	if spec, ok := p.Integration.ProviderSpec(); ok {
 		compat.Spec = providertypes.ProviderSpec{
-			Channels:  fromUnifiedChannels(spec.Channels),
-			Platforms: fromUnifiedPlatforms(spec.Platforms),
-			Webhook:   spec.Webhook,
-			Locked:    spec.Locked,
-			RateLimit: fromUnifiedRateLimit(spec.RateLimit),
-			Config:    im.Config,
+			Channels:          fromUnifiedChannels(spec.Channels),
+			Platforms:         fromUnifiedPlatforms(spec.Platforms),
+			Webhook:           spec.Webhook,
+			Locked:            spec.Locked,
+			RateLimit:         fromUnifiedRateLimit(spec.RateLimit),
+			Config:            im.Config,
+			SelfHandlesOptOut: spec.SelfHandlesOptOut,
 		}
 	}
 

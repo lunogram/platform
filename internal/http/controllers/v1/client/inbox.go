@@ -330,7 +330,10 @@ func (srv *InboxController) publishOrganizationInboxStateEvents(w http.ResponseW
 }
 
 func clientInboxFilter[S ~string](status *S, tags *string, source *string, priority *int, channel modules.Channel) subjects.InboxListFilter {
-	filter := subjects.InboxListFilter{MessageSource: source, Priority: priority, Channel: channel}
+	// End users are shown only what was actually delivered to them. Messages
+	// whose send terminally failed stay visible to the console, which needs
+	// them as the record of why nothing arrived.
+	filter := subjects.InboxListFilter{MessageSource: source, Priority: priority, Channel: channel, ExcludeFailed: true}
 	if status != nil {
 		filter.Status = string(*status)
 	}

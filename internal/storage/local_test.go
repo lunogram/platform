@@ -22,7 +22,7 @@ func TestLocalStorageWrite(t *testing.T) {
 	key := fmt.Sprintf("%s.jpg", id)
 	content := []byte("fake jpeg content")
 
-	err = storage.Write(ctx, key, bytes.NewReader(content))
+	err = storage.Write(ctx, key, bytes.NewReader(content), "image/jpeg")
 	require.NoError(t, err)
 
 	// Verify file was created on disk
@@ -42,7 +42,7 @@ func TestLocalStorageRead(t *testing.T) {
 	content := []byte("fake png content")
 
 	// Write file first
-	err = storage.Write(ctx, key, bytes.NewReader(content))
+	err = storage.Write(ctx, key, bytes.NewReader(content), "image/jpeg")
 	require.NoError(t, err)
 
 	// Read it back
@@ -79,7 +79,7 @@ func TestLocalStorageDelete(t *testing.T) {
 	content := []byte("fake gif content")
 
 	// Write file first
-	err = storage.Write(ctx, key, bytes.NewReader(content))
+	err = storage.Write(ctx, key, bytes.NewReader(content), "image/jpeg")
 	require.NoError(t, err)
 
 	// Delete it
@@ -127,7 +127,7 @@ func TestLocalStorageMultipleFiles(t *testing.T) {
 
 	for i := range files {
 		files[i].key = fmt.Sprintf("%s%s", files[i].id, files[i].ext)
-		err := storage.Write(ctx, files[i].key, bytes.NewReader(files[i].content))
+		err := storage.Write(ctx, files[i].key, bytes.NewReader(files[i].content), "application/octet-stream")
 		require.NoError(t, err)
 	}
 

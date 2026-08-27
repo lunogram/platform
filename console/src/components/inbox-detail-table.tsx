@@ -26,6 +26,7 @@ import oapiClient from "../oapi/client"
 import type { components } from "../oapi/management.generated"
 import { MessageExpandedRow } from "@/components/message-expanded-row"
 import { getChannelMeta } from "@/components/inbox-channel-meta"
+import { failureBadgeClassName, getMessageFailure } from "@/components/inbox-failure-meta"
 import { DEFAULT_TIME_INPUT_VALUE, toIsoFromDateAndTime } from "@/lib/date-time"
 
 import { Badge } from "@/components/ui/badge"
@@ -68,7 +69,7 @@ import {
 } from "@/components/ui/table"
 
 type InboxMessage = components["schemas"]["InboxMessage"]
-type InboxStatus = "all" | "unread" | "read" | "archived"
+type InboxStatus = "all" | "unread" | "read" | "archived" | "failed"
 type InboxChannel = components["schemas"]["Channel"]
 
 interface InboxDetailTableProps {
@@ -448,6 +449,9 @@ export default function InboxDetailTable({ subjectId, subjectType }: InboxDetail
                             <SelectItem value="unread">{t("unread", "Unread")}</SelectItem>
                             <SelectItem value="read">{t("read", "Read")}</SelectItem>
                             <SelectItem value="archived">{t("archived", "Archived")}</SelectItem>
+                            <SelectItem value="failed">
+                                {t("inbox_status_not_delivered", "Not delivered")}
+                            </SelectItem>
                         </SelectContent>
                     </Select>
                     <Button
@@ -529,6 +533,7 @@ export default function InboxDetailTable({ subjectId, subjectType }: InboxDetail
                         ) : (
                             result.results.map((message) => {
                                 const visible = isMessageVisible(message)
+                                const settled = !!message.failed_at
                                 const channelMeta = getChannelMeta(message.channel, t)
                                 const ChannelIcon = channelMeta.icon
                                 const isExpanded = expandedMessageId === message.id
@@ -628,7 +633,8 @@ export default function InboxDetailTable({ subjectId, subjectType }: InboxDetail
                                                 )}
                                             </TableCell>
                                             <TableCell className="text-muted-foreground whitespace-nowrap">
-                                                {new Date(message.scheduled_at) > new Date() ? (
+                                                {!settled &&
+                                                new Date(message.scheduled_at) > new Date() ? (
                                                     <DateTimeEdit
                                                         value={message.scheduled_at}
                                                         onSave={(newIso) =>
@@ -676,7 +682,8 @@ export default function InboxDetailTable({ subjectId, subjectType }: InboxDetail
                                                     <DropdownMenuContent align="end">
                                                         {!message.read_at &&
                                                             !message.archived_at &&
-                                                            visible && (
+                                                            visible &&
+                                                            !settled && (
                                                                 <DropdownMenuItem
                                                                     onClick={() =>
                                                                         updateMessage(
@@ -726,7 +733,8 @@ export default function InboxDetailTable({ subjectId, subjectType }: InboxDetail
                                                         )}
                                                         {message.read_at &&
                                                             !message.archived_at &&
-                                                            visible && (
+                                                            visible &&
+                                                            !settled && (
                                                                 <DropdownMenuItem
                                                                     onClick={() =>
                                                                         updateMessage(
@@ -1040,6 +1048,27 @@ export default function InboxDetailTable({ subjectId, subjectType }: InboxDetail
 }
 
 function statusBadge(message: InboxMessage, t: TFunction) {
+    const failure = getMessageFailure(message, t)
+    if (failure) {
+        const FailureIcon = failure.icon
+        return (
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <div className="flex flex-col items-start gap-1">
+                        <Badge
+                            variant="outline"
+                            className={cn("gap-1", failureBadgeClassName(failure.kind))}
+                        >
+                            <FailureIcon aria-hidden="true" className="h-3 w-3" />
+                            {failure.label}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">{failure.reason}</span>
+                    </div>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">{failure.description}</TooltipContent>
+            </Tooltip>
+        )
+    }
     if (!isMessageVisible(message)) {
         return (
             <Badge variant="outline" className="gap-1">

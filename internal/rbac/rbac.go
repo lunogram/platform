@@ -44,6 +44,19 @@ type Actor struct {
 	Subject       string
 	SubjectSource string
 
+	// Impersonated and ImpersonatorID record that this admin session was opened
+	// by someone acting AS the admin rather than by the admin themselves.
+	//
+	// They affect ATTRIBUTION ONLY. Authorization is evaluated entirely as the
+	// impersonated admin -- the OpenFGA user key stays user:<impersonated
+	// admin> -- so an impersonator can never do more than the person they are
+	// standing in for. [Engine.Allowed] must never read these fields; a check
+	// that varied on them would be a second, parallel permission model.
+	// ImpersonatorID is empty when the impersonator maps to no admin of ours,
+	// which is the common case.
+	Impersonated   bool
+	ImpersonatorID string
+
 	// Scope is the data boundary the actor acts within. The zero value (and
 	// [DataScopeAll]) acts across every subject's records, like a backend key;
 	// [DataScopeOwn] is set only for verified end-user actors ([ActorEndUser])
@@ -90,6 +103,17 @@ func WithSubject(subject, source string) ActorOption {
 	return func(a *Actor) {
 		a.Subject = subject
 		a.SubjectSource = source
+	}
+}
+
+// WithImpersonation marks the actor as acting on behalf of the admin it
+// identifies. impersonatorID may be empty when the impersonator does not map to
+// an admin record. See [Actor.Impersonated] for why this changes nothing about
+// what the actor is permitted to do.
+func WithImpersonation(impersonatorID string) ActorOption {
+	return func(a *Actor) {
+		a.Impersonated = true
+		a.ImpersonatorID = impersonatorID
 	}
 }
 

@@ -10,6 +10,7 @@ export const broadcastResponseSchema = z.object({
     state: z.enum(["scheduled", "pending", "sending", "completed", "failed", "cancelled"]),
     total: z.number(),
     sent: z.number().optional().default(0),
+    failed: z.number().optional().default(0),
     error: z.string().optional(),
     created_at: z.string(),
     updated_at: z.string(),

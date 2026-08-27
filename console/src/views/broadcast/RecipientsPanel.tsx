@@ -11,8 +11,9 @@ import {
     ChevronRight,
 } from "lucide-react"
 
-import { snakeToTitle } from "@/utils"
+import { cn, snakeToTitle } from "@/utils"
 import { getUserDisplayName } from "@/lib/name"
+import { failureBadgeClassName, getFailureMeta } from "@/components/inbox-failure-meta"
 import { ProjectContext } from "@/contexts"
 
 import type { Broadcast } from "@/types"
@@ -181,7 +182,12 @@ export function RecipientsPanel({
                         ) : (
                             users.map((user) => {
                                 const userId = "user_id" in user ? user.user_id : user.id
-                                const sendState = "state" in user && !isPreview ? user.state : null
+                                const recipient = !isPreview && "state" in user ? user : null
+                                const sendState = recipient?.state ?? null
+                                const failure =
+                                    recipient?.state === "failed"
+                                        ? getFailureMeta(recipient.failure_reason, t)
+                                        : null
                                 const goToUser = () =>
                                     navigate(`/projects/${project.id}/users/${userId}`)
                                 return (
@@ -208,7 +214,35 @@ export function RecipientsPanel({
                                         </TableCell>
                                         {!isPreview && (
                                             <TableCell className="hidden md:table-cell">
-                                                {sendState ? (
+                                                {failure ? (
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <div className="flex flex-col items-start gap-1">
+                                                                <Badge
+                                                                    variant="outline"
+                                                                    className={cn(
+                                                                        "gap-1",
+                                                                        failureBadgeClassName(
+                                                                            failure.kind,
+                                                                        ),
+                                                                    )}
+                                                                >
+                                                                    <failure.icon
+                                                                        aria-hidden="true"
+                                                                        className="h-3 w-3"
+                                                                    />
+                                                                    {failure.label}
+                                                                </Badge>
+                                                                <span className="text-xs text-muted-foreground">
+                                                                    {failure.reason}
+                                                                </span>
+                                                            </div>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent className="max-w-xs">
+                                                            {failure.description}
+                                                        </TooltipContent>
+                                                    </Tooltip>
+                                                ) : sendState ? (
                                                     <Badge
                                                         variant="outline"
                                                         className="text-xs font-normal"

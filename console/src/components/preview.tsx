@@ -20,6 +20,7 @@ import { EmailFrame } from "@/components/preview/EmailFrame"
 import { PhoneFrame } from "@/components/preview/PhoneFrame"
 import { PushFrame } from "@/components/preview/PushFrame"
 import { InboxNotificationCenter } from "@/views/campaign/template/inbox/InboxNotificationCenter"
+import { failureNoticeClassName, getMessageFailure } from "@/components/inbox-failure-meta"
 
 type InboxMessage = components["schemas"]["InboxMessage"]
 
@@ -116,6 +117,8 @@ export default function Preview({
     const [project] = useContext(ProjectContext)
     const isInboxDetailPreview = variant === "inbox-detail"
     const isSmsInboxDetailPreview = isInboxDetailPreview && message?.channel === "sms"
+    const failure =
+        isInboxDetailPreview && size !== "small" && message ? getMessageFailure(message, t) : null
     const emailFrameClassName = isInboxDetailPreview
         ? "bg-white border rounded-xl w-full max-w-3xl overflow-hidden flex flex-col shadow-sm"
         : undefined
@@ -138,13 +141,7 @@ export default function Preview({
             preview = (
                 <PhoneFrame
                     sender={project.name.charAt(0).toUpperCase() + project.name.slice(1)}
-                    message={
-                        <>
-                            {data.body}
-                            <br />
-                            {project.text_opt_out_message}
-                        </>
-                    }
+                    message={data.body}
                     contextLabel={t("text_message", "Text Message")}
                     contextDate={`${t("today", "Today")} ${format(new Date(), "p")}`}
                 />
@@ -176,13 +173,16 @@ export default function Preview({
         const html = typeof message.content?.html === "string" ? message.content.html : ""
         const sentAt = message.sent_at ? new Date(message.sent_at) : null
         const sentTime = sentAt && !Number.isNaN(sentAt.getTime()) ? format(sentAt, "p") : null
+        // The frames each default a nullish time to the current time, so the empty
+        // string is deliberate: an unsent message must not show a delivery time.
+        const frameTime = sentTime ?? ""
 
         if (message.channel === "email" && html) {
             preview = (
                 <EmailFrame
                     subject={title}
                     fromName={senderName}
-                    time={sentTime ?? undefined}
+                    time={frameTime}
                     className={emailFrameClassName}
                     labels={emailLabels}
                 >
@@ -195,7 +195,7 @@ export default function Preview({
                 <EmailFrame
                     subject={title}
                     fromName={senderName}
-                    time={sentTime ?? undefined}
+                    time={frameTime}
                     className={emailFrameClassName}
                     labels={emailLabels}
                 >
@@ -207,15 +207,11 @@ export default function Preview({
                 </EmailFrame>
             )
         } else if (message.channel === "sms") {
-            const smsContextDate = sentTime
-                ? sentTime
-                : `${t("today", "Today")} ${format(new Date(), "p")}`
-
             preview = (
                 <PhoneFrame
                     message={body || t("no_content", "No content")}
                     contextLabel={t("text_message", "Text Message")}
-                    contextDate={smsContextDate}
+                    contextDate={frameTime}
                 />
             )
         } else if (message.channel === "push") {
@@ -223,7 +219,7 @@ export default function Preview({
                 <PushFrame
                     title={title || t("notification", "Notification")}
                     body={body}
-                    time={sentTime ?? t("now", "now")}
+                    time={frameTime}
                 />
             )
         } else {
@@ -234,7 +230,7 @@ export default function Preview({
                         title={title}
                         body={body || (!title ? t("no_content", "No content") : "")}
                         appName={project.name}
-                        time={sentTime ?? undefined}
+                        time={frameTime}
                     />
                 </div>
             )
@@ -251,7 +247,27 @@ export default function Preview({
                 isSmsInboxDetailPreview && "preview--sms-bottom",
             )}
         >
-            {preview}
+            {failure ? (
+                <div className="flex w-full flex-col items-center gap-4">
+                    <div
+                        className={clsx(
+                            "flex w-full items-start gap-2 rounded-lg border px-3 py-2 text-left text-xs",
+                            isSmsInboxDetailPreview ? "max-w-[390px]" : "max-w-3xl",
+                            failureNoticeClassName(failure.kind),
+                        )}
+                    >
+                        <failure.icon aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
+                        <span>
+                            <span className="font-medium">{failure.reason}</span>
+                            {" — "}
+                            {failure.description}
+                        </span>
+                    </div>
+                    {preview}
+                </div>
+            ) : (
+                preview
+            )}
         </section>
     )
 }
