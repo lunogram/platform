@@ -58,6 +58,7 @@ func NewState(db store.DB, opts ...StateOption) *State {
 		VapidKeysStore:            NewVapidKeysStore(db),
 		InvitesStore:              NewInvitesStore(db),
 		OrganizationMembersStore:  NewOrganizationMembersStore(db),
+		SuppressionsStore:         NewSuppressionsStore(db),
 	}
 }
 
@@ -81,4 +82,5 @@ type State struct {
 	*VapidKeysStore
 	*InvitesStore
 	*OrganizationMembersStore
+	*SuppressionsStore
 }

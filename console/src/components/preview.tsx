@@ -138,13 +138,7 @@ export default function Preview({
             preview = (
                 <PhoneFrame
                     sender={project.name.charAt(0).toUpperCase() + project.name.slice(1)}
-                    message={
-                        <>
-                            {data.body}
-                            <br />
-                            {project.text_opt_out_message}
-                        </>
-                    }
+                    message={data.body}
                     contextLabel={t("text_message", "Text Message")}
                     contextDate={`${t("today", "Today")} ${format(new Date(), "p")}`}
                 />
