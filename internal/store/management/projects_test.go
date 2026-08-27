@@ -72,11 +72,11 @@ func TestProjectsStore(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		project, err := db.GetOrganizationProject(ctx, projectID, orgID, nil)
+		project, err := db.GetProjectInOrganization(ctx, projectID, orgID, nil)
 		require.NoError(t, err)
 		assert.Equal(t, "Owned Project", project.Name)
 
-		_, err = db.GetOrganizationProject(ctx, projectID, otherOrgID, nil)
+		_, err = db.GetProjectInOrganization(ctx, projectID, otherOrgID, nil)
 		require.ErrorIs(t, err, sql.ErrNoRows, "a project was readable from an organization that does not own it")
 
 		err = db.UpdateProject(ctx, projectID, otherOrgID, ProjectUpdate{Name: ptr.To("Renamed By Outsider")})
@@ -86,13 +86,13 @@ func TestProjectsStore(t *testing.T) {
 		require.ErrorIs(t, err, sql.ErrNoRows, "a project was deletable from an organization that does not own it")
 
 		// Neither rejected statement may have touched the row.
-		project, err = db.GetOrganizationProject(ctx, projectID, orgID, nil)
+		project, err = db.GetProjectInOrganization(ctx, projectID, orgID, nil)
 		require.NoError(t, err)
 		assert.Equal(t, "Owned Project", project.Name)
 
 		require.NoError(t, db.DeleteProject(ctx, projectID, orgID))
 
-		_, err = db.GetOrganizationProject(ctx, projectID, orgID, nil)
+		_, err = db.GetProjectInOrganization(ctx, projectID, orgID, nil)
 		require.ErrorIs(t, err, sql.ErrNoRows)
 	})
 

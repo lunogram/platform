@@ -4,24 +4,24 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
+	"github.com/lunogram/platform/internal/gallery"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/rbac"
-	"github.com/lunogram/platform/internal/webhook"
 	"go.uber.org/zap"
 )
 
-func NewEmailTemplatesController(logger *zap.Logger, webhookCaller *webhook.Caller, engine *rbac.Engine) *EmailTemplatesController {
+func NewEmailTemplatesController(logger *zap.Logger, templates *gallery.Client, engine *rbac.Engine) *EmailTemplatesController {
 	return &EmailTemplatesController{
 		logger:  logger,
-		webhook: webhookCaller,
+		gallery: templates,
 		engine:  engine,
 	}
 }
 
 type EmailTemplatesController struct {
 	logger  *zap.Logger
-	webhook *webhook.Caller
+	gallery *gallery.Client
 	engine  *rbac.Engine
 }
 
@@ -35,32 +35,59 @@ func (srv *EmailTemplatesController) ListEmailTemplates(w http.ResponseWriter, r
 
 	logger := srv.logger.With(zap.Stringer("project_id", projectID))
 
-	// If no webhook is configured, return an empty list
-	if !srv.webhook.EmailTemplatesEnabled() {
-		logger.Debug("no email templates webhook configured, returning empty list")
+	limit := params.Limit.ToInt()
+	offset := params.Offset.ToInt()
+
+	if !srv.gallery.Enabled() {
+		logger.Debug("no email template gallery configured, returning empty list")
 		json.Write(w, http.StatusOK, oapi.EmailTemplateListResponse{
-			Total:   0,
-			Limit:   params.Limit.ToInt(),
-			Offset:  params.Offset.ToInt(),
+			Limit:   limit,
+			Offset:  offset,
 			Results: []oapi.EmailTemplate{},
 		})
 		return
 	}
 
-	logger.Info("proxying email templates request")
+	query := gallery.Query{Limit: &limit, Offset: &offset}
+	if params.Search != nil {
+		search := string(*params.Search)
+		query.Search = &search
+	}
 
-	body, err := srv.webhook.EmailTemplates(ctx, r)
+	// The gallery response is decoded and re-encoded rather than streamed
+	// through: the endpoint is operator-configured and its payload is rendered
+	// in the console, so its bytes are not the platform's to relay unread.
+	listing, err := srv.gallery.List(ctx, query)
 	if err != nil {
-		logger.Error("failed to fetch email templates from webhook", zap.Error(err))
+		logger.Error("failed to fetch email templates", zap.Error(err))
 		oapi.WriteProblem(w, err)
 		return
 	}
 
-	// Proxy the raw JSON response from the webhook
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	_, err = w.Write(body)
-	if err != nil {
-		logger.Error("failed to write email templates response", zap.Error(err))
+	json.Write(w, http.StatusOK, toEmailTemplateList(listing))
+}
+
+// toEmailTemplateList maps the gallery client's domain types onto the
+// management API response. The gallery does not speak the API's wire format;
+// translating is this layer's job.
+func toEmailTemplateList(listing *gallery.Listing) oapi.EmailTemplateListResponse {
+	results := make([]oapi.EmailTemplate, 0, len(listing.Results))
+	for _, template := range listing.Results {
+		results = append(results, oapi.EmailTemplate{
+			Id:          template.ID,
+			Label:       template.Label,
+			Description: template.Description,
+			Html:        template.HTML,
+			Text:        template.Text,
+			Thumbnail:   template.Thumbnail,
+			Blocks:      template.Blocks,
+		})
+	}
+
+	return oapi.EmailTemplateListResponse{
+		Total:   listing.Total,
+		Limit:   listing.Limit,
+		Offset:  listing.Offset,
+		Results: results,
 	}
 }

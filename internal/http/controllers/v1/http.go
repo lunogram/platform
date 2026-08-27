@@ -101,6 +101,11 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *st
 	// Serve unified API documentation with both specs
 	router.Use(apiDocsMiddleware())
 
+	// The admin-session handler is built once: the OpenAPI validator
+	// authenticates the management surface with it, and the enterprise proxy
+	// routes below reuse it through [auth.Require].
+	adminSession := auth.WithAdminSession(mgmtStores, consoleSigner, cfg.PublicBaseURL(), logger)
+
 	// Mount management routes with console-session + API-key auth. The legacy
 	// upgrade runs OUTSIDE the OpenAPI validator because it needs the
 	// ResponseWriter to set the console cookie, which the AuthenticationFunc
@@ -117,7 +122,7 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *st
 			http.RateLimit(limiter, cfg.RateLimit.PerMinute, time.Minute, cfg.RateLimit.TrustedProxyHops, mgmtoapi.WriteProblem),
 			mgmtoapi.Validator(mgmtSpec, openapi3filter.Options{
 				AuthenticationFunc: auth.Middleware(
-					auth.WithAdminSession(mgmtStores, consoleSigner, cfg.PublicBaseURL(), logger),
+					adminSession,
 					auth.WithKey(mgmtStores, auth.SurfaceManagement),
 				),
 			}),
@@ -181,7 +186,15 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *st
 	// Mount enterprise proxy routes (backoffice, courier).
 	// In OSS builds this is a no-op; in enterprise builds it registers
 	// reverse proxy handlers based on PROXY_*_URL environment variables.
-	MountProxyRoutes(logger, router, cfg.Enterprise)
+	//
+	// Both upstreams are reached from the browser by the enterprise console —
+	// the AI builder and custom sending domains — which authenticates with the
+	// admin session cookie, so an admin session is the only credential accepted
+	// here. The machine-to-machine traffic those services handle (the
+	// project-created webhook and provider sends) addresses them directly over
+	// the cluster network and never passes through this proxy, so requiring a
+	// session does not touch message delivery.
+	MountProxyRoutes(logger, router, cfg.Enterprise, auth.Require(mgmtoapi.WriteProblem, adminSession))
 
 	// Serve console (admin UI) as fallback
 	consoleHandler, err := console.Handler(console.Config{

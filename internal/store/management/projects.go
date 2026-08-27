@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/store"
 )
@@ -27,6 +28,15 @@ type Project struct {
 	ListsCount        int        `db:"lists_count"`
 	CreatedAt         time.Time  `db:"created_at"`
 	UpdatedAt         time.Time  `db:"updated_at"`
+}
+
+// ProjectAccess is a project together with the organization membership role of
+// the admin the query was run for. The membership role is carried out of SQL
+// unresolved so that org→project inheritance is applied in one place in Go
+// (see rbac.EffectiveProjectRole) rather than being reimplemented per query.
+type ProjectAccess struct {
+	Project
+	MembershipRole string `db:"membership_role"`
 }
 
 func (p *Project) OAPI() oapi.Project {
@@ -87,27 +97,20 @@ func (s *ProjectsStore) CreateProject(ctx context.Context, project Project) (uui
 	return id, nil
 }
 
-// GetProject returns a project by ID, regardless of which organization owns it.
-//
-// Callers that reached this point through an organization-scoped permission
-// check must use [ProjectsStore.GetOrganizationProject] instead: proving an
-// actor may read projects in its own organization says nothing about the
-// project ID it supplied.
 func (s *ProjectsStore) GetProject(ctx context.Context, id uuid.UUID, adminID *uuid.UUID) (*Project, error) {
 	return s.getProject(ctx, id, nil, adminID)
 }
 
-// GetOrganizationProject returns a project only when the given organization
-// owns it, and sql.ErrNoRows otherwise -- reporting a project in another
-// organization exactly as it reports one that does not exist, so the two cannot
-// be told apart.
-func (s *ProjectsStore) GetOrganizationProject(ctx context.Context, id, organizationID uuid.UUID, adminID *uuid.UUID) (*Project, error) {
+// GetProjectInOrganization loads a project only when it belongs to the given
+// organization. A project owned by another organization is reported as
+// sql.ErrNoRows, exactly like a project that does not exist: an
+// organization-scoped caller must not be able to tell the two apart, or a
+// project id becomes an existence oracle across tenants.
+func (s *ProjectsStore) GetProjectInOrganization(ctx context.Context, id, organizationID uuid.UUID, adminID *uuid.UUID) (*Project, error) {
 	return s.getProject(ctx, id, &organizationID, adminID)
 }
 
-// getProject reads a project, optionally confined to one organization. A nil
-// organizationID matches any owner, including a project with none.
-func (s *ProjectsStore) getProject(ctx context.Context, id uuid.UUID, organizationID, adminID *uuid.UUID) (*Project, error) {
+func (s *ProjectsStore) getProject(ctx context.Context, id uuid.UUID, organizationID *uuid.UUID, adminID *uuid.UUID) (*Project, error) {
 	query := `
 	SELECT id, organization_id, name, description, timezone, text_opt_out_message, text_help_message, locale, created_at, updated_at,
 		COALESCE(pr.integrations_count, 0) AS integrations_count,
@@ -132,8 +135,8 @@ func (s *ProjectsStore) getProject(ctx context.Context, id uuid.UUID, organizati
 		WHERE $2::uuid IS NOT NULL AND admin_id = $2 AND deleted_at IS NULL	
 	) pa ON pa.project_id = projects.id
 	WHERE id = $1
-	AND ($3::uuid IS NULL OR organization_id = $3)
-	AND deleted_at IS NULL`
+	AND deleted_at IS NULL
+	AND ($3::uuid IS NULL OR organization_id = $3)`
 
 	var project Project
 	err := s.db.GetContext(ctx, &project, query, id, adminID, organizationID)
@@ -181,38 +184,58 @@ func (s *ProjectsStore) ListProjects(ctx context.Context, organizationID uuid.UU
 	return projects, results[0].TotalCount, nil
 }
 
-func (s *ProjectsStore) ListProjectsForAdmin(ctx context.Context, adminID uuid.UUID, pagination store.Pagination, search string) ([]Project, int, error) {
+// ListProjectsForAdmin returns the projects of one organization that the admin
+// can reach: those they hold an explicit project_admins row for, plus — for an
+// organization owner or admin — every project in the organization, since those
+// roles are project admins by inheritance and would otherwise never see a
+// project they did not create a row for.
+//
+// The organization predicate is not optional. Without it the list spans every
+// organization the admin has ever been given a project role in, leaking other
+// tenants' project names into the session of whichever organization happens to
+// be active.
+//
+// inheritingOrgRoles are the organization roles that confer project admin by
+// inheritance; they are passed in rather than spelled out in SQL so that
+// [rbac.OrganizationRolesInheritingProjectAdmin] stays the only definition of
+// that rule. The membership role is returned alongside the explicit project
+// role so the caller can resolve the effective role in Go.
+func (s *ProjectsStore) ListProjectsForAdmin(ctx context.Context, organizationID, adminID uuid.UUID, inheritingOrgRoles []string, pagination store.Pagination, search string) ([]ProjectAccess, int, error) {
 	// TODO: include counts as in GetProject
 	query := `
-	SELECT p.id, p.name, p.timezone, p.text_help_message, p.locale,
+	SELECT p.id, p.organization_id, p.name, p.timezone, p.text_help_message, p.locale,
 	       p.created_at, p.updated_at,
-	       pa.role,
+	       COALESCE(pa.role, '') AS role,
+	       om.role AS membership_role,
 	       COUNT(*) OVER() AS total_count
 	FROM projects p
-	JOIN project_admins pa ON pa.project_id = p.id AND pa.admin_id = $1 AND pa.deleted_at IS NULL
+	JOIN organization_members om ON om.organization_id = p.organization_id AND om.admin_id = $1 AND om.deleted_at IS NULL
+	LEFT JOIN project_admins pa ON pa.project_id = p.id AND pa.admin_id = $1 AND pa.deleted_at IS NULL
 	WHERE p.deleted_at IS NULL
-	AND ($2 = '' OR p.name ILIKE '%' || $2 || '%')
+	AND p.organization_id = $2
+	AND (pa.id IS NOT NULL OR om.role = ANY($3))
+	AND ($4 = '' OR p.name ILIKE '%' || $4 || '%')
 	ORDER BY p.created_at DESC
-	LIMIT $3 OFFSET $4`
+	LIMIT $5 OFFSET $6`
 
 	type result struct {
-		Project
+		ProjectAccess
 		TotalCount int `db:"total_count"`
 	}
 
 	var results []result
-	err := s.db.SelectContext(ctx, &results, query, adminID, search, pagination.Limit, pagination.Offset)
+	err := s.db.SelectContext(ctx, &results, query, adminID, organizationID, pq.Array(inheritingOrgRoles), search, pagination.Limit, pagination.Offset)
 	if err != nil {
 		return nil, 0, err
 	}
 
 	if len(results) == 0 {
-		return []Project{}, 0, nil
+		return []ProjectAccess{}, 0, nil
 	}
 
-	projects := make([]Project, len(results))
+	projects := make([]ProjectAccess, len(results))
 	for i, r := range results {
-		projects[i] = r.Project
+		projects[i] = r.ProjectAccess
 	}
 
 	return projects, results[0].TotalCount, nil
@@ -286,6 +309,20 @@ func affected(result sql.Result) error {
 	return nil
 }
 
+// RemoveProjectAdmins soft-deletes the whole roster of a project. It runs with
+// [ProjectsStore.DeleteProject] so a deleted project leaves no live membership
+// rows behind, which would otherwise be replayed as grants to revoke long after
+// the tuples they refer to are gone.
+func (s *ProjectsStore) RemoveProjectAdmins(ctx context.Context, projectID uuid.UUID) error {
+	query := `
+	UPDATE project_admins
+	SET deleted_at = NOW()
+	WHERE project_id = $1 AND deleted_at IS NULL`
+
+	_, err := s.db.ExecContext(ctx, query, projectID)
+	return err
+}
+
 func (s *ProjectsStore) GetProjectRole(ctx context.Context, projectID, adminID uuid.UUID) (string, error) {
 	query := `
 	SELECT role
@@ -310,4 +347,108 @@ func (s *ProjectsStore) AddProjectAdmin(ctx context.Context, projectID, adminID 
 
 	_, err := s.db.ExecContext(ctx, query, projectID, adminID, role)
 	return err
+}
+
+// ProjectRole is one project_admins grant: the project and the role held in it.
+type ProjectRole struct {
+	ProjectID uuid.UUID `db:"project_id"`
+	Role      string    `db:"role"`
+}
+
+// ListProjectRolesInOrganization returns every explicit project role the admin
+// holds in the organization's projects. Removing an admin from an organization
+// must revoke these as well: project access resolves from the direct
+// project:<id>#<role> tuple alone, so an untouched project role keeps working
+// long after the organization membership is gone.
+func (s *ProjectsStore) ListProjectRolesInOrganization(ctx context.Context, organizationID, adminID uuid.UUID) ([]ProjectRole, error) {
+	query := `
+	SELECT pa.project_id, pa.role
+	FROM project_admins pa
+	JOIN projects p ON p.id = pa.project_id
+	WHERE p.organization_id = $1
+	  AND p.deleted_at IS NULL
+	  AND pa.admin_id = $2
+	  AND pa.deleted_at IS NULL`
+
+	var roles []ProjectRole
+	if err := s.db.SelectContext(ctx, &roles, query, organizationID, adminID); err != nil {
+		return nil, err
+	}
+	return roles, nil
+}
+
+// RemoveProjectAdminsInOrganization soft-deletes the admin's project_admins
+// rows for every project in the organization. Deleted projects are included on
+// purpose: the row is dead either way and leaving it behind would resurrect the
+// membership if the project ever came back.
+func (s *ProjectsStore) RemoveProjectAdminsInOrganization(ctx context.Context, organizationID, adminID uuid.UUID) error {
+	query := `
+	UPDATE project_admins
+	SET deleted_at = NOW()
+	WHERE admin_id = $2
+	  AND deleted_at IS NULL
+	  AND project_id IN (SELECT id FROM projects WHERE organization_id = $1)`
+
+	_, err := s.db.ExecContext(ctx, query, organizationID, adminID)
+	return err
+}
+
+// ProjectAdminRole is one project_admins grant: the admin and the role held.
+type ProjectAdminRole struct {
+	AdminID uuid.UUID `db:"admin_id"`
+	Role    string    `db:"role"`
+}
+
+// ListProjectAdminRoles returns every explicit role grant on the project. It is
+// read before a project is deleted so the per-admin role tuples can be revoked;
+// deprovisioning the project itself only removes the project→organization and
+// resource→project tuples, leaving the direct role grants behind.
+func (s *ProjectsStore) ListProjectAdminRoles(ctx context.Context, projectID uuid.UUID) ([]ProjectAdminRole, error) {
+	query := `
+	SELECT admin_id, role
+	FROM project_admins
+	WHERE project_id = $1
+	  AND deleted_at IS NULL`
+
+	var roles []ProjectAdminRole
+	if err := s.db.SelectContext(ctx, &roles, query, projectID); err != nil {
+		return nil, err
+	}
+	return roles, nil
+}
+
+// HasOtherProjectAdmin reports whether the project would still have somebody
+// able to administer it once excludingAdminID no longer holds project admin.
+// That is true when another active project_admins row carries adminRole, or
+// when the owning organization still has a member holding one of
+// inheritingOrgRoles (who is a project admin by inheritance, with or without a
+// row of their own).
+//
+// Callers use this to refuse the change that would orphan a project. Counting
+// the inherited admins matters: without them the guard would block an
+// organization owner from ever removing a departed project admin.
+func (s *ProjectsStore) HasOtherProjectAdmin(ctx context.Context, projectID, excludingAdminID uuid.UUID, adminRole string, inheritingOrgRoles []string) (bool, error) {
+	query := `
+	SELECT EXISTS (
+		SELECT 1
+		FROM project_admins pa
+		WHERE pa.project_id = $1
+		  AND pa.admin_id <> $2
+		  AND pa.role = $3
+		  AND pa.deleted_at IS NULL
+	) OR EXISTS (
+		SELECT 1
+		FROM projects p
+		JOIN organization_members om ON om.organization_id = p.organization_id AND om.deleted_at IS NULL
+		WHERE p.id = $1
+		  AND p.deleted_at IS NULL
+		  AND om.admin_id <> $2
+		  AND om.role = ANY($4)
+	)`
+
+	var exists bool
+	if err := s.db.GetContext(ctx, &exists, query, projectID, excludingAdminID, adminRole, pq.Array(inheritingOrgRoles)); err != nil {
+		return false, err
+	}
+	return exists, nil
 }
