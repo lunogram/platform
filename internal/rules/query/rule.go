@@ -199,6 +199,10 @@ func (qb *QueryBuilder) buildRule(rule *rules.Rule) (string, error) {
 		// Journey rules are evaluated in-memory, not via SQL. Skip silently
 		// in case one slips through (e.g. unsplit rule set).
 		return "", nil
+	case rules.RuleGroupJourneyStep:
+		// Step visit rules are counted against the state of a running journey,
+		// so they carry no meaning outside a gate.
+		return "", errors.New("journey step rules are only supported in journey gates")
 	default:
 		return "", fmt.Errorf("unsupported rule group: %s", rule.Group)
 	}

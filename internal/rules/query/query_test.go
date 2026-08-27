@@ -713,6 +713,19 @@ func TestQueryBuilderErrorCases(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		"journey step rule outside a gate": {
+			name: "journey step rule outside a gate",
+			ruleSet: rules.RuleSet{
+				Rule: rules.Rule{
+					Type:     rules.RuleTypeNumber,
+					Group:    rules.RuleGroupJourneyStep,
+					Path:     "reminder",
+					Operator: rules.OperatorGreaterThan,
+					Value:    3,
+				},
+			},
+			wantErr: true,
+		},
 		"unsupported period type": {
 			name: "unsupported period type",
 			ruleSet: rules.RuleSet{
