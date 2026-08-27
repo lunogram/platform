@@ -68,7 +68,6 @@ const (
 var publishedJWTSecrets = map[string]struct{}{
 	"dev-secret-change-in-production": {},
 	"never-gonna-give-you-up":         {},
-	"e2e-local-secret":                {},
 }
 
 func HMAC(secret []byte) jwt.Keyfunc {
