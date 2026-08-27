@@ -3,9 +3,6 @@ package auth
 import (
 	"context"
 	"crypto/ecdsa"
-	"crypto/x509"
-	"encoding/pem"
-	"errors"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -38,11 +35,7 @@ func NewSessionSigner(pemKey, issuer string) (*SessionSigner, error) {
 	if pemKey == "" {
 		return nil, nil
 	}
-	block, _ := pem.Decode([]byte(pemKey))
-	if block == nil {
-		return nil, errors.New("auth: session signing key is not valid PEM")
-	}
-	key, err := parseECPrivateKey(block.Bytes)
+	key, err := parseECPrivateKeyPEM(pemKey)
 	if err != nil {
 		return nil, err
 	}
@@ -50,21 +43,6 @@ func NewSessionSigner(pemKey, issuer string) (*SessionSigner, error) {
 		issuer = defaultSessionIssuer
 	}
 	return &SessionSigner{key: key, issuer: issuer}, nil
-}
-
-// parseECPrivateKey accepts either a SEC1 (`EC PRIVATE KEY`) or PKCS#8
-// (`PRIVATE KEY`) EC private key.
-func parseECPrivateKey(der []byte) (*ecdsa.PrivateKey, error) {
-	if key, err := x509.ParseECPrivateKey(der); err == nil {
-		return key, nil
-	}
-	if key, err := x509.ParsePKCS8PrivateKey(der); err == nil {
-		if ec, ok := key.(*ecdsa.PrivateKey); ok {
-			return ec, nil
-		}
-		return nil, errors.New("auth: session signing key is not an EC key")
-	}
-	return nil, errors.New("auth: unsupported session signing key (want a PEM EC private key)")
 }
 
 // Mint creates a signed, short-lived ES256 session token for the given subject

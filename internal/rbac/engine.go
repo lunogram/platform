@@ -228,8 +228,7 @@ func (e *Engine) WriteTupleIfAbsent(ctx context.Context, user, relation, object 
 		},
 	})
 	if err != nil {
-		// OpenFGA reports a duplicate write as write_failed_due_to_invalid_input.
-		if status.Code(err) == codes.Code(openfgav1.ErrorCode_write_failed_due_to_invalid_input) {
+		if isDuplicateWrite(err) {
 			return nil
 		}
 		return fmt.Errorf("openfga write failed: %w", err)
@@ -273,6 +272,16 @@ func (e *Engine) DeleteTupleIfPresent(ctx context.Context, user, relation, objec
 
 // WriteTuples writes multiple relationship tuples in a single request.
 func (e *Engine) WriteTuples(ctx context.Context, tuples []Tuple) error {
+	if err := e.writeTuples(ctx, tuples); err != nil {
+		return fmt.Errorf("openfga batch write failed: %w", err)
+	}
+	return nil
+}
+
+// writeTuples performs the batch write and returns the driver error unwrapped,
+// so callers can classify it (see [Engine.WriteTuplesIfAbsent]) rather than
+// pattern-matching a wrapped message.
+func (e *Engine) writeTuples(ctx context.Context, tuples []Tuple) error {
 	if len(tuples) == 0 {
 		return nil
 	}
@@ -285,10 +294,47 @@ func (e *Engine) WriteTuples(ctx context.Context, tuples []Tuple) error {
 		AuthorizationModelId: e.modelID,
 		Writes:               &openfgav1.WriteRequestWrites{TupleKeys: keys},
 	})
-	if err != nil {
+	return err
+}
+
+// WriteTuplesIfAbsent writes tuples, treating an already-existing tuple as
+// success so the grant is idempotent.
+//
+// It differs from [Engine.WriteTuplesIfMissing] in what it asks. That one calls
+// Check first, which resolves through the model's relation graph, so a tuple can
+// look "present" because some other relation implies it -- and the direct tuple
+// then never gets written. This one asks the write itself, so only an actually
+// identical tuple counts as already present.
+//
+// The batch is attempted first, keeping OpenFGA's all-or-nothing write for the
+// common case; a batch rejected for containing a duplicate is retried per tuple,
+// which is the only way to write the rest while tolerating the duplicate. Any
+// other failure is returned, so a real problem is never swallowed.
+func (e *Engine) WriteTuplesIfAbsent(ctx context.Context, tuples []Tuple) error {
+	if len(tuples) == 0 {
+		return nil
+	}
+
+	err := e.writeTuples(ctx, tuples)
+	if err == nil {
+		return nil
+	}
+	if !isDuplicateWrite(err) {
 		return fmt.Errorf("openfga batch write failed: %w", err)
 	}
+
+	for _, t := range tuples {
+		if err := e.WriteTupleIfAbsent(ctx, t.User, t.Relation, t.Object); err != nil {
+			return err
+		}
+	}
 	return nil
+}
+
+// isDuplicateWrite reports whether a write was rejected for containing a tuple
+// that already exists. OpenFGA reports it as write_failed_due_to_invalid_input.
+func isDuplicateWrite(err error) bool {
+	return status.Code(err) == codes.Code(openfgav1.ErrorCode_write_failed_due_to_invalid_input)
 }
 
 // WriteTuplesIfMissing writes only the tuples that are not already present,

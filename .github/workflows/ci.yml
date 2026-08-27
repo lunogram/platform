@@ -69,6 +69,41 @@ jobs:
       - name: Run tests
         run: make test
 
+  tests-enterprise:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect Workflow Telemetry
+        uses: catchpoint/workflow-telemetry-action@f974e0c5942f8f37973c4cc395704165fbe629ba # v2
+        with:
+          comment_on_pr: false
+      - uses: actions/checkout@v5
+      - name: Reconfigure Docker
+        uses: ./.github/actions/reconfigure-docker
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ vars.PNPM_VERSION }}
+      - name: Set-up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ vars.NODEJS_VERSION }}
+          cache: "pnpm"
+          cache-dependency-path: console/pnpm-lock.yaml
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ vars.GO_VERSION }}
+      - name: Install Dependencies
+        run: |
+          cd console && pnpm install
+          go mod tidy
+      - name: Tool bins
+        uses: actions/cache@v4
+        with:
+          path: bin
+          key: ${{ runner.os }}-bin-${{ hashFiles('**/go.sum') }}
+      - name: Run enterprise tests
+        run: make test-enterprise
+
   build:
     runs-on: ubuntu-latest
     steps:

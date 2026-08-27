@@ -12,7 +12,7 @@ func RunNATS(t *testing.T) string {
 	t.Helper()
 
 	container, err := nats.Run(t.Context(), "nats:2.9",
-		testcontainers.WithReuseByName("testcontainer-nats"),
+		testcontainers.WithReuseByName(containerName("nats")),
 	)
 	require.NoError(t, err)
 

@@ -60,4 +60,8 @@ type ProviderSpec struct {
 	Locked    bool                `json:"locked,omitempty"`
 	Webhook   bool                `json:"webhook,omitempty"` // true if the module exports a webhook() function
 	RateLimit *RateLimit          `json:"rate_limit,omitempty"`
+
+	// SelfHandlesOptOut reports that the provider sends its own opt-out
+	// confirmation. The host still records the opt-out; it skips its own reply.
+	SelfHandlesOptOut bool `json:"self_handles_opt_out,omitempty"`
 }

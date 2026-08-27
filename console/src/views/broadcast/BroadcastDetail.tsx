@@ -61,6 +61,7 @@ export default function BroadcastDetail({ broadcastId }: BroadcastDetailProps) {
         handleUsersSearch,
 
         streamedSent,
+        streamedFailed,
         streamedTotal,
 
         isSending,
@@ -97,6 +98,7 @@ export default function BroadcastDetail({ broadcastId }: BroadcastDetailProps) {
                 users={users}
                 usersTotal={usersTotal}
                 streamedSent={streamedSent}
+                streamedFailed={streamedFailed}
                 streamedTotal={streamedTotal}
                 isSending={isSending}
                 isCancelling={isCancelling}
@@ -106,7 +108,11 @@ export default function BroadcastDetail({ broadcastId }: BroadcastDetailProps) {
 
             {/* Progress Bar for Sending State */}
             {broadcast.state === "sending" && (
-                <BroadcastProgressBar streamedSent={streamedSent} streamedTotal={streamedTotal} />
+                <BroadcastProgressBar
+                    streamedSent={streamedSent}
+                    streamedFailed={streamedFailed}
+                    streamedTotal={streamedTotal}
+                />
             )}
 
             {/* Schedule Banner — colored bar below header for editable broadcasts */}

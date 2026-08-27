@@ -62,7 +62,7 @@ func ProjectRoleTuples(userID, projectID uuid.UUID, role string) []rbac.Tuple {
 }
 
 // DeprovisionOrganizationRole removes the organization role tuple granted by
-// [provisionMembership]. Call it when a membership is revoked, before the
+// [ProvisionMembership]. Call it when a membership is revoked, before the
 // membership row itself is removed.
 func DeprovisionOrganizationRole(ctx context.Context, engine *rbac.Engine, adminID, organizationID uuid.UUID, role string) error {
 	if err := revoke(ctx, engine, OrganizationRoleTuples(adminID, organizationID, role)); err != nil {
@@ -99,9 +99,15 @@ func ProjectRoleGrantTuples(grants []ProjectRoleGrant) []rbac.Tuple {
 // because the tuple write happens after the Postgres commit (the two stores
 // cannot share a transaction) a provisioning step may legitimately be re-run to
 // reconcile a membership whose tuples were never written.
+//
+// It must be [rbac.Engine.WriteTuplesIfAbsent] and not WriteTuplesIfMissing: the
+// latter asks Check, which resolves through the model, so an organization owner
+// already looks like a project admin by inheritance and the direct grant would
+// never be written — leaving them to lose the project the moment their
+// organization role changes, which is the very defect this exists to close.
 func ProvisionProjectRole(ctx context.Context, engine *rbac.Engine, adminID, projectID uuid.UUID, role string) error {
 	tuples := ProjectRoleTuples(adminID, projectID, role)
-	if err := engine.WriteTuplesIfMissing(ctx, tuples); err != nil {
+	if err := engine.WriteTuplesIfAbsent(ctx, tuples); err != nil {
 		return fmt.Errorf("access: failed to provision project role for admin %s: %w", adminID, err)
 	}
 	return nil

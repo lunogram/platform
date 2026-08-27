@@ -943,6 +943,59 @@ func TestJourneysStoreMultiExecutionSteps(t *testing.T) {
 	})
 }
 
+func TestJourneysStoreCountStepVisits(t *testing.T) {
+	t.Parallel()
+
+	store, _ := NewContainerStore(t)
+	ctx := context.Background()
+	projectID := uuid.New()
+	userID := uuid.New()
+
+	journeyID, err := store.CreateJourney(ctx, Journey{
+		ProjectID: projectID,
+		Name:      "Step Visit Journey",
+	})
+	require.NoError(t, err)
+
+	firstEntryID := uuid.New()
+	secondEntryID := uuid.New()
+
+	visit := func(entryID, visitorID uuid.UUID, stepID string) {
+		t.Helper()
+		_, err := store.CreateUserJourneyState(ctx, JourneyUserState{
+			JourneyID:      journeyID,
+			JourneyEntryID: entryID,
+			UserID:         visitorID,
+			ExternalStepID: stepID,
+		})
+		require.NoError(t, err)
+	}
+
+	visit(firstEntryID, userID, "gate-1")
+	visit(firstEntryID, userID, "gate-1")
+	visit(firstEntryID, userID, "reminder-1")
+	visit(secondEntryID, userID, "gate-1")
+	visit(uuid.New(), uuid.New(), "gate-1")
+
+	t.Run("entry scope only counts the given run", func(t *testing.T) {
+		counts, err := store.CountStepVisitsInEntry(ctx, firstEntryID, []string{"gate-1", "reminder-1", "never-reached"})
+		require.NoError(t, err)
+		assert.Equal(t, map[string]int{"gate-1": 2, "reminder-1": 1}, counts)
+	})
+
+	t.Run("journey scope counts every run of the user", func(t *testing.T) {
+		counts, err := store.CountStepVisitsInJourney(ctx, journeyID, userID, []string{"gate-1"})
+		require.NoError(t, err)
+		assert.Equal(t, map[string]int{"gate-1": 3}, counts, "another user's run must not be counted")
+	})
+
+	t.Run("steps outside the requested set are not counted", func(t *testing.T) {
+		counts, err := store.CountStepVisitsInJourney(ctx, journeyID, userID, []string{"reminder-1"})
+		require.NoError(t, err)
+		assert.Equal(t, map[string]int{"reminder-1": 1}, counts)
+	})
+}
+
 func TestListJourneys_ArchivedFilter(t *testing.T) {
 	t.Parallel()
 

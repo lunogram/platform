@@ -64,7 +64,7 @@ func TestCreateProject(t *testing.T) {
 	orgID, err := orgs.CreateOrganization(ctx, "Test Organization")
 	require.NoError(t, err)
 
-	admins := management.NewAdminsStore(mgmt)
+	admins := management.NewState(mgmt)
 	adminID, err := admins.CreateAdmin(ctx, management.Admin{
 		OrganizationID: orgID,
 		Email:          "test@example.com",
@@ -146,7 +146,7 @@ func TestListProjects(t *testing.T) {
 	orgID, err := orgs.CreateOrganization(ctx, "Test Organization")
 	require.NoError(t, err)
 
-	admins := management.NewAdminsStore(mgmt)
+	admins := management.NewState(mgmt)
 	adminID, err := admins.CreateAdmin(ctx, management.Admin{
 		OrganizationID: orgID,
 		Email:          "test@example.com",
@@ -213,7 +213,7 @@ func TestGetProject(t *testing.T) {
 	orgID, err := orgs.CreateOrganization(ctx, "Test Organization")
 	require.NoError(t, err)
 
-	admins := management.NewAdminsStore(mgmt)
+	admins := management.NewState(mgmt)
 	adminID, err := admins.CreateAdmin(ctx, management.Admin{
 		OrganizationID: orgID,
 		Email:          "test@example.com",
@@ -258,6 +258,7 @@ func TestGetProject(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, projectID, project.Id)
 	require.Equal(t, "Test Project", project.Name)
+	require.Equal(t, rbac.ProjectAdmin, project.Role)
 }
 
 func TestUpdateProject(t *testing.T) {
@@ -271,7 +272,7 @@ func TestUpdateProject(t *testing.T) {
 	orgID, err := orgs.CreateOrganization(ctx, "Test Organization")
 	require.NoError(t, err)
 
-	admins := management.NewAdminsStore(mgmt)
+	admins := management.NewState(mgmt)
 	adminID, err := admins.CreateAdmin(ctx, management.Admin{
 		OrganizationID: orgID,
 		Email:          "test@example.com",
@@ -364,7 +365,7 @@ func TestCreateProjectWebhook(t *testing.T) {
 	orgID, err := orgs.CreateOrganization(ctx, "Test Organization")
 	require.NoError(t, err)
 
-	admins := management.NewAdminsStore(mgmt)
+	admins := management.NewState(mgmt)
 	adminID, err := admins.CreateAdmin(ctx, management.Admin{
 		OrganizationID: orgID,
 		Email:          "test@example.com",
@@ -435,7 +436,7 @@ func TestCreateProjectPublishesNATSEvent(t *testing.T) {
 	orgID, err := orgs.CreateOrganization(ctx, "Test Organization")
 	require.NoError(t, err)
 
-	admins := management.NewAdminsStore(mgmt)
+	admins := management.NewState(mgmt)
 	adminID, err := admins.CreateAdmin(ctx, management.Admin{
 		OrganizationID: orgID,
 		Email:          "test@example.com",
@@ -706,8 +707,12 @@ func TestCreateProjectProvisionsCreatorRole(t *testing.T) {
 	var project oapi.Project
 	require.NoError(t, json.NewDecoder(res.Body).Decode(&project))
 
-	// Checked as a direct project role, not through the organization: the whole
-	// point is that the grant no longer depends on the inheritance path.
+	// The organization grant is withdrawn first, so what remains can only be the
+	// direct project tuple: the whole point is that the creator's role no longer
+	// depends on the inheritance path that made its absence invisible.
+	require.NoError(t, env.engine.DeleteTuples(context.Background(),
+		access.OrganizationRoleTuples(creator, orgID, rbac.OrganizationOwner)))
+
 	allowed, err := env.engine.Check(context.Background(), "user:"+creator.String(),
 		rbac.ProjectAdmin, rbac.ProjectScope(project.Id))
 	require.NoError(t, err)
@@ -788,4 +793,136 @@ func TestDeleteProjectRevokesMemberRoles(t *testing.T) {
 	roles, err := env.state.ListProjectRolesInOrganization(context.Background(), orgID, member)
 	require.NoError(t, err)
 	require.Empty(t, roles)
+}
+
+// TestProjectsWithAPIKeyActor pins what each projects handler does when the
+// caller is an API key rather than an admin. Both authenticate on the management
+// surface and both carry a UUID in Actor.ID, so a successful uuid.Parse is no
+// evidence of admin-ness -- only Actor.Type is. The org-role tuple is granted to
+// the key on purpose so that every request reaches the handler body and it is the
+// actor guard, not the permission check, that decides the outcome.
+func TestProjectsWithAPIKeyActor(t *testing.T) {
+	t.Parallel()
+
+	logger := zaptest.NewLogger(t)
+	ctx := t.Context()
+	mgmt, usrs, jrny := teststore.RunPostgreSQL(t)
+
+	orgs := management.NewOrganizationsStore(mgmt)
+	orgID, err := orgs.CreateOrganization(ctx, "Test Organization")
+	require.NoError(t, err)
+
+	admins := management.NewState(mgmt)
+	adminID, err := admins.CreateAdmin(ctx, management.Admin{
+		OrganizationID: orgID,
+		Email:          "test@example.com",
+		Role:           "admin",
+	})
+	require.NoError(t, err)
+
+	projectStore := management.NewProjectsStore(mgmt)
+	projectID, err := projectStore.CreateProject(ctx, management.Project{
+		OrganizationID: &orgID,
+		Name:           "Test Project",
+		Timezone:       "UTC",
+		Locale:         "en",
+	})
+	require.NoError(t, err)
+
+	err = projectStore.AddProjectAdmin(ctx, projectID, adminID, "admin")
+	require.NoError(t, err)
+
+	keyID := uuid.New()
+	actor := rbac.NewActor(rbac.ActorAPIKey, keyID.String(),
+		rbac.WithOrganizationID(orgID),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "")
+
+	projects := NewProjectsController(logger, mgmt, usrs, jrny, nil, nil, engine)
+
+	type test struct {
+		call  func(t *testing.T, res *httptest.ResponseRecorder)
+		code  int
+		check func(t *testing.T, res *httptest.ResponseRecorder)
+	}
+
+	tests := map[string]test{
+		"listing projects is admins only": {
+			call: func(_ *testing.T, res *httptest.ResponseRecorder) {
+				req := httptest.NewRequest("GET", "/api/admin/projects", nil).WithContext(actorCtx)
+
+				limit := oapi.PaginationLimit(10)
+				offset := oapi.PaginationOffset(0)
+
+				projects.ListProjects(res, req, oapi.ListProjectsParams{Limit: &limit, Offset: &offset})
+			},
+			code: http.StatusForbidden,
+		},
+		"getting a project omits the personal role": {
+			call: func(_ *testing.T, res *httptest.ResponseRecorder) {
+				req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String(), nil).WithContext(actorCtx)
+				projects.GetProject(res, req, projectID)
+			},
+			code: http.StatusOK,
+			check: func(t *testing.T, res *httptest.ResponseRecorder) {
+				var project oapi.Project
+				require.NoError(t, json.NewDecoder(res.Body).Decode(&project))
+				require.Equal(t, projectID, project.Id)
+				require.Empty(t, project.Role, "an API key holds no project_admins role")
+			},
+		},
+		"creating a project does not enrol the key as a project admin": {
+			call: func(t *testing.T, res *httptest.ResponseRecorder) {
+				bb, err := json.Marshal(oapi.CreateProjectJSONRequestBody{
+					Name:     "Key Project",
+					Timezone: "UTC",
+					Locale:   "en",
+				})
+				require.NoError(t, err)
+
+				req := httptest.NewRequest("POST", "/api/admin/projects", bytes.NewReader(bb)).WithContext(actorCtx)
+				projects.CreateProject(res, req)
+			},
+			code: http.StatusCreated,
+			check: func(t *testing.T, res *httptest.ResponseRecorder) {
+				var project oapi.Project
+				require.NoError(t, json.NewDecoder(res.Body).Decode(&project))
+				require.Empty(t, project.Role)
+
+				roster, err := projectStore.ListProjectAdminRoles(ctx, project.Id)
+				require.NoError(t, err)
+				require.Empty(t, roster, "the key id must never reach project_admins")
+			},
+		},
+		"updating a project omits the personal role": {
+			call: func(t *testing.T, res *httptest.ResponseRecorder) {
+				bb, err := json.Marshal(oapi.UpdateProjectJSONRequestBody{Name: ptr.To("Renamed Project")})
+				require.NoError(t, err)
+
+				req := httptest.NewRequest("PATCH", "/api/admin/projects/"+projectID.String(), bytes.NewReader(bb)).WithContext(actorCtx)
+				projects.UpdateProject(res, req, projectID)
+			},
+			code: http.StatusOK,
+			check: func(t *testing.T, res *httptest.ResponseRecorder) {
+				var project oapi.Project
+				require.NoError(t, json.NewDecoder(res.Body).Decode(&project))
+				require.Equal(t, "Renamed Project", project.Name)
+				require.Empty(t, project.Role)
+			},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			res := httptest.NewRecorder()
+			tt.call(t, res)
+
+			require.Equal(t, tt.code, res.Code, res.Body.String())
+
+			if tt.check != nil {
+				tt.check(t, res)
+			}
+		})
+	}
 }

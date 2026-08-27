@@ -1,11 +1,14 @@
 package v1
 
 import (
+	"errors"
 	"net/http"
+	"time"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/lunogram/platform/internal/config"
-	"github.com/lunogram/platform/internal/http/auth/providers"
+	"github.com/lunogram/platform/internal/http/auth"
+	"github.com/lunogram/platform/internal/http/auth/verifiers"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/http/problem"
@@ -14,39 +17,72 @@ import (
 	"go.uber.org/zap"
 )
 
-func NewAuthController(logger *zap.Logger, db *sqlx.DB, cfg config.Node, engine *rbac.Engine) (*AuthController, error) {
-	stores := management.NewState(db)
+// NewAuthController wires the login callback: one verifier for the configured
+// driver, and one exchanger that turns whatever it proves into a Lunogram
+// console session.
+//
+// mgmt must be the same (Redis-backed) store the authentication middleware
+// reads through. Building a separate one here would leave logout unable to
+// invalidate the shared session cache, so a revoked session would keep
+// authenticating on other replicas until the cache TTL elapsed.
+func NewAuthController(logger *zap.Logger, db *sqlx.DB, mgmt *management.State, cfg config.Node, engine *rbac.Engine, signer *auth.ConsoleSigner) (*AuthController, error) {
+	controller := &AuthController{
+		logger: logger,
+		mgmt:   mgmt,
+		signer: signer,
+	}
 
-	provider, err := providers.NewProvider(cfg.Auth, stores, logger, engine)
+	controller.exchanger = auth.NewExchanger(db, mgmt, engine, signer, nil, logger, cfg.Auth.LegacyIdentityAdoption)
+
+	verifier, err := verifiers.New(cfg.Auth, mgmt, logger, controller.exchanger)
 	if err != nil {
 		return nil, err
 	}
+	controller.verifier = verifier
 
-	return &AuthController{
-		logger:   logger,
-		provider: provider,
-	}, nil
+	return controller, nil
 }
 
 type AuthController struct {
-	logger   *zap.Logger
-	provider providers.Provider
+	logger    *zap.Logger
+	mgmt      *management.State
+	signer    *auth.ConsoleSigner
+	verifier  auth.Verifier
+	exchanger *auth.Exchanger
 }
+
+// Verifier is the configured credential verifier, exposed so the transitional
+// legacy-cookie upgrade can reuse it rather than construct a second one.
+func (c *AuthController) Verifier() auth.Verifier { return c.verifier }
+
+// Exchanger is the single path from a verified identity to a console session.
+func (c *AuthController) Exchanger() *auth.Exchanger { return c.exchanger }
 
 func (c *AuthController) GetAuthMethods(w http.ResponseWriter, r *http.Request) {
-	json.Write(w, http.StatusOK, []string{c.provider.Driver()})
+	json.Write(w, http.StatusOK, []string{c.verifier.Driver()})
 }
 
+// AuthCallback completes a login: the driver proves the credential and the
+// exchange turns that proof into a Lunogram console session. The verifier is
+// never handed the ResponseWriter, so no driver can set a cookie or mint a
+// token of its own.
 func (c *AuthController) AuthCallback(w http.ResponseWriter, r *http.Request, driver oapi.AuthCallbackParamsDriver) {
-	if string(driver) != c.provider.Driver() {
+	if string(driver) != c.verifier.Driver() {
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("auth driver not found")))
 		return
 	}
 
 	ctx := r.Context()
-	_, err := c.provider.Authenticate(ctx, w, r)
+
+	identity, err := c.verifier.Verify(ctx, r)
 	if err != nil {
 		c.logger.Error("auth validation failed", zap.String("driver", string(driver)), zap.Error(err))
+		c.writeAuthError(w, err)
+		return
+	}
+
+	if _, err := c.exchanger.Exchange(ctx, w, r, identity); err != nil {
+		c.logger.Error("session exchange failed", zap.String("driver", string(driver)), zap.Error(err))
 		c.writeAuthError(w, err)
 		return
 	}
@@ -55,14 +91,18 @@ func (c *AuthController) AuthCallback(w http.ResponseWriter, r *http.Request, dr
 }
 
 func (c *AuthController) AuthWebhook(w http.ResponseWriter, r *http.Request, driver oapi.AuthWebhookParamsDriver) {
-	if string(driver) != c.provider.Driver() {
+	if string(driver) != c.verifier.Driver() {
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("auth driver not found")))
 		return
 	}
 
-	ctx := r.Context()
-	err := c.provider.Webhook(ctx, r)
-	if err != nil {
+	webhooks, ok := c.verifier.(auth.WebhookVerifier)
+	if !ok {
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("this auth driver has no webhook")))
+		return
+	}
+
+	if err := webhooks.Webhook(r.Context(), r); err != nil {
 		c.logger.Error("webhook processing failed", zap.String("driver", string(driver)), zap.Error(err))
 		oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("webhook processing failed")))
 		return
@@ -71,19 +111,122 @@ func (c *AuthController) AuthWebhook(w http.ResponseWriter, r *http.Request, dri
 	w.WriteHeader(http.StatusOK)
 }
 
+// Logout revokes the server-side session and clears every cookie a credential
+// could have arrived in. Revoking server-side is the point of having a session
+// table at all: clearing a cookie alone leaves a still-valid bearer token in
+// whatever copied it.
+func (c *AuthController) Logout(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// Cleared FIRST, and deliberately not deferred: a Set-Cookie header written
+	// after the status line is silently dropped, so a deferred clear would leave
+	// the browser holding every cookie it arrived with. Clearing up front also
+	// means a browser presenting a credential we cannot read, or a revoke that
+	// then fails, is still not left stuck with it.
+	auth.ClearConsoleSessionCookies(w, r)
+
+	claims, ok := c.currentSession(r)
+	if !ok {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	if err := c.mgmt.RevokeAdminSession(ctx, claims.SessionID); err != nil {
+		c.logger.Error("failed to revoke session", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("failed to end the session")))
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// RefreshSession extends the idle window of the caller's own session and issues
+// a token for the new expiry.
+//
+// The session is re-read and re-checked in the database rather than trusted from
+// the presented token, so a revoked, expired or non-refreshable session cannot
+// be extended.
+//
+// Those two failures are told apart deliberately. A session that is gone answers
+// 401, and the caller should send its holder to the login page. A session that
+// is alive but cannot be extended -- impersonation is recorded non-refreshable
+// by construction -- answers 403: nothing is wrong, there is simply nothing to
+// do, and treating that as a logout would eject an operator from a session that
+// is working perfectly well.
+func (c *AuthController) RefreshSession(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	claims, ok := c.currentSession(r)
+	if !ok {
+		oapi.WriteProblem(w, problem.ErrUnauthorized())
+		return
+	}
+
+	current, err := c.mgmt.GetAdminSession(ctx, claims.SessionID)
+	if err != nil || !current.Active(time.Now()) {
+		oapi.WriteProblem(w, problem.ErrUnauthorized())
+		return
+	}
+
+	if !current.Refreshable {
+		oapi.WriteProblem(w, problem.ErrForbidden(problem.Describe("this session cannot be extended")))
+		return
+	}
+
+	session, err := c.mgmt.RefreshAdminSession(ctx, claims.SessionID, time.Now().Add(c.signer.IdleTTL()))
+	if err != nil {
+		// It was live a moment ago, so it has just been revoked or has expired
+		// between the two statements.
+		oapi.WriteProblem(w, problem.ErrUnauthorized())
+		return
+	}
+
+	token, err := c.signer.Mint(session, claims.Methods)
+	if err != nil {
+		c.logger.Error("failed to mint refreshed session", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal())
+		return
+	}
+
+	auth.SetConsoleSessionCookie(w, r, token, session.ExpiresAt)
+	json.Write(w, http.StatusOK, oapi.SessionRefresh{ExpiresAt: session.ExpiresAt})
+}
+
+// currentSession verifies the credential presented on the request without
+// consulting the database. It only says which session the caller is claiming;
+// anything that acts on that session must re-read it.
+func (c *AuthController) currentSession(r *http.Request) (*auth.ConsoleClaims, bool) {
+	if c.signer == nil {
+		return nil, false
+	}
+	token := auth.GetSession(r)
+	if token == "" {
+		return nil, false
+	}
+	claims, err := c.signer.Verify(token)
+	if err != nil {
+		return nil, false
+	}
+	return claims, true
+}
+
 func (c *AuthController) writeAuthError(w http.ResponseWriter, err error) {
-	switch err {
-	case providers.ErrMissingCredentials:
+	switch {
+	case errors.Is(err, verifiers.ErrMissingCredentials):
 		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("email and password are required")))
-	case providers.ErrInvalidCredentials:
+	case errors.Is(err, verifiers.ErrInvalidCredentials):
 		oapi.WriteProblem(w, problem.ErrUnauthorized(problem.Describe("invalid email or password")))
-	case providers.ErrNoSession:
+	case errors.Is(err, verifiers.ErrNoSession):
 		oapi.WriteProblem(w, problem.ErrUnauthorized(problem.Describe("authentication token required")))
-	case providers.ErrInvalidToken:
+	case errors.Is(err, verifiers.ErrInvalidToken):
 		oapi.WriteProblem(w, problem.ErrUnauthorized(problem.Describe("invalid authentication token")))
-	case providers.ErrInvalidEmail:
+	case errors.Is(err, verifiers.ErrInvalidEmail):
 		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("user has no valid email address")))
 	default:
-		oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("authentication failed")))
+		// An error raised by the exchange already carries the status it deserves
+		// (403 when impersonation would have provisioned, 409 on a contested
+		// email address); anything else falls through to a plain 500 without
+		// leaking its text.
+		oapi.WriteProblem(w, err)
 	}
 }

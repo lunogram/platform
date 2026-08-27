@@ -58,11 +58,15 @@ type S3Storage struct {
 	bucket string
 }
 
-func (s *S3Storage) Write(ctx context.Context, key string, reader io.Reader) error {
+func (s *S3Storage) Write(ctx context.Context, key string, reader io.Reader, contentType string) error {
 	input := &s3.PutObjectInput{
 		Bucket: aws.String(s.bucket),
 		Key:    aws.String(key),
 		Body:   reader,
+	}
+
+	if contentType != "" {
+		input.ContentType = aws.String(contentType)
 	}
 
 	_, err := s.client.PutObject(ctx, input)

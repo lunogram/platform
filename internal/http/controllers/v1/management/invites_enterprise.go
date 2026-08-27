@@ -111,10 +111,15 @@ func (srv *InviteController) CreateProjectInvite(w http.ResponseWriter, r *http.
 	logger.Info("creating project invite")
 
 	actor := rbac.FromContext(ctx)
-	inviterAdminID, err := uuid.Parse(actor.ID)
+	if actor == nil {
+		oapi.WriteProblem(w, problem.ErrUnauthorized())
+		return
+	}
+
+	inviterAdminID, err := adminActorID(actor)
 	if err != nil {
 		logger.Error("actor is not an admin", zap.String("actor_id", actor.ID), zap.Error(err))
-		oapi.WriteProblem(w, problem.ErrForbidden(problem.Describe("only admins can create invites")))
+		oapi.WriteProblem(w, err)
 		return
 	}
 
@@ -208,10 +213,10 @@ func (srv *InviteController) ListMyInvites(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	adminID, err := uuid.Parse(actor.ID)
+	adminID, err := adminActorID(actor)
 	if err != nil {
 		srv.logger.Error("actor is not an admin", zap.String("actor_id", actor.ID), zap.Error(err))
-		oapi.WriteProblem(w, problem.ErrForbidden(problem.Describe("only admins have invites")))
+		oapi.WriteProblem(w, err)
 		return
 	}
 
@@ -245,10 +250,10 @@ func (srv *InviteController) AcceptProjectInvite(w http.ResponseWriter, r *http.
 		return
 	}
 
-	adminID, err := uuid.Parse(actor.ID)
+	adminID, err := adminActorID(actor)
 	if err != nil {
 		srv.logger.Error("actor is not an admin", zap.String("actor_id", actor.ID), zap.Error(err))
-		oapi.WriteProblem(w, problem.ErrForbidden(problem.Describe("only admins can accept invites")))
+		oapi.WriteProblem(w, err)
 		return
 	}
 

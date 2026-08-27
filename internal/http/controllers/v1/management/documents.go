@@ -87,7 +87,7 @@ func (srv *DocumentsController) uploadDocument(ctx context.Context, logger *zap.
 		return uuid.Nil, err
 	}
 
-	err = srv.storage.Write(ctx, key, file)
+	err = srv.storage.Write(ctx, key, file, contentType)
 	if err != nil {
 		logger.Error("failed to write file to storage", zap.Error(err))
 		return uuid.Nil, problem.ErrInternal()

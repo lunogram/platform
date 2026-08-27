@@ -92,9 +92,12 @@ func (srv *ProjectsController) ListProjects(w http.ResponseWriter, r *http.Reque
 		search = string(*params.Search)
 	}
 
-	actorID, err := uuid.Parse(actor.ID)
+	// This endpoint answers "which projects do I belong to", which only an admin
+	// can be asked: the listing joins project_admins and carries the caller's
+	// role per project. A non-admin has no row there and no role, so its honest
+	// answer is a 403 rather than an empty list that reads as "you have none".
+	adminID, err := adminActorID(actor)
 	if err != nil {
-		logger.Error("failed to parse actor ID as UUID", zap.Error(err))
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -102,7 +105,7 @@ func (srv *ProjectsController) ListProjects(w http.ResponseWriter, r *http.Reque
 	// Scoped to the organization that scopes this session: an admin who belongs
 	// to several organizations must not see another organization's projects
 	// listed while this one is active.
-	projects, total, err := srv.store.ListProjectsForAdmin(ctx, actor.OrganizationID, actorID, rbac.OrganizationRolesInheritingProjectAdmin(), pagination, search)
+	projects, total, err := srv.store.ListProjectsForAdmin(ctx, actor.OrganizationID, adminID, rbac.OrganizationRolesInheritingProjectAdmin(), pagination, search)
 	if err != nil {
 		logger.Error("failed to list projects", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -138,9 +141,11 @@ func (srv *ProjectsController) GetProject(w http.ResponseWriter, r *http.Request
 
 	logger := srv.logger.With(zap.Stringer("project_id", projectID))
 
-	actorID, err := uuid.Parse(actor.ID)
+	// A nil admin id drops the project_admins join, so a non-admin actor gets the
+	// project without a personal role rather than the role of whichever admin
+	// happens to share its id shape.
+	adminID, err := optionalAdminActorID(actor)
 	if err != nil {
-		logger.Error("failed to parse actor ID as UUID", zap.Error(err))
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -150,7 +155,7 @@ func (srv *ProjectsController) GetProject(w http.ResponseWriter, r *http.Request
 	// would let any authenticated admin fetch any project by guessing its uuid;
 	// a foreign project is reported as not found, identical to one that does not
 	// exist, so the response does not confirm that the id is real.
-	project, err := srv.store.GetProjectInOrganization(ctx, projectID, actor.OrganizationID, &actorID)
+	project, err := srv.store.GetProjectInOrganization(ctx, projectID, actor.OrganizationID, adminID)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("project not found", zap.Stringer("project_id", projectID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("project not found")))
@@ -168,11 +173,13 @@ func (srv *ProjectsController) GetProject(w http.ResponseWriter, r *http.Request
 	// GetProject returns only the explicit project_admins role (empty when the
 	// admin has no row). Resolve the effective role so org owners/admins, who
 	// are project admins by inheritance, are not reported as having no role.
-	project.Role, err = resolveProjectRole(ctx, srv.store, actor.OrganizationID, projectID, actorID)
-	if err != nil {
-		logger.Error("failed to resolve project role", zap.Error(err))
-		oapi.WriteProblem(w, problem.ErrInternal())
-		return
+	if adminID != nil {
+		project.Role, err = resolveProjectRole(ctx, srv.store, actor.OrganizationID, projectID, *adminID)
+		if err != nil {
+			logger.Error("failed to resolve project role", zap.Error(err))
+			oapi.WriteProblem(w, problem.ErrInternal())
+			return
+		}
 	}
 
 	logger.Info("project retrieved")
@@ -197,6 +204,12 @@ func (srv *ProjectsController) CreateProject(w http.ResponseWriter, r *http.Requ
 
 	logger := srv.logger.With()
 	logger.Info("creating project", zap.String("name", body.Name))
+
+	adminID, err := optionalAdminActorID(actor)
+	if err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
 
 	tx, err := srv.managementDB.BeginTxx(ctx, nil)
 	if err != nil {
@@ -225,24 +238,15 @@ func (srv *ProjectsController) CreateProject(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// NOTE: we add the admin as a project admin after creation if the
-	// caller is a human (JWT). API key callers don't get added.
-	var creatorID *uuid.UUID
-	if actor.Type == rbac.ActorAdmin {
-		adminID, parseErr := uuid.Parse(actor.ID)
-		if parseErr != nil {
-			logger.Error("failed to parse actor ID as UUID", zap.Error(parseErr))
-			oapi.WriteProblem(w, parseErr)
-			return
-		}
-
-		err = projects.AddProjectAdmin(ctx, projectID, adminID, rbac.ProjectAdmin)
+	// Only a human caller takes a seat on the project it just created; an API
+	// key is a backend credential with nobody behind it to grant one to.
+	if adminID != nil {
+		err = projects.AddProjectAdmin(ctx, projectID, *adminID, rbac.ProjectAdmin)
 		if err != nil {
 			logger.Error("failed to add admin to project", zap.Error(err))
 			oapi.WriteProblem(w, err)
 			return
 		}
-		creatorID = &adminID
 	}
 
 	// Create default subscriptions for each channel
@@ -319,23 +323,16 @@ func (srv *ProjectsController) CreateProject(w http.ResponseWriter, r *http.Requ
 	// this appears to work — until they are demoted from organization admin and
 	// silently lose a project they own on paper. Postgres and OpenFGA must agree
 	// about who holds what.
-	if creatorID != nil {
-		if err := access.ProvisionProjectRole(ctx, srv.engine, *creatorID, projectID, rbac.ProjectAdmin); err != nil {
+	if adminID != nil {
+		if err := access.ProvisionProjectRole(ctx, srv.engine, *adminID, projectID, rbac.ProjectAdmin); err != nil {
 			logger.Error("failed to provision RBAC project role for creator", zap.Error(err))
 			oapi.WriteProblem(w, err)
 			return
 		}
 	}
 
-	actorID, err := uuid.Parse(actor.ID)
-	if err != nil {
-		logger.Error("failed to parse actor ID as UUID", zap.Error(err))
-		oapi.WriteProblem(w, err)
-		return
-	}
-
 	logger.Info("project created", zap.Stringer("project_id", projectID))
-	project, err := srv.store.GetProject(ctx, projectID, &actorID)
+	project, err := srv.store.GetProject(ctx, projectID, adminID)
 	if err != nil {
 		logger.Error("failed to fetch created project", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -373,6 +370,12 @@ func (srv *ProjectsController) UpdateProject(w http.ResponseWriter, r *http.Requ
 	logger := srv.logger.With(zap.Stringer("project_id", projectID))
 	logger.Info("updating project")
 
+	adminID, err := optionalAdminActorID(actor)
+	if err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	// Update was authorized against the actor's own organization, so the target
 	// must belong to it. Without this the handler mutates any project by uuid.
 	if _, err := srv.store.GetProjectInOrganization(ctx, projectID, actor.OrganizationID, nil); err != nil {
@@ -409,14 +412,7 @@ func (srv *ProjectsController) UpdateProject(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	actorID, err := uuid.Parse(actor.ID)
-	if err != nil {
-		logger.Error("failed to parse actor ID as UUID", zap.Error(err))
-		oapi.WriteProblem(w, err)
-		return
-	}
-
-	project, err := srv.store.GetProject(ctx, projectID, &actorID)
+	project, err := srv.store.GetProject(ctx, projectID, adminID)
 	if err != nil {
 		logger.Error("failed to fetch updated project", zap.Error(err))
 		oapi.WriteProblem(w, err)

@@ -667,6 +667,7 @@ func (e ListSenderIdentitiesParamsChannel) Valid() bool {
 // Defines values for GetOrganizationInboxMessagesParamsStatus.
 const (
 	GetOrganizationInboxMessagesParamsStatusArchived GetOrganizationInboxMessagesParamsStatus = "archived"
+	GetOrganizationInboxMessagesParamsStatusFailed   GetOrganizationInboxMessagesParamsStatus = "failed"
 	GetOrganizationInboxMessagesParamsStatusRead     GetOrganizationInboxMessagesParamsStatus = "read"
 	GetOrganizationInboxMessagesParamsStatusUnread   GetOrganizationInboxMessagesParamsStatus = "unread"
 )
@@ -675,6 +676,8 @@ const (
 func (e GetOrganizationInboxMessagesParamsStatus) Valid() bool {
 	switch e {
 	case GetOrganizationInboxMessagesParamsStatusArchived:
+		return true
+	case GetOrganizationInboxMessagesParamsStatusFailed:
 		return true
 	case GetOrganizationInboxMessagesParamsStatusRead:
 		return true
@@ -688,6 +691,7 @@ func (e GetOrganizationInboxMessagesParamsStatus) Valid() bool {
 // Defines values for GetUserInboxMessagesParamsStatus.
 const (
 	GetUserInboxMessagesParamsStatusArchived GetUserInboxMessagesParamsStatus = "archived"
+	GetUserInboxMessagesParamsStatusFailed   GetUserInboxMessagesParamsStatus = "failed"
 	GetUserInboxMessagesParamsStatusRead     GetUserInboxMessagesParamsStatus = "read"
 	GetUserInboxMessagesParamsStatusUnread   GetUserInboxMessagesParamsStatus = "unread"
 )
@@ -696,6 +700,8 @@ const (
 func (e GetUserInboxMessagesParamsStatus) Valid() bool {
 	switch e {
 	case GetUserInboxMessagesParamsStatusArchived:
+		return true
+	case GetUserInboxMessagesParamsStatusFailed:
 		return true
 	case GetUserInboxMessagesParamsStatusRead:
 		return true
@@ -816,7 +822,6 @@ type AddOrganizationMember struct {
 type Admin struct {
 	CreatedAt      time.Time          `json:"created_at"`
 	Email          string             `json:"email"`
-	ExternalId     *string            `json:"external_id,omitempty"`
 	FirstName      *string            `json:"first_name,omitempty"`
 	Id             openapi_types.UUID `json:"id"`
 	ImageUrl       *string            `json:"image_url,omitempty"`
@@ -913,7 +918,10 @@ type Broadcast struct {
 	CreatedAt   time.Time  `json:"created_at"`
 
 	// Error Error message if the broadcast failed
-	Error  *string            `json:"error,omitempty"`
+	Error *string `json:"error,omitempty"`
+
+	// Failed Number of messages that terminally will not be delivered, such as a suppressed recipient or a permanent provider rejection
+	Failed *int               `json:"failed,omitempty"`
 	Id     openapi_types.UUID `json:"id"`
 	ListId openapi_types.UUID `json:"list_id"`
 
@@ -1405,7 +1413,13 @@ type InboxMessage struct {
 	ExpiresAt *time.Time      `json:"expires_at,omitempty"`
 
 	// ExternalId External identifier for the message, if one was provided at creation time.
-	ExternalId       *string             `json:"external_id,omitempty"`
+	ExternalId *string `json:"external_id,omitempty"`
+
+	// FailedAt When the message was permanently settled as failed. Mutually exclusive with sent_at.
+	FailedAt *time.Time `json:"failed_at,omitempty"`
+
+	// FailureReason Why the message will never be delivered, set alongside failed_at. Carries one of the canonical reasons recipient_opted_out, invalid_recipient, sender_unregistered, rate_limited or unknown. Left unconstrained so a newly classified reason does not require a breaking schema change; treat an unrecognised value as unknown.
+	FailureReason    *string             `json:"failure_reason,omitempty"`
 	Id               openapi_types.UUID  `json:"id"`
 	OrganizationId   *openapi_types.UUID `json:"organization_id,omitempty"`
 	Priority         int16               `json:"priority"`
@@ -1964,6 +1978,12 @@ type SenderIdentityChannel string
 type SessionConfig struct {
 	// TtlSeconds Lifetime of minted session tokens, in seconds.
 	TtlSeconds *int `json:"ttl_seconds,omitempty"`
+}
+
+// SessionRefresh defines model for SessionRefresh.
+type SessionRefresh struct {
+	// ExpiresAt When the refreshed session expires if it is not used again
+	ExpiresAt time.Time `json:"expires_at"`
 }
 
 // SetActiveOrganization defines model for SetActiveOrganization.
@@ -2942,6 +2962,7 @@ type GetOrganizationEventsParams struct {
 
 // GetOrganizationInboxMessagesParams defines parameters for GetOrganizationInboxMessages.
 type GetOrganizationInboxMessagesParams struct {
+	// Status Filters by read state, or by delivery outcome when set to failed. Selecting failed returns messages that were terminally settled without being delivered, such as a recipient suppressed by an opt-out, regardless of their read state.
 	Status *GetOrganizationInboxMessagesParamsStatus `form:"status,omitempty" json:"status,omitempty"`
 
 	// Tags Comma-separated tag filter. All listed tags must be present.
@@ -3015,6 +3036,7 @@ type GetUserEventsParams struct {
 
 // GetUserInboxMessagesParams defines parameters for GetUserInboxMessages.
 type GetUserInboxMessagesParams struct {
+	// Status Filters by read state, or by delivery outcome when set to failed. Selecting failed returns messages that were terminally settled without being delivered, such as a recipient suppressed by an opt-out, regardless of their read state.
 	Status *GetUserInboxMessagesParamsStatus `form:"status,omitempty" json:"status,omitempty"`
 
 	// Tags Comma-separated tag filter. All listed tags must be present.
@@ -3998,8 +4020,14 @@ type ClientInterface interface {
 
 	AuthCallback(ctx context.Context, driver AuthCallbackParamsDriver, body AuthCallbackJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// Logout request
+	Logout(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetAuthMethods request
 	GetAuthMethods(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RefreshSession request
+	RefreshSession(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// AuthWebhook request
 	AuthWebhook(ctx context.Context, driver AuthWebhookParamsDriver, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -6771,8 +6799,32 @@ func (c *Client) AuthCallback(ctx context.Context, driver AuthCallbackParamsDriv
 	return c.Client.Do(req)
 }
 
+func (c *Client) Logout(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewLogoutRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) GetAuthMethods(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetAuthMethodsRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RefreshSession(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRefreshSessionRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -16350,6 +16402,33 @@ func NewAuthCallbackRequestWithBody(server string, driver AuthCallbackParamsDriv
 	return req, nil
 }
 
+// NewLogoutRequest generates requests for Logout
+func NewLogoutRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/auth/logout")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetAuthMethodsRequest generates requests for GetAuthMethods
 func NewGetAuthMethodsRequest(server string) (*http.Request, error) {
 	var err error
@@ -16370,6 +16449,33 @@ func NewGetAuthMethodsRequest(server string) (*http.Request, error) {
 	}
 
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewRefreshSessionRequest generates requests for RefreshSession
+func NewRefreshSessionRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/auth/refresh")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -17150,8 +17256,14 @@ type ClientWithResponsesInterface interface {
 
 	AuthCallbackWithResponse(ctx context.Context, driver AuthCallbackParamsDriver, body AuthCallbackJSONRequestBody, reqEditors ...RequestEditorFn) (*AuthCallbackResponse, error)
 
+	// LogoutWithResponse request
+	LogoutWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*LogoutResponse, error)
+
 	// GetAuthMethodsWithResponse request
 	GetAuthMethodsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetAuthMethodsResponse, error)
+
+	// RefreshSessionWithResponse request
+	RefreshSessionWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*RefreshSessionResponse, error)
 
 	// AuthWebhookWithResponse request
 	AuthWebhookWithResponse(ctx context.Context, driver AuthWebhookParamsDriver, reqEditors ...RequestEditorFn) (*AuthWebhookResponse, error)
@@ -18219,13 +18331,16 @@ type GetBroadcastUsersResponse struct {
 		Limit   int `json:"limit"`
 		Offset  int `json:"offset"`
 		Results []struct {
-			Email    *string             `json:"email,omitempty"`
-			FullName *string             `json:"full_name,omitempty"`
-			Id       *openapi_types.UUID `json:"id,omitempty"`
-			Phone    *string             `json:"phone,omitempty"`
-			SentAt   *time.Time          `json:"sent_at,omitempty"`
-			State    *string             `json:"state,omitempty"`
-			UserId   *openapi_types.UUID `json:"user_id,omitempty"`
+			Email *string `json:"email,omitempty"`
+
+			// FailureReason Why the recipient was not reached, set only when state is failed. Distinguishes a suppressed recipient (recipient_opted_out) from a genuine delivery failure such as invalid_recipient. Left unconstrained for the same reason as InboxMessage.failure_reason.
+			FailureReason *string             `json:"failure_reason,omitempty"`
+			FullName      *string             `json:"full_name,omitempty"`
+			Id            *openapi_types.UUID `json:"id,omitempty"`
+			Phone         *string             `json:"phone,omitempty"`
+			SentAt        *time.Time          `json:"sent_at,omitempty"`
+			State         *string             `json:"state,omitempty"`
+			UserId        *openapi_types.UUID `json:"user_id,omitempty"`
 		} `json:"results"`
 		Total int `json:"total"`
 	}
@@ -22606,6 +22721,36 @@ func (r AuthCallbackResponse) ContentType() string {
 	return ""
 }
 
+type LogoutResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r LogoutResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r LogoutResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r LogoutResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type GetAuthMethodsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -22631,6 +22776,37 @@ func (r GetAuthMethodsResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r GetAuthMethodsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type RefreshSessionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *SessionRefresh
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r RefreshSessionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RefreshSessionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RefreshSessionResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -24746,6 +24922,15 @@ func (c *ClientWithResponses) AuthCallbackWithResponse(ctx context.Context, driv
 	return ParseAuthCallbackResponse(rsp)
 }
 
+// LogoutWithResponse request returning *LogoutResponse
+func (c *ClientWithResponses) LogoutWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*LogoutResponse, error) {
+	rsp, err := c.Logout(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseLogoutResponse(rsp)
+}
+
 // GetAuthMethodsWithResponse request returning *GetAuthMethodsResponse
 func (c *ClientWithResponses) GetAuthMethodsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetAuthMethodsResponse, error) {
 	rsp, err := c.GetAuthMethods(ctx, reqEditors...)
@@ -24753,6 +24938,15 @@ func (c *ClientWithResponses) GetAuthMethodsWithResponse(ctx context.Context, re
 		return nil, err
 	}
 	return ParseGetAuthMethodsResponse(rsp)
+}
+
+// RefreshSessionWithResponse request returning *RefreshSessionResponse
+func (c *ClientWithResponses) RefreshSessionWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*RefreshSessionResponse, error) {
+	rsp, err := c.RefreshSession(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRefreshSessionResponse(rsp)
 }
 
 // AuthWebhookWithResponse request returning *AuthWebhookResponse
@@ -25876,13 +26070,16 @@ func ParseGetBroadcastUsersResponse(rsp *http.Response) (*GetBroadcastUsersRespo
 			Limit   int `json:"limit"`
 			Offset  int `json:"offset"`
 			Results []struct {
-				Email    *string             `json:"email,omitempty"`
-				FullName *string             `json:"full_name,omitempty"`
-				Id       *openapi_types.UUID `json:"id,omitempty"`
-				Phone    *string             `json:"phone,omitempty"`
-				SentAt   *time.Time          `json:"sent_at,omitempty"`
-				State    *string             `json:"state,omitempty"`
-				UserId   *openapi_types.UUID `json:"user_id,omitempty"`
+				Email *string `json:"email,omitempty"`
+
+				// FailureReason Why the recipient was not reached, set only when state is failed. Distinguishes a suppressed recipient (recipient_opted_out) from a genuine delivery failure such as invalid_recipient. Left unconstrained for the same reason as InboxMessage.failure_reason.
+				FailureReason *string             `json:"failure_reason,omitempty"`
+				FullName      *string             `json:"full_name,omitempty"`
+				Id            *openapi_types.UUID `json:"id,omitempty"`
+				Phone         *string             `json:"phone,omitempty"`
+				SentAt        *time.Time          `json:"sent_at,omitempty"`
+				State         *string             `json:"state,omitempty"`
+				UserId        *openapi_types.UUID `json:"user_id,omitempty"`
 			} `json:"results"`
 			Total int `json:"total"`
 		}
@@ -30299,6 +30496,32 @@ func ParseAuthCallbackResponse(rsp *http.Response) (*AuthCallbackResponse, error
 	return response, nil
 }
 
+// ParseLogoutResponse parses an HTTP response from a LogoutWithResponse call
+func ParseLogoutResponse(rsp *http.Response) (*LogoutResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &LogoutResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseGetAuthMethodsResponse parses an HTTP response from a GetAuthMethodsWithResponse call
 func ParseGetAuthMethodsResponse(rsp *http.Response) (*GetAuthMethodsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -30315,6 +30538,39 @@ func ParseGetAuthMethodsResponse(rsp *http.Response) (*GetAuthMethodsResponse, e
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest []string
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRefreshSessionResponse parses an HTTP response from a RefreshSessionWithResponse call
+func ParseRefreshSessionResponse(rsp *http.Response) (*RefreshSessionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RefreshSessionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SessionRefresh
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -30953,9 +31209,15 @@ type ServerInterface interface {
 	// Complete authentication
 	// (POST /api/auth/login/{driver}/callback)
 	AuthCallback(w http.ResponseWriter, r *http.Request, driver AuthCallbackParamsDriver)
+	// End the current console session
+	// (POST /api/auth/logout)
+	Logout(w http.ResponseWriter, r *http.Request)
 	// Get available auth methods
 	// (GET /api/auth/methods)
 	GetAuthMethods(w http.ResponseWriter, r *http.Request)
+	// Extend the current console session
+	// (POST /api/auth/refresh)
+	RefreshSession(w http.ResponseWriter, r *http.Request)
 	// Auth provider webhook
 	// (POST /api/auth/{driver}/webhook)
 	AuthWebhook(w http.ResponseWriter, r *http.Request, driver AuthWebhookParamsDriver)
@@ -32021,9 +32283,21 @@ func (_ Unimplemented) AuthCallback(w http.ResponseWriter, r *http.Request, driv
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// End the current console session
+// (POST /api/auth/logout)
+func (_ Unimplemented) Logout(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // Get available auth methods
 // (GET /api/auth/methods)
 func (_ Unimplemented) GetAuthMethods(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Extend the current console session
+// (POST /api/auth/refresh)
+func (_ Unimplemented) RefreshSession(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -40479,11 +40753,51 @@ func (siw *ServerInterfaceWrapper) AuthCallback(w http.ResponseWriter, r *http.R
 	handler.ServeHTTP(w, r)
 }
 
+// Logout operation middleware
+func (siw *ServerInterfaceWrapper) Logout(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.Logout(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetAuthMethods operation middleware
 func (siw *ServerInterfaceWrapper) GetAuthMethods(w http.ResponseWriter, r *http.Request) {
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetAuthMethods(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RefreshSession operation middleware
+func (siw *ServerInterfaceWrapper) RefreshSession(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RefreshSession(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -41210,7 +41524,13 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/api/auth/login/{driver}/callback", wrapper.AuthCallback)
 	})
 	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/auth/logout", wrapper.Logout)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/auth/methods", wrapper.GetAuthMethods)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/auth/refresh", wrapper.RefreshSession)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/auth/{driver}/webhook", wrapper.AuthWebhook)

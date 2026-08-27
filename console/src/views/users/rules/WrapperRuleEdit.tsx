@@ -18,6 +18,7 @@ import {
     createEventRule,
     createOrganizationEventRule,
     createOrganizationRule,
+    createStepVisitRule,
     isEventWrapper,
     isOrganizationEventWrapper,
     isOrganizationWrapper,
@@ -41,6 +42,8 @@ export default function WrapperRuleEdit({
     userOnly = false,
     journeyContext = false,
     journeyVariables,
+    journeySteps,
+    currentStepId,
 }: RuleEditProps<WrapperRule>) {
     const { t } = useTranslation()
 
@@ -59,6 +62,13 @@ export default function WrapperRuleEdit({
         setRule({
             ...rule,
             children: [...children, newRule],
+        })
+    }
+
+    const handleAddStepVisitRule = () => {
+        setRule({
+            ...rule,
+            children: [...(rule?.children ?? []), createStepVisitRule(rule)],
         })
     }
 
@@ -166,6 +176,8 @@ export default function WrapperRuleEdit({
                         userOnly={userOnly}
                         journeyContext={journeyContext}
                         journeyVariables={journeyVariables}
+                        journeySteps={journeySteps}
+                        currentStepId={currentStepId}
                         controls={
                             <Button
                                 size="sm"
@@ -300,6 +312,18 @@ export default function WrapperRuleEdit({
                                         {t("rule_add_org_condition")}
                                     </Button>
                                 </>
+                            )}
+                            {journeyContext && (
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="shadow-none"
+                                    aria-label="Add step visit condition"
+                                    onClick={() => handleAddStepVisitRule()}
+                                >
+                                    <Plus className="h-3.5 w-3.5 mr-1" />
+                                    {t("rule_add_step_visit_condition")}
+                                </Button>
                             )}
                             {journeyContext && journeyVariables && journeyVariables.length > 0 && (
                                 <Button

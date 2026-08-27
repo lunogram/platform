@@ -36,6 +36,10 @@ type ProviderSpec struct {
 	Webhook   bool       `json:"webhook,omitempty"`
 	Locked    bool       `json:"locked,omitempty"`
 	RateLimit *RateLimit `json:"rate_limit,omitempty"`
+
+	// SelfHandlesOptOut reports that the provider sends its own opt-out
+	// confirmation. The host still records the opt-out; it skips its own reply.
+	SelfHandlesOptOut bool `json:"self_handles_opt_out,omitempty"`
 }
 
 // RateLimit defines a rate limit as a number of allowed requests within a

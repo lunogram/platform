@@ -513,3 +513,46 @@ func TestProjectRoleResolvesHighestHeldRole(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "", got)
 }
+
+// TestWriteTuplesIfAbsentIsIdempotent covers the batch form: a batch containing
+// a tuple that already exists must still write the rest, because OpenFGA writes
+// are all-or-nothing and would otherwise reject the whole request.
+func TestWriteTuplesIfAbsentIsIdempotent(t *testing.T) {
+	t.Parallel()
+
+	engine := NewTestEngine(t)
+	ctx := context.Background()
+	obj := OrganizationScope(uuid.New())
+
+	first := []Tuple{{User: "user:batch-1", Relation: "member", Object: obj}}
+	require.NoError(t, engine.WriteTuplesIfAbsent(ctx, first))
+	require.NoError(t, engine.WriteTuplesIfAbsent(ctx, first), "re-writing the same tuple must succeed")
+
+	// A batch that mixes an existing tuple with a new one must leave both present.
+	mixed := []Tuple{
+		{User: "user:batch-1", Relation: "member", Object: obj},
+		{User: "user:batch-2", Relation: "member", Object: obj},
+	}
+	require.NoError(t, engine.WriteTuplesIfAbsent(ctx, mixed))
+
+	for _, user := range []string{"user:batch-1", "user:batch-2"} {
+		allowed, err := engine.Check(ctx, user, "member", obj)
+		require.NoError(t, err)
+		assert.True(t, allowed, "%s should have been granted", user)
+	}
+}
+
+// TestWriteTuplesIfAbsentSurfacesRealErrors pins that duplicate tolerance is not
+// blanket error tolerance.
+func TestWriteTuplesIfAbsentSurfacesRealErrors(t *testing.T) {
+	t.Parallel()
+
+	engine := NewTestEngine(t)
+	ctx := context.Background()
+	obj := OrganizationScope(uuid.New())
+
+	err := engine.WriteTuplesIfAbsent(ctx, []Tuple{
+		{User: "user:u1", Relation: "not_a_real_relation", Object: obj},
+	})
+	require.Error(t, err)
+}

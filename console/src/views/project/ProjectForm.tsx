@@ -32,6 +32,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"
 
 // eslint-disable-next-line @typescript-eslint/no-namespace
 export declare namespace Intl {
@@ -388,11 +389,18 @@ export function ProjectSettingsFields({ form }: { form: UseFormReturn<Project> }
                         <p className="text-sm text-muted-foreground">
                             {t(
                                 "message_settings_description",
-                                "Configure automatic reply messages for SMS interactions.",
+                                "Message text for SMS opt-out and help requests.",
                             )}
                         </p>
                     </div>
                 </div>
+
+                <Alert>
+                    <AlertTitle>{t("sms_message_settings_not_enforced_title")}</AlertTitle>
+                    <AlertDescription>
+                        {t("sms_message_settings_not_enforced_description")}
+                    </AlertDescription>
+                </Alert>
 
                 <div className="grid gap-6">
                     <div className="grid gap-2">

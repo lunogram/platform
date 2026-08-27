@@ -271,6 +271,7 @@ export default function Broadcasts() {
                                 const ChannelIcon = broadcast.campaign?.channel
                                     ? (channelIcons[broadcast.campaign.channel] ?? Mail)
                                     : Radio
+                                const failedCount = broadcast.failed ?? 0
                                 return (
                                     <TableRow
                                         key={broadcast.id}
@@ -309,9 +310,26 @@ export default function Broadcasts() {
                                         </TableCell>
                                         <TableCell>{getStateBadge(broadcast.state, t)}</TableCell>
                                         <TableCell className="hidden sm:table-cell text-muted-foreground">
-                                            {broadcast.sent > 0
-                                                ? broadcast.sent.toLocaleString()
-                                                : "—"}
+                                            {broadcast.sent > 0 || failedCount > 0 ? (
+                                                <div className="flex flex-col leading-tight">
+                                                    <span className="tabular-nums">
+                                                        {broadcast.sent.toLocaleString()}
+                                                    </span>
+                                                    {failedCount > 0 && (
+                                                        <span className="text-xs tabular-nums text-muted-foreground/70">
+                                                            {t(
+                                                                "broadcast_failed_count",
+                                                                `${failedCount.toLocaleString()} failed`,
+                                                                {
+                                                                    failed: failedCount.toLocaleString(),
+                                                                },
+                                                            )}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                "—"
+                                            )}
                                         </TableCell>
                                         <TableCell className="hidden md:table-cell text-muted-foreground">
                                             {broadcast.scheduled_at ? (
