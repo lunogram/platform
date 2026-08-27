@@ -94,8 +94,8 @@ type OrgResolver interface {
 	Resolve(ctx context.Context, tx *management.State, identity *VerifiedIdentity) (organizationID uuid.UUID, role string, err error)
 }
 
-// DefaultOrgResolver reproduces the pre-existing behaviour verbatim: every new
-// admin gets a fresh organization of their own and owns it.
+// DefaultOrgResolver gives every new admin a fresh organization of their own,
+// which they own.
 type DefaultOrgResolver struct{}
 
 func (DefaultOrgResolver) Resolve(ctx context.Context, tx *management.State, _ *VerifiedIdentity) (uuid.UUID, string, error) {
@@ -104,6 +104,34 @@ func (DefaultOrgResolver) Resolve(ctx context.Context, tx *management.State, _ *
 		return uuid.Nil, "", err
 	}
 	return organizationID, rbac.OrganizationOwner, nil
+}
+
+// InviteOrgResolver puts an admin whose address was already invited into the
+// organization that invited them, and falls back to [DefaultOrgResolver] for
+// everybody else.
+//
+// Without it, being invited and then signing up produces an organization of
+// your own that nobody asked for, and the invite you were sent points somewhere
+// you are not a member of. The invite itself is left pending: accepting it is
+// what grants the project role, and that flow already exists -- this only
+// decides where the account lands.
+//
+// The lookup runs on the address the credential carries, verified or not, which
+// is safe because it grants nothing: base membership of an organization that
+// deliberately invited this address, with the project role still gated behind
+// the existing accept flow.
+type InviteOrgResolver struct{}
+
+func (InviteOrgResolver) Resolve(ctx context.Context, tx *management.State, identity *VerifiedIdentity) (uuid.UUID, string, error) {
+	organizationID, err := tx.GetPendingInviteOrganization(ctx, identity.Email)
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
+		return DefaultOrgResolver{}.Resolve(ctx, tx, identity)
+	case err != nil:
+		return uuid.Nil, "", err
+	}
+
+	return organizationID, rbac.OrganizationMember, nil
 }
 
 // ExchangeResult is a freshly minted console session.
@@ -141,7 +169,7 @@ func NewExchanger(
 	legacyAdoption bool,
 ) *Exchanger {
 	if orgs == nil {
-		orgs = DefaultOrgResolver{}
+		orgs = InviteOrgResolver{}
 	}
 	return &Exchanger{
 		db:             db,
@@ -311,7 +339,7 @@ func (e *Exchanger) resolve(ctx context.Context, identity *VerifiedIdentity) (*r
 		return nil, problem.ErrForbidden(problem.Describe("impersonation cannot create an account"))
 	}
 
-	return e.provision(ctx, identity)
+	return e.provision(ctx, identity, nil)
 }
 
 // adoptLegacyIdentity claims a backfilled external_id row for the upstream that
@@ -400,13 +428,47 @@ func (e *Exchanger) linkByEmail(ctx context.Context, identity *VerifiedIdentity)
 	return &resolvedIdentity{adminID: admin.ID, identityID: identityID}, nil
 }
 
-// provision creates the admin, their organization and their identity in one
-// transaction, then grants membership. The organization, admin and identity all
-// commit together or not at all, and the RBAC tuples are written strictly after
-// that commit -- see [access.ProvisionMembership].
-func (e *Exchanger) provision(ctx context.Context, identity *VerifiedIdentity) (*resolvedIdentity, error) {
+// LocalCredential supplies the parts of a brand-new identity that cannot be
+// known before the admin exists: the subject it is keyed on, and the hash of the
+// secret that proves it.
+//
+// A federated identity has neither -- its subject was minted upstream and its
+// secret is not ours to hold -- and passes nil. A local one (email and password)
+// is keyed on the admin's own id, which is why it has to be supplied here rather
+// than on the [VerifiedIdentity]: the identity row and the admin it belongs to
+// are created in the same statement pair, inside one transaction.
+type LocalCredential func(adminID uuid.UUID) (subject string, secretHash string, err error)
+
+// ProvisionAdmin creates an admin, the organization the [OrgResolver] picks for
+// them and their first identity, then grants membership.
+//
+// It is the ONE path that creates an admin. A login reaches it through
+// [Exchanger.Exchange] when no resolution step matched an existing account;
+// local registration calls it directly, because a password identity is created
+// together with its secret rather than proved before it exists. Sharing it is
+// what keeps "who may be created, in which organization, with which role" a
+// single answer instead of one per entry point.
+//
+// The organization, admin and identity all commit together or not at all, and
+// the RBAC tuples are written strictly after that commit -- see
+// [access.ProvisionMembership].
+func (e *Exchanger) ProvisionAdmin(ctx context.Context, identity *VerifiedIdentity, credential LocalCredential) (adminID uuid.UUID, identityID uuid.UUID, err error) {
+	resolved, err := e.provision(ctx, identity, credential)
+	if err != nil {
+		return uuid.Nil, uuid.Nil, err
+	}
+	return resolved.adminID, resolved.identityID, nil
+}
+
+func (e *Exchanger) provision(ctx context.Context, identity *VerifiedIdentity, credential LocalCredential) (*resolvedIdentity, error) {
 	if identity.Email == "" {
 		return nil, problem.ErrBadRequest(problem.Describe("the identity provider supplied no email address"))
+	}
+	if identity.Issuer == "" {
+		return nil, problem.ErrUnauthorized(problem.Describe("credential carries no identity"))
+	}
+	if identity.Subject == "" && credential == nil {
+		return nil, problem.ErrUnauthorized(problem.Describe("credential carries no identity"))
 	}
 
 	// The address is already somebody's. Resolution reached this far only
@@ -446,14 +508,25 @@ func (e *Exchanger) provision(ctx context.Context, identity *VerifiedIdentity) (
 				return uuid.Nil, access.Membership{}, err
 			}
 
-			identityID, err = tx.CreateAdminIdentity(ctx, management.AdminIdentity{
+			row := management.AdminIdentity{
 				AdminID:       adminID,
 				Provider:      identity.Provider,
 				Issuer:        identity.Issuer,
 				Subject:       identity.Subject,
 				Email:         &identity.Email,
 				EmailVerified: identity.EmailVerified,
-			})
+			}
+
+			if credential != nil {
+				subject, secretHash, err := credential(adminID)
+				if err != nil {
+					return uuid.Nil, access.Membership{}, err
+				}
+				row.Subject = subject
+				row.SecretHash = &secretHash
+			}
+
+			identityID, err = tx.CreateAdminIdentity(ctx, row)
 			if err != nil {
 				return uuid.Nil, access.Membership{}, err
 			}

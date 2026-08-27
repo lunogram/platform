@@ -17,6 +17,9 @@ import (
 // "issuer" is this deployment's own configuration.
 const BasicIssuer = "urn:lunogram:basic"
 
+// BasicDriver is the driver identifier the static credential is keyed on.
+const BasicDriver = "basic"
+
 // Basic verifies the single email/password pair configured through
 // AUTH_BASIC_EMAIL / AUTH_BASIC_PASSWORD. It is the documented quickstart, so it
 // is a first-class verifier rather than a development shortcut -- it just proves
@@ -29,7 +32,7 @@ func NewBasic(cfg config.BasicAuth) *Basic {
 	return &Basic{config: cfg}
 }
 
-func (b *Basic) Driver() string { return "basic" }
+func (b *Basic) Driver() string { return BasicDriver }
 
 type basicCredentials struct {
 	Email    string `json:"email"`

@@ -1,6 +1,7 @@
 package config
 
 import (
+	"slices"
 	"strings"
 	"time"
 
@@ -43,11 +44,18 @@ func (n Node) PublicBaseURL() string {
 }
 
 type Auth struct {
-	Driver  string      `env:"DRIVER"`
-	JWKS    claim.JWKS  `env:"JWKS_URL"`
-	Basic   BasicAuth   `envPrefix:"BASIC_"`
-	Clerk   ClerkAuth   `envPrefix:"CLERK_"`
-	Console ConsoleAuth `envPrefix:"CONSOLE_"`
+	// Drivers are the login methods this deployment offers. AUTH_DRIVER takes a
+	// comma-separated list, so the documented single-driver quickstart
+	// (AUTH_DRIVER=basic) is unchanged while a deployment that wants, say,
+	// passwords alongside SSO can say AUTH_DRIVER=password,clerk. Every
+	// configured driver is offered by GET /api/auth/methods and reachable at its
+	// own callback; the console picks between them.
+	Drivers  []string     `env:"DRIVER" envSeparator:","`
+	JWKS     claim.JWKS   `env:"JWKS_URL"`
+	Basic    BasicAuth    `envPrefix:"BASIC_"`
+	Clerk    ClerkAuth    `envPrefix:"CLERK_"`
+	Password PasswordAuth `envPrefix:"PASSWORD_"`
+	Console  ConsoleAuth  `envPrefix:"CONSOLE_"`
 
 	// LegacyIdentityAdoption lets an upstream identity claim a
 	// pre-existing admin whose identity row still carries the sentinel issuer
@@ -88,9 +96,39 @@ type ConsoleAuth struct {
 	AbsoluteTTL time.Duration `env:"ABSOLUTE_TTL" envDefault:"168h"`
 }
 
+// Enabled reports whether the named login driver is configured.
+func (a Auth) Enabled(driver string) bool {
+	return slices.Contains(a.Drivers, driver)
+}
+
+// Configured reports whether any login driver is set up at all.
+func (a Auth) Configured() bool { return len(a.Drivers) > 0 }
+
 type BasicAuth struct {
 	Email    string `env:"EMAIL"`
 	Password string `env:"PASSWORD"`
+}
+
+// Registration modes for the password driver.
+const (
+	// RegistrationOpen lets anybody create an account. It is what a public SaaS
+	// wants and what a private deployment must never be left on by accident.
+	RegistrationOpen = "open"
+	// RegistrationInviteOnly limits registration to addresses that already hold
+	// a pending invite -- plus the very first account, which nobody could have
+	// invited. It is the default because a deployment that has not thought
+	// about the question should not be handing out accounts.
+	RegistrationInviteOnly = "invite_only"
+	// RegistrationDisabled turns the endpoint off entirely, for a deployment
+	// that provisions its admins some other way.
+	RegistrationDisabled = "disabled"
+)
+
+// PasswordAuth configures local email/password credentials.
+type PasswordAuth struct {
+	// Registration decides who may create an account: open, invite_only or
+	// disabled.
+	Registration string `env:"REGISTRATION" envDefault:"invite_only"`
 }
 
 type ClerkAuth struct {

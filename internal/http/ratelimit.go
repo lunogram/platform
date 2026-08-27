@@ -22,7 +22,7 @@ import (
 // writeProblem renders the 429 response in the calling surface's problem shape.
 //
 // trustedProxyHops is the number of reverse proxies in front of the server; it
-// controls how the client IP is derived from X-Forwarded-For (see clientIP).
+// controls how the client IP is derived from X-Forwarded-For (see ClientIP).
 //
 // The limiter fails open on Redis errors (see ratelimit.Limiter), so an
 // unavailable Redis never blocks legitimate traffic.
@@ -54,16 +54,16 @@ func rateLimitKey(r *http.Request, trustedProxyHops int) string {
 		}
 		return "key:" + actor.ID
 	}
-	return "ip:" + clientIP(r, trustedProxyHops)
+	return "ip:" + ClientIP(r, trustedProxyHops)
 }
 
-// clientIP returns the originating client IP. X-Forwarded-For is attacker-
+// ClientIP returns the originating client IP. X-Forwarded-For is attacker-
 // controlled, so it is only trusted up to trustedProxyHops entries (the reverse
 // proxies the operator runs): the client IP is the hop immediately to the left
 // of those trusted proxies in the chain [XFF..., RemoteAddr]. When
 // trustedProxyHops is 0 the header is ignored entirely and the connection's
 // remote address is used.
-func clientIP(r *http.Request, trustedProxyHops int) string {
+func ClientIP(r *http.Request, trustedProxyHops int) string {
 	remote := r.RemoteAddr
 	if host, _, err := net.SplitHostPort(remote); err == nil {
 		remote = host

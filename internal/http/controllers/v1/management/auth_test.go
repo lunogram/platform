@@ -65,15 +65,15 @@ func TestGetAuthMethods(t *testing.T) {
 
 	cfg := config.Node{
 		Auth: config.Auth{
-			Driver: "clerk",
-			JWKS:   clerkJWKS(t),
+			Drivers: []string{"clerk"},
+			JWKS:    clerkJWKS(t),
 			Clerk: config.ClerkAuth{
 				SecretKey: "sk_test_xxx",
 			},
 		},
 	}
 
-	controller, err := NewAuthController(logger, mgmt, management.NewState(mgmt), cfg, nil, nil)
+	controller, err := NewAuthController(logger, mgmt, management.NewState(mgmt), cfg, nil, nil, nil)
 	require.NoError(t, err)
 
 	type test struct {
@@ -112,12 +112,12 @@ func TestAuthCallbackWithInvalidDriver(t *testing.T) {
 
 	cfg := config.Node{
 		Auth: config.Auth{
-			Driver: "basic",
-			Basic:  config.BasicAuth{Email: "a@b", Password: "c"},
+			Drivers: []string{"basic"},
+			Basic:   config.BasicAuth{Email: "a@b", Password: "c"},
 		},
 	}
 
-	controller, err := NewAuthController(logger, mgmt, management.NewState(mgmt), cfg, nil, nil)
+	controller, err := NewAuthController(logger, mgmt, management.NewState(mgmt), cfg, nil, nil, nil)
 	require.NoError(t, err)
 
 	type test struct {
@@ -151,12 +151,12 @@ func TestAuthWebhookWithInvalidDriver(t *testing.T) {
 
 	cfg := config.Node{
 		Auth: config.Auth{
-			Driver: "basic",
-			Basic:  config.BasicAuth{Email: "a@b", Password: "c"},
+			Drivers: []string{"basic"},
+			Basic:   config.BasicAuth{Email: "a@b", Password: "c"},
 		},
 	}
 
-	controller, err := NewAuthController(logger, mgmt, management.NewState(mgmt), cfg, nil, nil)
+	controller, err := NewAuthController(logger, mgmt, management.NewState(mgmt), cfg, nil, nil, nil)
 	require.NoError(t, err)
 
 	type test struct {
@@ -226,8 +226,8 @@ func TestRefreshSessionDistinguishesGoneFromNotExtendable(t *testing.T) {
 	require.NoError(t, err)
 
 	controller, err := NewAuthController(logger, mgmtDB, state, config.Node{
-		Auth: config.Auth{Driver: "basic", Basic: config.BasicAuth{Email: "a@b", Password: "c"}},
-	}, nil, signer)
+		Auth: config.Auth{Drivers: []string{"basic"}, Basic: config.BasicAuth{Email: "a@b", Password: "c"}},
+	}, nil, signer, nil)
 	require.NoError(t, err)
 
 	refresh := func(t *testing.T, token string) *httptest.ResponseRecorder {
@@ -332,8 +332,8 @@ func TestLogoutRevokesTheSession(t *testing.T) {
 	require.NoError(t, err)
 
 	controller, err := NewAuthController(logger, mgmtDB, state, config.Node{
-		Auth: config.Auth{Driver: "basic", Basic: config.BasicAuth{Email: "a@b", Password: "c"}},
-	}, nil, signer)
+		Auth: config.Auth{Drivers: []string{"basic"}, Basic: config.BasicAuth{Email: "a@b", Password: "c"}},
+	}, nil, signer, nil)
 	require.NoError(t, err)
 
 	token, err := signer.Mint(session, []string{"basic"})
