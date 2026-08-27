@@ -104,11 +104,7 @@ export default function JourneyRuleEdit({
                         inputClassName="rounded-none border-l-0"
                         buttonClassName="rounded-none"
                         renderOption={(option, search) => (
-                            <span
-                                dangerouslySetInnerHTML={{
-                                    __html: highlightSearch(option.path, search),
-                                }}
-                            />
+                            <span>{highlightSearch(option.path, search)}</span>
                         )}
                     />
                 </div>

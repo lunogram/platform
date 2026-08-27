@@ -41,13 +41,7 @@ export default function RuleOrganizationEventName({
             ariaLabel="Organization event name"
             inputAriaLabel="Organization event name"
             required
-            renderOption={(option, search) => (
-                <span
-                    dangerouslySetInnerHTML={{
-                        __html: highlightSearch(option.name, search),
-                    }}
-                />
-            )}
+            renderOption={(option, search) => <span>{highlightSearch(option.name, search)}</span>}
         />
     )
 }
