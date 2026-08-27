@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/lunogram/platform/internal/container"
+	"github.com/lunogram/platform/internal/ptr"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
 	"github.com/lunogram/platform/internal/store"
@@ -179,8 +180,10 @@ func TestCreateCampaignInboxMessagePersistsOriginAndPayload(t *testing.T) {
 		},
 	}
 
-	message, err := createCampaignInboxMessageAndPublish(ctx, sqlxDB, pubsub.NewNoopPublisher(), zaptest.NewLogger(t), event, rendered)
+	message, err := createCampaignInboxMessageAndPublish(ctx, sqlxDB, pubsub.NewNoopPublisher(), zaptest.NewLogger(t), event, rendered, ptr.To("Europe/Amsterdam"))
 	require.NoError(t, err)
+	require.Equal(t, ptr.To("Europe/Amsterdam"), message.RecipientTimezone, "the resolved zone is written by the INSERT, not patched afterwards")
+	require.Equal(t, subjects.InboxClassStandard, message.Class, "a campaign send is never a compliance message")
 	require.Equal(t, schemas.InboxSourceJourney, *message.Source)
 	require.Equal(t, []string{"journey", "campaign"}, []string(message.Tags))
 	require.Equal(t, &senderIdentityID, message.SenderIdentityID)
@@ -201,13 +204,13 @@ func TestCreateCampaignInboxMessagePersistsOriginAndPayload(t *testing.T) {
 	require.Equal(t, journeyEntryID.String(), provenance["journey_entry_id"])
 	require.Equal(t, journeyStepID, provenance["journey_step_id"])
 
-	retried, err := createCampaignInboxMessageAndPublish(ctx, sqlxDB, pubsub.NewNoopPublisher(), zaptest.NewLogger(t), event, rendered)
+	retried, err := createCampaignInboxMessageAndPublish(ctx, sqlxDB, pubsub.NewNoopPublisher(), zaptest.NewLogger(t), event, rendered, ptr.To("Europe/Amsterdam"))
 	require.NoError(t, err)
 	require.Equal(t, message.ID, retried.ID)
 
 	changed := rendered
 	changed.RenderedPayload = json.RawMessage(`{"subject":"Changed","text":"Body"}`)
-	retried, err = createCampaignInboxMessageAndPublish(ctx, sqlxDB, pubsub.NewNoopPublisher(), zaptest.NewLogger(t), event, changed)
+	retried, err = createCampaignInboxMessageAndPublish(ctx, sqlxDB, pubsub.NewNoopPublisher(), zaptest.NewLogger(t), event, changed, ptr.To("Europe/Amsterdam"))
 	require.NoError(t, err)
 	require.Equal(t, message.ID, retried.ID)
 }

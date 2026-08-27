@@ -13,6 +13,7 @@ import type { VariableSuggestions } from "@/types"
 import { getUpstreamDataKeys } from "./editor/JourneyEditor.utils"
 import { ProjectContext } from "@/contexts"
 import { fetchPathSuggestions } from "@/lib/path-suggestions"
+import { snakeToTitle } from "@/utils"
 
 export interface Variable {
     /** Liquid-compatible path, e.g. "user.email" or "journey.my_key.amount" */
@@ -31,13 +32,23 @@ export interface VariableGroup {
     variables: Variable[]
 }
 
+export interface JourneyStepOption {
+    /** Step external id, which is also the flow node id */
+    id: string
+    label: string
+    type: string
+}
+
 interface JourneyVariableContextValue {
     /** Get variable groups available for a specific node */
     getVariablesForNode: (nodeId: string) => VariableGroup[]
+    /** Every step on the canvas, for conditions that reference another step */
+    steps: JourneyStepOption[]
 }
 
 const JourneyVariableContext = createContext<JourneyVariableContextValue>({
     getVariablesForNode: () => [],
+    steps: [],
 })
 
 // eslint-disable-next-line react-refresh/only-export-components
@@ -145,9 +156,19 @@ export function JourneyVariableProvider({
         [nodes, edges, suggestions],
     )
 
+    const steps = useMemo<JourneyStepOption[]>(
+        () =>
+            nodes.map(({ id, data }) => ({
+                id,
+                label: data.name?.trim() || snakeToTitle(data.type),
+                type: data.type,
+            })),
+        [nodes],
+    )
+
     const value = useMemo<JourneyVariableContextValue>(
-        () => ({ getVariablesForNode }),
-        [getVariablesForNode],
+        () => ({ getVariablesForNode, steps }),
+        [getVariablesForNode, steps],
     )
 
     return (

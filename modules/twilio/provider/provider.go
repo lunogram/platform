@@ -58,6 +58,62 @@ func ClassifyHTTPStatus(status int) int32 {
 	return ExitTransient
 }
 
+// Twilio REST API error codes that carry a canonical failure meaning.
+// See https://www.twilio.com/docs/api/errors.
+const (
+	ErrorCodeTooManyRequests    = 20429
+	ErrorCodeInvalidToNumber    = 21211
+	ErrorCodeFromNotSMSCapable  = 21606
+	ErrorCodeOptedOut           = 21610
+	ErrorCodeToNotMobile        = 21614
+	ErrorCodeTollFreeUnverified = 30032
+	ErrorCodeSenderUnregistered = 30034
+)
+
+// ClassifyErrorCode maps a Twilio API failure onto a canonical failure reason.
+// twilioCode is the numeric `code` field of the Twilio error body (0 when the
+// response carried none) and httpStatus is the HTTP status of the response
+// (0 when the request never reached Twilio).
+func ClassifyErrorCode(httpStatus, twilioCode int) providers.FailureReason {
+	switch twilioCode {
+	case ErrorCodeOptedOut:
+		return providers.ReasonOptedOut
+	case ErrorCodeInvalidToNumber, ErrorCodeToNotMobile:
+		return providers.ReasonInvalidNumber
+	case ErrorCodeFromNotSMSCapable, ErrorCodeTollFreeUnverified, ErrorCodeSenderUnregistered:
+		return providers.ReasonUnregistered
+	case ErrorCodeTooManyRequests:
+		return providers.ReasonRateLimited
+	}
+
+	if httpStatus == 429 {
+		return providers.ReasonRateLimited
+	}
+
+	return providers.ReasonUnknown
+}
+
+// ClassifySendError returns the canonical failure reason for a Twilio send
+// failure together with the WASM exit code that preserves retry semantics: a
+// recipient who opted out must never be retried, a throttled request always
+// must. Unclassified failures fall back to ClassifyHTTPStatus.
+func ClassifySendError(httpStatus, twilioCode int) (providers.FailureReason, int32) {
+	reason := ClassifyErrorCode(httpStatus, twilioCode)
+
+	switch reason {
+	case providers.ReasonOptedOut, providers.ReasonInvalidNumber, providers.ReasonUnregistered:
+		return reason, ExitPermanent
+	case providers.ReasonRateLimited:
+		return reason, ExitTransient
+	}
+
+	if httpStatus > 0 {
+		return reason, ClassifyHTTPStatus(httpStatus)
+	}
+
+	return reason, ExitTransient
+}
+
 // MapWebhookStatus maps a Twilio message status string to a canonical
 // WebhookEventName. Returns (eventName, ok).
 func MapWebhookStatus(status string) (providers.WebhookEventName, bool) {

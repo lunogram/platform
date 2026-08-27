@@ -26,19 +26,56 @@ type Integration struct {
 const exitCodePermanent uint32 = 0xFFFFFFFE
 
 // ProviderError is returned when a provider send or webhook call fails.
-// It carries the exit code so callers can distinguish permanent from transient failures.
+// It carries the exit code so callers can distinguish permanent from transient
+// failures, plus the canonical reason the module reported for the failure.
 type ProviderError struct {
 	Code    uint32
 	Message string
+	Reason  providertypes.FailureReason
+
+	cause error
 }
 
 func (e *ProviderError) Error() string {
 	return e.Message
 }
 
+// Unwrap returns the error the WASM call itself returned, so that wazero traps
+// and context deadlines stay matchable through the ProviderError wrapper.
+func (e *ProviderError) Unwrap() error {
+	return e.cause
+}
+
 // IsPermanent reports whether this provider error represents a permanent failure.
 func (e *ProviderError) IsPermanent() bool {
 	return e.Code == exitCodePermanent
+}
+
+// newProviderError classifies a non-zero return from a provider export.
+//
+// A module reports failure over the guest error channel (pdk.SetError), which
+// surfaces here as callErr; res is only consulted when a module returned a
+// non-zero code without setting an error. Modules that emit a
+// providertypes.ModuleError JSON body keep their canonical reason; modules
+// that emit a plain error string — the original module contract — are
+// reported verbatim as ReasonUnknown.
+func newProviderError(code uint32, res []byte, callErr error) *ProviderError {
+	body := res
+	if callErr != nil {
+		body = []byte(callErr.Error())
+	}
+
+	var moduleErr providertypes.ModuleError
+	if err := json.Unmarshal(body, &moduleErr); err == nil && moduleErr.Reason != "" {
+		reason := moduleErr.Reason
+		if !reason.Valid() {
+			reason = providertypes.ReasonUnknown
+		}
+
+		return &ProviderError{Code: code, Message: moduleErr.Message, Reason: reason, cause: callErr}
+	}
+
+	return &ProviderError{Code: code, Message: string(body), Reason: providertypes.ReasonUnknown, cause: callErr}
 }
 
 // ProviderSpec finds and decodes the provider capability spec.
@@ -212,12 +249,12 @@ func (i *Integration) Send(ctx context.Context, req providertypes.SendRequest[ma
 	}
 
 	code, res, err := i.Call(ctx, "provider_send", payload)
-	if err != nil {
-		return nil, err
+	if code != 0 {
+		return nil, newProviderError(code, res, err)
 	}
 
-	if code != 0 {
-		return nil, &ProviderError{Code: code, Message: string(res)}
+	if err != nil {
+		return nil, err
 	}
 
 	var response providertypes.SendResponse
@@ -240,12 +277,12 @@ func (i *Integration) Webhook(ctx context.Context, req providertypes.WebhookRequ
 	}
 
 	code, res, err := i.Call(ctx, "provider_webhook", payload)
-	if err != nil {
-		return nil, err
+	if code != 0 {
+		return nil, newProviderError(code, res, err)
 	}
 
-	if code != 0 {
-		return nil, &ProviderError{Code: code, Message: string(res)}
+	if err != nil {
+		return nil, err
 	}
 
 	var response providertypes.WebhookResponse

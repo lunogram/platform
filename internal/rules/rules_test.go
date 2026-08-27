@@ -1360,3 +1360,118 @@ func TestRuleSetRecomputeInterval(t *testing.T) {
 		assert.Equal(t, 6*time.Hour, *interval)
 	})
 }
+
+func TestRuleSetPartitions(t *testing.T) {
+	t.Parallel()
+
+	userRule := Rule{Type: RuleTypeString, Group: RuleGroupUser, Path: ".tier", Operator: OperatorEquals, Value: "pro"}
+	journeyRule := Rule{Type: RuleTypeNumber, Group: RuleGroupJourney, Path: "journey.entrance.amount", Operator: OperatorGreaterThan, Value: 10}
+	stepRule := Rule{Type: RuleTypeNumber, Group: RuleGroupJourneyStep, Operator: OperatorGreaterThan, Value: 3}
+
+	type test struct {
+		ruleSet    RuleSet
+		local      []Rule
+		stepVisits []Rule
+		historical []Rule
+	}
+
+	tests := map[string]test{
+		"all three groups": {
+			ruleSet: RuleSet{Rule: Rule{
+				Type:     RuleTypeWrapper,
+				Group:    RuleGroupParent,
+				Operator: OperatorAnd,
+				Children: []Rule{userRule, journeyRule, stepRule},
+			}},
+			local:      []Rule{journeyRule},
+			stepVisits: []Rule{stepRule},
+			historical: []Rule{userRule},
+		},
+		"step visits only": {
+			ruleSet: RuleSet{Rule: Rule{
+				Type:     RuleTypeWrapper,
+				Group:    RuleGroupParent,
+				Operator: OperatorAnd,
+				Children: []Rule{stepRule},
+			}},
+			stepVisits: []Rule{stepRule},
+		},
+		"historical only": {
+			ruleSet: RuleSet{Rule: Rule{
+				Type:     RuleTypeWrapper,
+				Group:    RuleGroupParent,
+				Operator: OperatorAnd,
+				Children: []Rule{userRule},
+			}},
+			historical: []Rule{userRule},
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			assertPartition(t, "local", tc.ruleSet.Local(), tc.local)
+			assertPartition(t, "step visits", tc.ruleSet.StepVisits(), tc.stepVisits)
+			assertPartition(t, "historical", tc.ruleSet.Historical(), tc.historical)
+		})
+	}
+}
+
+func assertPartition(t *testing.T, name string, got *RuleSet, expected []Rule) {
+	t.Helper()
+
+	if len(expected) == 0 {
+		assert.Nil(t, got, "%s partition should be empty", name)
+		return
+	}
+
+	require.NotNil(t, got, "%s partition should not be empty", name)
+	assert.Equal(t, expected, got.Children, "%s partition children", name)
+}
+
+func TestRuleDependsOnJourneySteps(t *testing.T) {
+	t.Parallel()
+
+	type test struct {
+		rule     Rule
+		expected bool
+	}
+
+	tests := map[string]test{
+		"step visit rule": {
+			rule:     Rule{Type: RuleTypeNumber, Group: RuleGroupJourneyStep},
+			expected: true,
+		},
+		"nested step visit rule": {
+			rule: Rule{
+				Type:     RuleTypeWrapper,
+				Group:    RuleGroupParent,
+				Children: []Rule{{Type: RuleTypeNumber, Group: RuleGroupJourneyStep}},
+			},
+			expected: true,
+		},
+		"user rule": {
+			rule:     Rule{Type: RuleTypeString, Group: RuleGroupUser},
+			expected: false,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tc.expected, tc.rule.DependsOnJourneySteps())
+		})
+	}
+}
+
+func TestRuleScope(t *testing.T) {
+	t.Parallel()
+
+	journeyScope := StepScopeJourney
+	entryScope := StepScopeEntry
+
+	assert.Equal(t, StepScopeEntry, Rule{}.Scope())
+	assert.Equal(t, StepScopeEntry, Rule{StepScope: &entryScope}.Scope())
+	assert.Equal(t, StepScopeJourney, Rule{StepScope: &journeyScope}.Scope())
+}

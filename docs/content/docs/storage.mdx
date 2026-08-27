@@ -1,0 +1,115 @@
+---
+title: Media Storage
+description: Configure where Lunogram stores uploaded media
+---
+
+Media you upload — images used in campaigns, journeys, and templates — is
+stored outside the database, in a backend you choose with `STORAGE_TYPE`.
+
+| Driver  | `STORAGE_TYPE` | Use it for                                  |
+| ------- | -------------- | ------------------------------------------- |
+| Local   | `local`        | Local development and single-node trials    |
+| S3      | `s3`           | AWS S3 and any S3-compatible object storage |
+| Azure   | `azure`        | Azure Blob Storage                          |
+
+These settings apply to every driver:
+
+| Variable                  | Default    | Description                                                       |
+| ------------------------- | ---------- | ----------------------------------------------------------------- |
+| `STORAGE_TYPE`            | `local`    | Which driver to use.                                              |
+| `STORAGE_BASE_URL`        | —          | Public URL prefix media is served from. See [Serving media](#serving-media). |
+| `STORAGE_MAX_UPLOAD_SIZE` | `10485760` | Largest accepted upload, in bytes. Defaults to 10 MB.             |
+
+## Local
+
+The default. Files are written to a directory on disk, which must be backed by
+a volume that survives restarts.
+
+| Variable                        | Default                 |
+| ------------------------------- | ----------------------- |
+| `STORAGE_LOCAL_UPLOAD_DIRECTORY` | `./uploads/documents`   |
+
+<Callout type="warn">
+  The local driver writes to the container's filesystem and is not shared
+  between replicas. Use an object storage driver for anything beyond a
+  single-node deployment.
+</Callout>
+
+## S3
+
+Works with AWS S3 and S3-compatible providers such as MinIO, Cloudflare R2, and
+Scaleway Object Storage.
+
+| Variable                | Description                                                        |
+| ----------------------- | ------------------------------------------------------------------ |
+| `STORAGE_S3_BUCKET`     | Bucket name.                                                       |
+| `STORAGE_S3_REGION`     | Bucket region.                                                     |
+| `STORAGE_S3_ENDPOINT`   | Override the API endpoint. Required for S3-compatible providers.   |
+| `STORAGE_S3_ACCESS_KEY` | Access key. Falls back to the ambient AWS credential chain if unset. |
+| `STORAGE_S3_SECRET_KEY` | Secret key.                                                        |
+
+```bash
+STORAGE_TYPE=s3
+STORAGE_BASE_URL=https://acme-media.s3.eu-west-1.amazonaws.com
+STORAGE_S3_BUCKET=acme-media
+STORAGE_S3_REGION=eu-west-1
+STORAGE_S3_ACCESS_KEY=...
+STORAGE_S3_SECRET_KEY=...
+```
+
+Leaving `STORAGE_S3_ACCESS_KEY` and `STORAGE_S3_SECRET_KEY` unset falls back to
+the default AWS credential chain, so an instance running on EC2 or EKS can use
+an instance profile or IAM role rather than static keys.
+
+## Azure Blob Storage
+
+| Variable                    | Description                                                    |
+| --------------------------- | -------------------------------------------------------------- |
+| `STORAGE_AZURE_ACCOUNT`     | Storage account name.                                          |
+| `STORAGE_AZURE_CONTAINER`   | Blob container name.                                           |
+| `STORAGE_AZURE_ACCOUNT_KEY` | Storage account access key.                                    |
+| `STORAGE_AZURE_ENDPOINT`    | Override the blob service URL. Leave unset for the public Azure cloud. |
+
+```bash
+STORAGE_TYPE=azure
+STORAGE_BASE_URL=https://acme.blob.core.windows.net/media
+STORAGE_AZURE_ACCOUNT=acme
+STORAGE_AZURE_CONTAINER=media
+STORAGE_AZURE_ACCOUNT_KEY=...
+```
+
+### Setting up the container
+
+1. Create a storage account and a blob container within it.
+2. Copy an access key from **Storage account → Security + networking → Access keys**.
+3. Allow anonymous read access, so that media can be served directly from the
+   container — see [Serving media](#serving-media):
+   - On the storage account, enable **Allow Blob anonymous access**.
+   - On the container, set the anonymous access level to **Blob**. This permits
+     reading individual blobs but not listing the container's contents.
+4. Point `STORAGE_BASE_URL` at the container:
+   `https://{account}.blob.core.windows.net/{container}`.
+
+Set `STORAGE_AZURE_ENDPOINT` only when the blob service does not live at the
+public Azure cloud's hostname — on a sovereign cloud, on Azure Stack, or behind
+a private endpoint. It replaces the whole service URL and must include the
+account path segment where the deployment expects one.
+
+## Serving media
+
+Lunogram serves media two ways, and both are always available:
+
+- Through the API, which streams the file from whichever backend holds it.
+- Directly from the bucket or container, at `STORAGE_BASE_URL` + the file's key.
+
+The second is what the console and rendered emails use, because it keeps media
+requests off the API and lets a CDN cache them. It is what `STORAGE_BASE_URL`
+configures, and it requires that the bucket or container allows anonymous
+reads. Putting a CDN in front — CloudFront, Azure Front Door, or any cache you
+already run — is a matter of pointing `STORAGE_BASE_URL` at the CDN instead.
+
+<Callout type="warn">
+  Media served this way is protected by an unguessable URL, not by
+  authorization: every file's key is a random UUID, and anyone holding the URL
+  can read the file. Do not use uploads for material that needs access control.
+</Callout>

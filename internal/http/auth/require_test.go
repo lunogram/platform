@@ -78,7 +78,7 @@ func TestRequirePassesActorDownstream(t *testing.T) {
 	}))
 
 	req := httptest.NewRequest(http.MethodGet, "/anything", nil)
-	req.AddCookie(&http.Cookie{Name: "__session", Value: "token"})
+	req.AddCookie(&http.Cookie{Name: auth.ConsoleCookieInsecure, Value: "token"})
 
 	handler.ServeHTTP(httptest.NewRecorder(), req)
 
@@ -112,7 +112,7 @@ func TestRequireFailsClosedOnHandlerError(t *testing.T) {
 	}))
 
 	req := httptest.NewRequest(http.MethodGet, "/anything", nil)
-	req.AddCookie(&http.Cookie{Name: "__session", Value: "token"})
+	req.AddCookie(&http.Cookie{Name: auth.ConsoleCookieInsecure, Value: "token"})
 
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)

@@ -20,6 +20,7 @@ func providerCapabilitySpec() json.RawMessage {
 			Interval: "1s",
 			Override: false,
 		},
+		SelfHandlesOptOut: true,
 	})
 	if err != nil {
 		panic(err)
@@ -144,12 +145,10 @@ func Send() int32 {
 
 	result := client.CreateMessage(params)
 	if result.Err != nil {
-		pdk.Log(pdk.LogError, fmt.Sprintf("Twilio API error (http_status=%d): %s", result.HTTPStatus, result.Err))
-		pdk.SetError(fmt.Errorf("failed to send SMS (to=%s, from=%s): %w", sms.To, from, result.Err))
-		if result.HTTPStatus > 0 {
-			return provider.ClassifyHTTPStatus(result.HTTPStatus)
-		}
-		return ExitTransient
+		reason, exitCode := provider.ClassifySendError(result.HTTPStatus, result.ErrorCode)
+		pdk.Log(pdk.LogError, fmt.Sprintf("Twilio API error (http_status=%d code=%d reason=%s): %s", result.HTTPStatus, result.ErrorCode, reason, result.Err))
+		pdk.SetError(providers.Fail(reason, fmt.Errorf("failed to send SMS (to=%s, from=%s): %w", sms.To, from, result.Err)))
+		return exitCode
 	}
 
 	messageID := ""

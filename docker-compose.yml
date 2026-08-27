@@ -20,20 +20,15 @@ services:
       REDIS_ADDRESS: redis://redis:6379
       NATS_URL: nats://nats:4222
       # Authentication
-      #
-      # AUTH_JWT_SECRET signs admin sessions and has no default on purpose:
-      # a fallback published here would be public knowledge, and anyone could
-      # use it to mint a valid admin session against your deployment. Generate
-      # a private one (at least 32 bytes) and put it in a .env file next to
-      # this compose file, or export it in your shell:
-      #
-      #   echo "AUTH_JWT_SECRET=$(openssl rand -base64 48)" >> .env
-      #
-      # Lunogram refuses to start without it when AUTH_DRIVER=basic.
-      # It is not marked required here so that `docker compose down`, `ps` and
-      # `config` keep working in a shell that has not exported it.
       AUTH_DRIVER: ${AUTH_DRIVER:-basic}
-      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET}
+      # Signs the console session token (ES256). The default below is a PUBLICLY
+      # KNOWN development key: anyone holding it can mint a valid console session
+      # for any admin, so a real deployment MUST set its own. Generate one with:
+      #   openssl ecparam -name prime256v1 -genkey -noout
+      # There is deliberately no auto-generated fallback in the server: an
+      # ephemeral key would log every admin out on restart and would break a
+      # multi-replica deployment silently.
+      AUTH_CONSOLE_SIGNING_KEY: ${AUTH_CONSOLE_SIGNING_KEY:------BEGIN EC PRIVATE KEY-----\nMHcCAQEEIG6W7Oa4GaiOyuS/Fo18FOUVb840oWDlAC8cJuB2IuW8oAoGCCqGSM49\nAwEHoUQDQgAEwXeD5bykWmYlPbqqoxk0hUjxwp+DEyU+HPo0q/OCly3HHGk+yS9w\nck0TgwNlj1B6bKTJwKVmkeL76aKDuBFmQg==\n-----END EC PRIVATE KEY-----}
       AUTH_BASIC_EMAIL: ${AUTH_BASIC_EMAIL:-admin@localhost}
       AUTH_BASIC_PASSWORD: ${AUTH_BASIC_PASSWORD:-admin}
       AUTH_CLERK_SECRET_KEY: ${AUTH_CLERK_SECRET_KEY:-}

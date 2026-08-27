@@ -81,14 +81,13 @@ NATS_URL=nats://localhost:4222
 AUTH_DRIVER=basic
 AUTH_BASIC_EMAIL=admin@localhost
 AUTH_BASIC_PASSWORD=admin
-# generate with: openssl rand -base64 48
-AUTH_JWT_SECRET=
-```
 
-`AUTH_JWT_SECRET` signs admin session tokens. It has no default and the server
-refuses to start without a private value of at least 32 bytes, so generate your
-own rather than copying one from a guide — a shared or published secret lets
-anyone mint a valid admin session.
+# Signs the console session token. Required whenever AUTH_DRIVER is set; the
+# server refuses to start without it rather than generating a throwaway key,
+# which would log everyone out on each restart. Generate one with:
+#   openssl ecparam -name prime256v1 -genkey -noout
+AUTH_CONSOLE_SIGNING_KEY="$(openssl ecparam -name prime256v1 -genkey -noout)"
+```
 
 ## How to Contribute
 

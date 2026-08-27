@@ -29,9 +29,9 @@ var (
 	testOrgID   = uuid.New()
 )
 
-// testAdminSession stands in for auth.WithJWT: it accepts exactly one session
-// token and resolves it to an admin actor, without needing a signing key or the
-// management database.
+// testAdminSession stands in for auth.WithAdminSession: it accepts exactly one
+// session token and resolves it to an admin actor, without needing a signing key
+// or the management database.
 func testAdminSession() auth.Handler {
 	return func(ctx context.Context, token string) (context.Context, error) {
 		if token != testSessionToken {
@@ -62,7 +62,7 @@ func mountTestProxies(upstreamURL string) chi.Router {
 }
 
 func sessionCookie(r *nethttp.Request) {
-	r.AddCookie(&nethttp.Cookie{Name: "__session", Value: testSessionToken})
+	r.AddCookie(&nethttp.Cookie{Name: auth.ConsoleCookieInsecure, Value: testSessionToken})
 }
 
 // TestProxyRoutesRejectUnauthenticatedRequests covers the reason these routes
@@ -87,7 +87,7 @@ func TestProxyRoutesRejectUnauthenticatedRequests(t *testing.T) {
 			r.Header.Set("Authorization", "Bearer not-a-session")
 		},
 		"unknown session cookie": func(r *nethttp.Request) {
-			r.AddCookie(&nethttp.Cookie{Name: "__session", Value: "not-a-session"})
+			r.AddCookie(&nethttp.Cookie{Name: auth.ConsoleCookieInsecure, Value: "not-a-session"})
 		},
 	}
 

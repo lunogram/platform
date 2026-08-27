@@ -3,139 +3,19 @@ package auth
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/go-chi/chi/v5"
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
-	"github.com/lunogram/platform/internal/config"
 	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/store/management"
 )
 
-// TokenClaims represents the claims from a JWT token
-type TokenClaims struct {
-	jwt.RegisteredClaims
-}
-
-// Subject returns the subject claim
-func (c *TokenClaims) Subject() string {
-	return c.RegisteredClaims.Subject
-}
-
-// Issuer returns the issuer claim
-func (c *TokenClaims) Issuer() string {
-	return c.RegisteredClaims.Issuer
-}
-
 // ErrUnauthorized is returned when the authentication fails.
 var ErrUnauthorized = errors.New("unauthorized")
-
-// ErrInsecureJWTSecret is returned at construction when the configured admin
-// signing secret cannot be trusted to keep admin sessions private.
-var ErrInsecureJWTSecret = errors.New("insecure AUTH_JWT_SECRET")
-
-// ErrMissingJWKS is returned at construction when the clerk driver has no JWKS
-// to verify admin sessions against.
-var ErrMissingJWKS = errors.New("missing AUTH_JWKS_URL")
-
-const (
-	driverBasic = "basic"
-	driverClerk = "clerk"
-
-	// minJWTSecretBytes is the shortest admin signing secret accepted. HS256
-	// keys below the 32-byte HMAC-SHA256 block size leave no margin against
-	// offline guessing of a captured token.
-	minJWTSecretBytes = 32
-
-	// generateJWTSecret is the command suggested to operators whose secret is
-	// rejected.
-	generateJWTSecret = "openssl rand -base64 48"
-)
-
-// publishedJWTSecrets are values that have appeared in this repository, its
-// compose files or its documentation, including ones the working tree no longer
-// contains — git history is as public as a checkout, and a deployment stood up
-// from an older compose file is still running the value it shipped with.
-// Anyone who has read the repo knows them, so none may serve as admin signing
-// key material — a copied example is exactly how a deployment ends up with a
-// secret its operator believes is private. Extend this list whenever an example
-// secret is added anywhere public.
-var publishedJWTSecrets = map[string]struct{}{
-	"dev-secret-change-in-production": {},
-	"never-gonna-give-you-up":         {},
-}
-
-func HMAC(secret []byte) jwt.Keyfunc {
-	return func(token *jwt.Token) (any, error) {
-		return secret, nil
-	}
-}
-
-// adminTokenVerifier binds both the accepted signature algorithms and the key
-// material to the configured driver: a clerk deployment verifies RS256 against
-// the provider's JWKS, a basic deployment verifies HS256 against the local
-// signing secret. Neither mode is widened by the mere presence of the other's
-// configuration.
-//
-// Binding the algorithm set to key-material *presence* instead ("a secret
-// exists, therefore also accept HS256") is not safe. It is true that the two
-// algorithms never share key material, so the classic RS256→HS256 confusion
-// attack cannot happen — but that reasoning only covers confusion between two
-// trusted keys. A secret that an attacker knows (a leftover or copied example
-// value on a deployment that authenticates through Clerk) is enough on its own
-// to mint an admin session, because the HS256 branch is a fully trusted
-// verification path. Selecting on the driver keeps exactly one algorithm and
-// one key source live, so an unused secret grants nothing.
-func adminTokenVerifier(cfg config.Auth) ([]string, jwt.Keyfunc, error) {
-	switch cfg.Driver {
-	case driverBasic:
-		if err := validateJWTSecret(cfg.JWTSecret); err != nil {
-			return nil, nil, err
-		}
-		return []string{"HS256"}, HMAC([]byte(cfg.JWTSecret)), nil
-	case driverClerk:
-		// Symmetry with the basic branch: refuse to start on key material that
-		// cannot verify anything. Without a JWKS the parse below has no key and
-		// every admin login fails — fail closed, but silently, and it presents
-		// as "Clerk login is broken" rather than as a missing variable.
-		jwks := cfg.JWKS.Unwrap()
-		if jwks == nil {
-			return nil, nil, fmt.Errorf("%w: the %q auth driver verifies admin sessions against the provider's JWKS; set AUTH_JWKS_URL to your Clerk instance's JWKS endpoint (https://<your-instance>/.well-known/jwks.json)", ErrMissingJWKS, driverClerk)
-		}
-		return []string{"RS256"}, jwks, nil
-	default:
-		return nil, nil, fmt.Errorf("unsupported auth driver %q: set AUTH_DRIVER to %q or %q", cfg.Driver, driverBasic, driverClerk)
-	}
-}
-
-// validateJWTSecret rejects admin signing secrets that cannot keep a session
-// private: absent, publicly known, or short enough to guess offline. It runs
-// at construction so a deployment that would hand out forgeable admin sessions
-// refuses to start instead of serving them.
-func validateJWTSecret(secret string) error {
-	switch {
-	case secret == "":
-		return fmt.Errorf("%w: not set, but the %q auth driver signs admin sessions with it; generate one with `%s`", ErrInsecureJWTSecret, driverBasic, generateJWTSecret)
-	case isPublishedJWTSecret(secret):
-		return fmt.Errorf("%w: set to the example value published in the repository, so anyone can mint admin sessions with it; generate a private one with `%s`", ErrInsecureJWTSecret, generateJWTSecret)
-	case len(secret) < minJWTSecretBytes:
-		return fmt.Errorf("%w: %d bytes, at least %d are required; generate one with `%s`", ErrInsecureJWTSecret, len(secret), minJWTSecretBytes, generateJWTSecret)
-	}
-	return nil
-}
-
-// isPublishedJWTSecret reports whether the secret is one this project has made
-// public. The comparison is case-insensitive and ignores surrounding whitespace
-// so that a value copied out of a guide is still recognised.
-func isPublishedJWTSecret(secret string) bool {
-	_, published := publishedJWTSecrets[strings.ToLower(strings.TrimSpace(secret))]
-	return published
-}
 
 type Handler func(ctx context.Context, token string) (context.Context, error)
 
@@ -211,55 +91,6 @@ func authenticate(ctx context.Context, r *http.Request, handlers []Handler) (con
 	}
 
 	return ctx, ErrUnauthorized
-}
-
-// WithJWT authenticates an admin session token. The accepted algorithms and the
-// verification key are selected by the configured driver; see
-// [adminTokenVerifier]. Construction fails when the driver issues HS256 tokens
-// but its signing secret is weak, so the process refuses to start rather than
-// accepting forgeable admin sessions.
-func WithJWT(config config.Auth, mgmt *management.State) (Handler, error) {
-	methods, keyFunc, err := adminTokenVerifier(config)
-	if err != nil {
-		return nil, err
-	}
-
-	return func(ctx context.Context, value string) (context.Context, error) {
-		claims := jwt.RegisteredClaims{}
-		token, err := jwt.ParseWithClaims(value, &claims, keyFunc,
-			jwt.WithValidMethods(methods),
-			jwt.WithExpirationRequired(),
-		)
-		if err != nil {
-			return ctx, ErrUnauthorized
-		}
-
-		if !token.Valid {
-			return ctx, ErrUnauthorized
-		}
-
-		admin, err := mgmt.GetAdminBySubject(ctx, claims.Issuer, claims.Subject)
-		if err != nil {
-			return ctx, ErrUnauthorized
-		}
-
-		orgID, err := resolveActiveOrganization(ctx, mgmt, admin)
-		if err != nil {
-			// A real failure resolving the active organization (e.g. a transient
-			// DB error) must NOT fail open onto the home org — that would bypass
-			// the revoked-membership check on a hot security path. Surface the
-			// error so the request fails instead of silently granting scope.
-			return ctx, err
-		}
-
-		actor := rbac.NewActor(
-			rbac.ActorAdmin,
-			admin.ID.String(),
-			rbac.WithOrganizationID(orgID),
-		)
-
-		return rbac.WithActor(ctx, actor), nil
-	}, nil
 }
 
 // resolveActiveOrganization determines which organization scopes the request.
@@ -436,22 +267,48 @@ func projectIDFromPath(path string) string {
 	return rest
 }
 
-// GetSession extracts the authentication token from the request.
-// It checks (in priority order):
-// 1. Session token from the HttpOnly '__session' cookie
-// 2. Authorization header (with or without Bearer prefix)
+// Console session cookie names. The console cookie deliberately is NOT
+// `__session`: Clerk's browser SDK owns that name on our own origin and
+// rewrites it on every token refresh, so a token minted into it would be
+// overwritten out from under us.
 //
-// Only these two intakes are honoured. An 'oauth' cookie is deliberately NOT
-// read: nothing in the platform ever writes one, so accepting it only offered
-// script running on the origin a non-HttpOnly channel for outranking the real
-// session cookie. Do not reintroduce it.
+// `__Host-` is not decoration. The prefix is browser-enforced: the cookie is
+// only accepted when it is Secure, Path=/ and carries no Domain attribute,
+// which means a sibling subdomain cannot set it. That guarantee is unavailable
+// over plain HTTP, so local development falls back to the unprefixed name.
+const (
+	ConsoleCookieSecure   = "__Host-lunogram_session"
+	ConsoleCookieInsecure = "lunogram_session"
+
+	// LegacySessionCookie is the cookie name the Clerk SDK writes. It is still
+	// READ so that admins holding one at deploy time are not logged out; see
+	// [UpgradeLegacySession]. Nothing writes it any more.
+	LegacySessionCookie = "__session"
+)
+
+// consoleCookieName picks the cookie name the browser will actually accept for
+// this request: the `__Host-` prefixed one requires a secure context.
+func consoleCookieName(r *http.Request) string {
+	if requestIsSecure(r) {
+		return ConsoleCookieSecure
+	}
+	return ConsoleCookieInsecure
+}
+
+// GetSession extracts the authentication credential from the request, in
+// priority order: the console session cookie, the legacy Clerk cookie, then the
+// Authorization header.
+//
+// There is deliberately no `oauth` cookie intake. It used to sit at the HIGHEST
+// precedence here while nothing in the platform ever wrote it, which made it a
+// cookie-forcing hazard: anything able to set a cookie on the origin could
+// override the credential every other path had already agreed on.
 func GetSession(r *http.Request) string {
-	if sessionCookie, err := r.Cookie("__session"); err == nil && sessionCookie.Value != "" {
-		return sessionCookie.Value
+	if token, ok := cookieCredential(r); ok {
+		return token
 	}
 
 	if authHeader := r.Header.Get("Authorization"); authHeader != "" {
-		// Remove "Bearer " prefix if present
 		token := strings.TrimSpace(authHeader)
 		token = strings.TrimPrefix(token, "Bearer ")
 		return token
@@ -460,14 +317,27 @@ func GetSession(r *http.Request) string {
 	return ""
 }
 
-// SetSessionCookie stores the session token in a secure HTTP cookie. It sets
-// the token directly as the "__session" cookie value. The cookie is configured
-// with HttpOnly flag for security, and Secure flag is set based on whether the
-// request was made over TLS. SameSite is set to Lax mode to prevent CSRF while
-// allowing normal navigation.
-func SetSessionCookie(w http.ResponseWriter, r *http.Request, token string, expiresAt time.Time) {
+// cookieCredential returns the credential carried by a cookie, and whether one
+// was present at all. The second result is what lets [WithAdminSession] apply
+// CSRF hardening only to cookie-borne credentials -- an Authorization header is
+// not attached by the browser automatically and so is not forgeable across
+// origins in the same way.
+func cookieCredential(r *http.Request) (string, bool) {
+	for _, name := range []string{ConsoleCookieSecure, ConsoleCookieInsecure, LegacySessionCookie} {
+		if cookie, err := r.Cookie(name); err == nil && cookie.Value != "" {
+			return cookie.Value, true
+		}
+	}
+	return "", false
+}
+
+// SetConsoleSessionCookie stores a minted console session token. HttpOnly keeps
+// it out of reach of page scripts, SameSite=Lax keeps it off cross-site
+// sub-requests while still surviving ordinary navigation, and Secure follows
+// [requestIsSecure].
+func SetConsoleSessionCookie(w http.ResponseWriter, r *http.Request, token string, expiresAt time.Time) {
 	http.SetCookie(w, &http.Cookie{
-		Name:     "__session",
+		Name:     consoleCookieName(r),
 		Value:    token,
 		Path:     "/",
 		Expires:  expiresAt,
@@ -475,6 +345,24 @@ func SetSessionCookie(w http.ResponseWriter, r *http.Request, token string, expi
 		Secure:   requestIsSecure(r),
 		SameSite: http.SameSiteLaxMode,
 	})
+}
+
+// ClearConsoleSessionCookies expires every cookie name a credential could have
+// arrived in, including the legacy one. Logging out must not depend on guessing
+// which name the browser happens to hold.
+func ClearConsoleSessionCookies(w http.ResponseWriter, r *http.Request) {
+	for _, name := range []string{ConsoleCookieSecure, ConsoleCookieInsecure, LegacySessionCookie} {
+		http.SetCookie(w, &http.Cookie{
+			Name:     name,
+			Value:    "",
+			Path:     "/",
+			Expires:  time.Unix(0, 0),
+			MaxAge:   -1,
+			HttpOnly: true,
+			Secure:   requestIsSecure(r),
+			SameSite: http.SameSiteLaxMode,
+		})
+	}
 }
 
 // requestIsSecure reports whether the original client request reached us over

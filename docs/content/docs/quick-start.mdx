@@ -37,17 +37,10 @@ This guide gets you from zero to a running self-hosted Lunogram instance in unde
 ```bash
 git clone https://github.com/lunogram/platform.git
 cd platform
-echo "AUTH_JWT_SECRET=$(openssl rand -base64 48)" >> .env
 docker compose up -d
 ```
 
-Lunogram is now running at [http://localhost:8080](http://localhost:8080).
-
-<Callout type="warn">
-  `AUTH_JWT_SECRET` signs admin session tokens and has no default. Generate your
-  own private value of at least 32 bytes — anyone who knows the secret can mint
-  a valid admin session against your deployment. Rotating it signs everyone out.
-</Callout>
+That's it. Lunogram is now running at [http://localhost:8080](http://localhost:8080).
 
 ## Log In
 

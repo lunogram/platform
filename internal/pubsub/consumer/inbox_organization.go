@@ -42,15 +42,8 @@ func NewOrganizationInboxHandler(
 	limiter *Limiter,
 ) *OrganizationInboxHandler {
 	return &OrganizationInboxHandler{
-		InboxHandler: InboxHandler{
-			logger:   logger,
-			db:       db,
-			mgmt:     mgmt,
-			registry: registry,
-			pub:      pub,
-			limiter:  limiter,
-		},
-		usrs: usrs,
+		InboxHandler: newInboxHandler(logger, db, mgmt, usrs, registry, pub, limiter),
+		usrs:         usrs,
 	}
 }
 
@@ -140,7 +133,7 @@ func (h *OrganizationInboxHandler) Messages() HandlerFunc {
 			return err
 		}
 		if marked {
-			if err := PublishInboxLifecycleEvent(ctx, h.pub, created, schemas.EventInboxMessageSent); err != nil {
+			if err := PublishInboxOutcome(ctx, h.pub, created, schemas.EventInboxMessageSent); err != nil {
 				h.logger.Error("failed to publish inbox sent event", zap.Error(err), zap.Stringer("message_id", created.ID))
 			}
 		}
@@ -284,7 +277,7 @@ func (h *OrganizationInboxHandler) Dispatch() HandlerFunc {
 			if err != nil {
 				logger.Error("failed to load inbox message for sent event", zap.Error(err))
 			} else {
-				if pubErr := PublishInboxLifecycleEvent(ctx, h.pub, message, schemas.EventInboxMessageSent); pubErr != nil {
+				if pubErr := PublishInboxOutcome(ctx, h.pub, message, schemas.EventInboxMessageSent); pubErr != nil {
 					logger.Error("failed to publish inbox sent event", zap.Error(pubErr))
 				}
 			}
@@ -300,24 +293,37 @@ func (h *OrganizationInboxHandler) Dispatch() HandlerFunc {
 // state when all messages have been dispatched.
 func (h *OrganizationInboxHandler) Sent() HandlerFunc {
 	return func(ctx context.Context, msg jetstream.Msg) error {
-		messageID, err := parseSentMessageID(msg)
-		if err != nil {
-			h.logger.Error("invalid inbox sent event", zap.Error(err))
-			return Permanent(err)
-		}
-
-		message, err := h.usrs.InboxStore.GetOrganizationInboxMessageByID(ctx, messageID)
-		if errors.Is(err, sql.ErrNoRows) {
-			h.logger.Error("inbox message not found for sent handler", zap.Stringer("message_id", messageID))
-			return Permanent(err)
-		}
-		if err != nil {
-			h.logger.Error("failed to load inbox message for sent handler", zap.Error(err), zap.Stringer("message_id", messageID))
-			return err
-		}
-
-		return h.completeBroadcastIfDone(ctx, message)
+		return h.settleBroadcast(ctx, msg, broadcastOutcomeSent)
 	}
+}
+
+// Failed reacts to inbox.message.failed events for organisation-scoped
+// messages. It is the terminal counterpart of Sent: a message that will never
+// be delivered must still settle its broadcast.
+func (h *OrganizationInboxHandler) Failed() HandlerFunc {
+	return func(ctx context.Context, msg jetstream.Msg) error {
+		return h.settleBroadcast(ctx, msg, broadcastOutcomeFailed)
+	}
+}
+
+func (h *OrganizationInboxHandler) settleBroadcast(ctx context.Context, msg jetstream.Msg, outcome broadcastOutcome) error {
+	messageID, err := parseInboxLifecycleMessageID(msg)
+	if err != nil {
+		h.logger.Error("invalid inbox lifecycle event", zap.Error(err))
+		return Permanent(err)
+	}
+
+	message, err := h.usrs.InboxStore.GetOrganizationInboxMessageByID(ctx, messageID)
+	if errors.Is(err, sql.ErrNoRows) {
+		h.logger.Error("inbox message not found for lifecycle handler", zap.Stringer("message_id", messageID))
+		return Permanent(err)
+	}
+	if err != nil {
+		h.logger.Error("failed to load inbox message for lifecycle handler", zap.Error(err), zap.Stringer("message_id", messageID))
+		return err
+	}
+
+	return h.completeBroadcastIfDone(ctx, message, outcome)
 }
 
 // resolveOrganizationID returns subjectID unchanged when already set,

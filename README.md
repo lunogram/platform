@@ -41,21 +41,14 @@ You can run Lunogram locally or in the cloud easily using Docker.
 
 ### Docker Compose
 
-To get up and running quickly, clone the repository, generate a signing secret
-for admin sessions and start the services:
+To get up and running quickly, clone the repository and start the services:
 ```
 git clone https://github.com/lunogram/platform.git
 cd platform
-echo "AUTH_JWT_SECRET=$(openssl rand -base64 48)" >> .env
 docker compose up -d
 ```
 
-`AUTH_JWT_SECRET` signs the admin session tokens and has no default: a secret
-published in this repository would let anyone mint a valid admin session
-against your deployment. Keep it private, use at least 32 bytes, and give each
-deployment its own. Rotating it invalidates all existing admin sessions.
-
-`docker compose up` builds and runs Lunogram along with its backing services —
+This single command builds and runs Lunogram along with its backing services —
 PostgreSQL, Redis and NATS. Those are defined in
 [`docker-compose.deps.yml`](docker-compose.deps.yml), which the root
 [`docker-compose.yml`](docker-compose.yml) pulls in automatically.
@@ -70,7 +63,16 @@ AUTH_BASIC_EMAIL=admin@localhost
 AUTH_BASIC_PASSWORD=admin
 ```
 
-**Note:** We would recommend changing these default credentials as well as your `AUTH_JWT_SECRET` before ever using Lunogram in production.
+**Note:** We would recommend changing these default credentials as well as your `APP_SECRET` before ever using Lunogram in production.
+
+The compose file also ships a development `AUTH_CONSOLE_SIGNING_KEY`, the key
+that signs console session tokens. It is published in this repository, so
+anyone holding it can mint a session for any admin — set your own before
+deploying:
+
+```
+AUTH_CONSOLE_SIGNING_KEY="$(openssl ecparam -name prime256v1 -genkey -noout)"
+```
 
 For full documentation on the platform and more information on deployment, check out our docs.
 

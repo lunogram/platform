@@ -82,6 +82,7 @@ export type RuleGroup =
     | "organization_user"
     | "organization_event"
     | "journey"
+    | "journey_step"
 
 export type AnyJson = boolean | number | string | null | JsonArray | JsonMap
 export interface JsonMap {
@@ -98,6 +99,7 @@ export type Rule = {
     path: string
     operator: Operator
     value?: string
+    step_scope?: StepScope
 } & (
     | { type: "wrapper" }
     | { type: "string" }
@@ -172,6 +174,16 @@ export interface EventRuleFrequency {
     period: EventRulePeriod
     operator: Operator
     count?: number
+}
+
+// Step Visit Rule - compares how often a user reached a journey step. An empty
+// path refers to the step the rule is configured on.
+export type StepScope = "entry" | "journey"
+
+export type StepVisitRule = Rule & {
+    group: "journey_step"
+    type: "number"
+    step_scope?: StepScope
 }
 
 export type EventRule = {
@@ -329,6 +341,10 @@ export interface Admin {
     email: string
     image_url: string
     role: OrganizationRole
+}
+
+export interface SessionRefresh {
+    expires_at: string
 }
 
 export const projectRoles = ["support", "client", "editor", "admin"] as const
@@ -762,6 +778,7 @@ export interface Broadcast {
     state: BroadcastState
     total: number
     sent: number
+    failed?: number
     error?: string
     created_at: string
     updated_at: string
@@ -775,6 +792,7 @@ export interface BroadcastUser {
     id: UUID
     user_id: UUID
     state: string
+    failure_reason?: string | null
     sent_at?: string
     full_name?: string
     email?: string

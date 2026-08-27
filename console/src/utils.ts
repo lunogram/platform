@@ -6,6 +6,7 @@ import { v4 } from "uuid"
 import type { UUID } from "@/types/common"
 import type { SignOut } from "@clerk/types"
 import { clsx, type ClassValue } from "clsx"
+import api from "./api"
 import { twMerge } from "tailwind-merge"
 
 export function createUuid() {
@@ -208,20 +209,48 @@ export function checkOrganizationRole(
     return organizationRoles.indexOf(minRole) <= organizationRoles.indexOf(currentRole)
 }
 
+/**
+ * Best-effort clearing of any auth cookie a browser might still hold.
+ *
+ * The console session cookies are HttpOnly and cannot be removed from here at
+ * all -- only the server can expire them, which is why `logout` calls the API
+ * first and treats this purely as a cleanup of anything left over.
+ */
 function clearAuthCookies() {
-    const cookieNames = ["__session", "oauth", "csrf_token"]
+    const cookieNames = [
+        "__Host-lunogram_session",
+        "lunogram_session",
+        "__session",
+        "oauth",
+        "csrf_token",
+    ]
     for (const name of cookieNames) {
         document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`
     }
 }
 
+/**
+ * Ends the session everywhere.
+ *
+ * The server call comes FIRST and deliberately so: signing out of the upstream
+ * identity provider first would leave our own session alive with nothing left
+ * to authenticate the revocation call, so the session would be orphaned until
+ * it expired on its own.
+ */
 export async function logout(signOut: SignOut | undefined) {
-    if (signOut) {
-        await signOut()
-    } else {
-        clearAuthCookies()
+    try {
+        await api.auth.logout()
+    } catch {
+        // A failed revoke must not trap someone in a logged-in console. The
+        // session still expires on its own, and the redirect below still gets
+        // them out.
     }
 
+    if (signOut) {
+        await signOut()
+    }
+
+    clearAuthCookies()
     window.location.href = "/login"
 }
 

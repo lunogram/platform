@@ -21,6 +21,19 @@ const (
 	InboxStatusArchived = "archived"
 )
 
+// InboxStatusFailed is a list-filter selector, not a stored status: delivery
+// outcome is a separate axis from read state, so a failed message still holds
+// one of the statuses above. It routes onto InboxListFilter.OnlyFailed.
+const InboxStatusFailed = "failed"
+
+// InboxClassStandard is the default class; InboxClassCompliance marks a message
+// that must reach the recipient regardless of suppression state (an opt-out
+// confirmation is itself a compliance message).
+const (
+	InboxClassStandard   = "standard"
+	InboxClassCompliance = "compliance"
+)
+
 // DefaultInboxPriority is applied when a message is created without an explicit
 // priority. It matches the OpenAPI schema default for InboxMessage.priority
 // (range 1-5, default 3).
@@ -54,9 +67,15 @@ type InboxMessage struct {
 	ReadAt           *time.Time      `db:"read_at"`
 	ArchivedAt       *time.Time      `db:"archived_at"`
 	SentAt           *time.Time      `db:"sent_at"`
-	CreatedAt        time.Time       `db:"created_at"`
-	UpdatedAt        time.Time       `db:"updated_at"`
-	DeletedAt        *time.Time      `db:"deleted_at"`
+	FailedAt         *time.Time      `db:"failed_at"`
+	FailureReason    *string         `db:"failure_reason"`
+	// Class gates the compliance bypass. It is a dedicated column rather than a
+	// tag because tags are caller-controlled and must not grant that bypass.
+	Class             string     `db:"class"`
+	RecipientTimezone *string    `db:"recipient_timezone"`
+	CreatedAt         time.Time  `db:"created_at"`
+	UpdatedAt         time.Time  `db:"updated_at"`
+	DeletedAt         *time.Time `db:"deleted_at"`
 }
 
 type InboxMessages []InboxMessage
@@ -82,6 +101,8 @@ func (m *InboxMessage) OAPI() oapi.InboxMessage {
 		ReadAt:           m.ReadAt,
 		ArchivedAt:       m.ArchivedAt,
 		SentAt:           m.SentAt,
+		FailedAt:         m.FailedAt,
+		FailureReason:    m.FailureReason,
 		CreatedAt:        m.CreatedAt,
 		UpdatedAt:        m.UpdatedAt,
 	}
@@ -120,6 +141,16 @@ type InboxMessageParams struct {
 	Source           *string
 	ScheduledAt      *time.Time
 	ExpiresAt        *time.Time
+	// Class defaults to InboxClassStandard when empty. Only trusted internal
+	// senders may set InboxClassCompliance: it is what lets a message past the
+	// opt-out gate, so it is a store parameter rather than anything a caller
+	// can reach through the public API.
+	Class string
+	// RecipientTimezone is observational and may be nil. Nothing on the send
+	// path reads it yet; it is recorded so a later quiet-hours rollout can be
+	// measured against real history, which is why an unresolved recipient
+	// leaves the column NULL rather than storing a guess.
+	RecipientTimezone *string
 }
 
 type InboxListFilter struct {
@@ -136,6 +167,27 @@ type InboxListFilter struct {
 	IncludeScheduled bool
 	IncludeExpired   bool
 	IncludeArchived  bool
+	// ExcludeFailed hides messages whose send terminally failed. It is opt-in
+	// because the console must still see them - a suppressed message is the
+	// audit trail for why nothing was delivered - while the end user must not
+	// be shown a message that never reached them.
+	ExcludeFailed bool
+	// OnlyFailed is the opposite pole of the same delivery axis, narrowing the
+	// list to terminally failed messages so an operator can audit suppressions
+	// without paging the whole inbox. Setting it together with ExcludeFailed
+	// selects nothing.
+	OnlyFailed bool
+}
+
+// WithStatus applies an API status selector, routing the failed selector onto
+// the delivery axis and leaving Status for the read-state axis.
+func (f InboxListFilter) WithStatus(status string) InboxListFilter {
+	if status == InboxStatusFailed {
+		f.OnlyFailed = true
+		return f
+	}
+	f.Status = status
+	return f
 }
 
 type InboxCounts struct {
@@ -158,13 +210,14 @@ func (s *InboxStore) CreateUserInboxMessage(ctx context.Context, projectID, user
 	params = normalizeInboxMessageParams(params)
 
 	stmt := `
-	INSERT INTO user_inbox_messages (project_id, user_id, external_id, channel, sender_identity_id, campaign_id, broadcast_id, content, data, tags, priority, source, scheduled_at, expires_at)
-	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, COALESCE($13, NOW()), $14)
+	INSERT INTO user_inbox_messages (project_id, user_id, external_id, channel, sender_identity_id, campaign_id, broadcast_id, content, data, tags, priority, source, scheduled_at, expires_at, class, recipient_timezone)
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, COALESCE($13, NOW()), $14, $15, $16)
 	ON CONFLICT DO NOTHING
 	RETURNING id, project_id, user_id, external_id, channel,
 		sender_identity_id, campaign_id, broadcast_id, content, data, tags,
 		priority, source, scheduled_at, expires_at, read_at, archived_at,
-		sent_at, created_at, updated_at, deleted_at`
+		sent_at, failed_at, failure_reason, class, recipient_timezone,
+		created_at, updated_at, deleted_at`
 
 	var row InboxMessage
 	err := s.db.GetContext(ctx, &row, stmt,
@@ -182,6 +235,8 @@ func (s *InboxStore) CreateUserInboxMessage(ctx context.Context, projectID, user
 		params.Source,
 		params.ScheduledAt,
 		params.ExpiresAt,
+		params.Class,
+		params.RecipientTimezone,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return s.resolveUserInboxMessageConflict(ctx, projectID, userID, params)
@@ -197,13 +252,14 @@ func (s *InboxStore) CreateOrganizationInboxMessage(ctx context.Context, project
 	params = normalizeInboxMessageParams(params)
 
 	stmt := `
-	INSERT INTO organization_inbox_messages (project_id, organization_id, external_id, channel, sender_identity_id, campaign_id, broadcast_id, content, data, tags, priority, source, scheduled_at, expires_at)
-	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, COALESCE($13, NOW()), $14)
+	INSERT INTO organization_inbox_messages (project_id, organization_id, external_id, channel, sender_identity_id, campaign_id, broadcast_id, content, data, tags, priority, source, scheduled_at, expires_at, class, recipient_timezone)
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, COALESCE($13, NOW()), $14, $15, $16)
 	ON CONFLICT DO NOTHING
 	RETURNING id, project_id, organization_id, external_id, channel,
 		sender_identity_id, campaign_id, broadcast_id, content, data, tags,
 		priority, source, scheduled_at, expires_at, read_at, archived_at,
-		sent_at, created_at, updated_at, deleted_at`
+		sent_at, failed_at, failure_reason, class, recipient_timezone,
+		created_at, updated_at, deleted_at`
 
 	var row InboxMessage
 	err := s.db.GetContext(ctx, &row, stmt,
@@ -221,6 +277,8 @@ func (s *InboxStore) CreateOrganizationInboxMessage(ctx context.Context, project
 		params.Source,
 		params.ScheduledAt,
 		params.ExpiresAt,
+		params.Class,
+		params.RecipientTimezone,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return s.resolveOrganizationInboxMessageConflict(ctx, projectID, organizationID, params)
@@ -244,7 +302,8 @@ func (s *InboxStore) resolveUserInboxMessageConflict(ctx context.Context, projec
 	SELECT id, project_id, user_id, external_id, channel,
 		sender_identity_id, campaign_id, broadcast_id, content, data, tags,
 		priority, source, scheduled_at, expires_at, read_at, archived_at,
-		sent_at, created_at, updated_at, deleted_at
+		sent_at, failed_at, failure_reason, class, recipient_timezone,
+		created_at, updated_at, deleted_at
 	FROM user_inbox_messages
 	WHERE project_id = $1
 	AND user_id = $2
@@ -268,7 +327,8 @@ func (s *InboxStore) resolveOrganizationInboxMessageConflict(ctx context.Context
 	SELECT id, project_id, organization_id, external_id, channel,
 		sender_identity_id, campaign_id, broadcast_id, content, data, tags,
 		priority, source, scheduled_at, expires_at, read_at, archived_at,
-		sent_at, created_at, updated_at, deleted_at
+		sent_at, failed_at, failure_reason, class, recipient_timezone,
+		created_at, updated_at, deleted_at
 	FROM organization_inbox_messages
 	WHERE project_id = $1
 	AND organization_id = $2
@@ -296,6 +356,9 @@ func normalizeInboxMessageParams(params InboxMessageParams) InboxMessageParams {
 	if params.Priority == nil {
 		params.Priority = ptr.To(DefaultInboxPriority)
 	}
+	if params.Class == "" {
+		params.Class = InboxClassStandard
+	}
 	return params
 }
 
@@ -304,7 +367,8 @@ func (s *InboxStore) ListUserInboxMessages(ctx context.Context, projectID, userI
 	SELECT id, project_id, user_id, external_id, channel,
 		sender_identity_id, campaign_id, broadcast_id, content, data, tags,
 		priority, source, scheduled_at, expires_at, read_at, archived_at,
-		sent_at, created_at, updated_at, deleted_at,
+		sent_at, failed_at, failure_reason, class, recipient_timezone,
+		created_at, updated_at, deleted_at,
 		COUNT(*) OVER () AS total_count
 	FROM user_inbox_messages
 	WHERE project_id = $1
@@ -329,8 +393,10 @@ func (s *InboxStore) ListUserInboxMessages(ctx context.Context, projectID, userI
 		OR (content->>'body') ILIKE '%' || $11 || '%'
 		OR (content->>'subject') ILIKE '%' || $11 || '%'
 	)
+	AND (NOT $12::bool OR failed_at IS NULL)
+	AND (NOT $13::bool OR failed_at IS NOT NULL)
 	ORDER BY scheduled_at DESC, created_at DESC
-	LIMIT $12 OFFSET $13`
+	LIMIT $14 OFFSET $15`
 
 	return s.listInboxMessages(ctx, stmt, projectID, userID, pagination, filter)
 }
@@ -340,7 +406,8 @@ func (s *InboxStore) ListOrganizationInboxMessages(ctx context.Context, projectI
 	SELECT id, project_id, organization_id, external_id, channel,
 		sender_identity_id, campaign_id, broadcast_id, content, data, tags,
 		priority, source, scheduled_at, expires_at, read_at, archived_at,
-		sent_at, created_at, updated_at, deleted_at,
+		sent_at, failed_at, failure_reason, class, recipient_timezone,
+		created_at, updated_at, deleted_at,
 		COUNT(*) OVER () AS total_count
 	FROM organization_inbox_messages
 	WHERE project_id = $1
@@ -365,8 +432,10 @@ func (s *InboxStore) ListOrganizationInboxMessages(ctx context.Context, projectI
 		OR (content->>'body') ILIKE '%' || $11 || '%'
 		OR (content->>'subject') ILIKE '%' || $11 || '%'
 	)
+	AND (NOT $12::bool OR failed_at IS NULL)
+	AND (NOT $13::bool OR failed_at IS NOT NULL)
 	ORDER BY scheduled_at DESC, created_at DESC
-	LIMIT $12 OFFSET $13`
+	LIMIT $14 OFFSET $15`
 
 	return s.listInboxMessages(ctx, stmt, projectID, organizationID, pagination, filter)
 }
@@ -412,6 +481,8 @@ func (s *InboxStore) listInboxMessages(ctx context.Context, stmt string, project
 		source,
 		priority,
 		search,
+		filter.ExcludeFailed,
+		filter.OnlyFailed,
 		pagination.Limit,
 		pagination.Offset,
 	)
@@ -439,6 +510,7 @@ func (s *InboxStore) CountUserInboxMessages(ctx context.Context, projectID, user
 	WHERE project_id = $1
 	AND user_id = $2
 	AND deleted_at IS NULL
+	AND failed_at IS NULL
 	AND scheduled_at <= NOW()
 	AND (expires_at IS NULL OR expires_at > NOW())
 	AND ($3 = '' OR channel = $3)`
@@ -457,6 +529,7 @@ func (s *InboxStore) CountOrganizationInboxMessages(ctx context.Context, project
 	WHERE project_id = $1
 	AND organization_id = $2
 	AND deleted_at IS NULL
+	AND failed_at IS NULL
 	AND scheduled_at <= NOW()
 	AND (expires_at IS NULL OR expires_at > NOW())
 	AND ($3 = '' OR channel = $3)`
@@ -482,10 +555,12 @@ func (s *InboxStore) ScanDueUserInboxMessages(ctx context.Context, limit int, fn
 	SELECT id, project_id, user_id, external_id, channel,
 		sender_identity_id, campaign_id, broadcast_id, content, data, tags,
 		priority, source, scheduled_at, expires_at, read_at, archived_at,
-		sent_at, created_at, updated_at, deleted_at
+		sent_at, failed_at, failure_reason, class, recipient_timezone,
+		created_at, updated_at, deleted_at
 	FROM user_inbox_messages
 	WHERE deleted_at IS NULL
 	AND sent_at IS NULL
+	AND failed_at IS NULL
 	AND scheduled_at <= NOW()
 	AND (expires_at IS NULL OR expires_at > NOW())
 	ORDER BY scheduled_at ASC
@@ -521,10 +596,12 @@ func (s *InboxStore) ScanDueOrganizationInboxMessages(ctx context.Context, limit
 	SELECT id, project_id, organization_id, external_id, channel,
 		sender_identity_id, campaign_id, broadcast_id, content, data, tags,
 		priority, source, scheduled_at, expires_at, read_at, archived_at,
-		sent_at, created_at, updated_at, deleted_at
+		sent_at, failed_at, failure_reason, class, recipient_timezone,
+		created_at, updated_at, deleted_at
 	FROM organization_inbox_messages
 	WHERE deleted_at IS NULL
 	AND sent_at IS NULL
+	AND failed_at IS NULL
 	AND scheduled_at <= NOW()
 	AND (expires_at IS NULL OR expires_at > NOW())
 	ORDER BY scheduled_at ASC
@@ -548,12 +625,13 @@ func (s *InboxStore) ScanDueOrganizationInboxMessages(ctx context.Context, limit
 
 // MarkUserInboxMessageSent atomically sets sent_at on a user inbox message
 // that has not been sent yet. Returns true when the timestamp was set, false
-// when the message was already marked as sent (idempotent across retries).
+// when the message was already settled - marked as sent (idempotent across
+// retries) or marked as permanently failed.
 func (s *InboxStore) MarkUserInboxMessageSent(ctx context.Context, messageID uuid.UUID) (bool, error) {
 	stmt := `
 	UPDATE user_inbox_messages
 	SET sent_at = NOW(), updated_at = NOW()
-	WHERE id = $1 AND sent_at IS NULL AND deleted_at IS NULL`
+	WHERE id = $1 AND sent_at IS NULL AND failed_at IS NULL AND deleted_at IS NULL`
 
 	result, err := s.db.ExecContext(ctx, stmt, messageID)
 	if err != nil {
@@ -565,14 +643,49 @@ func (s *InboxStore) MarkUserInboxMessageSent(ctx context.Context, messageID uui
 
 // MarkOrganizationInboxMessageSent atomically sets sent_at on an organization
 // inbox message that has not been sent yet. Returns true when the timestamp
-// was set, false when the message was already marked as sent.
+// was set, false when the message was already settled as sent or failed.
 func (s *InboxStore) MarkOrganizationInboxMessageSent(ctx context.Context, messageID uuid.UUID) (bool, error) {
 	stmt := `
 	UPDATE organization_inbox_messages
 	SET sent_at = NOW(), updated_at = NOW()
-	WHERE id = $1 AND sent_at IS NULL AND deleted_at IS NULL`
+	WHERE id = $1 AND sent_at IS NULL AND failed_at IS NULL AND deleted_at IS NULL`
 
 	result, err := s.db.ExecContext(ctx, stmt, messageID)
+	if err != nil {
+		return false, err
+	}
+	n, err := result.RowsAffected()
+	return n > 0, err
+}
+
+// MarkUserInboxMessageFailed atomically settles a user inbox message on a
+// permanent failure. Returns true when the outcome was recorded, false when the
+// message was already settled - a message that has been sent can never be
+// marked failed, and the first failure reason is the one that is kept.
+func (s *InboxStore) MarkUserInboxMessageFailed(ctx context.Context, id uuid.UUID, reason string) (bool, error) {
+	stmt := `
+	UPDATE user_inbox_messages
+	SET failed_at = NOW(), failure_reason = $2, updated_at = NOW()
+	WHERE id = $1 AND sent_at IS NULL AND failed_at IS NULL AND deleted_at IS NULL`
+
+	result, err := s.db.ExecContext(ctx, stmt, id, reason)
+	if err != nil {
+		return false, err
+	}
+	n, err := result.RowsAffected()
+	return n > 0, err
+}
+
+// MarkOrganizationInboxMessageFailed atomically settles an organization inbox
+// message on a permanent failure. Returns true when the outcome was recorded,
+// false when the message was already settled as sent or failed.
+func (s *InboxStore) MarkOrganizationInboxMessageFailed(ctx context.Context, id uuid.UUID, reason string) (bool, error) {
+	stmt := `
+	UPDATE organization_inbox_messages
+	SET failed_at = NOW(), failure_reason = $2, updated_at = NOW()
+	WHERE id = $1 AND sent_at IS NULL AND failed_at IS NULL AND deleted_at IS NULL`
+
+	result, err := s.db.ExecContext(ctx, stmt, id, reason)
 	if err != nil {
 		return false, err
 	}
@@ -587,7 +700,8 @@ func (s *InboxStore) GetUserInboxMessageByID(ctx context.Context, messageID uuid
 	SELECT id, project_id, user_id, external_id, channel,
 		sender_identity_id, campaign_id, broadcast_id, content, data, tags,
 		priority, source, scheduled_at, expires_at, read_at, archived_at,
-		sent_at, created_at, updated_at, deleted_at
+		sent_at, failed_at, failure_reason, class, recipient_timezone,
+		created_at, updated_at, deleted_at
 	FROM user_inbox_messages
 	WHERE id = $1 AND deleted_at IS NULL`
 
@@ -607,7 +721,8 @@ func (s *InboxStore) GetOrganizationInboxMessageByID(ctx context.Context, messag
 	SELECT id, project_id, organization_id, external_id, channel,
 		sender_identity_id, campaign_id, broadcast_id, content, data, tags,
 		priority, source, scheduled_at, expires_at, read_at, archived_at,
-		sent_at, created_at, updated_at, deleted_at
+		sent_at, failed_at, failure_reason, class, recipient_timezone,
+		created_at, updated_at, deleted_at
 	FROM organization_inbox_messages
 	WHERE id = $1 AND deleted_at IS NULL`
 
@@ -639,7 +754,8 @@ func (s *InboxStore) UpdateUserInboxMessageScheduledAt(ctx context.Context, proj
 		RETURNING id, project_id, user_id, external_id, channel,
 			sender_identity_id, campaign_id, broadcast_id, content, data, tags,
 			priority, source, scheduled_at, expires_at, read_at, archived_at,
-			sent_at, created_at, updated_at, deleted_at
+			sent_at, failed_at, failure_reason, class, recipient_timezone,
+			created_at, updated_at, deleted_at
 	)
 	SELECT TRUE AS was_updated, updated.* FROM updated
 	UNION ALL
@@ -647,7 +763,8 @@ func (s *InboxStore) UpdateUserInboxMessageScheduledAt(ctx context.Context, proj
 		id, project_id, user_id, external_id, channel,
 		sender_identity_id, campaign_id, broadcast_id, content, data, tags,
 		priority, source, scheduled_at, expires_at, read_at, archived_at,
-		sent_at, created_at, updated_at, deleted_at
+		sent_at, failed_at, failure_reason, class, recipient_timezone,
+		created_at, updated_at, deleted_at
 	FROM user_inbox_messages
 	WHERE id = $1
 	AND project_id = $2
@@ -672,7 +789,8 @@ func (s *InboxStore) UpdateOrganizationInboxMessageScheduledAt(ctx context.Conte
 		RETURNING id, project_id, organization_id, external_id, channel,
 			sender_identity_id, campaign_id, broadcast_id, content, data, tags,
 			priority, source, scheduled_at, expires_at, read_at, archived_at,
-			sent_at, created_at, updated_at, deleted_at
+			sent_at, failed_at, failure_reason, class, recipient_timezone,
+			created_at, updated_at, deleted_at
 	)
 	SELECT TRUE AS was_updated, updated.* FROM updated
 	UNION ALL
@@ -680,7 +798,8 @@ func (s *InboxStore) UpdateOrganizationInboxMessageScheduledAt(ctx context.Conte
 		id, project_id, organization_id, external_id, channel,
 		sender_identity_id, campaign_id, broadcast_id, content, data, tags,
 		priority, source, scheduled_at, expires_at, read_at, archived_at,
-		sent_at, created_at, updated_at, deleted_at
+		sent_at, failed_at, failure_reason, class, recipient_timezone,
+		created_at, updated_at, deleted_at
 	FROM organization_inbox_messages
 	WHERE id = $1
 	AND project_id = $2
@@ -714,7 +833,8 @@ func (s *InboxStore) GetUserInboxMessage(ctx context.Context, projectID, userID,
 	SELECT id, project_id, user_id, external_id, channel,
 		sender_identity_id, campaign_id, broadcast_id, content, data, tags,
 		priority, source, scheduled_at, expires_at, read_at, archived_at,
-		sent_at, created_at, updated_at, deleted_at
+		sent_at, failed_at, failure_reason, class, recipient_timezone,
+		created_at, updated_at, deleted_at
 	FROM user_inbox_messages
 	WHERE id = $1
 	AND project_id = $2
@@ -735,7 +855,8 @@ func (s *InboxStore) GetOrganizationInboxMessage(ctx context.Context, projectID,
 	SELECT id, project_id, organization_id, external_id, channel,
 		sender_identity_id, campaign_id, broadcast_id, content, data, tags,
 		priority, source, scheduled_at, expires_at, read_at, archived_at,
-		sent_at, created_at, updated_at, deleted_at
+		sent_at, failed_at, failure_reason, class, recipient_timezone,
+		created_at, updated_at, deleted_at
 	FROM organization_inbox_messages
 	WHERE id = $1
 	AND project_id = $2
@@ -766,7 +887,8 @@ func (s *InboxStore) ReadUserInboxMessage(ctx context.Context, projectID, userID
 		RETURNING id, project_id, user_id, external_id, channel,
 			sender_identity_id, campaign_id, broadcast_id, content, data, tags,
 			priority, source, scheduled_at, expires_at, read_at, archived_at,
-			sent_at, created_at, updated_at, deleted_at,
+			sent_at, failed_at, failure_reason, class, recipient_timezone,
+			created_at, updated_at, deleted_at,
 			true AS transitioned
 	)
 	SELECT * FROM updated
@@ -774,7 +896,8 @@ func (s *InboxStore) ReadUserInboxMessage(ctx context.Context, projectID, userID
 	SELECT id, project_id, user_id, external_id, channel,
 		sender_identity_id, campaign_id, broadcast_id, content, data, tags,
 		priority, source, scheduled_at, expires_at, read_at, archived_at,
-		sent_at, created_at, updated_at, deleted_at,
+		sent_at, failed_at, failure_reason, class, recipient_timezone,
+		created_at, updated_at, deleted_at,
 		false AS transitioned
 	FROM user_inbox_messages
 	WHERE id = $1
@@ -812,7 +935,8 @@ func (s *InboxStore) ArchiveUserInboxMessage(ctx context.Context, projectID, use
 		RETURNING id, project_id, user_id, external_id, channel,
 			sender_identity_id, campaign_id, broadcast_id, content, data, tags,
 			priority, source, scheduled_at, expires_at, read_at, archived_at,
-			sent_at, created_at, updated_at, deleted_at,
+			sent_at, failed_at, failure_reason, class, recipient_timezone,
+			created_at, updated_at, deleted_at,
 			true AS transitioned
 	)
 	SELECT * FROM updated
@@ -820,7 +944,8 @@ func (s *InboxStore) ArchiveUserInboxMessage(ctx context.Context, projectID, use
 	SELECT id, project_id, user_id, external_id, channel,
 		sender_identity_id, campaign_id, broadcast_id, content, data, tags,
 		priority, source, scheduled_at, expires_at, read_at, archived_at,
-		sent_at, created_at, updated_at, deleted_at,
+		sent_at, failed_at, failure_reason, class, recipient_timezone,
+		created_at, updated_at, deleted_at,
 		false AS transitioned
 	FROM user_inbox_messages
 	WHERE id = $1
@@ -858,7 +983,8 @@ func (s *InboxStore) ReadOrganizationInboxMessage(ctx context.Context, projectID
 		RETURNING id, project_id, organization_id, external_id, channel,
 			sender_identity_id, campaign_id, broadcast_id, content, data, tags,
 			priority, source, scheduled_at, expires_at, read_at, archived_at,
-			sent_at, created_at, updated_at, deleted_at,
+			sent_at, failed_at, failure_reason, class, recipient_timezone,
+			created_at, updated_at, deleted_at,
 			true AS transitioned
 	)
 	SELECT * FROM updated
@@ -866,7 +992,8 @@ func (s *InboxStore) ReadOrganizationInboxMessage(ctx context.Context, projectID
 	SELECT id, project_id, organization_id, external_id, channel,
 		sender_identity_id, campaign_id, broadcast_id, content, data, tags,
 		priority, source, scheduled_at, expires_at, read_at, archived_at,
-		sent_at, created_at, updated_at, deleted_at,
+		sent_at, failed_at, failure_reason, class, recipient_timezone,
+		created_at, updated_at, deleted_at,
 		false AS transitioned
 	FROM organization_inbox_messages
 	WHERE id = $1
@@ -904,7 +1031,8 @@ func (s *InboxStore) ArchiveOrganizationInboxMessage(ctx context.Context, projec
 		RETURNING id, project_id, organization_id, external_id, channel,
 			sender_identity_id, campaign_id, broadcast_id, content, data, tags,
 			priority, source, scheduled_at, expires_at, read_at, archived_at,
-			sent_at, created_at, updated_at, deleted_at,
+			sent_at, failed_at, failure_reason, class, recipient_timezone,
+			created_at, updated_at, deleted_at,
 			true AS transitioned
 	)
 	SELECT * FROM updated
@@ -912,7 +1040,8 @@ func (s *InboxStore) ArchiveOrganizationInboxMessage(ctx context.Context, projec
 	SELECT id, project_id, organization_id, external_id, channel,
 		sender_identity_id, campaign_id, broadcast_id, content, data, tags,
 		priority, source, scheduled_at, expires_at, read_at, archived_at,
-		sent_at, created_at, updated_at, deleted_at,
+		sent_at, failed_at, failure_reason, class, recipient_timezone,
+		created_at, updated_at, deleted_at,
 		false AS transitioned
 	FROM organization_inbox_messages
 	WHERE id = $1
@@ -948,7 +1077,8 @@ func (s *InboxStore) UnarchiveUserInboxMessage(ctx context.Context, projectID, u
 		RETURNING id, project_id, user_id, external_id, channel,
 			sender_identity_id, campaign_id, broadcast_id, content, data, tags,
 			priority, source, scheduled_at, expires_at, read_at, archived_at,
-			sent_at, created_at, updated_at, deleted_at,
+			sent_at, failed_at, failure_reason, class, recipient_timezone,
+			created_at, updated_at, deleted_at,
 			true AS transitioned
 	)
 	SELECT * FROM updated
@@ -956,7 +1086,8 @@ func (s *InboxStore) UnarchiveUserInboxMessage(ctx context.Context, projectID, u
 	SELECT id, project_id, user_id, external_id, channel,
 		sender_identity_id, campaign_id, broadcast_id, content, data, tags,
 		priority, source, scheduled_at, expires_at, read_at, archived_at,
-		sent_at, created_at, updated_at, deleted_at,
+		sent_at, failed_at, failure_reason, class, recipient_timezone,
+		created_at, updated_at, deleted_at,
 		false AS transitioned
 	FROM user_inbox_messages
 	WHERE id = $1
@@ -992,7 +1123,8 @@ func (s *InboxStore) UnreadUserInboxMessage(ctx context.Context, projectID, user
 		RETURNING id, project_id, user_id, external_id, channel,
 			sender_identity_id, campaign_id, broadcast_id, content, data, tags,
 			priority, source, scheduled_at, expires_at, read_at, archived_at,
-			sent_at, created_at, updated_at, deleted_at,
+			sent_at, failed_at, failure_reason, class, recipient_timezone,
+			created_at, updated_at, deleted_at,
 			true AS transitioned
 	)
 	SELECT * FROM updated
@@ -1000,7 +1132,8 @@ func (s *InboxStore) UnreadUserInboxMessage(ctx context.Context, projectID, user
 	SELECT id, project_id, user_id, external_id, channel,
 		sender_identity_id, campaign_id, broadcast_id, content, data, tags,
 		priority, source, scheduled_at, expires_at, read_at, archived_at,
-		sent_at, created_at, updated_at, deleted_at,
+		sent_at, failed_at, failure_reason, class, recipient_timezone,
+		created_at, updated_at, deleted_at,
 		false AS transitioned
 	FROM user_inbox_messages
 	WHERE id = $1
@@ -1036,7 +1169,8 @@ func (s *InboxStore) UnarchiveOrganizationInboxMessage(ctx context.Context, proj
 		RETURNING id, project_id, organization_id, external_id, channel,
 			sender_identity_id, campaign_id, broadcast_id, content, data, tags,
 			priority, source, scheduled_at, expires_at, read_at, archived_at,
-			sent_at, created_at, updated_at, deleted_at,
+			sent_at, failed_at, failure_reason, class, recipient_timezone,
+			created_at, updated_at, deleted_at,
 			true AS transitioned
 	)
 	SELECT * FROM updated
@@ -1044,7 +1178,8 @@ func (s *InboxStore) UnarchiveOrganizationInboxMessage(ctx context.Context, proj
 	SELECT id, project_id, organization_id, external_id, channel,
 		sender_identity_id, campaign_id, broadcast_id, content, data, tags,
 		priority, source, scheduled_at, expires_at, read_at, archived_at,
-		sent_at, created_at, updated_at, deleted_at,
+		sent_at, failed_at, failure_reason, class, recipient_timezone,
+		created_at, updated_at, deleted_at,
 		false AS transitioned
 	FROM organization_inbox_messages
 	WHERE id = $1
@@ -1080,7 +1215,8 @@ func (s *InboxStore) UnreadOrganizationInboxMessage(ctx context.Context, project
 		RETURNING id, project_id, organization_id, external_id, channel,
 			sender_identity_id, campaign_id, broadcast_id, content, data, tags,
 			priority, source, scheduled_at, expires_at, read_at, archived_at,
-			sent_at, created_at, updated_at, deleted_at,
+			sent_at, failed_at, failure_reason, class, recipient_timezone,
+			created_at, updated_at, deleted_at,
 			true AS transitioned
 	)
 	SELECT * FROM updated
@@ -1088,7 +1224,8 @@ func (s *InboxStore) UnreadOrganizationInboxMessage(ctx context.Context, project
 	SELECT id, project_id, organization_id, external_id, channel,
 		sender_identity_id, campaign_id, broadcast_id, content, data, tags,
 		priority, source, scheduled_at, expires_at, read_at, archived_at,
-		sent_at, created_at, updated_at, deleted_at,
+		sent_at, failed_at, failure_reason, class, recipient_timezone,
+		created_at, updated_at, deleted_at,
 		false AS transitioned
 	FROM organization_inbox_messages
 	WHERE id = $1
