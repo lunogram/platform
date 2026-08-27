@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/store"
 )
@@ -943,6 +944,49 @@ func (s *JourneysStore) UpdateJourneyStateResumeAt(ctx context.Context, stateID 
 
 	_, err := s.db.ExecContext(ctx, stmt, resumeAt, stateID)
 	return err
+}
+
+type stepVisitCount struct {
+	ExternalStepID string `db:"external_step_id"`
+	Visits         int    `db:"visits"`
+}
+
+// CountStepVisitsInEntry counts how often the given steps were visited during a
+// single run through the journey, keyed by external step id.
+func (s *JourneysStore) CountStepVisitsInEntry(ctx context.Context, journeyEntryID uuid.UUID, externalStepIDs []string) (map[string]int, error) {
+	stmt := `
+	SELECT external_step_id, COUNT(*) AS visits
+	FROM journey_user_state
+	WHERE journey_entry_id = $1 AND external_step_id = ANY($2)
+	GROUP BY external_step_id`
+
+	return s.countStepVisits(ctx, stmt, journeyEntryID, pq.Array(externalStepIDs))
+}
+
+// CountStepVisitsInJourney counts how often the given steps were visited across
+// every run the user made through the journey, keyed by external step id.
+func (s *JourneysStore) CountStepVisitsInJourney(ctx context.Context, journeyID, userID uuid.UUID, externalStepIDs []string) (map[string]int, error) {
+	stmt := `
+	SELECT external_step_id, COUNT(*) AS visits
+	FROM journey_user_state
+	WHERE journey_id = $1 AND user_id = $2 AND external_step_id = ANY($3)
+	GROUP BY external_step_id`
+
+	return s.countStepVisits(ctx, stmt, journeyID, userID, pq.Array(externalStepIDs))
+}
+
+func (s *JourneysStore) countStepVisits(ctx context.Context, stmt string, args ...any) (map[string]int, error) {
+	var rows []stepVisitCount
+	if err := s.db.SelectContext(ctx, &rows, stmt, args...); err != nil {
+		return nil, err
+	}
+
+	counts := make(map[string]int, len(rows))
+	for _, row := range rows {
+		counts[row.ExternalStepID] = row.Visits
+	}
+
+	return counts, nil
 }
 
 // CancelActiveStates marks all active (non-completed) journey_user_state rows

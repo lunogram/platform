@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-	"github.com/lib/pq"
 	"github.com/lunogram/platform/internal/rules"
 	"github.com/lunogram/platform/internal/rules/eval"
 	"github.com/lunogram/platform/internal/store/journey"
@@ -100,12 +99,23 @@ func countStepVisits(ctx HandlerContext, targets []stepVisitTarget, step journey
 		steps[target.scope] = append(steps[target.scope], target.stepID)
 	}
 
+	journeys := journey.NewJourneysStore(ctx.DB)
+
 	recorded := map[rules.StepScope]map[string]int{}
 	for scope, stepIDs := range steps {
-		counts, err := queryStepVisits(ctx, scope, stepIDs, state)
+		var counts map[string]int
+		var err error
+
+		if scope == rules.StepScopeJourney {
+			counts, err = journeys.CountStepVisitsInJourney(ctx, state.JourneyID, ctx.UserID, stepIDs)
+		} else {
+			counts, err = journeys.CountStepVisitsInEntry(ctx, state.JourneyEntryID, stepIDs)
+		}
+
 		if err != nil {
 			return nil, err
 		}
+
 		recorded[scope] = counts
 	}
 
@@ -123,42 +133,4 @@ func countStepVisits(ctx HandlerContext, targets []stepVisitTarget, step journey
 	}
 
 	return map[string]any{stepVisitsKey: visits}, nil
-}
-
-// queryStepVisits counts the visits recorded for the given steps, either within
-// the user's current run through the journey or across all of their runs.
-func queryStepVisits(ctx HandlerContext, scope rules.StepScope, stepIDs []string, state journey.JourneyUserState) (map[string]int, error) {
-	stmt := `
-	SELECT external_step_id, COUNT(*) AS visits
-	FROM journey_user_state
-	WHERE journey_entry_id = $1 AND external_step_id = ANY($2)
-	GROUP BY external_step_id`
-	args := []any{state.JourneyEntryID, pq.Array(stepIDs)}
-
-	if scope == rules.StepScopeJourney {
-		stmt = `
-	SELECT external_step_id, COUNT(*) AS visits
-	FROM journey_user_state
-	WHERE journey_id = $1 AND user_id = $2 AND external_step_id = ANY($3)
-	GROUP BY external_step_id`
-		args = []any{state.JourneyID, ctx.UserID, pq.Array(stepIDs)}
-	}
-
-	rows, err := ctx.DB.QueryContext(ctx, stmt, args...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	counts := map[string]int{}
-	for rows.Next() {
-		var stepID string
-		var visits int
-		if err := rows.Scan(&stepID, &visits); err != nil {
-			return nil, err
-		}
-		counts[stepID] = visits
-	}
-
-	return counts, rows.Err()
 }
