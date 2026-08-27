@@ -56,11 +56,11 @@ func SyncOrganizationRole(ctx context.Context, engine *rbac.Engine, adminID, org
 	}
 
 	if err := engine.DeleteTuplesIfPresent(ctx, superseded); err != nil {
-		return fmt.Errorf("access: failed to revoke superseded organization roles for admin %s: %w", adminID, err)
+		return fmt.Errorf("access: failed to revoke superseded organization roles for admin %s in organization %s: %w", adminID, organizationID, err)
 	}
 
 	if err := engine.WriteTuplesIfAbsent(ctx, OrganizationRoleTuples(adminID, organizationID, role)); err != nil {
-		return fmt.Errorf("access: failed to grant organization role %q to admin %s: %w", role, adminID, err)
+		return fmt.Errorf("access: failed to grant organization role %q to admin %s in organization %s: %w", role, adminID, organizationID, err)
 	}
 
 	return nil
