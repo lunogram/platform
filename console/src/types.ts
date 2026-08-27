@@ -762,6 +762,7 @@ export interface Broadcast {
     state: BroadcastState
     total: number
     sent: number
+    failed?: number
     error?: string
     created_at: string
     updated_at: string
@@ -775,6 +776,7 @@ export interface BroadcastUser {
     id: UUID
     user_id: UUID
     state: string
+    failure_reason?: string | null
     sent_at?: string
     full_name?: string
     email?: string

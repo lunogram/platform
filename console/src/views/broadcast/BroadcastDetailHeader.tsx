@@ -22,6 +22,7 @@ interface BroadcastDetailHeaderProps {
     users: RecipientRow[] | null
     usersTotal: number | null
     streamedSent: number | null
+    streamedFailed: number | null
     streamedTotal: number | null
     isSending: boolean
     isCancelling: boolean
@@ -34,6 +35,7 @@ export function BroadcastDetailHeader({
     users,
     usersTotal,
     streamedSent,
+    streamedFailed,
     streamedTotal,
     isSending,
     isCancelling,
@@ -50,6 +52,7 @@ export function BroadcastDetailHeader({
         ? (channelIcons[broadcast.campaign.channel] ?? Radio)
         : Radio
     const isEditable = broadcast.state === "pending" || broadcast.state === "scheduled"
+    const failedCount = streamedFailed ?? broadcast.failed ?? 0
 
     return (
         <div className="border-b bg-card/50 relative overflow-hidden">
@@ -126,6 +129,28 @@ export function BroadcastDetailHeader({
                                             ? `${usersTotal.toLocaleString()} ${t("recipients", "recipients")}`
                                             : t("no_recipients", "No recipients")}
                                 </span>
+                                {failedCount > 0 && (
+                                    <>
+                                        <span>·</span>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <span className="cursor-help underline decoration-dotted underline-offset-4">
+                                                    {t(
+                                                        "broadcast_failed_count",
+                                                        `${failedCount.toLocaleString()} failed`,
+                                                        { failed: failedCount.toLocaleString() },
+                                                    )}
+                                                </span>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                                {t(
+                                                    "broadcast_failed_tooltip",
+                                                    "Messages that will never be delivered — most often recipients who opted out.",
+                                                )}
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    </>
+                                )}
                                 <span>·</span>
                                 <span>
                                     {broadcast.completed_at
