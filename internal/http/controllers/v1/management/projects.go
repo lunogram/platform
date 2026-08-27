@@ -92,17 +92,17 @@ func (srv *ProjectsController) ListProjects(w http.ResponseWriter, r *http.Reque
 		search = string(*params.Search)
 	}
 
-	// This lists the projects the CALLER is a member of, which only an admin can
-	// be. An API key used to reach the query with its auth-method id, which
-	// matches no project_admins row, so the caller was told they have no
-	// projects rather than that the question does not apply to them.
-	actorID, err := adminActorID(actor)
+	// This endpoint answers "which projects do I belong to", which only an admin
+	// can be asked: the listing joins project_admins and carries the caller's
+	// role per project. A non-admin has no row there and no role, so its honest
+	// answer is a 403 rather than an empty list that reads as "you have none".
+	adminID, err := adminActorID(actor)
 	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
 
-	projects, total, err := srv.store.ListProjectsForAdmin(ctx, actorID, pagination, search)
+	projects, total, err := srv.store.ListProjectsForAdmin(ctx, adminID, pagination, search)
 	if err != nil {
 		logger.Error("failed to list projects", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -134,11 +134,16 @@ func (srv *ProjectsController) GetProject(w http.ResponseWriter, r *http.Request
 
 	logger := srv.logger.With(zap.Stringer("project_id", projectID))
 
-	// The admin id only decorates the response with the caller's own project
-	// role; authorization was settled by the check above. A non-admin caller has
-	// no such role, so it is left out rather than looked up under an id that
-	// means something else.
-	project, err := srv.store.GetProject(ctx, projectID, personalAdminID(actor))
+	// A nil admin id drops the project_admins join, so a non-admin actor gets the
+	// project without a personal role rather than the role of whichever admin
+	// happens to share its id shape.
+	adminID, err := optionalAdminActorID(actor)
+	if err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	project, err := srv.store.GetProject(ctx, projectID, adminID)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("project not found", zap.Stringer("project_id", projectID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("project not found")))
@@ -156,15 +161,11 @@ func (srv *ProjectsController) GetProject(w http.ResponseWriter, r *http.Request
 	// GetProject returns only the explicit project_admins role (empty when the
 	// admin has no row). Resolve the effective role so org owners/admins, who
 	// are project admins by inheritance, are not reported as having no role.
-	//
-	// Only an admin has one. A non-admin caller used to reach GetAdmin with an
-	// auth-method id, which resolves to no admin, turning the role decoration
-	// into a 500 on an otherwise valid request.
-	if adminID := personalAdminID(actor); adminID != nil {
-		admin, err := srv.store.GetAdmin(ctx, *adminID)
-		if err != nil {
-			logger.Error("failed to load actor for role resolution", zap.Error(err))
-			oapi.WriteProblem(w, err)
+	if adminID != nil {
+		admin, adminErr := srv.store.GetAdmin(ctx, *adminID)
+		if adminErr != nil {
+			logger.Error("failed to load actor for role resolution", zap.Error(adminErr))
+			oapi.WriteProblem(w, adminErr)
 			return
 		}
 		project.Role = effectiveProjectRole(admin.Role, project.Role)
@@ -193,6 +194,12 @@ func (srv *ProjectsController) CreateProject(w http.ResponseWriter, r *http.Requ
 	logger := srv.logger.With()
 	logger.Info("creating project", zap.String("name", body.Name))
 
+	adminID, err := optionalAdminActorID(actor)
+	if err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	tx, err := srv.managementDB.BeginTxx(ctx, nil)
 	if err != nil {
 		logger.Error("unexpected error while attempting to start a transaction", zap.Error(err))
@@ -220,9 +227,9 @@ func (srv *ProjectsController) CreateProject(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// A person who creates a project becomes its admin. An API key does not:
-	// project_admins is a roster of people, and a credential is not one.
-	if adminID := personalAdminID(actor); adminID != nil {
+	// Only a human caller takes a seat on the project it just created; an API
+	// key is a backend credential with nobody behind it to grant one to.
+	if adminID != nil {
 		err = projects.AddProjectAdmin(ctx, projectID, *adminID, "admin")
 		if err != nil {
 			logger.Error("failed to add admin to project", zap.Error(err))
@@ -301,7 +308,7 @@ func (srv *ProjectsController) CreateProject(w http.ResponseWriter, r *http.Requ
 	}
 
 	logger.Info("project created", zap.Stringer("project_id", projectID))
-	project, err := srv.store.GetProject(ctx, projectID, personalAdminID(actor))
+	project, err := srv.store.GetProject(ctx, projectID, adminID)
 	if err != nil {
 		logger.Error("failed to fetch created project", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -339,6 +346,12 @@ func (srv *ProjectsController) UpdateProject(w http.ResponseWriter, r *http.Requ
 	logger := srv.logger.With(zap.Stringer("project_id", projectID))
 	logger.Info("updating project")
 
+	adminID, err := optionalAdminActorID(actor)
+	if err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	body := oapi.UpdateProjectJSONRequestBody{}
 	err = json.Decode(r.Body, &body)
 	if err != nil {
@@ -362,7 +375,7 @@ func (srv *ProjectsController) UpdateProject(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	project, err := srv.store.GetProject(ctx, projectID, personalAdminID(actor))
+	project, err := srv.store.GetProject(ctx, projectID, adminID)
 	if err != nil {
 		logger.Error("failed to fetch updated project", zap.Error(err))
 		oapi.WriteProblem(w, err)
