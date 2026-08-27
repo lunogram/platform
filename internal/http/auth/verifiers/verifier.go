@@ -13,6 +13,7 @@ package verifiers
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/config"
@@ -29,6 +30,7 @@ var (
 	ErrUnknownDriver      = errors.New("unknown auth driver")
 	ErrMissingCredentials = errors.New("email and password are required")
 	ErrInvalidCredentials = errors.New("invalid email or password")
+	ErrMissingJWKS        = errors.New("missing AUTH_JWKS_URL")
 )
 
 // Provisioner resolves a verified identity to an admin without minting a
@@ -45,7 +47,15 @@ func New(cfg config.Auth, mgmt *management.State, logger *zap.Logger, provisione
 	case "basic":
 		return NewBasic(cfg.Basic), nil
 	case "clerk":
-		return NewClerk(cfg.Clerk, mgmt, logger, cfg.JWKS.Unwrap(), provisioner)
+		// Refuse to start on key material that cannot verify anything. Without a
+		// JWKS the parse in [Clerk.Verify] has no key, so every login fails --
+		// closed, but silently, and it presents as "Clerk login is broken"
+		// rather than as a variable nobody set.
+		keyFunc := cfg.JWKS.Unwrap()
+		if keyFunc == nil {
+			return nil, fmt.Errorf("%w: the clerk auth driver verifies sessions against the provider's JWKS; set AUTH_JWKS_URL to your Clerk instance's JWKS endpoint (https://<your-instance>/.well-known/jwks.json)", ErrMissingJWKS)
+		}
+		return NewClerk(cfg.Clerk, mgmt, logger, keyFunc, provisioner)
 	default:
 		return nil, ErrUnknownDriver
 	}

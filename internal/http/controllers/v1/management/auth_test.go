@@ -4,13 +4,17 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/rsa"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
+	"github.com/lunogram/platform/internal/claim"
 	"github.com/lunogram/platform/internal/config"
 
 	"github.com/lunogram/platform/internal/http/auth"
@@ -22,6 +26,37 @@ import (
 	"go.uber.org/zap/zaptest"
 )
 
+// clerkJWKS returns a config.JWKS backed by a server publishing a fresh RSA
+// public key, which is what an AUTH_JWKS_URL resolves to in production. The
+// clerk driver refuses to build without one, so any fixture that configures
+// clerk has to supply it.
+func clerkJWKS(t *testing.T) claim.JWKS {
+	t.Helper()
+
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	require.NoError(t, err)
+
+	document, err := json.Marshal(map[string]any{"keys": []map[string]string{{
+		"kty": "RSA",
+		"alg": "RS256",
+		"use": "sig",
+		"kid": "kid-1",
+		"n":   base64.RawURLEncoding.EncodeToString(key.PublicKey.N.Bytes()),
+		"e":   base64.RawURLEncoding.EncodeToString([]byte{0x01, 0x00, 0x01}),
+	}}})
+	require.NoError(t, err)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(document)
+	}))
+	t.Cleanup(server.Close)
+
+	var jwks claim.JWKS
+	require.NoError(t, jwks.UnmarshalText([]byte(server.URL)))
+	return jwks
+}
+
 func TestGetAuthMethods(t *testing.T) {
 	t.Parallel()
 
@@ -31,6 +66,7 @@ func TestGetAuthMethods(t *testing.T) {
 	cfg := config.Node{
 		Auth: config.Auth{
 			Driver: "clerk",
+			JWKS:   clerkJWKS(t),
 			Clerk: config.ClerkAuth{
 				SecretKey: "sk_test_xxx",
 			},
@@ -76,10 +112,8 @@ func TestAuthCallbackWithInvalidDriver(t *testing.T) {
 
 	cfg := config.Node{
 		Auth: config.Auth{
-			Driver: "clerk",
-			Clerk: config.ClerkAuth{
-				SecretKey: "sk_test_xxx",
-			},
+			Driver: "basic",
+			Basic:  config.BasicAuth{Email: "a@b", Password: "c"},
 		},
 	}
 
@@ -117,10 +151,8 @@ func TestAuthWebhookWithInvalidDriver(t *testing.T) {
 
 	cfg := config.Node{
 		Auth: config.Auth{
-			Driver: "clerk",
-			Clerk: config.ClerkAuth{
-				SecretKey: "sk_test_xxx",
-			},
+			Driver: "basic",
+			Basic:  config.BasicAuth{Email: "a@b", Password: "c"},
 		},
 	}
 
