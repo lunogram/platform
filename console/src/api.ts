@@ -194,8 +194,10 @@ const api = {
         logout: async () => {
             await client.post("/auth/logout", {}, { skipAuthRedirect: true })
         },
-        // refresh extends the current session's idle window. A revoked, expired,
-        // or impersonated session cannot be refreshed and answers 401.
+        // refresh extends the current session's idle window. A session that is
+        // gone -- revoked or expired -- answers 401 and its holder belongs on
+        // the login page; a session that is alive but not extendable, which is
+        // how impersonation is recorded, answers 403 and must be left alone.
         refresh: async () =>
             await client
                 .post<SessionRefresh>("/auth/refresh", {}, { skipAuthRedirect: true })

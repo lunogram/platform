@@ -121,14 +121,21 @@ func TestClerkVerify(t *testing.T) {
 		// shape of the classic algorithm-confusion attack. This verifier has no
 		// reason to accept one at all.
 		_, err := env.verifier.Verify(ctx, clerkRequest(env.sign(t, jwt.SigningMethodHS256, baseClaims())))
-		require.Error(t, err)
+		require.ErrorIs(t, err, ErrInvalidToken)
 	})
 
 	t.Run("a token without an expiry is rejected", func(t *testing.T) {
 		claims := baseClaims()
 		delete(claims, "exp")
 		_, err := env.verifier.Verify(ctx, clerkRequest(env.sign(t, jwt.SigningMethodRS256, claims)))
-		require.Error(t, err)
+		require.ErrorIs(t, err, ErrInvalidToken)
+	})
+
+	t.Run("an expired token is rejected", func(t *testing.T) {
+		claims := baseClaims()
+		claims["exp"] = time.Now().Add(-time.Hour).Unix()
+		_, err := env.verifier.Verify(ctx, clerkRequest(env.sign(t, jwt.SigningMethodRS256, claims)))
+		require.ErrorIs(t, err, ErrInvalidToken)
 	})
 
 	t.Run("a token without a subject is rejected", func(t *testing.T) {
