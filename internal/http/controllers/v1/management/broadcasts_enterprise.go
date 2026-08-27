@@ -419,6 +419,7 @@ func (srv *BroadcastsController) StreamBroadcastProgress(
 		evt := map[string]any{
 			"state":    string(broadcast.State),
 			"sent":     sent,
+			"failed":   broadcast.Failed,
 			"total":    broadcast.Total,
 			"terminal": terminal,
 		}

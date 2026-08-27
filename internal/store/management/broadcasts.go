@@ -64,6 +64,7 @@ func (b Broadcast) OAPI() oapi.Broadcast {
 		State:       oapi.BroadcastState(b.State),
 		Total:       b.Total,
 		Sent:        &b.Sent,
+		Failed:      &b.Failed,
 		Error:       b.Error,
 		ScheduledAt: b.ScheduledAt,
 		StartedAt:   b.StartedAt,
@@ -455,13 +456,14 @@ func (s *BroadcastsStore) TransitionPendingBroadcastToSending(ctx context.Contex
 
 // BroadcastUser combines inbox message metadata with user profile data.
 type BroadcastUser struct {
-	ID       uuid.UUID  `db:"id" json:"id"`
-	UserID   uuid.UUID  `db:"user_id" json:"user_id"`
-	State    string     `db:"state" json:"state"`
-	SentAt   *time.Time `db:"sent_at" json:"sent_at,omitempty"`
-	FullName *string    `db:"full_name" json:"full_name,omitempty"`
-	Email    *string    `db:"email" json:"email,omitempty"`
-	Phone    *string    `db:"phone" json:"phone,omitempty"`
+	ID            uuid.UUID  `db:"id" json:"id"`
+	UserID        uuid.UUID  `db:"user_id" json:"user_id"`
+	State         string     `db:"state" json:"state"`
+	SentAt        *time.Time `db:"sent_at" json:"sent_at,omitempty"`
+	FailureReason *string    `db:"failure_reason" json:"failure_reason,omitempty"`
+	FullName      *string    `db:"full_name" json:"full_name,omitempty"`
+	Email         *string    `db:"email" json:"email,omitempty"`
+	Phone         *string    `db:"phone" json:"phone,omitempty"`
 }
 
 type BroadcastUsers []BroadcastUser
@@ -473,8 +475,8 @@ func (s *BroadcastsStore) GetBroadcastUsers(ctx context.Context, usersDB store.D
 	query := `
 	SELECT
 		m.id, m.user_id,
-		CASE WHEN m.sent_at IS NOT NULL THEN 'sent' ELSE 'pending' END AS state,
-		m.sent_at,
+		CASE WHEN m.failed_at IS NOT NULL THEN 'failed' WHEN m.sent_at IS NOT NULL THEN 'sent' ELSE 'pending' END AS state,
+		m.sent_at, m.failure_reason,
 		NULLIF(TRIM(COALESCE(u.data->>'first_name', '') || ' ' || COALESCE(u.data->>'last_name', '')), '') AS full_name,
 		u.email, u.phone,
 		COUNT(*) OVER () AS total_count

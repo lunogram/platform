@@ -3,11 +3,21 @@ import { RefreshCw } from "lucide-react"
 
 interface BroadcastProgressBarProps {
     streamedSent: number | null
+    streamedFailed: number | null
     streamedTotal: number | null
 }
 
-export function BroadcastProgressBar({ streamedSent, streamedTotal }: BroadcastProgressBarProps) {
+export function BroadcastProgressBar({
+    streamedSent,
+    streamedFailed,
+    streamedTotal,
+}: BroadcastProgressBarProps) {
     const { t } = useTranslation()
+
+    const failed = streamedFailed ?? 0
+    const hasScale = streamedSent != null && streamedTotal != null && streamedTotal > 0
+    const sentPercent = hasScale ? Math.min(100, (streamedSent / streamedTotal) * 100) : 0
+    const failedPercent = hasScale ? Math.min(100 - sentPercent, (failed / streamedTotal) * 100) : 0
 
     return (
         <div className="border-b bg-blue-50/50 dark:bg-blue-950/20 px-4 sm:px-6 py-3">
@@ -25,17 +35,29 @@ export function BroadcastProgressBar({ streamedSent, streamedTotal }: BroadcastP
                                     ? ` / ${streamedTotal.toLocaleString()}`
                                     : ""}{" "}
                                 {t("sent", "sent")}
+                                {failed > 0 &&
+                                    ` · ${t(
+                                        "broadcast_failed_count",
+                                        `${failed.toLocaleString()} failed`,
+                                        {
+                                            failed: failed.toLocaleString(),
+                                        },
+                                    )}`}
                             </span>
                         )}
                     </div>
                     <div className="h-1.5 rounded-full bg-blue-200/60 dark:bg-blue-800/40 overflow-hidden">
-                        {streamedSent != null && streamedTotal != null && streamedTotal > 0 ? (
-                            <div
-                                className="h-full rounded-full bg-blue-600 dark:bg-blue-400 transition-all duration-500"
-                                style={{
-                                    width: `${Math.min(100, (streamedSent / streamedTotal) * 100)}%`,
-                                }}
-                            />
+                        {hasScale ? (
+                            <div className="flex h-full">
+                                <div
+                                    className="h-full bg-blue-600 dark:bg-blue-400 transition-all duration-500"
+                                    style={{ width: `${sentPercent}%` }}
+                                />
+                                <div
+                                    className="h-full bg-blue-600/30 dark:bg-blue-400/30 transition-all duration-500"
+                                    style={{ width: `${failedPercent}%` }}
+                                />
+                            </div>
                         ) : (
                             <div className="h-full rounded-full bg-blue-600 dark:bg-blue-400 animate-pulse w-full" />
                         )}

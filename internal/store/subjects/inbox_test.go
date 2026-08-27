@@ -371,6 +371,51 @@ func TestMarkInboxMessageTerminalOutcomes(t *testing.T) {
 		require.True(t, containsInboxMessage(enduser, liveID), "filtering must not hide messages that did not fail")
 	})
 
+	t.Run("an operator can list only the failed messages", func(t *testing.T) {
+		failedID := newMessage("Audit me")
+		liveID := newMessage("Still fine")
+
+		failed, err := db.MarkUserInboxMessageFailed(ctx, failedID, "recipient_opted_out")
+		require.NoError(t, err)
+		require.True(t, failed)
+
+		pagination := store.Pagination{Limit: 100}
+
+		only, _, err := db.ListUserInboxMessages(ctx, projectID, userID, pagination, InboxListFilter{OnlyFailed: true})
+		require.NoError(t, err)
+		require.True(t, containsInboxMessage(only, failedID), "filtering for failed must return the failed message")
+		require.False(t, containsInboxMessage(only, liveID), "filtering for failed must exclude messages that did not fail")
+
+		read, _, err := db.ListUserInboxMessages(ctx, projectID, userID, pagination, InboxListFilter{Status: InboxStatusRead})
+		require.NoError(t, err)
+		require.False(t, containsInboxMessage(read, failedID), "a failed unread message must not appear under another status")
+
+		unfiltered, _, err := db.ListUserInboxMessages(ctx, projectID, userID, pagination, InboxListFilter{})
+		require.NoError(t, err)
+		require.True(t, containsInboxMessage(unfiltered, failedID), "an unset filter must keep showing failed messages")
+		require.True(t, containsInboxMessage(unfiltered, liveID))
+	})
+
+	t.Run("failure is a separate axis from read state", func(t *testing.T) {
+		failedID := newMessage("Unread and failed")
+
+		failed, err := db.MarkUserInboxMessageFailed(ctx, failedID, "recipient_opted_out")
+		require.NoError(t, err)
+		require.True(t, failed)
+
+		pagination := store.Pagination{Limit: 100}
+
+		unread, _, err := db.ListUserInboxMessages(ctx, projectID, userID, pagination, InboxListFilter{Status: InboxStatusUnread})
+		require.NoError(t, err)
+		require.True(t, containsInboxMessage(unread, failedID), "a failed message is still unread until it is read")
+
+		routed := InboxListFilter{}.WithStatus(InboxStatusFailed)
+		require.True(t, routed.OnlyFailed)
+		require.Empty(t, routed.Status, "the failed selector must not occupy the read-state axis")
+
+		require.Equal(t, InboxStatusUnread, InboxListFilter{}.WithStatus(InboxStatusUnread).Status)
+	})
+
 	t.Run("organization messages settle the same way", func(t *testing.T) {
 		organizationID, err := db.UpsertOrganization(ctx, projectID, UpsertOrganizationParams{
 			Identifiers: []ExternalIDParam{{Source: "default", ExternalID: "org-terminal"}},

@@ -667,6 +667,7 @@ func (e ListSenderIdentitiesParamsChannel) Valid() bool {
 // Defines values for GetOrganizationInboxMessagesParamsStatus.
 const (
 	GetOrganizationInboxMessagesParamsStatusArchived GetOrganizationInboxMessagesParamsStatus = "archived"
+	GetOrganizationInboxMessagesParamsStatusFailed   GetOrganizationInboxMessagesParamsStatus = "failed"
 	GetOrganizationInboxMessagesParamsStatusRead     GetOrganizationInboxMessagesParamsStatus = "read"
 	GetOrganizationInboxMessagesParamsStatusUnread   GetOrganizationInboxMessagesParamsStatus = "unread"
 )
@@ -675,6 +676,8 @@ const (
 func (e GetOrganizationInboxMessagesParamsStatus) Valid() bool {
 	switch e {
 	case GetOrganizationInboxMessagesParamsStatusArchived:
+		return true
+	case GetOrganizationInboxMessagesParamsStatusFailed:
 		return true
 	case GetOrganizationInboxMessagesParamsStatusRead:
 		return true
@@ -688,6 +691,7 @@ func (e GetOrganizationInboxMessagesParamsStatus) Valid() bool {
 // Defines values for GetUserInboxMessagesParamsStatus.
 const (
 	GetUserInboxMessagesParamsStatusArchived GetUserInboxMessagesParamsStatus = "archived"
+	GetUserInboxMessagesParamsStatusFailed   GetUserInboxMessagesParamsStatus = "failed"
 	GetUserInboxMessagesParamsStatusRead     GetUserInboxMessagesParamsStatus = "read"
 	GetUserInboxMessagesParamsStatusUnread   GetUserInboxMessagesParamsStatus = "unread"
 )
@@ -696,6 +700,8 @@ const (
 func (e GetUserInboxMessagesParamsStatus) Valid() bool {
 	switch e {
 	case GetUserInboxMessagesParamsStatusArchived:
+		return true
+	case GetUserInboxMessagesParamsStatusFailed:
 		return true
 	case GetUserInboxMessagesParamsStatusRead:
 		return true
@@ -913,7 +919,10 @@ type Broadcast struct {
 	CreatedAt   time.Time  `json:"created_at"`
 
 	// Error Error message if the broadcast failed
-	Error  *string            `json:"error,omitempty"`
+	Error *string `json:"error,omitempty"`
+
+	// Failed Number of messages that terminally will not be delivered, such as a suppressed recipient or a permanent provider rejection
+	Failed *int               `json:"failed,omitempty"`
 	Id     openapi_types.UUID `json:"id"`
 	ListId openapi_types.UUID `json:"list_id"`
 
@@ -1405,7 +1414,13 @@ type InboxMessage struct {
 	ExpiresAt *time.Time      `json:"expires_at,omitempty"`
 
 	// ExternalId External identifier for the message, if one was provided at creation time.
-	ExternalId       *string             `json:"external_id,omitempty"`
+	ExternalId *string `json:"external_id,omitempty"`
+
+	// FailedAt When the message was permanently settled as failed. Mutually exclusive with sent_at.
+	FailedAt *time.Time `json:"failed_at,omitempty"`
+
+	// FailureReason Why the message will never be delivered, set alongside failed_at. Carries one of the canonical reasons recipient_opted_out, invalid_recipient, sender_unregistered, rate_limited or unknown. Left unconstrained so a newly classified reason does not require a breaking schema change; treat an unrecognised value as unknown.
+	FailureReason    *string             `json:"failure_reason,omitempty"`
 	Id               openapi_types.UUID  `json:"id"`
 	OrganizationId   *openapi_types.UUID `json:"organization_id,omitempty"`
 	Priority         int16               `json:"priority"`
@@ -2942,6 +2957,7 @@ type GetOrganizationEventsParams struct {
 
 // GetOrganizationInboxMessagesParams defines parameters for GetOrganizationInboxMessages.
 type GetOrganizationInboxMessagesParams struct {
+	// Status Filters by read state, or by delivery outcome when set to failed. Selecting failed returns messages that were terminally settled without being delivered, such as a recipient suppressed by an opt-out, regardless of their read state.
 	Status *GetOrganizationInboxMessagesParamsStatus `form:"status,omitempty" json:"status,omitempty"`
 
 	// Tags Comma-separated tag filter. All listed tags must be present.
@@ -3015,6 +3031,7 @@ type GetUserEventsParams struct {
 
 // GetUserInboxMessagesParams defines parameters for GetUserInboxMessages.
 type GetUserInboxMessagesParams struct {
+	// Status Filters by read state, or by delivery outcome when set to failed. Selecting failed returns messages that were terminally settled without being delivered, such as a recipient suppressed by an opt-out, regardless of their read state.
 	Status *GetUserInboxMessagesParamsStatus `form:"status,omitempty" json:"status,omitempty"`
 
 	// Tags Comma-separated tag filter. All listed tags must be present.
@@ -18219,13 +18236,16 @@ type GetBroadcastUsersResponse struct {
 		Limit   int `json:"limit"`
 		Offset  int `json:"offset"`
 		Results []struct {
-			Email    *string             `json:"email,omitempty"`
-			FullName *string             `json:"full_name,omitempty"`
-			Id       *openapi_types.UUID `json:"id,omitempty"`
-			Phone    *string             `json:"phone,omitempty"`
-			SentAt   *time.Time          `json:"sent_at,omitempty"`
-			State    *string             `json:"state,omitempty"`
-			UserId   *openapi_types.UUID `json:"user_id,omitempty"`
+			Email *string `json:"email,omitempty"`
+
+			// FailureReason Why the recipient was not reached, set only when state is failed. Distinguishes a suppressed recipient (recipient_opted_out) from a genuine delivery failure such as invalid_recipient. Left unconstrained for the same reason as InboxMessage.failure_reason.
+			FailureReason *string             `json:"failure_reason,omitempty"`
+			FullName      *string             `json:"full_name,omitempty"`
+			Id            *openapi_types.UUID `json:"id,omitempty"`
+			Phone         *string             `json:"phone,omitempty"`
+			SentAt        *time.Time          `json:"sent_at,omitempty"`
+			State         *string             `json:"state,omitempty"`
+			UserId        *openapi_types.UUID `json:"user_id,omitempty"`
 		} `json:"results"`
 		Total int `json:"total"`
 	}
@@ -25876,13 +25896,16 @@ func ParseGetBroadcastUsersResponse(rsp *http.Response) (*GetBroadcastUsersRespo
 			Limit   int `json:"limit"`
 			Offset  int `json:"offset"`
 			Results []struct {
-				Email    *string             `json:"email,omitempty"`
-				FullName *string             `json:"full_name,omitempty"`
-				Id       *openapi_types.UUID `json:"id,omitempty"`
-				Phone    *string             `json:"phone,omitempty"`
-				SentAt   *time.Time          `json:"sent_at,omitempty"`
-				State    *string             `json:"state,omitempty"`
-				UserId   *openapi_types.UUID `json:"user_id,omitempty"`
+				Email *string `json:"email,omitempty"`
+
+				// FailureReason Why the recipient was not reached, set only when state is failed. Distinguishes a suppressed recipient (recipient_opted_out) from a genuine delivery failure such as invalid_recipient. Left unconstrained for the same reason as InboxMessage.failure_reason.
+				FailureReason *string             `json:"failure_reason,omitempty"`
+				FullName      *string             `json:"full_name,omitempty"`
+				Id            *openapi_types.UUID `json:"id,omitempty"`
+				Phone         *string             `json:"phone,omitempty"`
+				SentAt        *time.Time          `json:"sent_at,omitempty"`
+				State         *string             `json:"state,omitempty"`
+				UserId        *openapi_types.UUID `json:"user_id,omitempty"`
 			} `json:"results"`
 			Total int `json:"total"`
 		}

@@ -10,6 +10,7 @@ import { JsonView } from "@/components/ui/json-view"
 import { Badge } from "@/components/ui/badge"
 import { TableRow, TableCell } from "@/components/ui/table"
 import { getChannelMeta } from "./inbox-channel-meta"
+import { getMessageFailure } from "./inbox-failure-meta"
 
 type InboxMessage = components["schemas"]["InboxMessage"]
 
@@ -52,6 +53,7 @@ export function MessageExpandedRow({ message }: { message: InboxMessage }) {
     }, [message.sender_identity_id, project.id])
 
     const channelMeta = getChannelMeta(message.channel, t)
+    const failure = getMessageFailure(message, t)
     const hasData = message.data && Object.keys(message.data).length > 0
 
     const ChannelMetaIcon = channelMeta.icon
@@ -105,6 +107,20 @@ export function MessageExpandedRow({ message }: { message: InboxMessage }) {
                 </span>
             ),
             show: !!message.sent_at,
+        },
+        {
+            label: failure?.label ?? t("inbox_failure_failed", "Failed"),
+            value: (
+                <div className="space-y-0.5">
+                    <span className="text-sm">
+                        {message.failed_at
+                            ? formatDate(preferences, message.failed_at, "PPpp")
+                            : "—"}
+                    </span>
+                    {failure && <p className="text-xs text-muted-foreground">{failure.reason}</p>}
+                </div>
+            ),
+            show: !!failure,
         },
         {
             label: t("read_at", "Read"),
