@@ -5,6 +5,7 @@ import (
 	"github.com/lunogram/platform/internal/actions"
 	"github.com/lunogram/platform/internal/config"
 	"github.com/lunogram/platform/internal/gallery"
+	"github.com/lunogram/platform/internal/http/auth"
 	"github.com/lunogram/platform/internal/providers"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/consumer"
@@ -18,7 +19,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func NewController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB, cfg config.Node, storage storage.Storage, urlResolver *storage.URLResolver, pub pubsub.Publisher, req pubsub.Caller, jet jetstream.JetStream, registry *providers.Registry, actionRegistry *actions.Registry, engine *rbac.Engine, rdb *goredis.Client) (_ *Controller, err error) {
+func NewController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB, cfg config.Node, storage storage.Storage, urlResolver *storage.URLResolver, pub pubsub.Publisher, req pubsub.Caller, jet jetstream.JetStream, registry *providers.Registry, actionRegistry *actions.Registry, engine *rbac.Engine, rdb *goredis.Client, consoleSigner *auth.ConsoleSigner) (_ *Controller, err error) {
 	mgmt := management.NewState(managementDB, management.WithRedis(rdb, cfg.Redis.KeyPrefix))
 	projects := management.NewProjectsStore(managementDB)
 	usrs := subjects.NewState(usersDB, logger)
@@ -68,7 +69,7 @@ func NewController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB
 		InviteController:           NewInviteController(logger, mgmt, engine, managementDB),
 	}
 
-	controller.AuthController, err = NewAuthController(logger, managementDB, cfg, engine)
+	controller.AuthController, err = NewAuthController(logger, managementDB, mgmt, cfg, engine, consoleSigner)
 	if err != nil {
 		return nil, err
 	}

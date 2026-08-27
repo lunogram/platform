@@ -54,6 +54,7 @@ const (
 	ConsumerUserInboxRead             = "users-inbox-opened"
 	ConsumerUserInboxArchived         = "users-inbox-archived"
 	ConsumerUserInboxSent             = "users-inbox-sent"
+	ConsumerUserInboxFailed           = "users-inbox-failed"
 	ConsumerUserEventsProcess         = "users-events-process"
 	ConsumerUserEventsSchema          = "users-events-schema"
 	ConsumerScheduledProcess          = "scheduled-process"
@@ -72,6 +73,7 @@ const (
 	ConsumerOrganizationInboxRead     = "organizations-inbox-opened"
 	ConsumerOrganizationInboxArchived = "organizations-inbox-archived"
 	ConsumerOrganizationInboxSent     = "organizations-inbox-sent"
+	ConsumerOrganizationInboxFailed   = "organizations-inbox-failed"
 	ConsumerOrganizationUsersProcess  = "organizations-users-process"
 	ConsumerOrganizationUsersSchema   = "organizations-users-schema"
 	ConsumerOrganizationEventsProcess = "organizations-events-process"
@@ -100,6 +102,7 @@ func Serve(ctx graceful.Context, jet jetstream.JetStream, logger *zap.Logger, ns
 	router.HandleStream(ns.Stream(StreamUsers), ns.Consumer(ConsumerUserInboxRead), userInbox.Read())
 	router.HandleStream(ns.Stream(StreamUsers), ns.Consumer(ConsumerUserInboxArchived), userInbox.Archived())
 	router.HandleStream(ns.Stream(StreamUsers), ns.Consumer(ConsumerUserInboxSent), userInbox.Sent())
+	router.HandleStream(ns.Stream(StreamUsers), ns.Consumer(ConsumerUserInboxFailed), userInbox.Failed())
 	router.HandleStream(ns.Stream(StreamUserEvents), ns.Consumer(ConsumerUserEventsProcess), UserEventsHandler(logger, usrs, jrny, pub, schemaCache))
 	router.HandleStream(ns.Stream(StreamUserEvents), ns.Consumer(ConsumerUserEventsSchema), UserEventSchemasHandler(logger, usrs))
 	router.HandleStream(ns.Stream(StreamUserEvents), ns.Consumer(ConsumerUserEventsMatch), WithInProgress(MatchUserEventsHandler(logger, usrs, jrny, pub, schemaCache)))
@@ -120,6 +123,7 @@ func Serve(ctx graceful.Context, jet jetstream.JetStream, logger *zap.Logger, ns
 	router.HandleStream(ns.Stream(StreamOrganizations), ns.Consumer(ConsumerOrganizationInboxRead), orgInbox.Read())
 	router.HandleStream(ns.Stream(StreamOrganizations), ns.Consumer(ConsumerOrganizationInboxArchived), orgInbox.Archived())
 	router.HandleStream(ns.Stream(StreamOrganizations), ns.Consumer(ConsumerOrganizationInboxSent), orgInbox.Sent())
+	router.HandleStream(ns.Stream(StreamOrganizations), ns.Consumer(ConsumerOrganizationInboxFailed), orgInbox.Failed())
 	router.HandleStream(ns.Stream(StreamOrganizationUsers), ns.Consumer(ConsumerOrganizationUsersProcess), OrganizationUsersHandler(logger, usrs, pub, schemaCache))
 	router.HandleStream(ns.Stream(StreamOrganizationUsers), ns.Consumer(ConsumerOrganizationUsersSchema), OrganizationUserSchemasHandler(logger, usrs))
 	router.HandleStream(ns.Stream(StreamOrganizationEvents), ns.Consumer(ConsumerOrganizationEventsProcess), OrganizationEventsHandler(logger, usrs, jrny, pub, schemaCache))

@@ -8,6 +8,7 @@ import type { UUID } from "@/types/common"
 interface ProgressEvent {
     state: BroadcastState
     sent: number
+    failed: number
     total: number
     terminal: boolean
 }
@@ -24,13 +25,15 @@ interface UseBroadcastProgressOptions {
 interface UseBroadcastProgressResult {
     /** Number of messages sent so far (from the SSE stream). Null until first event. */
     sent: number | null
+    /** Number of messages settled as undeliverable, such as suppressed recipients. Null until first event. */
+    failed: number | null
     /** Total number of messages queued. Null until first event. */
     total: number | null
 }
 
 /**
  * Opens an SSE connection to the broadcast progress endpoint while
- * `enabled` is true. The backend sends `{state, sent, total, terminal}`
+ * `enabled` is true. The backend sends `{state, sent, failed, total, terminal}`
  * events every ~2s based on a DB query. When a terminal event arrives,
  * `onTerminal` is called so the parent can re-fetch the broadcast.
  */
@@ -41,6 +44,7 @@ export function useBroadcastProgress({
     onTerminal,
 }: UseBroadcastProgressOptions): UseBroadcastProgressResult {
     const [sent, setSent] = useState<number | null>(null)
+    const [failed, setFailed] = useState<number | null>(null)
     const [total, setTotal] = useState<number | null>(null)
     const onTerminalRef = useRef(onTerminal)
     onTerminalRef.current = onTerminal
@@ -52,6 +56,7 @@ export function useBroadcastProgress({
     useEffect(() => {
         if (!enabled) {
             setSent(null)
+            setFailed(null)
             setTotal(null)
             return
         }
@@ -79,6 +84,7 @@ export function useBroadcastProgress({
                 }
 
                 setSent(data.sent)
+                setFailed(data.failed ?? 0)
                 setTotal(data.total)
 
                 if (data.terminal) {
@@ -96,5 +102,5 @@ export function useBroadcastProgress({
         }
     }, [projectId, broadcastId, enabled, disconnect])
 
-    return { sent, total }
+    return { sent, failed, total }
 }

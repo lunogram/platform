@@ -33,9 +33,14 @@ type Broadcast struct {
 	ListType   string         `db:"list_type"`
 	State      BroadcastState `db:"state"`
 	// Total is the number of messages published to NATS during broadcast
-	// processing. Sent tracks the number of messages actually delivered.
+	// processing. Sent tracks the number of messages actually delivered, and
+	// Failed the number that terminally will not be - a suppressed recipient or
+	// a permanent provider rejection. A broadcast is finished when Sent+Failed
+	// reaches Total; the two counters are kept apart because Sent is reported to
+	// the customer as messages that went out.
 	Total       int        `db:"total"`
 	Sent        int        `db:"sent"`
+	Failed      int        `db:"failed"`
 	Error       *string    `db:"error"`
 	ScheduledAt *time.Time `db:"scheduled_at"`
 	CreatedAt   time.Time  `db:"created_at"`
@@ -59,6 +64,7 @@ func (b Broadcast) OAPI() oapi.Broadcast {
 		State:       oapi.BroadcastState(b.State),
 		Total:       b.Total,
 		Sent:        &b.Sent,
+		Failed:      &b.Failed,
 		Error:       b.Error,
 		ScheduledAt: b.ScheduledAt,
 		StartedAt:   b.StartedAt,
@@ -113,7 +119,7 @@ func (s *BroadcastsStore) CreateBroadcast(ctx context.Context, broadcast Broadca
 	stmt := `
 	INSERT INTO campaign_broadcasts (project_id, campaign_id, list_id, list_name, list_type, state, scheduled_at)
 	VALUES ($1, $2, $3, $4, $5, $6, $7)
-	RETURNING id, project_id, campaign_id, list_id, list_name, list_type, state, total, error, scheduled_at, created_at, updated_at, started_at, completed_at`
+	RETURNING id, project_id, campaign_id, list_id, list_name, list_type, state, total, sent, failed, error, scheduled_at, created_at, updated_at, started_at, completed_at`
 
 	var result Broadcast
 	err := s.db.GetContext(ctx, &result, stmt, broadcast.ProjectID, broadcast.CampaignID, broadcast.ListID, broadcast.ListName, broadcast.ListType, string(state), broadcast.ScheduledAt)
@@ -128,7 +134,7 @@ func (s *BroadcastsStore) GetBroadcast(ctx context.Context, projectID, broadcast
 	query := `
 	SELECT
 		cb.id, cb.project_id, cb.campaign_id, cb.list_id, cb.list_name, cb.list_type,
-		cb.state, cb.total, cb.sent, cb.error, cb.scheduled_at, cb.created_at, cb.updated_at, cb.started_at, cb.completed_at,
+		cb.state, cb.total, cb.sent, cb.failed, cb.error, cb.scheduled_at, cb.created_at, cb.updated_at, cb.started_at, cb.completed_at,
 		c.name AS campaign_name, c.channel AS campaign_channel
 	FROM campaign_broadcasts cb
 	INNER JOIN campaigns c ON c.id = cb.campaign_id
@@ -159,7 +165,7 @@ func (s *BroadcastsStore) ListBroadcasts(ctx context.Context, projectID uuid.UUI
 	query := `
 	SELECT
 		cb.id, cb.project_id, cb.campaign_id, cb.list_id, cb.list_name, cb.list_type,
-		cb.state, cb.total, cb.sent, cb.error, cb.scheduled_at, cb.created_at, cb.updated_at, cb.started_at, cb.completed_at,
+		cb.state, cb.total, cb.sent, cb.failed, cb.error, cb.scheduled_at, cb.created_at, cb.updated_at, cb.started_at, cb.completed_at,
 		c.name AS campaign_name, c.channel AS campaign_channel,
 		COUNT(*) OVER () AS total_count
 	FROM campaign_broadcasts cb
@@ -255,17 +261,46 @@ func (s *BroadcastsStore) TransitionBroadcastState(ctx context.Context, projectI
 	return n > 0, nil
 }
 
+// BroadcastProgress is the counter triple a broadcast's completion is decided
+// from, read back from the same statement that advanced it.
+type BroadcastProgress struct {
+	Sent   int
+	Failed int
+	Total  int
+}
+
+// Settled reports whether every message the broadcast published has reached a
+// terminal outcome. Total is zero until the first batch has been counted, so it
+// is required to be positive: otherwise an empty broadcast would settle on its
+// own before any message existed.
+func (p BroadcastProgress) Settled() bool {
+	return p.Total > 0 && p.Sent+p.Failed >= p.Total
+}
+
 // IncrementBroadcastSent atomically increments the sent counter on a broadcast
-// and returns the new sent count and total.
-func (s *BroadcastsStore) IncrementBroadcastSent(ctx context.Context, broadcastID uuid.UUID) (sent int, total int, err error) {
-	stmt := `
+// and returns the resulting progress.
+func (s *BroadcastsStore) IncrementBroadcastSent(ctx context.Context, broadcastID uuid.UUID) (BroadcastProgress, error) {
+	return s.incrementBroadcastCounter(ctx, broadcastID, `
 	UPDATE campaign_broadcasts
 	SET sent = sent + 1, updated_at = NOW()
 	WHERE id = $1
-	RETURNING sent, total`
+	RETURNING sent, failed, total`)
+}
 
-	err = s.db.QueryRowContext(ctx, stmt, broadcastID).Scan(&sent, &total)
-	return
+// IncrementBroadcastFailed atomically increments the failed counter on a
+// broadcast and returns the resulting progress.
+func (s *BroadcastsStore) IncrementBroadcastFailed(ctx context.Context, broadcastID uuid.UUID) (BroadcastProgress, error) {
+	return s.incrementBroadcastCounter(ctx, broadcastID, `
+	UPDATE campaign_broadcasts
+	SET failed = failed + 1, updated_at = NOW()
+	WHERE id = $1
+	RETURNING sent, failed, total`)
+}
+
+func (s *BroadcastsStore) incrementBroadcastCounter(ctx context.Context, broadcastID uuid.UUID, stmt string) (BroadcastProgress, error) {
+	var progress BroadcastProgress
+	err := s.db.QueryRowContext(ctx, stmt, broadcastID).Scan(&progress.Sent, &progress.Failed, &progress.Total)
+	return progress, err
 }
 
 // IncrementBroadcastTotal atomically adds delta to the broadcast's total count.
@@ -302,7 +337,7 @@ func (s *BroadcastsStore) UpdateBroadcast(ctx context.Context, projectID, broadc
 	WHERE project_id = $1
 	AND id = $2
 	AND state IN ('pending', 'scheduled')
-	RETURNING id, project_id, campaign_id, list_id, list_name, list_type, state, total, error, scheduled_at, created_at, updated_at, started_at, completed_at`
+	RETURNING id, project_id, campaign_id, list_id, list_name, list_type, state, total, sent, failed, error, scheduled_at, created_at, updated_at, started_at, completed_at`
 
 	var result Broadcast
 	err := s.db.GetContext(ctx, &result, query, projectID, broadcastID, scheduledAt, string(newState))
@@ -325,7 +360,7 @@ func (s *BroadcastsStore) CancelBroadcast(ctx context.Context, projectID, broadc
 	WHERE project_id = $1
 	AND id = $2
 	AND state IN ('pending', 'scheduled')
-	RETURNING id, project_id, campaign_id, list_id, list_name, list_type, state, total, error, scheduled_at, created_at, updated_at, started_at, completed_at`
+	RETURNING id, project_id, campaign_id, list_id, list_name, list_type, state, total, sent, failed, error, scheduled_at, created_at, updated_at, started_at, completed_at`
 
 	var result Broadcast
 	err := s.db.GetContext(ctx, &result, query, projectID, broadcastID, string(BroadcastStateCancelled))
@@ -345,7 +380,7 @@ func (s *BroadcastsStore) CancelBroadcast(ctx context.Context, projectID, broadc
 // briefly both act as leader.
 func (s *BroadcastsStore) ScanScheduledBroadcasts(ctx context.Context, limit int, scanner func(Broadcast) error) (int, error) {
 	query := `
-	SELECT id, project_id, campaign_id, list_id, list_name, list_type, state, total, error, scheduled_at, created_at, updated_at, started_at, completed_at
+	SELECT id, project_id, campaign_id, list_id, list_name, list_type, state, total, sent, failed, error, scheduled_at, created_at, updated_at, started_at, completed_at
 	FROM campaign_broadcasts
 	WHERE state = 'scheduled'
 	AND scheduled_at IS NOT NULL
@@ -421,13 +456,14 @@ func (s *BroadcastsStore) TransitionPendingBroadcastToSending(ctx context.Contex
 
 // BroadcastUser combines inbox message metadata with user profile data.
 type BroadcastUser struct {
-	ID       uuid.UUID  `db:"id" json:"id"`
-	UserID   uuid.UUID  `db:"user_id" json:"user_id"`
-	State    string     `db:"state" json:"state"`
-	SentAt   *time.Time `db:"sent_at" json:"sent_at,omitempty"`
-	FullName *string    `db:"full_name" json:"full_name,omitempty"`
-	Email    *string    `db:"email" json:"email,omitempty"`
-	Phone    *string    `db:"phone" json:"phone,omitempty"`
+	ID            uuid.UUID  `db:"id" json:"id"`
+	UserID        uuid.UUID  `db:"user_id" json:"user_id"`
+	State         string     `db:"state" json:"state"`
+	SentAt        *time.Time `db:"sent_at" json:"sent_at,omitempty"`
+	FailureReason *string    `db:"failure_reason" json:"failure_reason,omitempty"`
+	FullName      *string    `db:"full_name" json:"full_name,omitempty"`
+	Email         *string    `db:"email" json:"email,omitempty"`
+	Phone         *string    `db:"phone" json:"phone,omitempty"`
 }
 
 type BroadcastUsers []BroadcastUser
@@ -439,8 +475,8 @@ func (s *BroadcastsStore) GetBroadcastUsers(ctx context.Context, usersDB store.D
 	query := `
 	SELECT
 		m.id, m.user_id,
-		CASE WHEN m.sent_at IS NOT NULL THEN 'sent' ELSE 'pending' END AS state,
-		m.sent_at,
+		CASE WHEN m.failed_at IS NOT NULL THEN 'failed' WHEN m.sent_at IS NOT NULL THEN 'sent' ELSE 'pending' END AS state,
+		m.sent_at, m.failure_reason,
 		NULLIF(TRIM(COALESCE(u.data->>'first_name', '') || ' ' || COALESCE(u.data->>'last_name', '')), '') AS full_name,
 		u.email, u.phone,
 		COUNT(*) OVER () AS total_count
@@ -479,7 +515,7 @@ func (s *BroadcastsStore) GetBroadcastUsers(ctx context.Context, usersDB store.D
 // the consumer failed without updating state.
 func (s *BroadcastsStore) ScanStuckBroadcasts(ctx context.Context, stuckThreshold time.Duration, scanner func(Broadcast) error) (int, error) {
 	query := `
-	SELECT id, project_id, campaign_id, list_id, list_name, list_type, state, total, error, scheduled_at, created_at, updated_at, started_at, completed_at
+	SELECT id, project_id, campaign_id, list_id, list_name, list_type, state, total, sent, failed, error, scheduled_at, created_at, updated_at, started_at, completed_at
 	FROM campaign_broadcasts
 	WHERE state = 'sending'
 	AND started_at IS NOT NULL

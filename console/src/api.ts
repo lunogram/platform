@@ -35,6 +35,7 @@ import type {
     RulePath,
     SearchParams,
     SearchResult,
+    SessionRefresh,
     UserSchemaPath,
     Subscription,
     SubscriptionCreateParams,
@@ -188,6 +189,19 @@ const api = {
                 { headers: { Authorization: `Bearer ${token}` } },
             )
         },
+        // logout revokes the session server-side. Clearing the cookie alone would
+        // leave the session valid for anything that copied the token.
+        logout: async () => {
+            await client.post("/auth/logout", {}, { skipAuthRedirect: true })
+        },
+        // refresh extends the current session's idle window. A session that is
+        // gone -- revoked or expired -- answers 401 and its holder belongs on
+        // the login page; a session that is alive but not extendable, which is
+        // how impersonation is recorded, answers 403 and must be left alone.
+        refresh: async () =>
+            await client
+                .post<SessionRefresh>("/auth/refresh", {}, { skipAuthRedirect: true })
+                .then((r) => r.data),
         login() {
             window.location.href = `/login?r=${encodeURIComponent(window.location.href)}`
         },

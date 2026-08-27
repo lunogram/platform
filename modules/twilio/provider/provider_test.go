@@ -1,6 +1,8 @@
 package provider
 
 import (
+	"encoding/json"
+	"errors"
 	"net/url"
 	"testing"
 
@@ -390,4 +392,136 @@ func TestExtractInboxMessageID(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, id, got)
 	})
+}
+
+func TestClassifyErrorCode(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		httpStatus int
+		twilioCode int
+		expected   providers.FailureReason
+	}{
+		{name: "21610 is an opt-out", httpStatus: 400, twilioCode: ErrorCodeOptedOut, expected: providers.ReasonOptedOut},
+		{name: "21211 is an invalid recipient", httpStatus: 400, twilioCode: ErrorCodeInvalidToNumber, expected: providers.ReasonInvalidNumber},
+		{name: "21614 is an invalid recipient", httpStatus: 400, twilioCode: ErrorCodeToNotMobile, expected: providers.ReasonInvalidNumber},
+		{name: "21606 is an unregistered sender", httpStatus: 400, twilioCode: ErrorCodeFromNotSMSCapable, expected: providers.ReasonUnregistered},
+		{name: "30032 is an unregistered sender", httpStatus: 400, twilioCode: ErrorCodeTollFreeUnverified, expected: providers.ReasonUnregistered},
+		{name: "30034 is an unregistered sender", httpStatus: 400, twilioCode: ErrorCodeSenderUnregistered, expected: providers.ReasonUnregistered},
+		{name: "20429 is a rate limit", httpStatus: 429, twilioCode: ErrorCodeTooManyRequests, expected: providers.ReasonRateLimited},
+		{name: "http 429 without a twilio code is a rate limit", httpStatus: 429, expected: providers.ReasonRateLimited},
+		{name: "twilio code wins over http status", httpStatus: 429, twilioCode: ErrorCodeOptedOut, expected: providers.ReasonOptedOut},
+		{name: "unmapped twilio code is unknown", httpStatus: 400, twilioCode: 21620, expected: providers.ReasonUnknown},
+		{name: "auth failure is unknown", httpStatus: 401, twilioCode: 20003, expected: providers.ReasonUnknown},
+		{name: "server error is unknown", httpStatus: 500, expected: providers.ReasonUnknown},
+		{name: "no status and no code is unknown", expected: providers.ReasonUnknown},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, ClassifyErrorCode(tt.httpStatus, tt.twilioCode))
+		})
+	}
+}
+
+func TestClassifySendError(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name         string
+		httpStatus   int
+		twilioCode   int
+		expectReason providers.FailureReason
+		expectExit   int32
+	}{
+		{
+			name:         "opt-out is permanent and never retried",
+			httpStatus:   400,
+			twilioCode:   ErrorCodeOptedOut,
+			expectReason: providers.ReasonOptedOut,
+			expectExit:   ExitPermanent,
+		},
+		{
+			name:         "opt-out stays permanent even on a 5xx response",
+			httpStatus:   503,
+			twilioCode:   ErrorCodeOptedOut,
+			expectReason: providers.ReasonOptedOut,
+			expectExit:   ExitPermanent,
+		},
+		{
+			name:         "invalid recipient is permanent",
+			httpStatus:   400,
+			twilioCode:   ErrorCodeInvalidToNumber,
+			expectReason: providers.ReasonInvalidNumber,
+			expectExit:   ExitPermanent,
+		},
+		{
+			name:         "unregistered sender is permanent",
+			httpStatus:   400,
+			twilioCode:   ErrorCodeSenderUnregistered,
+			expectReason: providers.ReasonUnregistered,
+			expectExit:   ExitPermanent,
+		},
+		{
+			name:         "rate limit stays transient",
+			httpStatus:   429,
+			twilioCode:   ErrorCodeTooManyRequests,
+			expectReason: providers.ReasonRateLimited,
+			expectExit:   ExitTransient,
+		},
+		{
+			name:         "http 429 without a twilio code stays transient",
+			httpStatus:   429,
+			expectReason: providers.ReasonRateLimited,
+			expectExit:   ExitTransient,
+		},
+		{
+			name:         "unclassified 4xx falls back to permanent",
+			httpStatus:   422,
+			expectReason: providers.ReasonUnknown,
+			expectExit:   ExitPermanent,
+		},
+		{
+			name:         "unclassified 5xx falls back to transient",
+			httpStatus:   500,
+			expectReason: providers.ReasonUnknown,
+			expectExit:   ExitTransient,
+		},
+		{
+			name:         "request that never reached twilio is transient",
+			expectReason: providers.ReasonUnknown,
+			expectExit:   ExitTransient,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			reason, exit := ClassifySendError(tt.httpStatus, tt.twilioCode)
+			assert.Equal(t, tt.expectReason, reason)
+			assert.Equal(t, tt.expectExit, exit)
+		})
+	}
+}
+
+func TestClassifySendErrorAgreesWithClassifyHTTPStatus(t *testing.T) {
+	t.Parallel()
+
+	for _, status := range []int{400, 401, 403, 404, 422, 429, 500, 502, 503} {
+		_, exit := ClassifySendError(status, 0)
+		assert.Equal(t, ClassifyHTTPStatus(status), exit, "status %d", status)
+	}
+}
+
+func TestFailEncodesModuleError(t *testing.T) {
+	t.Parallel()
+
+	reason, _ := ClassifySendError(400, ErrorCodeOptedOut)
+	err := providers.Fail(reason, errors.New("failed to send SMS (to=+15551234567)"))
+	require.Error(t, err)
+
+	var decoded providers.ModuleError
+	require.NoError(t, json.Unmarshal([]byte(err.Error()), &decoded))
+	assert.Equal(t, providers.ReasonOptedOut, decoded.Reason)
+	assert.Equal(t, "failed to send SMS (to=+15551234567)", decoded.Message)
 }

@@ -65,6 +65,15 @@ AUTH_BASIC_PASSWORD=admin
 
 **Note:** We would recommend changing these default credentials as well as your `APP_SECRET` before ever using Lunogram in production.
 
+The compose file also ships a development `AUTH_CONSOLE_SIGNING_KEY`, the key
+that signs console session tokens. It is published in this repository, so
+anyone holding it can mint a session for any admin — set your own before
+deploying:
+
+```
+AUTH_CONSOLE_SIGNING_KEY="$(openssl ecparam -name prime256v1 -genkey -noout)"
+```
+
 For full documentation on the platform and more information on deployment, check out our docs.
 
 **[Explore the Docs »](https://docs.lunogram.com)**

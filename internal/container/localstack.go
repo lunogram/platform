@@ -19,7 +19,7 @@ func RunLocalStack(t *testing.T) (endpoint string) {
 
 	container, err := localstack.Run(ctx,
 		"localstack/localstack:4.11",
-		testcontainers.WithReuseByName("localstack"),
+		testcontainers.WithReuseByName(containerName("localstack")),
 	)
 	require.NoError(t, err)
 

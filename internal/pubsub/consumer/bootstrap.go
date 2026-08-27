@@ -128,6 +128,15 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 		MaxDeliver:    ProcessMaxDeliver,
 	})
 
+	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamUsers), jetstream.ConsumerConfig{
+		Name:          ns.Consumer(ConsumerUserInboxFailed),
+		FilterSubject: ns.Subject("users.inbox.failed.>"),
+		Description:   "Processes user inbox message failed events for broadcast completion",
+		AckPolicy:     jetstream.AckExplicitPolicy,
+		BackOff:       DefaultBackOff,
+		MaxDeliver:    ProcessMaxDeliver,
+	})
+
 	bootstrap.EnsureStream(ctx, jetstream.StreamConfig{
 		Name:        ns.Stream(StreamUserEvents),
 		Description: "Responsible for receiving incoming user events",
@@ -381,6 +390,15 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 		Name:          ns.Consumer(ConsumerOrganizationInboxSent),
 		FilterSubject: ns.Subject("organizations.inbox.sent.>"),
 		Description:   "Processes organization inbox message sent events for broadcast completion",
+		AckPolicy:     jetstream.AckExplicitPolicy,
+		BackOff:       DefaultBackOff,
+		MaxDeliver:    ProcessMaxDeliver,
+	})
+
+	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamOrganizations), jetstream.ConsumerConfig{
+		Name:          ns.Consumer(ConsumerOrganizationInboxFailed),
+		FilterSubject: ns.Subject("organizations.inbox.failed.>"),
+		Description:   "Processes organization inbox message failed events for broadcast completion",
 		AckPolicy:     jetstream.AckExplicitPolicy,
 		BackOff:       DefaultBackOff,
 		MaxDeliver:    ProcessMaxDeliver,

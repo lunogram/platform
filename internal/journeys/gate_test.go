@@ -406,7 +406,7 @@ func TestEvaluateGateRules(t *testing.T) {
 			},
 		}
 
-		result, err := evaluateGateRules(hctx, rs, journey.JourneyUserState{})
+		result, err := evaluateGateRules(hctx, rs, journey.JourneyVersionStep{}, journey.JourneyUserState{})
 		require.NoError(t, err)
 		assert.True(t, result)
 
@@ -452,7 +452,7 @@ func TestEvaluateGateRules(t *testing.T) {
 			},
 		}
 
-		result, err := evaluateGateRules(hctx, rs, journey.JourneyUserState{})
+		result, err := evaluateGateRules(hctx, rs, journey.JourneyVersionStep{}, journey.JourneyUserState{})
 		require.NoError(t, err)
 		assert.False(t, result)
 
@@ -486,7 +486,7 @@ func TestEvaluateGateRules(t *testing.T) {
 			Data:      map[string]any{},
 		}
 
-		result, err := evaluateGateRules(hctx, rs, journey.JourneyUserState{})
+		result, err := evaluateGateRules(hctx, rs, journey.JourneyVersionStep{}, journey.JourneyUserState{})
 		require.NoError(t, err)
 		assert.True(t, result)
 
@@ -541,7 +541,7 @@ func TestEvaluateGateRules(t *testing.T) {
 			},
 		}
 
-		result, err := evaluateGateRules(hctx, rs, journey.JourneyUserState{})
+		result, err := evaluateGateRules(hctx, rs, journey.JourneyVersionStep{}, journey.JourneyUserState{})
 		require.NoError(t, err)
 		assert.True(t, result)
 
@@ -595,7 +595,7 @@ func TestEvaluateGateRules(t *testing.T) {
 			},
 		}
 
-		result, err := evaluateGateRules(hctx, rs, journey.JourneyUserState{})
+		result, err := evaluateGateRules(hctx, rs, journey.JourneyVersionStep{}, journey.JourneyUserState{})
 		require.NoError(t, err)
 		assert.False(t, result)
 
@@ -649,7 +649,7 @@ func TestEvaluateGateRules(t *testing.T) {
 			},
 		}
 
-		result, err := evaluateGateRules(hctx, rs, journey.JourneyUserState{})
+		result, err := evaluateGateRules(hctx, rs, journey.JourneyVersionStep{}, journey.JourneyUserState{})
 		require.NoError(t, err)
 		assert.True(t, result)
 
@@ -704,7 +704,7 @@ func TestEvaluateGateRules(t *testing.T) {
 			},
 		}
 
-		result, err := evaluateGateRules(hctx, rs, journey.JourneyUserState{})
+		result, err := evaluateGateRules(hctx, rs, journey.JourneyVersionStep{}, journey.JourneyUserState{})
 		require.NoError(t, err)
 		assert.True(t, result)
 
@@ -749,7 +749,7 @@ func TestEvaluateGateRules(t *testing.T) {
 			},
 		}
 
-		result, err := evaluateGateRules(hctx, rs, journey.JourneyUserState{})
+		result, err := evaluateGateRules(hctx, rs, journey.JourneyVersionStep{}, journey.JourneyUserState{})
 		require.NoError(t, err)
 		assert.True(t, result)
 
@@ -835,7 +835,7 @@ func TestEvaluateGateRules(t *testing.T) {
 			Data:      data,
 		}
 
-		result, err := evaluateGateRules(hctx, config.Rule, journey.JourneyUserState{})
+		result, err := evaluateGateRules(hctx, config.Rule, journey.JourneyVersionStep{}, journey.JourneyUserState{})
 		require.NoError(t, err)
 		assert.True(t, result, "gate should match: journey.entrance.data.email contains 'jeroen'")
 

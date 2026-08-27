@@ -26,7 +26,7 @@ type LocalStorage struct {
 	directory string
 }
 
-func (l *LocalStorage) Write(ctx context.Context, key string, reader io.Reader) error {
+func (l *LocalStorage) Write(ctx context.Context, key string, reader io.Reader, contentType string) error {
 	filePath := filepath.Join(l.directory, key)
 
 	file, err := os.Create(filePath)

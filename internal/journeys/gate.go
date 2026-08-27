@@ -76,7 +76,7 @@ func selectGateBranch(ctx HandlerContext, step journey.JourneyVersionStep, confi
 		return nil, err
 	}
 
-	match, err := evaluateGateRules(ctx, resolved, state)
+	match, err := evaluateGateRules(ctx, resolved, step, state)
 	if err != nil {
 		ctx.logger.Warn("gate: evaluation error", zap.String("step_id", step.ExternalID), zap.Error(err))
 		return nil, err
@@ -101,61 +101,75 @@ func selectGateBranch(ctx HandlerContext, step journey.JourneyVersionStep, confi
 	return nil, nil
 }
 
-// evaluateGateRules splits the rule set into local rules (evaluated in-memory)
-// and historical rules (evaluated via SQL), then combines the results using the
-// root operator (AND/OR).
-func evaluateGateRules(ctx HandlerContext, rs rules.RuleSet, state journey.JourneyUserState) (_ bool, err error) {
-	local := rs.Local()
-	historical := rs.Historical()
+// evaluateGateRules splits the rule set into local rules (evaluated in-memory),
+// step visit rules (counted against the journey state) and historical rules
+// (evaluated via SQL), then combines the results using the root operator
+// (AND/OR). Partitions are evaluated cheapest first so a decided AND/OR
+// short-circuits before the database is queried.
+func evaluateGateRules(ctx HandlerContext, rs rules.RuleSet, step journey.JourneyVersionStep, state journey.JourneyUserState) (bool, error) {
+	partitions := []struct {
+		name     string
+		ruleSet  *rules.RuleSet
+		evaluate func(rules.RuleSet) (bool, error)
+	}{
+		{
+			name:    "local",
+			ruleSet: rs.Local(),
+			evaluate: func(set rules.RuleSet) (bool, error) {
+				return evaluateLocalRules(set, ctx.Data)
+			},
+		},
+		{
+			name:    "step_visits",
+			ruleSet: rs.StepVisits(),
+			evaluate: func(set rules.RuleSet) (bool, error) {
+				return evaluateStepVisitRules(ctx, set, step, state)
+			},
+		},
+		{
+			name:    "historical",
+			ruleSet: rs.Historical(),
+			evaluate: func(set rules.RuleSet) (bool, error) {
+				return evaluateHistoricalRules(ctx, set, state)
+			},
+		},
+	}
 
-	ctx.logger.Debug("gate: split result",
-		zap.Bool("has_local_rules", local != nil),
-		zap.Bool("has_historical_rules", historical != nil),
-		zap.Int("total_children", len(rs.Children)),
-	)
+	match := true
+	decided := false
 
-	var localMatch, historicalMatch bool
+	for _, partition := range partitions {
+		if partition.ruleSet == nil {
+			continue
+		}
 
-	if local != nil {
-		localMatch, err = evaluateLocalRules(*local, ctx.Data)
+		result, err := partition.evaluate(*partition.ruleSet)
 		if err != nil {
 			return false, err
 		}
-		ctx.logger.Debug("gate: local evaluation", zap.Bool("match", localMatch))
-	}
 
-	// When only local rules exist we can return early.
-	if local != nil && historical == nil {
-		return localMatch, nil
-	}
+		ctx.logger.Debug("gate: partition evaluation",
+			zap.String("partition", partition.name),
+			zap.Bool("match", result),
+		)
 
-	// Short-circuit: skip the database query when the local result already
-	// determines the outcome.
-	if local != nil {
-		if rs.Operator == rules.OperatorAnd && !localMatch {
-			return false, nil
+		if !decided {
+			match, decided = result, true
+		} else if rs.Operator == rules.OperatorOr {
+			match = match || result
+		} else {
+			match = match && result
 		}
-		if rs.Operator == rules.OperatorOr && localMatch {
-			return true, nil
+
+		if rs.Operator == rules.OperatorOr && match {
+			break
+		}
+		if rs.Operator != rules.OperatorOr && !match {
+			break
 		}
 	}
 
-	historicalMatch, err = evaluateHistoricalRules(ctx, *historical, state)
-	if err != nil {
-		return false, err
-	}
-	ctx.logger.Debug("gate: historical evaluation", zap.Bool("match", historicalMatch))
-
-	// When only historical rules exist we can return early.
-	if local == nil {
-		return historicalMatch, nil
-	}
-
-	if rs.Operator == rules.OperatorOr {
-		return localMatch || historicalMatch, nil
-	}
-
-	return localMatch && historicalMatch, nil
+	return match, nil
 }
 
 // evaluateLocalRules evaluates local rules in-memory against the journey's

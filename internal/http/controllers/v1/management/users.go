@@ -655,7 +655,7 @@ func (srv *UsersController) GetUserInboxMessages(w http.ResponseWriter, r *http.
 		IncludeScheduled: params.IncludeScheduled != nil && *params.IncludeScheduled,
 	}
 	if params.Status != nil {
-		filter.Status = string(*params.Status)
+		filter = filter.WithStatus(string(*params.Status))
 	}
 	if params.Channel != nil {
 		filter.Channel = modules.Channel(*params.Channel)
