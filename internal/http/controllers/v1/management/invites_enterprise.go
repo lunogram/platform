@@ -45,30 +45,6 @@ type myInvitesResponse struct {
 	Results []oapi.ProjectInvite `json:"results"`
 }
 
-// projectRoleRank ranks the project-level roles for least-privilege comparisons.
-// Project roles form a strict hierarchy: support < client < editor < admin.
-// "owner" is an *organization*-level role, not a project role (the OpenFGA
-// "project" type has no "owner" relation), so it is deliberately absent here —
-// an unknown role ranks 0 and can never out-rank a real project role.
-var projectRoleRank = map[string]int{
-	"support": 1,
-	"client":  2,
-	"editor":  3,
-	"admin":   4,
-}
-
-func isRoleHigher(role1, role2 string) bool {
-	return projectRoleRank[role1] > projectRoleRank[role2]
-}
-
-// isKnownProjectRole reports whether role is one the hierarchy can rank. An
-// unranked role would compare as 0 and slip under the least-privilege ceiling,
-// so callers granting a role must reject anything this rejects.
-func isKnownProjectRole(role string) bool {
-	_, ok := projectRoleRank[role]
-	return ok
-}
-
 const (
 	// defaultInviteTTL is used when the caller omits expires_in.
 	defaultInviteTTL = 24 * time.Hour
@@ -163,7 +139,7 @@ func (srv *InviteController) CreateProjectInvite(w http.ResponseWriter, r *http.
 	// Fail closed on a role the hierarchy cannot rank. The OpenAPI enum already
 	// constrains body.Role, so this is defense in depth: an unranked role would
 	// otherwise rank 0 and slip under the least-privilege ceiling below.
-	if !isKnownProjectRole(string(body.Role)) {
+	if !rbac.IsKnownProjectRole(string(body.Role)) {
 		logger.Debug("unknown invite role", zap.String("invite_role", string(body.Role)))
 		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("unknown project role")))
 		return
@@ -173,14 +149,13 @@ func (srv *InviteController) CreateProjectInvite(w http.ResponseWriter, r *http.
 	// own *project-scoped* role. Evaluating the project role (rather than the
 	// near-uniform global admin role) prevents a low-privilege project member
 	// from minting a higher-privilege invite.
-	explicitRole, err := srv.mgmt.GetProjectRole(ctx, projectID, inviterAdminID)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+	actorProjectRole, err := resolveProjectRole(ctx, srv.mgmt, actor.OrganizationID, projectID, inviterAdminID)
+	if err != nil {
 		logger.Error("failed to resolve inviter project role", zap.Error(err))
-		oapi.WriteProblem(w, err)
+		oapi.WriteProblem(w, problem.ErrInternal())
 		return
 	}
-	actorProjectRole := effectiveProjectRole(actorAdmin.Role, explicitRole)
-	if isRoleHigher(string(body.Role), actorProjectRole) {
+	if rbac.IsProjectRoleHigher(string(body.Role), actorProjectRole) {
 		logger.Debug("invite role is higher than inviter project role, cannot create invite", zap.String("invite_role", string(body.Role)), zap.String("inviter_project_role", actorProjectRole))
 		oapi.WriteProblem(w, problem.ErrForbidden(problem.Describe("the role assigned by this invite must be equal to or lower than your own role in this project")))
 		return
@@ -350,7 +325,7 @@ func (srv *InviteController) AcceptProjectInvite(w http.ResponseWriter, r *http.
 		// Only ever raise the role. An invite carrying a role equal to or lower
 		// than the member's current project role is intentionally a no-op on the
 		// role, so accepting a lower-role invite cannot strip existing privileges.
-		if isRoleHigher(invite.Role, existingProjectAdmin.Role) {
+		if rbac.IsProjectRoleHigher(invite.Role, existingProjectAdmin.Role) {
 			err = managementStore.UpdateProjectAdminRole(ctx, invite.ProjectID, adminID, invite.Role)
 			if err != nil {
 				logger.Error("failed to update admin project role", zap.Error(err))
@@ -432,22 +407,16 @@ func (srv *InviteController) AcceptProjectInvite(w http.ResponseWriter, r *http.
 	// RBAC tuples are written to OpenFGA, which is not part of the Postgres
 	// transaction, so they are applied only after the membership is durably
 	// committed. This avoids granting access for a membership that rolled back.
-	// On a role upgrade the stale lower-role tuple is removed first.
-	if roleUpgraded && previousRole != invite.Role {
-		oldTuples := access.ProjectRoleTuples(adminID, invite.ProjectID, previousRole)
-		if err = srv.engine.DeleteTuples(ctx, oldTuples); err != nil {
-			logger.Error("failed to delete old RBAC tuples", zap.Error(err))
-			oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("failed to update project role")))
-			return
-		}
+	// On a role upgrade the stale lower-role tuple is removed first; the write
+	// itself is idempotent so a re-accept repairs a membership whose tuples were
+	// never written without failing on the ones that were.
+	if roleUpgraded {
+		err = access.UpdateProjectRole(ctx, srv.engine, adminID, invite.ProjectID, previousRole, invite.Role)
+	} else {
+		err = access.ProvisionProjectRole(ctx, srv.engine, adminID, invite.ProjectID, invite.Role)
 	}
-
-	// WriteTuplesIfMissing makes the grant idempotent so a re-accept (reconcile)
-	// does not fail on an already-present tuple, while still repairing a
-	// membership whose tuples were never written on a previous attempt.
-	projectTuples := access.ProjectRoleTuples(adminID, invite.ProjectID, invite.Role)
-	if err = srv.engine.WriteTuplesIfMissing(ctx, projectTuples); err != nil {
-		logger.Error("failed to write RBAC tuples for project admin", zap.Error(err))
+	if err != nil {
+		logger.Error("failed to apply RBAC tuples for project admin", zap.Error(err))
 		oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("failed to assign project role")))
 		return
 	}

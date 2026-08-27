@@ -4,6 +4,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/lunogram/platform/internal/actions"
 	"github.com/lunogram/platform/internal/config"
+	"github.com/lunogram/platform/internal/gallery"
 	"github.com/lunogram/platform/internal/http/auth"
 	"github.com/lunogram/platform/internal/providers"
 	"github.com/lunogram/platform/internal/pubsub"
@@ -23,11 +24,28 @@ func NewController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB
 	projects := management.NewProjectsStore(managementDB)
 	usrs := subjects.NewState(usersDB, logger)
 
-	// Create webhook caller for project creation notifications
-	webhookCaller := webhook.NewCaller(logger.Named("webhook"), cfg.Webhook)
+	// The deprecated single-URL variables are read here, and only here, so that
+	// a deployment that has not yet written a WEBHOOK_CONFIG_FILE keeps working.
+	// Deleting this block is what removes the compatibility path.
+	//nolint:staticcheck // SA1019: reading the deprecated settings is this call's purpose
+	hooks, err := webhook.NewEngine(logger.Named("webhook"), cfg.Webhook.ConfigFile, webhook.LegacyEnv{
+		ProjectCreatedURL:     cfg.Webhook.ProjectCreatedURL,
+		ProjectCreatedTimeout: cfg.Webhook.ProjectCreatedTimeout,
+		EmailTemplatesURL:     cfg.Webhook.EmailTemplatesURL,
+		EmailTemplatesTimeout: cfg.Webhook.EmailTemplatesTimeout,
+		ForwardAuthorization:  cfg.Webhook.LegacyForwardAuthorization,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	templateGallery, err := gallery.New(logger.Named("email-templates"), hooks.Gallery())
+	if err != nil {
+		return nil, err
+	}
 
 	controller := &Controller{
-		ProjectsController:         NewProjectsController(logger, managementDB, usersDB, journeyDB, webhookCaller, pub, engine),
+		ProjectsController:         NewProjectsController(logger, managementDB, usersDB, journeyDB, hooks, pub, engine),
 		CampaignsController:        NewCampaignsController(logger, managementDB, usersDB, engine),
 		TemplatesController:        NewTemplatesController(logger, managementDB, usersDB, pubsub.NewEmailRenderer(req), registry, engine, cfg.Link.SecretBytes(), cfg.Link.TrackingBaseURL()),
 		ActionsController:          NewActionsController(logger, managementDB, pubsub.NewActionCaller(req), usersDB, actionRegistry, engine),
@@ -44,7 +62,7 @@ func NewController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB
 		ProvidersController:        NewProvidersController(logger, managementDB, registry, engine, cfg.PublicBaseURL()),
 		SubscriptionsController:    NewSubscriptionsController(logger, managementDB, engine),
 		AuthMethodsController:      NewAuthMethodsController(logger, managementDB, engine),
-		EmailTemplatesController:   NewEmailTemplatesController(logger, webhookCaller, engine),
+		EmailTemplatesController:   NewEmailTemplatesController(logger, templateGallery, engine),
 		SenderIdentitiesController: NewSenderIdentitiesController(logger, managementDB, engine),
 		PushProvidersController:    NewPushProvidersController(logger, managementDB, registry, engine),
 		BroadcastsController:       NewBroadcastsController(logger, managementDB, usersDB, pub, jet, engine, consumer.Namespace(cfg.Nats.Namespace)),

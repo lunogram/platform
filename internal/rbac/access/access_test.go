@@ -427,3 +427,82 @@ func TestProjectsDoNotLeakAcrossOrganizations(t *testing.T) {
 			"admin from org B should not access org A's project resource %s", resource)
 	}
 }
+
+func TestProjectRoleLifecycle(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	orgID := uuid.New()
+	projectID := uuid.New()
+
+	members := rbac.ProjectResourceScope("members", projectID)
+
+	t.Run("provision grants the role and is idempotent", func(t *testing.T) {
+		engine := rbac.NewTestEngine(t)
+		adminID := uuid.New()
+		require.NoError(t, engine.WriteTuples(ctx, ProjectTuples(orgID, projectID)))
+
+		require.NoError(t, ProvisionProjectRole(ctx, engine, adminID, projectID, rbac.ProjectSupport))
+		// Re-running must not fail: the tuple write happens after the Postgres
+		// commit, so a provisioning step is legitimately replayed to reconcile.
+		require.NoError(t, ProvisionProjectRole(ctx, engine, adminID, projectID, rbac.ProjectSupport))
+
+		allowed, err := engine.Check(ctx, "user:"+adminID.String(), string(rbac.Read), members)
+		require.NoError(t, err)
+		assert.True(t, allowed, "support may read the member roster")
+
+		allowed, err = engine.Check(ctx, "user:"+adminID.String(), string(rbac.Update), members)
+		require.NoError(t, err)
+		assert.False(t, allowed, "support may not change roles")
+	})
+
+	t.Run("update swaps the role", func(t *testing.T) {
+		engine := rbac.NewTestEngine(t)
+		adminID := uuid.New()
+		require.NoError(t, engine.WriteTuples(ctx, ProjectTuples(orgID, projectID)))
+		require.NoError(t, ProvisionProjectRole(ctx, engine, adminID, projectID, rbac.ProjectSupport))
+
+		require.NoError(t, UpdateProjectRole(ctx, engine, adminID, projectID, rbac.ProjectSupport, rbac.ProjectAdmin))
+		allowed, err := engine.Check(ctx, "user:"+adminID.String(), string(rbac.Update), members)
+		require.NoError(t, err)
+		assert.True(t, allowed, "promotion must take effect")
+
+		require.NoError(t, UpdateProjectRole(ctx, engine, adminID, projectID, rbac.ProjectAdmin, rbac.ProjectSupport))
+		allowed, err = engine.Check(ctx, "user:"+adminID.String(), string(rbac.Update), members)
+		require.NoError(t, err)
+		assert.False(t, allowed, "demotion must withdraw the privilege")
+	})
+
+	t.Run("deprovision revokes access", func(t *testing.T) {
+		engine := rbac.NewTestEngine(t)
+		adminID := uuid.New()
+		require.NoError(t, engine.WriteTuples(ctx, ProjectTuples(orgID, projectID)))
+		require.NoError(t, ProvisionProjectRole(ctx, engine, adminID, projectID, rbac.ProjectEditor))
+
+		require.NoError(t, DeprovisionProjectRole(ctx, engine, adminID, projectID, rbac.ProjectEditor))
+		allowed, err := engine.Check(ctx, "user:"+adminID.String(), string(rbac.Read), members)
+		require.NoError(t, err)
+		assert.False(t, allowed)
+	})
+
+	t.Run("bulk deprovision revokes grants across projects", func(t *testing.T) {
+		engine := rbac.NewTestEngine(t)
+		adminID := uuid.New()
+		other := uuid.New()
+		require.NoError(t, engine.WriteTuples(ctx, ProjectTuples(orgID, projectID)))
+		require.NoError(t, engine.WriteTuples(ctx, ProjectTuples(orgID, other)))
+		require.NoError(t, ProvisionProjectRole(ctx, engine, adminID, projectID, rbac.ProjectEditor))
+		require.NoError(t, ProvisionProjectRole(ctx, engine, adminID, other, rbac.ProjectAdmin))
+
+		require.NoError(t, DeprovisionProjectRoles(ctx, engine, []ProjectRoleGrant{
+			{UserID: adminID, ProjectID: projectID, Role: rbac.ProjectEditor},
+			{UserID: adminID, ProjectID: other, Role: rbac.ProjectAdmin},
+		}))
+
+		for _, id := range []uuid.UUID{projectID, other} {
+			allowed, err := engine.Check(ctx, "user:"+adminID.String(), string(rbac.Read), rbac.ProjectResourceScope("members", id))
+			require.NoError(t, err)
+			assert.False(t, allowed, "every grant in the batch must be revoked")
+		}
+	})
+}

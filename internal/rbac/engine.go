@@ -2,6 +2,7 @@ package rbac
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 
@@ -193,6 +194,30 @@ func (e *Engine) HasTuple(ctx context.Context, user, relation, object string) (b
 	return len(resp.GetTuples()) > 0, nil
 }
 
+// ProjectRole returns the highest-ranked project role the user holds in the
+// project, or "" when they hold none. It asks the authorization model rather
+// than the database, so it answers for any subject that can hold a project role
+// — an admin, an API key, or an access policy — and it accounts for roles held
+// by inheritance as well as by direct grant.
+//
+// A subject whose only grants are a custom permission set written straight onto
+// resource objects holds no project role and resolves to "". That is the
+// correct answer: such a policy carries specific permissions, not a rank, and
+// therefore sits below every real role in a least-privilege comparison.
+func (e *Engine) ProjectRole(ctx context.Context, user string, projectID uuid.UUID) (string, error) {
+	object := ProjectScope(projectID)
+	for _, role := range projectRolesByRank() {
+		holds, err := e.Check(ctx, user, role, object)
+		if err != nil {
+			return "", err
+		}
+		if holds {
+			return role, nil
+		}
+	}
+	return "", nil
+}
+
 // WriteTuple adds a single relationship tuple.
 func (e *Engine) WriteTuple(ctx context.Context, user, relation, object string) error {
 	_, err := e.server.Write(ctx, &openfgav1.WriteRequest{
@@ -250,6 +275,23 @@ func (e *Engine) DeleteTuple(ctx context.Context, user, relation, object string)
 	return nil
 }
 
+// DeleteTupleIfPresent removes a tuple, treating "the tuple does not exist" as
+// success so revocation is idempotent. Revoking access must never fail because
+// the grant was already gone: the caller's intent — that this access must not
+// exist — is satisfied either way, and erroring would strand the rest of a
+// revocation cascade. Any other failure is returned.
+func (e *Engine) DeleteTupleIfPresent(ctx context.Context, user, relation, object string) error {
+	err := e.DeleteTuple(ctx, user, relation, object)
+	if err == nil {
+		return nil
+	}
+	// OpenFGA reports deleting an absent tuple as write_failed_due_to_invalid_input.
+	if status.Code(errors.Unwrap(err)) == codes.Code(openfgav1.ErrorCode_write_failed_due_to_invalid_input) {
+		return nil
+	}
+	return err
+}
+
 // WriteTuples writes multiple relationship tuples in a single request.
 func (e *Engine) WriteTuples(ctx context.Context, tuples []Tuple) error {
 	if err := e.writeTuples(ctx, tuples); err != nil {
@@ -280,11 +322,12 @@ func (e *Engine) writeTuples(ctx context.Context, tuples []Tuple) error {
 // WriteTuplesIfAbsent writes tuples, treating an already-existing tuple as
 // success so the grant is idempotent.
 //
-// It differs from [Engine.WriteTuplesIfMissing] in what it asks. That one calls
-// Check first, which resolves through the model's relation graph, so a tuple can
-// look "present" because some other relation implies it -- and the direct tuple
-// then never gets written. This one asks the write itself, so only an actually
-// identical tuple counts as already present.
+// Presence is decided by the write itself, never by asking Check first. Check
+// resolves through the model's relation graph, so a tuple can look "present"
+// because some other relation implies it -- an organization owner already
+// resolves as a project admin -- and the direct tuple would then never get
+// written. Asking the write means only an actually identical tuple counts as
+// already present.
 //
 // The batch is attempted first, keeping OpenFGA's all-or-nothing write for the
 // common case; a batch rejected for containing a duplicate is retried per tuple,
@@ -315,25 +358,6 @@ func (e *Engine) WriteTuplesIfAbsent(ctx context.Context, tuples []Tuple) error 
 // that already exists. OpenFGA reports it as write_failed_due_to_invalid_input.
 func isDuplicateWrite(err error) bool {
 	return status.Code(err) == codes.Code(openfgav1.ErrorCode_write_failed_due_to_invalid_input)
-}
-
-// WriteTuplesIfMissing writes only the tuples that are not already present,
-// making the grant idempotent. OpenFGA rejects writing a tuple that already
-// exists, so re-running a provisioning step (e.g. reconciling access for an
-// already-accepted invite) would otherwise fail. Each tuple is checked with a
-// direct relation lookup before being written; only the absent ones are sent.
-func (e *Engine) WriteTuplesIfMissing(ctx context.Context, tuples []Tuple) error {
-	var missing []Tuple
-	for _, t := range tuples {
-		exists, err := e.Check(ctx, t.User, t.Relation, t.Object)
-		if err != nil {
-			return err
-		}
-		if !exists {
-			missing = append(missing, t)
-		}
-	}
-	return e.WriteTuples(ctx, missing)
 }
 
 // DeleteTuples removes multiple relationship tuples in a single request.

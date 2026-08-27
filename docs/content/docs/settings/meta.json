@@ -1,4 +1,8 @@
 {
   "title": "Settings",
-  "pages": ["access", "subscriptions"]
+  "pages": [
+    "access",
+    "subscriptions",
+    "webhooks"
+  ]
 }

@@ -450,6 +450,70 @@ func TestSetupWithTuplesGrantsCustomAccess(t *testing.T) {
 	assert.NoError(t, engine.Allowed(ctx, Delete, OrganizationScope(orgID)))
 }
 
+func TestDeleteTupleIfPresentIsIdempotent(t *testing.T) {
+	t.Parallel()
+
+	engine := NewTestEngine(t)
+	ctx := context.Background()
+
+	projectID := uuid.New()
+	user := "user:" + uuid.New().String()
+	object := ProjectScope(projectID)
+
+	require.NoError(t, engine.WriteTuple(ctx, user, ProjectEditor, object))
+	require.NoError(t, engine.DeleteTupleIfPresent(ctx, user, ProjectEditor, object))
+	// Revoking access that is already gone satisfies the caller's intent and
+	// must not fail, or one stale record blocks a whole revocation cascade.
+	require.NoError(t, engine.DeleteTupleIfPresent(ctx, user, ProjectEditor, object))
+
+	allowed, err := engine.Check(ctx, user, ProjectEditor, object)
+	require.NoError(t, err)
+	assert.False(t, allowed)
+}
+
+func TestProjectRoleResolvesHighestHeldRole(t *testing.T) {
+	t.Parallel()
+
+	engine := NewTestEngine(t)
+	ctx := context.Background()
+	orgID := uuid.New()
+	projectID := uuid.New()
+	object := ProjectScope(projectID)
+
+	require.NoError(t, engine.WriteTuple(ctx, OrganizationScope(orgID), "organization", object))
+
+	for role, want := range map[string]string{
+		ProjectSupport: ProjectSupport,
+		ProjectClient:  ProjectClient,
+		ProjectEditor:  ProjectEditor,
+		ProjectAdmin:   ProjectAdmin,
+	} {
+		user := "user:" + uuid.New().String()
+		require.NoError(t, engine.WriteTuple(ctx, user, role, object))
+
+		got, err := engine.ProjectRole(ctx, user, projectID)
+		require.NoError(t, err)
+		assert.Equal(t, want, got)
+	}
+
+	// An organization owner is a project admin by inheritance, with no direct
+	// project grant of their own.
+	inheritor := "user:" + uuid.New().String()
+	require.NoError(t, engine.WriteTuple(ctx, inheritor, "owner", OrganizationScope(orgID)))
+	got, err := engine.ProjectRole(ctx, inheritor, projectID)
+	require.NoError(t, err)
+	assert.Equal(t, ProjectAdmin, got)
+
+	// A subject carrying only a direct grant on a resource object holds no
+	// project role, so it ranks below every role in a ceiling comparison.
+	scoped := "user:" + uuid.New().String()
+	require.NoError(t, engine.WriteTuple(ctx, ProjectScope(projectID), "project", "members:"+projectID.String()))
+	require.NoError(t, engine.WriteTuple(ctx, scoped, "update", "members:"+projectID.String()))
+	got, err = engine.ProjectRole(ctx, scoped, projectID)
+	require.NoError(t, err)
+	assert.Equal(t, "", got)
+}
+
 // TestWriteTuplesIfAbsentIsIdempotent covers the batch form: a batch containing
 // a tuple that already exists must still write the rest, because OpenFGA writes
 // are all-or-nothing and would otherwise reject the whole request.
