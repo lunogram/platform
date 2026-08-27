@@ -220,6 +220,20 @@ func TestNewClientRejectsBadRetryConfig(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestNewClientFillsRetryDefaultsPerField(t *testing.T) {
+	t.Parallel()
+
+	client, err := NewClient(Options{Timeout: time.Second, Retry: Retry{InitialInterval: 2 * time.Second, MaxInterval: 30 * time.Second}})
+	require.NoError(t, err)
+	assert.Equal(t, DefaultRetry().MaxAttempts, client.retry.MaxAttempts)
+	assert.Equal(t, 2*time.Second, client.retry.InitialInterval)
+	assert.Equal(t, 30*time.Second, client.retry.MaxInterval)
+
+	client, err = NewClient(Options{Timeout: time.Second, Retry: Retry{MaxAttempts: 4}})
+	require.NoError(t, err)
+	assert.Equal(t, 4*time.Second, client.retry.MaxElapsedTime)
+}
+
 func TestIgnoreStatusSkipsStatusRetries(t *testing.T) {
 	t.Parallel()
 

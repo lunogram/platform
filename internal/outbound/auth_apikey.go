@@ -84,6 +84,9 @@ func buildBasicAuth(node yaml.Node, _ StrategyDeps) (Strategy, error) {
 	if cfg.User == "" {
 		return nil, fmt.Errorf("user is required")
 	}
+	if cfg.Password == "" {
+		return nil, fmt.Errorf("password is required")
+	}
 	return &BasicAuth{user: cfg.User, password: cfg.Password}, nil
 }
 

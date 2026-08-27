@@ -86,6 +86,18 @@ func TestBasicAuthStrategy(t *testing.T) {
 	assert.Equal(t, "hunter2", password)
 }
 
+func TestBasicAuthRequiresBothFields(t *testing.T) {
+	t.Parallel()
+
+	for _, body := range []string{
+		"type: basic_auth\nconfig:\n  password: hunter2\n",
+		"type: basic_auth\nconfig:\n  user: alice\n",
+	} {
+		_, err := BuildStrategy(strategyConfig(t, body), StrategyDeps{})
+		require.Error(t, err)
+	}
+}
+
 func TestUnknownStrategy(t *testing.T) {
 	t.Parallel()
 

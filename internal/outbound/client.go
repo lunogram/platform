@@ -96,10 +96,7 @@ func NewClient(opts Options) (*Client, error) {
 		return nil, err
 	}
 
-	retry := opts.Retry
-	if retry.MaxAttempts == 0 {
-		retry = DefaultRetry().WithDefaults(DefaultRetry(), timeout)
-	}
+	retry := opts.Retry.WithDefaults(DefaultRetry(), timeout)
 	if err := retry.Validate(); err != nil {
 		return nil, err
 	}
