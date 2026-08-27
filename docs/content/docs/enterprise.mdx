@@ -1,0 +1,363 @@
+---
+title: Enterprise Deployment
+description: Architecture, configuration and operations for running Lunogram Enterprise
+---
+
+<EnterpriseFeature>
+  This page describes the Enterprise distribution. Everything outside [What
+  Enterprise adds](#what-enterprise-adds) applies to the open-source edition
+  too.
+</EnterpriseFeature>
+
+Lunogram Enterprise is the same platform as the open-source edition, built with
+the `enterprise` build tag and shipped as a container image. There is no licence
+key and no runtime activation: the features below are present because the image
+is the Enterprise image.
+
+## What Enterprise adds
+
+| Feature                                    | Surface                                        |
+| ------------------------------------------ | ---------------------------------------------- |
+| [Broadcasts](/campaigns/broadcasts)        | Send a campaign to an entire list at once      |
+| Team invites                               | Invite admins to an organization and assign roles |
+| Sending domains                            | DNS-verified sending domains, backed by the courier service |
+| Visual block editor                        | Drag-and-drop email editing next to the code editor |
+| AI template builder                        | Generate and edit email templates from a prompt, backed by the backoffice service |
+
+Sending domains and the AI builder call two extra services — `courier` and
+`backoffice` — which the platform reverse-proxies under `/courier/*` and
+`/backoffice/*`. See [Enterprise services](#enterprise-services).
+
+## Architecture
+
+<Mermaid chart={`graph TB
+    Browser[Console / API clients] --> LB[Ingress / load balancer]
+    LB --> App[lunogram]
+    App --> PG[(PostgreSQL)]
+    App --> Redis[(Redis)]
+    App --> NATS[NATS JetStream]
+    App --> Blob[(Object storage)]
+    App -.-> Courier[courier]
+    App -.-> Backoffice[backoffice]
+    NATS --> Renderer[renderer]
+    Renderer --> NATS`} />
+
+| Component        | Role                                                                                      | Stateless |
+| ---------------- | ----------------------------------------------------------------------------------------- | --------- |
+| `lunogram`       | API, console, event consumers and the scheduler. Every replica runs all four.               | Yes       |
+| `renderer`       | Deno service that compiles and renders React Email templates. Reached over NATS, not HTTP.  | Yes       |
+| `courier`        | Sending-domain management and DNS verification. Enterprise only.                             | No — own database |
+| `backoffice`     | AI template generation. Enterprise only.                                                     | No — own database |
+
+The `lunogram` binary is a single process; there is no separate worker
+deployment. Adding replicas adds API capacity, consumer capacity and scheduler
+capacity together.
+
+## Requirements
+
+| Dependency          | Version                | Notes                                                      |
+| ------------------- | ---------------------- | ---------------------------------------------------------- |
+| PostgreSQL          | 18                     | Four databases, see below                                   |
+| Redis               | 8                      | Leader election, rate limiting, caches. Dragonfly works too |
+| NATS                | 2.12 with JetStream    | JetStream must be enabled — the platform will not start without it |
+| Object storage      | S3-compatible or Azure Blob | Required for more than one replica. See [Media Storage](/storage) |
+
+### Databases
+
+Lunogram uses four PostgreSQL databases. They must exist before first boot;
+Lunogram creates the schema, not the databases.
+
+| Database     | Contents                                                | Variable                  |
+| ------------ | ------------------------------------------------------- | ------------------------- |
+| `management` | Organizations, admins, projects, campaigns, integrations | `POSTGRES_MANAGEMENT_URI` |
+| `subjects`   | Users, organizations-as-subjects, events, lists          | `POSTGRES_SUBJECTS_URI`   |
+| `journey`    | Journey definitions and per-user journey state           | `POSTGRES_JOURNEY_URI`    |
+| `rbac`       | Authorization tuples, read and written by the embedded OpenFGA engine | `RBAC_POSTGRES_URI` |
+
+They can live on one server or four. `subjects` carries the write volume — event
+ingestion and list recomputation — and is the one to give dedicated resources if
+you separate them.
+
+<Callout type="info">
+  OpenFGA runs in-process. There is no separate OpenFGA deployment to operate;
+  it only needs the `rbac` database.
+</Callout>
+
+Each replica opens up to 25 connections to each of `management`, `subjects` and
+`journey`. Size `max_connections` (or your pooler) for at least
+`75 × replicas`, plus headroom for the RBAC engine and for migrations.
+
+## Deploying
+
+The platform listens on `:8080` for HTTP by default (`HTTP_ADDRESS`). It serves
+the console, the management API, the client API and the OpenAPI documents from
+that single port. Nothing else needs to be exposed.
+
+A minimal Kubernetes deployment:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lunogram
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: lunogram
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: lunogram
+    spec:
+      containers:
+        - name: lunogram
+          image: <your-registry>/lunogram:<tag>
+          ports:
+            - name: http
+              containerPort: 8080
+          startupProbe:
+            httpGet: { path: /, port: http }
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            httpGet: { path: /, port: http }
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /, port: http }
+            periodSeconds: 10
+          envFrom:
+            - secretRef:
+                name: lunogram
+```
+
+### Probes
+
+There is no dedicated health endpoint. Probe `GET /`, which serves the console
+and returns `200` as soon as the server is listening.
+
+That is a meaningful signal: the HTTP server is started last, after migrations
+have run and after PostgreSQL, object storage, NATS, the integration registry,
+Redis and the RBAC engine have all been initialised. A node that answers has
+completed its startup sequence. Use a generous `startupProbe` — the first boot
+of a new version runs migrations before it listens.
+
+## Configuration
+
+Everything is configured through environment variables. Values below are the
+defaults.
+
+### Core
+
+| Variable           | Default                 | Description                                                     |
+| ------------------ | ----------------------- | --------------------------------------------------------------- |
+| `HTTP_ADDRESS`     | `:8080`                 | Listen address.                                                  |
+| `PUBLIC_URL`       | `http://localhost:8080` | Externally reachable base URL. Used to build links in messages — preference centre, unsubscribe, click tracking. |
+| `NODE_ID`          | derived from hostname   | Cluster identity. Leave unset.                                   |
+| `DATABASE_MIGRATE` | `true`                  | Run migrations at boot. See [Upgrades](#upgrades).               |
+
+### Redis
+
+| Variable           | Default                  | Description                                                    |
+| ------------------ | ------------------------ | -------------------------------------------------------------- |
+| `REDIS_ADDRESS`    | `redis://127.0.0.1:6379` | Connection URL.                                                 |
+| `REDIS_KEY_PREFIX` | —                        | Prefix for every key. Set it when several Lunogram installations share one Redis. |
+
+### NATS
+
+| Variable                 | Default                  | Description                                                       |
+| ------------------------ | ------------------------ | ----------------------------------------------------------------- |
+| `NATS_URL`               | `nats://127.0.0.1:4222`  | Connection URL.                                                    |
+| `NATS_NAMESPACE`         | —                        | Prefix for stream and consumer names. Set it when several installations share one NATS cluster. |
+| `NATS_MANAGED_EXTERNALLY` | `false`                 | When `true`, Lunogram creates missing streams and consumers but never updates existing ones. Use it when JetStream resources are managed by your own tooling. |
+
+### Authentication
+
+| Variable                            | Default                          | Description                                                    |
+| ----------------------------------- | -------------------------------- | -------------------------------------------------------------- |
+| `AUTH_DRIVER`                       | —                                | `basic` or `clerk`. Required.                                   |
+| `AUTH_CONSOLE_SIGNING_KEY`          | —                                | PEM-encoded EC P-256 private key signing console sessions (ES256). Required. |
+| `AUTH_CONSOLE_PREVIOUS_SIGNING_KEYS` | —                               | Comma-separated retired keys that must still verify, so a rotation does not log everyone out. |
+| `AUTH_CONSOLE_IDLE_TTL`             | `8h`                             | How long a console session survives without being refreshed.    |
+| `AUTH_CONSOLE_ABSOLUTE_TTL`         | `168h`                           | Hard cap on a console session's life, however often it is refreshed. |
+| `AUTH_SESSION_SIGNING_KEY`          | —                                | Separate EC P-256 key for the short-lived client session tokens your backend mints for SDKs. Leave unset to disable client sessions. |
+
+Generate a key with:
+
+```bash
+openssl ecparam -name prime256v1 -genkey -noout
+```
+
+<Callout type="warn">
+  `AUTH_CONSOLE_SIGNING_KEY` has no fallback: the server refuses to start
+  without it. This is deliberate. An auto-generated key would log every admin
+  out on restart, and replicas could not verify each other's sessions.
+</Callout>
+
+#### Basic
+
+A single built-in administrator. Suitable for a trial, not for a team.
+
+| Variable              | Description        |
+| --------------------- | ------------------ |
+| `AUTH_BASIC_EMAIL`    | Administrator email. |
+| `AUTH_BASIC_PASSWORD` | Administrator password. |
+
+#### Clerk
+
+The driver for SSO. [Clerk](https://clerk.com) fronts SAML and OpenID Connect,
+so your identity provider is configured there rather than in Lunogram. Admins
+are provisioned on first login, or ahead of it by the `user.created` webhook.
+
+| Variable                    | Description                                                                     |
+| --------------------------- | ------------------------------------------------------------------------------- |
+| `AUTH_CLERK_SECRET_KEY`     | Clerk secret key.                                                                |
+| `AUTH_CLERK_WEBHOOK_SECRET` | Signing secret for the Clerk webhook. Payloads that fail verification are rejected. |
+| `AUTH_CLERK_ISSUER`         | The `iss` your Clerk instance stamps on tokens. Needed only for webhooks, whose payloads carry no issuer. |
+| `AUTH_JWKS_URL`             | JWKS endpoint used to verify session tokens.                                     |
+| `CONSOLE_CLERK_PUBLISHABLE_KEY` | Publishable key injected into the console at runtime, so one image serves every environment. |
+
+### Enterprise services
+
+Proxy routes are registered only for the services you configure. Leave a
+variable unset and its route does not exist.
+
+| Variable               | Description                                                       |
+| ---------------------- | ----------------------------------------------------------------- |
+| `PROXY_COURIER_URL`    | Upstream for the courier service, exposed at `/courier/*`.         |
+| `PROXY_BACKOFFICE_URL` | Upstream for the backoffice service, exposed at `/backoffice/*`.   |
+
+Both services hold their own PostgreSQL database and are reached over the
+cluster network only — do not expose them directly.
+
+### HTTP and CSRF
+
+| Variable                   | Default          | Description                                                      |
+| -------------------------- | ---------------- | ---------------------------------------------------------------- |
+| `READ_HEADER_TIMEOUT`      | `5s`             | Deadline for reading request headers.                             |
+| `READ_TIMEOUT`             | `5s`             | Deadline for reading the whole request.                           |
+| `WRITE_TIMEOUT`            | `10s`            | Deadline for writing the response.                                |
+| `IDLE_TIMEOUT`             | `5s`             | Keep-alive idle deadline.                                         |
+| `MAX_HEADER_BYTES`         | `1048576`        | Largest accepted header block.                                    |
+| `CSRF_ENABLED`             | `true`           | CSRF protection for cookie-authenticated requests.                |
+| `CSRF_SECRET`              | random per boot  | Set it explicitly for more than one replica, otherwise a token minted by one node fails on another. |
+| `CSRF_COOKIE_SECURE`       | `true`           | Requires HTTPS. Only turn this off for local development.         |
+| `CSRF_COOKIE_SAME_SITE`    | `strict`         | `strict`, `lax`, `none` or `default`.                             |
+| `CSRF_TRUSTED_ORIGINS`     | —                | Extra origins allowed to submit. Empty means same-origin only.    |
+
+### Rate limiting
+
+| Variable                       | Default | Description                                                          |
+| ------------------------------ | ------- | -------------------------------------------------------------------- |
+| `RATE_LIMIT_PER_MINUTE`        | `600`   | Requests per minute per API key, or per IP when unauthenticated. The budget is shared across the client and management APIs. |
+| `RATE_LIMIT_TRUSTED_PROXY_HOPS` | `0`    | How many reverse proxies sit in front. `X-Forwarded-For` is honoured only up to this many hops. |
+
+<Callout type="warn">
+  `RATE_LIMIT_TRUSTED_PROXY_HOPS` defaults to `0`, which ignores
+  `X-Forwarded-For` entirely and rate-limits on the connection's remote
+  address. Behind a load balancer that means every unauthenticated request
+  shares one bucket. Set it to the real number of hops — and no higher, or a
+  client can forge its own address.
+</Callout>
+
+### Cluster
+
+Leader-elected work — journey resumptions, scheduled messages, broadcasts, list
+recomputation — is driven by a single elected node. These knobs trade latency
+against load.
+
+| Variable                            | Default | Description                                                        |
+| ----------------------------------- | ------- | ------------------------------------------------------------------ |
+| `CLUSTER_RECONCILIATION_INTERVAL`   | `1m`    | How often the leader scans for due work.                            |
+| `CLUSTER_RECONCILIATION_BATCH_SIZE` | `1000`  | Rows processed per task per tick. Remaining work rolls into the next tick. |
+| `CLUSTER_LEADER_CAMPAIGN_INTERVAL`  | `5s`    | How often a node tries to take the leader lock.                     |
+| `CLUSTER_HEARTBEAT_INTERVAL`        | `4s`    | Node liveness heartbeat. Nodes are evicted after 10s of silence.     |
+
+### Link tracking
+
+| Variable            | Default        | Description                                                          |
+| ------------------- | -------------- | -------------------------------------------------------------------- |
+| `LINK_SECRET`       | —              | 32-byte key encrypting click-tracking tokens (AES-256-GCM). Link wrapping is inactive without it. |
+| `LINK_TRACKING_URL` | `PUBLIC_URL`   | Public base URL for the redirect endpoint, e.g. `https://t.example.com`. |
+
+### Other
+
+| Variable                    | Default   | Description                                                        |
+| --------------------------- | --------- | ------------------------------------------------------------------ |
+| `WASM_CALL_TIMEOUT`         | `30s`     | Deadline for a single provider or action module call.               |
+| `WEBHOOK_MAX_BODY_SIZE`     | `1048576` | Largest accepted inbound provider webhook payload, in bytes.        |
+| `WEBHOOK_CONFIG_FILE`       | —         | Path to the YAML file declaring outbound hooks.                     |
+| `JWKS_CACHE_TTL`            | `5m`      | How long a fetched JWKS is cached.                                  |
+| `JWKS_CACHE_FETCH_TIMEOUT`  | `5s`      | Deadline for a single JWKS fetch.                                   |
+| `JWKS_CACHE_ERROR_TTL`      | `30s`     | Backoff before retrying an issuer whose JWKS fetch failed.          |
+
+Media storage has its own page: [Media Storage](/storage).
+
+## Running multiple replicas
+
+Replicas are interchangeable. Coordination happens through Redis and NATS, not
+between nodes directly, so there is no peer discovery to configure and no
+minimum quorum.
+
+- **Leader election** uses a Redis lock with a 10-second TTL. Exactly one node
+  holds it; the rest stand by and take over within a few seconds if the leader
+  disappears. Scheduled work is not duplicated.
+- **Event consumers** run on every node. NATS JetStream distributes messages
+  across them, so consumer throughput scales with replica count.
+- **Sessions and CSRF** must verify on any node. That means every replica needs
+  the same `AUTH_CONSOLE_SIGNING_KEY` and an explicit `CSRF_SECRET`.
+- **Media** must be shared. The local storage driver writes to the container
+  filesystem and is not visible to other replicas — use S3 or Azure Blob.
+
+## Hardening
+
+Before going live:
+
+- Set `AUTH_CONSOLE_SIGNING_KEY` and `CSRF_SECRET` from your secret manager, one
+  value per environment. Never reuse them across environments.
+- Replace the `basic` driver with `clerk` so access follows your identity
+  provider and can be revoked centrally.
+- Terminate TLS in front of Lunogram and keep `CSRF_COOKIE_SECURE=true`.
+- Set `RATE_LIMIT_TRUSTED_PROXY_HOPS` to the number of proxies you actually run.
+- Require TLS on the PostgreSQL connections — the URIs in the examples use
+  `sslmode=disable` for local development only.
+- Keep `courier`, `backoffice`, NATS and Redis on the internal network.
+- Remember that media served from `STORAGE_BASE_URL` is protected by an
+  unguessable URL, not by authorization. See
+  [Serving media](/storage#serving-media).
+
+## Upgrades
+
+By default every node runs migrations at boot (`DATABASE_MIGRATE=true`). With
+several replicas rolling at once that means several nodes racing for the same
+migration lock — safe, but noisy and slower to roll.
+
+For a controlled upgrade, run migrations once and start the nodes with
+migrations off:
+
+```bash
+DATABASE_MIGRATE=false
+```
+
+```bash
+lunogram -migrate
+```
+
+The `-migrate` flag applies every pending migration and exits, which makes it a
+natural Kubernetes `Job` or init step ahead of the rolling update.
+
+Nodes shut down gracefully: a leaving node releases its leader lock and cluster
+registration, so a rolling restart moves leadership rather than pausing
+scheduled work.
+
+## Backups
+
+PostgreSQL holds all durable state. Back up all four databases together and
+restore them to the same point in time — journey state in `journey` references
+users in `subjects` and campaigns in `management`.
+
+Redis and NATS hold transient state: leader locks, rate-limit counters, caches
+and in-flight messages. They do not need backups, but losing NATS mid-flight
+drops messages that had been accepted and not yet processed.
+
+Object storage holds uploaded media and follows its own backup policy.
