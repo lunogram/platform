@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
@@ -14,6 +15,7 @@ import (
 	"github.com/lunogram/platform/internal/ptr"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/rbac"
+	"github.com/lunogram/platform/internal/rbac/access"
 
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
@@ -71,6 +73,8 @@ func TestCreateProject(t *testing.T) {
 
 	admin, err := admins.GetAdmin(ctx, adminID)
 	require.NoError(t, err)
+
+	require.NoError(t, management.NewOrganizationMembersStore(mgmt).AddMember(ctx, orgID, adminID, "owner"))
 
 	actor := rbac.NewActor(rbac.ActorAdmin, adminID.String(),
 		rbac.WithOrganizationID(admin.OrganizationID),
@@ -152,6 +156,8 @@ func TestListProjects(t *testing.T) {
 	admin, err := admins.GetAdmin(ctx, adminID)
 	require.NoError(t, err)
 
+	require.NoError(t, management.NewOrganizationMembersStore(mgmt).AddMember(ctx, orgID, adminID, "owner"))
+
 	projectStore := management.NewProjectsStore(mgmt)
 	for i := 0; i < 3; i++ {
 		projectID, err := projectStore.CreateProject(ctx, management.Project{
@@ -217,6 +223,8 @@ func TestGetProject(t *testing.T) {
 	admin, err := admins.GetAdmin(ctx, adminID)
 	require.NoError(t, err)
 
+	require.NoError(t, management.NewOrganizationMembersStore(mgmt).AddMember(ctx, orgID, adminID, "owner"))
+
 	projectStore := management.NewProjectsStore(mgmt)
 	projectID, err := projectStore.CreateProject(ctx, management.Project{
 		OrganizationID: &orgID,
@@ -273,6 +281,8 @@ func TestUpdateProject(t *testing.T) {
 
 	admin, err := admins.GetAdmin(ctx, adminID)
 	require.NoError(t, err)
+
+	require.NoError(t, management.NewOrganizationMembersStore(mgmt).AddMember(ctx, orgID, adminID, "owner"))
 
 	projectStore := management.NewProjectsStore(mgmt)
 	projectID, err := projectStore.CreateProject(ctx, management.Project{
@@ -528,6 +538,272 @@ func TestCreateProjectRollbackOnPublishFailure(t *testing.T) {
 	require.Equal(t, 0, total, "project should not exist after rollback")
 }
 
+// projectScopeEnv builds two organizations sharing one admin, the shape that
+// makes organization scoping observable.
+type projectScopeEnv struct {
+	controller *ProjectsController
+	engine     *rbac.Engine
+	state      *management.State
+}
+
+func newProjectScopeEnv(t *testing.T) projectScopeEnv {
+	t.Helper()
+
+	mgmt, usrs, jrny := teststore.RunPostgreSQL(t)
+	engine := rbac.NewTestEngine(t)
+
+	return projectScopeEnv{
+		controller: NewProjectsController(zaptest.NewLogger(t), mgmt, usrs, jrny, nil, nil, engine),
+		engine:     engine,
+		state:      management.NewState(mgmt),
+	}
+}
+
+func (env projectScopeEnv) newOrg(t *testing.T, name string) uuid.UUID {
+	t.Helper()
+	orgID, err := env.state.CreateOrganization(context.Background(), name)
+	require.NoError(t, err)
+	return orgID
+}
+
+func (env projectScopeEnv) newProject(t *testing.T, orgID uuid.UUID, name string) uuid.UUID {
+	t.Helper()
+	projectID, err := env.state.CreateProject(context.Background(), management.Project{
+		OrganizationID: &orgID,
+		Name:           name,
+		Timezone:       "UTC",
+		Locale:         "en",
+	})
+	require.NoError(t, err)
+	require.NoError(t, access.ProvisionProject(context.Background(), env.engine, orgID, projectID))
+	return projectID
+}
+
+func (env projectScopeEnv) newAdmin(t *testing.T, homeOrg uuid.UUID, email, role string) uuid.UUID {
+	t.Helper()
+	adminID, err := env.state.CreateAdmin(context.Background(), management.Admin{
+		OrganizationID: homeOrg,
+		Email:          email,
+		Role:           role,
+	})
+	require.NoError(t, err)
+	env.join(t, homeOrg, adminID, role)
+	return adminID
+}
+
+func (env projectScopeEnv) join(t *testing.T, orgID, adminID uuid.UUID, role string) {
+	t.Helper()
+	require.NoError(t, env.state.AddMember(context.Background(), orgID, adminID, role))
+	require.NoError(t, env.engine.WriteTuples(context.Background(),
+		access.OrganizationRoleTuples(adminID, orgID, role)))
+}
+
+func (env projectScopeEnv) request(method string, adminID, activeOrg uuid.UUID) *http.Request {
+	actor := rbac.NewActor(rbac.ActorAdmin, adminID.String(), rbac.WithOrganizationID(activeOrg))
+	return httptest.NewRequest(method, "/", http.NoBody).WithContext(rbac.WithActor(context.Background(), actor))
+}
+
+// TestGetProjectRejectsForeignOrganization: reading used to authorize against
+// the actor's own organization and then load the project by bare id, so any
+// authenticated admin could fetch any project by guessing its uuid. A foreign
+// project must be indistinguishable from one that does not exist.
+func TestGetProjectRejectsForeignOrganization(t *testing.T) {
+	t.Parallel()
+
+	env := newProjectScopeEnv(t)
+	orgA := env.newOrg(t, "Org A")
+	orgB := env.newOrg(t, "Org B")
+	secret := env.newProject(t, orgB, "Org B Secret Project")
+
+	snooper := env.newAdmin(t, orgA, "snooper@example.com", rbac.OrganizationOwner)
+
+	res := httptest.NewRecorder()
+	env.controller.GetProject(res, env.request(http.MethodGet, snooper, orgA), secret)
+	require.Equal(t, http.StatusNotFound, res.Code, res.Body.String())
+
+	// The same id resolves once the actor's session is scoped to org B.
+	env.join(t, orgB, snooper, rbac.OrganizationMember)
+	res = httptest.NewRecorder()
+	env.controller.GetProject(res, env.request(http.MethodGet, snooper, orgB), secret)
+	require.Equal(t, http.StatusOK, res.Code, res.Body.String())
+}
+
+// TestListProjectsScopedToActiveOrganization covers both list defects: projects
+// of other organizations leaked into the active session, and projects reachable
+// only by org→project inheritance were missing entirely.
+func TestListProjectsScopedToActiveOrganization(t *testing.T) {
+	t.Parallel()
+
+	env := newProjectScopeEnv(t)
+	orgA := env.newOrg(t, "Org A")
+	orgB := env.newOrg(t, "Org B")
+
+	explicit := env.newProject(t, orgA, "Explicit Project")
+	inherited := env.newProject(t, orgA, "Inherited Project")
+	foreign := env.newProject(t, orgB, "Foreign Project")
+
+	// An owner of org A who also belongs to org B, and who has an explicit row on
+	// only one of org A's projects.
+	owner := env.newAdmin(t, orgA, "owner@example.com", rbac.OrganizationOwner)
+	env.join(t, orgB, owner, rbac.OrganizationMember)
+	require.NoError(t, env.state.AddAdminToProject(context.Background(), explicit, owner, rbac.ProjectEditor))
+	require.NoError(t, env.state.AddAdminToProject(context.Background(), foreign, owner, rbac.ProjectEditor))
+
+	limit := oapi.PaginationLimit(50)
+	offset := oapi.PaginationOffset(0)
+	params := oapi.ListProjectsParams{Limit: &limit, Offset: &offset}
+
+	res := httptest.NewRecorder()
+	env.controller.ListProjects(res, env.request(http.MethodGet, owner, orgA), params)
+	require.Equal(t, http.StatusOK, res.Code, res.Body.String())
+
+	var list oapi.ProjectList
+	require.NoError(t, json.NewDecoder(res.Body).Decode(&list))
+
+	roles := map[uuid.UUID]string{}
+	for _, p := range list.Results {
+		roles[p.Id] = p.Role
+	}
+
+	require.Len(t, list.Results, 2)
+	require.Equal(t, 2, list.Total)
+	require.Contains(t, roles, explicit)
+	require.Contains(t, roles, inherited, "an org owner must see projects they hold by inheritance")
+	require.NotContains(t, roles, foreign, "another organization's project must not leak into this session")
+
+	// The effective role is reported, not the raw project_admins column: an org
+	// owner is a project admin everywhere in their organization.
+	require.Equal(t, rbac.ProjectAdmin, roles[explicit])
+	require.Equal(t, rbac.ProjectAdmin, roles[inherited])
+
+	// A plain member of org B sees only what they were explicitly granted.
+	member := env.newAdmin(t, orgB, "member@example.com", rbac.OrganizationMember)
+	require.NoError(t, env.state.AddAdminToProject(context.Background(), foreign, member, rbac.ProjectSupport))
+
+	res = httptest.NewRecorder()
+	env.controller.ListProjects(res, env.request(http.MethodGet, member, orgB), params)
+	require.Equal(t, http.StatusOK, res.Code, res.Body.String())
+
+	list = oapi.ProjectList{}
+	require.NoError(t, json.NewDecoder(res.Body).Decode(&list))
+	require.Len(t, list.Results, 1)
+	require.Equal(t, foreign, list.Results[0].Id)
+	require.Equal(t, rbac.ProjectSupport, list.Results[0].Role)
+}
+
+// TestCreateProjectProvisionsCreatorRole: the creator's project_admins row must
+// come with its tuple. It used to work only because the creator inherited
+// project admin from their organization role.
+func TestCreateProjectProvisionsCreatorRole(t *testing.T) {
+	t.Parallel()
+
+	env := newProjectScopeEnv(t)
+	orgID := env.newOrg(t, "Creator Org")
+	creator := env.newAdmin(t, orgID, "creator@example.com", rbac.OrganizationOwner)
+
+	body, err := json.Marshal(oapi.CreateProjectJSONRequestBody{
+		Name: "Fresh Project", Timezone: "UTC", Locale: "en",
+	})
+	require.NoError(t, err)
+
+	req := env.request(http.MethodPost, creator, orgID)
+	req.Body = io.NopCloser(bytes.NewReader(body))
+
+	res := httptest.NewRecorder()
+	env.controller.CreateProject(res, req)
+	require.Equal(t, http.StatusCreated, res.Code, res.Body.String())
+
+	var project oapi.Project
+	require.NoError(t, json.NewDecoder(res.Body).Decode(&project))
+
+	// The organization grant is withdrawn first, so what remains can only be the
+	// direct project tuple: the whole point is that the creator's role no longer
+	// depends on the inheritance path that made its absence invisible.
+	require.NoError(t, env.engine.DeleteTuples(context.Background(),
+		access.OrganizationRoleTuples(creator, orgID, rbac.OrganizationOwner)))
+
+	allowed, err := env.engine.Check(context.Background(), "user:"+creator.String(),
+		rbac.ProjectAdmin, rbac.ProjectScope(project.Id))
+	require.NoError(t, err)
+	require.True(t, allowed, "the creator's explicit project admin role must be provisioned")
+}
+
+// TestBackfillProjectRoleTuples covers the repair path for project_admins rows
+// that were recorded without their RBAC tuple.
+func TestBackfillProjectRoleTuples(t *testing.T) {
+	t.Parallel()
+
+	ctx := t.Context()
+	mgmt, _, _ := teststore.RunPostgreSQL(t)
+	state := management.NewState(mgmt)
+	engine := rbac.NewTestEngine(t)
+
+	orgID, err := state.CreateOrganization(ctx, "Backfill Org")
+	require.NoError(t, err)
+
+	projectID, err := state.CreateProject(ctx, management.Project{
+		OrganizationID: &orgID,
+		Name:           "Backfill Project",
+		Timezone:       "UTC",
+		Locale:         "en",
+	})
+	require.NoError(t, err)
+	require.NoError(t, access.ProvisionProject(ctx, engine, orgID, projectID))
+
+	adminID, err := state.CreateAdmin(ctx, management.Admin{
+		OrganizationID: orgID,
+		Email:          "stranded@example.com",
+		Role:           rbac.OrganizationMember,
+	})
+	require.NoError(t, err)
+
+	// A row without its tuple: the state left behind by project creation before
+	// the role was provisioned.
+	require.NoError(t, state.AddAdminToProject(ctx, projectID, adminID, rbac.ProjectEditor))
+
+	allowed, err := engine.Check(ctx, "user:"+adminID.String(), "read", rbac.ProjectResourceScope("members", projectID))
+	require.NoError(t, err)
+	require.False(t, allowed)
+
+	require.NoError(t, access.BackfillProjectRoleTuples(ctx, zaptest.NewLogger(t), engine, mgmt))
+	// Idempotent: a second run must not fail on the tuples it just wrote.
+	require.NoError(t, access.BackfillProjectRoleTuples(ctx, zaptest.NewLogger(t), engine, mgmt))
+
+	allowed, err = engine.Check(ctx, "user:"+adminID.String(), "read", rbac.ProjectResourceScope("members", projectID))
+	require.NoError(t, err)
+	require.True(t, allowed, "the backfill must restore the recorded project role")
+}
+
+// TestDeleteProjectRevokesMemberRoles: deprovisioning the project removes the
+// project→organization and resource→project tuples but not the per-admin role
+// grants, which would otherwise outlive the project they refer to.
+func TestDeleteProjectRevokesMemberRoles(t *testing.T) {
+	t.Parallel()
+
+	env := newProjectScopeEnv(t)
+	orgID := env.newOrg(t, "Deleting Org")
+	projectID := env.newProject(t, orgID, "Doomed Project")
+
+	owner := env.newAdmin(t, orgID, "owner@example.com", rbac.OrganizationOwner)
+	member := env.newAdmin(t, orgID, "member@example.com", rbac.OrganizationMember)
+	require.NoError(t, env.state.AddAdminToProject(context.Background(), projectID, member, rbac.ProjectEditor))
+	require.NoError(t, access.ProvisionProjectRole(context.Background(), env.engine, member, projectID, rbac.ProjectEditor))
+
+	res := httptest.NewRecorder()
+	env.controller.DeleteProject(res, env.request(http.MethodDelete, owner, orgID), projectID)
+	require.Equal(t, http.StatusNoContent, res.Code, res.Body.String())
+
+	allowed, err := env.engine.Check(context.Background(), "user:"+member.String(), rbac.ProjectEditor, rbac.ProjectScope(projectID))
+	require.NoError(t, err)
+	require.False(t, allowed, "a deleted project must leave no role grants behind")
+
+	// And the roster is retired, so a later organization removal has no stale
+	// grant to replay.
+	roles, err := env.state.ListProjectRolesInOrganization(context.Background(), orgID, member)
+	require.NoError(t, err)
+	require.Empty(t, roles)
+}
+
 // TestProjectsWithAPIKeyActor pins what each projects handler does when the
 // caller is an API key rather than an admin. Both authenticate on the management
 // surface and both carry a UUID in Actor.ID, so a successful uuid.Parse is no
@@ -623,9 +899,9 @@ func TestProjectsWithAPIKeyActor(t *testing.T) {
 				require.NoError(t, json.NewDecoder(res.Body).Decode(&project))
 				require.Empty(t, project.Role)
 
-				_, total, err := projectStore.ListProjectsForAdmin(ctx, keyID, store.Pagination{Limit: 10, Offset: 0}, "")
+				roster, err := projectStore.ListProjectAdminRoles(ctx, project.Id)
 				require.NoError(t, err)
-				require.Equal(t, 0, total, "the key id must never reach project_admins")
+				require.Empty(t, roster, "the key id must never reach project_admins")
 			},
 		},
 		"updating a project omits the personal role": {

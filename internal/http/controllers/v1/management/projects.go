@@ -102,7 +102,10 @@ func (srv *ProjectsController) ListProjects(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	projects, total, err := srv.store.ListProjectsForAdmin(ctx, adminID, pagination, search)
+	// Scoped to the organization that scopes this session: an admin who belongs
+	// to several organizations must not see another organization's projects
+	// listed while this one is active.
+	projects, total, err := srv.store.ListProjectsForAdmin(ctx, actor.OrganizationID, adminID, rbac.OrganizationRolesInheritingProjectAdmin(), pagination, search)
 	if err != nil {
 		logger.Error("failed to list projects", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -111,6 +114,10 @@ func (srv *ProjectsController) ListProjects(w http.ResponseWriter, r *http.Reque
 
 	results := make([]oapi.Project, len(projects))
 	for i, p := range projects {
+		// The raw project_admins role is empty for a project reached purely by
+		// org→project inheritance. Resolve the effective role so the console
+		// gates on what the admin can actually do, not on a missing row.
+		p.Project.Role = rbac.EffectiveProjectRole(p.MembershipRole, p.Project.Role)
 		results[i] = p.OAPI()
 	}
 
@@ -143,7 +150,12 @@ func (srv *ProjectsController) GetProject(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	project, err := srv.store.GetProject(ctx, projectID, adminID)
+	// The permission above was checked against the actor's OWN organization, so
+	// the load must be constrained to it as well. Reading by bare project id
+	// would let any authenticated admin fetch any project by guessing its uuid;
+	// a foreign project is reported as not found, identical to one that does not
+	// exist, so the response does not confirm that the id is real.
+	project, err := srv.store.GetProjectInOrganization(ctx, projectID, actor.OrganizationID, adminID)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("project not found", zap.Stringer("project_id", projectID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("project not found")))
@@ -162,13 +174,12 @@ func (srv *ProjectsController) GetProject(w http.ResponseWriter, r *http.Request
 	// admin has no row). Resolve the effective role so org owners/admins, who
 	// are project admins by inheritance, are not reported as having no role.
 	if adminID != nil {
-		admin, adminErr := srv.store.GetAdmin(ctx, *adminID)
-		if adminErr != nil {
-			logger.Error("failed to load actor for role resolution", zap.Error(adminErr))
-			oapi.WriteProblem(w, adminErr)
+		project.Role, err = resolveProjectRole(ctx, srv.store, actor.OrganizationID, projectID, *adminID)
+		if err != nil {
+			logger.Error("failed to resolve project role", zap.Error(err))
+			oapi.WriteProblem(w, problem.ErrInternal())
 			return
 		}
-		project.Role = effectiveProjectRole(admin.Role, project.Role)
 	}
 
 	logger.Info("project retrieved")
@@ -230,7 +241,7 @@ func (srv *ProjectsController) CreateProject(w http.ResponseWriter, r *http.Requ
 	// Only a human caller takes a seat on the project it just created; an API
 	// key is a backend credential with nobody behind it to grant one to.
 	if adminID != nil {
-		err = projects.AddProjectAdmin(ctx, projectID, *adminID, "admin")
+		err = projects.AddProjectAdmin(ctx, projectID, *adminID, rbac.ProjectAdmin)
 		if err != nil {
 			logger.Error("failed to add admin to project", zap.Error(err))
 			oapi.WriteProblem(w, err)
@@ -315,6 +326,19 @@ func (srv *ProjectsController) CreateProject(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	// The creator's project_admins row needs its matching tuple. Today the
+	// creator also reaches the project by org→project inheritance, so skipping
+	// this appears to work — until they are demoted from organization admin and
+	// silently lose a project they own on paper. Postgres and OpenFGA must agree
+	// about who holds what.
+	if adminID != nil {
+		if err := access.ProvisionProjectRole(ctx, srv.engine, *adminID, projectID, rbac.ProjectAdmin); err != nil {
+			logger.Error("failed to provision RBAC project role for creator", zap.Error(err))
+			oapi.WriteProblem(w, err)
+			return
+		}
+	}
+
 	logger.Info("project created", zap.Stringer("project_id", projectID))
 	project, err := srv.store.GetProject(ctx, projectID, adminID)
 	if err != nil {
@@ -370,6 +394,19 @@ func (srv *ProjectsController) UpdateProject(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	// Update was authorized against the actor's own organization, so the target
+	// must belong to it. Without this the handler mutates any project by uuid.
+	if _, err := srv.store.GetProjectInOrganization(ctx, projectID, actor.OrganizationID, nil); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			logger.Info("project not found")
+			oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("project not found")))
+			return
+		}
+		logger.Error("failed to get project", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	body := oapi.UpdateProjectJSONRequestBody{}
 	err = json.Decode(r.Body, &body)
 	if err != nil {
@@ -418,7 +455,7 @@ func (srv *ProjectsController) DeleteProject(w http.ResponseWriter, r *http.Requ
 	logger := srv.logger.With(zap.Stringer("project_id", projectID))
 	logger.Info("deleting project")
 
-	_, err = srv.store.GetProject(ctx, projectID, nil)
+	_, err = srv.store.GetProjectInOrganization(ctx, projectID, actor.OrganizationID, nil)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("project not found", zap.Stringer("project_id", projectID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("project not found")))
@@ -431,16 +468,75 @@ func (srv *ProjectsController) DeleteProject(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	err = srv.store.DeleteProject(ctx, projectID)
+	// Read the per-admin role grants before the project goes away; afterwards
+	// there is nothing left to enumerate them from. DeprovisionProject only
+	// removes the project→organization and resource→project tuples, so without
+	// this every member keeps a live project:<id>#<role> tuple.
+	projectRoles, err := srv.store.ListProjectAdminRoles(ctx, projectID)
 	if err != nil {
-		logger.Error("failed to delete project", zap.Error(err))
+		logger.Error("failed to list project admin roles", zap.Error(err))
 		oapi.WriteProblem(w, err)
+		return
+	}
+
+	// Tuples out first, rows second — the same revocation ordering the member
+	// endpoints use. This is what makes the failure recoverable: an error here
+	// leaves the project and its roster fully intact, so the request is simply
+	// retried. Were the project deleted first, a tuple failure would strand
+	// grants that nothing left in the database can enumerate.
+	//
+	// These failures are therefore fatal rather than best-effort. It is tempting
+	// to shrug them off because the project is going away, but the shrug is only
+	// safe once the tuples are actually gone; before that it is the difference
+	// between a retryable error and a permanent leak.
+	grants := make([]access.ProjectRoleGrant, len(projectRoles))
+	for i, pr := range projectRoles {
+		grants[i] = access.ProjectRoleGrant{UserID: pr.AdminID, ProjectID: projectID, Role: pr.Role}
+	}
+	if err := access.DeprovisionProjectRoles(ctx, srv.engine, grants); err != nil {
+		logger.Error("failed to revoke project role tuples", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("failed to revoke project roles")))
 		return
 	}
 
 	// Clean up the RBAC tuples that were created by ProvisionProject.
 	if err := access.DeprovisionProject(ctx, srv.engine, actor.OrganizationID, projectID); err != nil {
 		logger.Error("failed to deprovision RBAC tuples for project", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("failed to deprovision project")))
+		return
+	}
+
+	// Both row deletions commit together. Soft-deleting the project on its own
+	// would make a failed roster cleanup unreplayable: the retry's
+	// GetProjectInOrganization no longer sees the project and answers 404,
+	// stranding the membership rows for good.
+	tx, err := srv.managementDB.BeginTxx(ctx, nil)
+	if err != nil {
+		logger.Error("failed to begin transaction", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	defer tx.Rollback() //nolint:errcheck
+
+	txStore := management.NewState(tx)
+
+	if err := txStore.DeleteProject(ctx, projectID); err != nil {
+		logger.Error("failed to delete project", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	if err := txStore.RemoveProjectAdmins(ctx, projectID); err != nil {
+		logger.Error("failed to remove project roster", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	if err := tx.Commit(); err != nil {
+		logger.Error("failed to commit transaction", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
 	}
 
 	logger.Info("project deleted")

@@ -2,6 +2,7 @@ package rbac
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 
@@ -171,6 +172,30 @@ func (e *Engine) Check(ctx context.Context, user, relation, object string) (bool
 	return resp.Allowed, nil
 }
 
+// ProjectRole returns the highest-ranked project role the user holds in the
+// project, or "" when they hold none. It asks the authorization model rather
+// than the database, so it answers for any subject that can hold a project role
+// — an admin, an API key, or an access policy — and it accounts for roles held
+// by inheritance as well as by direct grant.
+//
+// A subject whose only grants are a custom permission set written straight onto
+// resource objects holds no project role and resolves to "". That is the
+// correct answer: such a policy carries specific permissions, not a rank, and
+// therefore sits below every real role in a least-privilege comparison.
+func (e *Engine) ProjectRole(ctx context.Context, user string, projectID uuid.UUID) (string, error) {
+	object := ProjectScope(projectID)
+	for _, role := range projectRolesByRank() {
+		holds, err := e.Check(ctx, user, role, object)
+		if err != nil {
+			return "", err
+		}
+		if holds {
+			return role, nil
+		}
+	}
+	return "", nil
+}
+
 // WriteTuple adds a single relationship tuple.
 func (e *Engine) WriteTuple(ctx context.Context, user, relation, object string) error {
 	_, err := e.server.Write(ctx, &openfgav1.WriteRequest{
@@ -226,6 +251,23 @@ func (e *Engine) DeleteTuple(ctx context.Context, user, relation, object string)
 		return fmt.Errorf("openfga delete failed: %w", err)
 	}
 	return nil
+}
+
+// DeleteTupleIfPresent removes a tuple, treating "the tuple does not exist" as
+// success so revocation is idempotent. Revoking access must never fail because
+// the grant was already gone: the caller's intent — that this access must not
+// exist — is satisfied either way, and erroring would strand the rest of a
+// revocation cascade. Any other failure is returned.
+func (e *Engine) DeleteTupleIfPresent(ctx context.Context, user, relation, object string) error {
+	err := e.DeleteTuple(ctx, user, relation, object)
+	if err == nil {
+		return nil
+	}
+	// OpenFGA reports deleting an absent tuple as write_failed_due_to_invalid_input.
+	if status.Code(errors.Unwrap(err)) == codes.Code(openfgav1.ErrorCode_write_failed_due_to_invalid_input) {
+		return nil
+	}
+	return err
 }
 
 // WriteTuples writes multiple relationship tuples in a single request.
