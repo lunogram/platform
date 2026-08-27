@@ -492,15 +492,35 @@ func (srv *ProjectsController) DeleteProject(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	err = srv.store.DeleteProject(ctx, projectID)
+	// Both row deletions commit together. Soft-deleting the project on its own
+	// would make a failed roster cleanup unreplayable: the retry's
+	// GetProjectInOrganization no longer sees the project and answers 404,
+	// stranding the membership rows for good.
+	tx, err := srv.managementDB.BeginTxx(ctx, nil)
 	if err != nil {
+		logger.Error("failed to begin transaction", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	defer tx.Rollback() //nolint:errcheck
+
+	txStore := management.NewState(tx)
+
+	if err := txStore.DeleteProject(ctx, projectID); err != nil {
 		logger.Error("failed to delete project", zap.Error(err))
 		oapi.WriteProblem(w, err)
 		return
 	}
 
-	if err := srv.store.RemoveProjectAdmins(ctx, projectID); err != nil {
+	if err := txStore.RemoveProjectAdmins(ctx, projectID); err != nil {
 		logger.Error("failed to remove project roster", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	if err := tx.Commit(); err != nil {
+		logger.Error("failed to commit transaction", zap.Error(err))
 		oapi.WriteProblem(w, err)
 		return
 	}
