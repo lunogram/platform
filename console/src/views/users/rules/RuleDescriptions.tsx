@@ -92,7 +92,7 @@ export function ruleDescription(
         if (rule.children?.length) {
             const grouped: GroupedRule[] = []
             for (const child of rule.children) {
-                if (child.type === "wrapper") {
+                if (child.type === "wrapper" || isStepVisitRule(child)) {
                     grouped.push(child)
                     continue
                 }

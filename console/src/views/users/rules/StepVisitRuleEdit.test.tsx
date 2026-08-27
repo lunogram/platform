@@ -51,4 +51,12 @@ describe("StepVisitRuleEdit", () => {
         expect(setRule).toHaveBeenCalledWith(expect.objectContaining({ value: "12" }))
         expect(setRule).not.toHaveBeenCalledWith(expect.objectContaining({ value: "1x" }))
     })
+
+    it("drops the count when the field is cleared", async () => {
+        const setRule = renderRule(createStepVisitRule())
+
+        await userEvent.clear(screen.getByLabelText("Step visit count"))
+
+        expect(setRule).toHaveBeenCalledWith(expect.objectContaining({ value: undefined }))
+    })
 })

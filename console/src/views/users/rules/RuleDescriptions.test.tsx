@@ -45,4 +45,22 @@ describe("step visit descriptions", () => {
 
         expect(describeRule(wrapper)).toBe("this step more than 1 times in this journey run")
     })
+
+    it("keeps step visit rules on the same step apart", () => {
+        const wrapper: Rule = {
+            uuid: createUuid(),
+            path: "",
+            type: "wrapper",
+            group: "parent",
+            operator: "or",
+            children: [
+                { ...createStepVisitRule(), operator: ">", value: "3" },
+                { ...createStepVisitRule(), operator: ">", value: "10", step_scope: "journey" },
+            ],
+        }
+
+        expect(describeRule(wrapper)).toBe(
+            "this step more than 3 times in this journey run, or this step more than 10 times across all runs",
+        )
+    })
 })

@@ -80,9 +80,10 @@ export default function StepVisitRuleEdit({
                         aria-label="Step visit count"
                         className="h-8 w-16 rounded-none border-l-0 text-xs shadow-none"
                         value={rule?.value ?? ""}
-                        onChange={(e) =>
-                            setRule({ ...rule, value: e.target.value.replace(/[^0-9]/g, "") })
-                        }
+                        onChange={(e) => {
+                            const value = e.target.value.replace(/[^0-9]/g, "")
+                            setRule({ ...rule, value: value || undefined })
+                        }}
                     />
                     <span
                         className="h-8 inline-flex items-center px-2 text-xs text-muted-foreground border border-l-0 bg-muted/50"
