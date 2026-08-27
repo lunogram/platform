@@ -461,11 +461,34 @@ func (s *AdminsStore) HardDeleteProjectAdmin(ctx context.Context, projectID, adm
 	return err
 }
 
+// registrationBootstrapLock is the advisory-lock key that serialises the "is
+// this the first admin?" decision. The value is arbitrary and only has to be
+// stable and unique within this database.
+const registrationBootstrapLock int64 = 0x6C756E6F67720001
+
+// LockRegistrationBootstrap serialises the first-admin decision against other
+// registrations.
+//
+// It MUST be called on a transaction-scoped store, and it must be called before
+// [AdminsStore.AdminsExist] in the same transaction as the admin insert.
+// "No admin exists yet" is otherwise a read that two concurrent registrations
+// both pass, and both would then create an owner of their own organization on a
+// deployment meant to admit exactly one.
+//
+// pg_advisory_xact_lock rather than a session lock: it is released by the
+// commit or rollback, so it cannot leak onto a pooled connection.
+func (s *AdminsStore) LockRegistrationBootstrap(ctx context.Context) error {
+	_, err := s.db.ExecContext(ctx, `SELECT pg_advisory_xact_lock($1)`, registrationBootstrapLock)
+	return err
+}
+
 // AdminsExist reports whether this deployment has any admin at all.
 //
 // It is what makes an invite-only deployment bootstrappable: the very first
 // account cannot have been invited by anybody, so registration is open until
-// exactly one admin exists and closed from then on.
+// exactly one admin exists and closed from then on. Callers deciding whether to
+// CREATE that first admin must hold [AdminsStore.LockRegistrationBootstrap] and
+// be inside the transaction that inserts it.
 func (s *AdminsStore) AdminsExist(ctx context.Context) (bool, error) {
 	stmt := `SELECT EXISTS (SELECT 1 FROM admins WHERE deleted_at IS NULL)`
 

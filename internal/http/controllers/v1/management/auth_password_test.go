@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -301,9 +302,16 @@ func TestRegistrationModes(t *testing.T) {
 	})
 }
 
-// Somebody invited before they had an account must land in the organization that
-// invited them, not in one of their own that nobody asked for.
-func TestRegisterWithAPendingInviteJoinsTheInvitingOrganization(t *testing.T) {
+// Registering an invited address must NOT, on its own, get you into the
+// organization that issued the invite.
+//
+// This is the escalation the verification gate exists to stop: invited
+// addresses are corporate and guessable, so if registration alone honoured the
+// invite, anyone who could guess victim@bigcorp.com would be inside BigCorp's
+// organization having never touched that mailbox. Under the default
+// invite_only mode a pending invite is exactly what admits the registration,
+// so this is the DEFAULT path rather than an exotic one.
+func TestRegisteringAnInvitedAddressGrantsNothingUntilItIsVerified(t *testing.T) {
 	t.Parallel()
 	env := newPasswordEnv(t, config.RegistrationInviteOnly)
 	ctx := t.Context()
@@ -323,20 +331,103 @@ func TestRegisterWithAPendingInviteJoinsTheInvitingOrganization(t *testing.T) {
 
 	res := env.register("invitee@example.test", testPassword)
 	require.Equal(t, http.StatusNoContent, res.Code)
-	env.mail.awaitSubject(t, "Confirm your email address")
+	message := env.mail.awaitSubject(t, "Confirm your email address")
 
 	admin := env.adminByEmail("invitee@example.test")
-	assert.Equal(t, env.orgID, admin.OrganizationID, "the invitee joined the inviting organization")
+
+	// Before the mailbox is proved: an organization of their own, and no
+	// membership whatsoever of the inviting one.
+	assert.NotEqual(t, env.orgID, admin.OrganizationID,
+		"an unverified registrant must not land in the inviting organization")
 
 	member, err := env.state.IsMember(ctx, env.orgID, admin.ID)
 	require.NoError(t, err)
-	assert.True(t, member)
+	assert.False(t, member, "an unverified registrant must hold no membership of the inviting organization")
 
-	// The invite stays pending: accepting it is what grants the project role,
-	// and that flow already exists.
+	// Proving the mailbox is what honours the invite.
+	verify := env.post(env.controller.VerifyEmail, map[string]string{"token": tokenFrom(t, message)})
+	require.Equal(t, http.StatusNoContent, verify.Code, verify.Body.String())
+
+	member, err = env.state.IsMember(ctx, env.orgID, admin.ID)
+	require.NoError(t, err)
+	assert.True(t, member, "a verified invitee joins the organization that invited them")
+
+	// The invite itself stays pending: accepting it is what grants the project
+	// role, and that flow already exists.
 	invites, err := env.state.ListInvitesForEmail(ctx, "invitee@example.test")
 	require.NoError(t, err)
 	assert.Len(t, invites, 1)
+}
+
+// Completing a reset proves the same mailbox a confirmation link would, so it
+// honours a pending invite too. Without this an invited admin who never saw
+// their confirmation mail could never be admitted at all.
+func TestCompletingAResetHonoursAPendingInvite(t *testing.T) {
+	t.Parallel()
+	env := newPasswordEnv(t, config.RegistrationInviteOnly)
+	ctx := t.Context()
+
+	inviterID, err := env.state.CreateAdmin(ctx, management.Admin{
+		OrganizationID: env.orgID, Email: "reset-inviter@example.test", Role: "owner",
+	})
+	require.NoError(t, err)
+	projectID, err := env.state.CreateProject(ctx, management.Project{
+		Name: "Reset Project", Timezone: "UTC", Locale: "en", OrganizationID: &env.orgID,
+	})
+	require.NoError(t, err)
+	_, err = env.state.CreateProjectInvite(ctx, projectID, inviterID, "reset-invitee@example.test", nil, "editor", time.Hour)
+	require.NoError(t, err)
+
+	require.Equal(t, http.StatusNoContent, env.register("reset-invitee@example.test", testPassword).Code)
+	env.mail.awaitSubject(t, "Confirm your email address")
+	admin := env.adminByEmail("reset-invitee@example.test")
+
+	member, err := env.state.IsMember(ctx, env.orgID, admin.ID)
+	require.NoError(t, err)
+	require.False(t, member)
+
+	require.Equal(t, http.StatusNoContent,
+		env.post(env.controller.RequestPasswordReset, map[string]string{"email": "reset-invitee@example.test"}).Code)
+	message := env.mail.awaitSubject(t, "Reset your password")
+
+	confirm := env.post(env.controller.ConfirmPasswordReset, map[string]string{
+		"token": tokenFrom(t, message), "password": "a brand new and different passphrase",
+	})
+	require.Equal(t, http.StatusNoContent, confirm.Code, confirm.Body.String())
+
+	member, err = env.state.IsMember(ctx, env.orgID, admin.ID)
+	require.NoError(t, err)
+	assert.True(t, member, "proving the mailbox through a reset honours the invite too")
+}
+
+// Two registrations racing for the bootstrap allowance must not both become
+// owners of their own organizations on a deployment meant to admit one founder.
+func TestConcurrentBootstrapRegistrationsAdmitExactlyOne(t *testing.T) {
+	t.Parallel()
+	env := newPasswordEnv(t, config.RegistrationInviteOnly)
+	ctx := t.Context()
+
+	const racers = 6
+	var (
+		start = make(chan struct{})
+		wg    sync.WaitGroup
+	)
+
+	wg.Add(racers)
+	for i := range racers {
+		go func() {
+			defer wg.Done()
+			<-start
+			env.register(fmt.Sprintf("founder%d@example.test", i), testPassword)
+		}()
+	}
+	close(start)
+	wg.Wait()
+
+	var admins int
+	require.NoError(t, env.db.GetContext(ctx, &admins,
+		`SELECT count(*) FROM admins WHERE deleted_at IS NULL`))
+	assert.Equal(t, 1, admins, "exactly one registration may claim the first account")
 }
 
 func TestPasswordLogin(t *testing.T) {

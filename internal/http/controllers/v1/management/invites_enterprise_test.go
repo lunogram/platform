@@ -60,14 +60,33 @@ func newInviteTestEnv(t *testing.T) inviteTestEnv {
 	}
 }
 
-// newAdmin creates an admin in the env's org and returns its id together with a
-// constructor for requests whose context carries that admin as the RBAC actor.
+// newAdmin creates an admin whose address has been proved, in the env's org, and
+// returns its id together with a constructor for requests whose context carries
+// that admin as the RBAC actor.
 func (env inviteTestEnv) newAdmin(t *testing.T, email string) (uuid.UUID, func() *http.Request) {
+	t.Helper()
+	return env.newAdminWithVerifiedEmail(t, email, true)
+}
+
+// newAdminWithVerifiedEmail creates an admin holding one identity, which either
+// proves their address or does not. Invite handling turns on that distinction,
+// so it has to be expressible.
+func (env inviteTestEnv) newAdminWithVerifiedEmail(t *testing.T, email string, verified bool) (uuid.UUID, func() *http.Request) {
 	t.Helper()
 	adminID, err := env.mgmt.CreateAdmin(context.Background(), management.Admin{
 		OrganizationID: env.orgID,
 		Email:          email,
 		Role:           "member",
+	})
+	require.NoError(t, err)
+
+	_, err = env.mgmt.CreateAdminIdentity(context.Background(), management.AdminIdentity{
+		AdminID:       adminID,
+		Provider:      management.IdentityProviderClerk,
+		Issuer:        "https://idp.test",
+		Subject:       "user_" + adminID.String(),
+		Email:         &email,
+		EmailVerified: verified,
 	})
 	require.NoError(t, err)
 
@@ -91,6 +110,56 @@ func (env inviteTestEnv) forceExpire(t *testing.T, inviteID uuid.UUID) {
 	_, err := env.controller.db.ExecContext(context.Background(),
 		`UPDATE project_invites SET expires_at = NOW() - INTERVAL '1 minute' WHERE id = $1`, inviteID)
 	require.NoError(t, err)
+}
+
+// An invite is addressed to a mailbox, so accepting one has to mean the account
+// holds that mailbox.
+//
+// Matching admins.email against the invite used to be sufficient because every
+// driver authenticated through an upstream that had already verified the
+// address. Local passwords broke that assumption: the address on an account is
+// whatever was typed into a registration form. Without this check, registering
+// a guessed victim@example.com is enough to take the project role their invite
+// grants.
+func TestAcceptProjectInviteRequiresAVerifiedEmail(t *testing.T) {
+	t.Parallel()
+
+	env := newInviteTestEnv(t)
+	inviterID, _ := env.newAdmin(t, "inviter@example.com")
+	inviteeID, newReq := env.newAdminWithVerifiedEmail(t, "invitee@example.com", false)
+
+	invite := env.createInvite(t, inviterID, "invitee@example.com", "editor", time.Hour)
+
+	res := httptest.NewRecorder()
+	env.controller.AcceptProjectInvite(res, newReq(), invite.ID)
+	require.Equal(t, http.StatusForbidden, res.Code, res.Body.String())
+
+	admin, err := env.mgmt.GetProjectAdmin(context.Background(), env.projectID, inviteeID)
+	require.Error(t, err, "an unverified admin must not have been added to the project")
+	require.Nil(t, admin)
+
+	stored, err := env.mgmt.GetInviteByID(context.Background(), invite.ID)
+	require.NoError(t, err)
+	assert.Nil(t, stored.AcceptedAt, "the invite must still be pending")
+}
+
+// The same reasoning applies to merely SEEING an invite: who invited you and to
+// which project is the invited mailbox's business, not that of whoever managed
+// to register the address.
+func TestListMyInvitesWithholdsFromUnverifiedAddresses(t *testing.T) {
+	t.Parallel()
+
+	env := newInviteTestEnv(t)
+	inviterID, _ := env.newAdmin(t, "lister-inviter@example.com")
+	_, newReq := env.newAdminWithVerifiedEmail(t, "lister-invitee@example.com", false)
+
+	env.createInvite(t, inviterID, "lister-invitee@example.com", "editor", time.Hour)
+
+	res := httptest.NewRecorder()
+	env.controller.ListMyInvites(res, newReq())
+	require.Equal(t, http.StatusOK, res.Code, res.Body.String())
+	assert.NotContains(t, res.Body.String(), "lister-inviter@example.com",
+		"an unverified address must not be shown a stranger's invite")
 }
 
 func TestAcceptProjectInvite(t *testing.T) {

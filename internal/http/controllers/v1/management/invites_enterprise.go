@@ -227,6 +227,23 @@ func (srv *InviteController) ListMyInvites(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	// An invite is addressed to a mailbox, and its contents -- who invited you,
+	// to which project -- are only theirs to see. Local registration lets
+	// anybody claim an address by typing it, so an account that has not proved
+	// the address is shown nothing rather than handed a stranger's invites.
+	verified, err := srv.mgmt.AdminEmailVerified(ctx, adminID)
+	if err != nil {
+		srv.logger.Error("failed to check whether the admin's address is verified", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+	if !verified {
+		srv.logger.Info("withholding invites from an admin whose address is unverified",
+			zap.String("admin_id", adminID.String()))
+		json.Write(w, http.StatusOK, myInvitesResponse{Results: []oapi.ProjectInvite{}})
+		return
+	}
+
 	invites, err := srv.mgmt.ListInvitesForEmail(ctx, admin.Email)
 	if err != nil {
 		srv.logger.Error("failed to list invites for email", zap.Error(err))
@@ -277,11 +294,29 @@ func (srv *InviteController) AcceptProjectInvite(w http.ResponseWriter, r *http.
 		return
 	}
 
-	// The invite is bound to an email; only the admin who owns that (verified)
-	// email may accept it.
+	// The invite is bound to an email; only the admin who owns that email may
+	// accept it.
 	if !strings.EqualFold(admin.Email, invite.InviteeEmail) {
 		logger.Debug("admin email does not match invitee email", zap.String("invitee_email", invite.InviteeEmail))
 		oapi.WriteProblem(w, problem.ErrForbidden(problem.Describe("this invite was not sent to your account")))
+		return
+	}
+
+	// Carrying the address is not the same as owning it. This check used to be
+	// implicit -- every driver authenticated through an upstream that had
+	// verified the address for us -- but local passwords let anybody register an
+	// address by typing it, and an invited corporate address is easy to guess.
+	// Without this, registering victim@example.com is enough to accept their
+	// invite and take the project role it grants.
+	verified, err := srv.mgmt.AdminEmailVerified(ctx, adminID)
+	if err != nil {
+		logger.Error("failed to check whether the admin's address is verified", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+	if !verified {
+		logger.Info("refusing an invite acceptance from an admin whose address is unverified")
+		oapi.WriteProblem(w, problem.ErrForbidden(problem.Describe("confirm your email address before accepting an invite")))
 		return
 	}
 

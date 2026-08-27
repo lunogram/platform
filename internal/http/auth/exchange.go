@@ -112,23 +112,32 @@ func (DefaultOrgResolver) Resolve(ctx context.Context, tx *management.State, _ *
 	return organizationID, rbac.OrganizationOwner, nil
 }
 
-// InviteOrgResolver puts an admin whose address was already invited into the
-// organization that invited them, and falls back to [DefaultOrgResolver] for
+// InviteOrgResolver puts an admin whose PROVED address was already invited into
+// the organization that invited them, and falls back to [DefaultOrgResolver] for
 // everybody else.
 //
-// Without it, being invited and then signing up produces an organization of
-// your own that nobody asked for, and the invite you were sent points somewhere
-// you are not a member of. The invite itself is left pending: accepting it is
-// what grants the project role, and that flow already exists -- this only
-// decides where the account lands.
+// Without it, being invited and then signing up produces an organization of your
+// own that nobody asked for, and the invite you were sent points somewhere you
+// are not a member of. The invite itself is left pending: accepting it is what
+// grants the project role, and that flow already exists -- this only decides
+// where the account lands.
 //
-// The lookup runs on the address the credential carries, verified or not, which
-// is safe because it grants nothing: base membership of an organization that
-// deliberately invited this address, with the project role still gated behind
-// the existing accept flow.
+// EmailVerified is load-bearing, and this is the whole reason the check is here
+// rather than deeper in. An invite is addressed to a MAILBOX, so it may only
+// ever confer membership on somebody who has shown they hold that mailbox.
+// Without the gate, local registration -- where the address is whatever the
+// caller typed -- becomes a way into any organization whose invited addresses
+// can be guessed, and corporate addresses are eminently guessable. An
+// unverified registrant therefore gets an organization of their own; when they
+// later prove the address, [Exchanger.AdmitInvitee] grants the membership they
+// were actually invited to.
 type InviteOrgResolver struct{}
 
 func (InviteOrgResolver) Resolve(ctx context.Context, tx *management.State, identity *VerifiedIdentity) (uuid.UUID, string, error) {
+	if !identity.EmailVerified {
+		return DefaultOrgResolver{}.Resolve(ctx, tx, identity)
+	}
+
 	organizationID, err := tx.GetPendingInviteOrganization(ctx, identity.Email)
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
@@ -138,6 +147,63 @@ func (InviteOrgResolver) Resolve(ctx context.Context, tx *management.State, iden
 	}
 
 	return organizationID, rbac.OrganizationMember, nil
+}
+
+// ErrAlreadyMember reports that an admin already belongs to the organization a
+// pending invite names, so there is nothing to grant.
+var ErrAlreadyMember = errors.New("auth: the admin is already a member of the inviting organization")
+
+// AdmitInvitee grants an admin the organization membership their pending invite
+// implies, now that their address has been PROVED.
+//
+// It is the other half of [InviteOrgResolver]. Somebody who registers locally
+// cannot be admitted at sign-up, because at that moment the address is only a
+// claim; this runs the instant the claim becomes proof -- when a confirmation
+// link is followed, or when a password reset delivered to that same mailbox is
+// completed -- so an invited person still lands where the inviter intended, just
+// after proving they are the invited person.
+//
+// Membership is only ever ADDED, never changed: an admin who already belongs to
+// the organization keeps whatever role they hold, so an invite can never
+// demote an owner to a member. Tuples are written strictly after the commit, by
+// [access.ProvisionMembership].
+func (e *Exchanger) AdmitInvitee(ctx context.Context, adminID uuid.UUID, email string) error {
+	if email == "" {
+		return ErrAlreadyMember
+	}
+
+	var membership access.Membership
+
+	_, err := access.ProvisionMembership(ctx, e.db, e.engine,
+		func(ctx context.Context, tx *management.State) (uuid.UUID, access.Membership, error) {
+			organizationID, err := tx.GetPendingInviteOrganization(ctx, email)
+			if err != nil {
+				return uuid.Nil, access.Membership{}, err
+			}
+
+			// Re-checked inside the transaction rather than before it: the
+			// membership upsert that follows would otherwise overwrite the role
+			// of somebody who is already in this organization.
+			member, err := tx.IsMember(ctx, organizationID, adminID)
+			if err != nil {
+				return uuid.Nil, access.Membership{}, err
+			}
+			if member {
+				return uuid.Nil, access.Membership{}, ErrAlreadyMember
+			}
+
+			membership = access.Membership{OrganizationID: organizationID, Role: rbac.OrganizationMember}
+			return adminID, membership, nil
+		})
+	if err != nil {
+		return err
+	}
+
+	e.logger.Info("admitted an invited admin once their address was verified",
+		zap.String("admin_id", adminID.String()),
+		zap.String("organization_id", membership.OrganizationID.String()))
+
+	return nil
 }
 
 // ExchangeResult is a freshly minted console session.
@@ -345,7 +411,7 @@ func (e *Exchanger) resolve(ctx context.Context, identity *VerifiedIdentity) (*r
 		return nil, problem.ErrForbidden(problem.Describe("impersonation cannot create an account"))
 	}
 
-	return e.provision(ctx, identity, nil)
+	return e.provision(ctx, identity, Provisioning{})
 }
 
 // adoptLegacyIdentity claims a backfilled external_id row for the upstream that
@@ -445,6 +511,26 @@ func (e *Exchanger) linkByEmail(ctx context.Context, identity *VerifiedIdentity)
 // are created in the same statement pair, inside one transaction.
 type LocalCredential func(adminID uuid.UUID) (subject string, secretHash string, err error)
 
+// Provisioning carries the parts of creating an admin that only the caller can
+// supply. A login supplies neither and passes the zero value.
+type Provisioning struct {
+	// Credential supplies a local identity's subject and secret hash. Nil for a
+	// federated identity, whose subject its upstream already minted and whose
+	// secret is not ours to hold.
+	Credential LocalCredential
+
+	// Admit is a last check, run inside the provisioning transaction and before
+	// anything is written, that decides whether this admin may be created at
+	// all. Returning an error rolls the whole thing back.
+	//
+	// It exists because "may this account be created?" and "create it" have to
+	// be one atomic decision. Answered when the request arrived, a rule like
+	// "the first admin of an empty deployment may register" is a read two
+	// concurrent registrations both pass; answered here, under a lock the
+	// transaction holds, only one of them can win.
+	Admit func(ctx context.Context, tx *management.State) error
+}
+
 // ProvisionAdmin creates an admin, the organization the [OrgResolver] picks for
 // them and their first identity, then grants membership.
 //
@@ -458,22 +544,22 @@ type LocalCredential func(adminID uuid.UUID) (subject string, secretHash string,
 // The organization, admin and identity all commit together or not at all, and
 // the RBAC tuples are written strictly after that commit -- see
 // [access.ProvisionMembership].
-func (e *Exchanger) ProvisionAdmin(ctx context.Context, identity *VerifiedIdentity, credential LocalCredential) (adminID uuid.UUID, identityID uuid.UUID, err error) {
-	resolved, err := e.provision(ctx, identity, credential)
+func (e *Exchanger) ProvisionAdmin(ctx context.Context, identity *VerifiedIdentity, provisioning Provisioning) (adminID uuid.UUID, identityID uuid.UUID, err error) {
+	resolved, err := e.provision(ctx, identity, provisioning)
 	if err != nil {
 		return uuid.Nil, uuid.Nil, err
 	}
 	return resolved.adminID, resolved.identityID, nil
 }
 
-func (e *Exchanger) provision(ctx context.Context, identity *VerifiedIdentity, credential LocalCredential) (*resolvedIdentity, error) {
+func (e *Exchanger) provision(ctx context.Context, identity *VerifiedIdentity, provisioning Provisioning) (*resolvedIdentity, error) {
 	if identity.Email == "" {
 		return nil, problem.ErrBadRequest(problem.Describe("the identity provider supplied no email address"))
 	}
 	if identity.Issuer == "" {
 		return nil, problem.ErrUnauthorized(problem.Describe("credential carries no identity"))
 	}
-	if identity.Subject == "" && credential == nil {
+	if identity.Subject == "" && provisioning.Credential == nil {
 		return nil, problem.ErrUnauthorized(problem.Describe("credential carries no identity"))
 	}
 
@@ -496,6 +582,14 @@ func (e *Exchanger) provision(ctx context.Context, identity *VerifiedIdentity, c
 
 	adminID, err := access.ProvisionMembership(ctx, e.db, e.engine,
 		func(ctx context.Context, tx *management.State) (uuid.UUID, access.Membership, error) {
+			// Runs before a single row is written, so a refusal costs nothing
+			// and leaves nothing behind.
+			if provisioning.Admit != nil {
+				if err := provisioning.Admit(ctx, tx); err != nil {
+					return uuid.Nil, access.Membership{}, err
+				}
+			}
+
 			organizationID, role, err := e.orgs.Resolve(ctx, tx, identity)
 			if err != nil {
 				return uuid.Nil, access.Membership{}, err
@@ -523,8 +617,8 @@ func (e *Exchanger) provision(ctx context.Context, identity *VerifiedIdentity, c
 				EmailVerified: identity.EmailVerified,
 			}
 
-			if credential != nil {
-				subject, secretHash, err := credential(adminID)
+			if provisioning.Credential != nil {
+				subject, secretHash, err := provisioning.Credential(adminID)
 				if err != nil {
 					return uuid.Nil, access.Membership{}, err
 				}

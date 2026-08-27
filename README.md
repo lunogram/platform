@@ -93,6 +93,13 @@ public sign-up, `disabled` to provision admins some other way, and the default
 `invite_only`, which admits addresses holding a pending invite plus the very
 first account (nobody could have invited that one).
 
+> **Claim the first account before exposing a new deployment.** Until one admin
+> exists, `invite_only` has to admit somebody or the instance could never be set
+> up — so on a fresh install that is already reachable from the internet, the
+> first person to register becomes its owner, whoever they are. Register before
+> you open the port, or start with `AUTH_PASSWORD_REGISTRATION=disabled` and
+> switch it on once you hold the account.
+
 Account confirmation and password resets are sent by email. With no `MAIL_HOST`
 configured the platform writes each message — link included — to its log instead
 of delivering it, so you can create, confirm and recover an account without

@@ -188,11 +188,20 @@ func (c *AuthController) register(ctx context.Context, email, hash string, body 
 		LastName:      trimmedName(body.LastName),
 	}
 
-	adminID, _, err := c.exchanger.ProvisionAdmin(ctx, identity,
+	adminID, _, err := c.exchanger.ProvisionAdmin(ctx, identity, auth.Provisioning{
 		// The subject of a local identity is the admin's own id, which does not
 		// exist until the transaction has created them.
-		func(adminID uuid.UUID) (string, string, error) { return adminID.String(), hash, nil })
+		Credential: func(adminID uuid.UUID) (string, string, error) { return adminID.String(), hash, nil },
+		// Re-asked inside the transaction that does the writing. The check
+		// above is the fast path and the place the reason gets logged; this is
+		// the one that decides, because only it is atomic with the insert.
+		Admit: c.admitRegistration(email),
+	})
 	if err != nil {
+		if errors.Is(err, errRegistrationClosed) {
+			logger.Info("registration refused: another registration claimed the first account first")
+			return
+		}
 		// A conflict here means the address was registered between the lookup
 		// above and this write. It is still a 204 to the caller; there is simply
 		// nothing further to do.
@@ -204,8 +213,17 @@ func (c *AuthController) register(ctx context.Context, email, hash string, body 
 	c.sendVerification(ctx, adminID, email)
 }
 
+// errRegistrationClosed aborts a provisioning transaction whose admission check
+// said no. It never reaches the caller: registration answers 204 either way.
+var errRegistrationClosed = errors.New("registration is not open to this address")
+
 // registrationAllowed answers whether this deployment will create an account for
 // an address.
+//
+// This is the fast path, and the place the reason is logged. It is NOT the
+// decision: [AuthController.admitRegistration] re-asks the same question inside
+// the transaction that creates the admin, which is the only place the answer
+// can be atomic with the write.
 //
 // invite_only additionally admits the very first account: nobody could have
 // invited it, and a deployment whose safe default made it impossible to create
@@ -232,6 +250,43 @@ func (c *AuthController) registrationAllowed(ctx context.Context, email string) 
 	}
 
 	return true, nil
+}
+
+// admitRegistration re-decides, inside the provisioning transaction, whether an
+// address may have an account created for it.
+//
+// The bootstrap allowance is what forces this to be transactional. "No admin
+// exists yet, so this one may register" is a read that two simultaneous
+// registrations both pass, and a deployment meant to admit exactly one founder
+// would get two, each owning an organization. The advisory lock is held by the
+// transaction, so the loser sees the winner's admin and is refused.
+func (c *AuthController) admitRegistration(email string) func(context.Context, *management.State) error {
+	return func(ctx context.Context, tx *management.State) error {
+		if c.password.registration == config.RegistrationOpen {
+			return nil
+		}
+
+		if err := tx.LockRegistrationBootstrap(ctx); err != nil {
+			return err
+		}
+
+		exists, err := tx.AdminsExist(ctx)
+		if err != nil {
+			return err
+		}
+		if !exists {
+			return nil
+		}
+
+		if _, err := tx.GetPendingInviteOrganization(ctx, email); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return errRegistrationClosed
+			}
+			return err
+		}
+
+		return nil
+	}
 }
 
 // VerifyEmail redeems a confirmation token.
@@ -265,6 +320,8 @@ func (c *AuthController) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	c.logger.Info("confirmed an email address", zap.String("admin_id", adminID.String()))
+	c.admitInvitee(ctx, adminID)
+
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -410,9 +467,14 @@ func (c *AuthController) ConfirmPasswordReset(w http.ResponseWriter, r *http.Req
 	// the confirmation flow proves. An account that reset its password through
 	// its inbox has therefore verified its address, and without this an admin
 	// who lost their confirmation mail would have no way to ever confirm.
+	//
+	// It is also the moment a pending invite may finally be honoured, for the
+	// same reason: the address stopped being a claim and became proof.
 	if !identity.EmailVerified {
 		if err := c.mgmt.MarkAdminIdentityEmailVerified(ctx, identity.ID); err != nil {
 			c.logger.Error("failed to record a verified address after a reset", zap.Error(err))
+		} else {
+			c.admitInvitee(ctx, adminID)
 		}
 	}
 
@@ -572,6 +634,31 @@ func (c *AuthController) markVerified(ctx context.Context, adminID uuid.UUID) er
 		return err
 	}
 	return c.mgmt.MarkAdminIdentityEmailVerified(ctx, identity.ID)
+}
+
+// admitInvitee grants the organization membership a pending invite implies, now
+// that the admin has proved the address it was sent to.
+//
+// It runs after the address is confirmed, never before: until then the address
+// is only what somebody typed into a registration form, and honouring an invite
+// on it would let anyone who can guess an invited address walk into that
+// organization. Failure is logged and dropped -- the confirmation itself
+// succeeded, and the invite stays pending for the ordinary accept flow.
+func (c *AuthController) admitInvitee(ctx context.Context, adminID uuid.UUID) {
+	admin, err := c.mgmt.GetAdmin(ctx, adminID)
+	if err != nil {
+		c.logger.Error("failed to load an admin to honour their invite", zap.Error(err))
+		return
+	}
+
+	err = c.exchanger.AdmitInvitee(ctx, adminID, admin.Email)
+	switch {
+	case err == nil, errors.Is(err, auth.ErrAlreadyMember), errors.Is(err, sql.ErrNoRows):
+		// Nothing pending, or nothing to add. Both are ordinary.
+	default:
+		c.logger.Error("failed to honour a pending invite after verification",
+			zap.String("admin_id", adminID.String()), zap.Error(err))
+	}
 }
 
 // invalidateResetTokens burns the reset links outstanding for an admin. A link
