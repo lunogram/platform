@@ -21,6 +21,11 @@ const (
 	InboxStatusArchived = "archived"
 )
 
+// InboxStatusFailed is a list-filter selector, not a stored status: delivery
+// outcome is a separate axis from read state, so a failed message still holds
+// one of the statuses above. It routes onto InboxListFilter.OnlyFailed.
+const InboxStatusFailed = "failed"
+
 // InboxClassStandard is the default class; InboxClassCompliance marks a message
 // that must reach the recipient regardless of suppression state (an opt-out
 // confirmation is itself a compliance message).
@@ -96,6 +101,8 @@ func (m *InboxMessage) OAPI() oapi.InboxMessage {
 		ReadAt:           m.ReadAt,
 		ArchivedAt:       m.ArchivedAt,
 		SentAt:           m.SentAt,
+		FailedAt:         m.FailedAt,
+		FailureReason:    m.FailureReason,
 		CreatedAt:        m.CreatedAt,
 		UpdatedAt:        m.UpdatedAt,
 	}
@@ -165,6 +172,22 @@ type InboxListFilter struct {
 	// audit trail for why nothing was delivered - while the end user must not
 	// be shown a message that never reached them.
 	ExcludeFailed bool
+	// OnlyFailed is the opposite pole of the same delivery axis, narrowing the
+	// list to terminally failed messages so an operator can audit suppressions
+	// without paging the whole inbox. Setting it together with ExcludeFailed
+	// selects nothing.
+	OnlyFailed bool
+}
+
+// WithStatus applies an API status selector, routing the failed selector onto
+// the delivery axis and leaving Status for the read-state axis.
+func (f InboxListFilter) WithStatus(status string) InboxListFilter {
+	if status == InboxStatusFailed {
+		f.OnlyFailed = true
+		return f
+	}
+	f.Status = status
+	return f
 }
 
 type InboxCounts struct {
@@ -371,8 +394,9 @@ func (s *InboxStore) ListUserInboxMessages(ctx context.Context, projectID, userI
 		OR (content->>'subject') ILIKE '%' || $11 || '%'
 	)
 	AND (NOT $12::bool OR failed_at IS NULL)
+	AND (NOT $13::bool OR failed_at IS NOT NULL)
 	ORDER BY scheduled_at DESC, created_at DESC
-	LIMIT $13 OFFSET $14`
+	LIMIT $14 OFFSET $15`
 
 	return s.listInboxMessages(ctx, stmt, projectID, userID, pagination, filter)
 }
@@ -409,8 +433,9 @@ func (s *InboxStore) ListOrganizationInboxMessages(ctx context.Context, projectI
 		OR (content->>'subject') ILIKE '%' || $11 || '%'
 	)
 	AND (NOT $12::bool OR failed_at IS NULL)
+	AND (NOT $13::bool OR failed_at IS NOT NULL)
 	ORDER BY scheduled_at DESC, created_at DESC
-	LIMIT $13 OFFSET $14`
+	LIMIT $14 OFFSET $15`
 
 	return s.listInboxMessages(ctx, stmt, projectID, organizationID, pagination, filter)
 }
@@ -457,6 +482,7 @@ func (s *InboxStore) listInboxMessages(ctx context.Context, stmt string, project
 		priority,
 		search,
 		filter.ExcludeFailed,
+		filter.OnlyFailed,
 		pagination.Limit,
 		pagination.Offset,
 	)

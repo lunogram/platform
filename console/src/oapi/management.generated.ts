@@ -4019,6 +4019,13 @@ export interface components {
             archived_at?: string | null;
             /** Format: date-time */
             sent_at?: string | null;
+            /**
+             * Format: date-time
+             * @description When the message was permanently settled as failed. Mutually exclusive with sent_at.
+             */
+            failed_at?: string | null;
+            /** @description Why the message will never be delivered, set alongside failed_at. Carries one of the canonical reasons recipient_opted_out, invalid_recipient, sender_unregistered, rate_limited or unknown. Left unconstrained so a newly classified reason does not require a breaking schema change; treat an unrecognised value as unknown. */
+            failure_reason?: string | null;
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
@@ -5215,6 +5222,11 @@ export interface components {
              * @example 0
              */
             sent?: number;
+            /**
+             * @description Number of messages that terminally will not be delivered, such as a suppressed recipient or a permanent provider rejection
+             * @example 0
+             */
+            failed?: number;
             /** @description Error message if the broadcast failed */
             error?: string;
             /**
@@ -7433,7 +7445,8 @@ export interface operations {
     getUserInboxMessages: {
         parameters: {
             query?: {
-                status?: "unread" | "read" | "archived";
+                /** @description Filters by read state, or by delivery outcome when set to failed. Selecting failed returns messages that were terminally settled without being delivered, such as a recipient suppressed by an opt-out, regardless of their read state. */
+                status?: "unread" | "read" | "archived" | "failed";
                 /** @description Comma-separated tag filter. All listed tags must be present. */
                 tags?: string;
                 message_source?: string;
@@ -8197,7 +8210,8 @@ export interface operations {
     getOrganizationInboxMessages: {
         parameters: {
             query?: {
-                status?: "unread" | "read" | "archived";
+                /** @description Filters by read state, or by delivery outcome when set to failed. Selecting failed returns messages that were terminally settled without being delivered, such as a recipient suppressed by an opt-out, regardless of their read state. */
+                status?: "unread" | "read" | "archived" | "failed";
                 /** @description Comma-separated tag filter. All listed tags must be present. */
                 tags?: string;
                 message_source?: string;
@@ -10390,6 +10404,8 @@ export interface operations {
                             state?: string;
                             /** Format: date-time */
                             sent_at?: string;
+                            /** @description Why the recipient was not reached, set only when state is failed. Distinguishes a suppressed recipient (recipient_opted_out) from a genuine delivery failure such as invalid_recipient. Left unconstrained for the same reason as InboxMessage.failure_reason. */
+                            failure_reason?: string | null;
                             full_name?: string;
                             email?: string;
                             phone?: string;
