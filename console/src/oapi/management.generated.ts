@@ -44,6 +44,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * End the current console session
+         * @description Revokes the caller's console session server-side and clears the session cookies. The session is revoked rather than merely forgotten, so a copy of the token cannot keep authenticating.
+         */
+        post: operations["logout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Extend the current console session
+         * @description Extends the idle window of the caller's own session and reissues the session cookie. Answers 401 when the session is gone (revoked or expired), and 403 when it is alive but cannot be extended -- an impersonated session is recorded non-refreshable by construction.
+         */
+        post: operations["refreshSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/{driver}/webhook": {
         parameters: {
             query?: never;
@@ -3563,8 +3603,6 @@ export interface components {
              * @example 7c1e3c5a-2b4d-4e8f-9a1b-3c5d7e9f1a2b
              */
             organization_id: string;
-            /** @example user_2abc123def */
-            external_id?: string;
             /**
              * Format: email
              * @example admin@example.com
@@ -4019,6 +4057,13 @@ export interface components {
             archived_at?: string | null;
             /** Format: date-time */
             sent_at?: string | null;
+            /**
+             * Format: date-time
+             * @description When the message was permanently settled as failed. Mutually exclusive with sent_at.
+             */
+            failed_at?: string | null;
+            /** @description Why the message will never be delivered, set alongside failed_at. Carries one of the canonical reasons recipient_opted_out, invalid_recipient, sender_unregistered, rate_limited or unknown. Left unconstrained so a newly classified reason does not require a breaking schema change; treat an unrecognised value as unknown. */
+            failure_reason?: string | null;
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
@@ -5215,6 +5260,11 @@ export interface components {
              * @example 0
              */
             sent?: number;
+            /**
+             * @description Number of messages that terminally will not be delivered, such as a suppressed recipient or a permanent provider rejection
+             * @example 0
+             */
+            failed?: number;
             /** @description Error message if the broadcast failed */
             error?: string;
             /**
@@ -5261,6 +5311,14 @@ export interface components {
              * @example true
              */
             is_active: boolean;
+        };
+        SessionRefresh: {
+            /**
+             * Format: date-time
+             * @description When the refreshed session expires if it is not used again
+             * @example 2025-11-19T14:18:42.960Z
+             */
+            expires_at: string;
         };
         SetActiveOrganization: {
             /**
@@ -5571,6 +5629,46 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    logout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Session ended */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    refreshSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Session refreshed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionRefresh"];
+                };
             };
             default: components["responses"]["Error"];
         };
@@ -7433,7 +7531,8 @@ export interface operations {
     getUserInboxMessages: {
         parameters: {
             query?: {
-                status?: "unread" | "read" | "archived";
+                /** @description Filters by read state, or by delivery outcome when set to failed. Selecting failed returns messages that were terminally settled without being delivered, such as a recipient suppressed by an opt-out, regardless of their read state. */
+                status?: "unread" | "read" | "archived" | "failed";
                 /** @description Comma-separated tag filter. All listed tags must be present. */
                 tags?: string;
                 message_source?: string;
@@ -8197,7 +8296,8 @@ export interface operations {
     getOrganizationInboxMessages: {
         parameters: {
             query?: {
-                status?: "unread" | "read" | "archived";
+                /** @description Filters by read state, or by delivery outcome when set to failed. Selecting failed returns messages that were terminally settled without being delivered, such as a recipient suppressed by an opt-out, regardless of their read state. */
+                status?: "unread" | "read" | "archived" | "failed";
                 /** @description Comma-separated tag filter. All listed tags must be present. */
                 tags?: string;
                 message_source?: string;
@@ -10390,6 +10490,8 @@ export interface operations {
                             state?: string;
                             /** Format: date-time */
                             sent_at?: string;
+                            /** @description Why the recipient was not reached, set only when state is failed. Distinguishes a suppressed recipient (recipient_opted_out) from a genuine delivery failure such as invalid_recipient. Left unconstrained for the same reason as InboxMessage.failure_reason. */
+                            failure_reason?: string | null;
                             full_name?: string;
                             email?: string;
                             phone?: string;

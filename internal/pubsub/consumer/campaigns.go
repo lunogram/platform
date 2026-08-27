@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/lunogram/platform/internal/compliance"
 	"github.com/lunogram/platform/internal/ptr"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
@@ -76,7 +77,13 @@ func CampaignsSendHandler(logger *zap.Logger, db *sqlx.DB, mgmt *management.Stat
 		}
 
 		for _, item := range rendered {
-			message, err := createCampaignInboxMessageAndPublish(ctx, db, pub, logger, event, item)
+			recipientTimezone := inboxRecipientTimezone(modules.Channel(item.Channel), compliance.RecipientTimezoneInput{
+				UserTimezone:    ptr.From(user.Timezone),
+				Phone:           ptr.From(user.Phone),
+				ProjectTimezone: project.Timezone,
+			})
+
+			message, err := createCampaignInboxMessageAndPublish(ctx, db, pub, logger, event, item, recipientTimezone)
 			if errors.Is(err, sql.ErrNoRows) {
 				logger.Info("campaign inbox message already exists")
 				continue
@@ -112,7 +119,7 @@ func CampaignsSendHandler(logger *zap.Logger, db *sqlx.DB, mgmt *management.Stat
 // (subject, title, body, html, ...) lives in Content; provenance
 // (template_id, campaign_id, broadcast_id, journey_*) lives in Data so future
 // audits do not have to re-derive it from the external_id key.
-func createCampaignInboxMessageAndPublish(ctx context.Context, db *sqlx.DB, pub pubsub.Publisher, logger *zap.Logger, event schemas.SendCampaign, item renderedCampaignInboxMessage) (*subjects.InboxMessage, error) {
+func createCampaignInboxMessageAndPublish(ctx context.Context, db *sqlx.DB, pub pubsub.Publisher, logger *zap.Logger, event schemas.SendCampaign, item renderedCampaignInboxMessage, recipientTimezone *string) (*subjects.InboxMessage, error) {
 	providerPart := "multi"
 	if item.SenderIdentityID != nil {
 		providerPart = item.SenderIdentityID.String()
@@ -149,16 +156,17 @@ func createCampaignInboxMessageAndPublish(ctx context.Context, db *sqlx.DB, pub 
 	}
 
 	params := subjects.InboxMessageParams{
-		ExternalID:       &externalID,
-		Channel:          modules.Channel(item.Channel),
-		SenderIdentityID: item.SenderIdentityID,
-		CampaignID:       &event.CampaignID,
-		BroadcastID:      event.BroadcastID,
-		Content:          item.RenderedPayload,
-		Data:             data,
-		Tags:             tags,
-		Priority:         ptr.To(int16(3)),
-		Source:           &source,
+		ExternalID:        &externalID,
+		Channel:           modules.Channel(item.Channel),
+		SenderIdentityID:  item.SenderIdentityID,
+		CampaignID:        &event.CampaignID,
+		BroadcastID:       event.BroadcastID,
+		Content:           item.RenderedPayload,
+		Data:              data,
+		Tags:              tags,
+		Priority:          ptr.To(int16(3)),
+		Source:            &source,
+		RecipientTimezone: recipientTimezone,
 	}
 
 	tx, err := db.BeginTxx(ctx, nil)

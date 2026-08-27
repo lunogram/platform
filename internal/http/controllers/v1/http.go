@@ -41,8 +41,9 @@ import (
 var staticFiles embed.FS
 
 // NewServer constructs a unified HTTP server combining both management and client
-// API endpoints. Management endpoints use JWT+API Key auth, while client endpoints
-// use API Key only authentication.
+// API endpoints. Management endpoints authenticate with a Lunogram console
+// session or an API key; client endpoints use API keys, client sessions, or a
+// trusted issuer.
 func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *store.Connections, storageDriver storage.Storage, jet jetstream.JetStream, pub pubsub.Publisher, req pubsub.Caller, registry *providers.Registry, actionRegistry *actions.Registry, rbacEngine *rbac.Engine, limiter *ratelimit.Limiter, jwksCache *jwks.Cache, rdb *goredis.Client) (*http.Server, error) {
 	mgmtStores := management.NewState(db.Management, management.WithRedis(rdb, cfg.Redis.KeyPrefix))
 	usersStore := subjects.NewState(db.Subjects, logger)
@@ -61,13 +62,27 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *st
 	// Create URL resolver for public document URLs
 	urlResolver := storage.NewURLResolver(cfg.Storage.BaseURL)
 
+	// Console session signer (ES256). Its key is separate from the client
+	// session signer's, so a console token and a client token are separated by
+	// cryptography rather than by claim shape.
+	consoleSigner, err := auth.NewConsoleSigner(cfg.Auth.Console)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build console session signer: %w", err)
+	}
+	if cfg.Auth.Driver != "" && consoleSigner == nil {
+		// Fail hard rather than generating a key: an ephemeral key logs every
+		// admin out on restart and breaks a multi-replica deployment silently,
+		// since replicas cannot verify each other's tokens.
+		return nil, auth.ErrConsoleSigningKeyMissing
+	}
+
 	// Create management controller
-	mgmtController, err := managementv1.NewController(logger, db.Management, db.Subjects, db.Journey, cfg, storageDriver, urlResolver, pub, req, jet, registry, actionRegistry, rbacEngine, rdb)
+	mgmtController, err := managementv1.NewController(logger, db.Management, db.Subjects, db.Journey, cfg, storageDriver, urlResolver, pub, req, jet, registry, actionRegistry, rbacEngine, rdb, consoleSigner)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create management controller: %w", err)
 	}
 
-	// Session signer (ES256). Nil when no signing key is configured, which
+	// Client session signer (ES256). Nil when no signing key is configured, which
 	// disables session minting and verification.
 	sessionSigner, err := auth.NewSessionSigner(cfg.Auth.SessionSigningKey, cfg.Auth.SessionIssuer)
 	if err != nil {
@@ -86,7 +101,10 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *st
 	// Serve unified API documentation with both specs
 	router.Use(apiDocsMiddleware())
 
-	// Mount management routes with JWT+API Key auth
+	// Mount management routes with console-session + API-key auth. The legacy
+	// upgrade runs OUTSIDE the OpenAPI validator because it needs the
+	// ResponseWriter to set the console cookie, which the AuthenticationFunc
+	// signature does not provide.
 	mgmtoapi.HandlerWithOptions(mgmtController, mgmtoapi.ChiServerOptions{
 		BaseRouter: router,
 		// The generated wrapper applies these middlewares by wrapping forward
@@ -99,10 +117,19 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *st
 			http.RateLimit(limiter, cfg.RateLimit.PerMinute, time.Minute, cfg.RateLimit.TrustedProxyHops, mgmtoapi.WriteProblem),
 			mgmtoapi.Validator(mgmtSpec, openapi3filter.Options{
 				AuthenticationFunc: auth.Middleware(
-					auth.WithJWT(cfg.Auth, mgmtStores),
+					auth.WithAdminSession(mgmtStores, consoleSigner, cfg.PublicBaseURL(), logger),
 					auth.WithKey(mgmtStores, auth.SurfaceManagement),
 				),
 			}),
+			// Listed last so it is the OUTERMOST middleware and runs FIRST: a
+			// legacy cookie has to become a console session before the validator
+			// authenticates the request.
+			mgmtoapi.MiddlewareFunc(auth.UpgradeLegacySession(
+				mgmtController.AuthController.Verifier(),
+				mgmtController.AuthController.Exchanger(),
+				consoleSigner,
+				logger,
+			)),
 		},
 	})
 

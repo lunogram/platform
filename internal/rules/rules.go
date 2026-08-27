@@ -45,6 +45,19 @@ const (
 	RuleGroupOrganizationUser  RuleGroup = "organization_user"
 	RuleGroupOrganizationEvent RuleGroup = "organization_event"
 	RuleGroupJourney           RuleGroup = "journey"
+	RuleGroupJourneyStep       RuleGroup = "journey_step"
+)
+
+// StepScope defines which journey runs a journey_step rule counts visits over.
+type StepScope string
+
+const (
+	// StepScopeEntry counts visits made during the user's current run through
+	// the journey.
+	StepScopeEntry StepScope = "entry"
+	// StepScopeJourney counts visits across every run the user made through the
+	// journey.
+	StepScopeJourney StepScope = "journey"
 )
 
 // Operator defines logical and comparison operators
@@ -204,10 +217,22 @@ type Rule struct {
 	ParentUUID *uuid.UUID `json:"parent_uuid,omitempty"`
 	// UserMatch defines how to match users for organization event rules
 	UserMatch *UserMatch `json:"user_match,omitempty"`
+	// StepScope selects which journey runs a journey_step rule counts visits
+	// over. It is ignored by every other group.
+	StepScope *StepScope `json:"step_scope,omitempty"`
 }
 
 func (r Rule) IsWrapper() bool {
 	return r.Type == RuleTypeWrapper
+}
+
+// Scope returns the scope a journey_step rule counts visits over, defaulting to
+// the current journey run.
+func (r Rule) Scope() StepScope {
+	if r.StepScope != nil && *r.StepScope == StepScopeJourney {
+		return StepScopeJourney
+	}
+	return StepScopeEntry
 }
 
 func (r Rule) UserEvents() (result []string) {
@@ -313,6 +338,20 @@ func (r Rule) DependsOnOrganizationUsers() bool {
 	return false
 }
 
+func (r Rule) DependsOnJourneySteps() bool {
+	if r.Group == RuleGroupJourneyStep {
+		return true
+	}
+
+	for _, child := range r.Children {
+		if child.DependsOnJourneySteps() {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (r Rule) DependsOnJourney() bool {
 	if r.Group == RuleGroupJourney {
 		return true
@@ -403,16 +442,12 @@ func (r *Rule) IsRoot() bool {
 	return r.ParentUUID == nil
 }
 
-// Local returns the subset of rules that are evaluated in-memory against
-// journey data. Returns nil when no such rules exist.
-func (rs RuleSet) Local() *RuleSet {
-	if !rs.Rule.IsWrapper() || !rs.Rule.HasChildren() {
-		return nil
-	}
-
+// partition returns the subset of top level rules for which keep reports true,
+// preserving the root wrapper. Returns nil when no child qualifies.
+func (rs RuleSet) partition(keep func(Rule) bool) *RuleSet {
 	var children []Rule
 	for _, child := range rs.Children {
-		if child.Group == RuleGroupJourney {
+		if keep(child) {
 			children = append(children, child)
 		}
 	}
@@ -430,6 +465,30 @@ func (rs RuleSet) Local() *RuleSet {
 	return &RuleSet{Rule: r}
 }
 
+// Local returns the subset of rules that are evaluated in-memory against
+// journey data. Returns nil when no such rules exist.
+func (rs RuleSet) Local() *RuleSet {
+	if !rs.Rule.IsWrapper() || !rs.Rule.HasChildren() {
+		return nil
+	}
+
+	return rs.partition(func(child Rule) bool {
+		return child.Group == RuleGroupJourney
+	})
+}
+
+// StepVisits returns the subset of rules that compare how often a user reached
+// a journey step. Returns nil when no such rules exist.
+func (rs RuleSet) StepVisits() *RuleSet {
+	if !rs.Rule.IsWrapper() || !rs.Rule.HasChildren() {
+		return nil
+	}
+
+	return rs.partition(func(child Rule) bool {
+		return child.Group == RuleGroupJourneyStep
+	})
+}
+
 // Historical returns the subset of rules that are evaluated via SQL against
 // the database. Returns nil when no such rules exist. If the root rule is not
 // a wrapper or has no children, the entire RuleSet is returned.
@@ -438,22 +497,7 @@ func (rs RuleSet) Historical() *RuleSet {
 		return &rs
 	}
 
-	var children []Rule
-	for _, child := range rs.Children {
-		if child.Group != RuleGroupJourney {
-			children = append(children, child)
-		}
-	}
-
-	if len(children) == 0 {
-		return nil
-	}
-
-	if len(children) == len(rs.Children) {
-		return &rs
-	}
-
-	r := rs.Rule
-	r.Children = children
-	return &RuleSet{Rule: r}
+	return rs.partition(func(child Rule) bool {
+		return child.Group != RuleGroupJourney && child.Group != RuleGroupJourneyStep
+	})
 }

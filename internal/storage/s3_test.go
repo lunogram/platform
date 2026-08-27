@@ -38,7 +38,7 @@ func TestS3StorageWrite(t *testing.T) {
 	content := []byte("fake jpeg for S3")
 	reader := bytes.NewReader(content)
 
-	err = storage.Write(ctx, key, reader)
+	err = storage.Write(ctx, key, reader, "image/jpeg")
 	require.NoError(t, err)
 }
 
@@ -66,7 +66,7 @@ func TestS3StorageRead(t *testing.T) {
 	content := []byte("fake png for reading")
 	reader := bytes.NewReader(content)
 
-	err = storage.Write(ctx, key, reader)
+	err = storage.Write(ctx, key, reader, "image/png")
 	require.NoError(t, err)
 
 	readCloser, err := storage.Read(ctx, key)
@@ -128,7 +128,7 @@ func TestS3StorageDelete(t *testing.T) {
 	content := []byte("fake gif for deletion")
 	reader := bytes.NewReader(content)
 
-	err = storage.Write(ctx, key, reader)
+	err = storage.Write(ctx, key, reader, "image/gif")
 	require.NoError(t, err)
 
 	err = storage.Delete(ctx, key)
@@ -184,20 +184,21 @@ func TestS3StorageMultipleFiles(t *testing.T) {
 	require.NoError(t, err)
 
 	files := []struct {
-		id      uuid.UUID
-		ext     string
-		key     string
-		content []byte
+		id          uuid.UUID
+		ext         string
+		key         string
+		contentType string
+		content     []byte
 	}{
-		{uuid.New(), ".jpg", "", []byte("jpeg data")},
-		{uuid.New(), ".png", "", []byte("png data")},
-		{uuid.New(), ".mp4", "", []byte("video data")},
+		{uuid.New(), ".jpg", "", "image/jpeg", []byte("jpeg data")},
+		{uuid.New(), ".png", "", "image/png", []byte("png data")},
+		{uuid.New(), ".mp4", "", "video/mp4", []byte("video data")},
 	}
 
 	for i := range files {
 		files[i].key = fmt.Sprintf("%s%s", files[i].id, files[i].ext)
 		reader := bytes.NewReader(files[i].content)
-		err := storage.Write(ctx, files[i].key, reader)
+		err := storage.Write(ctx, files[i].key, reader, files[i].contentType)
 		require.NoError(t, err)
 	}
 
@@ -219,4 +220,37 @@ func TestS3StorageMultipleFiles(t *testing.T) {
 		_, err = storage.Read(ctx, f.key)
 		require.Error(t, err)
 	}
+}
+
+func TestS3StorageWriteRecordsContentType(t *testing.T) {
+	endpoint := container.RunLocalStack(t)
+	ctx := context.Background()
+
+	storage, err := NewS3Storage(S3Config{
+		Bucket:    "test-bucket",
+		Region:    "us-east-1",
+		Endpoint:  endpoint,
+		AccessKey: "test",
+		SecretKey: "test",
+	})
+	require.NoError(t, err)
+
+	// Create bucket
+	_, err = storage.client.CreateBucket(ctx, &s3.CreateBucketInput{
+		Bucket: aws.String("test-bucket"),
+	})
+	require.NoError(t, err)
+
+	id := uuid.New()
+	key := fmt.Sprintf("%s.png", id)
+
+	err = storage.Write(ctx, key, bytes.NewReader([]byte("png data")), "image/png")
+	require.NoError(t, err)
+
+	head, err := storage.client.HeadObject(ctx, &s3.HeadObjectInput{
+		Bucket: aws.String("test-bucket"),
+		Key:    aws.String(key),
+	})
+	require.NoError(t, err)
+	require.Equal(t, "image/png", aws.ToString(head.ContentType))
 }

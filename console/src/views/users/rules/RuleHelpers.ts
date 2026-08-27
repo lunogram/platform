@@ -9,10 +9,12 @@ import type {
     Rule,
     RuleGroup,
     RuleType,
+    StepScope,
+    StepVisitRule,
     VariableSuggestions,
     WrapperRule,
 } from "../../../types"
-import type { VariableGroup } from "@/views/journey/JourneyVariableContext"
+import type { JourneyStepOption, VariableGroup } from "@/views/journey/JourneyVariableContext"
 import { createUuid } from "../../../utils"
 
 export interface GroupedRule extends Omit<Rule, "value"> {
@@ -28,6 +30,10 @@ export const isEventWrapper = (rule: Rule): rule is EventRule => {
 
 export const isOrganizationEventWrapper = (rule: Rule): rule is OrganizationEventRule => {
     return rule?.group === "organization_event" && (rule?.path === ".name" || rule?.path === "name")
+}
+
+export const isStepVisitRule = (rule: Rule): rule is StepVisitRule => {
+    return rule?.group === "journey_step"
 }
 
 export const isOrganizationWrapper = (rule: Rule): rule is OrganizationRule => {
@@ -64,6 +70,26 @@ export const createInitialMemberCondition = (wrapperRule: WrapperRule): Rule => 
     value: "",
     operator: "=",
 })
+
+export const createStepVisitRule = (parent?: Rule): StepVisitRule => {
+    const base: StepVisitRule = {
+        uuid: createUuid(),
+        path: "",
+        type: "number",
+        group: "journey_step",
+        operator: ">",
+        value: "1",
+        step_scope: "entry",
+    }
+    if (parent) {
+        return {
+            ...base,
+            root_uuid: parent.root_uuid ?? parent.uuid,
+            parent_uuid: parent.uuid,
+        }
+    }
+    return base
+}
 
 export const createEventRule = (parent?: Rule, value = ""): EventRule => {
     const base: EventRule = {
@@ -247,6 +273,20 @@ export const operatorTypes: Record<RuleType, OperatorOption[]> = {
     ],
 }
 
+export const stepVisitOperators: OperatorOption[] = [
+    { key: ">", label: "more than" },
+    { key: ">=", label: "at least" },
+    { key: "<", label: "fewer than" },
+    { key: "<=", label: "at most" },
+    { key: "=", label: "exactly" },
+    { key: "!=", label: "not exactly" },
+]
+
+export const stepVisitScopes: Array<{ key: StepScope; label: string }> = [
+    { key: "entry", label: "in this journey run" },
+    { key: "journey", label: "across all runs" },
+]
+
 export const frequencyOperators: OperatorOption[] = [
     { key: "=", label: "Exactly" },
     { key: "<", label: "Less than" },
@@ -295,4 +335,6 @@ export interface RuleEditProps<T extends Rule = Rule> {
     userOnly?: boolean
     journeyContext?: boolean
     journeyVariables?: VariableGroup[]
+    journeySteps?: JourneyStepOption[]
+    currentStepId?: string
 }

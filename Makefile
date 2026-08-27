@@ -11,6 +11,7 @@ TINYGO			?= $(shell which tinygo)
 NODE			?= $(shell which node)
 PNPM			?= $(shell which pnpm)
 PKGS			= $(or $(PKG),$(shell env $(GO) list ./...))
+ENTERPRISE_PKGS	= $(or $(PKG),$(shell env $(GO) list -tags enterprise ./...))
 VERSION			?= $(shell git describe --tags --always --match=v*)
 SHORT_COMMIT	?= $(shell git rev-parse --short HEAD)
 
@@ -84,6 +85,10 @@ lint: | $(EMBEDDED) $(GOLANGCI_LINT) $(BUF) ; $(info $(M) running linters…) @ 
 .PHONY: test
 test: | $(EMBEDDED) ; $(info $(M) running tests) @ ## Run all tests
 	$Q $(GO) test $(PKGS) -timeout 600s -race -p 8
+
+.PHONY: test-enterprise
+test-enterprise: | $(EMBEDDED) ; $(info $(M) running enterprise tests) @ ## Run all tests with the enterprise build tag
+	$Q $(GO) test -tags enterprise $(ENTERPRISE_PKGS) -timeout 600s -race -p 8
 
 .PHONY: test-short
 test-short: | $(EMBEDDED) ; $(info $(M) running short tests) @ ## Run all short tests

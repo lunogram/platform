@@ -81,6 +81,12 @@ NATS_URL=nats://localhost:4222
 AUTH_DRIVER=basic
 AUTH_BASIC_EMAIL=admin@localhost
 AUTH_BASIC_PASSWORD=admin
+
+# Signs the console session token. Required whenever AUTH_DRIVER is set; the
+# server refuses to start without it rather than generating a throwaway key,
+# which would log everyone out on each restart. Generate one with:
+#   openssl ecparam -name prime256v1 -genkey -noout
+AUTH_CONSOLE_SIGNING_KEY="$(openssl ecparam -name prime256v1 -genkey -noout)"
 ```
 
 ## How to Contribute

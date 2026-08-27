@@ -12,8 +12,10 @@ import (
 	"github.com/lunogram/platform/internal/rbac"
 
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
+	"github.com/lunogram/platform/internal/rbac/access"
 	"github.com/lunogram/platform/internal/store/management"
 	teststore "github.com/lunogram/platform/internal/store/test"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
@@ -29,7 +31,7 @@ func TestGetProfileWithInternalAdmin(t *testing.T) {
 	orgID, err := orgsStore.CreateOrganization(ctx, "Test Org")
 	require.NoError(t, err)
 
-	adminsStore := management.NewAdminsStore(mgmt)
+	adminsStore := management.NewState(mgmt)
 	adminID, err := adminsStore.CreateAdmin(ctx, management.Admin{
 		OrganizationID: orgID,
 		Email:          "admin@example.com",
@@ -49,67 +51,6 @@ func TestGetProfileWithInternalAdmin(t *testing.T) {
 				rbac.WithOrganizationID(orgID),
 			),
 			orgRole: "member",
-			code:    200,
-		},
-	}
-
-	for name, tt := range tests {
-		t.Run(name, func(t *testing.T) {
-			engine, actorCtx := rbac.TestSetup(t, ctx, tt.actor, tt.orgRole, "")
-			admins := NewAdminsController(logger, mgmt, engine)
-
-			res := httptest.NewRecorder()
-			req := httptest.NewRequest("GET", "/api/admin/profile", nil)
-
-			req = req.WithContext(actorCtx)
-
-			admins.GetProfile(res, req)
-
-			require.Equal(t, tt.code, res.Code, res.Body.String())
-		})
-	}
-}
-
-func TestGetProfileWithExternalAdmin(t *testing.T) {
-	t.Parallel()
-
-	logger := zaptest.NewLogger(t)
-	ctx := t.Context()
-	mgmt, _, _ := teststore.RunPostgreSQL(t)
-
-	orgsStore := management.NewOrganizationsStore(mgmt)
-	orgID, err := orgsStore.CreateOrganization(ctx, "Test Org")
-	require.NoError(t, err)
-
-	externalID := "user_2abc123def"
-	adminsStore := management.NewAdminsStore(mgmt)
-	adminID, err := adminsStore.CreateAdmin(ctx, management.Admin{
-		OrganizationID: orgID,
-		ExternalID:     &externalID,
-		Email:          "external@example.com",
-		Role:           "owner",
-	})
-	require.NoError(t, err)
-
-	type test struct {
-		actor   *rbac.Actor
-		orgRole string
-		code    int
-	}
-
-	tests := map[string]test{
-		"success with external ID": {
-			actor: rbac.NewActor(rbac.ActorAdmin, externalID,
-				rbac.WithOrganizationID(orgID),
-			),
-			orgRole: "owner",
-			code:    200,
-		},
-		"fallback to UUID when external ID not found": {
-			actor: rbac.NewActor(rbac.ActorAdmin, adminID.String(),
-				rbac.WithOrganizationID(orgID),
-			),
-			orgRole: "owner",
 			code:    200,
 		},
 	}
@@ -165,9 +106,32 @@ func TestGetProfileErrors(t *testing.T) {
 			},
 			code: 404,
 		},
-		"invalid UUID format": {
+		// The actor type, not the shape of its id, is what says "this is an
+		// admin". An API-key actor's id parses as a UUID too, so a bare
+		// uuid.Parse used to let one through into admin-only handlers.
+		"api key actor": {
 			setup: func(t *testing.T, ctx context.Context) (*rbac.Engine, context.Context) {
-				actor := &rbac.Actor{ID: "not-a-valid-uuid"}
+				actor := rbac.NewActor(rbac.ActorAPIKey, uuid.New().String(),
+					rbac.WithOrganizationID(uuid.New()),
+				)
+				return rbac.NewTestEngine(t), rbac.WithActor(ctx, actor)
+			},
+			code: 403,
+		},
+		"end user actor": {
+			setup: func(t *testing.T, ctx context.Context) (*rbac.Engine, context.Context) {
+				actor := rbac.NewActor(rbac.ActorEndUser, uuid.New().String(),
+					rbac.WithOrganizationID(uuid.New()),
+				)
+				return rbac.NewTestEngine(t), rbac.WithActor(ctx, actor)
+			},
+			code: 403,
+		},
+		"admin actor whose id is not a UUID": {
+			// Unreachable through the middleware, which parses `sub` as a UUID
+			// before it builds the actor. Kept as defence in depth.
+			setup: func(t *testing.T, ctx context.Context) (*rbac.Engine, context.Context) {
+				actor := &rbac.Actor{Type: rbac.ActorAdmin, ID: "not-a-valid-uuid"}
 				return rbac.NewTestEngine(t), rbac.WithActor(ctx, actor)
 			},
 			code: 401,
@@ -344,7 +308,7 @@ func TestListProjectAdmins(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	admins := management.NewAdminsStore(mgmt)
+	admins := management.NewState(mgmt)
 
 	emails := []string{"admin1@example.com", "admin2@example.com", "admin3@example.com"}
 	for _, email := range emails {
@@ -445,7 +409,7 @@ func TestGetProjectAdmin(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	admins := management.NewAdminsStore(mgmt)
+	admins := management.NewState(mgmt)
 	admin := management.Admin{
 		OrganizationID: orgID,
 		Email:          "admin@example.com",
@@ -521,7 +485,7 @@ func TestUpdateProjectAdmin(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	admins := management.NewAdminsStore(mgmt)
+	admins := management.NewState(mgmt)
 	admin := management.Admin{
 		OrganizationID: orgID,
 		Email:          "admin@example.com",
@@ -603,7 +567,7 @@ func TestDeleteProjectAdmin(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	admins := management.NewAdminsStore(mgmt)
+	admins := management.NewState(mgmt)
 	admin := management.Admin{
 		OrganizationID: orgID,
 		Email:          "admin@example.com",
@@ -632,4 +596,141 @@ func TestDeleteProjectAdmin(t *testing.T) {
 
 	_, err = admins.GetProjectAdmin(ctx, projectID, adminID)
 	require.ErrorIs(t, err, sql.ErrNoRows)
+}
+
+// createAdminRequest posts the given email and role to CreateAdmin as the
+// organization owner in actorCtx, and returns the recorded response.
+func createAdminRequest(t *testing.T, controller *AdminsController, actorCtx context.Context, email string, role oapi.OrganizationRole) *httptest.ResponseRecorder {
+	t.Helper()
+
+	body, err := json.Marshal(oapi.CreateAdmin{Email: email, Role: role})
+	require.NoError(t, err)
+
+	res := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/admin/admins", bytes.NewReader(body))
+	controller.CreateAdmin(res, req.WithContext(actorCtx))
+	return res
+}
+
+// heldOrganizationRoles returns the organization roles the admin holds as
+// directly assigned tuples. The role hierarchy makes engine.Check useless here:
+// an owner tuple satisfies a member check, so only reading the stored tuples
+// back shows which roles are really present.
+func heldOrganizationRoles(t *testing.T, engine *rbac.Engine, adminID, orgID uuid.UUID) []string {
+	t.Helper()
+
+	var held []string
+	for _, role := range access.OrganizationRoles() {
+		present, err := engine.HasTuple(t.Context(), "user:"+adminID.String(), role, rbac.OrganizationScope(orgID))
+		require.NoError(t, err)
+		if present {
+			held = append(held, role)
+		}
+	}
+	return held
+}
+
+func TestCreateAdminIsIdempotentForAnUnchangedRole(t *testing.T) {
+	t.Parallel()
+
+	logger := zaptest.NewLogger(t)
+	ctx := t.Context()
+	mgmt, _, _ := teststore.RunPostgreSQL(t)
+	state := management.NewState(mgmt)
+
+	orgID, err := state.CreateOrganization(ctx, "Test Org")
+	require.NoError(t, err)
+
+	callerID, err := state.CreateAdmin(ctx, management.Admin{
+		OrganizationID: orgID,
+		Email:          "owner@example.com",
+		Role:           rbac.OrganizationOwner,
+	})
+	require.NoError(t, err)
+	require.NoError(t, state.AddMember(ctx, orgID, callerID, rbac.OrganizationOwner))
+
+	// The invitee is already a registered admin, so CreateAdmin takes the
+	// "email already belongs to a registered admin" branch and only grants an
+	// organization membership.
+	inviteeID, err := state.CreateAdmin(ctx, management.Admin{
+		OrganizationID: orgID,
+		Email:          "invitee@example.com",
+		Role:           rbac.OrganizationMember,
+	})
+	require.NoError(t, err)
+
+	actor := rbac.NewActor(rbac.ActorAdmin, callerID.String(), rbac.WithOrganizationID(orgID))
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, rbac.OrganizationOwner, "")
+	controller := NewAdminsController(logger, mgmt, engine)
+
+	res := createAdminRequest(t, controller, actorCtx, "invitee@example.com", oapi.OrganizationRoleMember)
+	require.Equal(t, 201, res.Code, res.Body.String())
+
+	// Granting the same membership again must succeed. The membership upsert is
+	// idempotent, so before the tuple write became idempotent too this failed on
+	// OpenFGA's "cannot write a tuple which already exists" and returned a 500
+	// even though the database half had committed.
+	res = createAdminRequest(t, controller, actorCtx, "invitee@example.com", oapi.OrganizationRoleMember)
+	require.Equal(t, 201, res.Code, res.Body.String())
+
+	member, err := state.GetMember(ctx, orgID, inviteeID)
+	require.NoError(t, err)
+	assert.Equal(t, rbac.OrganizationMember, member.Role)
+
+	assert.Equal(t, []string{rbac.OrganizationMember}, heldOrganizationRoles(t, engine, inviteeID, orgID))
+}
+
+func TestCreateAdminReplacesTheTupleOfASupersededRole(t *testing.T) {
+	t.Parallel()
+
+	logger := zaptest.NewLogger(t)
+	ctx := t.Context()
+	mgmt, _, _ := teststore.RunPostgreSQL(t)
+	state := management.NewState(mgmt)
+
+	orgID, err := state.CreateOrganization(ctx, "Test Org")
+	require.NoError(t, err)
+
+	callerID, err := state.CreateAdmin(ctx, management.Admin{
+		OrganizationID: orgID,
+		Email:          "owner@example.com",
+		Role:           rbac.OrganizationOwner,
+	})
+	require.NoError(t, err)
+	require.NoError(t, state.AddMember(ctx, orgID, callerID, rbac.OrganizationOwner))
+
+	inviteeID, err := state.CreateAdmin(ctx, management.Admin{
+		OrganizationID: orgID,
+		Email:          "invitee@example.com",
+		Role:           rbac.OrganizationMember,
+	})
+	require.NoError(t, err)
+
+	actor := rbac.NewActor(rbac.ActorAdmin, callerID.String(), rbac.WithOrganizationID(orgID))
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, rbac.OrganizationOwner, "")
+	controller := NewAdminsController(logger, mgmt, engine)
+
+	res := createAdminRequest(t, controller, actorCtx, "invitee@example.com", oapi.OrganizationRoleOwner)
+	require.Equal(t, 201, res.Code, res.Body.String())
+
+	// AddMember updates the role column in place, so the demotion has to take the
+	// owner tuple with it; leaving it behind would keep the admin an owner in
+	// OpenFGA while the database says member.
+	res = createAdminRequest(t, controller, actorCtx, "invitee@example.com", oapi.OrganizationRoleMember)
+	require.Equal(t, 201, res.Code, res.Body.String())
+
+	member, err := state.GetMember(ctx, orgID, inviteeID)
+	require.NoError(t, err)
+	assert.Equal(t, rbac.OrganizationMember, member.Role)
+
+	assert.Equal(t, []string{rbac.OrganizationMember}, heldOrganizationRoles(t, engine, inviteeID, orgID))
+
+	scope := rbac.OrganizationScope(orgID)
+	allowed, err := engine.Check(ctx, "user:"+inviteeID.String(), string(rbac.Delete), scope)
+	require.NoError(t, err)
+	assert.False(t, allowed, "a demoted owner must lose owner-only permissions")
+
+	allowed, err = engine.Check(ctx, "user:"+inviteeID.String(), string(rbac.Read), scope)
+	require.NoError(t, err)
+	assert.True(t, allowed, "the admin is still a member and can read the organization")
 }

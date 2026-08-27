@@ -30,6 +30,10 @@ const (
 	EventInboxMessageUnarchived  = "inbox.message.unarchived"
 	EventInboxMessageUnread      = "inbox.message.unread"
 	EventInboxMessageSent        = "inbox.message.sent"
+	// EventInboxMessageFailed is the terminal counterpart of
+	// EventInboxMessageSent: the message will never be delivered and nothing
+	// further will happen to it.
+	EventInboxMessageFailed = "inbox.message.failed"
 
 	EventProjectCreated = "project.created"
 
@@ -406,6 +410,12 @@ func UserInboxSent(projectID uuid.UUID) Subject {
 	return Subject(fmt.Sprintf("users.inbox.sent.%s", projectID))
 }
 
+// UserInboxFailed returns the NATS subject for user inbox "failed" terminal
+// events, emitted when a message will never be delivered.
+func UserInboxFailed(projectID uuid.UUID) Subject {
+	return Subject(fmt.Sprintf("users.inbox.failed.%s", projectID))
+}
+
 // UserInboxDispatch returns the NATS subject for per-provider push inbox
 // dispatch fan-out (user scope).
 func UserInboxDispatch(projectID uuid.UUID) Subject {
@@ -473,6 +483,12 @@ func OrganizationInboxArchived(projectID uuid.UUID) Subject {
 // "sent" completion events, emitted after all providers have been dispatched.
 func OrganizationInboxSent(projectID uuid.UUID) Subject {
 	return Subject(fmt.Sprintf("organizations.inbox.sent.%s", projectID))
+}
+
+// OrganizationInboxFailed returns the NATS subject for organization inbox
+// "failed" terminal events, emitted when a message will never be delivered.
+func OrganizationInboxFailed(projectID uuid.UUID) Subject {
+	return Subject(fmt.Sprintf("organizations.inbox.failed.%s", projectID))
 }
 
 // OrganizationInboxDispatch returns the NATS subject for per-provider push
