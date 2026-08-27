@@ -14,7 +14,11 @@ type Config struct {
 }
 
 type Storage interface {
-	Write(ctx context.Context, key string, reader io.Reader) error
+	// Write stores the reader's contents under key. The contentType is
+	// recorded as object metadata where the backend supports it, so that
+	// media served straight from the bucket over STORAGE_BASE_URL carries a
+	// usable Content-Type rather than a generic binary fallback.
+	Write(ctx context.Context, key string, reader io.Reader, contentType string) error
 	Read(ctx context.Context, key string) (io.ReadCloser, error)
 	Delete(ctx context.Context, key string) error
 }
