@@ -43,7 +43,8 @@ func CreateSchema(t *testing.T, uri, schema string) string {
 // the container with the reusing session's reaper, so the first session to finish
 // tears the container down while the others are still connected to it.
 func postgresContainerName() string {
-	return "testcontainer-postgresql-" + testcontainers.SessionID()[:12]
+	id := testcontainers.SessionID()
+	return "testcontainer-postgresql-" + id[:min(len(id), 12)]
 }
 
 // createTestDatabase creates a new test database and returns its URI.
