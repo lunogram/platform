@@ -138,7 +138,7 @@ func (srv *ProjectsController) GetProject(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	project, err := srv.store.GetProject(ctx, projectID, &actorID)
+	project, err := srv.store.GetOrganizationProject(ctx, projectID, actor.OrganizationID, &actorID)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("project not found", zap.Stringer("project_id", projectID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("project not found")))
@@ -309,7 +309,7 @@ func (srv *ProjectsController) CreateProject(w http.ResponseWriter, r *http.Requ
 	}
 
 	logger.Info("project created", zap.Stringer("project_id", projectID))
-	project, err := srv.store.GetProject(ctx, projectID, &actorID)
+	project, err := srv.store.GetOrganizationProject(ctx, projectID, actor.OrganizationID, &actorID)
 	if err != nil {
 		logger.Error("failed to fetch created project", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -363,7 +363,13 @@ func (srv *ProjectsController) UpdateProject(w http.ResponseWriter, r *http.Requ
 		TextHelpMessage:   body.TextHelpMessage,
 	}
 
-	err = srv.store.UpdateProject(ctx, projectID, update)
+	err = srv.store.UpdateProject(ctx, projectID, actor.OrganizationID, update)
+	if errors.Is(err, sql.ErrNoRows) {
+		logger.Info("project not found", zap.Stringer("project_id", projectID))
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("project not found")))
+		return
+	}
+
 	if err != nil {
 		logger.Error("failed to update project", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -377,7 +383,7 @@ func (srv *ProjectsController) UpdateProject(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	project, err := srv.store.GetProject(ctx, projectID, &actorID)
+	project, err := srv.store.GetOrganizationProject(ctx, projectID, actor.OrganizationID, &actorID)
 	if err != nil {
 		logger.Error("failed to fetch updated project", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -402,20 +408,13 @@ func (srv *ProjectsController) DeleteProject(w http.ResponseWriter, r *http.Requ
 	logger := srv.logger.With(zap.Stringer("project_id", projectID))
 	logger.Info("deleting project")
 
-	_, err = srv.store.GetProject(ctx, projectID, nil)
+	err = srv.store.DeleteProject(ctx, projectID, actor.OrganizationID)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("project not found", zap.Stringer("project_id", projectID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("project not found")))
 		return
 	}
 
-	if err != nil {
-		logger.Error("failed to get project", zap.Error(err))
-		oapi.WriteProblem(w, err)
-		return
-	}
-
-	err = srv.store.DeleteProject(ctx, projectID)
 	if err != nil {
 		logger.Error("failed to delete project", zap.Error(err))
 		oapi.WriteProblem(w, err)

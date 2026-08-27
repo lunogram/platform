@@ -2,6 +2,7 @@ package management
 
 import (
 	"context"
+	"database/sql"
 	"testing"
 
 	"github.com/google/uuid"
@@ -45,7 +46,7 @@ func TestProjectsStore(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		err = db.UpdateProject(ctx, projectID, ProjectUpdate{
+		err = db.UpdateProject(ctx, projectID, orgID, ProjectUpdate{
 			Name:     ptr.To("Updated Name"),
 			Timezone: ptr.To("America/New_York"),
 			Locale:   ptr.To("en-GB"),
@@ -57,6 +58,42 @@ func TestProjectsStore(t *testing.T) {
 		assert.Equal(t, "Updated Name", project.Name)
 		assert.Equal(t, "America/New_York", project.Timezone)
 		assert.Equal(t, "en-GB", project.Locale)
+	})
+
+	t.Run("confines reads, updates and deletes to the owning organization", func(t *testing.T) {
+		otherOrgID, err := db.CreateOrganization(ctx, "Other Organization")
+		require.NoError(t, err)
+
+		projectID, err := db.CreateProject(ctx, Project{
+			OrganizationID: &orgID,
+			Name:           "Owned Project",
+			Timezone:       "UTC",
+			Locale:         "en",
+		})
+		require.NoError(t, err)
+
+		project, err := db.GetOrganizationProject(ctx, projectID, orgID, nil)
+		require.NoError(t, err)
+		assert.Equal(t, "Owned Project", project.Name)
+
+		_, err = db.GetOrganizationProject(ctx, projectID, otherOrgID, nil)
+		require.ErrorIs(t, err, sql.ErrNoRows, "a project was readable from an organization that does not own it")
+
+		err = db.UpdateProject(ctx, projectID, otherOrgID, ProjectUpdate{Name: ptr.To("Renamed By Outsider")})
+		require.ErrorIs(t, err, sql.ErrNoRows, "a project was writable from an organization that does not own it")
+
+		err = db.DeleteProject(ctx, projectID, otherOrgID)
+		require.ErrorIs(t, err, sql.ErrNoRows, "a project was deletable from an organization that does not own it")
+
+		// Neither rejected statement may have touched the row.
+		project, err = db.GetOrganizationProject(ctx, projectID, orgID, nil)
+		require.NoError(t, err)
+		assert.Equal(t, "Owned Project", project.Name)
+
+		require.NoError(t, db.DeleteProject(ctx, projectID, orgID))
+
+		_, err = db.GetOrganizationProject(ctx, projectID, orgID, nil)
+		require.ErrorIs(t, err, sql.ErrNoRows)
 	})
 
 	t.Run("lists projects by organization", func(t *testing.T) {
