@@ -217,6 +217,10 @@ func TestBroadcastProcessHandler_NotSendingState(t *testing.T) {
 	assert.True(t, IsPermanent(err), "error should be permanent because the broadcast is not in sending state")
 }
 
+// TestBroadcastProcessHandler_CampaignNoProvider verifies that a broadcast
+// whose campaign has no provider configured for its channel is still processed
+// into batches. Providers are owned by the project and resolved per message at
+// dispatch time, so the process handler no longer inspects them.
 func TestBroadcastProcessHandler_CampaignNoProvider(t *testing.T) {
 	t.Parallel()
 
@@ -273,8 +277,23 @@ func TestBroadcastProcessHandler_CampaignNoProvider(t *testing.T) {
 	require.NoError(t, err)
 
 	err = handler(ctx, msg)
-	require.Error(t, err)
-	assert.True(t, IsPermanent(err), "error should be permanent when campaign has no provider")
+	require.NoError(t, err)
+
+	err = msg.Ack()
+	require.NoError(t, err)
+
+	batchConsumer, err := jet.Consumer(ctx, ns.Stream(StreamBroadcasts), ns.Consumer(ConsumerBroadcastsBatch))
+	require.NoError(t, err)
+
+	batchMsg, err := batchConsumer.Next(jetstream.FetchMaxWait(5 * time.Second))
+	require.NoError(t, err)
+
+	var batchEvent schemas.ProcessBroadcastBatch
+	err = json.Unmarshal(batchMsg.Data(), &batchEvent)
+	require.NoError(t, err)
+
+	assert.Equal(t, projectID, batchEvent.ProjectID)
+	assert.Equal(t, broadcast.ID, batchEvent.BroadcastID)
 }
 
 // ----- BroadcastBatchHandler tests -----
@@ -321,11 +340,12 @@ func TestBroadcastBatchHandler_EmptyList(t *testing.T) {
 	err = msg.Ack()
 	require.NoError(t, err)
 
-	// Broadcast should still be in sending state — completion happens
-	// in the campaign send handler after all messages are delivered.
+	// An empty list produces no messages for the campaign send handler to
+	// complete the broadcast on, so the batch handler completes it directly
+	// rather than leaving it in sending state forever.
 	broadcast, err := mgmtState.BroadcastsStore.GetBroadcast(ctx, projectID, broadcastID)
 	require.NoError(t, err)
-	assert.Equal(t, management.BroadcastStateSending, broadcast.State)
+	assert.Equal(t, management.BroadcastStateCompleted, broadcast.State)
 	assert.Equal(t, 0, broadcast.Total)
 }
 
