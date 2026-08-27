@@ -47,6 +47,13 @@ func (c *AuthController) initPasswordAuth(cfg config.Node) error {
 		return nil
 	}
 
+	// Unset falls back to the documented default rather than failing, so a
+	// caller that builds the configuration in code -- rather than from the
+	// environment, where envDefault supplies it -- still gets the safe answer.
+	if c.password.registration == "" {
+		c.password.registration = config.RegistrationInviteOnly
+	}
+
 	switch c.password.registration {
 	case config.RegistrationOpen, config.RegistrationInviteOnly, config.RegistrationDisabled:
 	default:
