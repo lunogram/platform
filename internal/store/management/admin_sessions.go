@@ -207,12 +207,15 @@ func (s *AdminSessionsStore) ListAdminSessions(ctx context.Context, adminID uuid
 // Sessions are events with no soft-delete flag, so retention is a purge rather
 // than a liveness predicate on the hot lookup.
 func (s *AdminSessionsStore) PurgeExpiredAdminSessions(ctx context.Context, retain time.Duration) (int64, error) {
+	// The window is bound as an integer number of seconds and multiplied by a
+	// fixed '1 second'::interval, the same way the invite TTL is, so no Go
+	// duration string is ever handed to the interval parser.
 	stmt := `
 	DELETE FROM admin_sessions
-	WHERE absolute_expires_at < NOW() - $1::interval
-	OR (revoked_at IS NOT NULL AND revoked_at < NOW() - $1::interval)`
+	WHERE absolute_expires_at < NOW() - ($1 * INTERVAL '1 second')
+	OR (revoked_at IS NOT NULL AND revoked_at < NOW() - ($1 * INTERVAL '1 second'))`
 
-	result, err := s.db.ExecContext(ctx, stmt, retain.String())
+	result, err := s.db.ExecContext(ctx, stmt, int64(retain.Seconds()))
 	if err != nil {
 		return 0, err
 	}

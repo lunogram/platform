@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"time"
@@ -96,7 +97,15 @@ func (c *Clerk) Verify(ctx context.Context, r *http.Request) (*auth.VerifiedIden
 		jwt.WithExpirationRequired(),
 	)
 	if err != nil {
-		return nil, err
+		// A token we could not check at all -- no key material, a JWKS fetch
+		// that failed -- is this deployment's problem and keeps its own status.
+		// Every other parse failure is a statement about the credential that was
+		// presented, so it has to reach the caller as the 401 the callback
+		// already maps ErrInvalidToken to, not as a 500.
+		if errors.Is(err, jwt.ErrTokenUnverifiable) {
+			return nil, err
+		}
+		return nil, fmt.Errorf("%w: %w", ErrInvalidToken, err)
 	}
 	if !token.Valid {
 		return nil, ErrInvalidToken
