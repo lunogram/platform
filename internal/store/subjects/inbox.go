@@ -484,6 +484,7 @@ func (s *InboxStore) CountUserInboxMessages(ctx context.Context, projectID, user
 	WHERE project_id = $1
 	AND user_id = $2
 	AND deleted_at IS NULL
+	AND failed_at IS NULL
 	AND scheduled_at <= NOW()
 	AND (expires_at IS NULL OR expires_at > NOW())
 	AND ($3 = '' OR channel = $3)`
@@ -502,6 +503,7 @@ func (s *InboxStore) CountOrganizationInboxMessages(ctx context.Context, project
 	WHERE project_id = $1
 	AND organization_id = $2
 	AND deleted_at IS NULL
+	AND failed_at IS NULL
 	AND scheduled_at <= NOW()
 	AND (expires_at IS NULL OR expires_at > NOW())
 	AND ($3 = '' OR channel = $3)`

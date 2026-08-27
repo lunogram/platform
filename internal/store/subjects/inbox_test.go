@@ -93,22 +93,34 @@ func TestUserInboxMessageFiltersAndCounts(t *testing.T) {
 	expiredAt := time.Now().Add(-time.Minute)
 	_, err = db.CreateUserInboxMessage(ctx, projectID, userID, InboxMessageParams{Channel: "push", Content: titleContent("Expired"), ExpiresAt: &expiredAt})
 	require.NoError(t, err)
+	failed, err := db.CreateUserInboxMessage(ctx, projectID, userID, InboxMessageParams{Channel: "push", Content: titleContent("Suppressed")})
+	require.NoError(t, err)
+	settled, err := db.MarkUserInboxMessageFailed(ctx, failed.ID, "recipient opted out")
+	require.NoError(t, err)
+	require.True(t, settled)
 
 	defaultMessages, total, err := db.ListUserInboxMessages(ctx, projectID, userID, store.Pagination{Limit: 10}, InboxListFilter{})
 	require.NoError(t, err)
-	require.Equal(t, 2, total)
-	require.ElementsMatch(t, []uuid.UUID{unread.ID, opened.ID}, inboxMessageIDs(defaultMessages))
+	require.Equal(t, 3, total)
+	require.ElementsMatch(t, []uuid.UUID{unread.ID, opened.ID, failed.ID}, inboxMessageIDs(defaultMessages))
 
 	unreadMessages, total, err := db.ListUserInboxMessages(ctx, projectID, userID, store.Pagination{Limit: 10}, InboxListFilter{Status: InboxStatusUnread})
 	require.NoError(t, err)
-	require.Equal(t, 1, total)
-	require.Equal(t, []uuid.UUID{unread.ID}, inboxMessageIDs(unreadMessages))
+	require.Equal(t, 2, total)
+	require.ElementsMatch(t, []uuid.UUID{unread.ID, failed.ID}, inboxMessageIDs(unreadMessages))
 
 	withArchived, total, err := db.ListUserInboxMessages(ctx, projectID, userID, store.Pagination{Limit: 10}, InboxListFilter{IncludeArchived: true})
 	require.NoError(t, err)
-	require.Equal(t, 3, total)
-	require.ElementsMatch(t, []uuid.UUID{unread.ID, opened.ID, archived.ID}, inboxMessageIDs(withArchived))
+	require.Equal(t, 4, total)
+	require.ElementsMatch(t, []uuid.UUID{unread.ID, opened.ID, archived.ID, failed.ID}, inboxMessageIDs(withArchived))
 
+	delivered, total, err := db.ListUserInboxMessages(ctx, projectID, userID, store.Pagination{Limit: 10}, InboxListFilter{ExcludeFailed: true})
+	require.NoError(t, err)
+	require.Equal(t, 2, total)
+	require.ElementsMatch(t, []uuid.UUID{unread.ID, opened.ID}, inboxMessageIDs(delivered))
+	require.False(t, containsInboxMessage(delivered, failed.ID))
+
+	// The counts describe the ExcludeFailed list above, not the store default.
 	counts, err := db.CountUserInboxMessages(ctx, projectID, userID, "push")
 	require.NoError(t, err)
 	require.Equal(t, InboxCounts{Unread: 1, Total: 2}, counts)
@@ -211,6 +223,35 @@ func TestOrganizationInboxMessageScheduling(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Equal(t, 1, processed)
+}
+
+func TestOrganizationInboxMessageCounts(t *testing.T) {
+	t.Parallel()
+
+	db := NewContainerStore(t)
+	ctx := context.Background()
+	projectID := uuid.New()
+	organizationID, err := db.UpsertOrganization(ctx, projectID, UpsertOrganizationParams{
+		Identifiers: []ExternalIDParam{{Source: "default", ExternalID: "org-counted"}},
+	})
+	require.NoError(t, err)
+
+	_, err = db.CreateOrganizationInboxMessage(ctx, projectID, organizationID, InboxMessageParams{Channel: "push", Content: titleContent("Unread")})
+	require.NoError(t, err)
+	opened, err := db.CreateOrganizationInboxMessage(ctx, projectID, organizationID, InboxMessageParams{Channel: "push", Content: titleContent("Opened")})
+	require.NoError(t, err)
+	_, transitioned, err := db.ReadOrganizationInboxMessage(ctx, projectID, organizationID, opened.ID)
+	require.NoError(t, err)
+	require.True(t, transitioned)
+	failed, err := db.CreateOrganizationInboxMessage(ctx, projectID, organizationID, InboxMessageParams{Channel: "push", Content: titleContent("Suppressed")})
+	require.NoError(t, err)
+	settled, err := db.MarkOrganizationInboxMessageFailed(ctx, failed.ID, "recipient opted out")
+	require.NoError(t, err)
+	require.True(t, settled)
+
+	counts, err := db.CountOrganizationInboxMessages(ctx, projectID, organizationID, "push")
+	require.NoError(t, err)
+	require.Equal(t, InboxCounts{Unread: 1, Total: 2}, counts)
 }
 
 func inboxMessageIDs(messages InboxMessages) []uuid.UUID {
