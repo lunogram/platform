@@ -1,0 +1,26 @@
+{{- /*gotype: github.com/lunogram/platform/internal/mailer.content*/ -}}
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+<title>{{ .Subject }}</title>
+</head>
+<body style="margin:0;padding:24px;background:#f6f7f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#1f2430;">
+<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:8px;border:1px solid #e4e7ec;">
+<tr><td style="padding:32px;">
+<p style="margin:0 0 24px;font-size:14px;font-weight:600;color:#6b7280;">{{ .ProductName }}</p>
+<h1 style="margin:0 0 16px;font-size:20px;line-height:28px;">{{ .Heading }}</h1>
+{{ range .Body }}<p style="margin:0 0 16px;font-size:15px;line-height:24px;">{{ . }}</p>
+{{ end }}
+{{ if .ActionURL }}<p style="margin:24px 0;">
+<a href="{{ .ActionURL }}" style="display:inline-block;padding:12px 20px;background:#1f2430;color:#ffffff;border-radius:6px;font-size:15px;text-decoration:none;">{{ .ActionLabel }}</a>
+</p>
+<p style="margin:0 0 16px;font-size:13px;line-height:20px;color:#6b7280;">If the button does not work, copy this link into your browser:<br>
+<a href="{{ .ActionURL }}" style="color:#1f2430;word-break:break-all;">{{ .ActionURL }}</a></p>
+{{ end }}
+{{ if .Footer }}<p style="margin:24px 0 0;font-size:13px;line-height:20px;color:#6b7280;">{{ .Footer }}</p>{{ end }}
+</td></tr>
+</table>
+</body>
+</html>
