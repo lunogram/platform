@@ -89,6 +89,12 @@ AUTH_BASIC_PASSWORD=admin
 AUTH_CONSOLE_SIGNING_KEY="$(openssl ecparam -name prime256v1 -genkey -noout)"
 ```
 
+`AUTH_DRIVER` accepts a comma-separated list, so `basic,password` gives you the
+quickstart credential and per-admin accounts at once. With no `MAIL_HOST` set,
+account confirmation and password reset mail is written to the server log —
+link included — instead of being delivered, so the local setup needs no SMTP
+server.
+
 ## How to Contribute
 
 ### Reporting Bugs

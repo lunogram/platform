@@ -71,8 +71,14 @@ type Verifier interface {
 	Driver() string
 
 	// Verify extracts and proves the credential carried by the request. It
-	// returns a [VerifiedIdentity] on success and an error otherwise; it must
-	// not write to the database or the response.
+	// returns a [VerifiedIdentity] on success and an error otherwise.
+	//
+	// It must not touch the response, and the only database write it may make
+	// is to the credential it has just proved -- re-hashing a stored password
+	// under raised cost parameters, say. It must never find or create an admin,
+	// create an organization, write an RBAC tuple, record a session or mint a
+	// token: those are the [Exchanger]'s, so that they have one implementation
+	// rather than one per driver.
 	Verify(ctx context.Context, r *http.Request) (*VerifiedIdentity, error)
 }
 
