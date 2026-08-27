@@ -90,7 +90,6 @@ func TestSuppressionsStore(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "+14155552671", stored.RecipientPhone)
 		assert.Equal(t, SuppressionScopeAll, stored.SenderAddress)
-		assert.Equal(t, string(SuppressionOptedOut), stored.State)
 
 		for _, variant := range []string{"+14155552671", "+1 415 555 2671", "+1-415-555-2671"} {
 			suppressed, err := db.IsSuppressed(ctx, projectID, variant)
@@ -150,10 +149,9 @@ func TestSuppressionsStore(t *testing.T) {
 		require.NoError(t, err)
 		assert.False(t, suppressed)
 
-		stored, err := suppressionRow(ctx, raw, projectID, phone)
+		rows, err := countSuppressionRows(ctx, raw, projectID, phone)
 		require.NoError(t, err)
-		assert.Equal(t, string(SuppressionOptedIn), stored.State)
-		assert.Equal(t, "START keyword", stored.Reason)
+		assert.Zero(t, rows, "opting back in removes the suppression row rather than flagging it")
 
 		optOuts, err := countConsentEvents(ctx, raw, projectID, phone, "opt_out")
 		require.NoError(t, err)
@@ -196,11 +194,6 @@ func TestSuppressionsStore(t *testing.T) {
 			InboundID:      &inbound,
 		}))
 
-		stored, err := suppressionRow(ctx, raw, projectID, phone)
-		require.NoError(t, err)
-		require.NotNil(t, stored.SourceMessageID)
-		assert.Equal(t, inbound, *stored.SourceMessageID)
-
 		var source string
 		require.NoError(t, raw.GetContext(ctx, &source, `
 			SELECT source FROM sms_consent_events
@@ -211,17 +204,15 @@ func TestSuppressionsStore(t *testing.T) {
 }
 
 type storedSuppression struct {
-	SenderAddress   string     `db:"sender_address"`
-	RecipientPhone  string     `db:"recipient_phone"`
-	State           string     `db:"state"`
-	Reason          string     `db:"reason"`
-	SourceMessageID *uuid.UUID `db:"source_message_id"`
+	SenderAddress  string `db:"sender_address"`
+	RecipientPhone string `db:"recipient_phone"`
+	Reason         string `db:"reason"`
 }
 
 func suppressionRow(ctx context.Context, db store.DB, projectID uuid.UUID, phone string) (storedSuppression, error) {
 	var row storedSuppression
 	err := db.GetContext(ctx, &row, `
-		SELECT sender_address, recipient_phone, state, reason, source_message_id
+		SELECT sender_address, recipient_phone, reason
 		FROM sms_suppressions
 		WHERE project_id = $1 AND recipient_phone = $2`, projectID, phone)
 	return row, err

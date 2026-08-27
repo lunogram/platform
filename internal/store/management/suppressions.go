@@ -10,13 +10,6 @@ import (
 	"github.com/nyaruka/phonenumbers"
 )
 
-type SuppressionState string
-
-const (
-	SuppressionOptedOut SuppressionState = "opted_out"
-	SuppressionOptedIn  SuppressionState = "opted_in"
-)
-
 // SuppressionScopeAll is the sentinel sender address used while opt-out
 // scope is project-wide.
 const SuppressionScopeAll = "*"
@@ -75,11 +68,11 @@ type SuppressionsStore struct {
 	db store.DB
 }
 
-// IsSuppressed reports whether the recipient is opted out for this project.
+// IsSuppressed reports whether the recipient is suppressed for this project.
 //
 // The lookup does not constrain sender_address: while every row is written
-// project-wide any opted-out row for the recipient suppresses the send, so a
-// future per-sender row fails closed rather than opening a gap.
+// project-wide any row for the recipient suppresses the send, so a future
+// per-sender row fails closed rather than opening a gap.
 func (s *SuppressionsStore) IsSuppressed(ctx context.Context, projectID uuid.UUID, recipientPhone string) (bool, error) {
 	phone, err := normalizeE164(recipientPhone)
 	if err != nil {
@@ -92,7 +85,6 @@ func (s *SuppressionsStore) IsSuppressed(ctx context.Context, projectID uuid.UUI
 		FROM sms_suppressions
 		WHERE project_id = $1
 		AND recipient_phone = $2
-		AND state = 'opted_out'
 	)`
 
 	var suppressed bool
@@ -103,31 +95,93 @@ func (s *SuppressionsStore) IsSuppressed(ctx context.Context, projectID uuid.UUI
 	return suppressed, nil
 }
 
-// RecordOptOut upserts suppression state to opted_out and appends a consent event.
-func (s *SuppressionsStore) RecordOptOut(ctx context.Context, in SuppressionInput) error {
-	return s.record(ctx, in, SuppressionOptedOut, consentTransitionOptOut)
-}
-
-// RecordOptIn upserts suppression state to opted_in and appends a consent event.
-func (s *SuppressionsStore) RecordOptIn(ctx context.Context, in SuppressionInput) error {
-	return s.record(ctx, in, SuppressionOptedIn, consentTransitionOptIn)
-}
-
-// record settles the current suppression state and appends to the consent
-// ledger in one statement, so the two can never disagree.
+// RecordOptOut adds the recipient to the project's suppression set and appends
+// a consent event.
 //
-// Repeating a transition is not an error: the upsert converges on the same
-// state, while the ledger still gains a row because it records every consent
+// Repeating a STOP is not an error: the upsert converges on the same row,
+// while the ledger still gains an entry because it records every consent
 // signal received, not every change of state. A dispute asks when a STOP
 // arrived and how often, which a deduplicated log could not answer.
-func (s *SuppressionsStore) record(ctx context.Context, in SuppressionInput, state SuppressionState, transition string) error {
+func (s *SuppressionsStore) RecordOptOut(ctx context.Context, in SuppressionInput) error {
+	target, err := s.resolve(in)
+	if err != nil {
+		return err
+	}
+
+	stmt := `
+	WITH suppression AS (
+		INSERT INTO sms_suppressions (project_id, sender_address, recipient_phone, reason)
+		VALUES ($1, $2, $3, $4)
+		ON CONFLICT (project_id, sender_address, recipient_phone) DO UPDATE
+		SET reason = EXCLUDED.reason,
+			occurred_at = NOW()
+	)
+	INSERT INTO sms_consent_events (project_id, recipient_phone, sender_address, transition, source, inbound_id)
+	VALUES ($1, $3, $2, $5, $6, $7)`
+
+	_, err = s.db.ExecContext(ctx, stmt,
+		target.projectID,
+		target.sender,
+		target.phone,
+		in.Reason,
+		consentTransitionOptOut,
+		string(in.Source),
+		in.InboundID,
+	)
+
+	return err
+}
+
+// RecordOptIn removes the recipient from the project's suppression set and
+// appends a consent event.
+//
+// The ledger entry does not depend on a row having been deleted: a START from
+// a number that was never suppressed is still a consent signal we received,
+// and the record of receiving it is the point of the ledger.
+func (s *SuppressionsStore) RecordOptIn(ctx context.Context, in SuppressionInput) error {
+	target, err := s.resolve(in)
+	if err != nil {
+		return err
+	}
+
+	stmt := `
+	WITH suppression AS (
+		DELETE FROM sms_suppressions
+		WHERE project_id = $1
+		AND sender_address = $2
+		AND recipient_phone = $3
+	)
+	INSERT INTO sms_consent_events (project_id, recipient_phone, sender_address, transition, source, inbound_id)
+	VALUES ($1, $3, $2, $4, $5, $6)`
+
+	_, err = s.db.ExecContext(ctx, stmt,
+		target.projectID,
+		target.sender,
+		target.phone,
+		consentTransitionOptIn,
+		string(in.Source),
+		in.InboundID,
+	)
+
+	return err
+}
+
+type suppressionTarget struct {
+	projectID uuid.UUID
+	sender    string
+	phone     string
+}
+
+// resolve validates the consent source and normalises the addressing fields
+// shared by both transitions.
+func (s *SuppressionsStore) resolve(in SuppressionInput) (suppressionTarget, error) {
 	if _, ok := consentSources[in.Source]; !ok {
-		return fmt.Errorf("%w: %q", ErrInvalidConsentSource, in.Source)
+		return suppressionTarget{}, fmt.Errorf("%w: %q", ErrInvalidConsentSource, in.Source)
 	}
 
 	phone, err := normalizeE164(in.RecipientPhone)
 	if err != nil {
-		return err
+		return suppressionTarget{}, err
 	}
 
 	sender := in.SenderAddress
@@ -135,33 +189,7 @@ func (s *SuppressionsStore) record(ctx context.Context, in SuppressionInput, sta
 		sender = SuppressionScopeAll
 	}
 
-	stmt := `
-	WITH suppression AS (
-		INSERT INTO sms_suppressions (project_id, sender_address, recipient_phone, state, reason, source_message_id)
-		VALUES ($1, $2, $3, $4, $5, $6)
-		ON CONFLICT (project_id, sender_address, recipient_phone) DO UPDATE
-		SET state = EXCLUDED.state,
-			reason = EXCLUDED.reason,
-			source_message_id = EXCLUDED.source_message_id,
-			occurred_at = NOW()
-		RETURNING project_id, sender_address, recipient_phone
-	)
-	INSERT INTO sms_consent_events (project_id, recipient_phone, sender_address, transition, source, inbound_id)
-	SELECT project_id, recipient_phone, sender_address, $7, $8, $6
-	FROM suppression`
-
-	_, err = s.db.ExecContext(ctx, stmt,
-		in.ProjectID,
-		sender,
-		phone,
-		string(state),
-		in.Reason,
-		in.InboundID,
-		transition,
-		string(in.Source),
-	)
-
-	return err
+	return suppressionTarget{projectID: in.ProjectID, sender: sender, phone: phone}, nil
 }
 
 func normalizeE164(phone string) (string, error) {

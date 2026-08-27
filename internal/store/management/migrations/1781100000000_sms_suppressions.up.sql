@@ -8,25 +8,30 @@
 -- The table deliberately holds no provider-side identifier and no foreign key
 -- to providers or sender identities, so uninstalling a provider can never
 -- cascade into opt-out state.
+--
+-- Membership is the whole meaning: a row suppresses, and opting back in
+-- removes it. There is no state column, because a row recording "not
+-- suppressed" would be indistinguishable from no row at all while obliging
+-- every lookup to remember to exclude it. When a number opted out, and when
+-- it opted back in, is a question for sms_consent_events, which holds the
+-- full sequence rather than only the latest transition.
 CREATE TABLE sms_suppressions (
-    id                UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    project_id        UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    project_id      UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     -- E.164 sender, or '*' while opt-out scope is project-wide. The column
     -- exists so per-sender scoping becomes possible without a migration.
-    sender_address    TEXT NOT NULL,
-    recipient_phone   TEXT NOT NULL,
-    state             TEXT NOT NULL CHECK (state IN ('opted_out','opted_in')),
-    reason            TEXT NOT NULL,
-    source_message_id UUID,
-    occurred_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    sender_address  TEXT NOT NULL,
+    recipient_phone TEXT NOT NULL,
+    reason          TEXT NOT NULL,
+    occurred_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (project_id, sender_address, recipient_phone)
 );
 
--- The send-path check is "is this recipient opted out anywhere in the project",
--- which does not constrain sender_address and so cannot use the UNIQUE index.
-CREATE INDEX sms_suppressions_opted_out_idx
-    ON sms_suppressions (project_id, recipient_phone)
-    WHERE state = 'opted_out';
+-- The send-path check is "is this recipient suppressed anywhere in the
+-- project", which does not constrain sender_address and so cannot use the
+-- UNIQUE index.
+CREATE INDEX sms_suppressions_recipient_idx
+    ON sms_suppressions (project_id, recipient_phone);
 
 -- Append-only consent ledger. This is the record produced in a dispute, so
 -- rows are never updated or deleted in normal operation and the table carries
