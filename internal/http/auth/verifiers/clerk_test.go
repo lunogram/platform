@@ -131,11 +131,13 @@ func TestClerkVerify(t *testing.T) {
 		require.ErrorIs(t, err, ErrInvalidToken)
 	})
 
-	t.Run("an expired token is rejected", func(t *testing.T) {
+	t.Run("an expired token is an invalid token, not a server error", func(t *testing.T) {
 		claims := baseClaims()
 		claims["exp"] = time.Now().Add(-time.Hour).Unix()
 		_, err := env.verifier.Verify(ctx, clerkRequest(env.sign(t, jwt.SigningMethodRS256, claims)))
-		require.ErrorIs(t, err, ErrInvalidToken)
+		require.ErrorIs(t, err, ErrInvalidToken,
+			"the callback maps ErrInvalidToken to a 401; a raw jwt error would fall through to a 500")
+		require.ErrorIs(t, err, jwt.ErrTokenExpired)
 	})
 
 	t.Run("a token without a subject is rejected", func(t *testing.T) {
