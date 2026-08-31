@@ -37,6 +37,7 @@ interface LoginFormValues {
 const SSO_ERRORS: Record<string, string> = {
     expired: "sso_error_expired",
     denied: "sso_error_denied",
+    domain: "sso_error_domain",
     email: "sso_error_email",
     exchange: "sso_error_failed",
     failed: "sso_error_failed",
@@ -51,6 +52,7 @@ export default function Login() {
     const [selectedDriver, setSelectedDriver] = useState<AuthDriver>()
     const [error, setError] = useState<string>()
     const [isSubmitting, setIsSubmitting] = useState(false)
+    const [ssoProviders, setSsoProviders] = useState<Array<{ id: string; name: string }>>()
     const redirect = validateRedirect(searchParams.get("r"))
 
     const form = useForm<LoginFormValues>({
@@ -112,6 +114,24 @@ export default function Login() {
             })
     }, [t])
 
+    // Fetched only once the deployment says it offers the driver, so a
+    // deployment without single sign-on makes no call that would 404.
+    useEffect(() => {
+        if (!drivers?.includes(AUTH_DRIVERS.OIDC)) return
+
+        api.auth
+            .ssoProviders()
+            .then(setSsoProviders)
+            .catch((err) => {
+                console.error("Failed to fetch sso providers:", err)
+                // Leaving this undefined would spin the loader forever behind
+                // the error message. There is nothing to offer, so say so by
+                // having nothing to render.
+                setSsoProviders([])
+                setError(t("sso_error_failed"))
+            })
+    }, [drivers, t])
+
     // Loading state
     if (!drivers || drivers.length === 0) {
         return (
@@ -153,7 +173,9 @@ export default function Login() {
             description={
                 selectedDriver
                     ? isSsoDriver
-                        ? t("sso_instructions")
+                        ? ssoProviders && ssoProviders.length > 1
+                            ? t("sso_choose_provider")
+                            : t("sso_instructions")
                         : t("login_basic_instructions")
                     : t("login_select_method")
             }
@@ -189,18 +211,27 @@ export default function Login() {
 
             {isSsoDriver && (
                 <div className="space-y-4">
-                    <Button
-                        type="button"
-                        className="w-full"
-                        disabled={isSubmitting}
-                        onClick={() => {
-                            setIsSubmitting(true)
-                            api.auth.ssoStart(redirect)
-                        }}
-                    >
-                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        {t("sso_continue")}
-                    </Button>
+                    {!ssoProviders && (
+                        <div className="flex justify-center py-4">
+                            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                        </div>
+                    )}
+
+                    {ssoProviders?.map((provider) => (
+                        <Button
+                            key={provider.id}
+                            type="button"
+                            className="w-full"
+                            disabled={isSubmitting}
+                            onClick={() => {
+                                setIsSubmitting(true)
+                                api.auth.ssoStart(provider.id, redirect)
+                            }}
+                        >
+                            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            {ssoProviders.length === 1 ? t("sso_continue") : provider.name}
+                        </Button>
+                    ))}
 
                     {drivers.length > 1 && (
                         <Button

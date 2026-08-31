@@ -229,11 +229,16 @@ const api = {
         changePassword: async (current_password: string, password: string) => {
             await client.post("/admin/profile/password", { current_password, password })
         },
+        ssoProviders: async () =>
+            await client
+                .get<Array<{ id: string; name: string }>>("/auth/oidc/providers")
+                .then((r) => r.data),
         // ssoStart is a full-page navigation rather than an XHR: the browser has
         // to follow the redirect to the identity provider and come back with a
         // session cookie.
-        ssoStart: (redirect: string) => {
-            window.location.href = `/api/auth/oidc/start?r=${encodeURIComponent(redirect)}`
+        ssoStart: (provider: string, redirect: string) => {
+            const base = env.api.baseURL.replace(/\/$/, "")
+            window.location.href = `${base}/auth/oidc/${encodeURIComponent(provider)}/start?r=${encodeURIComponent(redirect)}`
         },
         clerkAuth: async (token: string) => {
             await client.post(

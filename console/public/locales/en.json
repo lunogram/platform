@@ -1127,5 +1127,7 @@
     "sso_error_expired": "That sign-in request has expired or was already answered in another browser. Please start again.",
     "sso_error_denied": "Your identity provider refused the sign-in.",
     "sso_error_email": "Your identity provider returned no email address.",
-    "sso_error_failed": "Single sign-on failed. Please try again."
+    "sso_error_failed": "Single sign-on failed. Please try again.",
+    "sso_choose_provider": "Choose how you would like to sign in.",
+    "sso_error_domain": "Your identity provider returned an address it is not configured to sign in."
 }
