@@ -108,12 +108,13 @@ func selectTemplate(templates management.Templates, variant string, user *subjec
 		candidates = templatesForVariant(templates, "")
 	}
 
-	// Neither the requested variant nor the default has a template. Every
-	// remaining template belongs to some other variant, so there is no
-	// on-brand answer left - send one anyway rather than dropping the message,
-	// and let the caller's fallback counter surface it.
+	// Neither the requested variant nor the default has a template - the
+	// default one can be deleted, so this is reachable. Every remaining
+	// template belongs to some other variant, and sending one would put another
+	// client's wording and sending domain in front of this recipient. Refuse:
+	// crossing a variant boundary is worse than not sending.
 	if len(candidates) == 0 {
-		candidates = templates
+		return management.Template{}, Permanentf("campaign has no template for variant %q and none for the default variant", variant)
 	}
 
 	if len(candidates) == 1 {

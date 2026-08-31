@@ -73,15 +73,6 @@ func TestSelectTemplate(t *testing.T) {
 			want:      house,
 		},
 		{
-			// No on-brand answer exists. Sending the wrong branding beats
-			// dropping the message; the caller counts this as a fallback.
-			name:      "sends something when neither the variant nor the default has a template",
-			templates: management.Templates{acme},
-			variant:   "globex",
-			user:      nil,
-			want:      acme,
-		},
-		{
 			name:      "uses the only template when it is the default variant",
 			templates: management.Templates{house},
 			variant:   "",
@@ -105,6 +96,18 @@ func TestSelectTemplateWithoutTemplates(t *testing.T) {
 	t.Parallel()
 
 	_, err := selectTemplate(nil, "", nil, &management.Project{Locale: "en"})
+	require.Error(t, err)
+}
+
+// A campaign whose only templates belong to other variants has no on-brand
+// answer left. Handing one over would send another client's wording and sending
+// domain to this recipient, so the send fails instead.
+func TestSelectTemplateRefusesToCrossVariants(t *testing.T) {
+	t.Parallel()
+
+	acme := template("acme", "en")
+
+	_, err := selectTemplate(management.Templates{acme}, "globex", nil, &management.Project{Locale: "en"})
 	require.Error(t, err)
 }
 

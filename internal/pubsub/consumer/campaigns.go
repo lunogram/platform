@@ -130,9 +130,10 @@ func createCampaignInboxMessageAndPublish(ctx context.Context, db *sqlx.DB, pub 
 		"template_id": item.TemplateID.String(),
 		"campaign_id": event.CampaignID.String(),
 	}
-	if item.Variant != "" {
-		provenance["variant"] = item.Variant
-	}
+	// Recorded unconditionally, empty string included: variant selection falls
+	// back silently by design, so an audit needs to see that a send went out
+	// under the default variant rather than infer it from a missing field.
+	provenance["variant"] = item.Variant
 	if event.BroadcastID != nil {
 		provenance["broadcast_id"] = event.BroadcastID.String()
 	}

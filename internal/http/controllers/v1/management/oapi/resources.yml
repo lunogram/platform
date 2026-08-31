@@ -7643,7 +7643,12 @@ components:
       properties:
         key:
           type: string
-          description: The value a send resolves against to pick this variant's templates
+          pattern: "^[a-z0-9][a-z0-9_-]*$"
+          description: >-
+            The value a send resolves against to pick this variant's templates.
+            Lowercase letters, digits, dashes and underscores, starting with a
+            letter or digit. The empty key is the default variant and is never
+            declared here.
           example: "acme"
         label:
           type: string

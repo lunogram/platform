@@ -203,7 +203,15 @@ export function CreateBroadcastDialog({
                             render={({ field }) => (
                                 <Select
                                     value={field.value}
-                                    onValueChange={field.onChange}
+                                    onValueChange={(value) => {
+                                        // Variant keys are declared per
+                                        // campaign, so one left over from the
+                                        // previous pick either fails the save
+                                        // or, worse, matches a key another
+                                        // client happens to use.
+                                        form.setValue("variant", undefined)
+                                        field.onChange(value)
+                                    }}
                                     disabled={!!preselectedCampaignId}
                                 >
                                     <SelectTrigger>

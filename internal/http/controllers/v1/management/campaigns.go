@@ -3,7 +3,10 @@ package v1
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"net/http"
+	"sort"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -262,6 +265,19 @@ func (srv *CampaignsController) UpdateCampaign(w http.ResponseWriter, r *http.Re
 			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe(err.Error())))
 			return
 		}
+
+		// Templates are keyed by variant, so undeclaring a key - by removing it
+		// or by renaming it, which reaches the API as the same edit - would
+		// strand its templates: invisible in the console and unreachable by any
+		// send. Refuse while they exist rather than orphaning them.
+		if orphaned := undeclaredTemplateVariants(campaign.Templates, variants); len(orphaned) > 0 {
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe(fmt.Sprintf(
+				"variant %s still has templates; delete them before removing or renaming the variant",
+				strings.Join(orphaned, ", "),
+			))))
+			return
+		}
+
 		updated.Variants = &store.JSONB[management.CampaignVariants]{Data: variants}
 	}
 
@@ -406,12 +422,16 @@ func (srv *CampaignsController) DuplicateCampaign(w http.ResponseWriter, r *http
 	campaigns := management.NewCampaignsStore(tx)
 	templates := management.NewTemplatesStore(tx)
 
+	// The declared variants travel with the copy: the templates below carry
+	// their variant key, and a key the campaign no longer declares hides those
+	// templates from the console and drops their sends back to house branding.
 	newCampaignID, err := campaigns.CreateCampaign(ctx, management.Campaign{
 		ProjectID:      campaign.ProjectID,
 		Name:           "Copy of " + campaign.Name,
 		Channel:        campaign.Channel,
 		SubscriptionID: campaign.SubscriptionID,
 		Transactional:  campaign.Transactional,
+		Variants:       campaign.Variants,
 	})
 	if err != nil {
 		logger.Error("failed to create duplicated campaign", zap.Error(err))
@@ -489,4 +509,23 @@ func (srv *CampaignsController) GetCampaignUsers(w http.ResponseWriter, r *http.
 		"limit":  pagination.Limit,
 		"offset": pagination.Offset,
 	})
+}
+
+// undeclaredTemplateVariants reports the variant keys that templates still
+// carry but the supplied declaration no longer names, sorted for a stable
+// error message. The default variant is always declared and never appears.
+func undeclaredTemplateVariants(templates management.Templates, variants management.CampaignVariants) []string {
+	var orphaned []string
+	seen := make(map[string]bool)
+
+	for _, template := range templates {
+		if template.Variant == "" || seen[template.Variant] || variants.Has(template.Variant) {
+			continue
+		}
+		seen[template.Variant] = true
+		orphaned = append(orphaned, template.Variant)
+	}
+
+	sort.Strings(orphaned)
+	return orphaned
 }

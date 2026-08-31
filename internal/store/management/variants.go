@@ -2,6 +2,7 @@ package management
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
@@ -77,6 +78,12 @@ func (selector VariantSelector) Validate(variants CampaignVariants) error {
 		return fmt.Errorf("unknown variant selector type %q", selector.Type)
 	}
 }
+
+// variantKeyPattern constrains a declared variant key. Keys are written into
+// template rows and into console dropdown values, so they are kept to a plain
+// slug: leading punctuation is refused, which keeps the sentinel values the
+// console reserves for "default" and "none" out of the declared set.
+var variantKeyPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]*$`)
 
 // CampaignVariant declares one white-labelled edition of a campaign. Key is
 // what a send resolves against to pick a set of templates; the empty key is the
@@ -163,6 +170,9 @@ func CampaignVariantsFromOAPI(variants oapi.CampaignVariants) (CampaignVariants,
 			key := strings.TrimSpace(option.Key)
 			if key == "" {
 				return result, fmt.Errorf("variant key cannot be empty")
+			}
+			if !variantKeyPattern.MatchString(key) {
+				return result, fmt.Errorf("variant key %s must start with a lowercase letter or digit and contain only lowercase letters, digits, dashes and underscores", key)
 			}
 			if seen[key] {
 				return result, fmt.Errorf("duplicate variant key %s", key)

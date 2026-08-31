@@ -36,6 +36,12 @@ func HandleCampaign(ctx HandlerContext, step journey.JourneyVersionStep, state j
 	// the journey context - entrance data, earlier step state - which no longer
 	// exists once the send is rendered; the event therefore always carries a
 	// static selector. Left unset, the campaign's own selector applies.
+	//
+	// An empty result is still a decision: the step asked for the default
+	// variant, or its expression matched nothing. Either way it must reach the
+	// send as a static selector pinning the default, because falling through to
+	// the campaign selector would re-brand a message the step deliberately kept
+	// on the house design.
 	var variant *management.VariantSelector
 	if config.Variant != nil {
 		selector := management.VariantSelectorFromOAPI(*config.Variant)
@@ -43,11 +49,9 @@ func HandleCampaign(ctx HandlerContext, step journey.JourneyVersionStep, state j
 		if err != nil {
 			return state, nil, fmt.Errorf("failed to resolve campaign variant: %w", err)
 		}
-		if resolved != "" {
-			variant = &management.VariantSelector{
-				Type: management.VariantSelectorStatic,
-				Key:  resolved,
-			}
+		variant = &management.VariantSelector{
+			Type: management.VariantSelectorStatic,
+			Key:  resolved,
 		}
 	}
 

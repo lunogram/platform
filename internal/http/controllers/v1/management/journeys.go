@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"context"
 	"database/sql"
 	stdjson "encoding/json"
 	"errors"
@@ -1051,8 +1052,16 @@ func (srv *JourneysController) PublishJourney(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	if err := validateEntranceSteps(draftSteps.OAPI()); err != nil {
+	steps := draftSteps.OAPI()
+
+	if err := validateEntranceSteps(steps); err != nil {
 		logger.Info("journey failed entrance validation", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	if err := srv.validateCampaignStepVariants(ctx, projectID, steps); err != nil {
+		logger.Info("journey failed campaign variant validation", zap.Error(err))
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -1180,6 +1189,51 @@ func validateEntranceSteps(steps oapi.JourneyStepMap) error {
 
 		if err := data.Validate(); err != nil {
 			return problem.ErrBadRequest(problem.Describe(fmt.Sprintf("entrance %q: %v", id, err)))
+		}
+	}
+
+	return nil
+}
+
+// validateCampaignStepVariants checks every campaign step's variant selector
+// against the campaign it sends. Draft saves stay lenient, so this is the first
+// point a mistyped static key can be refused; left unchecked it would resolve
+// to nothing at send time and quietly deliver house branding to a client's
+// recipients. An expression is only checked for being present, since what it
+// resolves to is per-recipient.
+func (srv *JourneysController) validateCampaignStepVariants(ctx context.Context, projectID uuid.UUID, steps oapi.JourneyStepMap) error {
+	campaigns := make(map[uuid.UUID]*management.Campaign)
+
+	for id, step := range steps {
+		if step.Type != oapi.JourneyStepTypeCampaign {
+			continue
+		}
+
+		var data oapi.CampaignStepData
+		if err := json.Unmarshal(step.Data, &data); err != nil {
+			return problem.ErrBadRequest(problem.Describe(fmt.Sprintf("campaign step %q: %v", id, err)))
+		}
+
+		if data.Variant == nil {
+			continue
+		}
+
+		campaign, ok := campaigns[data.CampaignId]
+		if !ok {
+			found, err := srv.mgmt.GetCampaign(ctx, projectID, data.CampaignId)
+			if errors.Is(err, sql.ErrNoRows) {
+				return problem.ErrBadRequest(problem.Describe(fmt.Sprintf("campaign step %q: campaign not found", id)))
+			}
+			if err != nil {
+				return err
+			}
+			campaign = found
+			campaigns[data.CampaignId] = found
+		}
+
+		selector := management.VariantSelectorFromOAPI(*data.Variant)
+		if err := selector.Validate(campaign.Variants.Data); err != nil {
+			return problem.ErrBadRequest(problem.Describe(fmt.Sprintf("campaign step %q: %v", id, err)))
 		}
 	}
 

@@ -1026,7 +1026,7 @@ type CampaignVariable struct {
 
 // CampaignVariant defines model for CampaignVariant.
 type CampaignVariant struct {
-	// Key The value a send resolves against to pick this variant's templates
+	// Key The value a send resolves against to pick this variant's templates. Lowercase letters, digits, dashes and underscores, starting with a letter or digit. The empty key is the default variant and is never declared here.
 	Key string `json:"key"`
 
 	// Label Human readable name shown in the console

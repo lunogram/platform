@@ -3347,7 +3347,7 @@ export interface components {
         };
         CampaignVariant: {
             /**
-             * @description The value a send resolves against to pick this variant's templates
+             * @description The value a send resolves against to pick this variant's templates. Lowercase letters, digits, dashes and underscores, starting with a letter or digit. The empty key is the default variant and is never declared here.
              * @example acme
              */
             key: string;

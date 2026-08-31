@@ -103,12 +103,17 @@ type CampaignsStore struct {
 
 func (s *CampaignsStore) CreateCampaign(ctx context.Context, campaign Campaign) (uuid.UUID, error) {
 	stmt := `
-	INSERT INTO campaigns (project_id, name, channel, subscription_id, transactional)
-	VALUES ($1, $2, $3, $4, $5)
+	INSERT INTO campaigns (project_id, name, channel, subscription_id, transactional, variants)
+	VALUES ($1, $2, $3, $4, $5, $6)
 	RETURNING id`
 
+	variants, err := campaign.Variants.Value()
+	if err != nil {
+		return uuid.Nil, err
+	}
+
 	var id uuid.UUID
-	err := s.db.GetContext(ctx, &id, stmt, campaign.ProjectID, campaign.Name, campaign.Channel, campaign.SubscriptionID, campaign.Transactional)
+	err = s.db.GetContext(ctx, &id, stmt, campaign.ProjectID, campaign.Name, campaign.Channel, campaign.SubscriptionID, campaign.Transactional, variants)
 	if err != nil {
 		return uuid.Nil, err
 	}

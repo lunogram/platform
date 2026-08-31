@@ -12,6 +12,7 @@ import (
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/ptr"
 	"github.com/lunogram/platform/internal/pubsub"
+	"github.com/lunogram/platform/internal/pubsub/consumer"
 	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/management"
@@ -197,6 +198,17 @@ func TestCampaignVariantsFromOAPI(t *testing.T) {
 			body:    oapi.CampaignVariants{Options: &[]oapi.CampaignVariant{{Key: "acme"}, {Key: "acme"}}},
 			wantErr: true,
 		},
+		// The console reserves values starting with an underscore as its
+		// "default" and "none" dropdown sentinels. A saved key that collides
+		// with one is unselectable once it is stored.
+		"key using a console sentinel": {
+			body:    oapi.CampaignVariants{Options: &[]oapi.CampaignVariant{{Key: "__default__"}}},
+			wantErr: true,
+		},
+		"key with uppercase and spaces": {
+			body:    oapi.CampaignVariants{Options: &[]oapi.CampaignVariant{{Key: "Acme Corp"}}},
+			wantErr: true,
+		},
 	}
 
 	for name, test := range tests {
@@ -331,6 +343,142 @@ func TestCreateBroadcastVariantSelector(t *testing.T) {
 			}
 			require.NotNil(t, broadcast.Variant)
 			require.Equal(t, test.selector.Type, broadcast.Variant.Type)
+		})
+	}
+}
+
+// Undeclaring a variant that still has templates strands those rows: hidden
+// from the console switcher and unreachable by any send. A rename reaches the
+// API as the same edit, so one guard covers both.
+func TestUndeclaredTemplateVariants(t *testing.T) {
+	t.Parallel()
+
+	templates := management.Templates{
+		{Variant: ""},
+		{Variant: "acme"},
+		{Variant: "acme"},
+		{Variant: "globex"},
+	}
+
+	declared := management.CampaignVariants{Options: []management.CampaignVariant{{Key: "acme"}}}
+	require.Equal(t, []string{"globex"}, undeclaredTemplateVariants(templates, declared))
+
+	both := management.CampaignVariants{Options: []management.CampaignVariant{{Key: "acme"}, {Key: "globex"}}}
+	require.Empty(t, undeclaredTemplateVariants(templates, both))
+
+	// Renaming acme to acme-corp undeclares acme while its templates remain.
+	renamed := management.CampaignVariants{Options: []management.CampaignVariant{{Key: "acme-corp"}, {Key: "globex"}}}
+	require.Equal(t, []string{"acme"}, undeclaredTemplateVariants(templates, renamed))
+}
+
+// Duplicating a campaign has to carry its variant declaration across as well as
+// the template rows: templates keyed by a variant the copy no longer declares
+// are invisible in the console and fall back to house branding on every send.
+func TestDuplicateCampaignCarriesVariants(t *testing.T) {
+	t.Parallel()
+
+	ctx := t.Context()
+	mgmt, _, _ := teststore.RunPostgreSQL(t)
+
+	projects := management.NewProjectsStore(mgmt)
+	projectID, err := projects.CreateProject(ctx, DefaultProject)
+	require.NoError(t, err)
+
+	campaigns := management.NewCampaignsStore(mgmt)
+
+	variants := management.CampaignVariants{
+		Selector: &management.VariantSelector{Type: management.VariantSelectorStatic, Key: "acme"},
+		Options:  []management.CampaignVariant{{Key: "acme", Label: "Acme Corp"}},
+	}
+
+	copyID, err := campaigns.CreateCampaign(ctx, management.Campaign{
+		ProjectID: projectID,
+		Name:      "Copy of Source",
+		Channel:   "email",
+		Variants:  store.JSONB[management.CampaignVariants]{Data: variants},
+	})
+	require.NoError(t, err)
+
+	copied, err := campaigns.GetCampaign(ctx, projectID, copyID)
+	require.NoError(t, err)
+	require.Equal(t, variants.Options, copied.Variants.Data.Options)
+	require.Equal(t, *variants.Selector, *copied.Variants.Data.Selector)
+}
+
+// A journey step's variant selector is only checked when the journey is
+// published: draft saves stay lenient, so without this a mistyped static key
+// reaches the send path and quietly delivers house branding to a client's
+// recipients.
+func TestValidateCampaignStepVariants(t *testing.T) {
+	t.Parallel()
+
+	logger := zaptest.NewLogger(t)
+	ctx := t.Context()
+	mgmt, usrs, jrny := teststore.RunPostgreSQL(t)
+
+	projects := management.NewProjectsStore(mgmt)
+	projectID, err := projects.CreateProject(ctx, DefaultProject)
+	require.NoError(t, err)
+
+	mgmtState := management.NewState(mgmt)
+	campaignID, err := mgmtState.CampaignsStore.CreateCampaign(ctx, management.Campaign{
+		ProjectID: projectID,
+		Name:      "Test Campaign",
+		Channel:   "email",
+		Variants: store.JSONB[management.CampaignVariants]{
+			Data: management.CampaignVariants{Options: []management.CampaignVariant{{Key: "acme"}}},
+		},
+	})
+	require.NoError(t, err)
+
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(uuid.New()),
+		rbac.WithProjectID(projectID),
+	)
+	engine, _ := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+	journeys := NewJourneysController(logger, jrny, usrs, mgmtState, nil, nil, engine, consumer.Namespace(""))
+
+	campaignStep := func(t *testing.T, selector *oapi.VariantSelector) oapi.JourneyStepMap {
+		t.Helper()
+		raw, err := json.Marshal(oapi.CampaignStepData{CampaignId: campaignID, Variant: selector})
+		require.NoError(t, err)
+		return oapi.JourneyStepMap{
+			"step": oapi.JourneyStep{Type: oapi.JourneyStepTypeCampaign, Data: raw},
+		}
+	}
+
+	tests := map[string]struct {
+		selector *oapi.VariantSelector
+		wantErr  bool
+	}{
+		"no selector defers to the campaign": {selector: nil},
+		"declared static key": {
+			selector: &oapi.VariantSelector{Type: "static", Key: ptr.To("acme")},
+		},
+		"empty static key pins the default variant": {
+			selector: &oapi.VariantSelector{Type: "static", Key: ptr.To("")},
+		},
+		"undeclared static key": {
+			selector: &oapi.VariantSelector{Type: "static", Key: ptr.To("globex")},
+			wantErr:  true,
+		},
+		"expression": {
+			selector: &oapi.VariantSelector{Type: "expression", Expression: ptr.To("{{ user.data.tenant }}")},
+		},
+		"empty expression": {
+			selector: &oapi.VariantSelector{Type: "expression", Expression: ptr.To("  ")},
+			wantErr:  true,
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			err := journeys.validateCampaignStepVariants(ctx, projectID, campaignStep(t, test.selector))
+			if test.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
 		})
 	}
 }

@@ -34,10 +34,12 @@ export function CampaignVariants({ value, templates, onChange }: CampaignVariant
         (options: CampaignVariant[]) => {
             // Dropping the variant a static selector points at would leave the
             // campaign pinned to something it no longer declares, which the API
-            // rejects on save. Clear the selector instead.
+            // rejects on save. Clear the selector instead. The empty key is the
+            // default variant: always available, never in options, so a
+            // campaign pinned to house branding survives every edit here.
+            const pinned = value.selector?.type === "static" ? value.selector.key : undefined
             const selector =
-                value.selector?.type === "static" &&
-                !options.some((option) => option.key === value.selector?.key)
+                pinned && !options.some((option) => option.key === pinned)
                     ? undefined
                     : value.selector
             onChange({ selector, options })
@@ -93,7 +95,14 @@ export function CampaignVariants({ value, templates, onChange }: CampaignVariant
             <div className="px-3 py-2">
                 {variants.map((variant, index) => {
                     const keyError = validateKey(variant.key, variants, index)
-                    const templateCount = templates.filter((t) => t.variant === variant.key).length
+                    const templateCount = variant.key
+                        ? templates.filter((t) => t.variant === variant.key).length
+                        : 0
+                    // Templates are stored under the key, and nothing moves
+                    // them when it changes, so a rename here would strand them:
+                    // hidden from the switcher and unreachable by any send. The
+                    // API refuses the same edit.
+                    const keyLocked = templateCount > 0
 
                     return (
                         <div key={index} className="py-1.5">
@@ -105,8 +114,17 @@ export function CampaignVariants({ value, templates, onChange }: CampaignVariant
                                             key: e.target.value.toLowerCase().replace(/\s/g, "-"),
                                         })
                                     }
+                                    readOnly={keyLocked}
+                                    title={
+                                        keyLocked
+                                            ? t(
+                                                  "campaign.variants.key_locked",
+                                                  "Delete this variant's templates before renaming or removing it.",
+                                              )
+                                            : undefined
+                                    }
                                     placeholder="key"
-                                    className="h-8 w-36 rounded-r-none font-mono text-sm shadow-none focus:z-10"
+                                    className="h-8 w-36 rounded-r-none font-mono text-sm shadow-none focus:z-10 read-only:cursor-not-allowed read-only:text-muted-foreground"
                                 />
                                 <Input
                                     value={variant.label ?? ""}
@@ -121,7 +139,16 @@ export function CampaignVariants({ value, templates, onChange }: CampaignVariant
                                 <button
                                     type="button"
                                     onClick={() => removeVariant(index)}
-                                    className="-ml-px flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-r-md border border-l-0 bg-background text-muted-foreground/60 transition-colors hover:bg-destructive/5 hover:text-destructive"
+                                    disabled={keyLocked}
+                                    title={
+                                        keyLocked
+                                            ? t(
+                                                  "campaign.variants.key_locked",
+                                                  "Delete this variant's templates before renaming or removing it.",
+                                              )
+                                            : undefined
+                                    }
+                                    className="-ml-px flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-r-md border border-l-0 bg-background text-muted-foreground/60 transition-colors hover:bg-destructive/5 hover:text-destructive disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-background disabled:hover:text-muted-foreground/60"
                                     aria-label={t("campaign.variants.delete", "Delete variant")}
                                 >
                                     <Trash2 className="h-3.5 w-3.5" />
