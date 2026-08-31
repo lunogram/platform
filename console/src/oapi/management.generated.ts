@@ -2690,6 +2690,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/oidc/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Begin a single sign-on login
+         * @description Redirects the browser to the deployment's identity provider, having stored the state, the PKCE code verifier and the nonce server-side under a short lifetime, and having set a binding cookie that ties the request to this browser. The redirect_uri handed to the provider is derived from the deployment's public URL and is never taken from a request parameter.
+         */
+        get: operations["startOIDCLogin"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/oidc/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Complete a single sign-on login
+         * @description Redeems the authorization response. The state is single-use and deleted as it is read, the binding cookie must match the one the login was started with, the code is exchanged with the stored PKCE verifier, and the ID token is proved against the provider's published keys, its issuer, its audience, its expiry and the stored nonce. The browser is then redirected into the console, with or without a session.
+         */
+        get: operations["completeOIDCLogin"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -10813,6 +10853,51 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Broadcast"];
                 };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    startOIDCLogin: {
+        parameters: {
+            query?: {
+                /** @description Where the console should land once the session exists. Reduced to a same-site path. */
+                r?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Redirect to the identity provider */
+            302: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    completeOIDCLogin: {
+        parameters: {
+            query?: {
+                code?: string;
+                state?: string;
+                error?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Redirect into the console */
+            302: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             default: components["responses"]["Error"];
         };

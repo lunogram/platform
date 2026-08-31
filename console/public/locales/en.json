@@ -299,7 +299,7 @@
     "associations": "Associations",
     "average": "Average",
     "auth_driver_basic": "Continue with email",
-    "auth_driver_clerk": "Continue with SSO",
+    "auth_driver_clerk": "Continue with Clerk",
     "auth_driver_password": "Continue with a password",
     "back": "Back",
     "field_required": "This field is required",
@@ -522,7 +522,6 @@
     "invite_sent": "Invitation sent",
     "invite_sent_description": "We emailed <strong>{{email}}</strong> a link to join {{project}}.",
     "invite_sent_note": "They accept by signing in with this address. If they do not have an account yet, they will be asked to create one first.",
-    "copied": "Copied",
     "done": "Done",
     "invite_accepted": "Invite accepted",
     "invite_accept": "Accept invite",
@@ -1121,5 +1120,12 @@
     "rule_step_visit_has_passed": "Has passed",
     "rule_step_visit_this_step": "this step",
     "rule_step_visit_times": "times",
-    "rule_step_visit_hint": "The visit in progress is counted, so a user standing on this step for the third time compares against 3."
+    "rule_step_visit_hint": "The visit in progress is counted, so a user standing on this step for the third time compares against 3.",
+    "auth_driver_oidc": "Continue with single sign-on",
+    "sso_instructions": "You will be sent to your organization's identity provider to sign in.",
+    "sso_continue": "Continue with single sign-on",
+    "sso_error_expired": "That sign-in request has expired or was already answered in another browser. Please start again.",
+    "sso_error_denied": "Your identity provider refused the sign-in.",
+    "sso_error_email": "Your identity provider returned no email address.",
+    "sso_error_failed": "Single sign-on failed. Please try again."
 }

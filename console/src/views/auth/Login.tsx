@@ -31,7 +31,18 @@ interface LoginFormValues {
     password: string
 }
 
-const SUPPORTED_DRIVERS: AuthDriver[] = [AUTH_DRIVERS.BASIC, AUTH_DRIVERS.CLERK]
+// The callback bounces a failed federated login back here with a coarse reason.
+// It is deliberately coarse: enough to say something true, never enough to
+// describe the deployment's identity provider to a stranger.
+const SSO_ERRORS: Record<string, string> = {
+    expired: "sso_error_expired",
+    denied: "sso_error_denied",
+    email: "sso_error_email",
+    exchange: "sso_error_failed",
+    failed: "sso_error_failed",
+}
+
+const SUPPORTED_DRIVERS: AuthDriver[] = [AUTH_DRIVERS.BASIC, AUTH_DRIVERS.CLERK, AUTH_DRIVERS.OIDC]
 
 export default function Login() {
     const { t } = useTranslation()
@@ -72,6 +83,13 @@ export default function Login() {
     }
 
     useEffect(() => {
+        const failure = searchParams.get("sso_error")
+        if (failure) {
+            setError(t(SSO_ERRORS[failure] ?? "sso_error_failed"))
+        }
+    }, [searchParams, t])
+
+    useEffect(() => {
         api.auth
             .methods()
             .then((methods) => {
@@ -79,15 +97,20 @@ export default function Login() {
                     SUPPORTED_DRIVERS.includes(driver),
                 )
                 setDrivers(supportedDrivers)
+                // Selected directly rather than through handleSelectDriver,
+                // which clears the error. On a deployment offering only single
+                // sign-on this runs right after a failed callback set one, and
+                // clearing it would leave the person looking at the button they
+                // just came back from with no explanation.
                 if (supportedDrivers.length === 1) {
-                    handleSelectDriver(supportedDrivers[0])
+                    setSelectedDriver(supportedDrivers[0])
                 }
             })
             .catch((err) => {
                 console.error("Failed to fetch auth methods:", err)
                 setError(t("login_methods_error"))
             })
-    }, [handleSelectDriver, t])
+    }, [t])
 
     // Loading state
     if (!drivers || drivers.length === 0) {
@@ -122,11 +145,18 @@ export default function Login() {
 
     const isCredentialDriver = selectedDriver === AUTH_DRIVERS.BASIC
     const offersAccounts = isCredentialDriver
+    const isSsoDriver = selectedDriver === AUTH_DRIVERS.OIDC
 
     return (
         <AuthCard
             title={t("welcome")}
-            description={selectedDriver ? t("login_basic_instructions") : t("login_select_method")}
+            description={
+                selectedDriver
+                    ? isSsoDriver
+                        ? t("sso_instructions")
+                        : t("login_basic_instructions")
+                    : t("login_select_method")
+            }
             footer={
                 offersAccounts ? (
                     <Link to="/register" className="underline underline-offset-4">
@@ -154,6 +184,35 @@ export default function Login() {
                             {t(`auth_driver_${driver}`)}
                         </Button>
                     ))}
+                </div>
+            )}
+
+            {isSsoDriver && (
+                <div className="space-y-4">
+                    <Button
+                        type="button"
+                        className="w-full"
+                        disabled={isSubmitting}
+                        onClick={() => {
+                            setIsSubmitting(true)
+                            api.auth.ssoStart(redirect)
+                        }}
+                    >
+                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        {t("sso_continue")}
+                    </Button>
+
+                    {drivers.length > 1 && (
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            className="w-full"
+                            onClick={() => setSelectedDriver(undefined)}
+                        >
+                            <ArrowLeft className="mr-2 h-4 w-4" />
+                            {t("back")}
+                        </Button>
+                    )}
                 </div>
             )}
 

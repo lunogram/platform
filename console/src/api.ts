@@ -229,6 +229,12 @@ const api = {
         changePassword: async (current_password: string, password: string) => {
             await client.post("/admin/profile/password", { current_password, password })
         },
+        // ssoStart is a full-page navigation rather than an XHR: the browser has
+        // to follow the redirect to the identity provider and come back with a
+        // session cookie.
+        ssoStart: (redirect: string) => {
+            window.location.href = `/api/auth/oidc/start?r=${encodeURIComponent(redirect)}`
+        },
         clerkAuth: async (token: string) => {
             await client.post(
                 "/auth/login/clerk/callback",
