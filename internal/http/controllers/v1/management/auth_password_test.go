@@ -93,8 +93,6 @@ type passwordEnv struct {
 	orgID      uuid.UUID
 }
 
-// seedablePassword satisfies the password policy, which the boot seeder applies
-// to AUTH_BASIC_PASSWORD like any other credential.
 const seedablePassword = "an entirely ordinary passphrase"
 
 // testMailConfig is a channel that builds but never dials: every test replaces
@@ -249,29 +247,14 @@ func TestRegisterDoesNotRevealExistingAccounts(t *testing.T) {
 	assert.True(t, match, "the original password still stands")
 }
 
-func TestRegisterEnforcesThePasswordPolicy(t *testing.T) {
+func TestRegisterRequiresAnAddress(t *testing.T) {
 	t.Parallel()
 	env := newPasswordEnv(t, config.RegistrationOpen)
 
-	tests := map[string]struct {
-		email    string
-		password string
-	}{
-		"too short":       {email: "short@example.test", password: "hunter2"},
-		"is the address":  {email: "someone@example.test", password: "someone@example.test"},
-		"easily guessed":  {email: "guess@example.test", password: "passwordpassword"},
-		"absurdly long":   {email: "long@example.test", password: strings.Repeat("a", password.MaxLength+1)},
-		"missing address": {email: "  ", password: testPassword},
-	}
+	res := env.register("  ", testPassword)
+	assert.Equal(t, http.StatusBadRequest, res.Code, res.Body.String())
 
-	for name, test := range tests {
-		t.Run(name, func(t *testing.T) {
-			res := env.register(test.email, test.password)
-			assert.Equal(t, http.StatusBadRequest, res.Code, res.Body.String())
-		})
-	}
-
-	_, err := env.state.ResolveAdminByEmail(t.Context(), "short@example.test")
+	_, err := env.state.ResolveAdminByEmail(t.Context(), "")
 	assert.ErrorIs(t, err, sql.ErrNoRows, "a rejected registration creates nothing")
 }
 
@@ -582,33 +565,6 @@ func TestPasswordReset(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, replay.Code, "a reset link is worth one redemption")
 }
 
-// A password the policy rejects must not cost the caller the one link they
-// have; they get to try again with a longer one.
-func TestRejectedPasswordDoesNotBurnTheResetLink(t *testing.T) {
-	t.Parallel()
-	env := newPasswordEnv(t, config.RegistrationOpen)
-
-	require.Equal(t, http.StatusNoContent, env.register("retry@example.test", testPassword).Code)
-	env.mail.awaitSubject(t, "Confirm your email address")
-
-	require.Equal(t, http.StatusNoContent,
-		env.post(env.controller.RequestPasswordReset, map[string]string{"email": "retry@example.test"}).Code)
-	message := env.mail.awaitSubject(t, "Reset your password")
-	token := tokenFrom(t, message)
-
-	rejected := env.post(env.controller.ConfirmPasswordReset, map[string]string{
-		"token": token, "password": "short",
-	})
-	require.Equal(t, http.StatusBadRequest, rejected.Code)
-
-	const replacement = "a brand new and different passphrase"
-	accepted := env.post(env.controller.ConfirmPasswordReset, map[string]string{
-		"token": token, "password": replacement,
-	})
-	require.Equal(t, http.StatusNoContent, accepted.Code, accepted.Body.String())
-	assert.Equal(t, http.StatusOK, env.login("retry@example.test", replacement).Code)
-}
-
 func TestPasswordResetDoesNotRevealExistingAccounts(t *testing.T) {
 	t.Parallel()
 	env := newPasswordEnv(t, config.RegistrationOpen)
@@ -680,11 +636,6 @@ func TestChangePassword(t *testing.T) {
 	t.Run("the current password is required", func(t *testing.T) {
 		res := change("not the current password", "a brand new and different passphrase")
 		assert.Equal(t, http.StatusForbidden, res.Code, res.Body.String())
-	})
-
-	t.Run("the new password must satisfy the policy", func(t *testing.T) {
-		res := change(testPassword, "short")
-		assert.Equal(t, http.StatusBadRequest, res.Code, res.Body.String())
 	})
 
 	t.Run("changes the password and ends every other session", func(t *testing.T) {

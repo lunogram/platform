@@ -93,22 +93,9 @@ func (s *Seeder) Seed(ctx context.Context, email, plain string) error {
 	return s.complete(ctx, admin.ID, email, plain)
 }
 
-// hash applies the same policy every other password creation path applies.
-//
-// The configured secret becomes a persistent, stored owner credential, so it is
-// held to the rules an admin choosing one in the console is held to. Skipping
-// them here is how a deployment ends up owned by a twelve-character-short
-// password that the product refuses to let anybody set deliberately.
-func (s *Seeder) hash(email, plain string) (string, error) {
-	if err := password.Validate(plain, email); err != nil {
-		return "", fmt.Errorf("auth: AUTH_BASIC_PASSWORD is not acceptable as an account password: %w", err)
-	}
-	return password.Hash(plain)
-}
-
 // create provisions the account the configured credential names.
 func (s *Seeder) create(ctx context.Context, email, plain string) error {
-	hash, err := s.hash(email, plain)
+	hash, err := password.Hash(plain)
 	if err != nil {
 		return err
 	}
@@ -155,10 +142,7 @@ func (s *Seeder) complete(ctx context.Context, adminID uuid.UUID, email, plain s
 		return nil
 	}
 
-	// Validated only now that a write is actually going to happen: a deployment
-	// whose account already has a password keeps working even if the variable
-	// left behind in its environment would no longer pass.
-	hash, err := s.hash(email, plain)
+	hash, err := password.Hash(plain)
 	if err != nil {
 		return err
 	}

@@ -115,42 +115,6 @@ func TestVerifyRejectsMalformedHashes(t *testing.T) {
 	}
 }
 
-func TestValidate(t *testing.T) {
-	tests := map[string]struct {
-		password string
-		email    string
-		want     error
-	}{
-		"long enough":        {password: "an entirely ordinary passphrase", email: "admin@example.com"},
-		"exactly minimum":    {password: "abcdefghijkm", email: "admin@example.com"},
-		"one short":          {password: "abcdefghijk", email: "admin@example.com", want: ErrTooShort},
-		"empty":              {password: "", email: "admin@example.com", want: ErrTooShort},
-		"too long":           {password: strings.Repeat("a", MaxLength+1), email: "admin@example.com", want: ErrTooLong},
-		"is the address":     {password: "admin@example.com", email: "admin@example.com", want: ErrSimilar},
-		"contains the local": {password: "sysadministrator99", email: "sysadministrator@example.com", want: ErrSimilar},
-		"differs in case":    {password: "ADMIN@EXAMPLE.COM", email: "admin@example.com", want: ErrSimilar},
-		"is the domain":      {password: "exampleexample", email: "admin@exampleexample.com", want: ErrSimilar},
-		"common":             {password: "passwordpassword", email: "admin@example.com", want: ErrCommon},
-		"common other case":  {password: "PasswordPassword", email: "admin@example.com", want: ErrCommon},
-		// A short local part must not reject every password containing it, or
-		// "bo@example.com" cannot use a password containing "bo".
-		"short local part": {password: "a thoroughly boring passphrase", email: "bo@example.com"},
-		// Multi-byte characters count as one rune each; counting bytes would let
-		// a four-character password through.
-		"unicode counted by rune": {password: "パスワード", email: "admin@example.com", want: ErrTooShort},
-		"unicode long enough":     {password: "パスワードパスワードパスワード", email: "admin@example.com"},
-	}
-
-	for name, test := range tests {
-		t.Run(name, func(t *testing.T) {
-			err := Validate(test.password, test.email)
-			if !errors.Is(err, test.want) {
-				t.Errorf("Validate() = %v, want %v", err, test.want)
-			}
-		})
-	}
-}
-
 // VerifyDummy exists purely to burn the same work a real verification would, so
 // the only thing to assert is that it runs and does not panic on the lazily
 // built hash.

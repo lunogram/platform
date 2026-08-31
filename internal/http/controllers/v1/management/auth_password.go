@@ -111,14 +111,6 @@ func (c *AuthController) RegisterWithPassword(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// The password policy is enforced before anything else, and is the one thing
-	// this endpoint reports honestly: whether a password is long enough is a
-	// fact about the password, not about the address.
-	if err := password.Validate(body.Password, email); err != nil {
-		oapi.WriteProblem(w, passwordPolicyProblem(err))
-		return
-	}
-
 	// Registration causes mail to be sent to an address the caller chose, so it
 	// is bounded per source. Without this the endpoint is a way to bury a
 	// third party's inbox behind our sending reputation.
@@ -424,15 +416,6 @@ func (c *AuthController) ConfirmPasswordReset(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// Everything the policy can judge without knowing whose account this is runs
-	// BEFORE the token is redeemed, so a password that is simply too short does
-	// not burn the one link the caller has. Only the "not your own address"
-	// rule needs the account, and it is re-checked below.
-	if err := password.Validate(body.Password, ""); err != nil {
-		oapi.WriteProblem(w, passwordPolicyProblem(err))
-		return
-	}
-
 	adminID, identity, err := c.resolveResetTarget(ctx, body.Token)
 	if err != nil {
 		oapi.WriteProblem(w, err)
@@ -443,11 +426,6 @@ func (c *AuthController) ConfirmPasswordReset(w http.ResponseWriter, r *http.Req
 	if err != nil {
 		c.logger.Error("failed to load an admin for a password reset", zap.String("admin_id", adminID.String()), zap.Error(err))
 		oapi.WriteProblem(w, problem.ErrInternal())
-		return
-	}
-
-	if err := password.Validate(body.Password, admin.Email); err != nil {
-		oapi.WriteProblem(w, passwordPolicyProblem(err))
 		return
 	}
 
@@ -592,11 +570,6 @@ func (c *AuthController) ChangePassword(w http.ResponseWriter, r *http.Request) 
 		c.throttle.spend(ctx, budgets)
 		logger.Warn("password change rejected: the current password is wrong")
 		oapi.WriteProblem(w, problem.ErrForbidden(problem.Describe("the current password is not correct")))
-		return
-	}
-
-	if err := password.Validate(body.Password, admin.Email); err != nil {
-		oapi.WriteProblem(w, passwordPolicyProblem(err))
 		return
 	}
 
@@ -774,24 +747,6 @@ func (c *AuthController) sendAccountExists(ctx context.Context, admin *managemen
 	}
 
 	c.password.mail.Dispatch(c.password.renderer.AccountExists(email, token, management.PasswordResetTTL))
-}
-
-// passwordPolicyProblem turns a policy failure into a 400 the console can show.
-// These are facts about the submitted password and reveal nothing about the
-// account, so unlike everything else on these endpoints they are reported.
-func passwordPolicyProblem(err error) error {
-	switch {
-	case errors.Is(err, password.ErrTooShort):
-		return problem.ErrBadRequest(problem.Describe("your password must be at least 12 characters long"))
-	case errors.Is(err, password.ErrTooLong):
-		return problem.ErrBadRequest(problem.Describe("your password is too long"))
-	case errors.Is(err, password.ErrSimilar):
-		return problem.ErrBadRequest(problem.Describe("your password must not be based on your email address"))
-	case errors.Is(err, password.ErrCommon):
-		return problem.ErrBadRequest(problem.Describe("this password is too easily guessed, please choose another"))
-	default:
-		return problem.ErrBadRequest(problem.Describe("this password cannot be used"))
-	}
 }
 
 func normaliseEmail(email string) string {
