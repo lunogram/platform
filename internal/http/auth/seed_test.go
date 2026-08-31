@@ -152,26 +152,9 @@ func TestSeedRefusesAHalfConfiguredPair(t *testing.T) {
 	assert.Contains(t, err.Error(), "AUTH_BASIC_EMAIL")
 }
 
-// The configured secret becomes a persistent, stored owner credential, so it is
-// held to the rules an admin choosing one in the console is held to. Without
-// this the compose default walked straight past a policy the product otherwise
-// refuses to let anybody opt out of.
-func TestSeedAppliesThePasswordPolicy(t *testing.T) {
-	t.Parallel()
-
-	env := newExchangeEnv(t)
-
-	err := newSeeder(t, env).Seed(context.Background(), "owner@example.com", "admin")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "AUTH_BASIC_PASSWORD")
-
-	_, err = env.mgmt.ResolveAdminByEmail(context.Background(), "owner@example.com")
-	assert.Error(t, err, "nothing may be created when the password is refused")
-}
-
-// An account that already has a password keeps working even if the variable left
-// behind in the environment would no longer pass.
-func TestSeedIgnoresAWeakVariableOnceAPasswordIsStored(t *testing.T) {
+// A stored password is the admin's, not the environment's: once one exists the
+// variable left behind in the environment must not quietly replace it.
+func TestSeedIgnoresTheVariableOnceAPasswordIsStored(t *testing.T) {
 	t.Parallel()
 
 	env := newExchangeEnv(t)

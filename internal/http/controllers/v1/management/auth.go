@@ -15,6 +15,7 @@ import (
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/http/problem"
+	"github.com/lunogram/platform/internal/mailer"
 	"github.com/lunogram/platform/internal/ratelimit"
 	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/store/management"
@@ -29,7 +30,7 @@ import (
 // reads through. Building a separate one here would leave logout unable to
 // invalidate the shared session cache, so a revoked session would keep
 // authenticating on other replicas until the cache TTL elapsed.
-func NewAuthController(logger *zap.Logger, db *sqlx.DB, mgmt *management.State, cfg config.Node, engine *rbac.Engine, signer *auth.ConsoleSigner, limiter *ratelimit.Limiter) (*AuthController, error) {
+func NewAuthController(logger *zap.Logger, db *sqlx.DB, mgmt *management.State, cfg config.Node, engine *rbac.Engine, signer *auth.ConsoleSigner, limiter *ratelimit.Limiter, mail *mailer.Dispatcher, renderer *mailer.Renderer) (*AuthController, error) {
 	controller := &AuthController{
 		logger:   logger,
 		mgmt:     mgmt,
@@ -55,7 +56,7 @@ func NewAuthController(logger *zap.Logger, db *sqlx.DB, mgmt *management.State, 
 		}
 	}
 
-	if err := controller.initPasswordAuth(cfg); err != nil {
+	if err := controller.initPasswordAuth(cfg, mail, renderer); err != nil {
 		return nil, err
 	}
 
@@ -88,16 +89,6 @@ type AuthController struct {
 	throttle  *throttle
 
 	password passwordAuth
-}
-
-// Close releases what the controller owns beyond the request path.
-//
-// The mail dispatcher is the only such thing: it holds queued messages and its
-// own workers, and draining it is what stops a shutdown from swallowing a
-// verification link somebody is waiting on. Nothing called it before, so that
-// promise was only ever kept in tests.
-func (c *AuthController) Close() {
-	c.password.mail.Close()
 }
 
 // credentialRejected reports whether a verifier turned a login down because of

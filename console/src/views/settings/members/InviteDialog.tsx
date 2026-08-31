@@ -1,23 +1,8 @@
 import { useTranslation } from "react-i18next"
 import { useForm } from "react-hook-form"
 import { Check, Eye, Smartphone, Pencil, Shield } from "lucide-react"
-import { snakeToTitle } from "../../utils"
-import type { ProjectRole } from "../../types"
-import { projectRoles } from "../../types"
-
-const roleHierarchy: Record<string, number> = {
-    support: 1,
-    client: 1,
-    editor: 2,
-    admin: 3,
-}
-
-function getAllowedRoles(userRole: ProjectRole): ProjectRole[] {
-    const userLevel = roleHierarchy[userRole] ?? 0
-    return projectRoles.filter(
-        (role) => projectRoles.includes(role) && (roleHierarchy[role] ?? 0) <= userLevel,
-    )
-}
+import { assignableProjectRoles, snakeToTitle } from "@/utils"
+import type { ProjectRole } from "@/types"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -80,7 +65,6 @@ const roleConfig: Record<
 interface InviteFormData {
     email: string
     role: ProjectRole
-    expires_in?: string
 }
 
 export interface InviteDialogProps {
@@ -99,26 +83,16 @@ export default function InviteDialog({
     userRole = "support",
 }: InviteDialogProps) {
     const { t } = useTranslation()
-    const allowedRoles = getAllowedRoles(userRole)
+    const allowedRoles = assignableProjectRoles(userRole)
     const form = useForm<InviteFormData>({
         values: {
             role: allowedRoles.includes("admin") ? "admin" : allowedRoles[0] || "support",
             email: "",
-            expires_in: "24h",
         },
     })
 
     // eslint-disable-next-line react-hooks/incompatible-library
     const selectedRole = form.watch("role") ?? allowedRoles[0]
-    const expiresIn = form.watch("expires_in") ?? "24h"
-
-    const expiryOptions = [
-        { value: "1h", label: "1 hour" },
-        { value: "24h", label: "24 hours" },
-        { value: "48h", label: "48 hours" },
-        { value: "7d", label: "7 days" },
-        { value: "30d", label: "30 days" },
-    ]
 
     const validRoles = allowedRoles
 
@@ -133,7 +107,8 @@ export default function InviteDialog({
                 <DialogHeader>
                     <DialogTitle>{t("create_invite")}</DialogTitle>
                     <DialogDescription>
-                        {t("create_invite_description", "Invite a team member to your project.")}
+                        {t("create_invite_description", "Invite a team member to your project.")}{" "}
+                        {t("invite_expiry_notice", "The invite expires in 48 hours.")}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -148,25 +123,6 @@ export default function InviteDialog({
                             placeholder="colleague@example.com"
                             {...form.register("email", { required: true })}
                         />
-                    </div>
-
-                    <div className="grid gap-2">
-                        <Label htmlFor="expires_in" className="inline-flex items-center gap-1">
-                            {t("expires_in", "Expires in")}
-                        </Label>
-                        <select
-                            id="expires_in"
-                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                            {...form.register("expires_in")}
-                            value={expiresIn}
-                            onChange={(e) => form.setValue("expires_in", e.target.value)}
-                        >
-                            {expiryOptions.map((option) => (
-                                <option key={option.value} value={option.value}>
-                                    {option.label}
-                                </option>
-                            ))}
-                        </select>
                     </div>
 
                     <div className="grid gap-2">

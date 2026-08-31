@@ -86,11 +86,6 @@ The plaintext is needed exactly once. Once the account exists you can remove
 `AUTH_BASIC_PASSWORD` from the environment; a later boot never overwrites a
 stored password, so a restart cannot undo one you changed in the console.
 
-Because it becomes a real stored credential, it is held to the same policy as a
-password chosen in the console — at least 12 characters, not a common one, not a
-variation on the address. A deployment that sets one which fails those rules is
-refused at boot rather than quietly owned by it.
-
 ```
 AUTH_DRIVER=basic
 AUTH_BASIC_EMAIL=you@example.com
@@ -113,17 +108,16 @@ first account (nobody could have invited that one).
 > you open the port, or start with `AUTH_BASIC_REGISTRATION=disabled` and
 > switch it on once you hold the account.
 
-Account confirmation and password resets are sent by email, so the deployment
-has to say where its mail goes. `docker compose up` runs
+Registering does not ask you to confirm the address: the account works
+immediately. Password resets and project invitations are still sent by email, so
+the deployment has to say where its mail goes. `docker compose up` runs
 [Mailpit](https://mailpit.axllent.org) alongside the platform and points it
-there: create an account, then read the confirmation link at
-<http://localhost:8025>. Nothing leaves the machine and no SMTP account is
-needed.
+there, readable at <http://localhost:8025>. Nothing leaves the machine and no
+SMTP account is needed.
 
 There is deliberately no channel that only writes messages to the log. A
-deployment offering password logins with nowhere to send mail cannot confirm an
-address or reset a password, so it is refused at boot rather than at the first
-registration.
+deployment offering password logins with nowhere to send mail cannot reset a
+password, so it is refused at boot rather than at the first request.
 
 Before production, point it at a real relay:
 

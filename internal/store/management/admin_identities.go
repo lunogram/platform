@@ -283,34 +283,3 @@ func (s *AdminIdentitiesStore) MarkAdminIdentityEmailVerified(ctx context.Contex
 	_, err := s.db.ExecContext(ctx, stmt, id)
 	return err
 }
-
-// AdminEmailVerified reports whether some live identity PROVES the admin's own
-// address -- that is, an identity carrying email_verified whose address is still
-// the one on the admin record.
-//
-// It is the guard for anything an email address alone would otherwise confer: a
-// pending invite is addressed to a mailbox, so acting on one has to mean the
-// account controls that mailbox. Local registration lets anybody claim any
-// address by typing it, so "the admin record says this address" is not proof of
-// anything until an identity says it was verified.
-//
-// The comparison against admins.email is deliberate: an old identity that proved
-// a PREVIOUS address must not vouch for the address the admin carries today.
-func (s *AdminIdentitiesStore) AdminEmailVerified(ctx context.Context, adminID uuid.UUID) (bool, error) {
-	stmt := `
-	SELECT EXISTS (
-		SELECT 1
-		FROM admin_identities i
-		JOIN admins a ON a.id = i.admin_id AND a.deleted_at IS NULL
-		WHERE i.admin_id = $1
-		AND i.deleted_at IS NULL
-		AND i.email_verified
-		AND lower(i.email) = lower(a.email)
-	)`
-
-	var verified bool
-	if err := s.db.GetContext(ctx, &verified, stmt, adminID); err != nil {
-		return false, err
-	}
-	return verified, nil
-}

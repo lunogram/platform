@@ -139,6 +139,20 @@ func DefaultConfig() Config {
 // Configured reports whether a channel has been selected.
 func (c Config) Configured() bool { return c.Channel != "" }
 
+// RequireConfigured returns the error a deployment gets when it needs to send
+// mail and has nowhere to send it. It is the same refusal [New] gives, so a
+// caller holding an already-built mailer can check the requirement without
+// building a second one.
+func RequireConfigured(c Config) error {
+	if c.Configured() {
+		return nil
+	}
+	return fmt.Errorf(
+		"mailer: no channel is configured. Set mail.channel to %q or %q (MAIL_CHANNEL), "+
+			"because a deployment offering password logins cannot confirm an address or reset a password without sending mail",
+		ChannelSMTP, ChannelWebhook)
+}
+
 const (
 	TLSStartTLS = "starttls"
 	TLSImplicit = "implicit"
@@ -155,10 +169,7 @@ func New(config Config, baseDir string, logger *zap.Logger) (Mailer, error) {
 	case ChannelWebhook:
 		return NewWebhook(config, baseDir, logger)
 	case "":
-		return nil, fmt.Errorf(
-			"mailer: no channel is configured. Set mail.channel to %q or %q (MAIL_CHANNEL), "+
-				"because a deployment offering password logins cannot confirm an address or reset a password without sending mail",
-			ChannelSMTP, ChannelWebhook)
+		return nil, RequireConfigured(config)
 	default:
 		return nil, fmt.Errorf("mailer: unknown channel %q, expected %q or %q", config.Channel, ChannelSMTP, ChannelWebhook)
 	}

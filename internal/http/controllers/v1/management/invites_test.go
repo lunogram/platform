@@ -1,16 +1,17 @@
-//go:build enterprise
-
 package v1
 
 import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lunogram/platform/internal/config"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
+	"github.com/lunogram/platform/internal/mailer"
 	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/rbac/access"
 	"github.com/lunogram/platform/internal/store/management"
@@ -24,6 +25,7 @@ type inviteTestEnv struct {
 	controller *InviteController
 	engine     *rbac.Engine
 	mgmt       *management.State
+	mail       *capturedMailer
 	orgID      uuid.UUID
 	projectID  uuid.UUID
 }
@@ -51,10 +53,14 @@ func newInviteTestEnv(t *testing.T) inviteTestEnv {
 	// Provision the project so project-scoped RBAC checks resolve.
 	require.NoError(t, access.ProvisionProject(ctx, engine, orgID, projectID))
 
+	cfg := config.Node{PublicURL: "https://console.example.test", Mail: testMailConfig()}
+	captured, dispatcher, renderer := testMailer(t, cfg)
+
 	return inviteTestEnv{
-		controller: NewInviteController(logger, mgmt, engine, mgmtDB),
+		controller: NewInviteController(logger, mgmt, engine, mgmtDB, dispatcher, renderer),
 		engine:     engine,
 		mgmt:       mgmt,
+		mail:       captured,
 		orgID:      orgID,
 		projectID:  projectID,
 	}
@@ -105,6 +111,68 @@ func (env inviteTestEnv) createInvite(t *testing.T, inviterID uuid.UUID, email s
 	return invite
 }
 
+// newProjectAdmin creates an admin who holds project admin, which is what the
+// create-invite handler checks before minting anything, and returns a
+// constructor for requests carrying them as the RBAC actor.
+func (env inviteTestEnv) newProjectAdmin(t *testing.T, email string) func(body string) *http.Request {
+	t.Helper()
+	ctx := context.Background()
+
+	adminID, _ := env.newAdmin(t, email)
+	require.NoError(t, env.mgmt.AddAdminToProject(ctx, env.projectID, adminID, rbac.ProjectAdmin))
+	require.NoError(t, access.ProvisionProjectRole(ctx, env.engine, adminID, env.projectID, rbac.ProjectAdmin))
+
+	actor := rbac.NewActor(rbac.ActorAdmin, adminID.String(), rbac.WithOrganizationID(env.orgID))
+	return func(body string) *http.Request {
+		return httptest.NewRequest(http.MethodPost, "/", strings.NewReader(body)).
+			WithContext(rbac.WithActor(ctx, actor))
+	}
+}
+
+// An invite nobody is told about is not much of an invite: creating one mails
+// the address it was sent to.
+func TestCreateProjectInviteMailsTheInvitee(t *testing.T) {
+	t.Parallel()
+
+	env := newInviteTestEnv(t)
+	newReq := env.newProjectAdmin(t, "inviter@example.com")
+
+	res := httptest.NewRecorder()
+	env.controller.CreateProjectInvite(res, newReq(`{"email":"invitee@example.com","role":"editor"}`), env.projectID)
+	require.Equal(t, http.StatusCreated, res.Code, res.Body.String())
+
+	// The inviter's account carries no name, so the invitation names them by the
+	// only other thing the invitee can recognise them by.
+	message := env.mail.awaitSubject(t, "inviter@example.com invited you to Invite Project")
+	assert.Equal(t, "invitee@example.com", message.To)
+	assert.Equal(t, mailer.KindProjectInvite, message.Kind)
+	assert.Contains(t, message.Text, "Invite Project")
+
+	// One destination whatever the invitee's account state, because that state
+	// can change between sending the mail and opening it. The page decides
+	// whether they sign in or sign up; the address rides along so it can offer
+	// to register the right one.
+	assert.Equal(t, "https://console.example.test/invites?email=invitee%40example.com",
+		message.ActionURL,
+		"the link grants nothing on its own; the invite is claimed by proving the address")
+}
+
+// Mail is a notification, not the invite itself. A deployment that configures no
+// channel still issues invites; they are found on the console's invites page.
+func TestCreateProjectInviteWithoutAMailer(t *testing.T) {
+	t.Parallel()
+
+	env := newInviteTestEnv(t)
+	env.controller.mail = nil
+	env.controller.renderer = nil
+	newReq := env.newProjectAdmin(t, "inviter@example.com")
+
+	res := httptest.NewRecorder()
+	env.controller.CreateProjectInvite(res, newReq(`{"email":"invitee@example.com","role":"editor"}`), env.projectID)
+	require.Equal(t, http.StatusCreated, res.Code, res.Body.String())
+	env.mail.awaitQuiet(t)
+}
+
 func (env inviteTestEnv) forceExpire(t *testing.T, inviteID uuid.UUID) {
 	t.Helper()
 	_, err := env.controller.db.ExecContext(context.Background(),
@@ -112,16 +180,10 @@ func (env inviteTestEnv) forceExpire(t *testing.T, inviteID uuid.UUID) {
 	require.NoError(t, err)
 }
 
-// An invite is addressed to a mailbox, so accepting one has to mean the account
-// holds that mailbox.
-//
-// Matching admins.email against the invite used to be sufficient because every
-// driver authenticated through an upstream that had already verified the
-// address. Local passwords broke that assumption: the address on an account is
-// whatever was typed into a registration form. Without this check, registering
-// a guessed victim@example.com is enough to take the project role their invite
-// grants.
-func TestAcceptProjectInviteRequiresAVerifiedEmail(t *testing.T) {
+// Confirming the address is no longer a precondition for accepting: an account
+// may act on the invites addressed to it as soon as it exists. What still binds
+// the invite is the address on the account, checked above this.
+func TestAcceptProjectInviteWithoutAConfirmedAddress(t *testing.T) {
 	t.Parallel()
 
 	env := newInviteTestEnv(t)
@@ -132,21 +194,25 @@ func TestAcceptProjectInviteRequiresAVerifiedEmail(t *testing.T) {
 
 	res := httptest.NewRecorder()
 	env.controller.AcceptProjectInvite(res, newReq(), invite.ID)
-	require.Equal(t, http.StatusForbidden, res.Code, res.Body.String())
+	require.Equal(t, http.StatusOK, res.Code, res.Body.String())
 
 	admin, err := env.mgmt.GetProjectAdmin(context.Background(), env.projectID, inviteeID)
-	require.Error(t, err, "an unverified admin must not have been added to the project")
-	require.Nil(t, admin)
+	require.NoError(t, err)
+	require.NotNil(t, admin)
+	assert.Equal(t, "editor", admin.Role)
 
 	stored, err := env.mgmt.GetInviteByID(context.Background(), invite.ID)
 	require.NoError(t, err)
-	assert.Nil(t, stored.AcceptedAt, "the invite must still be pending")
+	assert.NotNil(t, stored.AcceptedAt)
 }
 
 // The same reasoning applies to merely SEEING an invite: who invited you and to
 // which project is the invited mailbox's business, not that of whoever managed
 // to register the address.
-func TestListMyInvitesWithholdsFromUnverifiedAddresses(t *testing.T) {
+// The invites addressed to an account are shown to it whether or not the
+// address has been confirmed, because confirming is no longer part of the
+// journey.
+func TestListMyInvitesWithoutAConfirmedAddress(t *testing.T) {
 	t.Parallel()
 
 	env := newInviteTestEnv(t)
@@ -158,8 +224,7 @@ func TestListMyInvitesWithholdsFromUnverifiedAddresses(t *testing.T) {
 	res := httptest.NewRecorder()
 	env.controller.ListMyInvites(res, newReq())
 	require.Equal(t, http.StatusOK, res.Code, res.Body.String())
-	assert.NotContains(t, res.Body.String(), "lister-inviter@example.com",
-		"an unverified address must not be shown a stranger's invite")
+	assert.Contains(t, res.Body.String(), "lister-inviter@example.com")
 }
 
 func TestAcceptProjectInvite(t *testing.T) {
@@ -182,6 +247,42 @@ func TestAcceptProjectInvite(t *testing.T) {
 		allowed, err := env.engine.Check(context.Background(), "user:"+adminID.String(), "read", rbac.ProjectResourceScope("users", env.projectID))
 		require.NoError(t, err)
 		assert.True(t, allowed, "accepted invitee should have project access")
+	})
+
+	// Every project read is scoped to the organization the admin is currently
+	// in, so an invitee who accepts from their own organization has to be moved
+	// into the one that owns the project. Without this they are handed a project
+	// id the very next request reports as not found.
+	t.Run("activates the organization that owns the project", func(t *testing.T) {
+		env := newInviteTestEnv(t)
+		ctx := context.Background()
+		inviterID, _ := env.newAdmin(t, "inviter@example.com")
+
+		homeOrgID, err := env.mgmt.CreateOrganization(ctx, "Invitee's Own Org")
+		require.NoError(t, err)
+
+		adminID, err := env.mgmt.CreateAdmin(ctx, management.Admin{
+			OrganizationID: homeOrgID,
+			Email:          "outsider@example.com",
+			Role:           "owner",
+		})
+		require.NoError(t, err)
+		require.NoError(t, env.mgmt.AddMember(ctx, homeOrgID, adminID, rbac.OrganizationMember))
+
+		invite := env.createInvite(t, inviterID, "outsider@example.com", oapi.CreateProjectInviteRoleEditor, time.Hour)
+
+		actor := rbac.NewActor(rbac.ActorAdmin, adminID.String(), rbac.WithOrganizationID(homeOrgID))
+		req := httptest.NewRequest(http.MethodPost, "/", nil).WithContext(rbac.WithActor(ctx, actor))
+
+		rec := httptest.NewRecorder()
+		env.controller.AcceptProjectInvite(rec, req, invite.ID)
+		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+
+		admin, err := env.mgmt.GetAdmin(ctx, adminID)
+		require.NoError(t, err)
+		require.NotNil(t, admin.ActiveOrganizationID)
+		assert.Equal(t, env.orgID, *admin.ActiveOrganizationID,
+			"accepting has to leave the invitee in the organization owning the project")
 	})
 
 	t.Run("rejects accept by the wrong email with 403", func(t *testing.T) {
@@ -271,4 +372,39 @@ func TestAcceptProjectInvite(t *testing.T) {
 		require.NoError(t, err)
 		assert.True(t, allowed, "upgraded admin should have admin-level access")
 	})
+}
+
+// A membership that is removed and then invited back has to end up holding the
+// role of the NEW invite and nothing else. The soft-deleted row reads as absent,
+// so the accept flow sees a fresh membership and has no old role to revoke —
+// leaving the previous grant in place would make Postgres and authorization
+// disagree, and the check resolves the tuple, not the row.
+func TestAcceptProjectInviteReplacesAStaleRoleGrant(t *testing.T) {
+	t.Parallel()
+
+	env := newInviteTestEnv(t)
+	ctx := context.Background()
+	inviterID, _ := env.newAdmin(t, "inviter@example.com")
+	adminID, newReq := env.newAdmin(t, "returning@example.com")
+
+	// A first membership as editor, then removed the way the roster does it.
+	require.NoError(t, env.mgmt.AddAdminToProject(ctx, env.projectID, adminID, rbac.ProjectEditor))
+	require.NoError(t, access.ProvisionProjectRole(ctx, env.engine, adminID, env.projectID, rbac.ProjectEditor))
+	require.NoError(t, env.mgmt.DeleteProjectAdmin(ctx, env.projectID, adminID))
+
+	invite := env.createInvite(t, inviterID, "returning@example.com", oapi.CreateProjectInviteRoleSupport, time.Hour)
+
+	rec := httptest.NewRecorder()
+	env.controller.AcceptProjectInvite(rec, newReq(), invite.ID)
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+
+	member, err := env.mgmt.GetProjectAdmin(ctx, env.projectID, adminID)
+	require.NoError(t, err)
+	require.Equal(t, rbac.ProjectSupport, member.Role)
+
+	// The editor grant let them write; the support role they now hold must not.
+	allowed, err := env.engine.Check(ctx, "user:"+adminID.String(), "create",
+		rbac.ProjectResourceScope("campaigns", env.projectID))
+	require.NoError(t, err)
+	assert.False(t, allowed, "the revoked editor grant must not survive the new invite")
 }

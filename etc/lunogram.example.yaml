@@ -105,6 +105,8 @@ mail:
     # password_reset:
     # account_exists:
     # password_changed:
+    # The invitation also has .ProjectName and .InviterName.
+    # project_invite:
 
 webhook:
   # The outbound hook engine, declared inline. A deployment that already ships a

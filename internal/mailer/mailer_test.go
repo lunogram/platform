@@ -109,7 +109,7 @@ func TestRendererFallsBackToEmbeddedDefaults(t *testing.T) {
 	if message.Subject != "Confirm your email address" {
 		t.Errorf("subject = %q", message.Subject)
 	}
-	if !strings.Contains(message.Text, "24 hours") {
+	if !strings.Contains(message.Text, "1 day") {
 		t.Error("expected the expiry to be written out for a human")
 	}
 }

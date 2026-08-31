@@ -538,15 +538,16 @@ func TestInviteOrgResolver(t *testing.T) {
 		assert.Equal(t, rbac.OrganizationMember, role)
 	})
 
-	// The security property. An invite is addressed to a mailbox, so an
-	// unproved claim to that address must confer nothing: otherwise registering
-	// a guessed corporate address is a way into that organization.
-	t.Run("an UNVERIFIED invited address gets an organization of its own", func(t *testing.T) {
+	// Confirming an address is no longer part of any flow, so an invited
+	// registrant lands in the inviting organization either way. Requiring proof
+	// here once meant every invitee also got a stray organization of their own,
+	// and it protected nothing that accepting the invite does not already grant.
+	t.Run("an unconfirmed invited address still joins the inviting organization", func(t *testing.T) {
 		organizationID, role, err := InviteOrgResolver{}.Resolve(ctx, env.mgmt,
 			&VerifiedIdentity{Email: "invited@example.test", EmailVerified: false})
 		require.NoError(t, err)
-		assert.NotEqual(t, orgID, organizationID, "an unproved address must not reach the inviting organization")
-		assert.Equal(t, rbac.OrganizationOwner, role)
+		assert.Equal(t, orgID, organizationID)
+		assert.Equal(t, rbac.OrganizationMember, role)
 	})
 
 	t.Run("anybody else gets an organization of their own and owns it", func(t *testing.T) {

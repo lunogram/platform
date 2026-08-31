@@ -1,8 +1,7 @@
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 
-import { ProjectSwitcher } from "@/components/project-switcher"
-import { OrganizationSwitcher } from "@/components/organization-switcher"
+import { WorkspaceSwitcher } from "@/components/workspace-switcher"
 import {
     Sidebar,
     SidebarContent,
@@ -66,9 +65,12 @@ export function AppSidebar({
     return (
         <Sidebar {...props}>
             <SidebarHeader>
-                {organizations && <OrganizationSwitcher organizations={organizations} />}
-                {allProjects && project && (
-                    <ProjectSwitcher projects={allProjects} currentProject={project} />
+                {organizations && allProjects && project && (
+                    <WorkspaceSwitcher
+                        organizations={organizations}
+                        projects={allProjects}
+                        currentProject={project}
+                    />
                 )}
             </SidebarHeader>
             <SidebarContent>

@@ -1,5 +1,7 @@
 import Axios from "axios"
 import { env } from "./config/env"
+import { reportCrossOriginRefusal } from "./lib/cross-origin"
+import { isPublicPage } from "./lib/public-paths"
 import { oapiClient } from "./oapi/client"
 import type {
     Action,
@@ -24,7 +26,6 @@ import type {
     Locale,
     Project,
     ProjectAdmin,
-    ProjectAdminInviteParams,
     ProjectAdminParams,
     ProjectInvite,
     ProjectRole,
@@ -86,19 +87,18 @@ export const client = Axios.create({
     },
 })
 
-const PUBLIC_PATHS = ["/login", "/register", "/forgot-password", "/reset-password", "/verify-email"]
-
 client.interceptors.response.use(
     (response) => response,
     async (error) => {
         // The unauthenticated views. A 401 on one of them is the answer to a
         // question the page asked, not a session that expired, so bouncing to
         // the login page would throw away what the caller was told.
-        const isPublicPage = PUBLIC_PATHS.some((path) => window.location.pathname.startsWith(path))
         const isUserNotAuthenticated = error.response?.status === 401
         const skipRedirect = error.config?.skipAuthRedirect
 
-        if (isUserNotAuthenticated && !isPublicPage && !skipRedirect) {
+        reportCrossOriginRefusal(error.response?.status, error.response?.data)
+
+        if (isUserNotAuthenticated && !isPublicPage() && !skipRedirect) {
             api.auth.login()
         }
         throw error
@@ -256,8 +256,14 @@ const api = {
 
     invites: {
         // mine lists the pending invites addressed to the logged-in admin's email.
+        //
+        // A 401 is handled by the page rather than by the interceptor: somebody
+        // arriving from an invitation may not have an account yet, so being sent
+        // straight to the login form is the wrong half of the answer.
         mine: async () =>
-            await client.get<SearchResult<ProjectInvite>>(`/invites/mine`).then((r) => r.data),
+            await client
+                .get<SearchResult<ProjectInvite>>(`/invites/mine`, { skipAuthRedirect: true })
+                .then((r) => r.data),
         accept: async (inviteId: UUID) =>
             await client
                 .post<Project>(`/invites/${inviteId}/accept`, undefined, {
@@ -701,13 +707,9 @@ const api = {
             await client
                 .get<SearchResult<ProjectAdmin>>(`${projectUrl(projectId)}/admins`, { params })
                 .then((r) => r.data),
-        add: async (projectId: UUID, adminId: UUID, params: ProjectAdminParams) =>
+        updateRole: async (projectId: UUID, adminId: UUID, params: ProjectAdminParams) =>
             await client
-                .put<ProjectAdmin>(`${projectUrl(projectId)}/admins/${adminId}`, params)
-                .then((r) => r.data),
-        invite: async (projectId: UUID, params: ProjectAdminInviteParams) =>
-            await client
-                .post<ProjectAdmin>(`${projectUrl(projectId)}/admins`, params)
+                .patch<ProjectAdmin>(`${projectUrl(projectId)}/admins/${adminId}`, params)
                 .then((r) => r.data),
         get: async (projectId: UUID, adminId: UUID) =>
             await client

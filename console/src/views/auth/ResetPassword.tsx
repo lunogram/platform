@@ -7,7 +7,6 @@ import { CheckCircle2, Loader2 } from "lucide-react"
 
 import api from "../../api"
 import {
-    MIN_PASSWORD_LENGTH,
     resetPasswordSchema,
     type ResetPasswordFormValues,
 } from "@/validation/auth/password"
@@ -93,7 +92,7 @@ export default function ResetPassword() {
                         control={form.control}
                         name="password"
                         label={t("password_new")}
-                        description={t("password_requirements", { count: MIN_PASSWORD_LENGTH })}
+                        description={t("password_requirements")}
                         autoComplete="new-password"
                     />
                     <PasswordField

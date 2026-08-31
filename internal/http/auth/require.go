@@ -34,6 +34,15 @@ func Require(writeProblem func(http.ResponseWriter, error), handlers ...Handler)
 					return
 				}
 
+				// An error that already carries a status is a considered answer
+				// -- a refused origin, say -- and is passed through with its
+				// description intact. Rendering it as a 500 would throw away the
+				// only explanation the caller gets.
+				if problem.HasStatus(err) {
+					writeProblem(w, err)
+					return
+				}
+
 				writeProblem(w, problem.ErrInternal())
 				return
 			}

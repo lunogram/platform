@@ -419,10 +419,22 @@ func (s *AdminsStore) GetProjectAdmin(ctx context.Context, projectID, adminID uu
 	return &projectAdmin, nil
 }
 
+// AddAdminToProject grants an admin a role on a project, reviving the row of a
+// membership that was removed earlier.
+//
+// Removal is a soft delete, and the table carries a plain UNIQUE on
+// (project_id, admin_id) alongside the partial index that ignores deleted rows.
+// A removed member therefore leaves a row that every read filters out but that
+// an INSERT still collides with, which is what made re-inviting somebody you had
+// removed fail on a duplicate key. Reviving is also the right answer on its own
+// terms: the membership is identified by the pair, so re-adding is the same
+// membership again rather than a second one.
 func (s *AdminsStore) AddAdminToProject(ctx context.Context, projectID, adminID uuid.UUID, role string) error {
 	query := `
 	INSERT INTO project_admins (project_id, admin_id, role)
-	VALUES ($1, $2, $3)`
+	VALUES ($1, $2, $3)
+	ON CONFLICT (project_id, admin_id)
+	DO UPDATE SET role = EXCLUDED.role, deleted_at = NULL`
 
 	_, err := s.db.ExecContext(ctx, query, projectID, adminID, role)
 	return err

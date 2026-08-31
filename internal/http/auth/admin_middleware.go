@@ -38,7 +38,7 @@ func WithAdminSession(mgmt *management.State, signer *ConsoleSigner, publicBaseU
 			return ctx, ErrUnauthorized
 		}
 
-		if err := enforceConsoleOrigin(ctx, publicBaseURL); err != nil {
+		if err := enforceConsoleOrigin(ctx, publicBaseURL, logger); err != nil {
 			return ctx, err
 		}
 
@@ -121,7 +121,14 @@ func WithAdminSession(mgmt *management.State, signer *ConsoleSigner, publicBaseU
 //
 // A request with no Origin header at all is permitted: browsers omit it on
 // same-origin navigations, and non-browser clients are not subject to CSRF.
-func enforceConsoleOrigin(ctx context.Context, publicBaseURL string) error {
+//
+// A refusal answers 403, never 401. The session is valid and the caller is who
+// they say they are; only the request's provenance is wrong. Answering 401 made
+// the console read a working session as an expired one and bounce to the login
+// page, which -- because every write was refused for the same reason -- is a
+// loop nothing on screen explained. The refusal is also logged: the values that
+// disagree are the whole diagnosis, and they are not in the response.
+func enforceConsoleOrigin(ctx context.Context, publicBaseURL string, logger *zap.Logger) error {
 	r := RequestFromContext(ctx)
 	if r == nil {
 		return nil
@@ -137,7 +144,15 @@ func enforceConsoleOrigin(ctx context.Context, publicBaseURL string) error {
 	if origin == "" || origin == publicBaseURL || origin == requestOrigin(r) {
 		return nil
 	}
-	return ErrUnauthorized
+
+	logger.Warn("refused a console request from an unexpected origin",
+		zap.String("origin", origin),
+		zap.String("public_url", publicBaseURL),
+		zap.String("request_origin", requestOrigin(r)),
+		zap.String("method", r.Method),
+		zap.String("path", r.URL.Path))
+
+	return ErrCrossOrigin()
 }
 
 // requestOrigin reconstructs the origin the browser would have sent for a

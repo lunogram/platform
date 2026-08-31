@@ -9,7 +9,7 @@ import {
     Zap,
     Mail,
     Smartphone,
-    UserPlus,
+    Users,
 } from "lucide-react"
 import { ProjectContext } from "../../contexts"
 import { ProjectRoleRequired } from "../project/ProjectRoleRequired"
@@ -35,9 +35,7 @@ export default function Settings() {
         { key: "general", to: "", label: t("general"), icon: SettingsLucideIcon },
         { key: "locales", to: "locales", label: t("locales"), icon: Globe },
         { key: "access", to: "access", label: t("api_and_clients", "API & Clients"), icon: Key },
-        ...(isEnterprise
-            ? [{ key: "invites", to: "invites", label: t("invites"), icon: UserPlus }]
-            : []),
+        { key: "members", to: "members", label: t("members"), icon: Users },
         { key: "subscriptions", to: "subscriptions", label: t("subscriptions"), icon: Bell },
         {
             key: "event-schemas",

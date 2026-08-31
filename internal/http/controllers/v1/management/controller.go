@@ -6,6 +6,7 @@ import (
 	"github.com/lunogram/platform/internal/config"
 	"github.com/lunogram/platform/internal/gallery"
 	"github.com/lunogram/platform/internal/http/auth"
+	"github.com/lunogram/platform/internal/mailer"
 	"github.com/lunogram/platform/internal/providers"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/consumer"
@@ -45,6 +46,25 @@ func NewController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB
 		return nil, err
 	}
 
+	// One mailer for the whole controller: the auth flows and the invite flow
+	// send through the same channel, and a second dispatcher would mean a second
+	// set of workers and a second connection budget for no gain. A deployment
+	// that configures no channel gets a nil one and simply sends no mail --
+	// except when password auth is on, which refuses at boot below.
+	var mail *mailer.Dispatcher
+	var renderer *mailer.Renderer
+	if cfg.Mail.Configured() {
+		if renderer, err = mailer.NewRenderer(cfg.Mail, cfg.PublicBaseURL(), cfg.BaseDir()); err != nil {
+			return nil, err
+		}
+
+		transport, err := mailer.New(cfg.Mail, cfg.BaseDir(), logger.Named("mailer"))
+		if err != nil {
+			return nil, err
+		}
+		mail = mailer.NewDispatcher(transport, logger.Named("mailer"), cfg.Mail.Timeout)
+	}
+
 	controller := &Controller{
 		ProjectsController:         NewProjectsController(logger, managementDB, usersDB, journeyDB, hooks, pub, engine),
 		CampaignsController:        NewCampaignsController(logger, managementDB, usersDB, engine),
@@ -67,10 +87,11 @@ func NewController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB
 		SenderIdentitiesController: NewSenderIdentitiesController(logger, managementDB, engine),
 		PushProvidersController:    NewPushProvidersController(logger, managementDB, registry, engine),
 		BroadcastsController:       NewBroadcastsController(logger, managementDB, usersDB, pub, jet, engine, consumer.Namespace(cfg.Nats.Namespace)),
-		InviteController:           NewInviteController(logger, mgmt, engine, managementDB),
+		InviteController:           NewInviteController(logger, mgmt, engine, managementDB, mail, renderer),
+		mail:                       mail,
 	}
 
-	controller.AuthController, err = NewAuthController(logger, managementDB, mgmt, cfg, engine, consoleSigner, limiter)
+	controller.AuthController, err = NewAuthController(logger, managementDB, mgmt, cfg, engine, consoleSigner, limiter, mail, renderer)
 	if err != nil {
 		return nil, err
 	}
@@ -102,11 +123,15 @@ type Controller struct {
 	*PushProvidersController
 	*BroadcastsController
 	*InviteController
+
+	// mail holds queued messages and its own workers. Draining it is what stops
+	// a shutdown from swallowing a verification link somebody is waiting on.
+	mail *mailer.Dispatcher
 }
 
 // Close releases what the controller owns beyond the request path. It is
 // registered with the server's graceful shutdown so queued work is drained
 // rather than dropped.
 func (c *Controller) Close() {
-	c.AuthController.Close()
+	c.mail.Close()
 }

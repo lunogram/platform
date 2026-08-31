@@ -9954,11 +9954,9 @@ components:
           x-go-type: string
         password:
           type: string
-          minLength: 12
+          minLength: 1
           maxLength: 1024
-          description: >-
-            The password. At least 12 characters, and not a variation of the
-            email address. There are deliberately no composition rules.
+          description: The password for the new account
           example: "an entirely ordinary passphrase"
         first_name:
           type: string
@@ -9997,7 +9995,7 @@ components:
           description: The single-use token from the emailed link
         password:
           type: string
-          minLength: 12
+          minLength: 1
           maxLength: 1024
           description: The new password
 
@@ -10010,7 +10008,7 @@ components:
           description: The password currently on the account
         password:
           type: string
-          minLength: 12
+          minLength: 1
           maxLength: 1024
           description: The new password
 

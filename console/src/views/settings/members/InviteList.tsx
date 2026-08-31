@@ -1,7 +1,6 @@
-import { useCallback, useContext, useState, useRef } from "react"
+import { forwardRef, useCallback, useContext, useImperativeHandle, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import {
-    Plus,
     Search,
     UserPlus,
     MoreHorizontal,
@@ -22,7 +21,7 @@ import { ProjectContext } from "@/contexts"
 import { useResolver } from "@/hooks"
 import { snakeToTitle } from "@/utils"
 import { projectRoles, type ProjectInvite, type ProjectRole } from "@/types"
-import InviteDialog from "./InviteDialog"
+import { copyInviteLink } from "./inviteLink"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -43,16 +42,23 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from "@/components/ui/dialog"
 
-export default function Invites() {
+export interface InviteListHandle {
+    reload: () => Promise<void>
+}
+
+interface InviteListProps {
+    canManage: boolean
+}
+
+// InviteList is the invites half of the Members screen: every invite sent for
+// this project, with the filters needed to find one and the action to revoke
+// it. Creating an invite lives on the parent, which reloads this list through
+// the imperative handle.
+const InviteList = forwardRef<InviteListHandle, InviteListProps>(function InviteList(
+    { canManage },
+    ref,
+) {
     const { t } = useTranslation()
     const [project] = useContext(ProjectContext)
 
@@ -64,11 +70,8 @@ export default function Invites() {
     const [expiresBefore, setExpiresBefore] = useState("")
     const [inviterAdminFilter, setInviterAdminFilter] = useState<string | undefined>(undefined)
     const [page, setPage] = useState(1)
-    const limit = 15
+    const limit = 10
     const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>(setTimeout(() => {}, 0))
-    const [isCreating, setIsCreating] = useState(false)
-    const [isSaving, setIsSaving] = useState(false)
-    const [createdInviteEmail, setCreatedInviteEmail] = useState<string | null>(null)
 
     const handleSearch = useCallback((value: string) => {
         setSearchQuery(value)
@@ -146,6 +149,8 @@ export default function Invites() {
         ]),
     )
 
+    useImperativeHandle(ref, () => ({ reload }), [reload])
+
     const invites = result?.results ?? []
     const total = result?.total ?? 0
     const totalPages = Math.ceil(total / limit)
@@ -160,12 +165,6 @@ export default function Invites() {
             toast.success(t("invite_revoked", "Invite revoked"))
             await reload()
         }
-    }
-
-    const handleCopyLink = async () => {
-        const inviteLink = `${window.location.origin}/invites`
-        await navigator.clipboard.writeText(inviteLink)
-        toast.success(t("copied_invite_link", "Copied invite link"))
     }
 
     const formatDate = (dateStr: string | null | undefined) => {
@@ -192,182 +191,150 @@ export default function Invites() {
         return { status: "pending", icon: Clock, className: "text-blue-500" }
     }
 
-    const canCreateInvite = ["editor", "admin"].includes(project.role ?? "")
-
     return (
-        <div className="flex flex-col gap-6">
-            <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-semibold tracking-tight">{t("invites")}</h2>
-            </div>
-
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
-                <div className="flex items-center gap-2 flex-1 sm:max-w-xl">
-                    <div className="relative flex-1">
-                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input
-                            placeholder={t("search")}
-                            value={searchQuery}
-                            onChange={(e) => handleSearch(e.target.value)}
-                            className="pl-9"
-                        />
-                    </div>
-                    <Popover>
-                        <PopoverTrigger asChild>
-                            <Button
-                                variant="outline"
-                                aria-label={t("filter", "Filter")}
-                                className={`relative ${hasActiveFilters ? "border-primary text-primary" : ""}`}
-                            >
-                                <SlidersHorizontal className="mr-2 h-4 w-4" />
-                                {t("filter")}
-                                {hasActiveFilters && (
-                                    <span className="absolute -top-1 -right-1 rounded-full bg-primary w-2 h-2" />
-                                )}
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent align="start" className="w-96 p-4">
-                            <div className="grid gap-4">
-                                <div className="grid gap-2">
-                                    <Label className="text-xs font-medium">{t("status")}</Label>
-                                    <div className="flex flex-wrap gap-1">
-                                        {["all", "pending", "accepted", "expired", "revoked"].map(
-                                            (status) => (
-                                                <Button
-                                                    key={status}
-                                                    variant={
-                                                        statusFilter === status ||
-                                                        (!statusFilter && status === "all")
-                                                            ? "secondary"
-                                                            : "ghost"
-                                                    }
-                                                    size="sm"
-                                                    className="h-7 px-2 text-xs"
-                                                    onClick={() => handleStatusFilterChange(status)}
-                                                >
-                                                    {status === "all" ? t("all", "All") : t(status)}
-                                                </Button>
-                                            ),
-                                        )}
-                                    </div>
-                                </div>
-                                <div className="grid gap-2">
-                                    <Label className="text-xs font-medium">{t("role")}</Label>
-                                    <div className="flex flex-wrap gap-1">
-                                        {["all", ...projectRoles].map((role) => (
+        <section className="flex flex-col gap-4">
+            <div className="flex items-center gap-2 sm:max-w-xl">
+                <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                        placeholder={t("search")}
+                        value={searchQuery}
+                        onChange={(e) => handleSearch(e.target.value)}
+                        className="pl-9"
+                    />
+                </div>
+                <Popover>
+                    <PopoverTrigger asChild>
+                        <Button
+                            variant="outline"
+                            aria-label={t("filter", "Filter")}
+                            className={`relative ${hasActiveFilters ? "border-primary text-primary" : ""}`}
+                        >
+                            <SlidersHorizontal className="mr-2 h-4 w-4" />
+                            {t("filter")}
+                            {hasActiveFilters && (
+                                <span className="absolute -top-1 -right-1 rounded-full bg-primary w-2 h-2" />
+                            )}
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent align="start" className="w-96 p-4">
+                        <div className="grid gap-4">
+                            <div className="grid gap-2">
+                                <Label className="text-xs font-medium">{t("status")}</Label>
+                                <div className="flex flex-wrap gap-1">
+                                    {["all", "pending", "accepted", "expired", "revoked"].map(
+                                        (status) => (
                                             <Button
-                                                key={role}
+                                                key={status}
                                                 variant={
-                                                    roleFilter === role ||
-                                                    (!roleFilter && role === "all")
+                                                    statusFilter === status ||
+                                                    (!statusFilter && status === "all")
                                                         ? "secondary"
                                                         : "ghost"
                                                 }
                                                 size="sm"
                                                 className="h-7 px-2 text-xs"
-                                                onClick={() =>
-                                                    handleRoleFilterChange(role as string)
-                                                }
+                                                onClick={() => handleStatusFilterChange(status)}
                                             >
-                                                {role === "all"
-                                                    ? t("all", "All")
-                                                    : snakeToTitle(role)}
+                                                {status === "all" ? t("all", "All") : t(status)}
                                             </Button>
-                                        ))}
-                                    </div>
+                                        ),
+                                    )}
                                 </div>
-                                <div className="grid gap-2">
-                                    <Label className="text-xs font-medium">
-                                        {t("invited_by", "Invited by")}
-                                    </Label>
-                                    <div className="flex flex-wrap gap-1">
+                            </div>
+                            <div className="grid gap-2">
+                                <Label className="text-xs font-medium">{t("role")}</Label>
+                                <div className="flex flex-wrap gap-1">
+                                    {["all", ...projectRoles].map((role) => (
                                         <Button
-                                            variant={!inviterAdminFilter ? "secondary" : "ghost"}
+                                            key={role}
+                                            variant={
+                                                roleFilter === role ||
+                                                (!roleFilter && role === "all")
+                                                    ? "secondary"
+                                                    : "ghost"
+                                            }
+                                            size="sm"
+                                            className="h-7 px-2 text-xs"
+                                            onClick={() => handleRoleFilterChange(role as string)}
+                                        >
+                                            {role === "all" ? t("all", "All") : snakeToTitle(role)}
+                                        </Button>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="grid gap-2">
+                                <Label className="text-xs font-medium">
+                                    {t("invited_by", "Invited by")}
+                                </Label>
+                                <div className="flex flex-wrap gap-1">
+                                    <Button
+                                        variant={!inviterAdminFilter ? "secondary" : "ghost"}
+                                        size="sm"
+                                        className="h-7 px-2 text-xs"
+                                        onClick={() => handleInviterAdminFilterChange(undefined)}
+                                    >
+                                        {t("all", "All")}
+                                    </Button>
+                                    {adminsResult?.results.map((admin) => (
+                                        <Button
+                                            key={admin.admin_id}
+                                            variant={
+                                                inviterAdminFilter === admin.admin_id
+                                                    ? "secondary"
+                                                    : "ghost"
+                                            }
                                             size="sm"
                                             className="h-7 px-2 text-xs"
                                             onClick={() =>
-                                                handleInviterAdminFilterChange(undefined)
+                                                handleInviterAdminFilterChange(admin.admin_id)
                                             }
                                         >
-                                            {t("all", "All")}
+                                            {admin.email}
                                         </Button>
-                                        {adminsResult?.results.map((admin) => (
-                                            <Button
-                                                key={admin.admin_id}
-                                                variant={
-                                                    inviterAdminFilter === admin.admin_id
-                                                        ? "secondary"
-                                                        : "ghost"
-                                                }
-                                                size="sm"
-                                                className="h-7 px-2 text-xs"
-                                                onClick={() =>
-                                                    handleInviterAdminFilterChange(admin.admin_id)
-                                                }
-                                            >
-                                                {admin.email}
-                                            </Button>
-                                        ))}
-                                    </div>
+                                    ))}
                                 </div>
-                                <div className="grid gap-2">
-                                    <Label className="text-xs font-medium">{t("expires")}</Label>
-                                    <div className="flex items-center gap-2">
-                                        <Input
-                                            type="date"
-                                            value={expiresAfter}
-                                            onChange={(e) =>
-                                                handleExpiresAfterChange(e.target.value)
-                                            }
-                                            className="h-8 text-xs"
-                                            placeholder={t("after", "After")}
-                                        />
-                                        <span className="text-muted-foreground">-</span>
-                                        <Input
-                                            type="date"
-                                            value={expiresBefore}
-                                            onChange={(e) =>
-                                                handleExpiresBeforeChange(e.target.value)
-                                            }
-                                            className="h-8 text-xs"
-                                            placeholder={t("before", "Before")}
-                                        />
-                                    </div>
-                                </div>
-                                {hasActiveFilters && (
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="justify-start text-xs w-fit"
-                                        onClick={clearFilters}
-                                    >
-                                        <X className="mr-2 h-3 w-3" />
-                                        {t("clear_filters", "Clear filters")}
-                                    </Button>
-                                )}
                             </div>
-                        </PopoverContent>
-                    </Popover>
-                </div>
-                <Button
-                    onClick={() => setIsCreating(true)}
-                    disabled={!canCreateInvite}
-                    aria-label={t("create_invite", "Create invite")}
-                >
-                    <Plus className="mr-2 h-4 w-4" />
-                    {t("create_invite")}
-                </Button>
+                            <div className="grid gap-2">
+                                <Label className="text-xs font-medium">{t("expires")}</Label>
+                                <div className="flex items-center gap-2">
+                                    <Input
+                                        type="date"
+                                        value={expiresAfter}
+                                        onChange={(e) => handleExpiresAfterChange(e.target.value)}
+                                        className="h-8 text-xs"
+                                        placeholder={t("after", "After")}
+                                    />
+                                    <span className="text-muted-foreground">-</span>
+                                    <Input
+                                        type="date"
+                                        value={expiresBefore}
+                                        onChange={(e) => handleExpiresBeforeChange(e.target.value)}
+                                        className="h-8 text-xs"
+                                        placeholder={t("before", "Before")}
+                                    />
+                                </div>
+                            </div>
+                            {hasActiveFilters && (
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="justify-start text-xs w-fit"
+                                    onClick={clearFilters}
+                                >
+                                    <X className="mr-2 h-3 w-3" />
+                                    {t("clear_filters", "Clear filters")}
+                                </Button>
+                            )}
+                        </div>
+                    </PopoverContent>
+                </Popover>
             </div>
 
-            {!canCreateInvite && (
-                <p className="text-sm text-muted-foreground bg-muted p-3 rounded-lg">
-                    {t("invite_permission_denied", "You need admin role to create invites.")}
-                </p>
-            )}
-
-            <div className="rounded-lg border bg-card">
+            <div className="overflow-hidden rounded-xl border bg-card">
                 <Table>
                     <TableHeader>
-                        <TableRow>
+                        <TableRow className="hover:bg-transparent">
                             <TableHead>{t("invitee_email", "Invitee")}</TableHead>
                             <TableHead>{t("role")}</TableHead>
                             <TableHead className="hidden lg:table-cell">
@@ -381,7 +348,7 @@ export default function Invites() {
                     <TableBody>
                         {!result ? (
                             Array.from({ length: 3 }).map((_, i) => (
-                                <TableRow key={i}>
+                                <TableRow key={i} className="hover:bg-transparent">
                                     <TableCell>
                                         <Skeleton className="h-4 w-40" />
                                     </TableCell>
@@ -403,30 +370,15 @@ export default function Invites() {
                                 </TableRow>
                             ))
                         ) : invites.length === 0 ? (
-                            <TableRow>
+                            <TableRow className="hover:bg-transparent">
                                 <TableCell colSpan={6} className="h-32 text-center">
                                     <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                                        <UserPlus className="h-8 w-8" />
-                                        <p>
-                                            {debouncedQuery
+                                        <UserPlus className="h-7 w-7" strokeWidth={1.5} />
+                                        <p className="text-sm">
+                                            {debouncedQuery || hasActiveFilters
                                                 ? t("no_results")
                                                 : t("no_invites_yet", "No invites yet")}
                                         </p>
-                                        {!debouncedQuery && canCreateInvite && (
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => setIsCreating(true)}
-                                                className="mt-2"
-                                                aria-label={t(
-                                                    "create_invite_from_empty",
-                                                    "Create invite from empty state",
-                                                )}
-                                            >
-                                                <Plus className="mr-2 h-4 w-4" />
-                                                {t("create_invite")}
-                                            </Button>
-                                        )}
                                     </div>
                                 </TableCell>
                             </TableRow>
@@ -451,12 +403,9 @@ export default function Invites() {
                                             {snakeToTitle(invite.role)}
                                         </TableCell>
                                         <TableCell className="hidden lg:table-cell">
-                                            <div className="flex items-center gap-2">
-                                                <UserPlus className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                                                <span className="text-sm text-muted-foreground truncate max-w-45">
-                                                    {invite.inviter_admin_email ?? "—"}
-                                                </span>
-                                            </div>
+                                            <span className="text-sm text-muted-foreground truncate max-w-45">
+                                                {invite.inviter_admin_email ?? "—"}
+                                            </span>
                                         </TableCell>
                                         <TableCell className="hidden md:table-cell text-muted-foreground">
                                             {formatDate(invite.expires_at)}
@@ -475,7 +424,6 @@ export default function Invites() {
                                                     <Button
                                                         variant="ghost"
                                                         className="h-8 w-8 p-0"
-                                                        onClick={(e) => e.stopPropagation()}
                                                         aria-label={t("options")}
                                                     >
                                                         <MoreHorizontal className="h-4 w-4" />
@@ -483,9 +431,14 @@ export default function Invites() {
                                                 </DropdownMenuTrigger>
                                                 <DropdownMenuContent align="end">
                                                     <DropdownMenuItem
-                                                        onClick={async (e) => {
-                                                            e.stopPropagation()
-                                                            await handleCopyLink()
+                                                        onClick={async () => {
+                                                            await copyInviteLink()
+                                                            toast.success(
+                                                                t(
+                                                                    "copied_invite_link",
+                                                                    "Copied invite link",
+                                                                ),
+                                                            )
                                                         }}
                                                     >
                                                         <Copy className="mr-2 h-4 w-4" />
@@ -493,11 +446,10 @@ export default function Invites() {
                                                     </DropdownMenuItem>
                                                     {!invite.revoked_at &&
                                                         !invite.accepted_at &&
-                                                        canCreateInvite && (
+                                                        canManage && (
                                                             <DropdownMenuItem
                                                                 className="text-destructive"
-                                                                onClick={async (e) => {
-                                                                    e.stopPropagation()
+                                                                onClick={async () => {
                                                                     await handleRevoke(invite)
                                                                 }}
                                                             >
@@ -550,61 +502,8 @@ export default function Invites() {
                     </div>
                 )}
             </div>
-
-            <Dialog
-                open={!!createdInviteEmail}
-                onOpenChange={(open) => {
-                    if (!open) setCreatedInviteEmail(null)
-                }}
-            >
-                <DialogContent className="sm:max-w-md">
-                    <DialogHeader>
-                        <DialogTitle>{t("invite_created", "Invite created")}</DialogTitle>
-                        <DialogDescription>
-                            <span className="font-medium text-foreground">
-                                {createdInviteEmail}
-                            </span>{" "}
-                            {t(
-                                "invite_created_description",
-                                "will see this invite when they sign in with their email.",
-                            )}
-                        </DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter className="sm:justify-between">
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={async () => {
-                                await handleCopyLink()
-                            }}
-                        >
-                            <Copy className="mr-2 h-4 w-4" />
-                            {t("copy_link")}
-                        </Button>
-                        <Button onClick={() => setCreatedInviteEmail(null)}>
-                            {t("done", "Done")}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
-            <InviteDialog
-                isOpen={isCreating}
-                onClose={() => setIsCreating(false)}
-                onSave={async (data) => {
-                    setIsSaving(true)
-                    try {
-                        const invite = await api.invites.create(project.id, data)
-                        await reload()
-                        setIsCreating(false)
-                        setCreatedInviteEmail(invite.invitee_email)
-                    } finally {
-                        setIsSaving(false)
-                    }
-                }}
-                isSaving={isSaving}
-                userRole={project.role}
-            />
-        </div>
+        </section>
     )
-}
+})
+
+export default InviteList

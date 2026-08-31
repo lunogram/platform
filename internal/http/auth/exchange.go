@@ -112,29 +112,25 @@ func (DefaultOrgResolver) Resolve(ctx context.Context, tx *management.State, _ *
 	return organizationID, rbac.OrganizationOwner, nil
 }
 
-// InviteOrgResolver puts an admin whose PROVED address was already invited into
-// the organization that invited them, and falls back to [DefaultOrgResolver] for
+// InviteOrgResolver puts an admin whose address was already invited into the
+// organization that invited them, and falls back to [DefaultOrgResolver] for
 // everybody else.
 //
 // Without it, being invited and then signing up produces an organization of your
-// own that nobody asked for, and the invite you were sent points somewhere you
-// are not a member of. The invite itself is left pending: accepting it is what
-// grants the project role, and that flow already exists -- this only decides
-// where the account lands.
+// own that nobody asked for, sitting alongside the real one in the switcher. The
+// invite itself is left pending: accepting it is what grants the project role,
+// and that flow already exists -- this only decides where the account lands.
 //
-// EmailVerified is load-bearing, and this is the whole reason the check is here
-// rather than deeper in. An invite is addressed to a MAILBOX, so it may only
-// ever confer membership on somebody who has shown they hold that mailbox.
-// Without the gate, local registration -- where the address is whatever the
-// caller typed -- becomes a way into any organization whose invited addresses
-// can be guessed, and corporate addresses are eminently guessable. An
-// unverified registrant therefore gets an organization of their own; when they
-// later prove the address, [Exchanger.AdmitInvitee] grants the membership they
-// were actually invited to.
+// This used to require a proved address, on the grounds that an invite is
+// addressed to a MAILBOX. That gate is gone because the thing it protected is
+// gone: accepting an invite no longer requires a confirmed address either, so
+// anybody who could reach this by registering a guessed address can already
+// accept the invitation and take the project role it grants. Keeping the check
+// here bought nothing and cost every invitee a stray organization.
 type InviteOrgResolver struct{}
 
 func (InviteOrgResolver) Resolve(ctx context.Context, tx *management.State, identity *VerifiedIdentity) (uuid.UUID, string, error) {
-	if !identity.EmailVerified {
+	if identity.Email == "" {
 		return DefaultOrgResolver{}.Resolve(ctx, tx, identity)
 	}
 

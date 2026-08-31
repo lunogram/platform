@@ -1,13 +1,16 @@
 package mailer
 
-// Kinds of message the platform sends. The kind is the key an operator
-// overrides a template under, the value carried to a webhook receiver, and the
-// name any error names, so it is one constant rather than three strings.
+// Kinds of message the platform sends. The kind is the value carried to a
+// webhook receiver and the name any log line or error names, so it is one
+// constant rather than two strings. It follows the noun.verb shape the
+// platform's webhook events use, so a receiver routing on both reads one
+// vocabulary rather than two.
 const (
-	KindVerifyEmail     = "verify_email"
-	KindPasswordReset   = "password_reset"
-	KindAccountExists   = "account_exists"
-	KindPasswordChanged = "password_changed"
+	KindVerifyEmail     = "email.verify"
+	KindPasswordReset   = "password.reset"
+	KindAccountExists   = "account.exists"
+	KindPasswordChanged = "password.changed"
+	KindProjectInvite   = "project.invite"
 )
 
 // Templates holds the operator's overrides.
@@ -24,15 +27,16 @@ type Templates struct {
 	PasswordReset   Content `envPrefix:"PASSWORD_RESET_" yaml:"password_reset"`
 	AccountExists   Content `envPrefix:"ACCOUNT_EXISTS_" yaml:"account_exists"`
 	PasswordChanged Content `envPrefix:"PASSWORD_CHANGED_" yaml:"password_changed"`
+	ProjectInvite   Content `envPrefix:"PROJECT_INVITE_" yaml:"project_invite"`
 }
 
 // Layout is the chrome every message is rendered into.
 //
 // There is one layout rather than one per message because these are
-// transactional notices, not marketing: giving each its own would mean four
-// places to fix the next rendering bug and four chances for them to drift. A
-// deployment that genuinely needs a different frame per message can branch on
-// .Kind inside its own layout.
+// transactional notices, not marketing: giving each its own would mean a place
+// per message to fix the next rendering bug, and as many chances for them to
+// drift. A deployment that genuinely needs a different frame per message can
+// branch on .Kind inside its own layout.
 type Layout struct {
 	HTML string `env:"HTML" yaml:"html"`
 	Text string `env:"TEXT" yaml:"text"`
@@ -69,13 +73,19 @@ type TemplateData struct {
 	// ExpiresIn is how long the link remains valid, already written out for a
 	// human ("one hour", "24 hours"). Empty when there is no link.
 	ExpiresIn string
+	// ProjectName is the project a message is about. Only KindProjectInvite
+	// sets it.
+	ProjectName string
+	// InviterName is who sent the invitation, as a name when the account has
+	// one and an address otherwise. Only KindProjectInvite sets it.
+	InviterName string
 }
 
 // defaultContent is the copy shipped with the platform.
 //
-// It lives here rather than in the template files because these are four short
-// pieces of prose, and a file per field would be sixteen files to read in order
-// to answer "what does the reset email say".
+// It lives here rather than in the template files because these are a handful
+// of short pieces of prose, and a file per field would be dozens of files to
+// read in order to answer "what does the reset email say".
 var defaultContent = map[string]Content{
 	KindVerifyEmail: {
 		Subject: "Confirm your email address",
@@ -121,6 +131,21 @@ var defaultContent = map[string]Content{
 		},
 		Footer: "You can sign in at {{ .BaseURL }}.",
 	},
+	// The link is the console's invite page rather than a token: an invite is
+	// bound to the invitee's address and is claimed by proving that address, so
+	// a link that granted access on its own would hand the project to whoever
+	// forwarded the mail. Following it asks them to sign in -- or, on a
+	// deployment that admits them, to register first.
+	KindProjectInvite: {
+		Subject: "{{ .InviterName }} invited you to {{ .ProjectName }}",
+		Heading: "You have been invited to {{ .ProjectName }}",
+		Body: []string{
+			"{{ .InviterName }} invited you to work on {{ .ProjectName }} in {{ .ProductName }}.",
+			"Sign in with this address to accept. If you do not have an account yet, you will be asked to create one first.",
+		},
+		ActionLabel: "View invitation",
+		Footer:      "This invitation expires in {{ .ExpiresIn }}. If you were not expecting it you can ignore this message.",
+	},
 }
 
 // override returns the operator's content for a kind, or the zero value when
@@ -135,6 +160,8 @@ func (t Templates) override(kind string) Content {
 		return t.AccountExists
 	case KindPasswordChanged:
 		return t.PasswordChanged
+	case KindProjectInvite:
+		return t.ProjectInvite
 	default:
 		return Content{}
 	}

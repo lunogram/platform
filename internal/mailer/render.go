@@ -214,19 +214,41 @@ func (r *Renderer) PasswordChanged(to string) Message {
 	return r.render(KindPasswordChanged, to, "", 0)
 }
 
-func (r *Renderer) render(kind, to, actionURL string, ttl time.Duration) Message {
-	data := TemplateData{
-		Kind:        kind,
-		ProductName: r.productName,
+// ProjectInvite mails somebody the invitation they have been sent.
+//
+// The link carries no token: an invite is claimed by proving the address it was
+// sent to, not by holding a URL, so it points at the console page listing the
+// invites addressed to whoever signs in. Whether that means signing in or
+// signing up is deliberately left to the page rather than decided here: an
+// invite is good for days, and an address that has no account when the mail
+// goes out may well have one by the time it is opened. The address rides along
+// so the page can offer to register the one the invite is bound to.
+func (r *Renderer) ProjectInvite(to, projectName, inviterName string, ttl time.Duration) Message {
+	return r.renderData(TemplateData{
+		Kind:        KindProjectInvite,
 		Recipient:   to,
-		ActionURL:   actionURL,
-		BaseURL:     r.baseURL,
-	}
+		ActionURL:   r.baseURL + "/invites?email=" + url.QueryEscape(to),
+		ProjectName: projectName,
+		InviterName: inviterName,
+	}, ttl)
+}
+
+func (r *Renderer) render(kind, to, actionURL string, ttl time.Duration) Message {
+	return r.renderData(TemplateData{
+		Kind:      kind,
+		Recipient: to,
+		ActionURL: actionURL,
+	}, ttl)
+}
+
+func (r *Renderer) renderData(data TemplateData, ttl time.Duration) Message {
+	data.ProductName = r.productName
+	data.BaseURL = r.baseURL
 	if ttl > 0 {
-		data.ExpiresIn = humaniseTTL(ttl)
+		data.ExpiresIn = humaniseDuration(ttl)
 	}
 
-	templates := r.kinds[kind]
+	templates := r.kinds[data.Kind]
 	layout := layoutData{
 		TemplateData: data,
 		Subject:      execute(templates.subject, data),
@@ -246,12 +268,12 @@ func (r *Renderer) render(kind, to, actionURL string, ttl time.Duration) Message
 	_ = r.layoutText.Execute(&text, layout)
 
 	return Message{
-		To:        to,
-		Kind:      kind,
+		To:        data.Recipient,
+		Kind:      data.Kind,
 		Subject:   layout.Subject,
 		HTML:      html.String(),
 		Text:      text.String(),
-		ActionURL: actionURL,
+		ActionURL: data.ActionURL,
 	}
 }
 
@@ -259,17 +281,4 @@ func execute(tmpl *texttemplate.Template, data TemplateData) string {
 	var out strings.Builder
 	_ = tmpl.Execute(&out, data)
 	return out.String()
-}
-
-func humaniseTTL(ttl time.Duration) string {
-	switch {
-	case ttl >= 48*time.Hour:
-		return fmt.Sprintf("%d days", int(ttl.Hours()/24))
-	case ttl >= 2*time.Hour:
-		return fmt.Sprintf("%d hours", int(ttl.Hours()))
-	case ttl >= time.Hour:
-		return "one hour"
-	default:
-		return fmt.Sprintf("%d minutes", int(ttl.Minutes()))
-	}
 }

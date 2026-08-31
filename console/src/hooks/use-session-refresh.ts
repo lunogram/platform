@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react"
 import api from "@/api"
 import type { NetworkError } from "@/api"
+import { isPublicPage } from "@/lib/public-paths"
 
 /**
  * Fraction of a session's remaining lifetime to wait before extending it.
@@ -44,7 +45,10 @@ export function useSessionRefresh(enabled = true) {
     const timer = useRef<ReturnType<typeof setTimeout>>()
 
     useEffect(() => {
-        if (!enabled || window.location.pathname.startsWith("/login")) return
+        // Nothing to keep alive on a page reached without a session, and asking
+        // would eject its visitor to the login page: the 401 below is the
+        // expected answer there, not a lapsed session.
+        if (!enabled || isPublicPage()) return
 
         let cancelled = false
 

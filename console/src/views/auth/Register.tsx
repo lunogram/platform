@@ -10,7 +10,6 @@ import api from "../../api"
 import { type AuthDriver, AUTH_DRIVERS } from "../../types"
 import { validateRedirect } from "@/lib/validate-redirect"
 import {
-    MIN_PASSWORD_LENGTH,
     registerSchema,
     type RegisterFormValues,
 } from "@/validation/auth/password"
@@ -39,10 +38,22 @@ export default function Register() {
     const [submitted, setSubmitted] = useState(false)
     const [isSubmitting, setIsSubmitting] = useState(false)
     const redirect = validateRedirect(searchParams.get("r"))
+    // Carried onto every route out of this page, so somebody who was sent here
+    // to reach something specific still gets there when they turn out to have
+    // an account already.
+    const signInHref = redirect === "/" ? "/login" : `/login?r=${encodeURIComponent(redirect)}`
 
+    // An invitation links here carrying the address it was sent to. The invite
+    // is bound to that address, so registering a different one would leave the
+    // new account holding nothing.
     const form = useForm<RegisterFormValues>({
         resolver: zodResolver(registerSchema),
-        defaultValues: { email: "", password: "", first_name: "", last_name: "" },
+        defaultValues: {
+            email: searchParams.get("email") ?? "",
+            password: "",
+            first_name: "",
+            last_name: "",
+        },
     })
 
     useEffect(() => {
@@ -129,7 +140,7 @@ export default function Register() {
         return (
             <AuthCard title={t("register_title")} description={t("register_closed")}>
                 <Button asChild variant="outline" className="w-full">
-                    <Link to="/login">{t("login_back_to_sign_in")}</Link>
+                    <Link to={signInHref}>{t("login_back_to_sign_in")}</Link>
                 </Button>
             </AuthCard>
         )
@@ -148,7 +159,7 @@ export default function Register() {
                     <CheckCircle2 className="h-10 w-10 text-muted-foreground" />
                 </div>
                 <Button asChild variant="outline" className="w-full">
-                    <Link to="/login">{t("login_back_to_sign_in")}</Link>
+                    <Link to={signInHref}>{t("login_back_to_sign_in")}</Link>
                 </Button>
             </AuthCard>
         )
@@ -159,7 +170,7 @@ export default function Register() {
             title={t("register_title")}
             description={t("register_description")}
             footer={
-                <Link to="/login" className="underline underline-offset-4">
+                <Link to={signInHref} className="underline underline-offset-4">
                     {t("register_have_account")}
                 </Link>
             }
@@ -229,7 +240,7 @@ export default function Register() {
                         control={form.control}
                         name="password"
                         label={t("password")}
-                        description={t("password_requirements", { count: MIN_PASSWORD_LENGTH })}
+                        description={t("password_requirements")}
                         autoComplete="new-password"
                     />
 

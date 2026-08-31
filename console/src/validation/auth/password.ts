@@ -1,14 +1,8 @@
 import * as z from "zod"
 
-// Mirrors the server's policy in internal/password. Twelve characters and no
-// composition rules: length is the only thing that reliably buys entropy, and
-// "one upper, one digit, one symbol" pushes people towards a small set of
-// predictable substitutions instead.
-export const MIN_PASSWORD_LENGTH = 12
-
 export const passwordSchema = z
     .string()
-    .min(MIN_PASSWORD_LENGTH, `Your password must be at least ${MIN_PASSWORD_LENGTH} characters`)
+    .min(1, "Your password is required")
     .max(1024, "Your password is too long")
 
 export const registerSchema = z.object({

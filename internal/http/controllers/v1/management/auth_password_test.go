@@ -107,6 +107,22 @@ func testMailConfig() mailer.Config {
 	return config
 }
 
+// testMailer builds the mailer a controller under test is handed, capturing
+// everything it sends. NewAuthController refuses to start password auth without
+// one, exactly as it does in production.
+func testMailer(t *testing.T, cfg config.Node) (*capturedMailer, *mailer.Dispatcher, *mailer.Renderer) {
+	t.Helper()
+
+	captured := &capturedMailer{}
+	dispatcher := mailer.NewDispatcher(captured, zaptest.NewLogger(t), time.Second)
+	t.Cleanup(dispatcher.Close)
+
+	renderer, err := mailer.NewRenderer(cfg.Mail, cfg.PublicBaseURL(), cfg.BaseDir())
+	require.NoError(t, err)
+
+	return captured, dispatcher, renderer
+}
+
 func newPasswordEnv(t *testing.T, registration string) *passwordEnv {
 	t.Helper()
 
@@ -114,19 +130,19 @@ func newPasswordEnv(t *testing.T, registration string) *passwordEnv {
 	mgmtDB, _, _ := teststore.RunPostgreSQL(t)
 	state := management.NewState(mgmtDB)
 
-	controller, err := NewAuthController(logger, mgmtDB, state, config.Node{
+	cfg := config.Node{
 		PublicURL: "https://console.example.test",
 		Auth: config.Auth{
 			Drivers: []string{"basic"},
 			Basic:   config.BasicAuth{Registration: registration},
 		},
 		Mail: testMailConfig(),
-	}, nil, consoleSignerFor(t), nil)
-	require.NoError(t, err)
+	}
 
-	captured := &capturedMailer{}
-	controller.password.mail = mailer.NewDispatcher(captured, logger, time.Second)
-	t.Cleanup(controller.password.mail.Close)
+	captured, dispatcher, renderer := testMailer(t, cfg)
+
+	controller, err := NewAuthController(logger, mgmtDB, state, cfg, nil, consoleSignerFor(t), nil, dispatcher, renderer)
+	require.NoError(t, err)
 
 	orgID, err := state.CreateOrganization(t.Context(), "Password Organization")
 	require.NoError(t, err)
@@ -184,7 +200,7 @@ func (e *passwordEnv) adminByEmail(email string) *management.Admin {
 
 const testPassword = "an entirely ordinary passphrase"
 
-func TestRegisterAndVerify(t *testing.T) {
+func TestRegister(t *testing.T) {
 	t.Parallel()
 	env := newPasswordEnv(t, config.RegistrationOpen)
 
@@ -206,17 +222,9 @@ func TestRegisterAndVerify(t *testing.T) {
 	assert.Equal(t, admin.ID.String(), identity.Subject)
 	assert.Equal(t, management.LocalIssuer, identity.Issuer)
 
-	message := env.mail.awaitSubject(t, "Confirm your email address")
-	verify := env.post(env.controller.VerifyEmail, map[string]string{"token": tokenFrom(t, message)})
-	require.Equal(t, http.StatusNoContent, verify.Code, verify.Body.String())
-
-	identity, err = env.state.GetLocalIdentity(t.Context(), admin.ID)
-	require.NoError(t, err)
-	assert.True(t, identity.EmailVerified)
-
-	// Single use: the link in an inbox is worth one redemption.
-	replay := env.post(env.controller.VerifyEmail, map[string]string{"token": tokenFrom(t, message)})
-	assert.Equal(t, http.StatusBadRequest, replay.Code)
+	// Registration is complete on its own: the account is usable immediately and
+	// nothing is mailed asking its owner to confirm anything.
+	env.mail.awaitQuiet(t)
 }
 
 // The response to a registration must be the same whether or not the address is
@@ -227,7 +235,6 @@ func TestRegisterDoesNotRevealExistingAccounts(t *testing.T) {
 
 	first := env.register("taken@example.test", testPassword)
 	require.Equal(t, http.StatusNoContent, first.Code)
-	env.mail.awaitSubject(t, "Confirm your email address")
 
 	admin := env.adminByEmail("taken@example.test")
 
@@ -278,7 +285,6 @@ func TestRegistrationModes(t *testing.T) {
 
 		res := env.register("first@example.test", testPassword)
 		require.Equal(t, http.StatusNoContent, res.Code)
-		env.mail.awaitSubject(t, "Confirm your email address")
 		env.adminByEmail("first@example.test")
 	})
 
@@ -311,7 +317,7 @@ func TestRegistrationModes(t *testing.T) {
 // organization having never touched that mailbox. Under the default
 // invite_only mode a pending invite is exactly what admits the registration,
 // so this is the DEFAULT path rather than an exotic one.
-func TestRegisteringAnInvitedAddressGrantsNothingUntilItIsVerified(t *testing.T) {
+func TestRegisteringAnInvitedAddressJoinsTheInvitingOrganization(t *testing.T) {
 	t.Parallel()
 	env := newPasswordEnv(t, config.RegistrationInviteOnly)
 	ctx := t.Context()
@@ -331,32 +337,31 @@ func TestRegisteringAnInvitedAddressGrantsNothingUntilItIsVerified(t *testing.T)
 
 	res := env.register("invitee@example.test", testPassword)
 	require.Equal(t, http.StatusNoContent, res.Code)
-	message := env.mail.awaitSubject(t, "Confirm your email address")
 
 	admin := env.adminByEmail("invitee@example.test")
 
-	// Before the mailbox is proved: an organization of their own, and no
-	// membership whatsoever of the inviting one.
-	assert.NotEqual(t, env.orgID, admin.OrganizationID,
-		"an unverified registrant must not land in the inviting organization")
+	// Registering an invited address lands the account in the organization that
+	// invited it, rather than minting a throwaway one that would sit beside the
+	// real organization in the switcher for good.
+	assert.Equal(t, env.orgID, admin.OrganizationID)
 
 	member, err := env.state.IsMember(ctx, env.orgID, admin.ID)
 	require.NoError(t, err)
-	assert.False(t, member, "an unverified registrant must hold no membership of the inviting organization")
+	assert.True(t, member)
 
-	// Proving the mailbox is what honours the invite.
-	verify := env.post(env.controller.VerifyEmail, map[string]string{"token": tokenFrom(t, message)})
-	require.Equal(t, http.StatusNoContent, verify.Code, verify.Body.String())
+	var organizations int
+	require.NoError(t, env.db.GetContext(ctx, &organizations,
+		`SELECT count(*) FROM organizations WHERE deleted_at IS NULL`))
+	assert.Equal(t, 1, organizations, "no organization of their own is created alongside")
 
-	member, err = env.state.IsMember(ctx, env.orgID, admin.ID)
-	require.NoError(t, err)
-	assert.True(t, member, "a verified invitee joins the organization that invited them")
-
-	// The invite itself stays pending: accepting it is what grants the project
-	// role, and that flow already exists.
+	// Membership is not the project role: the invite stays pending until it is
+	// accepted, and accepting is what grants the role it carries.
 	invites, err := env.state.ListInvitesForEmail(ctx, "invitee@example.test")
 	require.NoError(t, err)
 	assert.Len(t, invites, 1)
+
+	_, err = env.state.GetProjectAdmin(ctx, projectID, admin.ID)
+	require.Error(t, err, "registering confers no project role on its own")
 }
 
 // Completing a reset proves the same mailbox a confirmation link would, so it
@@ -364,7 +369,9 @@ func TestRegisteringAnInvitedAddressGrantsNothingUntilItIsVerified(t *testing.T)
 // their confirmation mail could never be admitted at all.
 func TestCompletingAResetHonoursAPendingInvite(t *testing.T) {
 	t.Parallel()
-	env := newPasswordEnv(t, config.RegistrationInviteOnly)
+	// Open registration, because the account here is created before any invite
+	// exists for it -- invite_only would (rightly) turn that registration away.
+	env := newPasswordEnv(t, config.RegistrationOpen)
 	ctx := t.Context()
 
 	inviterID, err := env.state.CreateAdmin(ctx, management.Admin{
@@ -375,16 +382,18 @@ func TestCompletingAResetHonoursAPendingInvite(t *testing.T) {
 		Name: "Reset Project", Timezone: "UTC", Locale: "en", OrganizationID: &env.orgID,
 	})
 	require.NoError(t, err)
+	// Registered BEFORE being invited, which is the case this path still exists
+	// for: an account that already landed in an organization of its own is not
+	// re-homed by a later invitation, so something has to admit it afterwards.
+	require.Equal(t, http.StatusNoContent, env.register("reset-invitee@example.test", testPassword).Code)
+	admin := env.adminByEmail("reset-invitee@example.test")
+
 	_, err = env.state.CreateProjectInvite(ctx, projectID, inviterID, "reset-invitee@example.test", nil, "editor", time.Hour)
 	require.NoError(t, err)
 
-	require.Equal(t, http.StatusNoContent, env.register("reset-invitee@example.test", testPassword).Code)
-	env.mail.awaitSubject(t, "Confirm your email address")
-	admin := env.adminByEmail("reset-invitee@example.test")
-
 	member, err := env.state.IsMember(ctx, env.orgID, admin.ID)
 	require.NoError(t, err)
-	require.False(t, member)
+	require.False(t, member, "the invitation arrived after the account existed")
 
 	require.Equal(t, http.StatusNoContent,
 		env.post(env.controller.RequestPasswordReset, map[string]string{"email": "reset-invitee@example.test"}).Code)
@@ -397,7 +406,7 @@ func TestCompletingAResetHonoursAPendingInvite(t *testing.T) {
 
 	member, err = env.state.IsMember(ctx, env.orgID, admin.ID)
 	require.NoError(t, err)
-	assert.True(t, member, "proving the mailbox through a reset honours the invite too")
+	assert.True(t, member, "completing a reset admits an account invited after it registered")
 }
 
 // Two registrations racing for the bootstrap allowance must not both become
@@ -435,7 +444,6 @@ func TestPasswordLogin(t *testing.T) {
 	env := newPasswordEnv(t, config.RegistrationOpen)
 
 	require.Equal(t, http.StatusNoContent, env.register("login@example.test", testPassword).Code)
-	env.mail.awaitSubject(t, "Confirm your email address")
 
 	t.Run("the right password opens a session", func(t *testing.T) {
 		res := env.login("login@example.test", testPassword)
@@ -483,7 +491,6 @@ func TestLoginRehashesAnOutdatedPassword(t *testing.T) {
 	ctx := t.Context()
 
 	require.Equal(t, http.StatusNoContent, env.register("outdated@example.test", testPassword).Code)
-	env.mail.awaitSubject(t, "Confirm your email address")
 
 	admin := env.adminByEmail("outdated@example.test")
 	identity, err := env.state.GetLocalIdentity(ctx, admin.ID)
@@ -513,7 +520,6 @@ func TestPasswordReset(t *testing.T) {
 	ctx := t.Context()
 
 	require.Equal(t, http.StatusNoContent, env.register("reset@example.test", testPassword).Code)
-	env.mail.awaitSubject(t, "Confirm your email address")
 	admin := env.adminByEmail("reset@example.test")
 
 	// Two sessions the reset has to end. One stands in for the account's owner,
@@ -570,7 +576,6 @@ func TestPasswordResetDoesNotRevealExistingAccounts(t *testing.T) {
 	env := newPasswordEnv(t, config.RegistrationOpen)
 
 	require.Equal(t, http.StatusNoContent, env.register("known@example.test", testPassword).Code)
-	env.mail.awaitSubject(t, "Confirm your email address")
 
 	known := env.post(env.controller.RequestPasswordReset, map[string]string{"email": "known@example.test"})
 	unknown := env.post(env.controller.RequestPasswordReset, map[string]string{"email": "stranger@example.test"})
@@ -597,7 +602,6 @@ func TestChangePassword(t *testing.T) {
 	ctx := t.Context()
 
 	require.Equal(t, http.StatusNoContent, env.register("change@example.test", testPassword).Code)
-	env.mail.awaitSubject(t, "Confirm your email address")
 	admin := env.adminByEmail("change@example.test")
 
 	newSession := func() *management.AdminSession {
@@ -666,7 +670,6 @@ func TestChangingAPasswordInvalidatesOutstandingResetTokens(t *testing.T) {
 	ctx := t.Context()
 
 	require.Equal(t, http.StatusNoContent, env.register("inflight@example.test", testPassword).Code)
-	env.mail.awaitSubject(t, "Confirm your email address")
 	admin := env.adminByEmail("inflight@example.test")
 
 	require.Equal(t, http.StatusNoContent,
@@ -704,7 +707,6 @@ func TestLoginThrottling(t *testing.T) {
 	env.controller.throttle = newThrottle(newTestLimiter(t), 0)
 
 	require.Equal(t, http.StatusNoContent, env.register("throttled@example.test", testPassword).Code)
-	env.mail.awaitSubject(t, "Confirm your email address")
 
 	for range loginFailureLimit {
 		require.Equal(t, http.StatusUnauthorized, env.login("throttled@example.test", "wrong").Code)
@@ -736,7 +738,6 @@ func TestSuccessfulLoginSpendsNoFailureBudget(t *testing.T) {
 	env.controller.throttle = newThrottle(newTestLimiter(t), 0)
 
 	require.Equal(t, http.StatusNoContent, env.register("busy@example.test", testPassword).Code)
-	env.mail.awaitSubject(t, "Confirm your email address")
 
 	for range loginFailureLimit + 5 {
 		require.Equal(t, http.StatusOK, env.login("busy@example.test", testPassword).Code)
@@ -777,14 +778,17 @@ func TestGetAuthMethodsListsEveryConfiguredDriver(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	mgmtDB, _, _ := teststore.RunPostgreSQL(t)
 
-	controller, err := NewAuthController(logger, mgmtDB, management.NewState(mgmtDB), config.Node{
+	cfg := config.Node{
 		Auth: config.Auth{
 			Drivers: []string{"basic", "clerk"},
 			JWKS:    clerkJWKS(t),
 			Clerk:   config.ClerkAuth{SecretKey: "sk_test_xxx"},
 		},
 		Mail: testMailConfig(),
-	}, nil, consoleSignerFor(t), nil)
+	}
+	_, dispatcher, renderer := testMailer(t, cfg)
+
+	controller, err := NewAuthController(logger, mgmtDB, management.NewState(mgmtDB), cfg, nil, consoleSignerFor(t), nil, dispatcher, renderer)
 	require.NoError(t, err)
 
 	res := httptest.NewRecorder()
@@ -806,7 +810,7 @@ func TestPasswordFlowsAreOffWhenTheDriverIsNotConfigured(t *testing.T) {
 
 	controller, err := NewAuthController(logger, mgmtDB, management.NewState(mgmtDB), config.Node{
 		Auth: config.Auth{Drivers: []string{"clerk"}, JWKS: clerkJWKS(t), Clerk: config.ClerkAuth{SecretKey: "sk_test_xxx"}},
-	}, nil, consoleSignerFor(t), nil)
+	}, nil, consoleSignerFor(t), nil, nil, nil)
 	require.NoError(t, err)
 
 	handlers := map[string]http.HandlerFunc{
@@ -841,7 +845,7 @@ func TestNewAuthControllerRequiresAMailChannel(t *testing.T) {
 			Drivers: []string{"basic"},
 			Basic:   config.BasicAuth{Registration: config.RegistrationOpen},
 		},
-	}, nil, consoleSignerFor(t), nil)
+	}, nil, consoleSignerFor(t), nil, nil, nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "no channel is configured")
 }
@@ -857,6 +861,6 @@ func TestNewAuthControllerRejectsAnUnknownRegistrationMode(t *testing.T) {
 			Drivers: []string{"basic"},
 			Basic:   config.BasicAuth{Registration: "sometimes"},
 		},
-	}, nil, consoleSignerFor(t), nil)
+	}, nil, consoleSignerFor(t), nil, nil, nil)
 	require.Error(t, err, "a typo in AUTH_PASSWORD_REGISTRATION must not start")
 }

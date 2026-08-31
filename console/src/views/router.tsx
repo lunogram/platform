@@ -1,5 +1,5 @@
 import type { RouteObject } from "react-router"
-import { createBrowserRouter, Outlet, redirect } from "react-router"
+import { createBrowserRouter, Navigate, Outlet, redirect } from "react-router"
 import api from "../api"
 import oapiClient from "../oapi/client"
 
@@ -17,7 +17,7 @@ import {
 } from "../contexts"
 import ClientList from "./settings/clients/ClientList"
 import { NewClientRoute, EditClientRoute } from "./settings/clients/ClientEditorLayout"
-import Invites from "./settings/Invites"
+import Members from "./settings/Members"
 import Lists from "./users/Lists"
 import ListDetail from "./users/ListDetail"
 import Users from "./users/Users"
@@ -658,8 +658,12 @@ export const createRouter = ({
                                                 ],
                                             },
                                             {
+                                                path: "members",
+                                                element: <Members />,
+                                            },
+                                            {
                                                 path: "invites",
-                                                element: <Invites />,
+                                                element: <Navigate to="../members" replace />,
                                             },
                                             {
                                                 path: "subscriptions",

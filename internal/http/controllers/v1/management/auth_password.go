@@ -39,7 +39,7 @@ type passwordAuth struct {
 	renderer     *mailer.Renderer
 }
 
-func (c *AuthController) initPasswordAuth(cfg config.Node) error {
+func (c *AuthController) initPasswordAuth(cfg config.Node, mail *mailer.Dispatcher, renderer *mailer.Renderer) error {
 	c.password.registration = strings.ToLower(strings.TrimSpace(cfg.Auth.Basic.Registration))
 	// Taken from the built verifiers rather than from the configured names. The
 	// registry normalises case and whitespace as it builds, so reading the raw
@@ -64,20 +64,20 @@ func (c *AuthController) initPasswordAuth(cfg config.Node) error {
 		return errors.New("AUTH_BASIC_REGISTRATION must be one of open, invite_only or disabled")
 	}
 
-	renderer, err := mailer.NewRenderer(cfg.Mail, cfg.PublicBaseURL(), cfg.BaseDir())
-	if err != nil {
-		return err
-	}
-	c.password.renderer = renderer
-
 	// A deployment offering password logins with nowhere to send mail cannot
 	// confirm an address or reset a password, so it is refused here rather than
-	// discovered by the first person who tries to register.
-	transport, err := mailer.New(cfg.Mail, cfg.BaseDir(), c.logger.Named("mailer"))
-	if err != nil {
+	// discovered by the first person who tries to register. The mailer itself is
+	// built once by the caller and shared, because invites go out through the
+	// same channel.
+	if err := mailer.RequireConfigured(cfg.Mail); err != nil {
 		return err
 	}
-	c.password.mail = mailer.NewDispatcher(transport, c.logger.Named("mailer"), cfg.Mail.Timeout)
+	if mail == nil || renderer == nil {
+		return errors.New("password auth requires a mailer")
+	}
+
+	c.password.mail = mail
+	c.password.renderer = renderer
 
 	return nil
 }
@@ -208,7 +208,6 @@ func (c *AuthController) register(ctx context.Context, email, hash string, body 
 	}
 
 	logger.Info("registered a new admin", zap.String("admin_id", adminID.String()))
-	c.sendVerification(ctx, adminID, email)
 }
 
 // errRegistrationClosed aborts a provisioning transaction whose admission check
@@ -704,21 +703,6 @@ func (c *AuthController) commitCredentialChange(ctx context.Context, adminID, id
 
 	c.mgmt.InvalidateAdminSessionCache(ctx, revoked)
 	return nil
-}
-
-func (c *AuthController) sendVerification(ctx context.Context, adminID uuid.UUID, email string) {
-	token, hash, err := management.NewActionToken()
-	if err != nil {
-		c.logger.Error("failed to generate a verification token", zap.Error(err))
-		return
-	}
-
-	if err := c.mgmt.CreateAdminActionToken(ctx, adminID, management.ActionTokenEmailVerification, email, hash, management.EmailVerificationTTL); err != nil {
-		c.logger.Error("failed to record a verification token", zap.Error(err))
-		return
-	}
-
-	c.password.mail.Dispatch(c.password.renderer.VerifyEmail(email, token, management.EmailVerificationTTL))
 }
 
 // sendAccountExists tells the owner of an already-registered address that

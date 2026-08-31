@@ -4986,7 +4986,7 @@ export interface components {
              */
             email: string;
             /**
-             * @description The password. At least 12 characters, and not a variation of the email address. There are deliberately no composition rules.
+             * @description The password for the new account
              * @example an entirely ordinary passphrase
              */
             password: string;

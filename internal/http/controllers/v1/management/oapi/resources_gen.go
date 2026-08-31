@@ -1944,7 +1944,7 @@ type RegisterRequest struct {
 	// LastName Optional family name for the new account
 	LastName *string `json:"last_name,omitempty"`
 
-	// Password The password. At least 12 characters, and not a variation of the email address. There are deliberately no composition rules.
+	// Password The password for the new account
 	Password string `json:"password"`
 }
 
