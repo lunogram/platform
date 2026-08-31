@@ -43,7 +43,7 @@ export function DefaultUserDropdown({ user }: UserDropdownProps) {
     useEffect(() => {
         api.auth
             .cachedMethods()
-            .then((methods) => setHasPasswordDriver(methods.includes(AUTH_DRIVERS.PASSWORD)))
+            .then((methods) => setHasPasswordDriver(methods.includes(AUTH_DRIVERS.BASIC)))
             .catch(() => setHasPasswordDriver(false))
     }, [])
 

@@ -111,7 +111,11 @@ func TestAdminIdentitiesStore(t *testing.T) {
 		assert.Equal(t, second, identity.AdminID)
 	})
 
-	t.Run("secret_hash is bound to the password provider", func(t *testing.T) {
+	// Only a local identity may hold a secret. The reverse does not hold: a
+	// local identity may be waiting for one -- an admin who holds an invite but
+	// has not chosen a password yet, and the seeded account between the
+	// migration that creates it and the boot that fills the hash in.
+	t.Run("only a local identity may carry a secret", func(t *testing.T) {
 		adminID, err := db.CreateAdmin(ctx, Admin{OrganizationID: orgID, Email: "secret@example.com", Role: "owner"})
 		require.NoError(t, err)
 
@@ -122,18 +126,48 @@ func TestAdminIdentitiesStore(t *testing.T) {
 		})
 		require.Error(t, err, "a federated identity must never carry a local secret")
 
-		_, err = db.CreateAdminIdentity(ctx, AdminIdentity{
-			AdminID: adminID, Provider: IdentityProviderPassword,
-			Issuer: "urn:lunogram:password", Subject: "secret@example.com",
+		pending, err := db.CreateAdminIdentity(ctx, AdminIdentity{
+			AdminID: adminID, Provider: IdentityProviderBasic,
+			Issuer: LocalIssuer, Subject: adminID.String(),
 		})
-		require.Error(t, err, "a password identity without a secret is not authenticatable")
+		require.NoError(t, err, "a local identity may exist before a password is chosen")
 
-		_, err = db.CreateAdminIdentity(ctx, AdminIdentity{
-			AdminID: adminID, Provider: IdentityProviderPassword,
-			Issuer: "urn:lunogram:password", Subject: "secret@example.com",
-			SecretHash: ptr.To("$argon2id$dummy"),
+		require.NoError(t, db.SetAdminIdentitySecret(ctx, pending, "$argon2id$dummy"))
+
+		stored, err := db.GetLocalIdentity(ctx, adminID)
+		require.NoError(t, err)
+		require.NotNil(t, stored.SecretHash)
+		assert.Equal(t, "$argon2id$dummy", *stored.SecretHash)
+	})
+
+	// Re-hashing on login reads a hash, computes a stronger one and writes it
+	// back. A password change committing in between must win, or maintenance
+	// would restore the password the login proved.
+	t.Run("a secret is only replaced when it is still the one that was read", func(t *testing.T) {
+		adminID, err := db.CreateAdmin(ctx, Admin{OrganizationID: orgID, Email: "swap@example.com", Role: "owner"})
+		require.NoError(t, err)
+
+		id, err := db.CreateAdminIdentity(ctx, AdminIdentity{
+			AdminID: adminID, Provider: IdentityProviderBasic,
+			Issuer: LocalIssuer, Subject: adminID.String(),
+			SecretHash: ptr.To("$argon2id$original"),
 		})
 		require.NoError(t, err)
+
+		replaced, err := db.ReplaceAdminIdentitySecret(ctx, id, "$argon2id$original", "$argon2id$rehashed")
+		require.NoError(t, err)
+		assert.True(t, replaced)
+
+		// Somebody changed the password after the login read the old hash.
+		require.NoError(t, db.SetAdminIdentitySecret(ctx, id, "$argon2id$changed"))
+
+		replaced, err = db.ReplaceAdminIdentitySecret(ctx, id, "$argon2id$rehashed", "$argon2id$stale")
+		require.NoError(t, err)
+		assert.False(t, replaced, "a re-hash of a superseded password must not land")
+
+		stored, err := db.GetLocalIdentity(ctx, adminID)
+		require.NoError(t, err)
+		assert.Equal(t, "$argon2id$changed", *stored.SecretHash)
 	})
 
 	t.Run("rejects an unknown provider", func(t *testing.T) {

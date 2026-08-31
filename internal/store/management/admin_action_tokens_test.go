@@ -27,12 +27,55 @@ func TestAdminActionTokensStore(t *testing.T) {
 		return adminID
 	}
 
+	// A link proves that whoever follows it reads a particular mailbox. An
+	// organization owner can change admins.email without anybody proving the
+	// new address, so a token that named only the account would still redeem
+	// afterwards -- and would then be proving the wrong thing. That is the
+	// invite escalation: register an address you control, keep the link, point
+	// the account at an invited address, follow the link.
+	t.Run("refuses a token whose address no longer matches the account", func(t *testing.T) {
+		adminID := newAdmin(t, "before@example.com")
+
+		plaintext, hash, err := NewActionToken()
+		require.NoError(t, err)
+		require.NoError(t, db.CreateAdminActionToken(ctx, adminID, ActionTokenEmailVerification, "before@example.com", hash, EmailVerificationTTL))
+
+		moved := "invited@corp.example.com"
+		require.NoError(t, db.UpdateAdmin(ctx, adminID, AdminUpdate{Email: &moved}))
+
+		_, err = db.ConsumeAdminActionToken(ctx, ActionTokenEmailVerification, HashActionToken(plaintext))
+		require.ErrorIs(t, err, sql.ErrNoRows, "a link must not prove a mailbox it was never sent to")
+
+		// And it stays refused if the address is put back, because the token was
+		// spent by nothing: it simply never matched.
+		back := "before@example.com"
+		require.NoError(t, db.UpdateAdmin(ctx, adminID, AdminUpdate{Email: &back}))
+
+		redeemed, err := db.ConsumeAdminActionToken(ctx, ActionTokenEmailVerification, HashActionToken(plaintext))
+		require.NoError(t, err, "the link still names the mailbox it was sent to")
+		assert.Equal(t, adminID, redeemed)
+	})
+
+	// The comparison is case-insensitive on both sides, so a link is not broken
+	// by an address being stored with different capitalisation.
+	t.Run("matches the address regardless of case", func(t *testing.T) {
+		adminID := newAdmin(t, "Mixed.Case@example.com")
+
+		plaintext, hash, err := NewActionToken()
+		require.NoError(t, err)
+		require.NoError(t, db.CreateAdminActionToken(ctx, adminID, ActionTokenPasswordReset, "MIXED.CASE@EXAMPLE.COM", hash, PasswordResetTTL))
+
+		redeemed, err := db.ConsumeAdminActionToken(ctx, ActionTokenPasswordReset, HashActionToken(plaintext))
+		require.NoError(t, err)
+		assert.Equal(t, adminID, redeemed)
+	})
+
 	t.Run("redeems a token once", func(t *testing.T) {
 		adminID := newAdmin(t, "redeem@example.com")
 
 		plaintext, hash, err := NewActionToken()
 		require.NoError(t, err)
-		require.NoError(t, db.CreateAdminActionToken(ctx, adminID, ActionTokenPasswordReset, hash, PasswordResetTTL))
+		require.NoError(t, db.CreateAdminActionToken(ctx, adminID, ActionTokenPasswordReset, "redeem@example.com", hash, PasswordResetTTL))
 
 		redeemed, err := db.ConsumeAdminActionToken(ctx, ActionTokenPasswordReset, HashActionToken(plaintext))
 		require.NoError(t, err)
@@ -49,7 +92,7 @@ func TestAdminActionTokensStore(t *testing.T) {
 
 		plaintext, hash, err := NewActionToken()
 		require.NoError(t, err)
-		require.NoError(t, db.CreateAdminActionToken(ctx, adminID, ActionTokenPasswordReset, hash, PasswordResetTTL))
+		require.NoError(t, db.CreateAdminActionToken(ctx, adminID, ActionTokenPasswordReset, "concurrent@example.com", hash, PasswordResetTTL))
 
 		const attempts = 8
 		var (
@@ -82,7 +125,7 @@ func TestAdminActionTokensStore(t *testing.T) {
 
 		plaintext, hash, err := NewActionToken()
 		require.NoError(t, err)
-		require.NoError(t, db.CreateAdminActionToken(ctx, adminID, ActionTokenEmailVerification, hash, EmailVerificationTTL))
+		require.NoError(t, db.CreateAdminActionToken(ctx, adminID, ActionTokenEmailVerification, "purpose@example.com", hash, EmailVerificationTTL))
 
 		_, err = db.ConsumeAdminActionToken(ctx, ActionTokenPasswordReset, HashActionToken(plaintext))
 		assert.ErrorIs(t, err, sql.ErrNoRows, "a verification link must not be redeemable as a password reset")
@@ -97,7 +140,7 @@ func TestAdminActionTokensStore(t *testing.T) {
 
 		plaintext, hash, err := NewActionToken()
 		require.NoError(t, err)
-		require.NoError(t, db.CreateAdminActionToken(ctx, adminID, ActionTokenPasswordReset, hash, -time.Minute))
+		require.NoError(t, db.CreateAdminActionToken(ctx, adminID, ActionTokenPasswordReset, "expired@example.com", hash, -time.Minute))
 
 		_, err = db.ConsumeAdminActionToken(ctx, ActionTokenPasswordReset, HashActionToken(plaintext))
 		assert.ErrorIs(t, err, sql.ErrNoRows)
@@ -116,11 +159,11 @@ func TestAdminActionTokensStore(t *testing.T) {
 
 		reset, resetHash, err := NewActionToken()
 		require.NoError(t, err)
-		require.NoError(t, db.CreateAdminActionToken(ctx, adminID, ActionTokenPasswordReset, resetHash, PasswordResetTTL))
+		require.NoError(t, db.CreateAdminActionToken(ctx, adminID, ActionTokenPasswordReset, "invalidate@example.com", resetHash, PasswordResetTTL))
 
 		verify, verifyHash, err := NewActionToken()
 		require.NoError(t, err)
-		require.NoError(t, db.CreateAdminActionToken(ctx, adminID, ActionTokenEmailVerification, verifyHash, EmailVerificationTTL))
+		require.NoError(t, db.CreateAdminActionToken(ctx, adminID, ActionTokenEmailVerification, "invalidate@example.com", verifyHash, EmailVerificationTTL))
 
 		require.NoError(t, db.InvalidateAdminActionTokens(ctx, adminID, ActionTokenPasswordReset))
 
@@ -138,7 +181,7 @@ func TestAdminActionTokensStore(t *testing.T) {
 
 		plaintext, hash, err := NewActionToken()
 		require.NoError(t, err)
-		require.NoError(t, db.CreateAdminActionToken(ctx, adminID, ActionTokenPasswordReset, hash, PasswordResetTTL))
+		require.NoError(t, db.CreateAdminActionToken(ctx, adminID, ActionTokenPasswordReset, "hashonly@example.com", hash, PasswordResetTTL))
 
 		var stored []byte
 		require.NoError(t, raw.GetContext(ctx, &stored,
@@ -153,7 +196,7 @@ func TestAdminActionTokensStore(t *testing.T) {
 
 		_, hash, err := NewActionToken()
 		require.NoError(t, err)
-		require.NoError(t, db.CreateAdminActionToken(ctx, adminID, ActionTokenPasswordReset, hash, -48*time.Hour))
+		require.NoError(t, db.CreateAdminActionToken(ctx, adminID, ActionTokenPasswordReset, "purge@example.com", hash, -48*time.Hour))
 
 		purged, err := db.PurgeExpiredAdminActionTokens(ctx, time.Hour)
 		require.NoError(t, err)

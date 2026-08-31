@@ -72,12 +72,6 @@ func TestNewVerifier(t *testing.T) {
 		assert.Equal(t, BasicDriver, verifier.Driver())
 	})
 
-	t.Run("password", func(t *testing.T) {
-		verifier, err := New(PasswordDriver, config.Auth{}, nil, logger, nil)
-		require.NoError(t, err)
-		assert.Equal(t, PasswordDriver, verifier.Driver())
-	})
-
 	t.Run("clerk", func(t *testing.T) {
 		verifier, err := New(ClerkDriver, config.Auth{
 			JWKS:  clerkJWKS(t),
@@ -114,13 +108,13 @@ func TestBuildVerifiers(t *testing.T) {
 
 	t.Run("builds every configured driver", func(t *testing.T) {
 		built, err := Build(config.Auth{
-			Drivers: []string{"password", " CLERK "},
+			Drivers: []string{"basic", " CLERK "},
 			JWKS:    clerkJWKS(t),
 			Clerk:   config.ClerkAuth{SecretKey: "sk_test_xxx"},
 		}, nil, logger, nil)
 		require.NoError(t, err)
 		require.Len(t, built, 2)
-		assert.Equal(t, PasswordDriver, built[PasswordDriver].Driver())
+		assert.Equal(t, BasicDriver, built[BasicDriver].Driver())
 		assert.Equal(t, ClerkDriver, built[ClerkDriver].Driver())
 	})
 

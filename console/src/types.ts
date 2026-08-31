@@ -322,11 +322,10 @@ export interface SearchResult<T> {
 
 export type AuditFields = "created_at" | "updated_at" | "deleted_at"
 
-export type AuthDriver = "basic" | "password" | "clerk"
+export type AuthDriver = "basic" | "clerk"
 
 export const AUTH_DRIVERS = {
     BASIC: "basic" as const,
-    PASSWORD: "password" as const,
     CLERK: "clerk" as const,
 }
 

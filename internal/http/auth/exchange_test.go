@@ -449,15 +449,15 @@ func TestProvisionAdminWithALocalCredential(t *testing.T) {
 	ctx := context.Background()
 
 	adminID, identityID, err := env.exchanger.ProvisionAdmin(ctx, &VerifiedIdentity{
-		Issuer:   management.PasswordIssuer,
-		Provider: management.IdentityProviderPassword,
+		Issuer:   management.LocalIssuer,
+		Provider: management.IdentityProviderBasic,
 		Email:    "local@example.test",
 	}, Provisioning{Credential: func(adminID uuid.UUID) (string, string, error) {
 		return adminID.String(), "$argon2id$v=19$m=65536,t=2,p=1$c2FsdHNhbHRzYWx0c2E$aGFzaGhhc2hoYXNoaGFzaA", nil
 	}})
 	require.NoError(t, err)
 
-	identity, err := env.mgmt.GetPasswordIdentity(ctx, adminID)
+	identity, err := env.mgmt.GetLocalIdentity(ctx, adminID)
 	require.NoError(t, err)
 	assert.Equal(t, identityID, identity.ID)
 	assert.Equal(t, adminID.String(), identity.Subject, "a local identity is keyed on the admin it belongs to")
@@ -483,8 +483,8 @@ func TestProvisionAdminRollsBackWhenTheCredentialFails(t *testing.T) {
 	ctx := context.Background()
 
 	_, _, err := env.exchanger.ProvisionAdmin(ctx, &VerifiedIdentity{
-		Issuer:   management.PasswordIssuer,
-		Provider: management.IdentityProviderPassword,
+		Issuer:   management.LocalIssuer,
+		Provider: management.IdentityProviderBasic,
 		Email:    "rollback@example.test",
 	}, Provisioning{Credential: func(uuid.UUID) (string, string, error) {
 		return "", "", errors.New("could not hash")

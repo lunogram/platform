@@ -96,7 +96,7 @@ export default function Register() {
     // rather than reimplementing one. This used to be unconditional, which meant
     // a deployment that had never configured Clerk still got its widget on
     // /register and no way to create an account at all.
-    if (drivers.includes(AUTH_DRIVERS.CLERK) && !drivers.includes(AUTH_DRIVERS.PASSWORD)) {
+    if (drivers.includes(AUTH_DRIVERS.CLERK) && !drivers.includes(AUTH_DRIVERS.BASIC)) {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center bg-muted/40 p-4 gap-4">
                 <SignUp
@@ -106,7 +106,7 @@ export default function Register() {
         )
     }
 
-    if (!drivers.includes(AUTH_DRIVERS.PASSWORD)) {
+    if (!drivers.includes(AUTH_DRIVERS.BASIC)) {
         return (
             <AuthCard title={t("register_title")} description={t("register_closed")}>
                 <Button asChild variant="outline" className="w-full">

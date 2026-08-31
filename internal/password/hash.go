@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"runtime"
 	"strings"
 	"sync"
 
@@ -68,7 +69,7 @@ func HashWith(plain string, params Params) (string, error) {
 		return "", err
 	}
 
-	key := argon2.IDKey([]byte(plain), salt, params.Time, params.Memory, params.Parallelism, params.KeyLength)
+	key := deriveKey([]byte(plain), salt, params, params.KeyLength)
 
 	return fmt.Sprintf("$argon2id$v=%d$m=%d,t=%d,p=%d$%s$%s",
 		argon2.Version,
@@ -89,7 +90,7 @@ func Verify(encoded, plain string) (match bool, outdated bool, err error) {
 		return false, false, err
 	}
 
-	got := argon2.IDKey([]byte(plain), salt, params.Time, params.Memory, params.Parallelism, uint32(len(want)))
+	got := deriveKey([]byte(plain), salt, params, uint32(len(want)))
 
 	// Constant-time: a byte-at-a-time comparison leaks how much of a candidate
 	// digest was right, which is enough to reconstruct the digest offline.
@@ -98,6 +99,42 @@ func Verify(encoded, plain string) (match bool, outdated bool, err error) {
 	}
 
 	return true, params.weakerThan(DefaultParams), nil
+}
+
+// inFlight bounds how many argon2 computations may run at once.
+//
+// Every one of them allocates Params.Memory — 64 MiB under [DefaultParams] — and
+// holds it for the duration. Nothing upstream caps how many arrive together: the
+// per-source budget deliberately admits a burst, it counts failures rather than
+// attempts so a working password is never charged, and it fails open when Redis
+// is unavailable. Unbounded, a few dozen simultaneous logins reserve gigabytes
+// and the process is killed for being a memory hog rather than for anything an
+// operator can see.
+//
+// The bound is expressed in concurrent hashes rather than bytes because the cost
+// per hash is already fixed by the parameters. It tracks GOMAXPROCS because
+// argon2id at p=1 saturates one core per computation, so admitting more than
+// there are cores adds latency without adding throughput; the floor keeps a
+// single-core container able to sign anybody in, and the ceiling keeps peak
+// reservation to 512 MiB on a large host.
+var inFlight = make(chan struct{}, maxConcurrent())
+
+func maxConcurrent() int {
+	return min(max(runtime.GOMAXPROCS(0), 2), 8)
+}
+
+// deriveKey runs the KDF while holding one of the [inFlight] slots.
+//
+// Waiting for a slot is the correct behaviour rather than refusing: a login that
+// queues briefly is a login, and turning a burst into failed sign-ins would hand
+// anyone who can generate one a way to lock everybody out. The wait is bounded
+// in practice by the work itself — each holder is finished in about 90ms — and
+// by whatever deadline the caller's request already carries.
+func deriveKey(plain, salt []byte, params Params, length uint32) []byte {
+	inFlight <- struct{}{}
+	defer func() { <-inFlight }()
+
+	return argon2.IDKey(plain, salt, params.Time, params.Memory, params.Parallelism, length)
 }
 
 func (p Params) weakerThan(other Params) bool {

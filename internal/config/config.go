@@ -52,15 +52,14 @@ type Auth struct {
 	// Drivers are the login methods this deployment offers. AUTH_DRIVER takes a
 	// comma-separated list, so the documented single-driver quickstart
 	// (AUTH_DRIVER=basic) is unchanged while a deployment that wants, say,
-	// passwords alongside SSO can say AUTH_DRIVER=password,clerk. Every
+	// local accounts alongside SSO can say AUTH_DRIVER=basic,clerk. Every
 	// configured driver is offered by GET /api/auth/methods and reachable at its
 	// own callback; the console picks between them.
-	Drivers  []string     `env:"DRIVER" envSeparator:"," yaml:"drivers"`
-	JWKS     claim.JWKS   `env:"JWKS_URL" yaml:"jwks"`
-	Basic    BasicAuth    `envPrefix:"BASIC_" yaml:"basic"`
-	Clerk    ClerkAuth    `envPrefix:"CLERK_" yaml:"clerk"`
-	Password PasswordAuth `envPrefix:"PASSWORD_" yaml:"password"`
-	Console  ConsoleAuth  `envPrefix:"CONSOLE_" yaml:"console"`
+	Drivers []string    `env:"DRIVER" envSeparator:"," yaml:"drivers"`
+	JWKS    claim.JWKS  `env:"JWKS_URL" yaml:"jwks"`
+	Basic   BasicAuth   `envPrefix:"BASIC_" yaml:"basic"`
+	Clerk   ClerkAuth   `envPrefix:"CLERK_" yaml:"clerk"`
+	Console ConsoleAuth `envPrefix:"CONSOLE_" yaml:"console"`
 
 	// LegacyIdentityAdoption lets an upstream identity claim a
 	// pre-existing admin whose identity row still carries the sentinel issuer
@@ -102,16 +101,52 @@ type ConsoleAuth struct {
 }
 
 // Enabled reports whether the named login driver is configured.
+//
+// It compares against the normalised list, which is what [Normalise] exists for:
+// the verifier registry trims and lower-cases every name as it builds, so an
+// AUTH_DRIVER of " BASIC " used to build and advertise the driver while every
+// check here said it was off.
 func (a Auth) Enabled(driver string) bool {
 	return slices.Contains(a.Drivers, driver)
+}
+
+// Normalise trims and lower-cases the configured driver names, dropping blanks
+// and duplicates. It runs once at load so that every later comparison — here, in
+// the verifier registry, and in the flows that ask whether their driver is on —
+// is looking at the same spelling.
+func (a *Auth) Normalise() {
+	if len(a.Drivers) == 0 {
+		return
+	}
+
+	var normalised []string
+	for _, driver := range a.Drivers {
+		driver = strings.ToLower(strings.TrimSpace(driver))
+		if driver == "" || slices.Contains(normalised, driver) {
+			continue
+		}
+		normalised = append(normalised, driver)
+	}
+	a.Drivers = normalised
 }
 
 // Configured reports whether any login driver is set up at all.
 func (a Auth) Configured() bool { return len(a.Drivers) > 0 }
 
+// BasicAuth configures local email and password credentials.
+//
+// Email and Password seed the first account. They are the documented quickstart
+// and they are no longer a credential the login compares against: the pair is
+// written into an admin at boot, hashed like any other, so the plaintext is
+// needed once rather than for as long as the deployment runs. Remove it from the
+// environment once the account exists.
 type BasicAuth struct {
 	Email    string `env:"EMAIL" yaml:"email"`
 	Password string `env:"PASSWORD" yaml:"password"`
+
+	// Registration decides who may create an account: open, invite_only or
+	// disabled.
+	Registration string `env:"REGISTRATION" yaml:"registration"`
 }
 
 // Registration modes for the password driver.
@@ -128,13 +163,6 @@ const (
 	// that provisions its admins some other way.
 	RegistrationDisabled = "disabled"
 )
-
-// PasswordAuth configures local email/password credentials.
-type PasswordAuth struct {
-	// Registration decides who may create an account: open, invite_only or
-	// disabled.
-	Registration string `env:"REGISTRATION" yaml:"registration"`
-}
 
 type ClerkAuth struct {
 	SecretKey     string `env:"SECRET_KEY" yaml:"secret_key"`

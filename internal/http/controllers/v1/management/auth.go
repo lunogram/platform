@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"slices"
@@ -32,6 +33,7 @@ func NewAuthController(logger *zap.Logger, db *sqlx.DB, mgmt *management.State, 
 	controller := &AuthController{
 		logger:   logger,
 		mgmt:     mgmt,
+		db:       db,
 		signer:   signer,
 		throttle: newThrottle(limiter, cfg.RateLimit.TrustedProxyHops),
 	}
@@ -57,12 +59,28 @@ func NewAuthController(logger *zap.Logger, db *sqlx.DB, mgmt *management.State, 
 		return nil, err
 	}
 
+	// The configured pair is written into an account rather than compared
+	// against, so it has to exist before anybody can sign in with it. Doing it
+	// here means a fresh deployment is reachable the moment it starts, and an
+	// upgrading one keeps signing in with the credential it already used.
+	if cfg.Auth.Enabled(verifiers.BasicDriver) {
+		seeder := auth.NewSeeder(controller.exchanger, mgmt, logger.Named("seed"))
+		if err := seeder.Seed(context.Background(), cfg.Auth.Basic.Email, cfg.Auth.Basic.Password); err != nil {
+			return nil, err
+		}
+	}
+
 	return controller, nil
 }
 
 type AuthController struct {
-	logger    *zap.Logger
-	mgmt      *management.State
+	logger *zap.Logger
+	mgmt   *management.State
+	// db is the pool the credential flows start their transactions on. The
+	// cache-backed mgmt above cannot: a store built over a transaction has no
+	// cache attached, so the two are used together — writes through the
+	// transaction, cache invalidation through mgmt once it commits.
+	db        *sqlx.DB
 	signer    *auth.ConsoleSigner
 	verifiers map[string]auth.Verifier
 	drivers   []string
@@ -154,7 +172,7 @@ func (c *AuthController) AuthCallback(w http.ResponseWriter, r *http.Request, dr
 // like one that has an account.
 func (c *AuthController) loginBudgets(r *http.Request, verifier auth.Verifier) (map[budget]string, bool) {
 	switch verifier.Driver() {
-	case verifiers.PasswordDriver, verifiers.BasicDriver:
+	case verifiers.BasicDriver:
 	default:
 		return nil, false
 	}

@@ -69,13 +69,20 @@ func HashActionToken(plaintext string) []byte {
 	return sum[:]
 }
 
-// CreateAdminActionToken records a token for an admin.
-func (s *AdminActionTokensStore) CreateAdminActionToken(ctx context.Context, adminID uuid.UUID, purpose string, hash []byte, ttl time.Duration) error {
+// CreateAdminActionToken records a token for an admin and the address it is
+// being sent to.
+//
+// The address is stored because a link is a statement about a mailbox, not
+// about an account: it says "whoever reads this holds this address". An admin's
+// address can be changed by an organization owner without anybody proving the
+// new one, so a token that named only the account would still be redeemable
+// afterwards, and would then be proving the wrong thing.
+func (s *AdminActionTokensStore) CreateAdminActionToken(ctx context.Context, adminID uuid.UUID, purpose, email string, hash []byte, ttl time.Duration) error {
 	stmt := `
-	INSERT INTO admin_action_tokens (admin_id, purpose, token_hash, expires_at)
-	VALUES ($1, $2, $3, NOW() + ($4 * INTERVAL '1 second'))`
+	INSERT INTO admin_action_tokens (admin_id, purpose, email, token_hash, expires_at)
+	VALUES ($1, $2, lower($3), $4, NOW() + ($5 * INTERVAL '1 second'))`
 
-	_, err := s.db.ExecContext(ctx, stmt, adminID, purpose, hash, int64(ttl.Seconds()))
+	_, err := s.db.ExecContext(ctx, stmt, adminID, purpose, email, hash, int64(ttl.Seconds()))
 	return err
 }
 
@@ -87,16 +94,29 @@ func (s *AdminActionTokensStore) CreateAdminActionToken(ctx context.Context, adm
 // then marking it used would let two concurrent redemptions of the same link
 // both pass the read; the guarded UPDATE makes the second one match zero rows.
 // The purpose is part of the guard so a verification link can never be replayed
-// as a password reset.
+// as a password reset, and so is the address: a link proves that whoever follows
+// it reads a particular mailbox, so it stops meaning anything the moment the
+// account is pointed at a different one. Without that, registering an address
+// you control, keeping the link, and then changing the account's address to an
+// invited one turns the link into a way of claiming a mailbox somebody else
+// holds -- which is the invite escalation this table exists to prevent.
+//
+// The address is compared in the same statement rather than after it, so there
+// is no window in which the address changes between the check and the
+// consumption.
 func (s *AdminActionTokensStore) ConsumeAdminActionToken(ctx context.Context, purpose string, hash []byte) (uuid.UUID, error) {
 	stmt := `
-	UPDATE admin_action_tokens
+	UPDATE admin_action_tokens t
 	SET consumed_at = NOW()
-	WHERE token_hash = $1
-	AND purpose = $2
-	AND consumed_at IS NULL
-	AND expires_at > NOW()
-	RETURNING admin_id`
+	FROM admins a
+	WHERE t.token_hash = $1
+	AND t.purpose = $2
+	AND t.consumed_at IS NULL
+	AND t.expires_at > NOW()
+	AND a.id = t.admin_id
+	AND a.deleted_at IS NULL
+	AND lower(a.email) = t.email
+	RETURNING t.admin_id`
 
 	var adminID uuid.UUID
 	if err := s.db.GetContext(ctx, &adminID, stmt, hash, purpose); err != nil {

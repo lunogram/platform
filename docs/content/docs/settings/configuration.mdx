@@ -30,7 +30,7 @@ A setting's YAML path and its environment variable are the same name written two
 | YAML | Environment |
 | --- | --- |
 | `public_url` | `PUBLIC_URL` |
-| `auth.password.registration` | `AUTH_PASSWORD_REGISTRATION` |
+| `auth.basic.registration` | `AUTH_BASIC_REGISTRATION` |
 | `auth.console.idle_ttl` | `AUTH_CONSOLE_IDLE_TTL` |
 | `mail.smtp.host` | `MAIL_SMTP_HOST` |
 | `rate_limit.per_minute` | `RATE_LIMIT_PER_MINUTE` |
@@ -45,11 +45,11 @@ A list is a YAML sequence in the file and a comma-separated value in the environ
 
 ```yaml
 auth:
-  drivers: [password, clerk]
+  drivers: [basic, clerk]
 ```
 
 ```bash
-AUTH_DRIVER=password,clerk
+AUTH_DRIVER=basic,clerk
 ```
 
 <Callout type="warn">

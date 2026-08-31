@@ -202,9 +202,6 @@ const api = {
         basicAuth: async (email: string, password: string) => {
             await client.post("/auth/login/basic/callback", { email, password })
         },
-        passwordAuth: async (email: string, password: string) => {
-            await client.post("/auth/login/password/callback", { email, password })
-        },
         // register always succeeds from the caller's point of view, whether or
         // not the address already has an account. What actually happened is
         // told to the address itself, by email.

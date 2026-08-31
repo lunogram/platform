@@ -93,6 +93,10 @@ type passwordEnv struct {
 	orgID      uuid.UUID
 }
 
+// seedablePassword satisfies the password policy, which the boot seeder applies
+// to AUTH_BASIC_PASSWORD like any other credential.
+const seedablePassword = "an entirely ordinary passphrase"
+
 // testMailConfig is a channel that builds but never dials: every test replaces
 // the dispatcher's transport with a capturedMailer before anything is sent. It
 // exists because a deployment offering password logins with nowhere to send
@@ -115,8 +119,8 @@ func newPasswordEnv(t *testing.T, registration string) *passwordEnv {
 	controller, err := NewAuthController(logger, mgmtDB, state, config.Node{
 		PublicURL: "https://console.example.test",
 		Auth: config.Auth{
-			Drivers:  []string{"password"},
-			Password: config.PasswordAuth{Registration: registration},
+			Drivers: []string{"basic"},
+			Basic:   config.BasicAuth{Registration: registration},
 		},
 		Mail: testMailConfig(),
 	}, nil, consoleSignerFor(t), nil)
@@ -157,9 +161,9 @@ func (e *passwordEnv) login(email, plain string) *httptest.ResponseRecorder {
 	require.NoError(e.t, err)
 
 	res := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/api/auth/login/password/callback", strings.NewReader(string(encoded)))
+	req := httptest.NewRequest("POST", "/api/auth/login/basic/callback", strings.NewReader(string(encoded)))
 	req.RemoteAddr = "203.0.113.7:52000"
-	e.controller.AuthCallback(res, req, "password")
+	e.controller.AuthCallback(res, req, "basic")
 	return res
 }
 
@@ -192,7 +196,7 @@ func TestRegisterAndVerify(t *testing.T) {
 	admin := env.adminByEmail("new.admin@example.test")
 	assert.Equal(t, "new.admin@example.test", admin.Email, "the address is stored normalised")
 
-	identity, err := env.state.GetPasswordIdentity(t.Context(), admin.ID)
+	identity, err := env.state.GetLocalIdentity(t.Context(), admin.ID)
 	require.NoError(t, err)
 	require.NotNil(t, identity.SecretHash)
 	assert.NotContains(t, *identity.SecretHash, testPassword, "the password itself must never be stored")
@@ -202,13 +206,13 @@ func TestRegisterAndVerify(t *testing.T) {
 	// password per account structural rather than a rule somebody has to
 	// remember.
 	assert.Equal(t, admin.ID.String(), identity.Subject)
-	assert.Equal(t, management.PasswordIssuer, identity.Issuer)
+	assert.Equal(t, management.LocalIssuer, identity.Issuer)
 
 	message := env.mail.awaitSubject(t, "Confirm your email address")
 	verify := env.post(env.controller.VerifyEmail, map[string]string{"token": tokenFrom(t, message)})
 	require.Equal(t, http.StatusNoContent, verify.Code, verify.Body.String())
 
-	identity, err = env.state.GetPasswordIdentity(t.Context(), admin.ID)
+	identity, err = env.state.GetLocalIdentity(t.Context(), admin.ID)
 	require.NoError(t, err)
 	assert.True(t, identity.EmailVerified)
 
@@ -238,7 +242,7 @@ func TestRegisterDoesNotRevealExistingAccounts(t *testing.T) {
 	env.mail.awaitSubject(t, "You already have an account")
 
 	// The second attempt must not have touched the account.
-	identity, err := env.state.GetPasswordIdentity(t.Context(), admin.ID)
+	identity, err := env.state.GetLocalIdentity(t.Context(), admin.ID)
 	require.NoError(t, err)
 	match, _, err := password.Verify(*identity.SecretHash, testPassword)
 	require.NoError(t, err)
@@ -470,7 +474,7 @@ func TestPasswordLogin(t *testing.T) {
 	// exchange links identities by email only on a proved address.
 	t.Run("signing in does not confirm the address", func(t *testing.T) {
 		admin := env.adminByEmail("login@example.test")
-		identity, err := env.state.GetPasswordIdentity(t.Context(), admin.ID)
+		identity, err := env.state.GetLocalIdentity(t.Context(), admin.ID)
 		require.NoError(t, err)
 		assert.False(t, identity.EmailVerified)
 	})
@@ -499,7 +503,7 @@ func TestLoginRehashesAnOutdatedPassword(t *testing.T) {
 	env.mail.awaitSubject(t, "Confirm your email address")
 
 	admin := env.adminByEmail("outdated@example.test")
-	identity, err := env.state.GetPasswordIdentity(ctx, admin.ID)
+	identity, err := env.state.GetLocalIdentity(ctx, admin.ID)
 	require.NoError(t, err)
 
 	weaker := password.DefaultParams
@@ -511,7 +515,7 @@ func TestLoginRehashesAnOutdatedPassword(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, env.login("outdated@example.test", testPassword).Code)
 
-	upgraded, err := env.state.GetPasswordIdentity(ctx, admin.ID)
+	upgraded, err := env.state.GetLocalIdentity(ctx, admin.ID)
 	require.NoError(t, err)
 	assert.NotEqual(t, legacy, *upgraded.SecretHash, "the stored hash was replaced")
 
@@ -568,7 +572,7 @@ func TestPasswordReset(t *testing.T) {
 	assert.LessOrEqual(t, live, 1, "only the session opened by the sign-in above may still be live")
 
 	// Following a link delivered to the address proves the address.
-	identity, err := env.state.GetPasswordIdentity(ctx, admin.ID)
+	identity, err := env.state.GetLocalIdentity(ctx, admin.ID)
 	require.NoError(t, err)
 	assert.True(t, identity.EmailVerified)
 
@@ -654,7 +658,7 @@ func TestChangePassword(t *testing.T) {
 	mine := newSession()
 	theirs := newSession()
 
-	token, err := env.controller.signer.Mint(mine, []string{"password"})
+	token, err := env.controller.signer.Mint(mine, []string{"basic"})
 	require.NoError(t, err)
 
 	change := func(current, next string) *httptest.ResponseRecorder {
@@ -718,7 +722,7 @@ func TestChangingAPasswordInvalidatesOutstandingResetTokens(t *testing.T) {
 		env.post(env.controller.RequestPasswordReset, map[string]string{"email": "inflight@example.test"}).Code)
 	message := env.mail.awaitSubject(t, "Reset your password")
 
-	identity, err := env.state.GetPasswordIdentity(ctx, admin.ID)
+	identity, err := env.state.GetLocalIdentity(ctx, admin.ID)
 	require.NoError(t, err)
 	replacement, err := password.Hash("a brand new and different passphrase")
 	require.NoError(t, err)
@@ -824,7 +828,7 @@ func TestGetAuthMethodsListsEveryConfiguredDriver(t *testing.T) {
 
 	controller, err := NewAuthController(logger, mgmtDB, management.NewState(mgmtDB), config.Node{
 		Auth: config.Auth{
-			Drivers: []string{"password", "clerk"},
+			Drivers: []string{"basic", "clerk"},
 			JWKS:    clerkJWKS(t),
 			Clerk:   config.ClerkAuth{SecretKey: "sk_test_xxx"},
 		},
@@ -838,7 +842,7 @@ func TestGetAuthMethodsListsEveryConfiguredDriver(t *testing.T) {
 
 	var drivers []string
 	require.NoError(t, json.Unmarshal(res.Body.Bytes(), &drivers))
-	assert.Equal(t, []string{"password", "clerk"}, drivers, "in the order the operator listed them")
+	assert.Equal(t, []string{"basic", "clerk"}, drivers, "in the order the operator listed them")
 }
 
 // The password flows are unreachable on a deployment that did not configure the
@@ -883,8 +887,8 @@ func TestNewAuthControllerRequiresAMailChannel(t *testing.T) {
 
 	_, err := NewAuthController(logger, mgmtDB, management.NewState(mgmtDB), config.Node{
 		Auth: config.Auth{
-			Drivers:  []string{"password"},
-			Password: config.PasswordAuth{Registration: config.RegistrationOpen},
+			Drivers: []string{"basic"},
+			Basic:   config.BasicAuth{Registration: config.RegistrationOpen},
 		},
 	}, nil, consoleSignerFor(t), nil)
 	require.Error(t, err)
@@ -899,8 +903,8 @@ func TestNewAuthControllerRejectsAnUnknownRegistrationMode(t *testing.T) {
 
 	_, err := NewAuthController(logger, mgmtDB, management.NewState(mgmtDB), config.Node{
 		Auth: config.Auth{
-			Drivers:  []string{"password"},
-			Password: config.PasswordAuth{Registration: "sometimes"},
+			Drivers: []string{"basic"},
+			Basic:   config.BasicAuth{Registration: "sometimes"},
 		},
 	}, nil, consoleSignerFor(t), nil)
 	require.Error(t, err, "a typo in AUTH_PASSWORD_REGISTRATION must not start")

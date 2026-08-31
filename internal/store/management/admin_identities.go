@@ -18,14 +18,20 @@ const LegacyExternalIDIssuer = "urn:lunogram:legacy-external-id"
 // Identity providers. The set is mirrored by a CHECK constraint on
 // admin_identities.provider.
 const (
-	// IdentityProviderBasic is the statically configured AUTH_BASIC_ credential.
-	// It is distinct from IdentityProviderPassword because its secret lives in
-	// configuration rather than in secret_hash.
-	IdentityProviderBasic    = "basic"
-	IdentityProviderPassword = "password"
-	IdentityProviderClerk    = "clerk"
-	IdentityProviderOIDC     = "oidc"
-	IdentityProviderSAML     = "saml"
+	// IdentityProviderBasic is a credential this deployment holds the hash of,
+	// as opposed to one an upstream proves for us. It is the only provider whose
+	// rows may carry a secret_hash.
+	//
+	// It was briefly two providers, 'basic' for the credential configured in the
+	// environment and 'password' for per-admin ones. That split put the same
+	// kind of secret behind two code paths and only one of them had the
+	// throttling, the constant-time comparison against a dummy hash and the
+	// re-hash on login. The environment credential is now seeded into a row like
+	// any other, so there is one provider and one path.
+	IdentityProviderBasic = "basic"
+	IdentityProviderClerk = "clerk"
+	IdentityProviderOIDC  = "oidc"
+	IdentityProviderSAML  = "saml"
 )
 
 // NewAdminIdentitiesStore builds the identity store. sessions may be nil, in
@@ -180,26 +186,28 @@ func (s *AdminIdentitiesStore) DeleteAdminIdentity(ctx context.Context, id uuid.
 	return nil
 }
 
-// PasswordIssuer namespaces identities proved by a password this deployment
+// LocalIssuer namespaces identities proved by a credential this deployment
 // holds the hash of. It is a URN rather than a URL because there is no upstream
 // to dereference: the issuer is this deployment itself.
-const PasswordIssuer = "urn:lunogram:password"
+const LocalIssuer = "urn:lunogram:basic"
 
-// GetPasswordIdentity returns the local password identity of an admin, or
+// GetLocalIdentity returns the local credential identity of an admin, or
 // sql.ErrNoRows when they authenticate some other way.
 //
-// There is at most one: the identity is keyed on (issuer, subject) and a
-// password identity's subject is the admin's own id, so the partial unique
-// index makes a second one impossible.
-func (s *AdminIdentitiesStore) GetPasswordIdentity(ctx context.Context, adminID uuid.UUID) (*AdminIdentity, error) {
-	return s.GetAdminIdentity(ctx, PasswordIssuer, adminID.String())
+// There is at most one: the identity is keyed on (issuer, subject) and a local
+// identity's subject is the admin's own id, so the partial unique index makes a
+// second one impossible. The subject is the id rather than the address because
+// an address can change and a credential must not follow it -- see
+// [AdminIdentitiesStore.SetAdminIdentitySecret].
+func (s *AdminIdentitiesStore) GetLocalIdentity(ctx context.Context, adminID uuid.UUID) (*AdminIdentity, error) {
+	return s.GetAdminIdentity(ctx, LocalIssuer, adminID.String())
 }
 
 // SetAdminIdentitySecret replaces the stored secret of a local identity.
 //
-// The WHERE clause pins the password provider: the CHECK constraint on the
-// table already forbids a secret on a federated identity, and this makes the
-// failure a no-op rather than a constraint violation surfacing as a 500.
+// The WHERE clause pins the local provider: the CHECK constraint on the table
+// already forbids a secret on a federated identity, and this makes the failure a
+// no-op rather than a constraint violation surfacing as a 500.
 func (s *AdminIdentitiesStore) SetAdminIdentitySecret(ctx context.Context, id uuid.UUID, secretHash string) error {
 	stmt := `
 	UPDATE admin_identities
@@ -207,8 +215,40 @@ func (s *AdminIdentitiesStore) SetAdminIdentitySecret(ctx context.Context, id uu
 	WHERE id = $1 AND provider = $3
 	AND deleted_at IS NULL`
 
-	_, err := s.db.ExecContext(ctx, stmt, id, secretHash, IdentityProviderPassword)
+	_, err := s.db.ExecContext(ctx, stmt, id, secretHash, IdentityProviderBasic)
 	return err
+}
+
+// ReplaceAdminIdentitySecret swaps a secret only if the stored one is still the
+// hash the caller verified.
+//
+// Re-hashing on login reads a hash, computes a stronger one from the same
+// plaintext and writes it back. If a password change or a reset commits in
+// between, an unconditional write would put the OLD password back: the login
+// proved a credential that is no longer current, and maintenance would undo the
+// change. Comparing against the hash that was read makes the write lose that
+// race instead of winning it.
+//
+// A no-op is reported so the caller can tell "somebody changed it underneath me"
+// from "it worked", rather than logging a success that did not happen.
+func (s *AdminIdentitiesStore) ReplaceAdminIdentitySecret(ctx context.Context, id uuid.UUID, previousHash, secretHash string) (bool, error) {
+	stmt := `
+	UPDATE admin_identities
+	SET secret_hash = $3
+	WHERE id = $1 AND provider = $4
+	AND secret_hash = $2
+	AND deleted_at IS NULL`
+
+	result, err := s.db.ExecContext(ctx, stmt, id, previousHash, secretHash, IdentityProviderBasic)
+	if err != nil {
+		return false, err
+	}
+
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+	return affected > 0, nil
 }
 
 // MarkAdminIdentityEmailVerified records that the address on an identity has

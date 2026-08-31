@@ -113,8 +113,9 @@ func TestAuthCallbackWithInvalidDriver(t *testing.T) {
 	cfg := config.Node{
 		Auth: config.Auth{
 			Drivers: []string{"basic"},
-			Basic:   config.BasicAuth{Email: "a@b", Password: "c"},
+			Basic:   config.BasicAuth{Email: "seeded@example.test", Password: seedablePassword},
 		},
+		Mail: testMailConfig(),
 	}
 
 	controller, err := NewAuthController(logger, mgmt, management.NewState(mgmt), cfg, nil, nil, nil)
@@ -152,8 +153,9 @@ func TestAuthWebhookWithInvalidDriver(t *testing.T) {
 	cfg := config.Node{
 		Auth: config.Auth{
 			Drivers: []string{"basic"},
-			Basic:   config.BasicAuth{Email: "a@b", Password: "c"},
+			Basic:   config.BasicAuth{Email: "seeded@example.test", Password: seedablePassword},
 		},
+		Mail: testMailConfig(),
 	}
 
 	controller, err := NewAuthController(logger, mgmt, management.NewState(mgmt), cfg, nil, nil, nil)
@@ -226,7 +228,8 @@ func TestRefreshSessionDistinguishesGoneFromNotExtendable(t *testing.T) {
 	require.NoError(t, err)
 
 	controller, err := NewAuthController(logger, mgmtDB, state, config.Node{
-		Auth: config.Auth{Drivers: []string{"basic"}, Basic: config.BasicAuth{Email: "a@b", Password: "c"}},
+		Auth: config.Auth{Drivers: []string{"basic"}, Basic: config.BasicAuth{Email: "seeded@example.test", Password: seedablePassword}},
+		Mail: testMailConfig(),
 	}, nil, signer, nil)
 	require.NoError(t, err)
 
@@ -332,7 +335,8 @@ func TestLogoutRevokesTheSession(t *testing.T) {
 	require.NoError(t, err)
 
 	controller, err := NewAuthController(logger, mgmtDB, state, config.Node{
-		Auth: config.Auth{Drivers: []string{"basic"}, Basic: config.BasicAuth{Email: "a@b", Password: "c"}},
+		Auth: config.Auth{Drivers: []string{"basic"}, Basic: config.BasicAuth{Email: "seeded@example.test", Password: seedablePassword}},
+		Mail: testMailConfig(),
 	}, nil, signer, nil)
 	require.NoError(t, err)
 

@@ -272,7 +272,8 @@ func (s *AdminsStore) DeleteAdmin(ctx context.Context, id uuid.UUID) error {
 	}
 
 	if s.sessions != nil {
-		return s.sessions.RevokeAdminSessionsForAdmin(ctx, id)
+		_, err := s.sessions.RevokeAdminSessionsForAdmin(ctx, id)
+		return err
 	}
 	return nil
 }

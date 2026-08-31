@@ -76,19 +76,27 @@ AUTH_CONSOLE_SIGNING_KEY="$(openssl ecparam -name prime256v1 -genkey -noout)"
 
 ### Signing in with your own email and password
 
-`AUTH_DRIVER=basic` authenticates the single credential above, which is fine for
-a quickstart and is not multi-user. To give every admin their own account, add
-the password driver:
+`AUTH_DRIVER=basic` gives every admin their own account. `AUTH_BASIC_EMAIL` and
+`AUTH_BASIC_PASSWORD` are not a credential the login compares against — they
+**seed the first account**. On the first boot the pair is written into a real
+admin with the password hashed, so it holds its own permissions, appears in the
+admin list and can change its own password, like any account created afterwards.
+
+The plaintext is needed exactly once. Once the account exists you can remove
+`AUTH_BASIC_PASSWORD` from the environment; a later boot never overwrites a
+stored password, so a restart cannot undo one you changed in the console.
 
 ```
-AUTH_DRIVER=password
-AUTH_PASSWORD_REGISTRATION=invite_only
+AUTH_DRIVER=basic
+AUTH_BASIC_EMAIL=you@example.com
+AUTH_BASIC_PASSWORD=...
+AUTH_BASIC_REGISTRATION=invite_only
 ```
 
-`AUTH_DRIVER` accepts a comma-separated list, so `password,clerk` offers both at
+`AUTH_DRIVER` accepts a comma-separated list, so `basic,clerk` offers both at
 once — useful while an organization moves onto SSO.
 
-`AUTH_PASSWORD_REGISTRATION` decides who may create an account: `open` for a
+`AUTH_BASIC_REGISTRATION` decides who else may create an account: `open` for a
 public sign-up, `disabled` to provision admins some other way, and the default
 `invite_only`, which admits addresses holding a pending invite plus the very
 first account (nobody could have invited that one).
@@ -97,7 +105,7 @@ first account (nobody could have invited that one).
 > exists, `invite_only` has to admit somebody or the instance could never be set
 > up — so on a fresh install that is already reachable from the internet, the
 > first person to register becomes its owner, whoever they are. Register before
-> you open the port, or start with `AUTH_PASSWORD_REGISTRATION=disabled` and
+> you open the port, or start with `AUTH_BASIC_REGISTRATION=disabled` and
 > switch it on once you hold the account.
 
 Account confirmation and password resets are sent by email, so the deployment

@@ -26,15 +26,13 @@
     "Drivers": null,
     "Basic": {
       "Email": "",
-      "Password": ""
+      "Password": "",
+      "Registration": "invite_only"
     },
     "Clerk": {
       "SecretKey": "",
       "WebhookSecret": "",
       "Issuer": ""
-    },
-    "Password": {
-      "Registration": "invite_only"
     },
     "Console": {
       "SigningKey": "",

@@ -46,9 +46,7 @@ type Provisioner interface {
 func New(driver string, cfg config.Auth, mgmt *management.State, logger *zap.Logger, provisioner Provisioner) (auth.Verifier, error) {
 	switch driver {
 	case BasicDriver:
-		return NewBasic(cfg.Basic), nil
-	case PasswordDriver:
-		return NewPassword(mgmt, logger), nil
+		return NewBasic(mgmt, logger), nil
 	case ClerkDriver:
 		// Refuse to start on key material that cannot verify anything. Without a
 		// JWKS the parse in [Clerk.Verify] has no key, so every login fails --

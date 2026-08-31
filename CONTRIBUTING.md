@@ -89,8 +89,9 @@ AUTH_BASIC_PASSWORD=admin
 AUTH_CONSOLE_SIGNING_KEY="$(openssl ecparam -name prime256v1 -genkey -noout)"
 ```
 
-`AUTH_DRIVER` accepts a comma-separated list, so `basic,password` gives you the
-quickstart credential and per-admin accounts at once. Account confirmation and
+`AUTH_DRIVER` accepts a comma-separated list, so `basic,clerk` gives you local
+accounts and SSO at once. `AUTH_BASIC_EMAIL` / `AUTH_BASIC_PASSWORD` seed the
+first account rather than being compared against on every login. Account confirmation and
 password reset mail goes to the Mailpit container `docker compose up` starts;
 read it at <http://localhost:8025>. Running the server outside compose needs a
 mail channel of its own — `MAIL_CHANNEL=smtp` with `MAIL_SMTP_HOST=localhost`

@@ -43,7 +43,7 @@ func Defaults() Node {
 			HeartbeatInterval:       4 * time.Second,
 		},
 		Auth: Auth{
-			Password: PasswordAuth{
+			Basic: BasicAuth{
 				Registration: RegistrationInviteOnly,
 			},
 			Console: ConsoleAuth{

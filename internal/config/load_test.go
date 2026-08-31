@@ -32,8 +32,8 @@ func TestLoadFileOverlaysDefaults(t *testing.T) {
 	t.Setenv(ConfigFileEnv, writeConfig(t, `
 public_url: https://console.example.com
 auth:
-  drivers: [password]
-  password:
+  drivers: [basic]
+  basic:
     registration: open
 `))
 
@@ -41,8 +41,8 @@ auth:
 	require.NoError(t, err)
 
 	assert.Equal(t, "https://console.example.com", cfg.PublicURL)
-	assert.Equal(t, []string{"password"}, cfg.Auth.Drivers)
-	assert.Equal(t, RegistrationOpen, cfg.Auth.Password.Registration)
+	assert.Equal(t, []string{"basic"}, cfg.Auth.Drivers)
+	assert.Equal(t, RegistrationOpen, cfg.Auth.Basic.Registration)
 
 	assert.Equal(t, ":8080", cfg.HTTPAddress, "an untouched default survives the overlay")
 	assert.Equal(t, 600, cfg.RateLimit.PerMinute)
@@ -205,6 +205,7 @@ mail:
 // actually parse -- including under KnownFields, which is what catches a key
 // that was renamed in Go and left behind in the example.
 func TestShippedExampleLoads(t *testing.T) {
+	t.Setenv("ADMIN_PASSWORD", "an entirely ordinary passphrase")
 	t.Setenv("SMTP_PASSWORD", "s3cr3t")
 	t.Setenv("PROVISIONING_TOKEN", "tok")
 	t.Setenv(ConfigFileEnv, filepath.Join("..", "..", "etc", "lunogram.example.yaml"))
@@ -214,7 +215,7 @@ func TestShippedExampleLoads(t *testing.T) {
 
 	assert.Equal(t, mailer.ChannelSMTP, cfg.Mail.Channel)
 	assert.Equal(t, "s3cr3t", cfg.Mail.SMTP.Password)
-	assert.Equal(t, []string{"password"}, cfg.Auth.Drivers)
+	assert.Equal(t, []string{"basic"}, cfg.Auth.Drivers)
 	require.NotNil(t, cfg.Webhook.Outbound)
 	assert.Len(t, cfg.Webhook.Outbound.Hooks["project.created"], 1)
 }

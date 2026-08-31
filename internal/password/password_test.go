@@ -4,6 +4,9 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestHashRoundTrip(t *testing.T) {
@@ -154,4 +157,43 @@ func TestValidate(t *testing.T) {
 func TestVerifyDummy(t *testing.T) {
 	VerifyDummy("anything at all")
 	VerifyDummy("anything at all")
+}
+
+// Each argon2 computation reserves 64 MiB for its duration, and nothing
+// upstream caps how many logins arrive together. The bound is what stops a
+// burst from reserving gigabytes.
+func TestHashingIsBounded(t *testing.T) {
+	assert.GreaterOrEqual(t, cap(inFlight), 2, "a single-core host must still be able to sign anybody in")
+	assert.LessOrEqual(t, cap(inFlight), 8, "peak reservation stays bounded on a large host")
+
+	held := cap(inFlight)
+	for range held {
+		inFlight <- struct{}{}
+	}
+	defer func() {
+		for range held - 1 {
+			<-inFlight
+		}
+	}()
+
+	done := make(chan struct{})
+	go func() {
+		_, _ = Hash("an entirely ordinary passphrase")
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		t.Fatal("hashing ran while every slot was taken")
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	// Freeing one slot must let it through: a burst queues, it does not fail.
+	<-inFlight
+
+	select {
+	case <-done:
+	case <-time.After(10 * time.Second):
+		t.Fatal("hashing did not resume once a slot was free")
+	}
 }

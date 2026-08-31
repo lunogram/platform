@@ -43,6 +43,8 @@ func Load() (Node, error) {
 		return Node{}, err
 	}
 
+	cfg.Auth.Normalise()
+
 	return cfg, nil
 }
 

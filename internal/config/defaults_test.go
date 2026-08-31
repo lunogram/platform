@@ -20,6 +20,10 @@ import (
 // move is a behaviour change nobody asked for and nothing else would catch: the
 // compiler is happy either way, and the setting only surfaces in production.
 //
+// auth.password.registration moved to auth.basic.registration when the two
+// local-credential drivers became one; the key moves in the file and its value
+// does not, which is exactly the guarantee this test exists to make.
+//
 // The mail section is excluded because it is deliberately redesigned in this
 // change -- a channel replaced a bare host, and the sender moved out of the
 // transport -- and is asserted separately below. The captured auth.JWKS was

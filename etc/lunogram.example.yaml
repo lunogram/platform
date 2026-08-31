@@ -31,14 +31,19 @@ public_url: http://localhost:8080
 
 auth:
   # A comma-separated list in the environment (AUTH_DRIVER), a list here. A
-  # deployment can offer several at once — "password" alongside an SSO driver
-  # while an organization migrates.
+  # deployment can offer several at once — "basic" alongside an SSO driver while
+  # an organization migrates.
   drivers:
-    - password
-  password:
-    # open, invite_only or disabled. invite_only is the default and
-    # additionally admits the very first account, which nobody could have
-    # invited.
+    - basic
+  basic:
+    # Seeds the first account on the first boot: the pair is written into a real
+    # admin with the password hashed, not compared against on every login. A
+    # later boot never overwrites a stored password.
+    email: you@example.com
+    password: "${ADMIN_PASSWORD}"
+    # Who else may create an account: open, invite_only or disabled.
+    # invite_only is the default and additionally admits the very first account,
+    # which nobody could have invited.
     registration: invite_only
   console:
     idle_ttl: 8h

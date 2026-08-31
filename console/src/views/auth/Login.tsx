@@ -31,17 +31,7 @@ interface LoginFormValues {
     password: string
 }
 
-const SUPPORTED_DRIVERS: AuthDriver[] = [
-    AUTH_DRIVERS.BASIC,
-    AUTH_DRIVERS.PASSWORD,
-    AUTH_DRIVERS.CLERK,
-]
-
-// The basic and password drivers submit the same form to different callbacks:
-// basic proves the single credential in the deployment's configuration, password
-// proves a per-admin credential the deployment stores. Only the second has
-// accounts, so only it offers registration and recovery.
-const CREDENTIAL_DRIVERS: AuthDriver[] = [AUTH_DRIVERS.BASIC, AUTH_DRIVERS.PASSWORD]
+const SUPPORTED_DRIVERS: AuthDriver[] = [AUTH_DRIVERS.BASIC, AUTH_DRIVERS.CLERK]
 
 export default function Login() {
     const { t } = useTranslation()
@@ -70,11 +60,7 @@ export default function Login() {
 
         setIsSubmitting(true)
         try {
-            if (selectedDriver === AUTH_DRIVERS.PASSWORD) {
-                await api.auth.passwordAuth(data.email, data.password)
-            } else {
-                await api.auth.basicAuth(data.email, data.password)
-            }
+            await api.auth.basicAuth(data.email, data.password)
             window.location.href = redirect
         } catch (err) {
             // A wrong password and an address with no account answer
@@ -134,8 +120,8 @@ export default function Login() {
         )
     }
 
-    const isCredentialDriver = selectedDriver && CREDENTIAL_DRIVERS.includes(selectedDriver)
-    const offersAccounts = selectedDriver === AUTH_DRIVERS.PASSWORD
+    const isCredentialDriver = selectedDriver === AUTH_DRIVERS.BASIC
+    const offersAccounts = isCredentialDriver
 
     return (
         <AuthCard

@@ -101,7 +101,44 @@ func (t *throttle) exceeded(ctx context.Context, keys map[budget]string) (bool, 
 	return tripped, longest
 }
 
+// claim spends one unit of each budget and reports whether any of them was
+// already empty.
+//
+// It replaces an exceeded-then-spend pair on the endpoints that count ATTEMPTS
+// rather than failures. Split in two, the check and the record are a race:
+// concurrent registrations all read an unspent budget, all pass the check, and
+// only then start recording — so a burst gets through however small the budget
+// is, and the number in the configuration is not the number that gets through.
+// Allow decides and records in one round trip, which closes that window.
+//
+// Every budget is claimed even after one denies, so tripping a cheap budget
+// cannot be used to avoid spending an expensive one.
+func (t *throttle) claim(ctx context.Context, keys map[budget]string) (bool, time.Duration) {
+	var longest time.Duration
+	var denied bool
+
+	for rule, key := range keys {
+		if key == "" {
+			continue
+		}
+		// A limiter error fails open inside Allow, which is deliberate: a Redis
+		// outage must not take sign-in with it.
+		allowed, retryAfter, _ := t.limiter.Allow(ctx, rule.prefix+key, rule.limit, rule.window)
+		if !allowed {
+			denied = true
+			longest = max(longest, retryAfter)
+		}
+	}
+
+	return denied, longest
+}
+
 // spend records one use against each budget.
+//
+// It is for the endpoints that count FAILURES, where the check and the record
+// are deliberately separate: the budget is consulted before the work and only
+// charged if the credential turned out to be wrong, so a working password is
+// never punished.
 func (t *throttle) spend(ctx context.Context, keys map[budget]string) {
 	for rule, key := range keys {
 		if key == "" {

@@ -40,8 +40,8 @@ type passwordAuth struct {
 }
 
 func (c *AuthController) initPasswordAuth(cfg config.Node) error {
-	c.password.registration = strings.ToLower(strings.TrimSpace(cfg.Auth.Password.Registration))
-	c.password.enabled = cfg.Auth.Enabled(verifiers.PasswordDriver)
+	c.password.registration = strings.ToLower(strings.TrimSpace(cfg.Auth.Basic.Registration))
+	c.password.enabled = cfg.Auth.Enabled(verifiers.BasicDriver)
 
 	if !c.password.enabled {
 		return nil
@@ -57,7 +57,7 @@ func (c *AuthController) initPasswordAuth(cfg config.Node) error {
 	switch c.password.registration {
 	case config.RegistrationOpen, config.RegistrationInviteOnly, config.RegistrationDisabled:
 	default:
-		return errors.New("AUTH_PASSWORD_REGISTRATION must be one of open, invite_only or disabled")
+		return errors.New("AUTH_BASIC_REGISTRATION must be one of open, invite_only or disabled")
 	}
 
 	renderer, err := mailer.NewRenderer(cfg.Mail, cfg.PublicBaseURL(), cfg.BaseDir())
@@ -119,11 +119,10 @@ func (c *AuthController) RegisterWithPassword(w http.ResponseWriter, r *http.Req
 	// is bounded per source. Without this the endpoint is a way to bury a
 	// third party's inbox behind our sending reputation.
 	budgets := map[budget]string{registerSourceUse: c.throttle.sourceKey(r)}
-	if tripped, retryAfter := c.throttle.exceeded(ctx, budgets); tripped {
+	if tripped, retryAfter := c.throttle.claim(ctx, budgets); tripped {
 		writeTooManyRequests(w, retryAfter)
 		return
 	}
-	c.throttle.spend(ctx, budgets)
 
 	// Hashing happens before the address is looked up, so the expensive step
 	// runs identically whether or not an account exists. Doing it afterwards
@@ -180,8 +179,8 @@ func (c *AuthController) register(ctx context.Context, email, hash string, body 
 	}
 
 	identity := &auth.VerifiedIdentity{
-		Issuer:   management.PasswordIssuer,
-		Provider: management.IdentityProviderPassword,
+		Issuer:   management.LocalIssuer,
+		Provider: management.IdentityProviderBasic,
 		Email:    email,
 		// A brand-new local account has proved nothing about its address yet.
 		// It may sign in, but until the confirmation link is followed it must
@@ -360,11 +359,10 @@ func (c *AuthController) RequestPasswordReset(w http.ResponseWriter, r *http.Req
 		resetAccountBudget: accountKey(email),
 		resetSourceBudget:  c.throttle.sourceKey(r),
 	}
-	if tripped, retryAfter := c.throttle.exceeded(ctx, budgets); tripped {
+	if tripped, retryAfter := c.throttle.claim(ctx, budgets); tripped {
 		writeTooManyRequests(w, retryAfter)
 		return
 	}
-	c.throttle.spend(ctx, budgets)
 
 	c.requestReset(ctx, email)
 	w.WriteHeader(http.StatusNoContent)
@@ -384,7 +382,7 @@ func (c *AuthController) requestReset(ctx context.Context, email string) {
 	// An account that signs in through an upstream has no password here to
 	// reset, and minting one on their behalf would create a second way into an
 	// account whose owner never asked for one.
-	if _, err := c.mgmt.GetPasswordIdentity(ctx, admin.ID); err != nil {
+	if _, err := c.mgmt.GetLocalIdentity(ctx, admin.ID); err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
 			logger.Error("failed to look up a password identity", zap.Error(err))
 		}
@@ -397,7 +395,7 @@ func (c *AuthController) requestReset(ctx context.Context, email string) {
 		return
 	}
 
-	if err := c.mgmt.CreateAdminActionToken(ctx, admin.ID, management.ActionTokenPasswordReset, hash, management.PasswordResetTTL); err != nil {
+	if err := c.mgmt.CreateAdminActionToken(ctx, admin.ID, management.ActionTokenPasswordReset, admin.Email, hash, management.PasswordResetTTL); err != nil {
 		logger.Error("failed to record a reset token", zap.Error(err))
 		return
 	}
@@ -460,9 +458,14 @@ func (c *AuthController) ConfirmPasswordReset(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	if err := c.mgmt.SetAdminIdentitySecret(ctx, identity.ID, hash); err != nil {
-		c.logger.Error("failed to store a reset password", zap.String("admin_id", adminID.String()), zap.Error(err))
-		oapi.WriteProblem(w, problem.ErrInternal())
+	// The credential, the outstanding links and the sessions commit together. A
+	// reset is the remedy for a compromised account, so "the password changed
+	// but the attacker's sessions are still live" is not a state this flow may
+	// leave behind — and it is exactly what a failure between three separate
+	// writes used to produce.
+	if err := c.commitCredentialChange(ctx, adminID, identity.ID, hash, uuid.Nil); err != nil {
+		c.logger.Error("failed to complete a password reset", zap.String("admin_id", adminID.String()), zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("the password could not be reset; nothing was changed")))
 		return
 	}
 
@@ -479,14 +482,6 @@ func (c *AuthController) ConfirmPasswordReset(w http.ResponseWriter, r *http.Req
 		} else {
 			c.admitInvitee(ctx, adminID)
 		}
-	}
-
-	c.invalidateResetTokens(ctx, adminID)
-
-	if err := c.mgmt.RevokeAdminSessionsForAdmin(ctx, adminID); err != nil {
-		c.logger.Error("failed to revoke sessions after a password reset", zap.String("admin_id", adminID.String()), zap.Error(err))
-		oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("the password was changed but existing sessions could not be ended; contact your administrator")))
-		return
 	}
 
 	c.logger.Info("completed a password reset", zap.String("admin_id", adminID.String()))
@@ -508,7 +503,7 @@ func (c *AuthController) resolveResetTarget(ctx context.Context, token string) (
 		return uuid.Nil, nil, invalid
 	}
 
-	identity, err := c.mgmt.GetPasswordIdentity(ctx, adminID)
+	identity, err := c.mgmt.GetLocalIdentity(ctx, adminID)
 	if err != nil {
 		// The password identity was removed after the link was sent, so there is
 		// nothing left for the token to act on.
@@ -556,7 +551,7 @@ func (c *AuthController) ChangePassword(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	identity, err := c.mgmt.GetPasswordIdentity(ctx, adminID)
+	identity, err := c.mgmt.GetLocalIdentity(ctx, adminID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("this account does not sign in with a password")))
@@ -572,6 +567,21 @@ func (c *AuthController) ChangePassword(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// Verifying a password here is the same work a sign-in does, so it is bounded
+	// by the same budgets -- and bounded BEFORE the comparison, not only
+	// recorded after it. Spending without checking counts every wrong guess and
+	// refuses none of them, which leaves this endpoint accepting unlimited
+	// guesses at the current password through a stolen session.
+	budgets := map[budget]string{
+		loginAccountBudget: accountKey(admin.Email),
+		loginSourceBudget:  c.throttle.sourceKey(r),
+	}
+	if tripped, retryAfter := c.throttle.exceeded(ctx, budgets); tripped {
+		logger.Warn("password change refused: the sign-in failure budget is spent")
+		writeTooManyRequests(w, retryAfter)
+		return
+	}
+
 	match, _, err := password.Verify(*identity.SecretHash, body.CurrentPassword)
 	if err != nil {
 		logger.Error("stored password hash could not be read", zap.Error(err))
@@ -579,13 +589,7 @@ func (c *AuthController) ChangePassword(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	if !match {
-		// Throttled on the same budget as a failed sign-in: this endpoint
-		// verifies a password too, so leaving it unbounded would just move the
-		// guessing here.
-		c.throttle.spend(ctx, map[budget]string{
-			loginAccountBudget: accountKey(admin.Email),
-			loginSourceBudget:  c.throttle.sourceKey(r),
-		})
+		c.throttle.spend(ctx, budgets)
 		logger.Warn("password change rejected: the current password is wrong")
 		oapi.WriteProblem(w, problem.ErrForbidden(problem.Describe("the current password is not correct")))
 		return
@@ -603,14 +607,6 @@ func (c *AuthController) ChangePassword(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if err := c.mgmt.SetAdminIdentitySecret(ctx, identity.ID, hash); err != nil {
-		logger.Error("failed to store a changed password", zap.Error(err))
-		oapi.WriteProblem(w, problem.ErrInternal())
-		return
-	}
-
-	c.invalidateResetTokens(ctx, adminID)
-
 	// Every session but this one goes: changing a password is how somebody
 	// evicts whoever else is signed in. Ending the caller's own session too
 	// would punish them for doing it, which is how people learn not to.
@@ -618,9 +614,10 @@ func (c *AuthController) ChangePassword(w http.ResponseWriter, r *http.Request) 
 	if claims, ok := c.currentSession(r); ok {
 		keep = claims.SessionID
 	}
-	if err := c.mgmt.RevokeAdminSessionsForAdminExcept(ctx, adminID, keep); err != nil {
-		logger.Error("failed to revoke other sessions after a password change", zap.Error(err))
-		oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("the password was changed but other sessions could not be ended; contact your administrator")))
+
+	if err := c.commitCredentialChange(ctx, adminID, identity.ID, hash, keep); err != nil {
+		logger.Error("failed to change a password", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("the password could not be changed; nothing was changed")))
 		return
 	}
 
@@ -632,7 +629,7 @@ func (c *AuthController) ChangePassword(w http.ResponseWriter, r *http.Request) 
 
 // markVerified records a confirmed address on the admin's password identity.
 func (c *AuthController) markVerified(ctx context.Context, adminID uuid.UUID) error {
-	identity, err := c.mgmt.GetPasswordIdentity(ctx, adminID)
+	identity, err := c.mgmt.GetLocalIdentity(ctx, adminID)
 	if err != nil {
 		return err
 	}
@@ -664,14 +661,48 @@ func (c *AuthController) admitInvitee(ctx context.Context, adminID uuid.UUID) {
 	}
 }
 
-// invalidateResetTokens burns the reset links outstanding for an admin. A link
-// already in flight is a way back into the account, and closing that door is
-// most of the point of changing the password.
-func (c *AuthController) invalidateResetTokens(ctx context.Context, adminID uuid.UUID) {
-	if err := c.mgmt.InvalidateAdminActionTokens(ctx, adminID, management.ActionTokenPasswordReset); err != nil {
-		c.logger.Error("failed to invalidate outstanding reset tokens",
-			zap.String("admin_id", adminID.String()), zap.Error(err))
+// commitCredentialChange stores a new secret, burns the reset links still
+// outstanding and ends sessions, as one transaction.
+//
+// The three were separate writes, and the order they ran in was the problem: the
+// hash landed first, so a failure in either of the others left the password
+// changed while the links that could undo it and the sessions it was meant to
+// evict were still live. That is precisely the guarantee both flows advertise,
+// so all three commit or none of them do.
+//
+// keep is the session to spare — uuid.Nil ends every one of them, which is what
+// a reset wants.
+//
+// Cache invalidation happens after the commit rather than inside it. A store
+// built over a transaction has no cache attached, and invalidating early would
+// be wrong regardless: a rollback would leave a live session missing from the
+// cache.
+func (c *AuthController) commitCredentialChange(ctx context.Context, adminID, identityID uuid.UUID, hash string, keep uuid.UUID) error {
+	tx, err := c.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
 	}
+	defer tx.Rollback() //nolint:errcheck // no-op once committed
+
+	store := management.NewState(tx)
+
+	if err := store.SetAdminIdentitySecret(ctx, identityID, hash); err != nil {
+		return err
+	}
+	if err := store.InvalidateAdminActionTokens(ctx, adminID, management.ActionTokenPasswordReset); err != nil {
+		return err
+	}
+	revoked, err := store.RevokeAdminSessionsForAdminExcept(ctx, adminID, keep)
+	if err != nil {
+		return err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+
+	c.mgmt.InvalidateAdminSessionCache(ctx, revoked)
+	return nil
 }
 
 func (c *AuthController) sendVerification(ctx context.Context, adminID uuid.UUID, email string) {
@@ -681,7 +712,7 @@ func (c *AuthController) sendVerification(ctx context.Context, adminID uuid.UUID
 		return
 	}
 
-	if err := c.mgmt.CreateAdminActionToken(ctx, adminID, management.ActionTokenEmailVerification, hash, management.EmailVerificationTTL); err != nil {
+	if err := c.mgmt.CreateAdminActionToken(ctx, adminID, management.ActionTokenEmailVerification, email, hash, management.EmailVerificationTTL); err != nil {
 		c.logger.Error("failed to record a verification token", zap.Error(err))
 		return
 	}
@@ -696,7 +727,7 @@ func (c *AuthController) sendVerification(ctx context.Context, adminID uuid.UUID
 // that already owns the account, and it is subject to the same expiry and
 // single use as any other.
 func (c *AuthController) sendAccountExists(ctx context.Context, admin *management.Admin, email string) {
-	if _, err := c.mgmt.GetPasswordIdentity(ctx, admin.ID); err != nil {
+	if _, err := c.mgmt.GetLocalIdentity(ctx, admin.ID); err != nil {
 		// The account signs in through an upstream, so there is no password to
 		// reset and no useful link to offer. Staying silent is better than
 		// mailing a dead end.
@@ -709,7 +740,7 @@ func (c *AuthController) sendAccountExists(ctx context.Context, admin *managemen
 		return
 	}
 
-	if err := c.mgmt.CreateAdminActionToken(ctx, admin.ID, management.ActionTokenPasswordReset, hash, management.PasswordResetTTL); err != nil {
+	if err := c.mgmt.CreateAdminActionToken(ctx, admin.ID, management.ActionTokenPasswordReset, admin.Email, hash, management.PasswordResetTTL); err != nil {
 		c.logger.Error("failed to record a reset token", zap.Error(err))
 		return
 	}
