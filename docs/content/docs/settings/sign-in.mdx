@@ -1,0 +1,130 @@
+---
+title: Sign-in
+description: How administrators sign in to the console — login drivers, the first account, registration, passwords and console sessions
+---
+
+This page covers how **administrators** reach the console. It is separate from [Access](/settings/access), which is how your **clients** authenticate to a project's APIs.
+
+---
+
+## Login drivers
+
+`auth.drivers` lists the login methods a deployment offers. It takes several, so local accounts can stand alongside SSO while an organization migrates.
+
+```yaml
+auth:
+  drivers: [basic, clerk]
+```
+
+```bash
+AUTH_DRIVER=basic,clerk
+```
+
+| Driver | |
+| --- | --- |
+| `basic` | Email and password accounts held by Lunogram. Passwords are hashed with argon2id. |
+| `clerk` | Sessions minted by [Clerk](https://clerk.com). Requires `AUTH_JWKS_URL` pointing at your instance's JWKS endpoint; tokens are verified as RS256. |
+
+Every configured driver is advertised by `GET /api/auth/methods`, and the console's sign-in screen offers what it finds there.
+
+---
+
+## The first account
+
+`auth.basic.email` and `auth.basic.password` are not a credential the login compares against — they **seed the first account**. On the first boot the pair is written into a real admin with the password hashed, so it holds its own permissions, appears in the admin list and can change its own password like any account created afterwards.
+
+```yaml
+auth:
+  basic:
+    email: you@example.com
+    password: "${ADMIN_PASSWORD}"
+    registration: invite_only
+```
+
+The plaintext is needed exactly once. Once the account exists you can drop `auth.basic.password`; a later boot never overwrites a stored password, so a restart cannot undo one you changed in the console.
+
+---
+
+## Who may create an account
+
+`auth.basic.registration` decides who else may register.
+
+| Mode | |
+| --- | --- |
+| `invite_only` *(default)* | Addresses holding a pending [invitation](/settings/members#invitations), plus the very first account |
+| `open` | Anybody. What a public SaaS wants, and what a private deployment must not be left on by accident |
+| `disabled` | Nobody; provision admins some other way |
+
+<Callout type="warn">
+**Claim the first account before a new deployment is reachable.** Until one admin exists, `invite_only` has to admit somebody or the instance could never be set up — so on a fresh install that is already exposed, the first person to register becomes its owner, whoever they are. Register before you open the port, or start at `disabled` and switch it on once you hold the account.
+</Callout>
+
+`disabled` answers `404`, because there is no endpoint to speak of. The other two answer identically whether or not an address is admitted and whether or not it already has an account: a distinguishable response is how an account list gets scraped, one address at a time. The person who actually owns a taken address is told what happened in their own inbox, and offered a reset link in case it was them.
+
+Registering does not require confirming the address; the account works immediately.
+
+---
+
+## Passwords
+
+Password resets and invitations are sent by the platform mailer, so a deployment offering password logins has to say where its mail goes — see [Sending mail](/settings/mail). In development `docker compose up` runs Mailpit and points the platform at it.
+
+**Choosing one.** Length is all that is enforced: a password may be up to 1024 characters and must not be empty. There are no composition rules, which reject good passphrases while admitting `Passw0rd!`.
+
+**Resetting.** A reset link lasts one hour and can be used once. Redeeming it changes the password, invalidates every other outstanding reset link and ends **every** session on the account, including the one that asked. The account's owner is told by mail that their password changed.
+
+**Changing.** Changing a password from the console asks for the current one and keeps the session you are using; every other session on the account ends.
+
+### Throttling
+
+The credential endpoints carry their own budgets, below the API's ordinary rate limit. They are sized so somebody who cannot remember which password they used is never locked out.
+
+| | Budget |
+| --- | --- |
+| Failed sign-ins, per account | 10 per 15 minutes |
+| Failed sign-ins, per source address | 60 per 15 minutes |
+| Reset requests, per account | 5 per hour |
+| Reset requests, per source address | 20 per hour |
+| Registrations, per source address | 10 per hour |
+
+A correct password never spends budget, so signing in on several devices is unaffected. Exceeding a budget answers `429` with a `Retry-After`.
+
+---
+
+## Console sessions
+
+Every login — whichever driver proved it — is exchanged for one Lunogram-issued console session, signed as ES256.
+
+```yaml
+auth:
+  console:
+    signing_key: "${CONSOLE_SIGNING_KEY}"
+    idle_ttl: 8h
+    absolute_ttl: 168h
+```
+
+`signing_key` is a PEM-encoded EC P-256 private key, and it is required: without one the service refuses to start.
+
+```bash
+openssl ecparam -name prime256v1 -genkey -noout
+```
+
+There is no generated fallback. An ephemeral key would sign every admin out on restart, and in a multi-replica deployment the replicas would reject each other's sessions.
+
+<Callout type="warn">
+The `docker-compose.yml` in this repository ships a development signing key. It is published, so anyone holding it can mint a console session for any admin. Set your own before deploying.
+</Callout>
+
+`idle_ttl` is how long a session survives without being refreshed and `absolute_ttl` caps its total life however often it is refreshed. An open console tab refreshes itself, so a working day does not end in a surprise sign-out while a forgotten tab still expires.
+
+Rotate the key by moving the old one to `previous_signing_keys`, which keeps verifying the sessions it signed rather than logging everybody out:
+
+```yaml
+auth:
+  console:
+    signing_key: "${CONSOLE_SIGNING_KEY}"
+    previous_signing_keys:
+      - "${CONSOLE_SIGNING_KEY_PREVIOUS}"
+```
+
+Signing out revokes the session server-side, so its token is dead the moment it is used again rather than merely dropped from the browser.

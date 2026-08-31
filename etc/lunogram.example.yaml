@@ -96,13 +96,12 @@ mail:
     # layout:
     #   html: file://mail/layout.html
     #   text: file://mail/layout.txt
-    verify_email:
-      subject: Confirm your email address
+    password_reset:
+      subject: Reset your {{ .ProductName }} password
       body:
-        - Someone created a {{ .ProductName }} account with this address. Confirm it to finish setting the account up.
-      action_label: Confirm email address
-      footer: This link expires in {{ .ExpiresIn }}. If you did not create an account you can ignore this message.
-    # password_reset:
+        - Someone asked to reset the password for your {{ .ProductName }} account. Choose a new one to continue.
+      action_label: Choose a new password
+      footer: This link expires in {{ .ExpiresIn }} and can be used once. If you did not ask for it, ignore this message.
     # account_exists:
     # password_changed:
     # The invitation also has .ProjectName and .InviterName.

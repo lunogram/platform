@@ -1,5 +1,5 @@
-// Package mailer sends the platform's own transactional mail: account
-// verification, password resets and the security notices that go with them.
+// Package mailer sends the platform's own transactional mail: password resets,
+// project invitations and the security notices that go with them.
 //
 // It is deliberately separate from the project email providers in
 // internal/providers. Those are WASM modules scoped to a project and configured

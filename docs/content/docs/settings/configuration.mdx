@@ -109,7 +109,7 @@ mail:
 MAIL_LAYOUT_HTML="$(base64 < layout.html)"
 ```
 
-The full HTML lives under `templates.layout`, which is the template allowed to emit markup. Per-message keys (`verify_email` and friends) hold the copy — subject, heading, body, action label, footer — not a document. See [Sending mail](/docs/settings/mail#overriding-the-messages).
+The full HTML lives under `templates.layout`, which is the template allowed to emit markup. Per-message keys (`password_reset` and friends) hold the copy — subject, heading, body, action label, footer — not a document. See [Sending mail](/settings/mail#overriding-the-messages).
 
 Line wrapping is ignored, so `base64` wrapping its output at 76 columns is not a problem.
 
@@ -167,4 +167,4 @@ webhook:
           can_interrupt: true
 ```
 
-See [Sending mail](/docs/settings/mail) for the mail section and [Webhooks](/docs/settings/webhooks) for `webhook.outbound`.
+See [Sign-in](/settings/sign-in) for the `auth` section, [Sending mail](/settings/mail) for `mail`, and [Webhooks](/settings/webhooks) for `webhook.outbound`.

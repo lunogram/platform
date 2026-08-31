@@ -9,7 +9,7 @@ Lunogram can call your own HTTP endpoints when something happens inside the prod
 
 Hooks are declared in YAML, not in environment variables. A hook set has more than one dimension — several subscribers per event, each with its own template, credential, retry policy and network policy — and that does not fit in a flat environment.
 
-They live in the `webhook.outbound` section of the [node configuration](/docs/settings/configuration):
+They live in the `webhook.outbound` section of the [node configuration](/settings/configuration):
 
 ```yaml title="/etc/lunogram/lunogram.yaml"
 webhook:
@@ -97,7 +97,7 @@ email_templates:
 
 Any `${NAME}` in the file is replaced with the environment variable of that name when the file is read. Keep credentials in the environment (or a secret store) and reference them here, so the file itself can live in a ConfigMap or in version control.
 
-A referenced variable that is not set is a startup error. Lunogram will not quietly send an empty API key. A credential is free to contain a `#`, a `:` or anything else — expansion happens on the parsed document, so a value cannot affect how the rest of the file is read. See [Configuration](/docs/settings/configuration#secrets) for the full rules, including how to write a literal `${...}` inside an inline JSONNet body.
+A referenced variable that is not set is a startup error. Lunogram will not quietly send an empty API key. A credential is free to contain a `#`, a `:` or anything else — expansion happens on the parsed document, so a value cannot affect how the rest of the file is read. See [Configuration](/settings/configuration#secrets) for the full rules, including how to write a literal `${...}` inside an inline JSONNet body.
 
 ---
 
@@ -128,7 +128,7 @@ function(ctx) {
 }
 ```
 
-`body` is a `file://` reference, a `base64://` payload or an inline snippet. Relative `file://` paths resolve against the directory holding the configuration file, so a config and its templates travel together; `base64://` keeps a template that arrives from an environment variable as one opaque token. See [Configuration](/docs/settings/configuration#values-that-do-not-fit-on-one-line).
+`body` is a `file://` reference, a `base64://` payload or an inline snippet. Relative `file://` paths resolve against the directory holding the configuration file, so a config and its templates travel together; `base64://` keeps a template that arrives from an environment variable as one opaque token. See [Configuration](/settings/configuration#values-that-do-not-fit-on-one-line).
 
 Omit `body` entirely and the event's built-in template is used — for `project.created` that produces exactly the payload documented in the webhooks OpenAPI spec.
 

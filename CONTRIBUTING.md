@@ -100,9 +100,9 @@ AUTH_CONSOLE_SIGNING_KEY="$(openssl ecparam -name prime256v1 -genkey -noout)"
 
 `AUTH_DRIVER` accepts a comma-separated list, so `basic,clerk` gives you local
 accounts and SSO at once. `AUTH_BASIC_EMAIL` / `AUTH_BASIC_PASSWORD` seed the
-first account rather than being compared against on every login. Account confirmation and
-password reset mail goes to the Mailpit container the dependency stack starts;
-read it at <http://localhost:8025>. The mail settings above are not optional: a
+first account rather than being compared against on every login. Password reset
+and project invitation mail goes to the Mailpit container the dependency stack
+starts; read it at <http://localhost:8025>. The mail settings above are not optional: a
 deployment offering password logins with nowhere to send mail is refused at
 boot. Reach Mailpit at `localhost` rather than at `mailpit`, which only resolves
 inside the compose network.

@@ -1,0 +1,74 @@
+---
+title: Members
+description: Manage who can access a project — the roster, project roles, and invitations
+---
+
+**Settings → Members** is a project's people screen: who has access today, and who has been invited but has not accepted yet. The two live on separate tabs.
+
+Managing members requires the project **admin** role.
+
+---
+
+## Project roles
+
+Every member holds one role in the project, and the roles form a hierarchy — each includes the one below it.
+
+| Role | |
+| --- | --- |
+| **Admin** | Everything in Editor, plus providers, destructive operations and member management |
+| **Editor** | Campaigns, templates, journeys, lists, tags, documents, locales and actions |
+| **Client** | Write-only ingestion: create and update users, events and organizations |
+| **Support** | Read-only across the project's resources |
+
+They are the same roles an [auth method](/settings/access#roles) is assigned, and they grant the same permissions. A member holds one per project, so the same person can be an admin of one project and read-only in another.
+
+Organization owners and admins are administrators of **every** project in their organization by inheritance, without appearing on the roster.
+
+<Callout type="info">
+You can only assign a role at or below your own role in the project. An editor cannot mint an admin, whether through the roster or through an invitation, and a member who outranks you is not yours to re-role or remove.
+</Callout>
+
+---
+
+## The roster
+
+The **Members** tab lists everyone with access, their role and when they joined. Change a role from the dropdown on the row, or remove someone from the row menu; both take effect immediately.
+
+Two changes are refused:
+
+- **The last administrator.** A project always has somebody who can administer it, so the last admin cannot be demoted or removed until another one exists. Organization owners and admins count, since they hold the role by inheritance.
+- **A role above your own.** Rows for members who outrank you are read-only.
+
+Lowering your own role below admin costs you this screen, so the console asks first.
+
+---
+
+## Invitations
+
+Invite somebody by email address and the role they should hold. They do not need an account yet.
+
+The invitation is emailed to the address through the [platform mailer](/settings/mail), and it is also listed on the **Invites** tab, where it can be revoked while it is pending. **An invitation expires after 48 hours.**
+
+The link in the mail points at the console's invites page rather than carrying a token, so the invitation is claimed by proving the address rather than by holding the link — forwarding the mail grants nobody anything. The invitee signs in with that address, or creates an account with it when the deployment lets them, and accepts from there.
+
+Accepting adds them to the project with the invited role and, when they came from outside, to the project's organization. An invitation carrying a role at or below the one they already hold in the project leaves their access as it is: accepting can never cost somebody privileges.
+
+On a deployment set to `invite_only`, a pending invitation is also what admits the address to registration. See [Sign-in](/settings/sign-in#who-may-create-an-account).
+
+### Through the API
+
+```http
+POST /api/admin/projects/{projectID}/invites
+```
+
+```json
+{
+  "email": "colleague@example.com",
+  "role": "editor",
+  "expires_in": "7d"
+}
+```
+
+`expires_in` is optional — it defaults to 48 hours and is capped at 30 days. It accepts Go-style durations (`24h`, `90m`) plus a day form (`7d`). The console does not send one.
+
+An invitee lists their own pending invitations at `GET /api/invites/mine` and accepts one with `POST /api/invites/{inviteID}/accept`.

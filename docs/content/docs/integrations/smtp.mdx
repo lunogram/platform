@@ -1,18 +1,18 @@
 ---
 title: SMTP
-description: Where SMTP fits in Lunogram — platform mail, not a project email provider
+description: Deliver the platform's own transactional mail over SMTP
 ---
 
-<Callout type="warn">
-  SMTP is not available as a **project** email provider, and is not planned as
-  one. It is how the platform sends its own mail. See below.
-</Callout>
+Lunogram sends two kinds of email, configured in two different places:
 
-Lunogram has two kinds of outbound email, and SMTP serves only one of them.
+| | Sent by | Configured in |
+| --- | --- | --- |
+| **Platform mail** — password resets, project invitations and account notices | the deployment itself | the node configuration |
+| **Project mail** — campaigns, journeys and broadcasts | a project's email provider | the console, per project |
 
-## Platform mail — SMTP is supported
+SMTP is one of the two channels for platform mail. Project mail goes through a provider integration.
 
-Account confirmation, password resets and the security notices that go with them are sent by the platform itself, and SMTP is one of the two channels it can use:
+## Platform mail
 
 ```yaml
 mail:
@@ -27,7 +27,7 @@ mail:
     tls: starttls
 ```
 
-Any SMTP-compatible service works. See [Sending mail](/docs/settings/mail) for the full reference, including the webhook channel and how to override the messages.
+Any SMTP-compatible service works. See [Sending mail](/settings/mail) for the full reference, including the webhook channel and how to override the messages.
 
 | Provider | Host | Port |
 | -------- | --------------------- | ---- |
@@ -37,13 +37,13 @@ Any SMTP-compatible service works. See [Sending mail](/docs/settings/mail) for t
 | Fastmail | smtp.fastmail.com | 587 |
 
 <Callout type="info">
-  Most personal email providers have low daily send limits (100–500 emails/day).
-  That is usually fine for platform mail, which is a handful of messages per
-  admin, but it is not a campaign sender.
+  Most personal email providers cap sending at 100–500 messages a day. That is
+  ample for platform mail, which is a handful of messages per admin, but it is
+  not a campaign sender.
 </Callout>
 
-## Project mail — use a provider integration
+## Project mail
 
-Campaigns, journeys and broadcasts send through a project's configured provider. Those are WASM modules, and a module reaches the network through the host's HTTP function — there is no raw TCP socket in the sandbox, which is what SMTP would need. An SMTP provider module therefore cannot be built without opening sockets to every provider module, which is not a trade worth making for one protocol.
+Project providers are WASM modules, and a module reaches the network through the host's HTTP function. The sandbox offers no raw TCP socket, so a provider module cannot speak SMTP.
 
-Use an HTTP provider instead — [Resend](/integrations/resend), Mailgun, SendGrid or Amazon SES — or the webhook provider, which posts each message to an endpoint of yours that can relay it however you like, SMTP included.
+Configure an HTTP provider instead — [Resend](/integrations/resend), [Mailgun](/integrations/mailgun), [SendGrid](/integrations/sendgrid) or [Amazon SES](/integrations/ses) — or the webhook provider, which posts each message to an endpoint of yours that may relay it however you like, SMTP included.

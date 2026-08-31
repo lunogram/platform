@@ -49,7 +49,7 @@ docker compose up -d
 ```
 
 This single command builds and runs Lunogram along with its backing services —
-PostgreSQL, Redis and NATS. Those are defined in
+PostgreSQL, Redis, NATS and Mailpit. Those are defined in
 [`docker-compose.deps.yml`](docker-compose.deps.yml), which the root
 [`docker-compose.yml`](docker-compose.yml) pulls in automatically.
 
@@ -63,7 +63,8 @@ AUTH_BASIC_EMAIL=admin@localhost
 AUTH_BASIC_PASSWORD=change-this-development-password
 ```
 
-**Note:** We would recommend changing these default credentials as well as your `APP_SECRET` before ever using Lunogram in production.
+**Note:** These credentials are published in this repository. Change them
+before ever using Lunogram in production.
 
 The compose file also ships a development `AUTH_CONSOLE_SIGNING_KEY`, the key
 that signs console session tokens. It is published in this repository, so
@@ -109,15 +110,15 @@ first account (nobody could have invited that one).
 > switch it on once you hold the account.
 
 Registering does not ask you to confirm the address: the account works
-immediately. Password resets and project invitations are still sent by email, so
-the deployment has to say where its mail goes. `docker compose up` runs
+immediately. Password resets and project invitations are sent by email, so the
+deployment has to say where its mail goes. `docker compose up` runs
 [Mailpit](https://mailpit.axllent.org) alongside the platform and points it
 there, readable at <http://localhost:8025>. Nothing leaves the machine and no
 SMTP account is needed.
 
-There is deliberately no channel that only writes messages to the log. A
-deployment offering password logins with nowhere to send mail cannot reset a
-password, so it is refused at boot rather than at the first request.
+There is no channel that only writes messages to the log. A deployment offering
+password logins with nowhere to send mail cannot reset a password or deliver an
+invitation, so it is refused at boot rather than at the first request.
 
 Before production, point it at a real relay:
 
@@ -136,8 +137,17 @@ platform posts the rendered message to a URL you configure, which is also how
 you reach an HTTP-only provider such as Resend or Postmark without the platform
 growing a client for each one. Both channels send the same message, and the
 copy and layout are yours to override — see
-[Configuration](https://docs.lunogram.com/docs/settings/configuration) and
-[Sending mail](https://docs.lunogram.com/docs/settings/mail).
+[Configuration](https://docs.lunogram.com/settings/configuration) and
+[Sending mail](https://docs.lunogram.com/settings/mail).
+
+### Working with other people
+
+A project's people live under **Settings → Members**: the roster of who has
+access and the role each holds, and the invitations that have not been accepted
+yet. Inviting somebody mails them a link to the console, where they accept by
+signing in with the address it was sent to — an invitation is claimed by proving
+the address, not by holding the link. Invitations expire after 48 hours. See
+[Members](https://docs.lunogram.com/settings/members).
 
 For full documentation on the platform and more information on deployment, check out our docs.
 
