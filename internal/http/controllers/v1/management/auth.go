@@ -30,7 +30,7 @@ import (
 // reads through. Building a separate one here would leave logout unable to
 // invalidate the shared session cache, so a revoked session would keep
 // authenticating on other replicas until the cache TTL elapsed.
-func NewAuthController(logger *zap.Logger, db *sqlx.DB, mgmt *management.State, cfg config.Node, engine *rbac.Engine, signer *auth.ConsoleSigner, limiter *ratelimit.Limiter, mail *mailer.Dispatcher, renderer *mailer.Renderer) (*AuthController, error) {
+func NewAuthController(logger *zap.Logger, db *sqlx.DB, mgmt *management.State, cfg config.Node, engine *rbac.Engine, signer *auth.ConsoleSigner, limiter *ratelimit.Limiter, mail *mailer.Dispatcher, renderer *mailer.Renderer, federated verifiers.Deps) (*AuthController, error) {
 	controller := &AuthController{
 		logger:   logger,
 		mgmt:     mgmt,
@@ -41,11 +41,16 @@ func NewAuthController(logger *zap.Logger, db *sqlx.DB, mgmt *management.State, 
 
 	controller.exchanger = auth.NewExchanger(db, mgmt, engine, signer, nil, logger, cfg.Auth.LegacyIdentityAdoption)
 
-	built, err := verifiers.Build(cfg.Auth, mgmt, logger, controller.exchanger)
+	federated.Mgmt = mgmt
+	federated.Logger = logger
+	federated.Provisioner = controller.exchanger
+
+	built, err := verifiers.Build(cfg.Auth, federated)
 	if err != nil {
 		return nil, err
 	}
 	controller.verifiers = built
+	controller.oidc, _ = built[verifiers.OIDCDriver].(*verifiers.OIDC)
 
 	// Kept in configuration order rather than map order so the console offers
 	// the drivers in the order the operator listed them, deterministically.
@@ -87,6 +92,11 @@ type AuthController struct {
 	drivers   []string
 	exchanger *auth.Exchanger
 	throttle  *throttle
+	// oidc is the same verifier the map holds, kept typed because the federated
+	// login has a second half -- the authorization request -- that the generic
+	// [auth.Verifier] interface has no room for. Nil when the driver is not
+	// configured, and every OpenID Connect endpoint answers 404 then.
+	oidc *verifiers.OIDC
 
 	password passwordAuth
 }
@@ -137,6 +147,15 @@ func (c *AuthController) AuthCallback(w http.ResponseWriter, r *http.Request, dr
 	verifier := c.verifiers[string(driver)]
 	if verifier == nil {
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("auth driver not found")))
+		return
+	}
+
+	// A federated login arrives as a browser navigation and has to be answered
+	// with one, so it completes at its own endpoint. Answering it here as well
+	// would be a second surface for the same credential with different
+	// semantics.
+	if verifier.Driver() == verifiers.OIDCDriver {
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("the oidc driver completes at /api/auth/oidc/callback")))
 		return
 	}
 

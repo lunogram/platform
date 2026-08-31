@@ -14,6 +14,7 @@ require (
 	github.com/caarlos0/env/v10 v10.0.0
 	github.com/clerk/clerk-sdk-go/v2 v2.5.1
 	github.com/cloudproud/graceful v1.1.2
+	github.com/coreos/go-oidc/v3 v3.20.0
 	github.com/docker/go-connections v0.6.0
 	github.com/extism/go-sdk v1.7.1
 	github.com/getkin/kin-openapi v0.133.0
@@ -49,6 +50,7 @@ require (
 	go.opentelemetry.io/otel v1.40.0
 	go.uber.org/zap v1.27.1
 	golang.org/x/net v0.56.0
+	golang.org/x/oauth2 v0.36.0
 	golang.org/x/sync v0.21.0
 	golang.org/x/text v0.38.0
 	google.golang.org/protobuf v1.36.11
@@ -59,6 +61,7 @@ require sigs.k8s.io/yaml v1.6.0 // indirect
 require (
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.22.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.12.0 // indirect
+	github.com/go-jose/go-jose/v4 v4.1.4 // indirect
 )
 
 require (

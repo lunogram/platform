@@ -67,7 +67,7 @@ func TestNewVerifier(t *testing.T) {
 	t.Run("basic stays a supported driver", func(t *testing.T) {
 		// It is the documented quickstart (AUTH_BASIC_EMAIL=admin@localhost),
 		// so it must keep working without being gated on anything.
-		verifier, err := New(BasicDriver, config.Auth{}, nil, logger, nil)
+		verifier, err := New(BasicDriver, config.Auth{}, Deps{Logger: logger})
 		require.NoError(t, err)
 		assert.Equal(t, BasicDriver, verifier.Driver())
 	})
@@ -76,7 +76,7 @@ func TestNewVerifier(t *testing.T) {
 		verifier, err := New(ClerkDriver, config.Auth{
 			JWKS:  clerkJWKS(t),
 			Clerk: config.ClerkAuth{SecretKey: "sk_test_xxx"},
-		}, nil, logger, nil)
+		}, Deps{Logger: logger})
 		require.NoError(t, err)
 		assert.Equal(t, ClerkDriver, verifier.Driver())
 	})
@@ -87,13 +87,13 @@ func TestNewVerifier(t *testing.T) {
 		// rather than an unset variable.
 		_, err := New(ClerkDriver, config.Auth{
 			Clerk: config.ClerkAuth{SecretKey: "sk_test_xxx"},
-		}, nil, logger, nil)
+		}, Deps{Logger: logger})
 		require.ErrorIs(t, err, ErrMissingJWKS)
 		assert.Contains(t, err.Error(), "AUTH_JWKS_URL")
 	})
 
 	t.Run("an unknown driver is refused at startup", func(t *testing.T) {
-		_, err := New("magic", config.Auth{}, nil, logger, nil)
+		_, err := New("magic", config.Auth{}, Deps{Logger: logger})
 		require.ErrorIs(t, err, ErrUnknownDriver)
 	})
 }
@@ -111,7 +111,7 @@ func TestBuildVerifiers(t *testing.T) {
 			Drivers: []string{"basic", " CLERK "},
 			JWKS:    clerkJWKS(t),
 			Clerk:   config.ClerkAuth{SecretKey: "sk_test_xxx"},
-		}, nil, logger, nil)
+		}, Deps{Logger: logger})
 		require.NoError(t, err)
 		require.Len(t, built, 2)
 		assert.Equal(t, BasicDriver, built[BasicDriver].Driver())
@@ -119,7 +119,7 @@ func TestBuildVerifiers(t *testing.T) {
 	})
 
 	t.Run("no configured driver builds nothing", func(t *testing.T) {
-		built, err := Build(config.Auth{}, nil, logger, nil)
+		built, err := Build(config.Auth{}, Deps{Logger: logger})
 		require.NoError(t, err)
 		assert.Empty(t, built)
 	})
@@ -128,7 +128,7 @@ func TestBuildVerifiers(t *testing.T) {
 		// Startup is the only moment a typo in AUTH_DRIVER can be caught; a
 		// deployment silently offering fewer login methods than it was told to
 		// is how people get locked out.
-		_, err := Build(config.Auth{Drivers: []string{"basic", "magic"}}, nil, logger, nil)
+		_, err := Build(config.Auth{Drivers: []string{"basic", "magic"}}, Deps{Logger: logger})
 		require.ErrorIs(t, err, ErrUnknownDriver)
 	})
 }

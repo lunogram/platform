@@ -77,7 +77,7 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *st
 	}
 
 	// Create management controller
-	mgmtController, err := managementv1.NewController(logger, db.Management, db.Subjects, db.Journey, cfg, storageDriver, urlResolver, pub, req, jet, registry, actionRegistry, rbacEngine, rdb, consoleSigner, limiter)
+	mgmtController, err := managementv1.NewController(logger, db.Management, db.Subjects, db.Journey, cfg, storageDriver, urlResolver, pub, req, jet, registry, actionRegistry, rbacEngine, rdb, jwksCache, consoleSigner, limiter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create management controller: %w", err)
 	}

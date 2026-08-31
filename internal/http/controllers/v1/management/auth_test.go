@@ -18,6 +18,7 @@ import (
 	"github.com/lunogram/platform/internal/config"
 
 	"github.com/lunogram/platform/internal/http/auth"
+	"github.com/lunogram/platform/internal/http/auth/verifiers"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/ptr"
 	"github.com/lunogram/platform/internal/store/management"
@@ -73,7 +74,7 @@ func TestGetAuthMethods(t *testing.T) {
 		},
 	}
 
-	controller, err := NewAuthController(logger, mgmt, management.NewState(mgmt), cfg, nil, nil, nil, nil, nil)
+	controller, err := NewAuthController(logger, mgmt, management.NewState(mgmt), cfg, nil, nil, nil, nil, nil, verifiers.Deps{})
 	require.NoError(t, err)
 
 	type test struct {
@@ -120,7 +121,7 @@ func TestAuthCallbackWithInvalidDriver(t *testing.T) {
 
 	_, dispatcher, renderer := testMailer(t, cfg)
 
-	controller, err := NewAuthController(logger, mgmt, management.NewState(mgmt), cfg, nil, nil, nil, dispatcher, renderer)
+	controller, err := NewAuthController(logger, mgmt, management.NewState(mgmt), cfg, nil, nil, nil, dispatcher, renderer, verifiers.Deps{})
 	require.NoError(t, err)
 
 	type test struct {
@@ -162,7 +163,7 @@ func TestAuthWebhookWithInvalidDriver(t *testing.T) {
 
 	_, dispatcher, renderer := testMailer(t, cfg)
 
-	controller, err := NewAuthController(logger, mgmt, management.NewState(mgmt), cfg, nil, nil, nil, dispatcher, renderer)
+	controller, err := NewAuthController(logger, mgmt, management.NewState(mgmt), cfg, nil, nil, nil, dispatcher, renderer, verifiers.Deps{})
 	require.NoError(t, err)
 
 	type test struct {
@@ -237,7 +238,7 @@ func TestRefreshSessionDistinguishesGoneFromNotExtendable(t *testing.T) {
 	}
 	_, dispatcher, renderer := testMailer(t, cfg)
 
-	controller, err := NewAuthController(logger, mgmtDB, state, cfg, nil, signer, nil, dispatcher, renderer)
+	controller, err := NewAuthController(logger, mgmtDB, state, cfg, nil, signer, nil, dispatcher, renderer, verifiers.Deps{})
 	require.NoError(t, err)
 
 	refresh := func(t *testing.T, token string) *httptest.ResponseRecorder {
@@ -347,7 +348,7 @@ func TestLogoutRevokesTheSession(t *testing.T) {
 	}
 	_, dispatcher, renderer := testMailer(t, cfg)
 
-	controller, err := NewAuthController(logger, mgmtDB, state, cfg, nil, signer, nil, dispatcher, renderer)
+	controller, err := NewAuthController(logger, mgmtDB, state, cfg, nil, signer, nil, dispatcher, renderer, verifiers.Deps{})
 	require.NoError(t, err)
 
 	token, err := signer.Mint(session, []string{"basic"})

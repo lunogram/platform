@@ -6458,6 +6458,67 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
+  /api/auth/oidc/start:
+    get:
+      summary: Begin a single sign-on login
+      description: >-
+        Redirects the browser to the deployment's identity provider, having
+        stored the state, the PKCE code verifier and the nonce server-side under
+        a short lifetime, and having set a binding cookie that ties the request
+        to this browser. The redirect_uri handed to the provider is derived from
+        the deployment's public URL and is never taken from a request parameter.
+      operationId: startOIDCLogin
+      tags:
+        - Auth
+      parameters:
+        - name: r
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Where the console should land once the session exists. Reduced to a same-site path.
+      responses:
+        "302":
+          description: Redirect to the identity provider
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/auth/oidc/callback:
+    get:
+      summary: Complete a single sign-on login
+      description: >-
+        Redeems the authorization response. The state is single-use and deleted
+        as it is read, the binding cookie must match the one the login was
+        started with, the code is exchanged with the stored PKCE verifier, and
+        the ID token is proved against the provider's published keys, its
+        issuer, its audience, its expiry and the stored nonce. The browser is
+        then redirected into the console, with or without a session.
+      operationId: completeOIDCLogin
+      tags:
+        - Auth
+      parameters:
+        - name: code
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: state
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: error
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "302":
+          description: Redirect into the console
+        default:
+          $ref: "#/components/responses/Error"
+
+
 components:
   parameters:
     Limit:

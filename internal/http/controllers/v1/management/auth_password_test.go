@@ -16,6 +16,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/lunogram/platform/internal/config"
 	"github.com/lunogram/platform/internal/container"
+	"github.com/lunogram/platform/internal/http/auth/verifiers"
 	"github.com/lunogram/platform/internal/mailer"
 	"github.com/lunogram/platform/internal/password"
 	"github.com/lunogram/platform/internal/ratelimit"
@@ -141,7 +142,7 @@ func newPasswordEnv(t *testing.T, registration string) *passwordEnv {
 
 	captured, dispatcher, renderer := testMailer(t, cfg)
 
-	controller, err := NewAuthController(logger, mgmtDB, state, cfg, nil, consoleSignerFor(t), nil, dispatcher, renderer)
+	controller, err := NewAuthController(logger, mgmtDB, state, cfg, nil, consoleSignerFor(t), nil, dispatcher, renderer, verifiers.Deps{})
 	require.NoError(t, err)
 
 	orgID, err := state.CreateOrganization(t.Context(), "Password Organization")
@@ -756,7 +757,7 @@ func TestGetAuthMethodsListsEveryConfiguredDriver(t *testing.T) {
 	}
 	_, dispatcher, renderer := testMailer(t, cfg)
 
-	controller, err := NewAuthController(logger, mgmtDB, management.NewState(mgmtDB), cfg, nil, consoleSignerFor(t), nil, dispatcher, renderer)
+	controller, err := NewAuthController(logger, mgmtDB, management.NewState(mgmtDB), cfg, nil, consoleSignerFor(t), nil, dispatcher, renderer, verifiers.Deps{})
 	require.NoError(t, err)
 
 	res := httptest.NewRecorder()
@@ -778,7 +779,7 @@ func TestPasswordFlowsAreOffWhenTheDriverIsNotConfigured(t *testing.T) {
 
 	controller, err := NewAuthController(logger, mgmtDB, management.NewState(mgmtDB), config.Node{
 		Auth: config.Auth{Drivers: []string{"clerk"}, JWKS: clerkJWKS(t), Clerk: config.ClerkAuth{SecretKey: "sk_test_xxx"}},
-	}, nil, consoleSignerFor(t), nil, nil, nil)
+	}, nil, consoleSignerFor(t), nil, nil, nil, verifiers.Deps{})
 	require.NoError(t, err)
 
 	handlers := map[string]http.HandlerFunc{
@@ -813,7 +814,7 @@ func TestNewAuthControllerRequiresAMailChannel(t *testing.T) {
 			Drivers: []string{"basic"},
 			Basic:   config.BasicAuth{Registration: config.RegistrationOpen},
 		},
-	}, nil, consoleSignerFor(t), nil, nil, nil)
+	}, nil, consoleSignerFor(t), nil, nil, nil, verifiers.Deps{})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "no channel is configured")
 }
@@ -829,6 +830,6 @@ func TestNewAuthControllerRejectsAnUnknownRegistrationMode(t *testing.T) {
 			Drivers: []string{"basic"},
 			Basic:   config.BasicAuth{Registration: "sometimes"},
 		},
-	}, nil, consoleSignerFor(t), nil, nil, nil)
+	}, nil, consoleSignerFor(t), nil, nil, nil, verifiers.Deps{})
 	require.Error(t, err, "a typo in AUTH_PASSWORD_REGISTRATION must not start")
 }

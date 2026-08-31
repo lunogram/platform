@@ -14,11 +14,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/config"
 	"github.com/lunogram/platform/internal/http/auth"
+	"github.com/lunogram/platform/internal/jwks"
+	"github.com/lunogram/platform/internal/sso"
 	"github.com/lunogram/platform/internal/store/management"
 	"go.uber.org/zap"
 )
@@ -42,11 +45,42 @@ type Provisioner interface {
 	Provision(ctx context.Context, identity *auth.VerifiedIdentity) (uuid.UUID, error)
 }
 
+// Deps are the collaborators a verifier may need beyond the configuration and
+// the management store. They are supplied by the caller rather than built here
+// because the deployment decides the SSRF policy on outbound calls and owns the
+// Redis connection and the JWKS cache the rest of the process shares.
+type Deps struct {
+	Mgmt        *management.State
+	Logger      *zap.Logger
+	Provisioner Provisioner
+	// Keys, Flows and HTTPClient are only read by the oidc driver. A deployment
+	// that does not configure it may leave them nil.
+	Keys       *jwks.Cache
+	Flows      *sso.FlowStore
+	Discovery  *sso.Discovery
+	HTTPClient *http.Client
+	// BaseURL is the deployment's public URL, which the OpenID Connect
+	// redirect_uri is derived from.
+	BaseURL string
+}
+
 // New builds a verifier for one driver.
-func New(driver string, cfg config.Auth, mgmt *management.State, logger *zap.Logger, provisioner Provisioner) (auth.Verifier, error) {
+func New(driver string, cfg config.Auth, deps Deps) (auth.Verifier, error) {
+	mgmt, logger := deps.Mgmt, deps.Logger
+
 	switch driver {
 	case BasicDriver:
 		return NewBasic(mgmt, logger), nil
+	case OIDCDriver:
+		return NewOIDC(OIDCOptions{
+			Config:     cfg.OIDC,
+			Flows:      deps.Flows,
+			Discovery:  deps.Discovery,
+			Keys:       deps.Keys,
+			BaseURL:    deps.BaseURL,
+			HTTPClient: deps.HTTPClient,
+			Logger:     logger.Named("oidc"),
+		})
 	case ClerkDriver:
 		// Refuse to start on key material that cannot verify anything. Without a
 		// JWKS the parse in [Clerk.Verify] has no key, so every login fails --
@@ -56,7 +90,7 @@ func New(driver string, cfg config.Auth, mgmt *management.State, logger *zap.Log
 		if keyFunc == nil {
 			return nil, fmt.Errorf("%w: the clerk auth driver verifies sessions against the provider's JWKS; set AUTH_JWKS_URL to your Clerk instance's JWKS endpoint (https://<your-instance>/.well-known/jwks.json)", ErrMissingJWKS)
 		}
-		return NewClerk(cfg.Clerk, mgmt, logger, keyFunc, provisioner)
+		return NewClerk(cfg.Clerk, mgmt, logger, keyFunc, deps.Provisioner)
 	default:
 		return nil, fmt.Errorf("%w: %q", ErrUnknownDriver, driver)
 	}
@@ -70,7 +104,7 @@ func New(driver string, cfg config.Auth, mgmt *management.State, logger *zap.Log
 // time -- so this returns a set rather than the single verifier the platform
 // used to allow. Each one lands on its own callback and all of them are offered
 // by GET /api/auth/methods.
-func Build(cfg config.Auth, mgmt *management.State, logger *zap.Logger, provisioner Provisioner) (map[string]auth.Verifier, error) {
+func Build(cfg config.Auth, deps Deps) (map[string]auth.Verifier, error) {
 	built := make(map[string]auth.Verifier, len(cfg.Drivers))
 
 	for _, driver := range cfg.Drivers {
@@ -82,7 +116,7 @@ func Build(cfg config.Auth, mgmt *management.State, logger *zap.Logger, provisio
 			continue
 		}
 
-		verifier, err := New(driver, cfg, mgmt, logger, provisioner)
+		verifier, err := New(driver, cfg, deps)
 		if err != nil {
 			return nil, err
 		}

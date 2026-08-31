@@ -382,6 +382,66 @@ func ClearConsoleSessionCookies(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// OIDC binding cookie names. The `__Host-` prefixed one is used wherever the
+// browser will accept it, exactly as the session cookie is.
+const (
+	OIDCBindingCookieSecure   = "__Host-lunogram_oidc_binding"
+	OIDCBindingCookieInsecure = "lunogram_oidc_binding"
+)
+
+// SetOIDCBindingCookie ties an authorization request to the browser that
+// started it. The value's twin is held server-side with the flow, and the
+// callback refuses a response the two do not agree on.
+//
+// SameSite=Lax rather than Strict: the browser arrives back from the identity
+// provider by top-level navigation, which Lax allows and Strict does not, and
+// the cookie would then be missing from exactly the request that needs it.
+func SetOIDCBindingCookie(w http.ResponseWriter, r *http.Request, binding string, ttl time.Duration) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     oidcBindingCookieName(r),
+		Value:    binding,
+		Path:     "/",
+		Expires:  time.Now().Add(ttl),
+		HttpOnly: true,
+		Secure:   requestIsSecure(r),
+		SameSite: http.SameSiteLaxMode,
+	})
+}
+
+// ClearOIDCBindingCookie expires both names, so a completed or abandoned login
+// leaves nothing behind whichever one the browser holds.
+func ClearOIDCBindingCookie(w http.ResponseWriter, r *http.Request) {
+	for _, name := range []string{OIDCBindingCookieSecure, OIDCBindingCookieInsecure} {
+		http.SetCookie(w, &http.Cookie{
+			Name:     name,
+			Value:    "",
+			Path:     "/",
+			Expires:  time.Unix(0, 0),
+			MaxAge:   -1,
+			HttpOnly: true,
+			Secure:   requestIsSecure(r),
+			SameSite: http.SameSiteLaxMode,
+		})
+	}
+}
+
+// GetOIDCBinding returns the browser binding presented on a callback, or "".
+func GetOIDCBinding(r *http.Request) string {
+	for _, name := range []string{OIDCBindingCookieSecure, OIDCBindingCookieInsecure} {
+		if cookie, err := r.Cookie(name); err == nil && cookie.Value != "" {
+			return cookie.Value
+		}
+	}
+	return ""
+}
+
+func oidcBindingCookieName(r *http.Request) string {
+	if requestIsSecure(r) {
+		return OIDCBindingCookieSecure
+	}
+	return OIDCBindingCookieInsecure
+}
+
 // requestIsSecure reports whether the original client request reached us over
 // HTTPS. In the common deployment a reverse proxy terminates TLS and forwards
 // plaintext, so r.TLS is nil; we then trust X-Forwarded-Proto. Trusting that
