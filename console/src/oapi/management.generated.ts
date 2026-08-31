@@ -119,7 +119,7 @@ export interface paths {
          *
          *     The response is 204 and identical whether or not the address already has an account, whether or not registration is open to it, and whether or not any mail could be sent. Anything else would let the endpoint be used to test which addresses hold accounts here. When the address is already registered, the person who owns it is told so by email, which is the one channel that reaches only them.
          *
-         *     Whether registration is open at all is deployment configuration (AUTH_PASSWORD_REGISTRATION): open, invite-only, or disabled. A disabled deployment answers 404, which is a property of the deployment and not of the submitted address.
+         *     Whether registration is open at all is deployment configuration (AUTH_BASIC_REGISTRATION): open, invite-only, or disabled. A disabled deployment answers 404, which is a property of the deployment and not of the submitted address.
          */
         post: operations["registerWithPassword"];
         delete?: never;
@@ -5758,7 +5758,7 @@ export interface operations {
             header?: never;
             path: {
                 /** @description The authentication driver */
-                driver: "basic" | "password" | "clerk";
+                driver: "basic" | "clerk";
             };
             cookie?: never;
         };

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
 	"github.com/lunogram/platform/internal/password"
 	"github.com/lunogram/platform/internal/store/management"
 	"go.uber.org/zap"
@@ -17,11 +18,12 @@ import (
 type Seeder struct {
 	exchanger *Exchanger
 	mgmt      *management.State
+	db        *sqlx.DB
 	logger    *zap.Logger
 }
 
-func NewSeeder(exchanger *Exchanger, mgmt *management.State, logger *zap.Logger) *Seeder {
-	return &Seeder{exchanger: exchanger, mgmt: mgmt, logger: logger}
+func NewSeeder(exchanger *Exchanger, mgmt *management.State, db *sqlx.DB, logger *zap.Logger) *Seeder {
+	return &Seeder{exchanger: exchanger, mgmt: mgmt, db: db, logger: logger}
 }
 
 // Seed makes the configured email and password into a real account.
@@ -46,8 +48,34 @@ func NewSeeder(exchanger *Exchanger, mgmt *management.State, logger *zap.Logger)
 // deployment they cannot get into is worse than not starting.
 func (s *Seeder) Seed(ctx context.Context, email, plain string) error {
 	email = strings.ToLower(strings.TrimSpace(email))
-	if email == "" || plain == "" {
+
+	// Configuring neither is how a deployment says it provisions admins some
+	// other way. Configuring one of the two is a mistake, and a silent one:
+	// nothing would be created and the operator would find out by not being able
+	// to sign in.
+	switch {
+	case email == "" && plain == "":
 		return nil
+	case email == "":
+		return errors.New("auth: AUTH_BASIC_PASSWORD is set without AUTH_BASIC_EMAIL, so there is no account to create")
+	case plain == "":
+		return errors.New("auth: AUTH_BASIC_EMAIL is set without AUTH_BASIC_PASSWORD, so the account would have no way to sign in")
+	}
+
+	// Seeding is a read followed by a write, and a cold start brings replicas up
+	// together. Without serialising, two of them both see no admin, both
+	// provision, and the loser fails its unique-email insert -- an expected race
+	// reported as a fatal boot error. The lock lives in its own transaction,
+	// held for the whole operation and released by the rollback below, so the
+	// writes underneath can use their own connections.
+	guard, err := s.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("auth: failed to serialise seeding: %w", err)
+	}
+	defer guard.Rollback() //nolint:errcheck // releases the advisory lock
+
+	if err := management.NewState(guard).LockRegistrationBootstrap(ctx); err != nil {
+		return fmt.Errorf("auth: failed to serialise seeding: %w", err)
 	}
 
 	admin, err := s.mgmt.ResolveAdminByEmail(ctx, email)
@@ -57,19 +85,32 @@ func (s *Seeder) Seed(ctx context.Context, email, plain string) error {
 	case errors.Is(err, management.ErrAmbiguousEmail):
 		// Two admins claim the address and nothing can say which one the
 		// configured credential meant. Refusing is the only honest answer.
-		return fmt.Errorf("auth: the configured AUTH_BASIC_EMAIL is claimed by more than one admin")
+		return errors.New("auth: the configured AUTH_BASIC_EMAIL is claimed by more than one admin")
 	case err != nil:
 		return fmt.Errorf("auth: failed to look up the configured admin: %w", err)
 	}
 
-	return s.complete(ctx, admin.ID, plain)
+	return s.complete(ctx, admin.ID, email, plain)
+}
+
+// hash applies the same policy every other password creation path applies.
+//
+// The configured secret becomes a persistent, stored owner credential, so it is
+// held to the rules an admin choosing one in the console is held to. Skipping
+// them here is how a deployment ends up owned by a twelve-character-short
+// password that the product refuses to let anybody set deliberately.
+func (s *Seeder) hash(email, plain string) (string, error) {
+	if err := password.Validate(plain, email); err != nil {
+		return "", fmt.Errorf("auth: AUTH_BASIC_PASSWORD is not acceptable as an account password: %w", err)
+	}
+	return password.Hash(plain)
 }
 
 // create provisions the account the configured credential names.
 func (s *Seeder) create(ctx context.Context, email, plain string) error {
-	hash, err := password.Hash(plain)
+	hash, err := s.hash(email, plain)
 	if err != nil {
-		return fmt.Errorf("auth: failed to hash the configured password: %w", err)
+		return err
 	}
 
 	identity := &VerifiedIdentity{
@@ -98,7 +139,7 @@ func (s *Seeder) create(ctx context.Context, email, plain string) error {
 }
 
 // complete fills in a missing secret on an admin that already exists.
-func (s *Seeder) complete(ctx context.Context, adminID uuid.UUID, plain string) error {
+func (s *Seeder) complete(ctx context.Context, adminID uuid.UUID, email, plain string) error {
 	identity, err := s.mgmt.GetLocalIdentity(ctx, adminID)
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
@@ -114,9 +155,12 @@ func (s *Seeder) complete(ctx context.Context, adminID uuid.UUID, plain string) 
 		return nil
 	}
 
-	hash, err := password.Hash(plain)
+	// Validated only now that a write is actually going to happen: a deployment
+	// whose account already has a password keeps working even if the variable
+	// left behind in its environment would no longer pass.
+	hash, err := s.hash(email, plain)
 	if err != nil {
-		return fmt.Errorf("auth: failed to hash the configured password: %w", err)
+		return err
 	}
 
 	if identity == nil {

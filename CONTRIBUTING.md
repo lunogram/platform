@@ -80,7 +80,7 @@ REDIS_ADDRESS=redis://localhost:6379
 NATS_URL=nats://localhost:4222
 AUTH_DRIVER=basic
 AUTH_BASIC_EMAIL=admin@localhost
-AUTH_BASIC_PASSWORD=admin
+AUTH_BASIC_PASSWORD=change-this-development-password
 
 # Signs the console session token. Required whenever AUTH_DRIVER is set; the
 # server refuses to start without it rather than generating a throwaway key,

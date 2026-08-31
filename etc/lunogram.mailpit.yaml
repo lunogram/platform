@@ -1,0 +1,25 @@
+# Development configuration for exercising the webhook mail channel against the
+# Mailpit container that docker-compose runs.
+#
+# It exists because the channel needs more than a URL. Outbound requests are held
+# to https and a public address unless a policy says otherwise, and that policy
+# lives here rather than in the environment: it is a nested structure, and it is
+# not something anybody should be able to relax with a single variable.
+#
+# Mount it and point CONFIG_FILE at it, with MAIL_CHANNEL=webhook.
+
+mail:
+  channel: webhook
+  from:
+    address: no-reply@localhost
+    name: Lunogram
+  webhook:
+    # Mailpit's send API. The body template shipped with the platform already
+    # produces the shape it accepts, so nothing else has to be configured.
+    url: http://mailpit:8025/api/v1/send
+    network:
+      # Both are refused by default, and both are needed here: the compose
+      # network speaks plaintext and resolves to a private address. Neither
+      # belongs in a deployment that sends real mail.
+      allow_http: true
+      allow_private: true

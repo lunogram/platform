@@ -208,6 +208,12 @@ func (s *AdminIdentitiesStore) GetLocalIdentity(ctx context.Context, adminID uui
 // The WHERE clause pins the local provider: the CHECK constraint on the table
 // already forbids a secret on a federated identity, and this makes the failure a
 // no-op rather than a constraint violation surfacing as a 500.
+//
+// Matching nothing is [store.ErrNoRows] rather than success. The identity can be
+// unlinked or the admin deleted between reading it and writing here, and a
+// silent no-op would let a password change go on to burn the reset links, end
+// every session and answer 204 -- reporting that a password was changed when it
+// was not.
 func (s *AdminIdentitiesStore) SetAdminIdentitySecret(ctx context.Context, id uuid.UUID, secretHash string) error {
 	stmt := `
 	UPDATE admin_identities
@@ -215,8 +221,19 @@ func (s *AdminIdentitiesStore) SetAdminIdentitySecret(ctx context.Context, id uu
 	WHERE id = $1 AND provider = $3
 	AND deleted_at IS NULL`
 
-	_, err := s.db.ExecContext(ctx, stmt, id, secretHash, IdentityProviderBasic)
-	return err
+	result, err := s.db.ExecContext(ctx, stmt, id, secretHash, IdentityProviderBasic)
+	if err != nil {
+		return err
+	}
+
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return store.ErrNoRows
+	}
+	return nil
 }
 
 // ReplaceAdminIdentitySecret swaps a secret only if the stored one is still the

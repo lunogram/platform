@@ -15,7 +15,7 @@ const seedPassword = "an entirely ordinary passphrase"
 
 func newSeeder(t *testing.T, env *exchangeEnv) *Seeder {
 	t.Helper()
-	return NewSeeder(env.exchanger, env.mgmt, zaptest.NewLogger(t))
+	return NewSeeder(env.exchanger, env.mgmt, env.db, zaptest.NewLogger(t))
 }
 
 // A fresh deployment has to be reachable the moment it starts.
@@ -125,6 +125,9 @@ func TestSeedIsIdempotent(t *testing.T) {
 	assert.Equal(t, admin.ID, again.ID, "a restart must not create a second account")
 }
 
+// Configuring neither is how a deployment says it provisions admins some other
+// way. Configuring one of the two is a mistake, and a silent one: nothing would
+// be created and the operator would find out by not being able to sign in.
 func TestSeedDoesNothingWithoutConfiguration(t *testing.T) {
 	t.Parallel()
 
@@ -132,6 +135,58 @@ func TestSeedDoesNothingWithoutConfiguration(t *testing.T) {
 	seeder := newSeeder(t, env)
 
 	require.NoError(t, seeder.Seed(context.Background(), "", ""))
-	require.NoError(t, seeder.Seed(context.Background(), "owner@example.com", ""))
-	require.NoError(t, seeder.Seed(context.Background(), "", seedPassword))
+}
+
+func TestSeedRefusesAHalfConfiguredPair(t *testing.T) {
+	t.Parallel()
+
+	env := newExchangeEnv(t)
+	seeder := newSeeder(t, env)
+
+	err := seeder.Seed(context.Background(), "owner@example.com", "")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "AUTH_BASIC_PASSWORD")
+
+	err = seeder.Seed(context.Background(), "", seedPassword)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "AUTH_BASIC_EMAIL")
+}
+
+// The configured secret becomes a persistent, stored owner credential, so it is
+// held to the rules an admin choosing one in the console is held to. Without
+// this the compose default walked straight past a policy the product otherwise
+// refuses to let anybody opt out of.
+func TestSeedAppliesThePasswordPolicy(t *testing.T) {
+	t.Parallel()
+
+	env := newExchangeEnv(t)
+
+	err := newSeeder(t, env).Seed(context.Background(), "owner@example.com", "admin")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "AUTH_BASIC_PASSWORD")
+
+	_, err = env.mgmt.ResolveAdminByEmail(context.Background(), "owner@example.com")
+	assert.Error(t, err, "nothing may be created when the password is refused")
+}
+
+// An account that already has a password keeps working even if the variable left
+// behind in the environment would no longer pass.
+func TestSeedIgnoresAWeakVariableOnceAPasswordIsStored(t *testing.T) {
+	t.Parallel()
+
+	env := newExchangeEnv(t)
+	ctx := context.Background()
+	seeder := newSeeder(t, env)
+
+	require.NoError(t, seeder.Seed(ctx, "owner@example.com", seedPassword))
+	require.NoError(t, seeder.Seed(ctx, "owner@example.com", "admin"))
+
+	admin, err := env.mgmt.ResolveAdminByEmail(ctx, "owner@example.com")
+	require.NoError(t, err)
+	identity, err := env.mgmt.GetLocalIdentity(ctx, admin.ID)
+	require.NoError(t, err)
+
+	match, _, err := password.Verify(*identity.SecretHash, seedPassword)
+	require.NoError(t, err)
+	assert.True(t, match)
 }

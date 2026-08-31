@@ -60,7 +60,7 @@ Login to the web app at http://localhost:8080 using the default credentials:
 
 ```
 AUTH_BASIC_EMAIL=admin@localhost
-AUTH_BASIC_PASSWORD=admin
+AUTH_BASIC_PASSWORD=change-this-development-password
 ```
 
 **Note:** We would recommend changing these default credentials as well as your `APP_SECRET` before ever using Lunogram in production.
@@ -85,6 +85,11 @@ admin list and can change its own password, like any account created afterwards.
 The plaintext is needed exactly once. Once the account exists you can remove
 `AUTH_BASIC_PASSWORD` from the environment; a later boot never overwrites a
 stored password, so a restart cannot undo one you changed in the console.
+
+Because it becomes a real stored credential, it is held to the same policy as a
+password chosen in the console — at least 12 characters, not a common one, not a
+variation on the address. A deployment that sets one which fails those rules is
+refused at boot rather than quietly owned by it.
 
 ```
 AUTH_DRIVER=basic

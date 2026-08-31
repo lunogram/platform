@@ -714,9 +714,8 @@ func (e GetUserInboxMessagesParamsStatus) Valid() bool {
 
 // Defines values for AuthCallbackParamsDriver.
 const (
-	AuthCallbackParamsDriverBasic    AuthCallbackParamsDriver = "basic"
-	AuthCallbackParamsDriverClerk    AuthCallbackParamsDriver = "clerk"
-	AuthCallbackParamsDriverPassword AuthCallbackParamsDriver = "password"
+	AuthCallbackParamsDriverBasic AuthCallbackParamsDriver = "basic"
+	AuthCallbackParamsDriverClerk AuthCallbackParamsDriver = "clerk"
 )
 
 // Valid indicates whether the value is a known member of the AuthCallbackParamsDriver enum.
@@ -725,8 +724,6 @@ func (e AuthCallbackParamsDriver) Valid() bool {
 	case AuthCallbackParamsDriverBasic:
 		return true
 	case AuthCallbackParamsDriverClerk:
-		return true
-	case AuthCallbackParamsDriverPassword:
 		return true
 	default:
 		return false

@@ -64,7 +64,7 @@ func NewAuthController(logger *zap.Logger, db *sqlx.DB, mgmt *management.State, 
 	// here means a fresh deployment is reachable the moment it starts, and an
 	// upgrading one keeps signing in with the credential it already used.
 	if cfg.Auth.Enabled(verifiers.BasicDriver) {
-		seeder := auth.NewSeeder(controller.exchanger, mgmt, logger.Named("seed"))
+		seeder := auth.NewSeeder(controller.exchanger, mgmt, db, logger.Named("seed"))
 		if err := seeder.Seed(context.Background(), cfg.Auth.Basic.Email, cfg.Auth.Basic.Password); err != nil {
 			return nil, err
 		}
@@ -98,6 +98,16 @@ type AuthController struct {
 // promise was only ever kept in tests.
 func (c *AuthController) Close() {
 	c.password.mail.Close()
+}
+
+// credentialRejected reports whether a verifier turned a login down because of
+// what was submitted, rather than because something on our side broke.
+func credentialRejected(err error) bool {
+	return errors.Is(err, verifiers.ErrInvalidCredentials) ||
+		errors.Is(err, verifiers.ErrMissingCredentials) ||
+		errors.Is(err, verifiers.ErrInvalidToken) ||
+		errors.Is(err, verifiers.ErrNoSession) ||
+		errors.Is(err, verifiers.ErrInvalidEmail)
 }
 
 // Verifier returns the verifier for one driver, or nil when that driver is not
@@ -155,9 +165,13 @@ func (c *AuthController) AuthCallback(w http.ResponseWriter, r *http.Request, dr
 
 	identity, err := verifier.Verify(ctx, r)
 	if err != nil {
-		if throttled {
-			// Only failures spend budget, so signing in correctly on many
-			// devices never counts against the account.
+		// Only a credential that was actually wrong spends budget. Signing in
+		// correctly on many devices never counts against the account, and
+		// neither does a verifier that could not reach the database: charging
+		// those would let a Postgres outage exhaust every budget, leaving
+		// people locked out after it recovered by the very mechanism meant to
+		// protect them.
+		if throttled && credentialRejected(err) {
 			c.throttle.spend(ctx, budgets)
 		}
 		c.logger.Warn("auth validation failed", zap.String("driver", string(driver)), zap.Error(err))

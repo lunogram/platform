@@ -39,7 +39,7 @@ paths:
           required: true
           schema:
             type: string
-            enum: [basic, password, clerk]
+            enum: [basic, clerk]
           description: The authentication driver
       requestBody:
         required: false
@@ -132,7 +132,7 @@ paths:
 
 
         Whether registration is open at all is deployment configuration
-        (AUTH_PASSWORD_REGISTRATION): open, invite-only, or disabled. A disabled
+        (AUTH_BASIC_REGISTRATION): open, invite-only, or disabled. A disabled
         deployment answers 404, which is a property of the deployment and not of
         the submitted address.
       operationId: registerWithPassword

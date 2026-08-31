@@ -34,6 +34,7 @@ export default function Register() {
     const { t } = useTranslation()
     const [searchParams] = useSearchParams()
     const [drivers, setDrivers] = useState<AuthDriver[]>()
+    const [driversFailed, setDriversFailed] = useState(false)
     const [error, setError] = useState<string>()
     const [submitted, setSubmitted] = useState(false)
     const [isSubmitting, setIsSubmitting] = useState(false)
@@ -50,6 +51,7 @@ export default function Register() {
             .then(setDrivers)
             .catch((err) => {
                 console.error("Failed to fetch auth methods:", err)
+                setDriversFailed(true)
                 setError(t("login_methods_error"))
             })
     }, [t])
@@ -77,6 +79,23 @@ export default function Register() {
             }
             setIsSubmitting(false)
         }
+    }
+
+    // The failed case is checked first. Reading it as "still loading" is what
+    // left the page spinning forever when the methods request failed, with the
+    // error set and nothing able to render it.
+    if (driversFailed) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-muted/40">
+                <Card className="w-full max-w-sm">
+                    <CardContent className="flex flex-col items-center justify-center py-12">
+                        <p className="text-sm text-destructive">
+                            {error ?? t("login_methods_error")}
+                        </p>
+                    </CardContent>
+                </Card>
+            </div>
+        )
     }
 
     if (!drivers) {
