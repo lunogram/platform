@@ -172,62 +172,6 @@ func TestPasswordVerify(t *testing.T) {
 	})
 }
 
-// Raising the cost parameters must eventually reach the oldest hashes, which are
-// exactly the ones a leak would crack first.
-func TestPasswordVerifyRehashesOutdatedParameters(t *testing.T) {
-	t.Parallel()
-	env := newBasicVerifierEnv(t)
-	ctx := context.Background()
-
-	adminID, identityID := env.admin(t, "outdated@example.test", verifierPassword, true)
-
-	weaker := password.DefaultParams
-	weaker.Memory /= 4
-	weaker.Time = 1
-	legacy, err := password.HashWith(verifierPassword, weaker)
-	require.NoError(t, err)
-	require.NoError(t, env.mgmt.SetAdminIdentitySecret(ctx, identityID, legacy))
-
-	_, err = env.verifier.Verify(ctx, passwordRequest(t, map[string]string{
-		"email": "outdated@example.test", "password": verifierPassword,
-	}))
-	require.NoError(t, err)
-
-	identity, err := env.mgmt.GetLocalIdentity(ctx, adminID)
-	require.NoError(t, err)
-	require.NotNil(t, identity.SecretHash)
-	assert.NotEqual(t, legacy, *identity.SecretHash)
-
-	_, outdated, err := password.Verify(*identity.SecretHash, verifierPassword)
-	require.NoError(t, err)
-	assert.False(t, outdated)
-}
-
-// Rehashing a guess would be worse than pointless, so a failed attempt must
-// leave the stored hash exactly as it was.
-func TestPasswordVerifyDoesNotRehashOnFailure(t *testing.T) {
-	t.Parallel()
-	env := newBasicVerifierEnv(t)
-	ctx := context.Background()
-
-	adminID, identityID := env.admin(t, "untouched@example.test", verifierPassword, true)
-
-	weaker := password.DefaultParams
-	weaker.Time = 1
-	legacy, err := password.HashWith(verifierPassword, weaker)
-	require.NoError(t, err)
-	require.NoError(t, env.mgmt.SetAdminIdentitySecret(ctx, identityID, legacy))
-
-	_, err = env.verifier.Verify(ctx, passwordRequest(t, map[string]string{
-		"email": "untouched@example.test", "password": "not the right passphrase",
-	}))
-	require.ErrorIs(t, err, ErrInvalidCredentials)
-
-	identity, err := env.mgmt.GetLocalIdentity(ctx, adminID)
-	require.NoError(t, err)
-	assert.Equal(t, legacy, *identity.SecretHash)
-}
-
 // A hash the database holds but this build cannot parse is a data problem, and
 // there is no safe way to answer it other than as a failed login.
 func TestPasswordVerifyRejectsAnUnreadableHash(t *testing.T) {

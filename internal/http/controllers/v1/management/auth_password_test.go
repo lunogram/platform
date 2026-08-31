@@ -249,7 +249,7 @@ func TestRegisterDoesNotRevealExistingAccounts(t *testing.T) {
 	// The second attempt must not have touched the account.
 	identity, err := env.state.GetLocalIdentity(t.Context(), admin.ID)
 	require.NoError(t, err)
-	match, _, err := password.Verify(*identity.SecretHash, testPassword)
+	match, err := password.Verify(*identity.SecretHash, testPassword)
 	require.NoError(t, err)
 	assert.True(t, match, "the original password still stands")
 }
@@ -480,38 +480,6 @@ func TestPasswordLogin(t *testing.T) {
 		assert.Equal(t, unknown.Code, wrong.Code)
 		assert.Equal(t, unknown.Body.String(), wrong.Body.String())
 	})
-}
-
-// A hash produced under weaker parameters must be replaced the next time its
-// owner proves it, or raising the cost only ever protects accounts created
-// afterwards.
-func TestLoginRehashesAnOutdatedPassword(t *testing.T) {
-	t.Parallel()
-	env := newPasswordEnv(t, config.RegistrationOpen)
-	ctx := t.Context()
-
-	require.Equal(t, http.StatusNoContent, env.register("outdated@example.test", testPassword).Code)
-
-	admin := env.adminByEmail("outdated@example.test")
-	identity, err := env.state.GetLocalIdentity(ctx, admin.ID)
-	require.NoError(t, err)
-
-	weaker := password.DefaultParams
-	weaker.Memory /= 4
-	weaker.Time = 1
-	legacy, err := password.HashWith(testPassword, weaker)
-	require.NoError(t, err)
-	require.NoError(t, env.state.SetAdminIdentitySecret(ctx, identity.ID, legacy))
-
-	require.Equal(t, http.StatusOK, env.login("outdated@example.test", testPassword).Code)
-
-	upgraded, err := env.state.GetLocalIdentity(ctx, admin.ID)
-	require.NoError(t, err)
-	assert.NotEqual(t, legacy, *upgraded.SecretHash, "the stored hash was replaced")
-
-	_, outdated, err := password.Verify(*upgraded.SecretHash, testPassword)
-	require.NoError(t, err)
-	assert.False(t, outdated)
 }
 
 func TestPasswordReset(t *testing.T) {

@@ -559,7 +559,7 @@ func (c *AuthController) ChangePassword(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	match, _, err := password.Verify(*identity.SecretHash, body.CurrentPassword)
+	match, err := password.Verify(*identity.SecretHash, body.CurrentPassword)
 	if err != nil {
 		logger.Error("stored password hash could not be read", zap.Error(err))
 		oapi.WriteProblem(w, problem.ErrInternal())

@@ -236,38 +236,6 @@ func (s *AdminIdentitiesStore) SetAdminIdentitySecret(ctx context.Context, id uu
 	return nil
 }
 
-// ReplaceAdminIdentitySecret swaps a secret only if the stored one is still the
-// hash the caller verified.
-//
-// Re-hashing on login reads a hash, computes a stronger one from the same
-// plaintext and writes it back. If a password change or a reset commits in
-// between, an unconditional write would put the OLD password back: the login
-// proved a credential that is no longer current, and maintenance would undo the
-// change. Comparing against the hash that was read makes the write lose that
-// race instead of winning it.
-//
-// A no-op is reported so the caller can tell "somebody changed it underneath me"
-// from "it worked", rather than logging a success that did not happen.
-func (s *AdminIdentitiesStore) ReplaceAdminIdentitySecret(ctx context.Context, id uuid.UUID, previousHash, secretHash string) (bool, error) {
-	stmt := `
-	UPDATE admin_identities
-	SET secret_hash = $3
-	WHERE id = $1 AND provider = $4
-	AND secret_hash = $2
-	AND deleted_at IS NULL`
-
-	result, err := s.db.ExecContext(ctx, stmt, id, previousHash, secretHash, IdentityProviderBasic)
-	if err != nil {
-		return false, err
-	}
-
-	affected, err := result.RowsAffected()
-	if err != nil {
-		return false, err
-	}
-	return affected > 0, nil
-}
-
 // MarkAdminIdentityEmailVerified records that the address on an identity has
 // been proved.
 //

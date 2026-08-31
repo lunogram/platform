@@ -79,9 +79,7 @@ func (b *Basic) Verify(ctx context.Context, r *http.Request) (*auth.VerifiedIden
 		return nil, ErrInvalidCredentials
 	}
 
-	stored := *identity.SecretHash
-
-	match, outdated, err := password.Verify(stored, credentials.Password)
+	match, err := password.Verify(*identity.SecretHash, credentials.Password)
 	if err != nil {
 		// A hash the database holds but this build cannot parse is a data
 		// problem, not a wrong password. It is logged as such and still answered
@@ -92,10 +90,6 @@ func (b *Basic) Verify(ctx context.Context, r *http.Request) (*auth.VerifiedIden
 	}
 	if !match {
 		return nil, ErrInvalidCredentials
-	}
-
-	if outdated {
-		b.upgrade(ctx, identity, stored, credentials.Password)
 	}
 
 	return &auth.VerifiedIdentity{
@@ -132,45 +126,4 @@ func (b *Basic) lookup(ctx context.Context, email string) (*management.AdminIden
 	}
 
 	return identity, nil
-}
-
-// upgrade re-hashes a proven password under the current cost parameters.
-//
-// This is the one write a verifier makes, and it is a write to the credential it
-// has just proved rather than to anything the login goes on to decide: no admin
-// is found or created, no session is opened, nothing about the returned identity
-// changes. Without it, raising the parameters would only ever protect accounts
-// created afterwards, and the oldest, weakest hashes — the ones a leak would
-// crack first — would stay weak forever.
-//
-// The write is conditional on the hash that was verified still being the stored
-// one. A password change or a reset can commit between the read and this write,
-// and an unconditional update would then put the old password back: this login
-// proved a credential that is no longer current. Losing that race is the correct
-// outcome for maintenance work.
-//
-// A failure is logged and dropped. Refusing a login because the maintenance
-// write failed would turn a housekeeping problem into an outage.
-func (b *Basic) upgrade(ctx context.Context, identity *management.AdminIdentity, stored, plain string) {
-	rehashed, err := password.Hash(plain)
-	if err != nil {
-		b.logger.Error("failed to re-hash a password under the current parameters", zap.Error(err))
-		return
-	}
-
-	replaced, err := b.mgmt.ReplaceAdminIdentitySecret(ctx, identity.ID, stored, rehashed)
-	if err != nil {
-		b.logger.Error("failed to store a re-hashed password", zap.Error(err))
-		return
-	}
-	if !replaced {
-		// The credential changed under us, so the hash just proved is stale and
-		// re-hashing it would undo the change.
-		b.logger.Info("skipped re-hashing a password that changed during the login",
-			zap.String("admin_id", identity.AdminID.String()))
-		return
-	}
-
-	b.logger.Info("re-hashed a password under the current parameters",
-		zap.String("admin_id", identity.AdminID.String()))
 }

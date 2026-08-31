@@ -34,7 +34,7 @@ func TestSeedCreatesTheConfiguredAccount(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, identity.SecretHash)
 
-	match, _, err := password.Verify(*identity.SecretHash, seedPassword)
+	match, err := password.Verify(*identity.SecretHash, seedPassword)
 	require.NoError(t, err)
 	assert.True(t, match, "the configured password must be the one that was stored")
 
@@ -66,7 +66,7 @@ func TestSeedFillsAMissingSecretOnAnExistingAdmin(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, identity.SecretHash)
 
-	match, _, err := password.Verify(*identity.SecretHash, seedPassword)
+	match, err := password.Verify(*identity.SecretHash, seedPassword)
 	require.NoError(t, err)
 	assert.True(t, match)
 
@@ -101,7 +101,7 @@ func TestSeedNeverReplacesAStoredPassword(t *testing.T) {
 	after, err := env.mgmt.GetLocalIdentity(ctx, admin.ID)
 	require.NoError(t, err)
 
-	match, _, err := password.Verify(*after.SecretHash, "the password they chose in the console")
+	match, err := password.Verify(*after.SecretHash, "the password they chose in the console")
 	require.NoError(t, err)
 	assert.True(t, match, "the stored password must survive a restart")
 }
@@ -169,7 +169,7 @@ func TestSeedIgnoresTheVariableOnceAPasswordIsStored(t *testing.T) {
 	identity, err := env.mgmt.GetLocalIdentity(ctx, admin.ID)
 	require.NoError(t, err)
 
-	match, _, err := password.Verify(*identity.SecretHash, seedPassword)
+	match, err := password.Verify(*identity.SecretHash, seedPassword)
 	require.NoError(t, err)
 	assert.True(t, match)
 }

@@ -19,18 +19,15 @@ func TestHashRoundTrip(t *testing.T) {
 		t.Errorf("unexpected PHC encoding: %q", encoded)
 	}
 
-	match, outdated, err := Verify(encoded, "correct horse battery staple")
+	match, err := Verify(encoded, "correct horse battery staple")
 	if err != nil {
 		t.Fatalf("verify failed: %v", err)
 	}
 	if !match {
 		t.Error("expected the password to verify")
 	}
-	if outdated {
-		t.Error("a hash made with the current parameters is not outdated")
-	}
 
-	match, _, err = Verify(encoded, "correct horse battery stapl")
+	match, err = Verify(encoded, "correct horse battery stapl")
 	if err != nil {
 		t.Fatalf("verify failed: %v", err)
 	}
@@ -55,38 +52,6 @@ func TestHashIsSalted(t *testing.T) {
 	}
 }
 
-func TestVerifyReportsOutdatedParameters(t *testing.T) {
-	weaker := DefaultParams
-	weaker.Memory /= 4
-	weaker.Time = 1
-
-	encoded, err := HashWith("correct horse battery staple", weaker)
-	if err != nil {
-		t.Fatalf("hash failed: %v", err)
-	}
-
-	match, outdated, err := Verify(encoded, "correct horse battery staple")
-	if err != nil {
-		t.Fatalf("verify failed: %v", err)
-	}
-	if !match {
-		t.Fatal("a hash made with weaker parameters must still verify")
-	}
-	if !outdated {
-		t.Error("expected the weaker hash to be reported as outdated")
-	}
-
-	// Rehashing a guess would be worse than useless, so outdated is only ever
-	// reported alongside a match.
-	_, outdated, err = Verify(encoded, "wrong")
-	if err != nil {
-		t.Fatalf("verify failed: %v", err)
-	}
-	if outdated {
-		t.Error("outdated must not be reported for a failed verification")
-	}
-}
-
 func TestVerifyRejectsMalformedHashes(t *testing.T) {
 	tests := map[string]string{
 		"empty":              "",
@@ -101,7 +66,7 @@ func TestVerifyRejectsMalformedHashes(t *testing.T) {
 
 	for name, encoded := range tests {
 		t.Run(name, func(t *testing.T) {
-			match, _, err := Verify(encoded, "correct horse battery staple")
+			match, err := Verify(encoded, "correct horse battery staple")
 			if err == nil {
 				t.Fatal("expected an error")
 			}
@@ -176,7 +141,7 @@ func TestVerifyRejectsUnusableParameters(t *testing.T) {
 
 	for name, hash := range encoded {
 		t.Run(name, func(t *testing.T) {
-			match, _, err := Verify(hash, "any password at all")
+			match, err := Verify(hash, "any password at all")
 			assert.ErrorIs(t, err, ErrMalformedHash)
 			assert.False(t, match)
 		})
