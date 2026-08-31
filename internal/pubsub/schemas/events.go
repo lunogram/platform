@@ -136,6 +136,10 @@ type SendCampaign struct {
 	BroadcastID *uuid.UUID        `json:"broadcast_id,omitempty"`
 	Data        *SendCampaignData `json:"data,omitempty"`
 	Variables   map[string]string `json:"variables,omitempty"`
+	// Variant names the template variant this send must use, already resolved
+	// by the publisher. Nil hands the choice to the campaign's variant
+	// selector, which resolves one per recipient at render time.
+	Variant *string `json:"variant,omitempty"`
 }
 
 // InboxOrigin resolves the inbox source label and the external_id key used

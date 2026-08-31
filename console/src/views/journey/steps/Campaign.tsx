@@ -16,10 +16,12 @@ import { PlusIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { TemplateInput } from "@/components/ui/template-input"
 import { useJourneyVariableContext } from "../JourneyVariableContext"
+import { isEnterprise } from "@/config/enterprise"
 
 interface CampaignConfig {
     campaign_id: UUID
     data?: Record<string, string>
+    variant?: string
 }
 
 type CampaignOption = Campaign & { path: string }
@@ -90,6 +92,7 @@ export const campaignStep: JourneyStepType<CampaignConfig> = {
         )
 
         const variables = campaign?.variables ?? []
+        const campaignVariants = campaign?.variants ?? []
         const journeyVariables = nodeId ? getVariablesForNode(nodeId) : []
 
         const handleVariableChange = (name: string, newValue: string) => {
@@ -146,7 +149,12 @@ export const campaignStep: JourneyStepType<CampaignConfig> = {
                         value={value.campaign_id === NIL ? "" : value.campaign_id}
                         displayValue={campaign?.name}
                         onValueChange={(id) =>
-                            onChange({ ...value, campaign_id: (id || NIL) as UUID, data: {} })
+                            onChange({
+                                ...value,
+                                campaign_id: (id || NIL) as UUID,
+                                data: {},
+                                variant: undefined,
+                            })
                         }
                         placeholder={t("campaign.singular")}
                         renderOption={(option) => option.name}
@@ -166,6 +174,26 @@ export const campaignStep: JourneyStepType<CampaignConfig> = {
                         </Button>
                     }
                 />
+
+                {isEnterprise && campaign && campaignVariants.length > 0 && (
+                    <div className="space-y-1.5 border-t pt-3">
+                        <Label className="text-sm font-medium">
+                            {t("campaign.variants.title", "Variant")}
+                        </Label>
+                        <p className="text-xs text-muted-foreground">
+                            {t(
+                                "journey.campaign.variant_description",
+                                "Which design this step sends. Leave empty to let the campaign decide per recipient.",
+                            )}
+                        </p>
+                        <TemplateInput
+                            value={value.variant ?? ""}
+                            onChange={(newValue) => onChange({ ...value, variant: newValue })}
+                            variables={journeyVariables}
+                            placeholder={campaignVariants.map((v) => v.key).join(", ")}
+                        />
+                    </div>
+                )}
 
                 {campaign && variables.length > 0 && (
                     <div className="space-y-3 border-t pt-3">

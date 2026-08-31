@@ -25,13 +25,17 @@ const (
 type Broadcasts []Broadcast
 
 type Broadcast struct {
-	ID         uuid.UUID      `db:"id"`
-	ProjectID  uuid.UUID      `db:"project_id"`
-	CampaignID uuid.UUID      `db:"campaign_id"`
-	ListID     uuid.UUID      `db:"list_id"`
-	ListName   string         `db:"list_name"`
-	ListType   string         `db:"list_type"`
-	State      BroadcastState `db:"state"`
+	ID         uuid.UUID `db:"id"`
+	ProjectID  uuid.UUID `db:"project_id"`
+	CampaignID uuid.UUID `db:"campaign_id"`
+	ListID     uuid.UUID `db:"list_id"`
+	ListName   string    `db:"list_name"`
+	ListType   string    `db:"list_type"`
+	// Variant pins every message in this broadcast to one template variant. Nil
+	// leaves the choice to the campaign's variant selector, which resolves a
+	// variant per recipient - what a list spanning several clients needs.
+	Variant *string        `db:"variant"`
+	State   BroadcastState `db:"state"`
 	// Total is the number of messages published to NATS during broadcast
 	// processing. Sent tracks the number of messages actually delivered, and
 	// Failed the number that terminally will not be - a suppressed recipient or
@@ -61,6 +65,7 @@ func (b Broadcast) OAPI() oapi.Broadcast {
 		ListId:      b.ListID,
 		ListName:    b.ListName,
 		ListType:    b.ListType,
+		Variant:     b.Variant,
 		State:       oapi.BroadcastState(b.State),
 		Total:       b.Total,
 		Sent:        &b.Sent,
@@ -117,12 +122,12 @@ func (s *BroadcastsStore) CreateBroadcast(ctx context.Context, broadcast Broadca
 	}
 
 	stmt := `
-	INSERT INTO campaign_broadcasts (project_id, campaign_id, list_id, list_name, list_type, state, scheduled_at)
-	VALUES ($1, $2, $3, $4, $5, $6, $7)
-	RETURNING id, project_id, campaign_id, list_id, list_name, list_type, state, total, sent, failed, error, scheduled_at, created_at, updated_at, started_at, completed_at`
+	INSERT INTO campaign_broadcasts (project_id, campaign_id, list_id, list_name, list_type, state, scheduled_at, variant)
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+	RETURNING id, project_id, campaign_id, list_id, list_name, list_type, variant, state, total, sent, failed, error, scheduled_at, created_at, updated_at, started_at, completed_at`
 
 	var result Broadcast
-	err := s.db.GetContext(ctx, &result, stmt, broadcast.ProjectID, broadcast.CampaignID, broadcast.ListID, broadcast.ListName, broadcast.ListType, string(state), broadcast.ScheduledAt)
+	err := s.db.GetContext(ctx, &result, stmt, broadcast.ProjectID, broadcast.CampaignID, broadcast.ListID, broadcast.ListName, broadcast.ListType, string(state), broadcast.ScheduledAt, broadcast.Variant)
 	if err != nil {
 		return Broadcast{}, err
 	}
@@ -133,7 +138,7 @@ func (s *BroadcastsStore) CreateBroadcast(ctx context.Context, broadcast Broadca
 func (s *BroadcastsStore) GetBroadcast(ctx context.Context, projectID, broadcastID uuid.UUID) (*Broadcast, error) {
 	query := `
 	SELECT
-		cb.id, cb.project_id, cb.campaign_id, cb.list_id, cb.list_name, cb.list_type,
+		cb.id, cb.project_id, cb.campaign_id, cb.list_id, cb.list_name, cb.list_type, cb.variant,
 		cb.state, cb.total, cb.sent, cb.failed, cb.error, cb.scheduled_at, cb.created_at, cb.updated_at, cb.started_at, cb.completed_at,
 		c.name AS campaign_name, c.channel AS campaign_channel
 	FROM campaign_broadcasts cb
@@ -164,7 +169,7 @@ func (s *BroadcastsStore) GetBroadcast(ctx context.Context, projectID, broadcast
 func (s *BroadcastsStore) ListBroadcasts(ctx context.Context, projectID uuid.UUID, pagination store.Pagination, search string, campaignID *uuid.UUID, listID *uuid.UUID, state *BroadcastState) (Broadcasts, int, error) {
 	query := `
 	SELECT
-		cb.id, cb.project_id, cb.campaign_id, cb.list_id, cb.list_name, cb.list_type,
+		cb.id, cb.project_id, cb.campaign_id, cb.list_id, cb.list_name, cb.list_type, cb.variant,
 		cb.state, cb.total, cb.sent, cb.failed, cb.error, cb.scheduled_at, cb.created_at, cb.updated_at, cb.started_at, cb.completed_at,
 		c.name AS campaign_name, c.channel AS campaign_channel,
 		COUNT(*) OVER () AS total_count
@@ -380,7 +385,7 @@ func (s *BroadcastsStore) CancelBroadcast(ctx context.Context, projectID, broadc
 // briefly both act as leader.
 func (s *BroadcastsStore) ScanScheduledBroadcasts(ctx context.Context, limit int, scanner func(Broadcast) error) (int, error) {
 	query := `
-	SELECT id, project_id, campaign_id, list_id, list_name, list_type, state, total, sent, failed, error, scheduled_at, created_at, updated_at, started_at, completed_at
+	SELECT id, project_id, campaign_id, list_id, list_name, list_type, variant, state, total, sent, failed, error, scheduled_at, created_at, updated_at, started_at, completed_at
 	FROM campaign_broadcasts
 	WHERE state = 'scheduled'
 	AND scheduled_at IS NOT NULL
@@ -515,7 +520,7 @@ func (s *BroadcastsStore) GetBroadcastUsers(ctx context.Context, usersDB store.D
 // the consumer failed without updating state.
 func (s *BroadcastsStore) ScanStuckBroadcasts(ctx context.Context, stuckThreshold time.Duration, scanner func(Broadcast) error) (int, error) {
 	query := `
-	SELECT id, project_id, campaign_id, list_id, list_name, list_type, state, total, sent, failed, error, scheduled_at, created_at, updated_at, started_at, completed_at
+	SELECT id, project_id, campaign_id, list_id, list_name, list_type, variant, state, total, sent, failed, error, scheduled_at, created_at, updated_at, started_at, completed_at
 	FROM campaign_broadcasts
 	WHERE state = 'sending'
 	AND started_at IS NOT NULL

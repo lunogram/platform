@@ -953,6 +953,9 @@ type Broadcast struct {
 	// Total Total number of users in the audience at send time
 	Total     int       `json:"total"`
 	UpdatedAt time.Time `json:"updated_at"`
+
+	// Variant Template variant every message in this broadcast is pinned to
+	Variant *string `json:"variant,omitempty"`
 }
 
 // BroadcastState Current state of the broadcast
@@ -975,6 +978,10 @@ type Campaign struct {
 	Transactional  bool                `json:"transactional"`
 	UpdatedAt      time.Time           `json:"updated_at"`
 	Variables      *[]CampaignVariable `json:"variables,omitempty"`
+
+	// VariantSelector Liquid expression resolved per recipient when a send does not name a variant itself
+	VariantSelector *string            `json:"variant_selector,omitempty"`
+	Variants        *[]CampaignVariant `json:"variants,omitempty"`
 }
 
 // CampaignUser defines model for CampaignUser.
@@ -998,6 +1005,15 @@ type CampaignVariable struct {
 
 	// Name Variable name
 	Name string `json:"name"`
+}
+
+// CampaignVariant defines model for CampaignVariant.
+type CampaignVariant struct {
+	// Key The value a send resolves against to pick this variant's templates
+	Key string `json:"key"`
+
+	// Label Human readable name shown in the console
+	Label *string `json:"label,omitempty"`
 }
 
 // ChangePasswordRequest defines model for ChangePasswordRequest.
@@ -1074,6 +1090,9 @@ type CreateBroadcast struct {
 
 	// ScheduledAt Optional scheduled send time. If provided, the broadcast is created in 'scheduled' state.
 	ScheduledAt *time.Time `json:"scheduled_at,omitempty"`
+
+	// Variant Pins every message in this broadcast to one template variant. Leave unset to let the campaign's variant selector resolve a variant per recipient, which is what a mixed-tenant list needs.
+	Variant *string `json:"variant,omitempty"`
 }
 
 // CreateCampaign defines model for CreateCampaign.
@@ -1228,6 +1247,9 @@ type CreateTemplate struct {
 
 	// SenderIdentityId The ID of the sender identity to use for this template
 	SenderIdentityId *openapi_types.UUID `json:"sender_identity_id,omitempty"`
+
+	// Variant The variant this template belongs to. Empty selects the default variant, which is the branding every campaign starts with.
+	Variant *string `json:"variant,omitempty"`
 }
 
 // CreateUserDevice defines model for CreateUserDevice.
@@ -2098,6 +2120,9 @@ type Template struct {
 	// Type Communication channel type
 	Type      Channel   `json:"type"`
 	UpdatedAt time.Time `json:"updated_at"`
+
+	// Variant The variant this template belongs to. Empty is the default variant.
+	Variant string `json:"variant"`
 }
 
 // TestActionFunctionRequest defines model for TestActionFunctionRequest.
@@ -2191,6 +2216,10 @@ type UpdateCampaign struct {
 	SubscriptionId *openapi_types.UUID `json:"subscription_id,omitempty"`
 	Transactional  *bool               `json:"transactional,omitempty"`
 	Variables      *[]CampaignVariable `json:"variables,omitempty"`
+
+	// VariantSelector Liquid expression resolved per recipient when a send does not name a variant itself, for example "{{ user.data.tenant }}". An expression that resolves to an unknown variant falls back to the default one.
+	VariantSelector *string            `json:"variant_selector,omitempty"`
+	Variants        *[]CampaignVariant `json:"variants,omitempty"`
 }
 
 // UpdateJourney defines model for UpdateJourney.

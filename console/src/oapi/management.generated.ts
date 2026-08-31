@@ -3039,6 +3039,11 @@ export interface components {
              * @example 52f3f921-1343-48af-b795-87c0fd3b44aa
              */
             campaign_id: string;
+            /**
+             * @description Template variant to send, as a static key or a Liquid expression resolved against the journey context. Overrides the campaign's own variant selector.
+             * @example {{ user.data.tenant }}
+             */
+            variant?: string;
         };
         /** @description Data for action step - execute WASM action */
         ActionStepData: {
@@ -3330,6 +3335,12 @@ export interface components {
             /** @example false */
             transactional?: boolean;
             variables?: components["schemas"]["CampaignVariable"][];
+            variants?: components["schemas"]["CampaignVariant"][];
+            /**
+             * @description Liquid expression resolved per recipient when a send does not name a variant itself, for example "{{ user.data.tenant }}". An expression that resolves to an unknown variant falls back to the default one.
+             * @example {{ user.data.tenant }}
+             */
+            variant_selector?: string | null;
         };
         CampaignVariable: {
             /**
@@ -3343,12 +3354,29 @@ export interface components {
              */
             default?: string;
         };
+        CampaignVariant: {
+            /**
+             * @description The value a send resolves against to pick this variant's templates
+             * @example acme
+             */
+            key: string;
+            /**
+             * @description Human readable name shown in the console
+             * @example Acme Corp
+             */
+            label?: string;
+        };
         CreateTemplate: {
             /**
              * @description The locale/language code for the template
              * @example en
              */
             locale: string;
+            /**
+             * @description The variant this template belongs to. Empty selects the default variant, which is the branding every campaign starts with.
+             * @example acme
+             */
+            variant?: string;
             /** @description Template-specific data based on type. Structure varies by template type. */
             data?: {
                 [key: string]: unknown;
@@ -3413,6 +3441,12 @@ export interface components {
             transactional: boolean;
             templates: components["schemas"]["Template"][];
             variables?: components["schemas"]["CampaignVariable"][];
+            variants?: components["schemas"]["CampaignVariant"][];
+            /**
+             * @description Liquid expression resolved per recipient when a send does not name a variant itself
+             * @example {{ user.data.tenant }}
+             */
+            variant_selector?: string | null;
             delivery: components["schemas"]["Delivery"];
             /**
              * @description Whether the campaign has been archived
@@ -3691,6 +3725,11 @@ export interface components {
             data: components["schemas"]["EmailTemplateData"] | components["schemas"]["SmsTemplateData"] | components["schemas"]["PushTemplateData"];
             /** @example en */
             locale: string;
+            /**
+             * @description The variant this template belongs to. Empty is the default variant.
+             * @example acme
+             */
+            variant: string;
             /**
              * Format: uuid
              * @description The ID of the sender identity to use for this template
@@ -5433,6 +5472,11 @@ export interface components {
              * @description Optional scheduled send time. If provided, the broadcast is created in 'scheduled' state.
              */
             scheduled_at?: string;
+            /**
+             * @description Pins every message in this broadcast to one template variant. Leave unset to let the campaign's variant selector resolve a variant per recipient, which is what a mixed-tenant list needs.
+             * @example acme
+             */
+            variant?: string | null;
         };
         UpdateBroadcast: {
             /**
@@ -5454,6 +5498,8 @@ export interface components {
             list_name: string;
             /** @description Snapshot of the list type at broadcast creation time */
             list_type: string;
+            /** @description Template variant every message in this broadcast is pinned to */
+            variant?: string | null;
             state: components["schemas"]["BroadcastState"];
             /**
              * @description Total number of users in the audience at send time

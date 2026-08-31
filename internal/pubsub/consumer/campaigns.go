@@ -130,6 +130,9 @@ func createCampaignInboxMessageAndPublish(ctx context.Context, db *sqlx.DB, pub 
 		"template_id": item.TemplateID.String(),
 		"campaign_id": event.CampaignID.String(),
 	}
+	if item.Variant != "" {
+		provenance["variant"] = item.Variant
+	}
 	if event.BroadcastID != nil {
 		provenance["broadcast_id"] = event.BroadcastID.String()
 	}

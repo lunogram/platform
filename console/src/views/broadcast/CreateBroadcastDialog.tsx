@@ -47,6 +47,9 @@ const channelIcons: Record<ChannelType, typeof Mail> = {
     inbox: Inbox,
 }
 
+import { VariantSelect } from "@/views/campaign/template/VariantSelect"
+import { isEnterprise } from "@/config/enterprise"
+
 interface CreateBroadcastDialogProps {
     open: boolean
     onOpenChange: (open: boolean) => void
@@ -77,6 +80,7 @@ export function CreateBroadcastDialog({
             list_id: preselectedListId ?? "",
             is_scheduled: false,
             scheduled_at: "",
+            variant: "",
         },
     })
 
@@ -150,6 +154,7 @@ export function CreateBroadcastDialog({
                         ...(values.is_scheduled && values.scheduled_at
                             ? { scheduled_at: new Date(values.scheduled_at).toISOString() }
                             : {}),
+                        ...(values.variant ? { variant: values.variant } : {}),
                     },
                 },
             )
@@ -245,6 +250,30 @@ export function CreateBroadcastDialog({
                             </p>
                         )}
                     </div>
+
+                    {/* Variant Selector - only for campaigns that declare variants */}
+                    {isEnterprise && (selectedCampaign?.variants?.length ?? 0) > 0 && (
+                        <div className="grid gap-2">
+                            <Label>{t("campaign.variants.title", "Variant")}</Label>
+                            <Controller
+                                control={form.control}
+                                name="variant"
+                                render={({ field }) => (
+                                    <VariantSelect
+                                        variants={selectedCampaign?.variants ?? []}
+                                        value={field.value ?? ""}
+                                        onChange={field.onChange}
+                                    />
+                                )}
+                            />
+                            <p className="text-xs text-muted-foreground">
+                                {t(
+                                    "broadcast.variant_description",
+                                    "Sends every message under one design. Pick Default to let the campaign choose per recipient.",
+                                )}
+                            </p>
+                        </div>
+                    )}
 
                     {/* List Selector */}
                     <div className="grid gap-2">

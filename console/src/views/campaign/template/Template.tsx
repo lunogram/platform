@@ -8,6 +8,8 @@ import api from "@/api"
 import { Pagination, PaginationContent, PaginationItem } from "@/components/ui/pagination"
 
 import { LocaleSelect } from "@/components/locale/select"
+import { VariantSelect } from "./VariantSelect"
+import { isEnterprise } from "@/config/enterprise"
 import { Button } from "@/components/ui/button"
 import { TemplateWorkflowContext } from "./contexts"
 import { t } from "i18next"
@@ -62,7 +64,10 @@ export default function Template() {
     const steps = useMemo(() => {
         const templates = campaign.templates || []
         const selectedTemplateId =
-            templateId ?? templates.find((t) => t.locale === project.locale)?.id ?? templates[0]?.id
+            templateId ??
+            templates.find((t) => t.locale === project.locale && !t.variant)?.id ??
+            templates.find((t) => !t.variant)?.id ??
+            templates[0]?.id
 
         const basePath = `/projects/${project.id}/campaigns/${campaign.id}/templates/${selectedTemplateId}`
 
@@ -138,8 +143,13 @@ export default function Template() {
         [project.id, campaign.id, location.pathname, navigate],
     )
 
-    const handleLocaleChange = useCallback(
-        async (localeKey: string) => {
+    const currentVariant = currentTemplate?.variant ?? ""
+
+    // Switching either axis of the (locale, variant) pair keeps the other
+    // fixed, and creates the template when that combination has none yet -
+    // the same on-the-fly creation the locale switcher has always done.
+    const openTemplate = useCallback(
+        async (localeKey: string, variantKey: string) => {
             if (handler.current) {
                 const next = await handler.current()
                 if (!next) {
@@ -148,7 +158,7 @@ export default function Template() {
             }
 
             const selectedTemplate = campaign.templates.find(
-                (template) => template.locale === localeKey,
+                (template) => template.locale === localeKey && template.variant === variantKey,
             )
             if (selectedTemplate) {
                 navigateToTemplate(selectedTemplate.id)
@@ -156,20 +166,34 @@ export default function Template() {
             }
 
             setPageLoading(true)
-            const template = await api.campaigns.templates.create(project.id, campaign.id, {
-                locale: localeKey,
-                data: {},
-            })
+            try {
+                const template = await api.campaigns.templates.create(project.id, campaign.id, {
+                    locale: localeKey,
+                    variant: variantKey || undefined,
+                    data: {},
+                })
 
-            setCampaign({
-                ...campaign,
-                templates: [...campaign.templates, template],
-            })
+                setCampaign({
+                    ...campaign,
+                    templates: [...campaign.templates, template],
+                })
 
-            navigateToTemplate(template.id)
-            setPageLoading(false)
+                navigateToTemplate(template.id)
+            } finally {
+                setPageLoading(false)
+            }
         },
         [campaign, project?.id, setCampaign, navigateToTemplate],
+    )
+
+    const handleLocaleChange = useCallback(
+        (localeKey: string) => openTemplate(localeKey, currentVariant),
+        [openTemplate, currentVariant],
+    )
+
+    const handleVariantChange = useCallback(
+        (variantKey: string) => openTemplate(currentTemplate?.locale ?? project.locale, variantKey),
+        [openTemplate, currentTemplate?.locale, project.locale],
     )
 
     // Fetch locales when template changes
@@ -230,8 +254,15 @@ export default function Template() {
                     </div>
                     <div className="border-t bg-background flex items-center justify-between px-6 py-4 min-w-0 gap-4">
                         {templateId && (
-                            <div className="shrink-0">
+                            <div className="flex shrink-0 items-center gap-2">
                                 <LocaleSelect onChange={handleLocaleChange} />
+                                {isEnterprise && (campaign.variants?.length ?? 0) > 0 && (
+                                    <VariantSelect
+                                        variants={campaign.variants ?? []}
+                                        value={currentVariant}
+                                        onChange={handleVariantChange}
+                                    />
+                                )}
                             </div>
                         )}
                         <TemplateSteps steps={steps} />

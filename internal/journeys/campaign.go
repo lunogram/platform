@@ -30,6 +30,19 @@ func HandleCampaign(ctx HandlerContext, step journey.JourneyVersionStep, state j
 		}
 	}
 
+	// A step that names a variant decides the branding for this send outright,
+	// so it is resolved here against the journey context and travels with the
+	// event. Left unset, the campaign's own selector resolves one per recipient
+	// at render time.
+	var variant *string
+	if config.Variant != nil && *config.Variant != "" {
+		resolved, err := render.RenderString(*config.Variant, ctx.Data)
+		if err != nil {
+			return state, nil, fmt.Errorf("failed to render campaign variant: %w", err)
+		}
+		variant = &resolved
+	}
+
 	msg := schemas.SendCampaign{
 		ProjectID:  ctx.ProjectID,
 		UserID:     ctx.UserID,
@@ -40,6 +53,7 @@ func HandleCampaign(ctx HandlerContext, step journey.JourneyVersionStep, state j
 			JourneyStepID:  &step.ExternalID,
 		},
 		Variables: data,
+		Variant:   variant,
 	}
 
 	err = ctx.Publisher.Publish(ctx, schemas.Subject(schemas.CampaignsSend(ctx.ProjectID, config.CampaignId)), msg)

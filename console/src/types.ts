@@ -741,6 +741,11 @@ export interface CampaignVariable {
     default?: string
 }
 
+export interface CampaignVariant {
+    key: string
+    label?: string
+}
+
 export interface Campaign {
     id: UUID
     project_id: UUID
@@ -752,6 +757,8 @@ export interface Campaign {
     transactional?: boolean
     templates: Template[]
     variables: CampaignVariable[]
+    variants: CampaignVariant[]
+    variant_selector?: string | null
     created_at: string
     updated_at: string
 }
@@ -861,6 +868,7 @@ export type Template<
     campaign_id: UUID
     type: ChannelType
     locale: string
+    variant: string
     sender_identity_id: UUID | null
     data: DataObjectType
     screenshot_url: string
@@ -885,7 +893,7 @@ export type Template<
       }
 )
 
-export type TemplateCreateParams = Pick<Template, "data" | "locale">
+export type TemplateCreateParams = Pick<Template, "data" | "locale"> & { variant?: string }
 export type TemplateUpdateParams = Pick<Template, "data" | "sender_identity_id">
 export type VariantUpdateParams = { id?: UUID }
 

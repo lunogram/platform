@@ -7194,6 +7194,13 @@ components:
           description: Campaign to send
           example: "52f3f921-1343-48af-b795-87c0fd3b44aa"
           x-go-type: uuid.UUID
+        variant:
+          type: string
+          description: >-
+            Template variant to send, as a static key or a Liquid expression
+            resolved against the journey context. Overrides the campaign's own
+            variant selector.
+          example: "{{ user.data.tenant }}"
 
     ActionStepData:
       type: object
@@ -7617,6 +7624,18 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/CampaignVariable"
+        variants:
+          type: array
+          items:
+            $ref: "#/components/schemas/CampaignVariant"
+        variant_selector:
+          type: string
+          nullable: true
+          description: >-
+            Liquid expression resolved per recipient when a send does not name a
+            variant itself, for example "{{ user.data.tenant }}". An expression
+            that resolves to an unknown variant falls back to the default one.
+          example: "{{ user.data.tenant }}"
 
     CampaignVariable:
       type: object
@@ -7632,6 +7651,20 @@ components:
           description: Default value for the variable
           example: "there"
 
+    CampaignVariant:
+      type: object
+      required:
+        - key
+      properties:
+        key:
+          type: string
+          description: The value a send resolves against to pick this variant's templates
+          example: "acme"
+        label:
+          type: string
+          description: Human readable name shown in the console
+          example: "Acme Corp"
+
     CreateTemplate:
       type: object
       required:
@@ -7641,6 +7674,12 @@ components:
           type: string
           example: "en"
           description: The locale/language code for the template
+        variant:
+          type: string
+          example: "acme"
+          description: >-
+            The variant this template belongs to. Empty selects the default
+            variant, which is the branding every campaign starts with.
         data:
           type: object
           nullable: true
@@ -7738,6 +7777,15 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/CampaignVariable"
+        variants:
+          type: array
+          items:
+            $ref: "#/components/schemas/CampaignVariant"
+        variant_selector:
+          type: string
+          nullable: true
+          description: Liquid expression resolved per recipient when a send does not name a variant itself
+          example: "{{ user.data.tenant }}"
         delivery:
           $ref: "#/components/schemas/Delivery"
         archived:
@@ -8098,6 +8146,7 @@ components:
         - data
         - type
         - locale
+        - variant
         - created_at
         - updated_at
       properties:
@@ -8132,6 +8181,10 @@ components:
         locale:
           type: string
           example: "en"
+        variant:
+          type: string
+          example: "acme"
+          description: The variant this template belongs to. Empty is the default variant.
         sender_identity_id:
           type: string
           format: uuid
@@ -10498,6 +10551,14 @@ components:
           type: string
           format: date-time
           description: Optional scheduled send time. If provided, the broadcast is created in 'scheduled' state.
+        variant:
+          type: string
+          nullable: true
+          description: >-
+            Pins every message in this broadcast to one template variant. Leave
+            unset to let the campaign's variant selector resolve a variant per
+            recipient, which is what a mixed-tenant list needs.
+          example: "acme"
 
     UpdateBroadcast:
       type: object
@@ -10540,6 +10601,10 @@ components:
         list_type:
           type: string
           description: Snapshot of the list type at broadcast creation time
+        variant:
+          type: string
+          nullable: true
+          description: Template variant every message in this broadcast is pinned to
         state:
           $ref: "#/components/schemas/BroadcastState"
         total:
