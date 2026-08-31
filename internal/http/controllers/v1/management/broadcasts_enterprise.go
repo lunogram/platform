@@ -6,7 +6,6 @@ import (
 	"database/sql"
 	"errors"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -91,16 +90,19 @@ func (srv *BroadcastsController) CreateBroadcast(w http.ResponseWriter, r *http.
 	// Pinning a broadcast to a variant the campaign never declared would send
 	// the whole list the default branding while the operator believes they
 	// picked a client, so refuse it outright rather than falling back.
-	var variant *string
+	var variant *management.VariantSelector
 	if body.Variant != nil {
-		key := strings.TrimSpace(*body.Variant)
-		if key != "" {
-			if !campaign.Variants.Data.Has(key) {
-				oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("campaign does not declare variant "+key)))
-				return
-			}
-			variant = &key
+		if !variantsAvailable {
+			oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("template variants are not available in the open-source version")))
+			return
 		}
+
+		selector := management.VariantSelectorFromOAPI(*body.Variant)
+		if err := selector.Validate(campaign.Variants.Data); err != nil {
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe(err.Error())))
+			return
+		}
+		variant = &selector
 	}
 
 	list, err := srv.usrs.GetList(ctx, projectID, body.ListId)
@@ -123,7 +125,7 @@ func (srv *BroadcastsController) CreateBroadcast(w http.ResponseWriter, r *http.
 		ListName:    list.Name,
 		ListType:    string(list.Type),
 		ScheduledAt: body.ScheduledAt,
-		Variant:     variant,
+		Variant:     store.JSONB[*management.VariantSelector]{Data: variant},
 	})
 	if err != nil {
 		logger.Error("failed to create broadcast", zap.Error(err))

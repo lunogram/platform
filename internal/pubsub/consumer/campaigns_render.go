@@ -59,33 +59,34 @@ func userToMap(user *subjects.User) map[string]any {
 
 // resolveVariant works out which template variant a send must use.
 //
-// An explicit variant on the event wins: the publisher - a journey step, or a
-// broadcast pinned to one client - has already decided. Otherwise the
-// campaign's selector is rendered against the same context the templates
-// render against, so a project can drive branding off recipient data such as
-// "{{ user.data.tenant }}" without configuring anything per send.
+// A selector on the event wins - a journey step or a broadcast has decided for
+// this send in particular. Otherwise the campaign's own selector runs, against
+// the same context the templates render against, so a project can drive
+// branding off recipient data such as "{{ user.data.tenant }}" without
+// configuring anything per send. Neither present means the default variant.
 //
-// A selector that fails to render resolves to the default variant. The
-// expression is customer-authored and a broken one must not take a campaign
-// down; the fallback is counted where the template is selected.
+// A selector that fails to resolve also yields the default variant. Expressions
+// are customer-authored and a broken one must not take a campaign down; the
+// fallback is counted where the template is selected.
 func resolveVariant(logger *zap.Logger, campaign *management.Campaign, event schemas.SendCampaign, data map[string]any) string {
-	if event.Variant != nil {
-		return strings.TrimSpace(*event.Variant)
+	selector := event.Variant
+	if selector == nil {
+		selector = campaign.Variants.Data.Selector
 	}
 
-	if campaign.VariantSelector == nil || *campaign.VariantSelector == "" {
+	if selector == nil {
 		return ""
 	}
 
-	resolved, err := render.RenderString(*campaign.VariantSelector, data)
+	resolved, err := selector.Resolve(data)
 	if err != nil {
-		logger.Warn("failed to render campaign variant selector, using default variant",
+		logger.Warn("failed to resolve variant selector, using default variant",
 			zap.Error(err),
-			zap.String("selector", *campaign.VariantSelector))
+			zap.String("selector_type", string(selector.Type)))
 		return ""
 	}
 
-	return strings.TrimSpace(resolved)
+	return resolved
 }
 
 // selectTemplate picks the template for a send, narrowing by variant before

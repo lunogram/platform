@@ -7195,12 +7195,7 @@ components:
           example: "52f3f921-1343-48af-b795-87c0fd3b44aa"
           x-go-type: uuid.UUID
         variant:
-          type: string
-          description: >-
-            Template variant to send, as a static key or a Liquid expression
-            resolved against the journey context. Overrides the campaign's own
-            variant selector.
-          example: "{{ user.data.tenant }}"
+          $ref: "#/components/schemas/VariantSelector"
 
     ActionStepData:
       type: object
@@ -7625,17 +7620,7 @@ components:
           items:
             $ref: "#/components/schemas/CampaignVariable"
         variants:
-          type: array
-          items:
-            $ref: "#/components/schemas/CampaignVariant"
-        variant_selector:
-          type: string
-          nullable: true
-          description: >-
-            Liquid expression resolved per recipient when a send does not name a
-            variant itself, for example "{{ user.data.tenant }}". An expression
-            that resolves to an unknown variant falls back to the default one.
-          example: "{{ user.data.tenant }}"
+          $ref: "#/components/schemas/CampaignVariants"
 
     CampaignVariable:
       type: object
@@ -7664,6 +7649,47 @@ components:
           type: string
           description: Human readable name shown in the console
           example: "Acme Corp"
+
+    VariantSelector:
+      type: object
+      description: >-
+        Decides which template variant a send uses. The same shape appears on a
+        campaign, on a journey campaign step and on a broadcast; the most
+        specific layer wins. A static selector pins one variant for every
+        recipient and is rejected when the campaign does not declare its key. An
+        expression selector resolves a variant per recipient and can only be
+        judged at send time, so one that resolves to an unknown variant falls
+        back to the default variant.
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum: [static, expression]
+          description: Whether the variant is pinned or resolved per recipient
+          example: "expression"
+        key:
+          type: string
+          description: Variant key. Required when type is static.
+          example: "acme"
+        expression:
+          type: string
+          description: Liquid expression. Required when type is expression.
+          example: "{{ user.data.tenant }}"
+
+    CampaignVariants:
+      type: object
+      description: >-
+        A campaign's declared variants together with the rule that picks between
+        them when a send does not pick one itself.
+      properties:
+        selector:
+          $ref: "#/components/schemas/VariantSelector"
+        options:
+          type: array
+          description: The variants this campaign declares. The default variant is always available and is not listed here.
+          items:
+            $ref: "#/components/schemas/CampaignVariant"
 
     CreateTemplate:
       type: object
@@ -7778,14 +7804,7 @@ components:
           items:
             $ref: "#/components/schemas/CampaignVariable"
         variants:
-          type: array
-          items:
-            $ref: "#/components/schemas/CampaignVariant"
-        variant_selector:
-          type: string
-          nullable: true
-          description: Liquid expression resolved per recipient when a send does not name a variant itself
-          example: "{{ user.data.tenant }}"
+          $ref: "#/components/schemas/CampaignVariants"
         delivery:
           $ref: "#/components/schemas/Delivery"
         archived:
@@ -10552,13 +10571,7 @@ components:
           format: date-time
           description: Optional scheduled send time. If provided, the broadcast is created in 'scheduled' state.
         variant:
-          type: string
-          nullable: true
-          description: >-
-            Pins every message in this broadcast to one template variant. Leave
-            unset to let the campaign's variant selector resolve a variant per
-            recipient, which is what a mixed-tenant list needs.
-          example: "acme"
+          $ref: "#/components/schemas/VariantSelector"
 
     UpdateBroadcast:
       type: object
@@ -10602,9 +10615,7 @@ components:
           type: string
           description: Snapshot of the list type at broadcast creation time
         variant:
-          type: string
-          nullable: true
-          description: Template variant every message in this broadcast is pinned to
+          $ref: "#/components/schemas/VariantSelector"
         state:
           $ref: "#/components/schemas/BroadcastState"
         total:

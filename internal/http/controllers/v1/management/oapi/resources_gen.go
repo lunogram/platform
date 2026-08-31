@@ -598,6 +598,24 @@ func (e UpdateUserScheduledRequestResume) Valid() bool {
 	}
 }
 
+// Defines values for VariantSelectorType.
+const (
+	Expression VariantSelectorType = "expression"
+	Static     VariantSelectorType = "static"
+)
+
+// Valid indicates whether the value is a known member of the VariantSelectorType enum.
+func (e VariantSelectorType) Valid() bool {
+	switch e {
+	case Expression:
+		return true
+	case Static:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ListProjectInvitesParamsStatus.
 const (
 	Accepted ListProjectInvitesParamsStatus = "accepted"
@@ -954,8 +972,8 @@ type Broadcast struct {
 	Total     int       `json:"total"`
 	UpdatedAt time.Time `json:"updated_at"`
 
-	// Variant Template variant every message in this broadcast is pinned to
-	Variant *string `json:"variant,omitempty"`
+	// Variant Decides which template variant a send uses. The same shape appears on a campaign, on a journey campaign step and on a broadcast; the most specific layer wins. A static selector pins one variant for every recipient and is rejected when the campaign does not declare its key. An expression selector resolves a variant per recipient and can only be judged at send time, so one that resolves to an unknown variant falls back to the default variant.
+	Variant *VariantSelector `json:"variant,omitempty"`
 }
 
 // BroadcastState Current state of the broadcast
@@ -979,9 +997,8 @@ type Campaign struct {
 	UpdatedAt      time.Time           `json:"updated_at"`
 	Variables      *[]CampaignVariable `json:"variables,omitempty"`
 
-	// VariantSelector Liquid expression resolved per recipient when a send does not name a variant itself
-	VariantSelector *string            `json:"variant_selector,omitempty"`
-	Variants        *[]CampaignVariant `json:"variants,omitempty"`
+	// Variants A campaign's declared variants together with the rule that picks between them when a send does not pick one itself.
+	Variants *CampaignVariants `json:"variants,omitempty"`
 }
 
 // CampaignUser defines model for CampaignUser.
@@ -1014,6 +1031,15 @@ type CampaignVariant struct {
 
 	// Label Human readable name shown in the console
 	Label *string `json:"label,omitempty"`
+}
+
+// CampaignVariants A campaign's declared variants together with the rule that picks between them when a send does not pick one itself.
+type CampaignVariants struct {
+	// Options The variants this campaign declares. The default variant is always available and is not listed here.
+	Options *[]CampaignVariant `json:"options,omitempty"`
+
+	// Selector Decides which template variant a send uses. The same shape appears on a campaign, on a journey campaign step and on a broadcast; the most specific layer wins. A static selector pins one variant for every recipient and is rejected when the campaign does not declare its key. An expression selector resolves a variant per recipient and can only be judged at send time, so one that resolves to an unknown variant falls back to the default variant.
+	Selector *VariantSelector `json:"selector,omitempty"`
 }
 
 // ChangePasswordRequest defines model for ChangePasswordRequest.
@@ -1091,8 +1117,8 @@ type CreateBroadcast struct {
 	// ScheduledAt Optional scheduled send time. If provided, the broadcast is created in 'scheduled' state.
 	ScheduledAt *time.Time `json:"scheduled_at,omitempty"`
 
-	// Variant Pins every message in this broadcast to one template variant. Leave unset to let the campaign's variant selector resolve a variant per recipient, which is what a mixed-tenant list needs.
-	Variant *string `json:"variant,omitempty"`
+	// Variant Decides which template variant a send uses. The same shape appears on a campaign, on a journey campaign step and on a broadcast; the most specific layer wins. A static selector pins one variant for every recipient and is rejected when the campaign does not declare its key. An expression selector resolves a variant per recipient and can only be judged at send time, so one that resolves to an unknown variant falls back to the default variant.
+	Variant *VariantSelector `json:"variant,omitempty"`
 }
 
 // CreateCampaign defines model for CreateCampaign.
@@ -2217,9 +2243,8 @@ type UpdateCampaign struct {
 	Transactional  *bool               `json:"transactional,omitempty"`
 	Variables      *[]CampaignVariable `json:"variables,omitempty"`
 
-	// VariantSelector Liquid expression resolved per recipient when a send does not name a variant itself, for example "{{ user.data.tenant }}". An expression that resolves to an unknown variant falls back to the default one.
-	VariantSelector *string            `json:"variant_selector,omitempty"`
-	Variants        *[]CampaignVariant `json:"variants,omitempty"`
+	// Variants A campaign's declared variants together with the rule that picks between them when a send does not pick one itself.
+	Variants *CampaignVariants `json:"variants,omitempty"`
 }
 
 // UpdateJourney defines model for UpdateJourney.
@@ -2567,6 +2592,21 @@ type UserSubscriptionList struct {
 	// Total Total number of items matching the filters
 	Total int `json:"total"`
 }
+
+// VariantSelector Decides which template variant a send uses. The same shape appears on a campaign, on a journey campaign step and on a broadcast; the most specific layer wins. A static selector pins one variant for every recipient and is rejected when the campaign does not declare its key. An expression selector resolves a variant per recipient and can only be judged at send time, so one that resolves to an unknown variant falls back to the default variant.
+type VariantSelector struct {
+	// Expression Liquid expression. Required when type is expression.
+	Expression *string `json:"expression,omitempty"`
+
+	// Key Variant key. Required when type is static.
+	Key *string `json:"key,omitempty"`
+
+	// Type Whether the variant is pinned or resolved per recipient
+	Type VariantSelectorType `json:"type"`
+}
+
+// VariantSelectorType Whether the variant is pinned or resolved per recipient
+type VariantSelectorType string
 
 // IncludeDeleted defines model for IncludeDeleted.
 type IncludeDeleted = bool

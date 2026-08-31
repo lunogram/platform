@@ -47,7 +47,7 @@ const channelIcons: Record<ChannelType, typeof Mail> = {
     inbox: Inbox,
 }
 
-import { VariantSelect } from "@/views/campaign/template/VariantSelect"
+import { VariantSelectorInput } from "@/views/campaign/VariantSelectorInput"
 import { isEnterprise } from "@/config/enterprise"
 
 interface CreateBroadcastDialogProps {
@@ -80,7 +80,6 @@ export function CreateBroadcastDialog({
             list_id: preselectedListId ?? "",
             is_scheduled: false,
             scheduled_at: "",
-            variant: "",
         },
     })
 
@@ -252,26 +251,24 @@ export function CreateBroadcastDialog({
                     </div>
 
                     {/* Variant Selector - only for campaigns that declare variants */}
-                    {isEnterprise && (selectedCampaign?.variants?.length ?? 0) > 0 && (
+                    {isEnterprise && (selectedCampaign?.variants?.options?.length ?? 0) > 0 && (
                         <div className="grid gap-2">
                             <Label>{t("campaign.variants.title", "Variant")}</Label>
                             <Controller
                                 control={form.control}
                                 name="variant"
                                 render={({ field }) => (
-                                    <VariantSelect
-                                        variants={selectedCampaign?.variants ?? []}
-                                        value={field.value ?? ""}
+                                    <VariantSelectorInput
+                                        value={field.value}
+                                        options={selectedCampaign?.variants?.options ?? []}
                                         onChange={field.onChange}
+                                        emptyLabel={t(
+                                            "broadcast.variant_inherit",
+                                            "Whatever the campaign decides",
+                                        )}
                                     />
                                 )}
                             />
-                            <p className="text-xs text-muted-foreground">
-                                {t(
-                                    "broadcast.variant_description",
-                                    "Sends every message under one design. Pick Default to let the campaign choose per recipient.",
-                                )}
-                            </p>
                         </div>
                     )}
 

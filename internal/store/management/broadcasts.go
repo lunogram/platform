@@ -31,11 +31,11 @@ type Broadcast struct {
 	ListID     uuid.UUID `db:"list_id"`
 	ListName   string    `db:"list_name"`
 	ListType   string    `db:"list_type"`
-	// Variant pins every message in this broadcast to one template variant. Nil
-	// leaves the choice to the campaign's variant selector, which resolves a
-	// variant per recipient - what a list spanning several clients needs.
-	Variant *string        `db:"variant"`
-	State   BroadcastState `db:"state"`
+	// Variant overrides the campaign's rule for this broadcast, either pinning
+	// one variant or carrying its own expression for a list spanning several
+	// clients. Nil defers to the campaign.
+	Variant store.JSONB[*VariantSelector] `db:"variant"`
+	State   BroadcastState                `db:"state"`
 	// Total is the number of messages published to NATS during broadcast
 	// processing. Sent tracks the number of messages actually delivered, and
 	// Failed the number that terminally will not be - a suppressed recipient or
@@ -65,7 +65,6 @@ func (b Broadcast) OAPI() oapi.Broadcast {
 		ListId:      b.ListID,
 		ListName:    b.ListName,
 		ListType:    b.ListType,
-		Variant:     b.Variant,
 		State:       oapi.BroadcastState(b.State),
 		Total:       b.Total,
 		Sent:        &b.Sent,
@@ -76,6 +75,11 @@ func (b Broadcast) OAPI() oapi.Broadcast {
 		CompletedAt: b.CompletedAt,
 		CreatedAt:   b.CreatedAt,
 		UpdatedAt:   b.UpdatedAt,
+	}
+
+	if b.Variant.Data != nil {
+		selector := b.Variant.Data.OAPI()
+		result.Variant = &selector
 	}
 
 	if b.Campaign != nil {
@@ -126,8 +130,19 @@ func (s *BroadcastsStore) CreateBroadcast(ctx context.Context, broadcast Broadca
 	VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 	RETURNING id, project_id, campaign_id, list_id, list_name, list_type, variant, state, total, sent, failed, error, scheduled_at, created_at, updated_at, started_at, completed_at`
 
+	// Absent selectors are stored as SQL NULL rather than a JSON null, so a
+	// broadcast that defers to the campaign reads back as one.
+	var variantVal any
+	if broadcast.Variant.Data != nil {
+		v, err := broadcast.Variant.Value()
+		if err != nil {
+			return Broadcast{}, err
+		}
+		variantVal = v
+	}
+
 	var result Broadcast
-	err := s.db.GetContext(ctx, &result, stmt, broadcast.ProjectID, broadcast.CampaignID, broadcast.ListID, broadcast.ListName, broadcast.ListType, string(state), broadcast.ScheduledAt, broadcast.Variant)
+	err := s.db.GetContext(ctx, &result, stmt, broadcast.ProjectID, broadcast.CampaignID, broadcast.ListID, broadcast.ListName, broadcast.ListType, string(state), broadcast.ScheduledAt, variantVal)
 	if err != nil {
 		return Broadcast{}, err
 	}

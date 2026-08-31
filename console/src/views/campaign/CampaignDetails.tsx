@@ -40,8 +40,7 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
     const [isBroadcastOpen, setIsBroadcastOpen] = useState(false)
     const [isTransactional, setTransactional] = useState(campaign.transactional ?? false)
     const [subscriptionId, setSubscriptionId] = useState<string>(campaign.subscription_id ?? "")
-    const [variants, setVariants] = useState(campaign.variants ?? [])
-    const [variantSelector, setVariantSelector] = useState(campaign.variant_selector ?? "")
+    const [variants, setVariants] = useState(campaign.variants ?? {})
 
     const [subscriptions] = useResolver(
         useCallback(async (): Promise<Subscription[]> => {
@@ -93,8 +92,10 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
                 subscription_id: isTransactional ? undefined : effectiveSubscriptionId || undefined,
                 variables: data.variables.filter((v) => v.name),
                 ...(isEnterprise && {
-                    variants: variants.filter((v) => v.key),
-                    variant_selector: variantSelector,
+                    variants: {
+                        ...variants,
+                        options: (variants.options ?? []).filter((v) => v.key),
+                    },
                 }),
             })
 
@@ -179,11 +180,9 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
                                             )}
                                         </FieldDescription>
                                         <CampaignVariants
-                                            variants={variants}
-                                            selector={variantSelector}
+                                            value={variants}
                                             templates={campaign.templates ?? []}
                                             onChange={setVariants}
-                                            onSelectorChange={setVariantSelector}
                                         />
                                     </Field>
                                 </FieldGroup>

@@ -7,6 +7,7 @@ import (
 	"github.com/lunogram/platform/internal/pubsub/schemas"
 	"github.com/lunogram/platform/internal/render"
 	"github.com/lunogram/platform/internal/store/journey"
+	"github.com/lunogram/platform/internal/store/management"
 )
 
 func HandleCampaign(ctx HandlerContext, step journey.JourneyVersionStep, state journey.JourneyUserState) (journey.JourneyUserState, journey.JourneyVersionStepChildren, error) {
@@ -30,17 +31,24 @@ func HandleCampaign(ctx HandlerContext, step journey.JourneyVersionStep, state j
 		}
 	}
 
-	// A step that names a variant decides the branding for this send outright,
-	// so it is resolved here against the journey context and travels with the
-	// event. Left unset, the campaign's own selector resolves one per recipient
-	// at render time.
-	var variant *string
-	if config.Variant != nil && *config.Variant != "" {
-		resolved, err := render.RenderString(*config.Variant, ctx.Data)
+	// A step that names a variant decides the branding for this send. An
+	// expression is resolved here rather than at render time because it reads
+	// the journey context - entrance data, earlier step state - which no longer
+	// exists once the send is rendered; the event therefore always carries a
+	// static selector. Left unset, the campaign's own selector applies.
+	var variant *management.VariantSelector
+	if config.Variant != nil {
+		selector := management.VariantSelectorFromOAPI(*config.Variant)
+		resolved, err := selector.Resolve(ctx.Data)
 		if err != nil {
-			return state, nil, fmt.Errorf("failed to render campaign variant: %w", err)
+			return state, nil, fmt.Errorf("failed to resolve campaign variant: %w", err)
 		}
-		variant = &resolved
+		if resolved != "" {
+			variant = &management.VariantSelector{
+				Type: management.VariantSelectorStatic,
+				Key:  resolved,
+			}
+		}
 	}
 
 	msg := schemas.SendCampaign{

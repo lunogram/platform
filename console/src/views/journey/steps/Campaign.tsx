@@ -1,6 +1,6 @@
 import { useCallback } from "react"
 import api from "../../../api"
-import type { Campaign, CampaignVariable, JourneyStepType } from "../../../types"
+import type { Campaign, CampaignVariable, JourneyStepType, VariantSelector } from "../../../types"
 import type { VariableGroup } from "../JourneyVariableContext"
 import { Combobox } from "@/components/ui/combobox"
 import { Label } from "@/components/ui/label"
@@ -17,11 +17,12 @@ import { Button } from "@/components/ui/button"
 import { TemplateInput } from "@/components/ui/template-input"
 import { useJourneyVariableContext } from "../JourneyVariableContext"
 import { isEnterprise } from "@/config/enterprise"
+import { VariantSelectorInput } from "../../campaign/VariantSelectorInput"
 
 interface CampaignConfig {
     campaign_id: UUID
     data?: Record<string, string>
-    variant?: string
+    variant?: VariantSelector
 }
 
 type CampaignOption = Campaign & { path: string }
@@ -92,7 +93,7 @@ export const campaignStep: JourneyStepType<CampaignConfig> = {
         )
 
         const variables = campaign?.variables ?? []
-        const campaignVariants = campaign?.variants ?? []
+        const campaignVariants = campaign?.variants?.options ?? []
         const journeyVariables = nodeId ? getVariablesForNode(nodeId) : []
 
         const handleVariableChange = (name: string, newValue: string) => {
@@ -183,14 +184,18 @@ export const campaignStep: JourneyStepType<CampaignConfig> = {
                         <p className="text-xs text-muted-foreground">
                             {t(
                                 "journey.campaign.variant_description",
-                                "Which design this step sends. Leave empty to let the campaign decide per recipient.",
+                                "Which design this step sends.",
                             )}
                         </p>
-                        <TemplateInput
-                            value={value.variant ?? ""}
-                            onChange={(newValue) => onChange({ ...value, variant: newValue })}
+                        <VariantSelectorInput
+                            value={value.variant}
+                            options={campaignVariants}
+                            onChange={(variant) => onChange({ ...value, variant })}
                             variables={journeyVariables}
-                            placeholder={campaignVariants.map((v) => v.key).join(", ")}
+                            emptyLabel={t(
+                                "journey.campaign.variant_inherit",
+                                "Whatever the campaign decides",
+                            )}
                         />
                     </div>
                 )}

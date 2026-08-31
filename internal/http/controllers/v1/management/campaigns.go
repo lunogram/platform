@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"errors"
 	"net/http"
-	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -252,44 +251,18 @@ func (srv *CampaignsController) UpdateCampaign(w http.ResponseWriter, r *http.Re
 		updated.Variables = &store.JSONB[management.CampaignVariables]{Data: vars}
 	}
 
-	if body.Variants != nil || body.VariantSelector != nil {
+	if body.Variants != nil {
 		if !variantsAvailable {
 			oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("template variants are not available in the open-source version")))
 			return
 		}
-	}
 
-	if body.Variants != nil {
-		variants := make(management.CampaignVariants, 0, len(*body.Variants))
-		seen := make(map[string]bool, len(*body.Variants))
-		for _, v := range *body.Variants {
-			key := strings.TrimSpace(v.Key)
-
-			// The empty key is the default variant. It always exists and is
-			// never declared, so accepting it here would create a duplicate of
-			// something that cannot be removed.
-			if key == "" {
-				oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("variant key cannot be empty")))
-				return
-			}
-
-			if seen[key] {
-				oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("duplicate variant key "+key)))
-				return
-			}
-			seen[key] = true
-
-			variant := management.CampaignVariant{Key: key}
-			if v.Label != nil {
-				variant.Label = strings.TrimSpace(*v.Label)
-			}
-			variants = append(variants, variant)
+		variants, err := management.CampaignVariantsFromOAPI(*body.Variants)
+		if err != nil {
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe(err.Error())))
+			return
 		}
 		updated.Variants = &store.JSONB[management.CampaignVariants]{Data: variants}
-	}
-
-	if body.VariantSelector != nil {
-		updated.VariantSelector = body.VariantSelector
 	}
 
 	if body.SubscriptionId != nil {

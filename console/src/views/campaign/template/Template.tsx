@@ -8,7 +8,7 @@ import api from "@/api"
 import { Pagination, PaginationContent, PaginationItem } from "@/components/ui/pagination"
 
 import { LocaleSelect } from "@/components/locale/select"
-import { VariantSelect } from "./VariantSelect"
+import { VariantSwitcher } from "./VariantSwitcher"
 import { isEnterprise } from "@/config/enterprise"
 import { Button } from "@/components/ui/button"
 import { TemplateWorkflowContext } from "./contexts"
@@ -256,9 +256,9 @@ export default function Template() {
                         {templateId && (
                             <div className="flex shrink-0 items-center gap-2">
                                 <LocaleSelect onChange={handleLocaleChange} />
-                                {isEnterprise && (campaign.variants?.length ?? 0) > 0 && (
-                                    <VariantSelect
-                                        variants={campaign.variants ?? []}
+                                {isEnterprise && (campaign.variants?.options?.length ?? 0) > 0 && (
+                                    <VariantSwitcher
+                                        variants={campaign.variants?.options ?? []}
                                         value={currentVariant}
                                         onChange={handleVariantChange}
                                     />

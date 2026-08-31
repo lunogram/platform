@@ -1,18 +1,18 @@
-import { useCallback } from "react"
+import { useCallback, useMemo } from "react"
 import { useTranslation } from "react-i18next"
 import { Palette, Plus, Trash2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import type { CampaignVariant, Template } from "@/types"
+import type { CampaignVariant, CampaignVariants as CampaignVariantsValue, Template } from "@/types"
+
+import { VariantSelectorInput } from "./VariantSelectorInput"
 
 interface CampaignVariantsProps {
-    variants: CampaignVariant[]
-    selector: string
+    value: CampaignVariantsValue
     templates: Template[]
-    onChange: (variants: CampaignVariant[]) => void
-    onSelectorChange: (selector: string) => void
+    onChange: (variants: CampaignVariantsValue) => void
 }
 
 const VARIANT_KEY_REGEX = /^[a-z0-9][a-z0-9_-]*$/
@@ -25,31 +25,42 @@ function validateKey(key: string, variants: CampaignVariant[], index: number): s
     return undefined
 }
 
-export function CampaignVariants({
-    variants,
-    selector,
-    templates,
-    onChange,
-    onSelectorChange,
-}: CampaignVariantsProps) {
+export function CampaignVariants({ value, templates, onChange }: CampaignVariantsProps) {
     const { t } = useTranslation()
 
+    const variants = useMemo(() => value.options ?? [], [value.options])
+
+    const setOptions = useCallback(
+        (options: CampaignVariant[]) => {
+            // Dropping the variant a static selector points at would leave the
+            // campaign pinned to something it no longer declares, which the API
+            // rejects on save. Clear the selector instead.
+            const selector =
+                value.selector?.type === "static" &&
+                !options.some((option) => option.key === value.selector?.key)
+                    ? undefined
+                    : value.selector
+            onChange({ selector, options })
+        },
+        [value.selector, onChange],
+    )
+
     const addVariant = useCallback(() => {
-        onChange([...variants, { key: "" }])
-    }, [variants, onChange])
+        setOptions([...variants, { key: "" }])
+    }, [variants, setOptions])
 
     const updateVariant = useCallback(
         (index: number, updates: Partial<CampaignVariant>) => {
-            onChange(variants.map((v, i) => (i === index ? { ...v, ...updates } : v)))
+            setOptions(variants.map((v, i) => (i === index ? { ...v, ...updates } : v)))
         },
-        [variants, onChange],
+        [variants, setOptions],
     )
 
     const removeVariant = useCallback(
         (index: number) => {
-            onChange(variants.filter((_, i) => i !== index))
+            setOptions(variants.filter((_, i) => i !== index))
         },
-        [variants, onChange],
+        [variants, setOptions],
     )
 
     const editor =
@@ -157,20 +168,19 @@ export function CampaignVariants({
             {variants.length > 0 && (
                 <div className="space-y-1.5 border-t bg-muted/50 px-3 py-3 shadow-inner">
                     <Label className="text-xs font-medium">
-                        {t("campaign.variants.selector.title", "Pick a variant automatically")}
+                        {t("campaign.variants.selector.title", "Which variant to send")}
                     </Label>
-                    <Input
-                        value={selector}
-                        onChange={(e) => onSelectorChange(e.target.value)}
-                        placeholder="{{ user.data.tenant }}"
-                        className="h-8 bg-background font-mono text-sm shadow-none"
-                    />
-                    <p className="text-xs text-muted-foreground">
+                    <p className="pb-1 text-xs text-muted-foreground">
                         {t(
                             "campaign.variants.selector.description",
-                            "Resolved per recipient when a journey step or broadcast does not pick a variant itself. A value that matches no variant falls back to the default design.",
+                            "Used when a journey step or broadcast does not pick a variant itself.",
                         )}
                     </p>
+                    <VariantSelectorInput
+                        value={value.selector}
+                        options={variants.filter((variant) => variant.key)}
+                        onChange={(selector) => onChange({ ...value, selector })}
+                    />
                 </div>
             )}
         </div>

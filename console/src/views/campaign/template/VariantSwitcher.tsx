@@ -13,14 +13,20 @@ import type { CampaignVariant } from "@/types"
 
 export const DEFAULT_VARIANT_VALUE = "__default__"
 
-interface VariantSelectProps {
+/**
+ * Switches which variant's template the editor is showing. This navigates the
+ * editor; it does not decide what a send resolves to - that is
+ * VariantSelectorInput.
+ */
+
+interface VariantSwitcherProps {
     variants: CampaignVariant[]
     value: string
     onChange: (variant: string) => void
     disabled?: boolean
 }
 
-export function VariantSelect({ variants, value, onChange, disabled }: VariantSelectProps) {
+export function VariantSwitcher({ variants, value, onChange, disabled }: VariantSwitcherProps) {
     const { t } = useTranslation()
 
     // The default variant is not a declared entry, so it gets a sentinel value:

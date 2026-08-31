@@ -7,7 +7,13 @@ export const broadcastResponseSchema = z.object({
     list_id: z.string(),
     list_name: z.string(),
     list_type: z.enum(["static", "dynamic"]),
-    variant: z.string().nullish(),
+    variant: z
+        .object({
+            type: z.enum(["static", "expression"]),
+            key: z.string().optional(),
+            expression: z.string().optional(),
+        })
+        .nullish(),
     state: z.enum(["scheduled", "pending", "sending", "completed", "failed", "cancelled"]),
     total: z.number(),
     sent: z.number().optional().default(0),

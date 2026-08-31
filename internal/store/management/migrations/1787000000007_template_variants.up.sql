@@ -13,15 +13,17 @@ ALTER TABLE templates ADD COLUMN variant VARCHAR(255) NOT NULL DEFAULT '';
 CREATE INDEX templates_campaign_variant_locale_idx ON templates(campaign_id, variant, locale);
 
 -- Variants are declared per campaign and edited on the campaign page, mirroring
--- how campaign variables are stored and edited. Each entry is {key, label}; the
--- label is what the console shows, the key is what a send resolves against.
-ALTER TABLE campaigns ADD COLUMN variants JSONB NOT NULL DEFAULT '[]'::jsonb;
+-- how campaign variables are stored and edited. The declared set and the rule
+-- that picks between them are one concept, so they live in one object:
+--
+--   {"selector": {"type": "expression", "expression": "{{ user.data.tenant }}"},
+--    "options":  [{"key": "acme", "label": "Acme Corp"}]}
+--
+-- selector is optional; without one, a send that names no variant of its own
+-- gets the default variant.
+ALTER TABLE campaigns ADD COLUMN variants JSONB NOT NULL DEFAULT '{}'::jsonb;
 
--- A Liquid expression evaluated per recipient when a send does not name a
--- variant outright -- e.g. '{{ user.data.tenant }}'. This is what lets a single
--- broadcast over a mixed-tenant list resolve a different brand per recipient.
-ALTER TABLE campaigns ADD COLUMN variant_selector TEXT;
-
--- A broadcast that targets one client pins its variant here; left NULL, the
--- campaign selector decides per recipient.
-ALTER TABLE campaign_broadcasts ADD COLUMN variant VARCHAR(255);
+-- A broadcast may override the campaign's rule, either pinning one variant
+-- ({"type": "static", "key": "acme"}) or carrying its own expression for a list
+-- that spans several clients. NULL defers to the campaign.
+ALTER TABLE campaign_broadcasts ADD COLUMN variant JSONB;

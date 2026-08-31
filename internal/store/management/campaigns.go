@@ -26,45 +26,20 @@ type CampaignVariable struct {
 
 type CampaignVariables []CampaignVariable
 
-// CampaignVariant declares one white-labelled edition of a campaign. Key is
-// what a send resolves against to pick a set of templates; the empty key is the
-// default variant every campaign starts with and is never declared here.
-type CampaignVariant struct {
-	Key   string `json:"key"`
-	Label string `json:"label,omitempty"`
-}
-
-type CampaignVariants []CampaignVariant
-
-// Has reports whether key names a declared variant. The default variant is
-// always available and is not part of the declared set.
-func (variants CampaignVariants) Has(key string) bool {
-	if key == "" {
-		return true
-	}
-	for _, variant := range variants {
-		if variant.Key == key {
-			return true
-		}
-	}
-	return false
-}
-
 type Campaign struct {
-	ID              uuid.UUID                      `db:"id"`
-	ProjectID       uuid.UUID                      `db:"project_id"`
-	Name            string                         `db:"name"`
-	Channel         string                         `db:"channel"`
-	SubscriptionID  *uuid.UUID                     `db:"subscription_id"`
-	Transactional   bool                           `db:"transactional"`
-	Delivery        store.JSONB[Delivery]          `db:"delivery"`
-	Variables       store.JSONB[CampaignVariables] `db:"variables"`
-	Variants        store.JSONB[CampaignVariants]  `db:"variants"`
-	VariantSelector *string                        `db:"variant_selector"`
-	Templates       Templates                      `db:"-"`
-	CreatedAt       time.Time                      `db:"created_at"`
-	UpdatedAt       time.Time                      `db:"updated_at"`
-	DeletedAt       *time.Time                     `db:"deleted_at"`
+	ID             uuid.UUID                      `db:"id"`
+	ProjectID      uuid.UUID                      `db:"project_id"`
+	Name           string                         `db:"name"`
+	Channel        string                         `db:"channel"`
+	SubscriptionID *uuid.UUID                     `db:"subscription_id"`
+	Transactional  bool                           `db:"transactional"`
+	Delivery       store.JSONB[Delivery]          `db:"delivery"`
+	Variables      store.JSONB[CampaignVariables] `db:"variables"`
+	Variants       store.JSONB[CampaignVariants]  `db:"variants"`
+	Templates      Templates                      `db:"-"`
+	CreatedAt      time.Time                      `db:"created_at"`
+	UpdatedAt      time.Time                      `db:"updated_at"`
+	DeletedAt      *time.Time                     `db:"deleted_at"`
 }
 
 func (campaign Campaign) OAPI() oapi.Campaign {
@@ -76,30 +51,23 @@ func (campaign Campaign) OAPI() oapi.Campaign {
 		}
 	}
 
-	variants := make([]oapi.CampaignVariant, len(campaign.Variants.Data))
-	for i, v := range campaign.Variants.Data {
-		variants[i] = oapi.CampaignVariant{Key: v.Key}
-		if v.Label != "" {
-			variants[i].Label = &v.Label
-		}
-	}
+	variants := campaign.Variants.Data.OAPI()
 
 	archived := campaign.DeletedAt != nil
 	result := oapi.Campaign{
-		Id:              campaign.ID,
-		ProjectId:       campaign.ProjectID,
-		Name:            campaign.Name,
-		Channel:         oapi.Channel(campaign.Channel),
-		SubscriptionId:  campaign.SubscriptionID,
-		Transactional:   campaign.Transactional,
-		Delivery:        campaign.Delivery.Data.OAPI(),
-		Variables:       &variables,
-		Variants:        &variants,
-		VariantSelector: campaign.VariantSelector,
-		Templates:       campaign.Templates.OAPI(),
-		CreatedAt:       campaign.CreatedAt,
-		UpdatedAt:       campaign.UpdatedAt,
-		Archived:        &archived,
+		Id:             campaign.ID,
+		ProjectId:      campaign.ProjectID,
+		Name:           campaign.Name,
+		Channel:        oapi.Channel(campaign.Channel),
+		SubscriptionId: campaign.SubscriptionID,
+		Transactional:  campaign.Transactional,
+		Delivery:       campaign.Delivery.Data.OAPI(),
+		Variables:      &variables,
+		Variants:       &variants,
+		Templates:      campaign.Templates.OAPI(),
+		CreatedAt:      campaign.CreatedAt,
+		UpdatedAt:      campaign.UpdatedAt,
+		Archived:       &archived,
 	}
 
 	return result
@@ -150,7 +118,7 @@ func (s *CampaignsStore) CreateCampaign(ctx context.Context, campaign Campaign) 
 
 func (s *CampaignsStore) ListCampaigns(ctx context.Context, project uuid.UUID, pagination store.Pagination, search string, archivedOnly bool) (Campaigns, int, error) {
 	query := `
-	SELECT id, project_id, COALESCE(name, '') AS name, channel, subscription_id, transactional, delivery, variables, variants, variant_selector, created_at, updated_at, deleted_at,
+	SELECT id, project_id, COALESCE(name, '') AS name, channel, subscription_id, transactional, delivery, variables, variants, created_at, updated_at, deleted_at,
 		COUNT(*) OVER () AS total_count
 	FROM campaigns
 	WHERE project_id = $1
@@ -183,7 +151,7 @@ func (s *CampaignsStore) ListCampaigns(ctx context.Context, project uuid.UUID, p
 
 func (s *CampaignsStore) GetCampaign(ctx context.Context, projectID, campaignID uuid.UUID) (*Campaign, error) {
 	query := `
-	SELECT id, project_id, COALESCE(name, '') AS name, channel, subscription_id, transactional, delivery, variables, variants, variant_selector, created_at, updated_at, deleted_at
+	SELECT id, project_id, COALESCE(name, '') AS name, channel, subscription_id, transactional, delivery, variables, variants, created_at, updated_at, deleted_at
 	FROM campaigns
 	WHERE project_id = $1
 	AND id = $2
@@ -209,8 +177,6 @@ type CampaignUpdate struct {
 	Transactional  *bool
 	Variables      *store.JSONB[CampaignVariables]
 	Variants       *store.JSONB[CampaignVariants]
-	// VariantSelector is a Liquid expression; an empty string clears it.
-	VariantSelector *string
 }
 
 func (s *CampaignsStore) UpdateCampaign(ctx context.Context, projectID, campaignID uuid.UUID, update CampaignUpdate) error {
@@ -224,14 +190,9 @@ func (s *CampaignsStore) UpdateCampaign(ctx context.Context, projectID, campaign
 			WHEN COALESCE($3, transactional) THEN NULL
 			ELSE COALESCE($4, subscription_id)
 		END,
-		variants = COALESCE($5, variants),
-		variant_selector = CASE
-			WHEN $6::text IS NULL THEN variant_selector
-			WHEN $6::text = '' THEN NULL
-			ELSE $6::text
-		END
-	WHERE project_id = $7
-	AND id = $8
+		variants = COALESCE($5, variants)
+	WHERE project_id = $6
+	AND id = $7
 	AND deleted_at IS NULL`
 
 	var variablesVal any
@@ -252,7 +213,7 @@ func (s *CampaignsStore) UpdateCampaign(ctx context.Context, projectID, campaign
 		variantsVal = v
 	}
 
-	_, err := s.db.ExecContext(ctx, query, update.Name, variablesVal, update.Transactional, update.SubscriptionID, variantsVal, update.VariantSelector, projectID, campaignID)
+	_, err := s.db.ExecContext(ctx, query, update.Name, variablesVal, update.Transactional, update.SubscriptionID, variantsVal, projectID, campaignID)
 	return err
 }
 

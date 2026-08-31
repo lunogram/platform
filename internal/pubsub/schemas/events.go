@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lunogram/platform/internal/store/management"
 	"github.com/lunogram/platform/internal/store/subjects"
 )
 
@@ -136,10 +137,15 @@ type SendCampaign struct {
 	BroadcastID *uuid.UUID        `json:"broadcast_id,omitempty"`
 	Data        *SendCampaignData `json:"data,omitempty"`
 	Variables   map[string]string `json:"variables,omitempty"`
-	// Variant names the template variant this send must use, already resolved
-	// by the publisher. Nil hands the choice to the campaign's variant
-	// selector, which resolves one per recipient at render time.
-	Variant *string `json:"variant,omitempty"`
+	// Variant overrides the campaign's own rule for picking a template variant.
+	// Nil defers to the campaign.
+	//
+	// A journey step resolves its expression before publishing and sends a
+	// static selector, because the journey context it renders against - entrance
+	// data, earlier step state - does not exist by the time the send is
+	// rendered. A broadcast passes its selector through untouched, since an
+	// expression there has to run once per recipient.
+	Variant *management.VariantSelector `json:"variant,omitempty"`
 }
 
 // InboxOrigin resolves the inbox source label and the external_id key used
