@@ -120,6 +120,18 @@ func GetStatus(err error) (status int) {
 	return http.StatusInternalServerError
 }
 
+// HasStatus reports whether the error carries a status of its own, and so
+// whether [GetStatus] is answering with a considered value rather than with its
+// internal-server-error default.
+func HasStatus(err error) bool {
+	for ; err != nil; err = errors.Unwrap(err) {
+		if _, ok := err.(*withStatus); ok {
+			return true
+		}
+	}
+	return false
+}
+
 // Option is a functional option for configuring error behavior
 type Option func(error) error
 

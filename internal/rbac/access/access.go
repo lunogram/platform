@@ -142,6 +142,33 @@ func DeprovisionProjectRoles(ctx context.Context, engine *rbac.Engine, grants []
 	return nil
 }
 
+// SetProjectRole makes role the only project role the admin holds on the
+// project, revoking every other one first.
+//
+// Use it where the caller knows the role the membership should end up with but
+// not the role it currently has — reviving a membership that was removed
+// earlier, most of all. A soft-deleted project_admins row is invisible to every
+// read, so the accept flow cannot tell a returning member from a new one and has
+// no old role to hand [UpdateProjectRole]. Adding the new grant on its own would
+// leave whatever the previous membership wrote sitting alongside it, and the
+// subject would hold the union of the two: a demotion that never took effect, or
+// a promotion that authorization does not honour because the check resolves the
+// stale tuple instead.
+//
+// Revoking runs before the grant for the same reason it does in
+// [UpdateProjectRole]: failing halfway must leave less access, never more.
+func SetProjectRole(ctx context.Context, engine *rbac.Engine, adminID, projectID uuid.UUID, role string) error {
+	for _, other := range rbac.ProjectRoles() {
+		if other == role {
+			continue
+		}
+		if err := DeprovisionProjectRole(ctx, engine, adminID, projectID, other); err != nil {
+			return err
+		}
+	}
+	return ProvisionProjectRole(ctx, engine, adminID, projectID, role)
+}
+
 // UpdateProjectRole removes the old role tuple and writes the new one. The old
 // tuple is removed FIRST: a promotion that fails halfway must not leave the
 // admin holding both roles, and on a demotion the stale higher-privilege tuple

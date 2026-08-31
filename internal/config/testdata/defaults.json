@@ -1,0 +1,133 @@
+{
+  "NodeID": "",
+  "HTTPAddress": ":8080",
+  "MetricsAddress": ":9101",
+  "DatabaseMigrate": true,
+  "PublicURL": "http://localhost:8080",
+  "Redis": {
+    "Address": "redis://127.0.0.1:6379",
+    "KeyPrefix": ""
+  },
+  "RateLimit": {
+    "PerMinute": 600,
+    "TrustedProxyHops": 0
+  },
+  "JWKSCache": {
+    "TTL": 300000000000,
+    "FetchTimeout": 5000000000,
+    "ErrorTTL": 30000000000
+  },
+  "Cluster": {
+    "ReconciliationInterval": 60000000000,
+    "ReconciliationBatchSize": 1000,
+    "LeaderCampaignInterval": 5000000000,
+    "HeartbeatInterval": 4000000000
+  },
+  "Auth": {
+    "Drivers": null,
+    "Basic": {
+      "Email": "",
+      "Password": "",
+      "Registration": "invite_only"
+    },
+    "Clerk": {
+      "SecretKey": "",
+      "WebhookSecret": "",
+      "Issuer": ""
+    },
+    "Console": {
+      "SigningKey": "",
+      "PreviousSigningKeys": null,
+      "Issuer": "https://lunogram.com/console",
+      "Audience": "lunogram-console",
+      "IdleTTL": 28800000000000,
+      "AbsoluteTTL": 604800000000000
+    },
+    "LegacyIdentityAdoption": true,
+    "SessionSigningKey": "",
+    "SessionIssuer": "https://lunogram.com"
+  },
+  "Nats": {
+    "URL": "nats://127.0.0.1:4222",
+    "Namespace": "",
+    "ManagedExternally": false
+  },
+  "WASM": {
+    "CallTimeout": 30000000000
+  },
+  "Webhook": {
+    "ConfigFile": "",
+    "ProjectCreatedURL": "",
+    "ProjectCreatedTimeout": 30000000000,
+    "LegacyForwardAuthorization": false,
+    "EmailTemplatesURL": "",
+    "EmailTemplatesTimeout": 10000000000,
+    "MaxBodySize": 1048576
+  },
+  "Link": {
+    "Secret": "",
+    "TrackingURL": ""
+  },
+  "Mail": {
+    "Host": "",
+    "Port": 587,
+    "Username": "",
+    "Password": "",
+    "FromAddress": "",
+    "FromName": "Lunogram",
+    "TLS": "starttls",
+    "Timeout": 30000000000
+  },
+  "RBAC": {
+    "PostgresURI": "postgres://postgres:postgrespw@postgres:5432/openfga?sslmode=disable"
+  },
+  "Enterprise": {},
+  "Console": {
+    "ClerkPublishableKey": ""
+  },
+  "HTTP": {
+    "ReadHeaderTimeout": 5000000000,
+    "ReadTimeout": 5000000000,
+    "IdleTimeout": 5000000000,
+    "WriteTimeout": 10000000000,
+    "MaxHeaderBytes": 1048576,
+    "CSRF": {
+      "Enabled": true,
+      "Secret": "",
+      "TokenLength": 32,
+      "CookieName": "csrf_token",
+      "HeaderName": "X-CSRF-Token",
+      "FieldName": "csrf_token",
+      "CookieSecure": true,
+      "CookieHTTPOnly": true,
+      "CookieSameSite": "strict",
+      "TrustedOrigins": null
+    }
+  },
+  "Store": {
+    "ManagementURI": "postgres://postgres:postgrespw@postgres:5432/management?sslmode=disable",
+    "SubjectsURI": "postgres://postgres:postgrespw@postgres:5432/subjects?sslmode=disable",
+    "JourneyURI": "postgres://postgres:postgrespw@postgres:5432/journey?sslmode=disable"
+  },
+  "Storage": {
+    "Type": "local",
+    "BaseURL": "",
+    "MaxUploadSize": 10485760,
+    "S3": {
+      "Bucket": "",
+      "Region": "",
+      "Endpoint": "",
+      "AccessKey": "",
+      "SecretKey": ""
+    },
+    "Azure": {
+      "Account": "",
+      "Container": "",
+      "AccountKey": "",
+      "Endpoint": ""
+    },
+    "Local": {
+      "Directory": "./uploads/documents"
+    }
+  }
+}

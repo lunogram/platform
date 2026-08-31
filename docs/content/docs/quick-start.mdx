@@ -44,27 +44,41 @@ That's it. Lunogram is now running at [http://localhost:8080](http://localhost:8
 
 ## Log In
 
-Use the default credentials to access the dashboard:
+Compose seeds a first administrator account on the first boot. Sign in with it:
 
-| Field    | Value             |
-| -------- | ----------------- |
-| Email    | `admin@localhost` |
-| Password | `admin`           |
+| Field    | Value                             |
+| -------- | --------------------------------- |
+| Email    | `admin@localhost`                 |
+| Password | `change-this-development-password` |
+
+The pair is written into a real account with the password hashed, so you can
+change it from the console like any other. Everybody else who needs access is
+[invited to a project](/settings/members) rather than handed these credentials.
 
 <Callout type="warn">
-  Change these credentials before deploying to production.
+  Compose also ships a published development signing key for console sessions.
+  Anyone holding it can mint a session for any administrator, so set your own —
+  along with your own first account — before a deployment is reachable by
+  anybody else. See [Sign-in](/settings/sign-in).
 </Callout>
 
 ## What's Running
 
 Docker Compose starts everything you need:
 
-| Service    | Purpose          | Port |
-| ---------- | ---------------- | ---- |
-| Lunogram   | Main application | 8080 |
-| PostgreSQL | Database         | 5432 |
-| Redis      | Caching          | 6379 |
-| NATS       | Event streaming  | 4222 |
+| Service    | Purpose            | Port |
+| ---------- | ------------------ | ---- |
+| Lunogram   | Main application   | 8080 |
+| PostgreSQL | Database           | 5432 |
+| Redis      | Caching            | 6379 |
+| NATS       | Event streaming    | 4222 |
+| Mailpit    | Local mail catcher | 8025 |
+
+Password resets and project invitations are sent by the platform itself, so a
+deployment has to say where its mail goes. Compose points it at Mailpit: every
+message is readable at [http://localhost:8025](http://localhost:8025), nothing
+leaves your machine, and no SMTP account is needed. Point it at a real relay
+before production — see [Sending mail](/settings/mail).
 
 ## Your First Campaign
 

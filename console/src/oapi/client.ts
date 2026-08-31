@@ -1,5 +1,7 @@
 import createClient from "openapi-fetch"
 import { env } from "@/config/env"
+import { reportCrossOriginRefusal } from "@/lib/cross-origin"
+import { isPublicPage } from "@/lib/public-paths"
 import type { paths, components } from "./management.generated"
 
 const apiBaseUrl = env.api.baseURL.replace(/\/$/, "")
@@ -14,9 +16,11 @@ export const oapiClient = createClient<paths>({
 // Add response interceptor for 401 handling
 oapiClient.use({
     async onResponse({ response }) {
-        const isLoginPage = window.location.pathname.startsWith("/login")
-        if (response.status === 401 && !isLoginPage) {
+        if (response.status === 401 && !isPublicPage()) {
             window.location.href = `/login?r=${encodeURIComponent(window.location.href)}`
+        }
+        if (response.status === 403) {
+            reportCrossOriginRefusal(response.status, await response.clone().json().catch(() => null))
         }
         return response
     },

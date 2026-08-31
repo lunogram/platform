@@ -21,6 +21,9 @@ import (
 	"go.uber.org/zap"
 )
 
+// ClerkDriver is the driver identifier Clerk-issued sessions are keyed on.
+const ClerkDriver = "clerk"
+
 // Clerk verifies a Clerk-issued session token and mirrors Clerk user events.
 // It proves the credential and stops: resolving the admin, provisioning and
 // session minting all belong to [auth.Exchanger].
@@ -59,7 +62,7 @@ func NewClerk(cfg config.ClerkAuth, mgmt *management.State, logger *zap.Logger, 
 	return verifier, nil
 }
 
-func (c *Clerk) Driver() string { return "clerk" }
+func (c *Clerk) Driver() string { return ClerkDriver }
 
 // clerkClaims is the subset of a Clerk session token this verifier reads.
 // Everything here is read only after the signature has been checked.

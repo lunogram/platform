@@ -37,6 +37,13 @@ func projectRolesByRank() []string {
 	return []string{ProjectAdmin, ProjectEditor, ProjectClient, ProjectSupport}
 }
 
+// ProjectRoles returns every project role the model defines. Use it to reason
+// about the roles a subject might hold rather than the one they should — a
+// caller reconciling grants has to account for all of them.
+func ProjectRoles() []string {
+	return projectRolesByRank()
+}
+
 // OrganizationRolesInheritingProjectAdmin returns the organization roles whose
 // holders are project admins in every project of that organization, without
 // needing an explicit grant. It mirrors the tuple-to-userset rewrite on the

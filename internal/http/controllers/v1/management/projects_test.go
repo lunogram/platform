@@ -393,7 +393,7 @@ func TestCreateProjectWebhook(t *testing.T) {
 	defer webhookServer.Close()
 
 	//nolint:staticcheck // SA1019: this test covers the deprecated compatibility path
-	hooks, err := webhook.NewEngine(logger, "", webhook.LegacyEnv{
+	hooks, err := webhook.NewEngine(logger, nil, "", webhook.LegacyEnv{
 		ProjectCreatedURL: webhookServer.URL,
 	})
 	require.NoError(t, err)
@@ -536,6 +536,95 @@ func TestCreateProjectRollbackOnPublishFailure(t *testing.T) {
 	_, total, err := mgmtState.ListProjects(ctx, orgID, store.Pagination{Limit: 10, Offset: 0}, "")
 	require.NoError(t, err)
 	require.Equal(t, 0, total, "project should not exist after rollback")
+}
+
+// TestProjectsRejectProjectOutsideActorOrganization covers the cross-tenant gap
+// these handlers were open to. Their permission check is
+// OrganizationScope(actor.OrganizationID), which establishes that the actor may
+// act on projects in its own organization -- it says nothing about the project
+// ID the actor supplied. An owner could therefore read, rename or delete any
+// project in any organization by naming its ID.
+func TestProjectsRejectProjectOutsideActorOrganization(t *testing.T) {
+	t.Parallel()
+
+	logger := zaptest.NewLogger(t)
+	ctx := t.Context()
+	mgmt, usrs, jrny := teststore.RunPostgreSQL(t)
+
+	orgs := management.NewOrganizationsStore(mgmt)
+	actorOrgID, err := orgs.CreateOrganization(ctx, "Actor Organization")
+	require.NoError(t, err)
+
+	victimOrgID, err := orgs.CreateOrganization(ctx, "Victim Organization")
+	require.NoError(t, err)
+
+	admins := management.NewState(mgmt)
+	adminID, err := admins.CreateAdmin(ctx, management.Admin{
+		OrganizationID: actorOrgID,
+		Email:          "actor@example.com",
+		Role:           "admin",
+	})
+	require.NoError(t, err)
+
+	projectStore := management.NewProjectsStore(mgmt)
+	victimProjectID, err := projectStore.CreateProject(ctx, management.Project{
+		OrganizationID: &victimOrgID,
+		Name:           "Victim Project",
+		Timezone:       "UTC",
+		Locale:         "en",
+	})
+	require.NoError(t, err)
+
+	// The actor is an owner of its own organization -- the most privileged role
+	// there is. The check that has to stop it is ownership of the project, not
+	// the actor's rank.
+	actor := rbac.NewActor(rbac.ActorAdmin, adminID.String(),
+		rbac.WithOrganizationID(actorOrgID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "")
+
+	projects := NewProjectsController(logger, mgmt, usrs, jrny, nil, nil, engine)
+
+	t.Run("GetProject", func(t *testing.T) {
+		res := httptest.NewRecorder()
+		req := httptest.NewRequest("GET", "/api/admin/projects/"+victimProjectID.String(), nil)
+		req = req.WithContext(actorCtx)
+
+		projects.GetProject(res, req, victimProjectID)
+
+		require.Equal(t, http.StatusNotFound, res.Code, res.Body.String())
+		require.NotContains(t, res.Body.String(), "Victim Project")
+	})
+
+	t.Run("UpdateProject", func(t *testing.T) {
+		bb, err := json.Marshal(oapi.UpdateProjectJSONRequestBody{Name: ptr.To("Renamed By Outsider")})
+		require.NoError(t, err)
+
+		res := httptest.NewRecorder()
+		req := httptest.NewRequest("PATCH", "/api/admin/projects/"+victimProjectID.String(), bytes.NewReader(bb))
+		req = req.WithContext(actorCtx)
+
+		projects.UpdateProject(res, req, victimProjectID)
+
+		require.Equal(t, http.StatusNotFound, res.Code, res.Body.String())
+
+		project, err := projectStore.GetProject(ctx, victimProjectID, nil)
+		require.NoError(t, err)
+		require.Equal(t, "Victim Project", project.Name, "the project was renamed from another organization")
+	})
+
+	t.Run("DeleteProject", func(t *testing.T) {
+		res := httptest.NewRecorder()
+		req := httptest.NewRequest("DELETE", "/api/admin/projects/"+victimProjectID.String(), nil)
+		req = req.WithContext(actorCtx)
+
+		projects.DeleteProject(res, req, victimProjectID)
+
+		require.Equal(t, http.StatusNotFound, res.Code, res.Body.String())
+
+		_, err := projectStore.GetProject(ctx, victimProjectID, nil)
+		require.NoError(t, err, "the project was deleted from another organization")
+	})
 }
 
 // projectScopeEnv builds two organizations sharing one admin, the shape that

@@ -3,11 +3,13 @@ package auth
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/lunogram/platform/internal/http/problem"
 	"github.com/lunogram/platform/internal/ptr"
@@ -436,4 +438,168 @@ func TestExchangeRecordsLoginOnTheIdentity(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, identity.LastLoginAt)
 	assert.WithinDuration(t, time.Now(), *identity.LastLoginAt, time.Minute)
+}
+
+// A local credential cannot be proved before it exists, so registration creates
+// the admin and the identity together and supplies the parts that depend on the
+// admin id from inside the transaction.
+func TestProvisionAdminWithALocalCredential(t *testing.T) {
+	t.Parallel()
+	env := newExchangeEnv(t)
+	ctx := context.Background()
+
+	adminID, identityID, err := env.exchanger.ProvisionAdmin(ctx, &VerifiedIdentity{
+		Issuer:   management.LocalIssuer,
+		Provider: management.IdentityProviderBasic,
+		Email:    "local@example.test",
+	}, Provisioning{Credential: func(adminID uuid.UUID) (string, string, error) {
+		return adminID.String(), "$argon2id$v=19$m=65536,t=2,p=1$c2FsdHNhbHRzYWx0c2E$aGFzaGhhc2hoYXNoaGFzaA", nil
+	}})
+	require.NoError(t, err)
+
+	identity, err := env.mgmt.GetLocalIdentity(ctx, adminID)
+	require.NoError(t, err)
+	assert.Equal(t, identityID, identity.ID)
+	assert.Equal(t, adminID.String(), identity.Subject, "a local identity is keyed on the admin it belongs to")
+	require.NotNil(t, identity.SecretHash)
+
+	// A brand-new local account has proved nothing about its address.
+	assert.False(t, identity.EmailVerified)
+
+	admin, err := env.mgmt.GetAdmin(ctx, adminID)
+	require.NoError(t, err)
+	assert.Equal(t, "local@example.test", admin.Email)
+
+	member, err := env.mgmt.IsMember(ctx, admin.OrganizationID, adminID)
+	require.NoError(t, err)
+	assert.True(t, member, "membership is granted in the same operation")
+}
+
+// The credential callback runs inside the provisioning transaction, so its
+// failure has to take the admin and the organization down with it.
+func TestProvisionAdminRollsBackWhenTheCredentialFails(t *testing.T) {
+	t.Parallel()
+	env := newExchangeEnv(t)
+	ctx := context.Background()
+
+	_, _, err := env.exchanger.ProvisionAdmin(ctx, &VerifiedIdentity{
+		Issuer:   management.LocalIssuer,
+		Provider: management.IdentityProviderBasic,
+		Email:    "rollback@example.test",
+	}, Provisioning{Credential: func(uuid.UUID) (string, string, error) {
+		return "", "", errors.New("could not hash")
+	}})
+	require.Error(t, err)
+
+	_, err = env.mgmt.ResolveAdminByEmail(ctx, "rollback@example.test")
+	assert.ErrorIs(t, err, sql.ErrNoRows, "no admin may survive a failed credential")
+}
+
+// A federated identity has no local credential and must still be rejected when
+// its upstream named no subject.
+func TestProvisionAdminRequiresASubjectWithoutACredential(t *testing.T) {
+	t.Parallel()
+	env := newExchangeEnv(t)
+
+	_, _, err := env.exchanger.ProvisionAdmin(context.Background(), &VerifiedIdentity{
+		Issuer:   exchangeTestIssuer,
+		Provider: management.IdentityProviderClerk,
+		Email:    "nosubject@example.test",
+	}, Provisioning{})
+	require.Error(t, err)
+	assert.Equal(t, http.StatusUnauthorized, problem.GetStatus(err))
+}
+
+// Somebody who was invited before they had an account must land in the
+// organization that invited them, whichever driver they eventually sign up with.
+func TestInviteOrgResolver(t *testing.T) {
+	t.Parallel()
+	env := newExchangeEnv(t)
+	ctx := context.Background()
+
+	orgID, err := env.mgmt.CreateOrganization(ctx, "Inviting Organization")
+	require.NoError(t, err)
+	inviterID, err := env.mgmt.CreateAdmin(ctx, management.Admin{
+		OrganizationID: orgID, Email: "inviter@example.test", Role: rbac.OrganizationOwner,
+	})
+	require.NoError(t, err)
+	projectID, err := env.mgmt.CreateProject(ctx, management.Project{
+		Name: "Invited Project", Timezone: "UTC", Locale: "en", OrganizationID: &orgID,
+	})
+	require.NoError(t, err)
+	_, err = env.mgmt.CreateProjectInvite(ctx, projectID, inviterID, "invited@example.test", nil, "editor", time.Hour)
+	require.NoError(t, err)
+
+	t.Run("a verified invited address joins the inviting organization as a member", func(t *testing.T) {
+		organizationID, role, err := InviteOrgResolver{}.Resolve(ctx, env.mgmt,
+			&VerifiedIdentity{Email: "invited@example.test", EmailVerified: true})
+		require.NoError(t, err)
+		assert.Equal(t, orgID, organizationID)
+		assert.Equal(t, rbac.OrganizationMember, role)
+	})
+
+	// Confirming an address is no longer part of any flow, so an invited
+	// registrant lands in the inviting organization either way. Requiring proof
+	// here once meant every invitee also got a stray organization of their own,
+	// and it protected nothing that accepting the invite does not already grant.
+	t.Run("an unconfirmed invited address still joins the inviting organization", func(t *testing.T) {
+		organizationID, role, err := InviteOrgResolver{}.Resolve(ctx, env.mgmt,
+			&VerifiedIdentity{Email: "invited@example.test", EmailVerified: false})
+		require.NoError(t, err)
+		assert.Equal(t, orgID, organizationID)
+		assert.Equal(t, rbac.OrganizationMember, role)
+	})
+
+	t.Run("anybody else gets an organization of their own and owns it", func(t *testing.T) {
+		organizationID, role, err := InviteOrgResolver{}.Resolve(ctx, env.mgmt,
+			&VerifiedIdentity{Email: "stranger@example.test", EmailVerified: true})
+		require.NoError(t, err)
+		assert.NotEqual(t, orgID, organizationID)
+		assert.Equal(t, rbac.OrganizationOwner, role)
+	})
+
+	// The other half: once the address is proved, the invite is honoured.
+	t.Run("AdmitInvitee grants membership once the address is proved", func(t *testing.T) {
+		adminID, err := env.mgmt.CreateAdmin(ctx, management.Admin{
+			OrganizationID: orgID, Email: "admitted@example.test", Role: rbac.OrganizationOwner,
+		})
+		require.NoError(t, err)
+		_, err = env.mgmt.CreateProjectInvite(ctx, projectID, inviterID, "admitted@example.test", nil, "editor", time.Hour)
+		require.NoError(t, err)
+
+		require.NoError(t, env.exchanger.AdmitInvitee(ctx, adminID, "admitted@example.test"))
+
+		member, err := env.mgmt.IsMember(ctx, orgID, adminID)
+		require.NoError(t, err)
+		assert.True(t, member)
+	})
+
+	// Re-running it must never rewrite a role. An owner who happens to hold a
+	// pending invite to their own organization stays an owner.
+	t.Run("AdmitInvitee never demotes an existing member", func(t *testing.T) {
+		adminID, err := env.mgmt.CreateAdmin(ctx, management.Admin{
+			OrganizationID: orgID, Email: "owner@example.test", Role: rbac.OrganizationOwner,
+		})
+		require.NoError(t, err)
+		require.NoError(t, env.mgmt.AddMember(ctx, orgID, adminID, rbac.OrganizationOwner))
+		_, err = env.mgmt.CreateProjectInvite(ctx, projectID, inviterID, "owner@example.test", nil, "editor", time.Hour)
+		require.NoError(t, err)
+
+		err = env.exchanger.AdmitInvitee(ctx, adminID, "owner@example.test")
+		assert.ErrorIs(t, err, ErrAlreadyMember)
+
+		member, err := env.mgmt.GetMember(ctx, orgID, adminID)
+		require.NoError(t, err)
+		assert.Equal(t, rbac.OrganizationOwner, member.Role, "an invite must not demote an owner")
+	})
+
+	t.Run("AdmitInvitee reports no pending invite", func(t *testing.T) {
+		adminID, err := env.mgmt.CreateAdmin(ctx, management.Admin{
+			OrganizationID: orgID, Email: "uninvited@example.test", Role: rbac.OrganizationOwner,
+		})
+		require.NoError(t, err)
+
+		err = env.exchanger.AdmitInvitee(ctx, adminID, "uninvited@example.test")
+		assert.ErrorIs(t, err, sql.ErrNoRows)
+	})
 }

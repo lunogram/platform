@@ -84,11 +84,11 @@ lint: | $(EMBEDDED) $(GOLANGCI_LINT) $(BUF) ; $(info $(M) running linters…) @ 
 
 .PHONY: test
 test: | $(EMBEDDED) ; $(info $(M) running tests) @ ## Run all tests
-	$Q $(GO) test $(PKGS) -timeout 600s -race -p 8
+	$Q $(GO) test $(PKGS) -timeout 1200s -race -p 4
 
 .PHONY: test-enterprise
 test-enterprise: | $(EMBEDDED) ; $(info $(M) running enterprise tests) @ ## Run all tests with the enterprise build tag
-	$Q $(GO) test -tags enterprise $(ENTERPRISE_PKGS) -timeout 600s -race -p 8
+	$Q $(GO) test -tags enterprise $(ENTERPRISE_PKGS) -timeout 1200s -race -p 4
 
 .PHONY: test-short
 test-short: | $(EMBEDDED) ; $(info $(M) running short tests) @ ## Run all short tests

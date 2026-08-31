@@ -272,8 +272,8 @@ func TestClientIP(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := clientIP(req(tt.xff), tt.hops); got != tt.want {
-				t.Errorf("clientIP(hops=%d, xff=%q) = %q, want %q", tt.hops, tt.xff, got, tt.want)
+			if got := ClientIP(req(tt.xff), tt.hops); got != tt.want {
+				t.Errorf("ClientIP(hops=%d, xff=%q) = %q, want %q", tt.hops, tt.xff, got, tt.want)
 			}
 		})
 	}

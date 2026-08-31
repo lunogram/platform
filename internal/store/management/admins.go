@@ -272,7 +272,8 @@ func (s *AdminsStore) DeleteAdmin(ctx context.Context, id uuid.UUID) error {
 	}
 
 	if s.sessions != nil {
-		return s.sessions.RevokeAdminSessionsForAdmin(ctx, id)
+		_, err := s.sessions.RevokeAdminSessionsForAdmin(ctx, id)
+		return err
 	}
 	return nil
 }
@@ -418,10 +419,22 @@ func (s *AdminsStore) GetProjectAdmin(ctx context.Context, projectID, adminID uu
 	return &projectAdmin, nil
 }
 
+// AddAdminToProject grants an admin a role on a project, reviving the row of a
+// membership that was removed earlier.
+//
+// Removal is a soft delete, and the table carries a plain UNIQUE on
+// (project_id, admin_id) alongside the partial index that ignores deleted rows.
+// A removed member therefore leaves a row that every read filters out but that
+// an INSERT still collides with, which is what made re-inviting somebody you had
+// removed fail on a duplicate key. Reviving is also the right answer on its own
+// terms: the membership is identified by the pair, so re-adding is the same
+// membership again rather than a second one.
 func (s *AdminsStore) AddAdminToProject(ctx context.Context, projectID, adminID uuid.UUID, role string) error {
 	query := `
 	INSERT INTO project_admins (project_id, admin_id, role)
-	VALUES ($1, $2, $3)`
+	VALUES ($1, $2, $3)
+	ON CONFLICT (project_id, admin_id)
+	DO UPDATE SET role = EXCLUDED.role, deleted_at = NULL`
 
 	_, err := s.db.ExecContext(ctx, query, projectID, adminID, role)
 	return err
@@ -459,4 +472,42 @@ func (s *AdminsStore) HardDeleteProjectAdmin(ctx context.Context, projectID, adm
 
 	_, err := s.db.ExecContext(ctx, query, projectID, adminID)
 	return err
+}
+
+// registrationBootstrapLock is the advisory-lock key that serialises the "is
+// this the first admin?" decision. The value is arbitrary and only has to be
+// stable and unique within this database.
+const registrationBootstrapLock int64 = 0x6C756E6F67720001
+
+// LockRegistrationBootstrap serialises the first-admin decision against other
+// registrations.
+//
+// It MUST be called on a transaction-scoped store, and it must be called before
+// [AdminsStore.AdminsExist] in the same transaction as the admin insert.
+// "No admin exists yet" is otherwise a read that two concurrent registrations
+// both pass, and both would then create an owner of their own organization on a
+// deployment meant to admit exactly one.
+//
+// pg_advisory_xact_lock rather than a session lock: it is released by the
+// commit or rollback, so it cannot leak onto a pooled connection.
+func (s *AdminsStore) LockRegistrationBootstrap(ctx context.Context) error {
+	_, err := s.db.ExecContext(ctx, `SELECT pg_advisory_xact_lock($1)`, registrationBootstrapLock)
+	return err
+}
+
+// AdminsExist reports whether this deployment has any admin at all.
+//
+// It is what makes an invite-only deployment bootstrappable: the very first
+// account cannot have been invited by anybody, so registration is open until
+// exactly one admin exists and closed from then on. Callers deciding whether to
+// CREATE that first admin must hold [AdminsStore.LockRegistrationBootstrap] and
+// be inside the transaction that inserts it.
+func (s *AdminsStore) AdminsExist(ctx context.Context) (bool, error) {
+	stmt := `SELECT EXISTS (SELECT 1 FROM admins WHERE deleted_at IS NULL)`
+
+	var exists bool
+	if err := s.db.GetContext(ctx, &exists, stmt); err != nil {
+		return false, err
+	}
+	return exists, nil
 }

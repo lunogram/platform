@@ -369,3 +369,37 @@ func TestReserveSeparateKeysIndependent(t *testing.T) {
 	require.NoError(t, err)
 	require.Zero(t, delay)
 }
+
+// Exceeded answers the question Allow cannot: "is this budget spent?" without
+// spending any of it. Failure counting depends on that separation -- the check
+// runs before a credential is verified, and only a failure may cost anything.
+func TestExceededDoesNotConsume(t *testing.T) {
+	t.Parallel()
+
+	limiter, ctx := newLimiter(t)
+	const key = "failures"
+
+	for range 10 {
+		exceeded, _ := limiter.Exceeded(ctx, key, 2, time.Minute)
+		require.False(t, exceeded, "checking must never spend the budget")
+	}
+
+	for range 2 {
+		allowed, _, err := limiter.Allow(ctx, key, 2, time.Minute)
+		require.NoError(t, err)
+		require.True(t, allowed)
+	}
+
+	exceeded, retryAfter := limiter.Exceeded(ctx, key, 2, time.Minute)
+	require.True(t, exceeded)
+	require.Positive(t, retryAfter)
+}
+
+func TestNilLimiterIsNeverExceeded(t *testing.T) {
+	t.Parallel()
+
+	var limiter *Limiter
+	exceeded, retryAfter := limiter.Exceeded(context.Background(), "any-key", 1, time.Second)
+	require.False(t, exceeded, "abuse resistance must fail open, not lock everybody out")
+	require.Zero(t, retryAfter)
+}

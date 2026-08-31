@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/caarlos0/env/v10"
 	"github.com/cloudproud/graceful"
 	"github.com/lunogram/platform/internal/actions"
 	"github.com/lunogram/platform/internal/cluster"
@@ -58,8 +57,7 @@ func run() error {
 	}
 	defer logger.Sync() //nolint:errcheck
 
-	conf := config.Node{}
-	err = env.Parse(&conf)
+	conf, err := config.Load()
 	if err != nil {
 		return err
 	}

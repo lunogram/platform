@@ -69,7 +69,7 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *st
 	if err != nil {
 		return nil, fmt.Errorf("failed to build console session signer: %w", err)
 	}
-	if cfg.Auth.Driver != "" && consoleSigner == nil {
+	if cfg.Auth.Configured() && consoleSigner == nil {
 		// Fail hard rather than generating a key: an ephemeral key logs every
 		// admin out on restart and breaks a multi-replica deployment silently,
 		// since replicas cannot verify each other's tokens.
@@ -77,10 +77,15 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *st
 	}
 
 	// Create management controller
-	mgmtController, err := managementv1.NewController(logger, db.Management, db.Subjects, db.Journey, cfg, storageDriver, urlResolver, pub, req, jet, registry, actionRegistry, rbacEngine, rdb, consoleSigner)
+	mgmtController, err := managementv1.NewController(logger, db.Management, db.Subjects, db.Journey, cfg, storageDriver, urlResolver, pub, req, jet, registry, actionRegistry, rbacEngine, rdb, consoleSigner, limiter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create management controller: %w", err)
 	}
+
+	// Queued mail is drained on shutdown rather than dropped: a verification
+	// link that was accepted and then thrown away by a deploy is a person who
+	// never hears back.
+	ctx.Closer(mgmtController.Close)
 
 	// Client session signer (ES256). Nil when no signing key is configured, which
 	// disables session minting and verification.
@@ -130,7 +135,7 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *st
 			// legacy cookie has to become a console session before the validator
 			// authenticates the request.
 			mgmtoapi.MiddlewareFunc(auth.UpgradeLegacySession(
-				mgmtController.AuthController.Verifier(),
+				mgmtController.AuthController.LegacyVerifier(),
 				mgmtController.AuthController.Exchanger(),
 				consoleSigner,
 				logger,

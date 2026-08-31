@@ -1,5 +1,7 @@
 import Axios from "axios"
 import { env } from "./config/env"
+import { reportCrossOriginRefusal } from "./lib/cross-origin"
+import { isPublicPage } from "./lib/public-paths"
 import { oapiClient } from "./oapi/client"
 import type {
     Action,
@@ -24,7 +26,6 @@ import type {
     Locale,
     Project,
     ProjectAdmin,
-    ProjectAdminInviteParams,
     ProjectAdminParams,
     ProjectInvite,
     ProjectRole,
@@ -89,11 +90,15 @@ export const client = Axios.create({
 client.interceptors.response.use(
     (response) => response,
     async (error) => {
-        const isPublicPage = window.location.pathname.startsWith("/login")
+        // The unauthenticated views. A 401 on one of them is the answer to a
+        // question the page asked, not a session that expired, so bouncing to
+        // the login page would throw away what the caller was told.
         const isUserNotAuthenticated = error.response?.status === 401
         const skipRedirect = error.config?.skipAuthRedirect
 
-        if (isUserNotAuthenticated && !isPublicPage && !skipRedirect) {
+        reportCrossOriginRefusal(error.response?.status, error.response?.data)
+
+        if (isUserNotAuthenticated && !isPublicPage() && !skipRedirect) {
             api.auth.login()
         }
         throw error
@@ -172,15 +177,57 @@ function createProjectEntityPath<T, C = Omit<T, OmitFields>, U = Omit<T, OmitFie
 
 const cache: {
     profile: null | Admin
+    authDrivers: null | Promise<AuthDriver[]>
 } = {
     profile: null,
+    authDrivers: null,
 }
 
 const api = {
     auth: {
         methods: async () => await client.get<AuthDriver[]>("/auth/methods").then((r) => r.data),
+        // cachedMethods answers the same question as methods() for callers that
+        // only need to know whether a driver is available (a "change password"
+        // control, say). The in-flight promise is cached, not just the result,
+        // so several components mounting at once share one request.
+        cachedMethods: async () => {
+            if (!cache.authDrivers) {
+                cache.authDrivers = api.auth.methods().catch((err) => {
+                    cache.authDrivers = null
+                    throw err
+                })
+            }
+            return await cache.authDrivers
+        },
         basicAuth: async (email: string, password: string) => {
             await client.post("/auth/login/basic/callback", { email, password })
+        },
+        // register always succeeds from the caller's point of view, whether or
+        // not the address already has an account. What actually happened is
+        // told to the address itself, by email.
+        register: async (params: {
+            email: string
+            password: string
+            first_name?: string
+            last_name?: string
+        }) => {
+            await client.post("/auth/register", params)
+        },
+        verifyEmail: async (token: string) => {
+            await client.post("/auth/verify", { token }, { skipAuthRedirect: true })
+        },
+        requestPasswordReset: async (email: string) => {
+            await client.post("/auth/password/reset", { email })
+        },
+        confirmPasswordReset: async (token: string, password: string) => {
+            await client.post(
+                "/auth/password/reset/confirm",
+                { token, password },
+                { skipAuthRedirect: true },
+            )
+        },
+        changePassword: async (current_password: string, password: string) => {
+            await client.post("/admin/profile/password", { current_password, password })
         },
         clerkAuth: async (token: string) => {
             await client.post(
@@ -209,8 +256,14 @@ const api = {
 
     invites: {
         // mine lists the pending invites addressed to the logged-in admin's email.
+        //
+        // A 401 is handled by the page rather than by the interceptor: somebody
+        // arriving from an invitation may not have an account yet, so being sent
+        // straight to the login form is the wrong half of the answer.
         mine: async () =>
-            await client.get<SearchResult<ProjectInvite>>(`/invites/mine`).then((r) => r.data),
+            await client
+                .get<SearchResult<ProjectInvite>>(`/invites/mine`, { skipAuthRedirect: true })
+                .then((r) => r.data),
         accept: async (inviteId: UUID) =>
             await client
                 .post<Project>(`/invites/${inviteId}/accept`, undefined, {
@@ -654,13 +707,9 @@ const api = {
             await client
                 .get<SearchResult<ProjectAdmin>>(`${projectUrl(projectId)}/admins`, { params })
                 .then((r) => r.data),
-        add: async (projectId: UUID, adminId: UUID, params: ProjectAdminParams) =>
+        updateRole: async (projectId: UUID, adminId: UUID, params: ProjectAdminParams) =>
             await client
-                .put<ProjectAdmin>(`${projectUrl(projectId)}/admins/${adminId}`, params)
-                .then((r) => r.data),
-        invite: async (projectId: UUID, params: ProjectAdminInviteParams) =>
-            await client
-                .post<ProjectAdmin>(`${projectUrl(projectId)}/admins`, params)
+                .patch<ProjectAdmin>(`${projectUrl(projectId)}/admins/${adminId}`, params)
                 .then((r) => r.data),
         get: async (projectId: UUID, adminId: UUID) =>
             await client

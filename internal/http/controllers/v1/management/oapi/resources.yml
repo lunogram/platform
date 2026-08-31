@@ -22,7 +22,7 @@ paths:
                 items:
                   type: string
                   description: Authentication driver identifier
-                example: ["basic", "clerk"]
+                example: ["password", "clerk"]
         default:
           $ref: "#/components/responses/Error"
 
@@ -112,6 +112,132 @@ paths:
       responses:
         "200":
           description: Webhook processed successfully
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/auth/register:
+    post:
+      summary: Register with an email address and password
+      description: >-
+        Creates an account for an email address and sends a message confirming
+        the address.
+
+
+        The response is 204 and identical whether or not the address already has
+        an account, whether or not registration is open to it, and whether or
+        not any mail could be sent. Anything else would let the endpoint be used
+        to test which addresses hold accounts here. When the address is already
+        registered, the person who owns it is told so by email, which is the one
+        channel that reaches only them.
+
+
+        Whether registration is open at all is deployment configuration
+        (AUTH_BASIC_REGISTRATION): open, invite-only, or disabled. A disabled
+        deployment answers 404, which is a property of the deployment and not of
+        the submitted address.
+      operationId: registerWithPassword
+      tags:
+        - Auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "204":
+          description: Registration accepted
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/auth/verify:
+    post:
+      summary: Confirm an email address
+      description: >-
+        Redeems a single-use verification token and marks the address confirmed.
+        An unconfirmed account can still sign in; confirming it is what allows
+        the address to be linked to another identity provider later.
+      operationId: verifyEmail
+      tags:
+        - Auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ActionTokenRequest"
+      responses:
+        "204":
+          description: Address confirmed
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/auth/password/reset:
+    post:
+      summary: Request a password reset
+      description: >-
+        Sends a single-use reset link to the address, if it has an account with
+        a password. The response is 204 regardless, so the endpoint cannot be
+        used to discover which addresses hold accounts.
+      operationId: requestPasswordReset
+      tags:
+        - Auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasswordResetRequest"
+      responses:
+        "204":
+          description: Request accepted
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/auth/password/reset/confirm:
+    post:
+      summary: Complete a password reset
+      description: >-
+        Redeems a single-use reset token and sets a new password. Every existing
+        session of that account is revoked: a reset is the remedy for a
+        compromised account, so it has to end whatever sessions the attacker
+        holds.
+      operationId: confirmPasswordReset
+      tags:
+        - Auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasswordResetConfirmRequest"
+      responses:
+        "204":
+          description: Password changed
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/profile/password:
+    post:
+      summary: Change your own password
+      description: >-
+        Sets a new password for the authenticated admin. The current password is
+        required, so a borrowed session cannot lock its owner out. Every OTHER
+        session of the account is revoked and the caller's own is kept.
+      operationId: changePassword
+      tags:
+        - Auth
+      security:
+        - HttpBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePasswordRequest"
+      responses:
+        "204":
+          description: Password changed
         default:
           $ref: "#/components/responses/Error"
 
@@ -9808,13 +9934,83 @@ components:
         email:
           type: string
           format: email
-          description: Email address (required for basic auth)
+          description: Email address (required for the basic and password drivers)
           example: "admin@example.com"
           x-go-type: string
         password:
           type: string
-          description: Password (required for basic auth)
-          example: "password123"
+          description: Password (required for the basic and password drivers)
+          example: "an entirely ordinary passphrase"
+
+    RegisterRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          description: The email address the account is created for
+          example: "admin@example.com"
+          x-go-type: string
+        password:
+          type: string
+          minLength: 1
+          maxLength: 1024
+          description: The password for the new account
+          example: "an entirely ordinary passphrase"
+        first_name:
+          type: string
+          maxLength: 255
+          description: Optional given name for the new account
+        last_name:
+          type: string
+          maxLength: 255
+          description: Optional family name for the new account
+
+    ActionTokenRequest:
+      type: object
+      required: [token]
+      properties:
+        token:
+          type: string
+          description: The single-use token from the emailed link
+
+    PasswordResetRequest:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+          description: The address to send a reset link to
+          example: "admin@example.com"
+          x-go-type: string
+
+    PasswordResetConfirmRequest:
+      type: object
+      required: [token, password]
+      properties:
+        token:
+          type: string
+          description: The single-use token from the emailed link
+        password:
+          type: string
+          minLength: 1
+          maxLength: 1024
+          description: The new password
+
+    ChangePasswordRequest:
+      type: object
+      required: [current_password, password]
+      properties:
+        current_password:
+          type: string
+          description: The password currently on the account
+        password:
+          type: string
+          minLength: 1
+          maxLength: 1024
+          description: The new password
 
     EmailTemplate:
       type: object

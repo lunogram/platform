@@ -10,12 +10,29 @@ import (
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/lunogram/platform/internal/http/problem"
 	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/store/management"
 )
 
 // ErrUnauthorized is returned when the authentication fails.
 var ErrUnauthorized = errors.New("unauthorized")
+
+// CrossOriginTitle is the problem title [ErrCrossOrigin] carries. It is a wire
+// contract: the console matches on it to tell a rejected origin apart from an
+// ordinary permission denial, so that the one failure a user cannot act on
+// without being told about it says so on screen. See
+// console/src/oapi/client.ts.
+const CrossOriginTitle = "cross-origin request refused"
+
+// ErrCrossOrigin is returned when a cookie-borne write arrives from an origin
+// that is not the console's own. Unlike [ErrUnauthorized] it does not hand the
+// request to the next verifier: a browser write refused for its provenance is
+// refused, not offered a second credential to try.
+var ErrCrossOrigin = problem.ErrorFunc(problem.WithStatus(problem.NewError(CrossOriginTitle,
+	"this request did not come from the console itself, so it was refused. "+
+		"if you are running a self-hosted deployment, PUBLIC_URL must match the address the console is served from"),
+	http.StatusForbidden))
 
 type Handler func(ctx context.Context, token string) (context.Context, error)
 

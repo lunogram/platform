@@ -1,8 +1,11 @@
 package v1
 
 import (
+	"context"
 	"errors"
 	"net/http"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -12,54 +15,118 @@ import (
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/http/problem"
+	"github.com/lunogram/platform/internal/mailer"
+	"github.com/lunogram/platform/internal/ratelimit"
 	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/store/management"
 	"go.uber.org/zap"
 )
 
-// NewAuthController wires the login callback: one verifier for the configured
-// driver, and one exchanger that turns whatever it proves into a Lunogram
-// console session.
+// NewAuthController wires the login callbacks: one verifier per configured
+// driver, and one exchanger that turns whatever any of them proves into a
+// Lunogram console session.
 //
 // mgmt must be the same (Redis-backed) store the authentication middleware
 // reads through. Building a separate one here would leave logout unable to
 // invalidate the shared session cache, so a revoked session would keep
 // authenticating on other replicas until the cache TTL elapsed.
-func NewAuthController(logger *zap.Logger, db *sqlx.DB, mgmt *management.State, cfg config.Node, engine *rbac.Engine, signer *auth.ConsoleSigner) (*AuthController, error) {
+func NewAuthController(logger *zap.Logger, db *sqlx.DB, mgmt *management.State, cfg config.Node, engine *rbac.Engine, signer *auth.ConsoleSigner, limiter *ratelimit.Limiter, mail *mailer.Dispatcher, renderer *mailer.Renderer) (*AuthController, error) {
 	controller := &AuthController{
-		logger: logger,
-		mgmt:   mgmt,
-		signer: signer,
+		logger:   logger,
+		mgmt:     mgmt,
+		db:       db,
+		signer:   signer,
+		throttle: newThrottle(limiter, cfg.RateLimit.TrustedProxyHops),
 	}
 
 	controller.exchanger = auth.NewExchanger(db, mgmt, engine, signer, nil, logger, cfg.Auth.LegacyIdentityAdoption)
 
-	verifier, err := verifiers.New(cfg.Auth, mgmt, logger, controller.exchanger)
+	built, err := verifiers.Build(cfg.Auth, mgmt, logger, controller.exchanger)
 	if err != nil {
 		return nil, err
 	}
-	controller.verifier = verifier
+	controller.verifiers = built
+
+	// Kept in configuration order rather than map order so the console offers
+	// the drivers in the order the operator listed them, deterministically.
+	for _, driver := range cfg.Auth.Drivers {
+		driver = strings.ToLower(strings.TrimSpace(driver))
+		if _, ok := controller.verifiers[driver]; ok && !slices.Contains(controller.drivers, driver) {
+			controller.drivers = append(controller.drivers, driver)
+		}
+	}
+
+	if err := controller.initPasswordAuth(cfg, mail, renderer); err != nil {
+		return nil, err
+	}
+
+	// The configured pair is written into an account rather than compared
+	// against, so it has to exist before anybody can sign in with it. Doing it
+	// here means a fresh deployment is reachable the moment it starts, and an
+	// upgrading one keeps signing in with the credential it already used.
+	if cfg.Auth.Enabled(verifiers.BasicDriver) {
+		seeder := auth.NewSeeder(controller.exchanger, mgmt, db, logger.Named("seed"))
+		if err := seeder.Seed(context.Background(), cfg.Auth.Basic.Email, cfg.Auth.Basic.Password); err != nil {
+			return nil, err
+		}
+	}
 
 	return controller, nil
 }
 
 type AuthController struct {
-	logger    *zap.Logger
-	mgmt      *management.State
+	logger *zap.Logger
+	mgmt   *management.State
+	// db is the pool the credential flows start their transactions on. The
+	// cache-backed mgmt above cannot: a store built over a transaction has no
+	// cache attached, so the two are used together — writes through the
+	// transaction, cache invalidation through mgmt once it commits.
+	db        *sqlx.DB
 	signer    *auth.ConsoleSigner
-	verifier  auth.Verifier
+	verifiers map[string]auth.Verifier
+	drivers   []string
 	exchanger *auth.Exchanger
+	throttle  *throttle
+
+	password passwordAuth
 }
 
-// Verifier is the configured credential verifier, exposed so the transitional
-// legacy-cookie upgrade can reuse it rather than construct a second one.
-func (c *AuthController) Verifier() auth.Verifier { return c.verifier }
+// credentialRejected reports whether a verifier turned a login down because of
+// what was submitted, rather than because something on our side broke.
+func credentialRejected(err error) bool {
+	return errors.Is(err, verifiers.ErrInvalidCredentials) ||
+		errors.Is(err, verifiers.ErrMissingCredentials) ||
+		errors.Is(err, verifiers.ErrInvalidToken) ||
+		errors.Is(err, verifiers.ErrNoSession) ||
+		errors.Is(err, verifiers.ErrInvalidEmail)
+}
+
+// Verifier returns the verifier for one driver, or nil when that driver is not
+// configured.
+func (c *AuthController) Verifier(driver string) auth.Verifier { return c.verifiers[driver] }
+
+// LegacyVerifier is the verifier for the transitional legacy-cookie upgrade.
+//
+// It is specifically Clerk's: Clerk's browser SDK is the only thing that ever
+// wrote the `__session` cookie the upgrade reads, so no other driver could
+// prove one. It is exposed so the middleware reuses the configured verifier
+// rather than constructing a second one.
+func (c *AuthController) LegacyVerifier() auth.Verifier {
+	return c.verifiers[verifiers.ClerkDriver]
+}
 
 // Exchanger is the single path from a verified identity to a console session.
 func (c *AuthController) Exchanger() *auth.Exchanger { return c.exchanger }
 
+// GetAuthMethods lists every configured driver. A deployment may offer several
+// at once -- passwords alongside SSO during a migration, say -- and the console
+// picks between them.
 func (c *AuthController) GetAuthMethods(w http.ResponseWriter, r *http.Request) {
-	json.Write(w, http.StatusOK, []string{c.verifier.Driver()})
+	drivers := c.drivers
+	if drivers == nil {
+		drivers = []string{}
+	}
+	json.Write(w, http.StatusOK, drivers)
 }
 
 // AuthCallback completes a login: the driver proves the credential and the
@@ -67,16 +134,38 @@ func (c *AuthController) GetAuthMethods(w http.ResponseWriter, r *http.Request) 
 // never handed the ResponseWriter, so no driver can set a cookie or mint a
 // token of its own.
 func (c *AuthController) AuthCallback(w http.ResponseWriter, r *http.Request, driver oapi.AuthCallbackParamsDriver) {
-	if string(driver) != c.verifier.Driver() {
+	verifier := c.verifiers[string(driver)]
+	if verifier == nil {
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("auth driver not found")))
 		return
 	}
 
 	ctx := r.Context()
 
-	identity, err := c.verifier.Verify(ctx, r)
+	// A credential submitted as an email and a password is guessable, so it is
+	// throttled per account and per source. A token-bearing driver is not: the
+	// upstream owns the guessing problem, and there is no account to key on.
+	budgets, throttled := c.loginBudgets(r, verifier)
+	if throttled {
+		if tripped, retryAfter := c.throttle.exceeded(ctx, budgets); tripped {
+			c.logger.Warn("refusing a login attempt: too many recent failures", zap.String("driver", string(driver)))
+			writeTooManyRequests(w, retryAfter)
+			return
+		}
+	}
+
+	identity, err := verifier.Verify(ctx, r)
 	if err != nil {
-		c.logger.Error("auth validation failed", zap.String("driver", string(driver)), zap.Error(err))
+		// Only a credential that was actually wrong spends budget. Signing in
+		// correctly on many devices never counts against the account, and
+		// neither does a verifier that could not reach the database: charging
+		// those would let a Postgres outage exhaust every budget, leaving
+		// people locked out after it recovered by the very mechanism meant to
+		// protect them.
+		if throttled && credentialRejected(err) {
+			c.throttle.spend(ctx, budgets)
+		}
+		c.logger.Warn("auth validation failed", zap.String("driver", string(driver)), zap.Error(err))
 		c.writeAuthError(w, err)
 		return
 	}
@@ -90,13 +179,38 @@ func (c *AuthController) AuthCallback(w http.ResponseWriter, r *http.Request, dr
 	w.WriteHeader(http.StatusOK)
 }
 
+// loginBudgets derives the throttling keys for a login attempt, buffering the
+// request body so the verifier still sees it intact.
+//
+// The account key comes from the address the caller submitted rather than from
+// an account we looked up, so an address with no account is throttled exactly
+// like one that has an account.
+func (c *AuthController) loginBudgets(r *http.Request, verifier auth.Verifier) (map[budget]string, bool) {
+	switch verifier.Driver() {
+	case verifiers.BasicDriver:
+	default:
+		return nil, false
+	}
+
+	email, err := peekCredentialEmail(r)
+	if err != nil {
+		c.logger.Warn("failed to read the credential body for throttling", zap.Error(err))
+	}
+
+	return map[budget]string{
+		loginAccountBudget: accountKey(email),
+		loginSourceBudget:  c.throttle.sourceKey(r),
+	}, true
+}
+
 func (c *AuthController) AuthWebhook(w http.ResponseWriter, r *http.Request, driver oapi.AuthWebhookParamsDriver) {
-	if string(driver) != c.verifier.Driver() {
+	verifier := c.verifiers[string(driver)]
+	if verifier == nil {
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("auth driver not found")))
 		return
 	}
 
-	webhooks, ok := c.verifier.(auth.WebhookVerifier)
+	webhooks, ok := verifier.(auth.WebhookVerifier)
 	if !ok {
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("this auth driver has no webhook")))
 		return

@@ -112,6 +112,42 @@ redis.call('PEXPIRE', key, ttl_ms)
 return next_slot - now
 `)
 
+// exceededScript reports whether a key has already used its whole budget,
+// WITHOUT consuming any of it.
+//
+// It exists because failure counting and attempt counting are different
+// things. A login is throttled after N *failed* attempts, so the budget may
+// only be spent when an attempt fails -- but the check has to happen before the
+// credential is verified, and Allow cannot answer a question without also
+// answering it in the affirmative.
+//
+// KEYS[1] = the rate-limit key
+// ARGV[1] = current time in microseconds
+// ARGV[2] = window size in microseconds
+// ARGV[3] = max entries per window
+//
+// Returns {1, retryAfterMicroseconds} when the budget is spent, {0, 0} otherwise.
+var exceededScript = redis.NewScript(`
+local key = KEYS[1]
+local now = tonumber(ARGV[1])
+local window = tonumber(ARGV[2])
+local limit = tonumber(ARGV[3])
+
+redis.call('ZREMRANGEBYSCORE', key, '-inf', now - window)
+
+if redis.call('ZCARD', key) < limit then
+    return {0, 0}
+end
+
+local oldest = redis.call('ZRANGE', key, 0, 0, 'WITHSCORES')
+local retry_after = 0
+if #oldest >= 2 then
+    retry_after = tonumber(oldest[2]) + window - now
+    if retry_after < 0 then retry_after = 0 end
+end
+return {1, retry_after}
+`)
+
 // Limiter provides per-key rate limiting backed by Redis.
 // A nil *Limiter is safe to use and allows all requests.
 type Limiter struct {
@@ -174,6 +210,40 @@ func (l *Limiter) Allow(ctx context.Context, key string, limit int, window time.
 	}
 
 	return false, time.Duration(retryAfterMicro) * time.Microsecond, nil
+}
+
+// Exceeded reports whether key has already spent its budget of limit entries in
+// window, and how long until a slot frees up. Unlike [Limiter.Allow] it records
+// nothing, so a caller can test the budget before deciding whether to spend it.
+//
+// A nil receiver, a nil Redis client, or a Redis error all report not exceeded:
+// this is abuse resistance layered on top of authentication, not authentication
+// itself, and an unavailable Redis must not lock every admin out of the console.
+func (l *Limiter) Exceeded(ctx context.Context, key string, limit int, window time.Duration) (exceeded bool, retryAfter time.Duration) {
+	if l == nil || l.client == nil {
+		return false, 0
+	}
+
+	result, err := exceededScript.Run(ctx, l.client,
+		[]string{l.prefix + key},
+		time.Now().UnixMicro(),
+		window.Microseconds(),
+		limit,
+	).Int64Slice()
+	if err != nil {
+		l.logger.Warn("rate limiter redis error, failing open", zap.Error(err), zap.String("key", key))
+		return false, 0
+	}
+
+	if len(result) < 2 || result[0] != 1 {
+		return false, 0
+	}
+
+	retryAfterMicro := result[1]
+	if retryAfterMicro <= 0 {
+		retryAfterMicro = 1000
+	}
+	return true, time.Duration(retryAfterMicro) * time.Microsecond
 }
 
 // Reserve atomically claims the next available rate-limit slot for key.

@@ -19,7 +19,9 @@ services:
       RBAC_POSTGRES_URI: postgres://postgres:postgrespw@postgres:5432/rbac?sslmode=disable
       REDIS_ADDRESS: redis://redis:6379
       NATS_URL: nats://nats:4222
-      # Authentication
+      # Authentication. AUTH_DRIVER takes a comma-separated list, so a
+      # deployment can offer several login methods at once — for example
+      # "basic,clerk" while an organization migrates onto SSO.
       AUTH_DRIVER: ${AUTH_DRIVER:-basic}
       # Signs the console session token (ES256). The default below is a PUBLICLY
       # KNOWN development key: anyone holding it can mint a valid console session
@@ -29,11 +31,41 @@ services:
       # ephemeral key would log every admin out on restart and would break a
       # multi-replica deployment silently.
       AUTH_CONSOLE_SIGNING_KEY: ${AUTH_CONSOLE_SIGNING_KEY:------BEGIN EC PRIVATE KEY-----\nMHcCAQEEIG6W7Oa4GaiOyuS/Fo18FOUVb840oWDlAC8cJuB2IuW8oAoGCCqGSM49\nAwEHoUQDQgAEwXeD5bykWmYlPbqqoxk0hUjxwp+DEyU+HPo0q/OCly3HHGk+yS9w\nck0TgwNlj1B6bKTJwKVmkeL76aKDuBFmQg==\n-----END EC PRIVATE KEY-----}
+      # Seeds the first admin account on the first boot: the pair is written
+      # into a real admin with the password hashed, not compared against on every
+      # login. The plaintext is needed once — a later boot never overwrites a
+      # stored password, so a restart cannot undo one changed in the console.
+      # The password is held to the same policy as one chosen in the console --
+      # it becomes a real stored owner credential -- so the development default
+      # is a passphrase rather than "admin". It is PUBLICLY KNOWN: set your own
+      # before this is reachable by anybody else.
       AUTH_BASIC_EMAIL: ${AUTH_BASIC_EMAIL:-admin@localhost}
-      AUTH_BASIC_PASSWORD: ${AUTH_BASIC_PASSWORD:-admin}
+      AUTH_BASIC_PASSWORD: ${AUTH_BASIC_PASSWORD:-change-this-development-password}
+      # Who else may create an account: open, invite_only or disabled.
+      # invite_only is the default and additionally admits the very first
+      # account, which nobody could have invited.
+      AUTH_BASIC_REGISTRATION: ${AUTH_BASIC_REGISTRATION:-invite_only}
       AUTH_CLERK_SECRET_KEY: ${AUTH_CLERK_SECRET_KEY:-}
       AUTH_CLERK_WEBHOOK_SECRET: ${AUTH_CLERK_WEBHOOK_SECRET:-}
       AUTH_JWKS_URL: ${AUTH_JWKS_URL:-}
+      # Account confirmation and password reset mail. The quickstart sends to
+      # the mailpit service below, where every message is readable at
+      # http://localhost:8025 — nothing leaves the machine and no SMTP account
+      # is needed to create, confirm and recover an account.
+      #
+      # There is no channel that only logs: a deployment offering password
+      # logins has to say where its mail goes, and one that does not is refused
+      # at boot rather than at the first registration.
+      MAIL_CHANNEL: ${MAIL_CHANNEL:-smtp}
+      MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-no-reply@localhost}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Lunogram}
+      MAIL_SMTP_HOST: ${MAIL_SMTP_HOST:-mailpit}
+      MAIL_SMTP_PORT: ${MAIL_SMTP_PORT:-1025}
+      MAIL_SMTP_USERNAME: ${MAIL_SMTP_USERNAME:-}
+      MAIL_SMTP_PASSWORD: ${MAIL_SMTP_PASSWORD:-}
+      # starttls, implicit or none. Mailpit is on the compose network and offers
+      # no TLS; a real relay must not be set to none.
+      MAIL_SMTP_TLS: ${MAIL_SMTP_TLS:-none}
       # Public URL used to generate user-facing links (e.g. preference center, unsubscribe)
       PUBLIC_URL: ${PUBLIC_URL:-http://localhost:8080}
     volumes:
@@ -45,6 +77,8 @@ services:
         condition: service_started
       redis:
         condition: service_healthy
+      mailpit:
+        condition: service_started
     networks:
       - app_network
 
