@@ -10,8 +10,8 @@ GO				?= GOGC=off $(shell which go)
 TINYGO			?= $(shell which tinygo)
 NODE			?= $(shell which node)
 PNPM			?= $(shell which pnpm)
-PKGS			= $(or $(PKG),$(shell env $(GO) list ./...))
-ENTERPRISE_PKGS	= $(or $(PKG),$(shell env $(GO) list -tags enterprise ./...))
+TAGS			?=
+PKGS			= $(or $(PKG),$(shell env $(GO) list -tags '$(TAGS)' ./...))
 VERSION			?= $(shell git describe --tags --always --match=v*)
 SHORT_COMMIT	?= $(shell git rev-parse --short HEAD)
 
@@ -83,16 +83,12 @@ lint: | $(EMBEDDED) $(GOLANGCI_LINT) $(BUF) ; $(info $(M) running linters…) @ 
 	$Q $(GOLANGCI_LINT) run --max-issues-per-linter 10 --timeout 5m
 
 .PHONY: test
-test: | $(EMBEDDED) ; $(info $(M) running tests) @ ## Run all tests
-	$Q $(GO) test $(PKGS) -timeout 1200s -race -p 4
-
-.PHONY: test-enterprise
-test-enterprise: | $(EMBEDDED) ; $(info $(M) running enterprise tests) @ ## Run all tests with the enterprise build tag
-	$Q $(GO) test -tags enterprise $(ENTERPRISE_PKGS) -timeout 1200s -race -p 4
+test: | $(EMBEDDED) ; $(info $(M) running tests) @ ## Run all tests (TAGS=enterprise for the enterprise build)
+	$Q $(GO) test -tags '$(TAGS)' $(PKGS) -timeout 1200s -race -p 4
 
 .PHONY: test-short
-test-short: | $(EMBEDDED) ; $(info $(M) running short tests) @ ## Run all short tests
-	$Q $(GO) test $(PKGS) -timeout 120s -race -count 1 -short
+test-short: | $(EMBEDDED) ; $(info $(M) running short tests) @ ## Run all short tests (TAGS=enterprise for the enterprise build)
+	$Q $(GO) test -tags '$(TAGS)' $(PKGS) -timeout 120s -race -count 1 -short
 
 .PHONY: fmt
 fmt: | $(EMBEDDED) ; $(info $(M) running go fmt…) @ ## Run gofmt on all source files
