@@ -2,11 +2,15 @@ package container
 
 import (
 	"context"
+	"net/http"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
+	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/azure/azurite"
+	"github.com/testcontainers/testcontainers-go/wait"
 )
 
 // Azurite serves a single well-known development account, whose name and key
@@ -39,6 +43,7 @@ func RunAzurite(t *testing.T) (endpoint string) {
 		container, err := azurite.Run(ctx,
 			"mcr.microsoft.com/azure-storage/azurite:3.37.0",
 			azurite.WithEnabledServices(azurite.BlobService),
+			testcontainers.WithAdditionalWaitStrategy(blobServiceServing()),
 		)
 		if err != nil {
 			azuriteOnce.err = err
@@ -56,4 +61,26 @@ func RunAzurite(t *testing.T) (endpoint string) {
 
 	require.NoError(t, azuriteOnce.err)
 	return azuriteOnce.endpoint
+}
+
+// blobServiceServing waits until Azurite answers an HTTP request, rather than
+// until its port merely accepts a connection. Docker's port proxy accepts on
+// the published port as soon as the container is created, so the module's own
+// wait.ForListeningPort is satisfied while the Node process inside is still
+// starting — the first request then reads a closed connection ("EOF", or
+// "server closed idle connection") instead of a response.
+//
+// Any 4xx answers the only question being asked: the blob service parsed a
+// request and rejected it. The probe is deliberately unauthenticated and
+// account-less, so it cannot depend on the account being provisioned yet;
+// Azurite replies 400 to "GET /".
+func blobServiceServing() wait.Strategy {
+	return wait.ForHTTP("/").
+		WithPort(azurite.BlobPort).
+		WithMethod(http.MethodGet).
+		WithStatusCodeMatcher(func(status int) bool {
+			return status >= 400 && status < 500
+		}).
+		WithPollInterval(200 * time.Millisecond).
+		WithStartupTimeout(2 * time.Minute)
 }
