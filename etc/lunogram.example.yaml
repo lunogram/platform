@@ -82,9 +82,11 @@ mail:
   #
   # Each value is a template evaluated against the message context — .Kind,
   # .ProductName, .Recipient, .ActionURL, .BaseURL, .ExpiresIn — and may be
-  # given inline, as file://path, or as base64://payload. Reach for file:// once
-  # a body is big enough to want editing, and base64:// when it arrives from the
-  # environment and you would rather it were one opaque token.
+  # given inline, as file://path, or as base64://payload. Reach for base64://
+  # when the value arrives from the environment — much of what carries an
+  # environment variable is line oriented, and base64 makes a multi-line body one
+  # token nothing along the way can reshape — and for file:// once a body is big
+  # enough to want editing.
   templates:
     # layout:
     #   html: file://mail/layout.html

@@ -29,12 +29,21 @@ const (
 	FileScheme = "file://"
 	// Base64Scheme marks a reference whose payload is base64-encoded inline.
 	//
-	// It earns its place on large values. An HTML email is a few hundred lines
-	// of markup: inline it has to become a YAML block scalar and stay correctly
-	// indented, and through an environment variable it has to survive whatever
-	// the surrounding shell, ConfigMap or secret store does to line breaks.
-	// Base64 makes it one opaque token that none of those can reshape, and
-	// file:// is the better answer once it is big enough to want editing.
+	// It is the form to reach for when a value arrives from the environment.
+	// Expansion itself is safe for any value now that it happens on the parsed
+	// document, but the environment is not one transport -- it is whatever
+	// chain of them a deployment happens to use, and much of that chain is line
+	// oriented. A .env file, a systemd Environment= line and a docker run -e
+	// argument all either mangle a line break or need it escaped, and a trailing
+	// newline can be added or eaten anywhere along the way. Base64 makes the
+	// value one token from an alphabet none of them treats specially, so what
+	// the operator encoded is what the template parser sees.
+	//
+	// It is an encoding, not a secrecy measure: a base64 payload in a ConfigMap
+	// is as readable as the markup it holds. And it is not the answer for
+	// something genuinely large, because a single environment variable is capped
+	// at 128KiB on Linux and base64 adds a third -- file:// is, and it is the
+	// better answer anyway once the value is big enough to want editing.
 	Base64Scheme = "base64://"
 )
 

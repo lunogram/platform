@@ -1,8 +1,10 @@
 package config
 
 import (
+	"encoding/base64"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -215,4 +217,71 @@ func TestShippedExampleLoads(t *testing.T) {
 	assert.Equal(t, []string{"password"}, cfg.Auth.Drivers)
 	require.NotNil(t, cfg.Webhook.Outbound)
 	assert.Len(t, cfg.Webhook.Outbound.Hooks["project.created"], 1)
+}
+
+// base64://${NAME} is the documented way to supply a template from the
+// environment, and it is a composition of three separate mechanisms --
+// expansion, reference resolution and template parsing. This covers the whole
+// chain, because each of them is tested in isolation elsewhere and none of
+// those tests would notice the seams coming apart.
+func TestBase64TemplateFromTheEnvironment(t *testing.T) {
+	const layout = "<html>\n  <body>\n    <h1>{{ .Heading }}</h1>\n    <a href=\"{{ .ActionURL }}\">{{ .ActionLabel }}</a>\n  </body>\n</html>\n"
+
+	t.Setenv("VERIFY_LAYOUT_HTML", base64.StdEncoding.EncodeToString([]byte(layout)))
+	t.Setenv(ConfigFileEnv, writeConfig(t, `
+mail:
+  channel: smtp
+  from:
+    address: no-reply@example.com
+  smtp:
+    host: smtp.example.com
+  templates:
+    layout:
+      html: base64://${VERIFY_LAYOUT_HTML}
+`))
+
+	cfg, err := Load()
+	require.NoError(t, err)
+
+	renderer, err := mailer.NewRenderer(cfg.Mail, "https://console.example.com", cfg.BaseDir())
+	require.NoError(t, err)
+
+	message := renderer.VerifyEmail("admin@example.com", "tok", time.Hour)
+	assert.Contains(t, message.HTML, "<h1>Confirm your email address</h1>")
+	assert.Contains(t, message.HTML, "https://console.example.com/verify-email?token=tok")
+	assert.NotContains(t, message.HTML, "base64://", "the payload must be decoded, not passed through")
+}
+
+// GNU base64 wraps at 76 columns unless told not to, and an operator setting
+// the variable from a shell will hit that.
+func TestBase64TemplateSurvivesWrapping(t *testing.T) {
+	const subject = "Confirm your address at Example"
+
+	encoded := base64.StdEncoding.EncodeToString([]byte(subject))
+	var wrapped strings.Builder
+	for i := 0; i < len(encoded); i += 76 {
+		wrapped.WriteString(encoded[i:min(i+76, len(encoded))])
+		wrapped.WriteString("\n")
+	}
+
+	t.Setenv("VERIFY_SUBJECT", wrapped.String())
+	t.Setenv(ConfigFileEnv, writeConfig(t, `
+mail:
+  channel: smtp
+  from:
+    address: no-reply@example.com
+  smtp:
+    host: smtp.example.com
+  templates:
+    verify_email:
+      subject: base64://${VERIFY_SUBJECT}
+`))
+
+	cfg, err := Load()
+	require.NoError(t, err)
+
+	renderer, err := mailer.NewRenderer(cfg.Mail, "https://console.example.com", cfg.BaseDir())
+	require.NoError(t, err)
+
+	assert.Equal(t, subject, renderer.VerifyEmail("admin@example.com", "tok", time.Hour).Subject)
 }

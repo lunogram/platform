@@ -96,7 +96,7 @@ Anywhere the configuration takes a template or a body — mail templates, hook b
 
 Relative `file://` paths resolve against the directory holding the configuration file, so a config and the templates it points at travel together and move together.
 
-`base64://` earns its place on large values. An HTML email is a few hundred lines of markup: written inline it has to become a YAML block scalar and stay correctly indented, and passed through an environment variable it has to survive whatever the surrounding shell, ConfigMap or secret store does to line breaks. Base64 makes it one opaque token that none of those can reshape:
+`base64://` is the form to reach for when a value arrives from the environment. Expansion itself is safe for any value — that is handled on the parsed document — but the environment is not one transport, it is whatever chain of them your deployment uses, and much of that chain is line-oriented. A `.env` file, a `systemd` `Environment=` line and a `docker run -e` argument all either mangle a line break or need it escaped, and a trailing newline can be added or eaten anywhere along the way. Base64 makes the value one token from an alphabet none of them treats specially:
 
 ```yaml
 mail:
@@ -111,7 +111,9 @@ VERIFY_EMAIL_HTML="$(base64 < verify.html)"
 
 Line wrapping is ignored, so `base64` wrapping its output at 76 columns is not a problem.
 
-Nothing forces you to use it — a multi-line value expands correctly on its own, and `file://` is the better answer once a template is big enough that you want to edit it.
+Nothing forces you to use it — a multi-line value written into the file expands correctly on its own, and `file://` is the better answer once a template is big enough that you want to edit it.
+
+It is an encoding, not a secrecy measure. A base64 payload in a ConfigMap is exactly as readable as the markup it holds.
 
 <Callout type="warn">
 A single environment variable is capped at 128&nbsp;KiB on Linux, and base64 adds a third to whatever you encode — so a template much over 90&nbsp;KiB will not fit through the environment. Use `file://` for anything that large.
