@@ -152,10 +152,10 @@ the address, not by holding the link. Invitations expire after 48 hours. See
 
 ### Signing in with your company's identity provider
 
-Point the deployment at your own OpenID Connect provider — Okta, Entra ID,
+Point the deployment at your own OpenID Connect providers — Okta, Entra ID,
 Google Workspace, Keycloak, Auth0 — and your staff sign in there. It is a driver
-like the others: add `oidc` to `AUTH_DRIVER` and configure it from the
-environment.
+like the others: add `oidc` to `AUTH_DRIVER` and configure it. One provider is
+configured from the environment; several are declared in the configuration file.
 
 SAML is deliberately not supported, and is not planned. OpenID Connect is what
 the platform speaks.
@@ -167,14 +167,17 @@ holds a secret) and note its client ID and client secret. Okta calls this an
 "OIDC — Web Application"; Entra ID calls it an "App registration" with a Web
 redirect URI; Keycloak calls it a client with "Client authentication" on.
 
-The redirect URI to register is your `PUBLIC_URL` followed by the callback path:
+The redirect URI to register is your `PUBLIC_URL`, the callback path, and the
+provider's id — `default` for the single-provider form below:
 
 ```
-https://<your-lunogram-host>/api/auth/oidc/callback
+https://<your-lunogram-host>/api/auth/oidc/default/callback
 ```
 
 It is derived from `PUBLIC_URL` and never from anything in a request, and it
 must be registered **exactly** — most providers reject a mismatch outright.
+Each provider gets its own, so a second one registers
+`.../api/auth/oidc/<its-id>/callback`.
 
 #### 2. Configure the driver
 
@@ -205,11 +208,52 @@ The rest have defaults worth knowing about:
 Naming the driver without the issuer, client ID and client secret refuses to
 start, rather than failing the first person who presses the button.
 
+#### More than one provider
+
+Several providers are declared in the configuration file, where `${VAR}`
+references keep the secrets in the environment:
+
+```yaml
+auth:
+  drivers: [basic, oidc]
+  oidc:
+    providers:
+      - id: staff
+        name: Staff directory
+        issuer: https://example.okta.com
+        client_id: 0oa...
+        client_secret: ${OKTA_CLIENT_SECRET}
+      - id: contractors
+        name: Contractors
+        issuer: https://login.microsoftonline.com/<tenant>/v2.0
+        client_id: ...
+        client_secret: ${ENTRA_CLIENT_SECRET}
+        allowed_domains: [partner.example]
+```
+
+Every field above has the same meaning as its `AUTH_OIDC_*` twin. The `id` is
+what appears in that provider's login and callback URLs, so it has to survive a
+URL path segment and cannot change without re-registering the redirect URI.
+The `name` is what the login page calls it, and falls back to the id.
+
+Set `AUTH_OIDC_*` **or** `auth.oidc.providers`, not both — mixing them is
+refused at startup rather than merged, because there is no order in which one of
+them obviously wins.
+
+`allowed_domains` bounds the email domains a provider may speak for. It is
+optional and matters once there are several: a verified address links a login to
+an existing admin whichever provider asserted it, so without it the least
+trustworthy provider decides who can reach every account — a consumer tenant
+added "so contractors can sign in" would be able to assert a staff address.
+Nothing has to be proved here, unlike a domain a customer claims: you own every
+provider in this list.
+
 #### 3. Sign in
 
 Staff choose "Continue with single sign-on" on the login page and are sent
-straight to your provider. Leaving `oidc` as the only `AUTH_DRIVER` makes it the
-only way in; listing it alongside `basic` offers both while you migrate.
+straight to your provider, or pick between them by name when you configured
+several. Leaving `oidc` as the only `AUTH_DRIVER` makes it the only way in;
+listing it alongside `basic` offers both while you migrate.
 
 An address is only linked to an existing account when the provider itself
 reports it verified, so a provider that lets people type any address into their
