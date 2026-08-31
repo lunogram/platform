@@ -45,6 +45,12 @@ services:
       # invite_only is the default and additionally admits the very first
       # account, which nobody could have invited.
       AUTH_BASIC_REGISTRATION: ${AUTH_BASIC_REGISTRATION:-invite_only}
+      # Add oidc to AUTH_DRIVER above to offer single sign-on alongside the
+      # password login, and fill these in from your identity provider. The
+      # redirect URI to register with it is PUBLIC_URL + /api/auth/oidc/callback.
+      AUTH_OIDC_ISSUER: ${AUTH_OIDC_ISSUER:-}
+      AUTH_OIDC_CLIENT_ID: ${AUTH_OIDC_CLIENT_ID:-}
+      AUTH_OIDC_CLIENT_SECRET: ${AUTH_OIDC_CLIENT_SECRET:-}
       AUTH_CLERK_SECRET_KEY: ${AUTH_CLERK_SECRET_KEY:-}
       AUTH_CLERK_WEBHOOK_SECRET: ${AUTH_CLERK_WEBHOOK_SECRET:-}
       AUTH_JWKS_URL: ${AUTH_JWKS_URL:-}

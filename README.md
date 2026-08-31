@@ -32,7 +32,7 @@
 - 👥 **Segmentation** Create dynamic lists to target users matching any event or user based criteria in real time.
 - 📣 **Campaigns** Build campaigns that target specific lists of users and go out at pre-defined times.
 - 🔗 **Integrations** Connect Lunogram to your applications using our easy to use SDKs and APIs.
-- 🔒 **Secure** SSO (SAML/OpenID) is provided out of the box, no extra bolts or add-ons.
+- 🔒 **Secure** OpenID Connect single sign-on, configured like any other login driver, no add-ons. SAML is not supported.
 - 📦 **Open Source** Easy to setup and get running in your own cloud.
 
 ## 🚀 Deployment
@@ -94,8 +94,9 @@ AUTH_BASIC_PASSWORD=...
 AUTH_BASIC_REGISTRATION=invite_only
 ```
 
-`AUTH_DRIVER` accepts a comma-separated list, so `basic,clerk` offers both at
-once — useful while an organization moves onto SSO.
+`AUTH_DRIVER` accepts a comma-separated list, so `basic,oidc` offers both at
+once — useful while an organization moves onto single sign-on, which is
+configured the same way and described below.
 
 `AUTH_BASIC_REGISTRATION` decides who else may create an account: `open` for a
 public sign-up, `disabled` to provision admins some other way, and the default
@@ -148,6 +149,77 @@ yet. Inviting somebody mails them a link to the console, where they accept by
 signing in with the address it was sent to — an invitation is claimed by proving
 the address, not by holding the link. Invitations expire after 48 hours. See
 [Members](https://docs.lunogram.com/settings/members).
+
+### Signing in with your company's identity provider
+
+Point the deployment at your own OpenID Connect provider — Okta, Entra ID,
+Google Workspace, Keycloak, Auth0 — and your staff sign in there. It is a driver
+like the others: add `oidc` to `AUTH_DRIVER` and configure it from the
+environment.
+
+SAML is deliberately not supported, and is not planned. OpenID Connect is what
+the platform speaks.
+
+#### 1. Register the application with your identity provider
+
+Create an OpenID Connect **web application** (a confidential client — one that
+holds a secret) and note its client ID and client secret. Okta calls this an
+"OIDC — Web Application"; Entra ID calls it an "App registration" with a Web
+redirect URI; Keycloak calls it a client with "Client authentication" on.
+
+The redirect URI to register is your `PUBLIC_URL` followed by the callback path:
+
+```
+https://<your-lunogram-host>/api/auth/oidc/callback
+```
+
+It is derived from `PUBLIC_URL` and never from anything in a request, and it
+must be registered **exactly** — most providers reject a mismatch outright.
+
+#### 2. Configure the driver
+
+```
+AUTH_DRIVER=basic,oidc
+AUTH_OIDC_ISSUER=https://example.okta.com
+AUTH_OIDC_CLIENT_ID=...
+AUTH_OIDC_CLIENT_SECRET=...
+```
+
+`AUTH_OIDC_ISSUER` is the URL your provider stamps as `iss`, taken verbatim —
+issuer identifiers are compared exactly, trailing slash included. The metadata is
+read from `<issuer>/.well-known/openid-configuration` unless
+`AUTH_OIDC_DISCOVERY_URL` says otherwise, and wherever it points it must be
+served by the issuer's own origin: whoever chooses that URL otherwise also
+chooses the token endpoint and the JWKS.
+
+The rest have defaults worth knowing about:
+
+| Variable | Default | What it is |
+| --- | --- | --- |
+| `AUTH_OIDC_SCOPES` | `openid,email,profile` | Requested at the authorization endpoint. `openid` is added if you leave it out |
+| `AUTH_OIDC_EMAIL_CLAIM` | `email` | Which claim carries the address |
+| `AUTH_OIDC_EMAIL_VERIFIED_CLAIM` | `email_verified`, but only when the address comes from `email` | Which claim attests the address |
+| `AUTH_OIDC_GIVEN_NAME_CLAIM` | `given_name` | Which claim carries the first name |
+| `AUTH_OIDC_FAMILY_NAME_CLAIM` | `family_name` | Which claim carries the last name |
+
+Naming the driver without the issuer, client ID and client secret refuses to
+start, rather than failing the first person who presses the button.
+
+#### 3. Sign in
+
+Staff choose "Continue with single sign-on" on the login page and are sent
+straight to your provider. Leaving `oidc` as the only `AUTH_DRIVER` makes it the
+only way in; listing it alongside `basic` offers both while you migrate.
+
+An address is only linked to an existing account when the provider itself
+reports it verified, so a provider that lets people type any address into their
+profile cannot inherit somebody else's account by claiming it.
+
+That attestation is tied to the claim the address came from. `email_verified`
+attests `email` and nothing else, so pointing `AUTH_OIDC_EMAIL_CLAIM` at an
+editable claim such as `preferred_username` or `upn` leaves addresses unverified
+— and therefore never linked to an existing account — until
+`AUTH_OIDC_EMAIL_VERIFIED_CLAIM` names the claim that attests them.
 
 For full documentation on the platform and more information on deployment, check out our docs.
 
