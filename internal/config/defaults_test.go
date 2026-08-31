@@ -26,7 +26,9 @@ import (
 //
 // The mail section is excluded because it is deliberately redesigned in this
 // change -- a channel replaced a bare host, and the sender moved out of the
-// transport -- and is asserted separately below. The captured auth.JWKS was
+// transport -- and is asserted separately below. auth.oidc is excluded for the
+// opposite reason: the driver did not exist when the snapshot was taken, so it
+// has no former tags to match and is pinned separately too. The captured auth.JWKS was
 // dropped from the file because the type marshals to an object but unmarshals
 // from a string; it holds no default either way.
 func TestDefaultsMatchTheirFormerTags(t *testing.T) {
@@ -40,8 +42,21 @@ func TestDefaultsMatchTheirFormerTags(t *testing.T) {
 
 	former.Mail = mailer.Config{}
 	current.Mail = mailer.Config{}
+	current.Auth.OIDC = OIDCAuth{}
 
 	assert.Equal(t, former, current)
+}
+
+// A deployment that names the oidc driver and nothing else gets the claims and
+// scopes every provider documents, so the common case is three variables.
+func TestOIDCDefaults(t *testing.T) {
+	oidc := Defaults().Auth.OIDC
+
+	assert.False(t, oidc.Configured(), "no issuer, no client: the driver is off unless it is configured")
+	assert.Equal(t, []string{"openid", "email", "profile"}, oidc.Scopes)
+	assert.Equal(t, "email", oidc.EmailClaim)
+	assert.Equal(t, "given_name", oidc.GivenNameClaim)
+	assert.Equal(t, "family_name", oidc.FamilyNameClaim)
 }
 
 // The mail defaults changed shape deliberately, so they are pinned here rather

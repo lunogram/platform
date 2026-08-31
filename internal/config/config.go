@@ -59,6 +59,7 @@ type Auth struct {
 	JWKS    claim.JWKS  `env:"JWKS_URL" yaml:"jwks"`
 	Basic   BasicAuth   `envPrefix:"BASIC_" yaml:"basic"`
 	Clerk   ClerkAuth   `envPrefix:"CLERK_" yaml:"clerk"`
+	OIDC    OIDCAuth    `envPrefix:"OIDC_" yaml:"oidc"`
 	Console ConsoleAuth `envPrefix:"CONSOLE_" yaml:"console"`
 
 	// LegacyIdentityAdoption lets an upstream identity claim a
@@ -163,6 +164,44 @@ const (
 	// that provisions its admins some other way.
 	RegistrationDisabled = "disabled"
 )
+
+// OIDCAuth configures the deployment's OpenID Connect provider. One provider
+// serves the whole deployment, in the same way AUTH_BASIC_* and AUTH_CLERK_*
+// do: it is an operator setting, not something a customer creates at runtime.
+type OIDCAuth struct {
+	// Issuer is the URL the provider stamps as `iss`, and is taken verbatim.
+	// OpenID Connect issuer identifiers are compared exactly, trailing slash
+	// included, so this is never normalised beyond trimming whitespace.
+	Issuer string `env:"ISSUER" yaml:"issuer"`
+	// DiscoveryURL overrides where the provider's metadata is published. Empty
+	// means the well-known location under the issuer. Wherever it points, it
+	// must be served by the issuer's own origin: whoever chooses this URL
+	// otherwise also chooses the token endpoint and the JWKS.
+	DiscoveryURL string `env:"DISCOVERY_URL" yaml:"discovery_url"`
+	ClientID     string `env:"CLIENT_ID" yaml:"client_id"`
+	ClientSecret string `env:"CLIENT_SECRET" yaml:"client_secret"`
+	// Scopes are requested at the authorization endpoint. openid is required by
+	// the protocol and is added when it is missing.
+	Scopes []string `env:"SCOPES" envSeparator:"," yaml:"scopes"`
+	// The claims carrying the profile. Providers disagree about these often
+	// enough that they are configurable rather than assumed.
+	EmailClaim string `env:"EMAIL_CLAIM" yaml:"email_claim"`
+	// EmailVerifiedClaim attests the address EmailClaim carries. It defaults to
+	// email_verified ONLY when the address comes from the standard email claim,
+	// because that is the only pairing OpenID Connect defines. Point EmailClaim
+	// somewhere else and addresses are unverified until this names the claim
+	// that attests them -- see [verifiers.NewOIDC].
+	EmailVerifiedClaim string `env:"EMAIL_VERIFIED_CLAIM" yaml:"email_verified_claim"`
+	GivenNameClaim     string `env:"GIVEN_NAME_CLAIM" yaml:"given_name_claim"`
+	FamilyNameClaim    string `env:"FAMILY_NAME_CLAIM" yaml:"family_name_claim"`
+}
+
+// Configured reports whether the deployment has enough to run a federated
+// login. AUTH_DRIVER=oidc without these is refused at boot rather than
+// discovered by the first person who presses the button.
+func (o OIDCAuth) Configured() bool {
+	return o.Issuer != "" && o.ClientID != "" && o.ClientSecret != ""
+}
 
 type ClerkAuth struct {
 	SecretKey     string `env:"SECRET_KEY" yaml:"secret_key"`
