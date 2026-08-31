@@ -59,44 +59,44 @@ var FS = http.FS
 // Config holds the configuration for the http server.
 type Config struct {
 	// ReadHeaderTimeout is the maximum duration for reading the request header.
-	ReadHeaderTimeout time.Duration `env:"READ_HEADER_TIMEOUT" envDefault:"5s"`
+	ReadHeaderTimeout time.Duration `env:"READ_HEADER_TIMEOUT" yaml:"read_header_timeout"`
 	// ReadTimeout is the maximum duration for reading the entire request, including the body.
-	ReadTimeout time.Duration `env:"READ_TIMEOUT" envDefault:"5s"`
+	ReadTimeout time.Duration `env:"READ_TIMEOUT" yaml:"read_timeout"`
 	// IdleTimeout is the maximum amount of time to wait for the next request when keep-alives are enabled.
-	IdleTimeout time.Duration `env:"IDLE_TIMEOUT" envDefault:"5s"`
+	IdleTimeout time.Duration `env:"IDLE_TIMEOUT" yaml:"idle_timeout"`
 	// WriteTimeout is the maximum duration before timing out writes of the response.
-	WriteTimeout time.Duration `env:"WRITE_TIMEOUT" envDefault:"10s"`
+	WriteTimeout time.Duration `env:"WRITE_TIMEOUT" yaml:"write_timeout"`
 	// MaxHeaderBytes controls the maximum number of bytes the server will read parsing the request header's keys and values, including the request line.
-	MaxHeaderBytes int `env:"MAX_HEADER_BYTES" envDefault:"1048576"`
+	MaxHeaderBytes int `env:"MAX_HEADER_BYTES" yaml:"max_header_bytes"`
 	// CSRF holds the CSRF protection configuration.
-	CSRF CSRFConfig `envPrefix:"CSRF_"`
+	CSRF CSRFConfig `envPrefix:"CSRF_" yaml:"csrf"`
 }
 
 // CSRFConfig holds the configuration for CSRF protection.
 type CSRFConfig struct {
 	// Enabled determines whether CSRF protection is enabled.
-	Enabled bool `env:"ENABLED" envDefault:"true"`
+	Enabled bool `env:"ENABLED" yaml:"enabled"`
 	// Secret is the secret key used to generate CSRF tokens.
 	// If not provided, a random key will be generated on startup.
-	Secret string `env:"SECRET"`
+	Secret string `env:"SECRET" yaml:"secret"`
 	// TokenLength is the length of the CSRF token in bytes.
-	TokenLength int `env:"TOKEN_LENGTH" envDefault:"32"`
+	TokenLength int `env:"TOKEN_LENGTH" yaml:"token_length"`
 	// CookieName is the name of the CSRF cookie.
-	CookieName string `env:"COOKIE_NAME" envDefault:"csrf_token"`
+	CookieName string `env:"COOKIE_NAME" yaml:"cookie_name"`
 	// HeaderName is the name of the CSRF header.
-	HeaderName string `env:"HEADER_NAME" envDefault:"X-CSRF-Token"`
+	HeaderName string `env:"HEADER_NAME" yaml:"header_name"`
 	// FieldName is the name of the CSRF form field.
-	FieldName string `env:"FIELD_NAME" envDefault:"csrf_token"`
+	FieldName string `env:"FIELD_NAME" yaml:"field_name"`
 	// CookieSecure determines whether the CSRF cookie should be secure (HTTPS only).
-	CookieSecure bool `env:"COOKIE_SECURE" envDefault:"true"`
+	CookieSecure bool `env:"COOKIE_SECURE" yaml:"cookie_secure"`
 	// CookieHTTPOnly determines whether the CSRF cookie should be HTTP only.
-	CookieHTTPOnly bool `env:"COOKIE_HTTP_ONLY" envDefault:"true"`
+	CookieHTTPOnly bool `env:"COOKIE_HTTP_ONLY" yaml:"cookie_http_only"`
 	// CookieSameSite determines the SameSite attribute of the CSRF cookie.
 	// Valid values: "strict", "lax", "none", "default"
-	CookieSameSite string `env:"COOKIE_SAME_SITE" envDefault:"strict"`
+	CookieSameSite string `env:"COOKIE_SAME_SITE" yaml:"cookie_same_site"`
 	// TrustedOrigins is a list of trusted origins for CSRF validation.
 	// If empty, only same-origin requests are allowed.
-	TrustedOrigins []string `env:"TRUSTED_ORIGINS"`
+	TrustedOrigins []string `env:"TRUSTED_ORIGINS" yaml:"trusted_origins"`
 }
 
 // NewServer creates a new http *Server with the given logger. A trace handler

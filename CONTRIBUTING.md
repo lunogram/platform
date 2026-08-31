@@ -80,7 +80,16 @@ REDIS_ADDRESS=redis://localhost:6379
 NATS_URL=nats://localhost:4222
 AUTH_DRIVER=basic
 AUTH_BASIC_EMAIL=admin@localhost
-AUTH_BASIC_PASSWORD=admin
+AUTH_BASIC_PASSWORD=change-this-development-password
+
+# Mail goes to the Mailpit the dependency stack runs; read it at
+# http://localhost:8025. Mailpit's SMTP listener speaks plaintext, so the
+# default of starttls has to be turned off for it.
+MAIL_CHANNEL=smtp
+MAIL_FROM_ADDRESS=no-reply@localhost
+MAIL_SMTP_HOST=localhost
+MAIL_SMTP_PORT=1025
+MAIL_SMTP_TLS=none
 
 # Signs the console session token. Required whenever AUTH_DRIVER is set; the
 # server refuses to start without it rather than generating a throwaway key,
@@ -88,6 +97,15 @@ AUTH_BASIC_PASSWORD=admin
 #   openssl ecparam -name prime256v1 -genkey -noout
 AUTH_CONSOLE_SIGNING_KEY="$(openssl ecparam -name prime256v1 -genkey -noout)"
 ```
+
+`AUTH_DRIVER` accepts a comma-separated list, so `basic,clerk` gives you local
+accounts and SSO at once. `AUTH_BASIC_EMAIL` / `AUTH_BASIC_PASSWORD` seed the
+first account rather than being compared against on every login. Password reset
+and project invitation mail goes to the Mailpit container the dependency stack
+starts; read it at <http://localhost:8025>. The mail settings above are not optional: a
+deployment offering password logins with nowhere to send mail is refused at
+boot. Reach Mailpit at `localhost` rather than at `mailpit`, which only resolves
+inside the compose network.
 
 ## How to Contribute
 

@@ -67,35 +67,68 @@ func TestNewVerifier(t *testing.T) {
 	t.Run("basic stays a supported driver", func(t *testing.T) {
 		// It is the documented quickstart (AUTH_BASIC_EMAIL=admin@localhost),
 		// so it must keep working without being gated on anything.
-		verifier, err := New(config.Auth{Driver: "basic"}, nil, logger, nil)
+		verifier, err := New(BasicDriver, config.Auth{}, nil, logger, nil)
 		require.NoError(t, err)
-		assert.Equal(t, "basic", verifier.Driver())
+		assert.Equal(t, BasicDriver, verifier.Driver())
 	})
 
 	t.Run("clerk", func(t *testing.T) {
-		verifier, err := New(config.Auth{
-			Driver: "clerk",
-			JWKS:   clerkJWKS(t),
-			Clerk:  config.ClerkAuth{SecretKey: "sk_test_xxx"},
+		verifier, err := New(ClerkDriver, config.Auth{
+			JWKS:  clerkJWKS(t),
+			Clerk: config.ClerkAuth{SecretKey: "sk_test_xxx"},
 		}, nil, logger, nil)
 		require.NoError(t, err)
-		assert.Equal(t, "clerk", verifier.Driver())
+		assert.Equal(t, ClerkDriver, verifier.Driver())
 	})
 
 	t.Run("clerk without a JWKS is refused at startup", func(t *testing.T) {
 		// Starting would leave the verifier with no key at all: every login
 		// would fail closed but silently, looking like a broken Clerk instance
 		// rather than an unset variable.
-		_, err := New(config.Auth{
-			Driver: "clerk",
-			Clerk:  config.ClerkAuth{SecretKey: "sk_test_xxx"},
+		_, err := New(ClerkDriver, config.Auth{
+			Clerk: config.ClerkAuth{SecretKey: "sk_test_xxx"},
 		}, nil, logger, nil)
 		require.ErrorIs(t, err, ErrMissingJWKS)
 		assert.Contains(t, err.Error(), "AUTH_JWKS_URL")
 	})
 
 	t.Run("an unknown driver is refused at startup", func(t *testing.T) {
-		_, err := New(config.Auth{Driver: "magic"}, nil, logger, nil)
+		_, err := New("magic", config.Auth{}, nil, logger, nil)
+		require.ErrorIs(t, err, ErrUnknownDriver)
+	})
+}
+
+// A deployment may run several drivers at once -- passwords alongside SSO while
+// an organization migrates -- so the set is built from configuration rather than
+// collapsed to whichever one came first.
+func TestBuildVerifiers(t *testing.T) {
+	t.Parallel()
+
+	logger := zaptest.NewLogger(t)
+
+	t.Run("builds every configured driver", func(t *testing.T) {
+		built, err := Build(config.Auth{
+			Drivers: []string{"basic", " CLERK "},
+			JWKS:    clerkJWKS(t),
+			Clerk:   config.ClerkAuth{SecretKey: "sk_test_xxx"},
+		}, nil, logger, nil)
+		require.NoError(t, err)
+		require.Len(t, built, 2)
+		assert.Equal(t, BasicDriver, built[BasicDriver].Driver())
+		assert.Equal(t, ClerkDriver, built[ClerkDriver].Driver())
+	})
+
+	t.Run("no configured driver builds nothing", func(t *testing.T) {
+		built, err := Build(config.Auth{}, nil, logger, nil)
+		require.NoError(t, err)
+		assert.Empty(t, built)
+	})
+
+	t.Run("one unknown driver fails the whole build", func(t *testing.T) {
+		// Startup is the only moment a typo in AUTH_DRIVER can be caught; a
+		// deployment silently offering fewer login methods than it was told to
+		// is how people get locked out.
+		_, err := Build(config.Auth{Drivers: []string{"basic", "magic"}}, nil, logger, nil)
 		require.ErrorIs(t, err, ErrUnknownDriver)
 	})
 }

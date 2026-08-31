@@ -1,0 +1,170 @@
+---
+title: Configuration
+description: How Lunogram is configured — the YAML file, the environment, the order they are applied in, and how to supply a value that does not fit on one line
+---
+
+Lunogram reads its configuration from three layers, applied in this order:
+
+1. **Defaults** compiled into the binary
+2. **The YAML file** at `CONFIG_FILE`, if one is set
+3. **The environment**
+
+Later layers win. A single environment variable overrides one setting out of the file without restating the rest of it, and a key left out of the file keeps its default rather than being blanked.
+
+```bash
+CONFIG_FILE=/etc/lunogram/lunogram.yaml
+```
+
+The file is read once, at startup, and an unrecognised key stops the service from starting. A typo in configuration is a setting that silently did not apply, which is worth failing over at boot rather than discovering from behaviour months later.
+
+<Callout type="info">
+The two layers are not equally expressive. The file is the complete surface; the environment reaches scalar settings only. A hook set — many subscribers per event, each with its own template, credential and retry policy — has no sensible flat encoding, so it exists only in the file.
+</Callout>
+
+---
+
+## Naming
+
+A setting's YAML path and its environment variable are the same name written two ways: the variable is the path in upper snake case, joined with underscores.
+
+| YAML | Environment |
+| --- | --- |
+| `public_url` | `PUBLIC_URL` |
+| `auth.basic.registration` | `AUTH_BASIC_REGISTRATION` |
+| `auth.console.idle_ttl` | `AUTH_CONSOLE_IDLE_TTL` |
+| `mail.smtp.host` | `MAIL_SMTP_HOST` |
+| `rate_limit.per_minute` | `RATE_LIMIT_PER_MINUTE` |
+
+A few sections predate the file and keep the variable names they shipped with — `store.management_uri` is `POSTGRES_MANAGEMENT_URI`, and `storage.type` is `STORAGE_TYPE` rather than `STORAGE_STORAGE_TYPE`. Where the two differ, the variable name is the one already in your deployment, and it has not changed.
+
+### Durations and lists
+
+Durations are written the way Go writes them — `10s`, `5m`, `168h`. A bare number is rejected rather than guessed at.
+
+A list is a YAML sequence in the file and a comma-separated value in the environment:
+
+```yaml
+auth:
+  drivers: [basic, clerk]
+```
+
+```bash
+AUTH_DRIVER=basic,clerk
+```
+
+<Callout type="warn">
+An environment variable set to the empty string does not clear a value the file set — it reads as "not set", and the file's value stands. To remove a setting, remove it from the file.
+</Callout>
+
+---
+
+## Secrets
+
+Any `${NAME}` in the file is replaced with that environment variable when the file is read, so credentials stay in the environment (or a secret store) and the file itself can live in a ConfigMap or in version control.
+
+```yaml
+mail:
+  smtp:
+    password: ${SMTP_PASSWORD}
+```
+
+A referenced variable that is not set is a startup error. Lunogram will not quietly send an empty password.
+
+**A value can contain anything.** Expansion happens on the parsed document, not on its text, so a secret carrying a `#`, a `:`, a quote or a line break arrives exactly as you set it and cannot affect how the rest of the file is read. There is no quoting ritual to remember.
+
+Quotes still mean what they normally mean in YAML — they decide the *type*, not the safety. An unquoted value takes its type from what it says, so `port: ${PORT}` becomes a number; a quoted one is always a string, which is what you want for a password that happens to look like `0755`.
+
+Three more rules, each there to keep the environment from deciding more than the value of a setting:
+
+- **Keys cannot come from the environment.** `${KEY}: value` is refused. Supplying a value is one thing; renaming or shadowing a setting is another.
+- **Expansion does not recurse.** A variable whose value is `${OTHER}` yields that text; it does not reach for another variable.
+- **Comments are not expanded**, because they are not part of the parsed document.
+
+To write a literal `${...}` — in an inline JSONNet body, say — double the dollar: `$${NAME}` yields `${NAME}`.
+
+---
+
+## Values that do not fit on one line
+
+Anywhere the configuration takes a template or a body — mail templates, hook body templates — the value is a **reference**, and it can be given three ways:
+
+| Form | Use it for |
+| --- | --- |
+| `base64://<payload>` | a value arriving from an environment variable |
+| `file://<path>` | a value you edit as a file, mounted from a ConfigMap or a volume |
+| anything else | a short literal, written inline |
+
+Relative `file://` paths resolve against the directory holding the configuration file, so a config and the templates it points at travel together and move together.
+
+`base64://` is the form to reach for when a value arrives from the environment. Expansion itself is safe for any value — that is handled on the parsed document — but the environment is not one transport, it is whatever chain of them your deployment uses, and much of that chain is line-oriented. A `.env` file, a `systemd` `Environment=` line and a `docker run -e` argument all either mangle a line break or need it escaped, and a trailing newline can be added or eaten anywhere along the way. Base64 makes the value one token from an alphabet none of them treats specially:
+
+```yaml
+mail:
+  templates:
+    layout:
+      html: base64://${MAIL_LAYOUT_HTML}
+```
+
+```bash
+MAIL_LAYOUT_HTML="$(base64 < layout.html)"
+```
+
+The full HTML lives under `templates.layout`, which is the template allowed to emit markup. Per-message keys (`password_reset` and friends) hold the copy — subject, heading, body, action label, footer — not a document. See [Sending mail](/settings/mail#overriding-the-messages).
+
+Line wrapping is ignored, so `base64` wrapping its output at 76 columns is not a problem.
+
+Nothing forces you to use it — a multi-line value written into the file expands correctly on its own, and `file://` is the better answer once a template is big enough that you want to edit it.
+
+It is an encoding, not a secrecy measure. A base64 payload in a ConfigMap is exactly as readable as the markup it holds.
+
+<Callout type="warn">
+A single environment variable is capped at 128&nbsp;KiB on Linux, and base64 adds a third to whatever you encode — so a template much over 90&nbsp;KiB will not fit through the environment. Use `file://` for anything that large.
+</Callout>
+
+### What happens when a reference is wrong
+
+A reference you did **not** set falls back to what Lunogram ships, and everything that takes a template ships a default. A reference you *did* set and that cannot be resolved — a `file://` that does not exist, a `base64://` that does not decode, a template that does not parse — stops the service from starting.
+
+The asymmetry is deliberate. An absent override is a deployment that did not ask for anything, and it gets the default. A broken one is a deployment that asked for something specific and got it wrong, and falling back there would send the wrong mail with nothing in the logs to explain why.
+
+---
+
+## A complete example
+
+The repository ships [`etc/lunogram.example.yaml`](https://github.com/lunogram/platform/blob/main/etc/lunogram.example.yaml), which is the file to copy.
+
+```yaml title="/etc/lunogram/lunogram.yaml"
+public_url: https://console.example.com
+
+auth:
+  drivers:
+    - basic
+  basic:
+    email: you@example.com
+    password: "${ADMIN_PASSWORD}"
+    registration: invite_only
+
+mail:
+  channel: smtp
+  from:
+    address: no-reply@example.com
+    name: Example
+  smtp:
+    host: smtp.example.com
+    port: 587
+    username: lunogram
+    password: "${SMTP_PASSWORD}"
+    tls: starttls
+
+webhook:
+  outbound:
+    version: v1
+    hooks:
+      project.created:
+        - id: provisioning
+          url: https://provisioning.example.com/v1/projects
+          body: file://webhooks/project.created.jsonnet
+          can_interrupt: true
+```
+
+See [Sign-in](/settings/sign-in) for the `auth` section, [Sending mail](/settings/mail) for `mail`, and [Webhooks](/settings/webhooks) for `webhook.outbound`.

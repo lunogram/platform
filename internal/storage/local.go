@@ -9,7 +9,7 @@ import (
 )
 
 type LocalConfig struct {
-	Directory string `env:"UPLOAD_DIRECTORY" envDefault:"./uploads/documents"`
+	Directory string `env:"UPLOAD_DIRECTORY" yaml:"directory"`
 }
 
 func NewLocalStorage(cnf LocalConfig) (*LocalStorage, error) {

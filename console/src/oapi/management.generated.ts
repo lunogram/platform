@@ -104,6 +104,110 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Register with an email address and password
+         * @description Creates an account for an email address and sends a message confirming the address.
+         *
+         *     The response is 204 and identical whether or not the address already has an account, whether or not registration is open to it, and whether or not any mail could be sent. Anything else would let the endpoint be used to test which addresses hold accounts here. When the address is already registered, the person who owns it is told so by email, which is the one channel that reaches only them.
+         *
+         *     Whether registration is open at all is deployment configuration (AUTH_BASIC_REGISTRATION): open, invite-only, or disabled. A disabled deployment answers 404, which is a property of the deployment and not of the submitted address.
+         */
+        post: operations["registerWithPassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm an email address
+         * @description Redeems a single-use verification token and marks the address confirmed. An unconfirmed account can still sign in; confirming it is what allows the address to be linked to another identity provider later.
+         */
+        post: operations["verifyEmail"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/password/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Request a password reset
+         * @description Sends a single-use reset link to the address, if it has an account with a password. The response is 204 regardless, so the endpoint cannot be used to discover which addresses hold accounts.
+         */
+        post: operations["requestPasswordReset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/password/reset/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Complete a password reset
+         * @description Redeems a single-use reset token and sets a new password. Every existing session of that account is revoked: a reset is the remedy for a compromised account, so it has to end whatever sessions the attacker holds.
+         */
+        post: operations["confirmPasswordReset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/profile/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change your own password
+         * @description Sets a new password for the authenticated admin. The current password is required, so a borrowed session cannot lock its owner out. Every OTHER session of the account is revoked and the caller's own is kept.
+         */
+        post: operations["changePassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/campaigns": {
         parameters: {
             query?: never;
@@ -4864,15 +4968,56 @@ export interface components {
         AuthCallbackRequest: {
             /**
              * Format: email
-             * @description Email address (required for basic auth)
+             * @description Email address (required for the basic and password drivers)
              * @example admin@example.com
              */
             email?: string;
             /**
-             * @description Password (required for basic auth)
-             * @example password123
+             * @description Password (required for the basic and password drivers)
+             * @example an entirely ordinary passphrase
              */
             password?: string;
+        };
+        RegisterRequest: {
+            /**
+             * Format: email
+             * @description The email address the account is created for
+             * @example admin@example.com
+             */
+            email: string;
+            /**
+             * @description The password for the new account
+             * @example an entirely ordinary passphrase
+             */
+            password: string;
+            /** @description Optional given name for the new account */
+            first_name?: string;
+            /** @description Optional family name for the new account */
+            last_name?: string;
+        };
+        ActionTokenRequest: {
+            /** @description The single-use token from the emailed link */
+            token: string;
+        };
+        PasswordResetRequest: {
+            /**
+             * Format: email
+             * @description The address to send a reset link to
+             * @example admin@example.com
+             */
+            email: string;
+        };
+        PasswordResetConfirmRequest: {
+            /** @description The single-use token from the emailed link */
+            token: string;
+            /** @description The new password */
+            password: string;
+        };
+        ChangePasswordRequest: {
+            /** @description The password currently on the account */
+            current_password: string;
+            /** @description The new password */
+            password: string;
         };
         EmailTemplate: {
             /**
@@ -5687,6 +5832,121 @@ export interface operations {
         responses: {
             /** @description Webhook processed successfully */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    registerWithPassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegisterRequest"];
+            };
+        };
+        responses: {
+            /** @description Registration accepted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    verifyEmail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ActionTokenRequest"];
+            };
+        };
+        responses: {
+            /** @description Address confirmed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    requestPasswordReset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordResetRequest"];
+            };
+        };
+        responses: {
+            /** @description Request accepted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    confirmPasswordReset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordResetConfirmRequest"];
+            };
+        };
+        responses: {
+            /** @description Password changed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    changePassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangePasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description Password changed */
+            204: {
                 headers: {
                     [name: string]: unknown;
                 };

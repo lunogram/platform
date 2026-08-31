@@ -6,6 +6,7 @@ import { v4 } from "uuid"
 import type { UUID } from "@/types/common"
 import type { SignOut } from "@clerk/types"
 import { clsx, type ClassValue } from "clsx"
+import { AxiosError } from "axios"
 import api from "./api"
 import { twMerge } from "tailwind-merge"
 
@@ -200,6 +201,26 @@ export function completedGettingStarted(project: Project) {
  */
 export function checkProjectRole(minRole: ProjectRole, currentRole: ProjectRole = "support") {
     return projectRoles.indexOf(minRole) <= projectRoles.indexOf(currentRole)
+}
+
+/**
+ * @returns the project roles a holder of currentRole may assign to somebody
+ * else. Mirrors the server's least-privilege ceiling: you can never grant a
+ * role that out-ranks your own.
+ */
+export function assignableProjectRoles(currentRole: ProjectRole = "support"): ProjectRole[] {
+    return projectRoles.filter((role) => checkProjectRole(role, currentRole))
+}
+
+/**
+ * @returns the RFC 7807 "detail" an API error carries, or null when the failure
+ * has no server-supplied explanation worth showing.
+ */
+export function problemDetail(err: unknown): string | null {
+    if (err instanceof AxiosError && typeof err.response?.data?.detail === "string") {
+        return err.response.data.detail
+    }
+    return null
 }
 
 export function checkOrganizationRole(

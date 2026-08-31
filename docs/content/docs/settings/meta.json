@@ -1,8 +1,12 @@
 {
   "title": "Settings",
   "pages": [
+    "configuration",
+    "sign-in",
+    "members",
     "access",
     "subscriptions",
+    "mail",
     "webhooks"
   ]
 }

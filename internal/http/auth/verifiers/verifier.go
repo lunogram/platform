@@ -14,6 +14,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/config"
@@ -41,12 +42,12 @@ type Provisioner interface {
 	Provision(ctx context.Context, identity *auth.VerifiedIdentity) (uuid.UUID, error)
 }
 
-// New builds the verifier for the configured driver.
-func New(cfg config.Auth, mgmt *management.State, logger *zap.Logger, provisioner Provisioner) (auth.Verifier, error) {
-	switch cfg.Driver {
-	case "basic":
-		return NewBasic(cfg.Basic), nil
-	case "clerk":
+// New builds a verifier for one driver.
+func New(driver string, cfg config.Auth, mgmt *management.State, logger *zap.Logger, provisioner Provisioner) (auth.Verifier, error) {
+	switch driver {
+	case BasicDriver:
+		return NewBasic(mgmt, logger), nil
+	case ClerkDriver:
 		// Refuse to start on key material that cannot verify anything. Without a
 		// JWKS the parse in [Clerk.Verify] has no key, so every login fails --
 		// closed, but silently, and it presents as "Clerk login is broken"
@@ -57,6 +58,36 @@ func New(cfg config.Auth, mgmt *management.State, logger *zap.Logger, provisione
 		}
 		return NewClerk(cfg.Clerk, mgmt, logger, keyFunc, provisioner)
 	default:
-		return nil, ErrUnknownDriver
+		return nil, fmt.Errorf("%w: %q", ErrUnknownDriver, driver)
 	}
+}
+
+// Build constructs every verifier the deployment has configured, keyed by
+// driver.
+//
+// Several drivers may be enabled at once -- an organization migrating from a
+// shared basic credential to per-admin passwords needs both live at the same
+// time -- so this returns a set rather than the single verifier the platform
+// used to allow. Each one lands on its own callback and all of them are offered
+// by GET /api/auth/methods.
+func Build(cfg config.Auth, mgmt *management.State, logger *zap.Logger, provisioner Provisioner) (map[string]auth.Verifier, error) {
+	built := make(map[string]auth.Verifier, len(cfg.Drivers))
+
+	for _, driver := range cfg.Drivers {
+		driver = strings.ToLower(strings.TrimSpace(driver))
+		if driver == "" {
+			continue
+		}
+		if _, duplicate := built[driver]; duplicate {
+			continue
+		}
+
+		verifier, err := New(driver, cfg, mgmt, logger, provisioner)
+		if err != nil {
+			return nil, err
+		}
+		built[driver] = verifier
+	}
+
+	return built, nil
 }

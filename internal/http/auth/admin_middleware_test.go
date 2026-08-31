@@ -9,6 +9,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"github.com/lunogram/platform/internal/http/problem"
 	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/store/management"
 	teststore "github.com/lunogram/platform/internal/store/test"
@@ -296,12 +297,28 @@ func TestWithAdminSessionOriginCheck(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			err := authenticate(t, tc.method, tc.origin, tc.useCookie)
 			if tc.wantErr {
-				require.ErrorIs(t, err, ErrUnauthorized)
+				requireCrossOriginRefusal(t, err)
 				return
 			}
 			require.NoError(t, err)
 		})
 	}
+}
+
+// requireCrossOriginRefusal pins what a refused origin answers with: a 403
+// carrying an explanation, and NOT ErrUnauthorized. The console reads a 401 as
+// "your session has expired" and sends the admin to the login page, so
+// answering one here turned a misconfigured PUBLIC_URL into a login loop that
+// nothing on screen or in the log explained.
+func requireCrossOriginRefusal(t *testing.T, err error) {
+	t.Helper()
+	require.Error(t, err)
+	require.NotErrorIs(t, err, ErrUnauthorized)
+	require.Equal(t, http.StatusForbidden, problem.GetStatus(err))
+
+	title, description := problem.GetDescription(err)
+	require.Equal(t, CrossOriginTitle, title)
+	require.NotEmpty(t, description, "the refusal has to say what to do about it")
 }
 
 // TestWithAdminSessionOriginFallsBackToTheRequestOrigin covers a PUBLIC_URL that
@@ -329,8 +346,7 @@ func TestWithAdminSessionOriginFallsBackToTheRequestOrigin(t *testing.T) {
 	}
 
 	require.NoError(t, authenticate(testPublicBaseURL), "a same-origin write must still be accepted")
-	require.ErrorIs(t, authenticate("https://evil.example"), ErrUnauthorized,
-		"a cross-origin write must still be rejected")
+	requireCrossOriginRefusal(t, authenticate("https://evil.example"))
 }
 
 // TestWithAdminSessionDoesNotFailOpen pins the rule that a backing-store failure

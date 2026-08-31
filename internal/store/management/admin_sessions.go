@@ -199,7 +199,7 @@ func (s *AdminSessionsStore) RevokeAdminSession(ctx context.Context, id uuid.UUI
 
 // RevokeAdminSessionsForAdmin ends every live session an admin holds. It is what
 // makes deleting an admin take effect immediately rather than at token expiry.
-func (s *AdminSessionsStore) RevokeAdminSessionsForAdmin(ctx context.Context, adminID uuid.UUID) error {
+func (s *AdminSessionsStore) RevokeAdminSessionsForAdmin(ctx context.Context, adminID uuid.UUID) ([]uuid.UUID, error) {
 	stmt := `
 	UPDATE admin_sessions
 	SET revoked_at = NOW()
@@ -207,11 +207,46 @@ func (s *AdminSessionsStore) RevokeAdminSessionsForAdmin(ctx context.Context, ad
 	RETURNING id`
 
 	var ids []uuid.UUID
-	err := s.db.SelectContext(ctx, &ids, stmt, adminID)
+	if err := s.db.SelectContext(ctx, &ids, stmt, adminID); err != nil {
+		return nil, err
+	}
+	s.InvalidateAdminSessionCache(ctx, ids)
+	return ids, nil
+}
+
+// RevokeAdminSessionsForAdminExcept ends every live session an admin holds
+// apart from one.
+//
+// It is what a self-service password change runs. Changing a password must end
+// the sessions an attacker may hold, but ending the caller's own session too
+// would log somebody out for doing the right thing, and a security action that
+// punishes the user is one they stop taking.
+func (s *AdminSessionsStore) RevokeAdminSessionsForAdminExcept(ctx context.Context, adminID, keep uuid.UUID) ([]uuid.UUID, error) {
+	stmt := `
+	UPDATE admin_sessions
+	SET revoked_at = NOW()
+	WHERE admin_id = $1 AND id <> $2 AND revoked_at IS NULL
+	RETURNING id`
+
+	var ids []uuid.UUID
+	if err := s.db.SelectContext(ctx, &ids, stmt, adminID, keep); err != nil {
+		return nil, err
+	}
+	s.InvalidateAdminSessionCache(ctx, ids)
+	return ids, nil
+}
+
+// InvalidateAdminSessionCache drops cached copies of the given sessions.
+//
+// A revocation issued inside a transaction cannot do this itself. The
+// transaction-backed store has no cache attached, and invalidating before the
+// commit would be wrong in any case: a rollback would leave a live session
+// missing from the cache and force every replica to re-read it. The caller
+// invalidates through the cache-backed store once the write is durable.
+func (s *AdminSessionsStore) InvalidateAdminSessionCache(ctx context.Context, ids []uuid.UUID) {
 	for _, id := range ids {
 		s.cache.invalidate(ctx, id)
 	}
-	return err
 }
 
 // RevokeAdminSessionsForIdentity ends every live session established through a

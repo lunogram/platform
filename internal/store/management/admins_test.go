@@ -47,3 +47,36 @@ func TestAdminsStore(t *testing.T) {
 		assert.Equal(t, "findme@example.com", admin.Email)
 	})
 }
+
+// Removing a project member is a soft delete, so the row survives every read
+// that filters it out — and an INSERT still collides with it. Re-adding somebody
+// you removed has to revive that row rather than fail on a duplicate key.
+func TestAddAdminToProjectRevivesARemovedMembership(t *testing.T) {
+	t.Parallel()
+	db := NewContainerStore(t)
+	ctx := context.Background()
+
+	orgID, err := db.CreateOrganization(ctx, "Rejoin Organization")
+	require.NoError(t, err)
+
+	adminID, err := db.CreateAdmin(ctx, Admin{OrganizationID: orgID, Email: "rejoin@example.com"})
+	require.NoError(t, err)
+
+	projectID, err := db.CreateProject(ctx, Project{
+		OrganizationID: &orgID, Name: "Rejoin Project", Timezone: "UTC", Locale: "en",
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, db.AddAdminToProject(ctx, projectID, adminID, "editor"))
+	require.NoError(t, db.DeleteProjectAdmin(ctx, projectID, adminID))
+
+	_, err = db.GetProjectAdmin(ctx, projectID, adminID)
+	require.Error(t, err, "a removed member must not read back")
+
+	require.NoError(t, db.AddAdminToProject(ctx, projectID, adminID, "admin"),
+		"re-adding a removed member must not collide with the row left behind")
+
+	member, err := db.GetProjectAdmin(ctx, projectID, adminID)
+	require.NoError(t, err)
+	assert.Equal(t, "admin", member.Role, "the role of the new grant wins")
+}

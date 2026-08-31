@@ -7,7 +7,21 @@ import { Tabs, Tab } from "fumadocs-ui/components/tabs";
 
 Lunogram can call your own HTTP endpoints when something happens inside the product. An **event** occurs (a project is created), and every **hook** bound to that event fires: Lunogram renders a request body from a template you write, authenticates with a credential you configure, and delivers it.
 
-Hooks are declared in a YAML file, not in environment variables. A hook set has more than one dimension — several subscribers per event, each with its own template, credential, retry policy and network policy — and that does not fit in a flat environment.
+Hooks are declared in YAML, not in environment variables. A hook set has more than one dimension — several subscribers per event, each with its own template, credential, retry policy and network policy — and that does not fit in a flat environment.
+
+They live in the `webhook.outbound` section of the [node configuration](/settings/configuration):
+
+```yaml title="/etc/lunogram/lunogram.yaml"
+webhook:
+  outbound:
+    version: v1
+    hooks:
+      project.created:
+        - id: provisioning
+          url: https://provisioning.example.com/v1/projects
+```
+
+A deployment that already ships a standalone hooks file can keep pointing `WEBHOOK_CONFIG_FILE` at it instead — the two carry the same schema, and everything below applies to either. When both are present the inline section wins and a warning says the file was ignored.
 
 ```bash
 WEBHOOK_CONFIG_FILE=/etc/lunogram/webhooks.yaml
@@ -83,7 +97,7 @@ email_templates:
 
 Any `${NAME}` in the file is replaced with the environment variable of that name when the file is read. Keep credentials in the environment (or a secret store) and reference them here, so the file itself can live in a ConfigMap or in version control.
 
-A referenced variable that is not set is a startup error. Lunogram will not quietly send an empty API key.
+A referenced variable that is not set is a startup error. Lunogram will not quietly send an empty API key. A credential is free to contain a `#`, a `:` or anything else — expansion happens on the parsed document, so a value cannot affect how the rest of the file is read. See [Configuration](/settings/configuration#secrets) for the full rules, including how to write a literal `${...}` inside an inline JSONNet body.
 
 ---
 
@@ -114,7 +128,9 @@ function(ctx) {
 }
 ```
 
-`body` is either a `file://` reference or an inline snippet. Relative `file://` paths resolve against the directory holding the configuration file, so a config and its templates travel together. Omit `body` entirely and the event's built-in template is used — for `project.created` that produces exactly the payload documented in the webhooks OpenAPI spec.
+`body` is a `file://` reference, a `base64://` payload or an inline snippet. Relative `file://` paths resolve against the directory holding the configuration file, so a config and its templates travel together; `base64://` keeps a template that arrives from an environment variable as one opaque token. See [Configuration](/settings/configuration#values-that-do-not-fit-on-one-line).
+
+Omit `body` entirely and the event's built-in template is used — for `project.created` that produces exactly the payload documented in the webhooks OpenAPI spec.
 
 Templates cannot import files. Everything a template needs arrives in `ctx`.
 
@@ -289,7 +305,7 @@ Earlier releases configured two fixed URLs through the environment. They still w
 | `WEBHOOK_EMAIL_TEMPLATES_URL` | `email_templates.url` |
 | `WEBHOOK_EMAIL_TEMPLATES_TIMEOUT` | `email_templates.timeout` |
 
-Setting `WEBHOOK_CONFIG_FILE` makes the deprecated variables inert; they are ignored, and a warning says so, rather than being merged into something neither source describes.
+Setting `WEBHOOK_CONFIG_FILE`, or a `webhook.outbound` section, makes the deprecated variables inert; they are ignored, and a warning says so, rather than being merged into something neither source describes.
 
 The synthesised hook keeps the old behaviour where the old behaviour was sound: it uses `can_interrupt: true`, so a failed delivery still fails project creation, and it permits private and plaintext URLs, since URLs that worked before were never checked.
 

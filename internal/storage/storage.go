@@ -6,12 +6,12 @@ import (
 )
 
 type Config struct {
-	Type          string      `env:"STORAGE_TYPE" envDefault:"local"`
-	BaseURL       string      `env:"STORAGE_BASE_URL"`
-	MaxUploadSize int64       `env:"STORAGE_MAX_UPLOAD_SIZE" envDefault:"10485760"` // 10MB default
-	S3            S3Config    `envPrefix:"STORAGE_S3_"`
-	Azure         AzureConfig `envPrefix:"STORAGE_AZURE_"`
-	Local         LocalConfig `envPrefix:"STORAGE_LOCAL_"`
+	Type          string      `env:"STORAGE_TYPE" yaml:"type"`
+	BaseURL       string      `env:"STORAGE_BASE_URL" yaml:"base_url"`
+	MaxUploadSize int64       `env:"STORAGE_MAX_UPLOAD_SIZE" yaml:"max_upload_size"`
+	S3            S3Config    `envPrefix:"STORAGE_S3_" yaml:"s3"`
+	Azure         AzureConfig `envPrefix:"STORAGE_AZURE_" yaml:"azure"`
+	Local         LocalConfig `envPrefix:"STORAGE_LOCAL_" yaml:"local"`
 }
 
 type Storage interface {

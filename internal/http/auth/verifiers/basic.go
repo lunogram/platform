@@ -2,75 +2,128 @@ package verifiers
 
 import (
 	"context"
-	"crypto/subtle"
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 
-	"github.com/lunogram/platform/internal/config"
 	"github.com/lunogram/platform/internal/http/auth"
+	"github.com/lunogram/platform/internal/password"
 	"github.com/lunogram/platform/internal/store/management"
+	"go.uber.org/zap"
 )
 
-// BasicIssuer namespaces identities proved by the static credential. It is a
-// URN rather than a URL because there is no upstream to dereference: the
-// "issuer" is this deployment's own configuration.
-const BasicIssuer = "urn:lunogram:basic"
+// BasicDriver is the driver identifier local email/password logins are keyed on.
+const BasicDriver = "basic"
 
-// Basic verifies the single email/password pair configured through
-// AUTH_BASIC_EMAIL / AUTH_BASIC_PASSWORD. It is the documented quickstart, so it
-// is a first-class verifier rather than a development shortcut -- it just proves
-// a credential and stops, like every other one.
+// Basic verifies an email and password against a hash this deployment holds.
+//
+// It used to be two drivers. "basic" compared the single pair in
+// AUTH_BASIC_EMAIL / AUTH_BASIC_PASSWORD, and "password" verified a per-admin
+// hash — the same kind of credential behind two verifiers, of which only one had
+// the login throttle, the constant-time comparison against a dummy hash, and the
+// re-hash on login. The configured pair is now seeded into an admin like any
+// other (see [github.com/lunogram/platform/internal/http/auth.Seed]), which
+// leaves one credential path and makes the quickstart account a real one: it
+// appears in the admin list, holds its own RBAC tuples, and can change its own
+// password. It also means the plaintext is needed once, at first boot, rather
+// than living in the environment for as long as the deployment does.
+//
+// It proves a credential and stops. It does not create the admin it fails to
+// find, does not send mail, does not decide whether an unverified account may
+// sign in and does not touch the response — registration, verification and
+// session creation all live elsewhere, so every driver reaches an account by
+// exactly the same route.
 type Basic struct {
-	config config.BasicAuth
+	mgmt   *management.State
+	logger *zap.Logger
 }
 
-func NewBasic(cfg config.BasicAuth) *Basic {
-	return &Basic{config: cfg}
+func NewBasic(mgmt *management.State, logger *zap.Logger) *Basic {
+	return &Basic{mgmt: mgmt, logger: logger}
 }
 
-func (b *Basic) Driver() string { return "basic" }
+func (b *Basic) Driver() string { return BasicDriver }
 
 type basicCredentials struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }
 
-// Verify checks the submitted credentials against the configured pair.
+// Verify proves the submitted credential against the stored hash.
 //
-// The identity it returns is keyed on the CONFIGURED address, not the submitted
-// one, so a case-variant submission cannot mint a second identity for the same
-// account. The address counts as verified because the credential is the address:
-// there is no self-service profile here for someone to type another person's
-// email into.
-func (b *Basic) Verify(_ context.Context, r *http.Request) (*auth.VerifiedIdentity, error) {
-	if b.config.Email == "" || b.config.Password == "" {
-		return nil, ErrInvalidCredentials
-	}
-
+// Every failure — unknown address, contested address, no password on the
+// account, wrong password — returns the same [ErrInvalidCredentials], and an
+// address with no local identity still pays for a full hash comparison. A caller
+// must not be able to tell which accounts exist, and answering "no such account"
+// in microseconds while a wrong password takes ~100ms says it just as loudly as
+// a different status code would.
+func (b *Basic) Verify(ctx context.Context, r *http.Request) (*auth.VerifiedIdentity, error) {
 	var credentials basicCredentials
 	if err := json.NewDecoder(r.Body).Decode(&credentials); err != nil {
 		return nil, ErrMissingCredentials
 	}
 
-	if credentials.Email == "" || credentials.Password == "" {
+	email := strings.ToLower(strings.TrimSpace(credentials.Email))
+	if email == "" || credentials.Password == "" {
 		return nil, ErrMissingCredentials
 	}
 
-	// Constant-time comparison so a wrong password cannot be recovered a byte at
-	// a time from response timing.
-	emailMatch := subtle.ConstantTimeCompare([]byte(strings.ToLower(credentials.Email)), []byte(strings.ToLower(b.config.Email)))
-	passwordMatch := subtle.ConstantTimeCompare([]byte(credentials.Password), []byte(b.config.Password))
-	if emailMatch != 1 || passwordMatch != 1 {
+	identity, err := b.lookup(ctx, email)
+	if err != nil {
+		return nil, err
+	}
+	if identity == nil || identity.SecretHash == nil {
+		password.VerifyDummy(credentials.Password)
 		return nil, ErrInvalidCredentials
 	}
 
-	email := strings.ToLower(b.config.Email)
+	match, err := password.Verify(*identity.SecretHash, credentials.Password)
+	if err != nil {
+		// A hash the database holds but this build cannot parse is a data
+		// problem, not a wrong password. It is logged as such and still answered
+		// as a failed login, because there is no safe way to let the caller in.
+		b.logger.Error("stored password hash could not be read",
+			zap.String("admin_id", identity.AdminID.String()), zap.Error(err))
+		return nil, ErrInvalidCredentials
+	}
+	if !match {
+		return nil, ErrInvalidCredentials
+	}
+
 	return &auth.VerifiedIdentity{
-		Issuer:        BasicIssuer,
-		Subject:       email,
-		Provider:      management.IdentityProviderBasic,
-		Email:         email,
-		EmailVerified: true,
+		Issuer:   management.LocalIssuer,
+		Subject:  identity.Subject,
+		Provider: management.IdentityProviderBasic,
+		Email:    email,
+		// Taken from the stored flag, never asserted by the login: an account
+		// that has not confirmed its address may sign in, but it stays
+		// unverified, so the exchange will not let it link itself onto another
+		// identity by email.
+		EmailVerified: identity.EmailVerified,
 	}, nil
+}
+
+// lookup resolves the local identity owning an address, or nil when there is
+// none. A contested address (one the duplicate-email reconciliation quarantined)
+// resolves to nobody, because nothing can say which account it names.
+func (b *Basic) lookup(ctx context.Context, email string) (*management.AdminIdentity, error) {
+	admin, err := b.mgmt.ResolveAdminByEmail(ctx, email)
+	switch {
+	case errors.Is(err, sql.ErrNoRows), errors.Is(err, management.ErrAmbiguousEmail):
+		return nil, nil
+	case err != nil:
+		return nil, err
+	}
+
+	identity, err := b.mgmt.GetLocalIdentity(ctx, admin.ID)
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
+		return nil, nil
+	case err != nil:
+		return nil, err
+	}
+
+	return identity, nil
 }

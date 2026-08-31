@@ -1,5 +1,5 @@
 import type { RouteObject } from "react-router"
-import { createBrowserRouter, Outlet, redirect } from "react-router"
+import { createBrowserRouter, Navigate, Outlet, redirect } from "react-router"
 import api from "../api"
 import oapiClient from "../oapi/client"
 
@@ -17,7 +17,7 @@ import {
 } from "../contexts"
 import ClientList from "./settings/clients/ClientList"
 import { NewClientRoute, EditClientRoute } from "./settings/clients/ClientEditorLayout"
-import Invites from "./settings/Invites"
+import Members from "./settings/Members"
 import Lists from "./users/Lists"
 import ListDetail from "./users/ListDetail"
 import Users from "./users/Users"
@@ -49,6 +49,9 @@ import IntegrationSetup from "./settings/IntegrationSetup"
 import Login from "./auth/Login"
 import LoginCallback from "./auth/LoginCallback"
 import Register from "./auth/Register"
+import ForgotPassword from "./auth/ForgotPassword"
+import ResetPassword from "./auth/ResetPassword"
+import VerifyEmail from "./auth/VerifyEmail"
 import MyInvites from "./invites/MyInvites"
 import Onboarding from "./auth/Onboarding"
 import OnboardingProject from "./auth/OnboardingProject"
@@ -116,6 +119,20 @@ export const createRouter = ({
             {
                 path: "/register",
                 element: <Register />,
+            },
+            {
+                path: "/forgot-password",
+                element: <ForgotPassword />,
+            },
+            // Both of these are reached from an emailed link carrying a
+            // single-use token in the query string.
+            {
+                path: "/reset-password",
+                element: <ResetPassword />,
+            },
+            {
+                path: "/verify-email",
+                element: <VerifyEmail />,
             },
             {
                 path: "/invites",
@@ -641,8 +658,12 @@ export const createRouter = ({
                                                 ],
                                             },
                                             {
+                                                path: "members",
+                                                element: <Members />,
+                                            },
+                                            {
                                                 path: "invites",
-                                                element: <Invites />,
+                                                element: <Navigate to="../members" replace />,
                                             },
                                             {
                                                 path: "subscriptions",

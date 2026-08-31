@@ -1,42 +1,49 @@
 ---
 title: SMTP
-description: Configure any SMTP email provider for sending emails
+description: Deliver the platform's own transactional mail over SMTP
 ---
 
-<Callout type="warn">
-  SMTP provider support is coming soon. This documentation describes the planned
-  functionality.
-</Callout>
+Lunogram sends two kinds of email, configured in two different places:
 
-The SMTP provider allows you to send emails through any SMTP-compatible email service.
+| | Sent by | Configured in |
+| --- | --- | --- |
+| **Platform mail** — password resets, project invitations and account notices | the deployment itself | the node configuration |
+| **Project mail** — campaigns, journeys and broadcasts | a project's email provider | the console, per project |
 
-## Planned Features
+SMTP is one of the two channels for platform mail. Project mail goes through a provider integration.
 
-- Standard SMTP protocol support
-- TLS/SSL encryption
-- Authentication (PLAIN, LOGIN, CRAM-MD5)
+## Platform mail
 
-## Common SMTP Providers
+```yaml
+mail:
+  channel: smtp
+  from:
+    address: no-reply@example.com
+  smtp:
+    host: smtp.example.com
+    port: 587
+    username: lunogram
+    password: "${SMTP_PASSWORD}"
+    tls: starttls
+```
 
-| Provider | Host                  | Port |
+Any SMTP-compatible service works. See [Sending mail](/settings/mail) for the full reference, including the webhook channel and how to override the messages.
+
+| Provider | Host | Port |
 | -------- | --------------------- | ---- |
-| Gmail    | smtp.gmail.com        | 587  |
-| Outlook  | smtp-mail.outlook.com | 587  |
-| Yahoo    | smtp.mail.yahoo.com   | 587  |
-| Fastmail | smtp.fastmail.com     | 587  |
+| Gmail | smtp.gmail.com | 587 |
+| Outlook | smtp-mail.outlook.com | 587 |
+| Yahoo | smtp.mail.yahoo.com | 587 |
+| Fastmail | smtp.fastmail.com | 587 |
 
 <Callout type="info">
-  Most personal email providers have low daily send limits (100-500 emails/day).
-  For production use, consider dedicated providers like
-  [Resend](/integrations/resend) or the upcoming SES/SendGrid integrations.
+  Most personal email providers cap sending at 100–500 messages a day. That is
+  ample for platform mail, which is a handful of messages per admin, but it is
+  not a campaign sender.
 </Callout>
 
-## Setup (Coming Soon)
+## Project mail
 
-1. Obtain SMTP credentials from your email provider
-2. Configure the integration in Lunogram:
-   - Host
-   - Port
-   - Username
-   - Password
-   - Encryption (TLS/SSL)
+Project providers are WASM modules, and a module reaches the network through the host's HTTP function. The sandbox offers no raw TCP socket, so a provider module cannot speak SMTP.
+
+Configure an HTTP provider instead — [Resend](/integrations/resend), [Mailgun](/integrations/mailgun), [SendGrid](/integrations/sendgrid) or [Amazon SES](/integrations/ses) — or the webhook provider, which posts each message to an endpoint of yours that may relay it however you like, SMTP included.

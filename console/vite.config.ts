@@ -250,9 +250,12 @@ export default defineConfig(({ mode }) => {
         ],
         server: {
             proxy: {
+                // changeOrigin is deliberately off: the platform's CSRF guard
+                // accepts a cookie-borne write whose Origin matches the request's
+                // own Host, and rewriting Host to the proxy target breaks that
+                // comparison for every write the console makes in development.
                 "/api": {
                     target: env.VITE_PROXY_URL,
-                    changeOrigin: true,
                 },
                 "/backoffice": {
                     target: env.VITE_BACKOFFICE_URL || "http://localhost:8081",

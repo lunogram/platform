@@ -12,11 +12,11 @@ import (
 )
 
 type S3Config struct {
-	Bucket    string `env:"BUCKET"`
-	Region    string `env:"REGION"`
-	Endpoint  string `env:"ENDPOINT"`
-	AccessKey string `env:"ACCESS_KEY"`
-	SecretKey string `env:"SECRET_KEY"`
+	Bucket    string `env:"BUCKET" yaml:"bucket"`
+	Region    string `env:"REGION" yaml:"region"`
+	Endpoint  string `env:"ENDPOINT" yaml:"endpoint"`
+	AccessKey string `env:"ACCESS_KEY" yaml:"access_key"`
+	SecretKey string `env:"SECRET_KEY" yaml:"secret_key"`
 }
 
 func NewS3Storage(bucket S3Config) (*S3Storage, error) {

@@ -1,8 +1,10 @@
 package webhook
 
 import (
+	"encoding/base64"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -316,7 +318,7 @@ func TestLegacyEnvSynthesis(t *testing.T) {
 	})
 
 	t.Run("the legacy hook compiles", func(t *testing.T) {
-		engine, err := NewEngine(zaptest.NewLogger(t), "", LegacyEnv{ProjectCreatedURL: "http://courier.internal/hook"})
+		engine, err := NewEngine(zaptest.NewLogger(t), nil, "", LegacyEnv{ProjectCreatedURL: "http://courier.internal/hook"})
 		require.NoError(t, err)
 		assert.True(t, engine.Enabled(ProjectCreated.Name))
 	})
@@ -330,21 +332,21 @@ func TestLoadPrecedence(t *testing.T) {
 	require.NoError(t, os.WriteFile(path, []byte("version: v1\n"), 0o600))
 
 	t.Run("a file wins over the legacy variables", func(t *testing.T) {
-		cfg, warnings, err := Load(path, LegacyEnv{ProjectCreatedURL: "http://legacy.internal/hook"})
+		cfg, warnings, err := Load(nil, path, LegacyEnv{ProjectCreatedURL: "http://legacy.internal/hook"})
 		require.NoError(t, err)
 		assert.Empty(t, cfg.Hooks)
 		assert.Contains(t, joined(warnings), "are ignored")
 	})
 
 	t.Run("neither configured yields no config", func(t *testing.T) {
-		cfg, warnings, err := Load("", LegacyEnv{})
+		cfg, warnings, err := Load(nil, "", LegacyEnv{})
 		require.NoError(t, err)
 		assert.Nil(t, cfg)
 		assert.Empty(t, warnings)
 	})
 
 	t.Run("a missing file is a boot failure", func(t *testing.T) {
-		_, _, err := Load(filepath.Join(dir, "nope.yaml"), LegacyEnv{})
+		_, _, err := Load(nil, filepath.Join(dir, "nope.yaml"), LegacyEnv{})
 		require.Error(t, err)
 	})
 }
@@ -364,4 +366,60 @@ func joined(warnings []string) string {
 		out += warning + "\n"
 	}
 	return out
+}
+
+// The node configuration's webhook.outbound section is the highest-precedence
+// source. A standalone file or the deprecated variables alongside it are
+// ignored and said to be ignored, rather than merged into something none of
+// them describes.
+func TestLoadPrefersTheInlineSection(t *testing.T) {
+	inline := &Config{
+		Version: ConfigVersion,
+		Hooks: map[string][]HookConfig{
+			ProjectCreated.Name: {{ID: "inline", URL: "https://inline.example.com/hook"}},
+		},
+	}
+
+	t.Run("wins over a config file", func(t *testing.T) {
+		dir := t.TempDir()
+		path := filepath.Join(dir, "webhooks.yaml")
+		require.NoError(t, os.WriteFile(path, []byte("version: v1\nhooks: {}\n"), 0o600))
+
+		cfg, warnings, err := Load(inline, path, LegacyEnv{})
+		require.NoError(t, err)
+		assert.Equal(t, inline, cfg)
+		assert.Contains(t, strings.Join(warnings, "\n"), "WEBHOOK_CONFIG_FILE is ignored")
+	})
+
+	t.Run("wins over the legacy variables", func(t *testing.T) {
+		cfg, warnings, err := Load(inline, "", LegacyEnv{ProjectCreatedURL: "http://legacy.internal/hook"})
+		require.NoError(t, err)
+		assert.Equal(t, inline, cfg)
+		assert.Contains(t, strings.Join(warnings, "\n"), "are ignored")
+	})
+
+	t.Run("must declare its version", func(t *testing.T) {
+		_, _, err := Load(&Config{Hooks: map[string][]HookConfig{}}, "", LegacyEnv{})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "version")
+	})
+}
+
+// A template given as base64 is the form that survives ${} interpolation, so a
+// hook body can come from an environment variable.
+func TestParseTemplateAcceptsBase64(t *testing.T) {
+	encoded := base64.StdEncoding.EncodeToString([]byte("function(ctx) { event: ctx.event }"))
+
+	template, err := ParseTemplate("body", "base64://"+encoded, "")
+	require.NoError(t, err)
+
+	rendered, err := template.Render([]byte(`{"event":"project.created"}`))
+	require.NoError(t, err)
+	assert.JSONEq(t, `{"event":"project.created"}`, string(rendered))
+}
+
+func TestParseTemplateRejectsInvalidBase64(t *testing.T) {
+	_, err := ParseTemplate("body", "base64://not!valid!", "")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not valid base64")
 }

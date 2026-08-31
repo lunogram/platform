@@ -43,6 +43,20 @@ services:
     networks:
       - app_network
 
+  # Catches every message the platform sends and shows it at
+  # http://localhost:8025. It speaks SMTP on 1025 and also exposes a send API on
+  # 8025, so it is a valid destination for either mail channel.
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+    networks:
+      - app_network
+
 volumes:
   postgres_data:
   redis_data:

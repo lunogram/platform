@@ -3,20 +3,15 @@ package webhook
 import (
 	"embed"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/google/go-jsonnet"
 	"github.com/google/go-jsonnet/ast"
+	"github.com/lunogram/platform/internal/configfile"
 )
 
 //go:embed templates/*.jsonnet
 var defaultTemplates embed.FS
-
-// fileScheme marks a template reference that points at a file on disk rather
-// than an inline snippet.
-const fileScheme = "file://"
 
 // Template is a parsed JSONNet body template.
 //
@@ -39,26 +34,19 @@ type Template struct {
 
 // ParseTemplate resolves a template reference and parses it.
 //
-// ref is either a file:// URL or an inline JSONNet snippet. Relative file paths
-// are resolved against baseDir, which is normally the directory holding the
-// configuration file, so a config and its templates can be shipped together and
-// moved together.
+// ref is a base64:// payload, a file:// URL or an inline JSONNet snippet.
+// Relative file paths are resolved against baseDir, which is normally the
+// directory holding the configuration file, so a config and its templates can
+// be shipped together and moved together.
 func ParseTemplate(name, ref, baseDir string) (*Template, error) {
-	snippet := ref
-	filename := name
+	raw, err := configfile.Resolve("template "+name, ref, baseDir)
+	if err != nil {
+		return nil, err
+	}
 
-	if path, ok := strings.CutPrefix(ref, fileScheme); ok {
-		if path == "" {
-			return nil, fmt.Errorf("template %s: file:// reference has no path", name)
-		}
-		if !filepath.IsAbs(path) && baseDir != "" {
-			path = filepath.Join(baseDir, path)
-		}
-		raw, err := os.ReadFile(path)
-		if err != nil {
-			return nil, fmt.Errorf("template %s: %w", name, err)
-		}
-		snippet = string(raw)
+	snippet := string(raw)
+	filename := name
+	if path, ok := strings.CutPrefix(ref, configfile.FileScheme); ok {
 		filename = path
 	}
 
@@ -66,9 +54,9 @@ func ParseTemplate(name, ref, baseDir string) (*Template, error) {
 		return nil, fmt.Errorf("template %s: is empty", name)
 	}
 
-	node, err := jsonnet.SnippetToAST(filename, snippet)
-	if err != nil {
-		return nil, fmt.Errorf("template %s: %w", name, err)
+	node, parseErr := jsonnet.SnippetToAST(filename, snippet)
+	if parseErr != nil {
+		return nil, fmt.Errorf("template %s: %w", name, parseErr)
 	}
 
 	return &Template{name: name, node: node}, nil

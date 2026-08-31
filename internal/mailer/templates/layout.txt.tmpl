@@ -1,0 +1,14 @@
+{{- /*gotype: github.com/lunogram/platform/internal/mailer.layoutData*/ -}}
+{{ .ProductName }}
+
+{{ .Heading }}
+{{ range .Body }}
+{{ . }}
+{{ end }}
+{{- if .ActionURL }}
+{{ .ActionLabel }}:
+{{ .ActionURL }}
+{{ end }}
+{{- if .Footer }}
+{{ .Footer }}
+{{ end }}
