@@ -66,13 +66,6 @@ services:
       # starttls, implicit or none. Mailpit is on the compose network and offers
       # no TLS; a real relay must not be set to none.
       MAIL_SMTP_TLS: ${MAIL_SMTP_TLS:-none}
-      # To exercise the other channel instead, set MAIL_CHANNEL=webhook. It needs
-      # more than a URL: outbound requests must be https to a public address
-      # unless the policy says otherwise, and those relaxations exist only in the
-      # configuration file. Point CONFIG_FILE at etc/lunogram.mailpit.yaml, which
-      # carries them, and MAIL_CHANNEL=webhook:
-      #   CONFIG_FILE: /etc/lunogram/lunogram.mailpit.yaml
-      #   MAIL_CHANNEL: webhook
       # Public URL used to generate user-facing links (e.g. preference center, unsubscribe)
       PUBLIC_URL: ${PUBLIC_URL:-http://localhost:8080}
     volumes:

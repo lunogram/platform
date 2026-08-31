@@ -327,7 +327,7 @@ func webhookConfig(url string) Config {
 	config.From = From{Address: "no-reply@example.com", Name: "Lunogram"}
 	config.Webhook.URL = url
 	config.Webhook.Timeout = 5 * time.Second
-	config.Webhook.Network = outbound.Network{AllowPrivate: true, AllowHTTP: true}
+	config.Webhook.network = outbound.Network{AllowPrivate: true, AllowHTTP: true}
 	return config
 }
 

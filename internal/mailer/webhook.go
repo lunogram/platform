@@ -68,7 +68,7 @@ func NewWebhook(config Config, baseDir string, logger *zap.Logger) (*Webhook, er
 	if config.From.Address == "" {
 		return nil, fmt.Errorf("mailer: mail.from.address (MAIL_FROM_ADDRESS) is required for the %s channel", ChannelWebhook)
 	}
-	if err := outbound.ValidateURL(cfg.URL, cfg.Network); err != nil {
+	if err := outbound.ValidateURL(cfg.URL, cfg.network); err != nil {
 		return nil, fmt.Errorf("mail.webhook.url: %w", err)
 	}
 
@@ -89,7 +89,7 @@ func NewWebhook(config Config, baseDir string, logger *zap.Logger) (*Webhook, er
 
 	client, err := outbound.NewClient(outbound.Options{
 		Timeout:          cfg.Timeout,
-		Network:          cfg.Network,
+		Network:          cfg.network,
 		Auth:             cfg.Auth,
 		Retry:            retry,
 		MaxResponseBytes: cfg.MaxResponseBytes,

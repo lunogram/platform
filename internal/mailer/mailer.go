@@ -109,10 +109,15 @@ type WebhookConfig struct {
 	Body string `env:"BODY" yaml:"body"`
 
 	Timeout          time.Duration       `env:"TIMEOUT" yaml:"timeout"`
-	Network          outbound.Network    `yaml:"network"`
 	Retry            *outbound.Retry     `yaml:"retry"`
 	Auth             outbound.AuthConfig `yaml:"auth"`
 	MaxResponseBytes int64               `env:"MAX_RESPONSE_BYTES" yaml:"max_response_bytes"`
+
+	// network relaxes the outbound guards for the mail endpoint, and is
+	// deliberately not configurable: the endpoint must be https on a public
+	// address, and a receiver inside the deployment's own network is reached
+	// over SMTP instead. It exists so the tests can post to a loopback server.
+	network outbound.Network
 }
 
 // DefaultConfig returns the mailer settings used when nothing configures them.

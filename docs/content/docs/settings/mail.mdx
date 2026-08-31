@@ -61,22 +61,7 @@ mail:
         value: "Bearer ${MAIL_API_KEY}"
 ```
 
-It shares the guarded transport the outbound hooks use, so the SSRF policy, retry behaviour and credential types documented under [Webhooks](/docs/settings/webhooks) apply here too.
-
-<Callout type="warn">
-That policy applies to the mail endpoint as well: the URL must be `https` and must resolve to a public address, or the service refuses to start. Pointing the channel at something on your own network — a relay in the same cluster, or Mailpit in development — means relaxing it explicitly:
-
-```yaml
-mail:
-  webhook:
-    url: http://mailpit:8025/api/v1/send
-    network:
-      allow_http: true
-      allow_private: true
-```
-
-There is no environment variable for either, which is deliberate: neither belongs in a deployment that sends real mail, and neither should be reachable by setting one variable. `etc/lunogram.mailpit.yaml` in the repository is a ready-made version of the above for the compose quickstart.
-</Callout>
+It shares the guarded transport the outbound hooks use, so the SSRF policy, retry behaviour and credential types documented under [Webhooks](/docs/settings/webhooks) apply here too. The URL must be `https` and must resolve to a public address, and there is no relaxation of either for the mail endpoint — a receiver on your own network is reached over SMTP instead.
 
 The request body is a [JSONNet](https://jsonnet.org) template evaluated against the message. The default produces the shape Mailpit's send API accepts:
 
