@@ -107,7 +107,7 @@ func TestBuildVerifiers(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 
 	t.Run("builds every configured driver", func(t *testing.T) {
-		built, err := Build(config.Auth{
+		built, _, err := Build(config.Auth{
 			Drivers: []string{"basic", " CLERK "},
 			JWKS:    clerkJWKS(t),
 			Clerk:   config.ClerkAuth{SecretKey: "sk_test_xxx"},
@@ -119,7 +119,7 @@ func TestBuildVerifiers(t *testing.T) {
 	})
 
 	t.Run("no configured driver builds nothing", func(t *testing.T) {
-		built, err := Build(config.Auth{}, Deps{Logger: logger})
+		built, _, err := Build(config.Auth{}, Deps{Logger: logger})
 		require.NoError(t, err)
 		assert.Empty(t, built)
 	})
@@ -128,7 +128,7 @@ func TestBuildVerifiers(t *testing.T) {
 		// Startup is the only moment a typo in AUTH_DRIVER can be caught; a
 		// deployment silently offering fewer login methods than it was told to
 		// is how people get locked out.
-		_, err := Build(config.Auth{Drivers: []string{"basic", "magic"}}, Deps{Logger: logger})
+		_, _, err := Build(config.Auth{Drivers: []string{"basic", "magic"}}, Deps{Logger: logger})
 		require.ErrorIs(t, err, ErrUnknownDriver)
 	})
 }

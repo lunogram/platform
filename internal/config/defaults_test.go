@@ -81,13 +81,25 @@ func TestOIDCProviderForms(t *testing.T) {
 		assert.Equal(t, "entra", providers[1].ID)
 	})
 
+	// Any inline field counts, not just the issuer. A list declared alongside a
+	// stray AUTH_OIDC_CLIENT_SECRET is a deployment that believes it configured
+	// something it did not.
 	t.Run("mixing the two forms is refused", func(t *testing.T) {
-		cfg := OIDCAuth{
-			Providers: []OIDCProvider{{ID: "okta", Issuer: "https://okta.test"}},
-			Provider:  OIDCProvider{Issuer: "https://idp.test"},
+		for name, single := range map[string]OIDCProvider{
+			"an issuer":        {Issuer: "https://idp.test"},
+			"a client id":      {ClientID: "0oa..."},
+			"a client secret":  {ClientSecret: "shhh"},
+			"a claim override": {EmailClaim: "upn"},
+		} {
+			t.Run(name, func(t *testing.T) {
+				cfg := OIDCAuth{
+					Providers: []OIDCProvider{{ID: "okta", Issuer: "https://okta.test"}},
+					Provider:  single,
+				}
+				_, err := cfg.Resolve()
+				assert.ErrorIs(t, err, ErrOIDCProviderFormsMixed)
+			})
 		}
-		_, err := cfg.Resolve()
-		assert.ErrorIs(t, err, ErrOIDCProviderFormsMixed)
 	})
 }
 

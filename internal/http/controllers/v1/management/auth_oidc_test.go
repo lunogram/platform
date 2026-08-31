@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -43,10 +44,14 @@ type stubProvider struct {
 	// token with the wrong issuer, the wrong audience, an expiry in the past, or
 	// a nonce that answers no login.
 	claims jwt.MapClaims
-	// codeChallenge is what /token requires the presented verifier to hash to.
-	// It is set from the authorization URL, so a flow that forgot to send the
-	// verifier fails here exactly as a real provider would fail it.
-	codeChallenge string
+	// codeChallenges are what /token will accept the presented verifier to hash
+	// to. They are collected from the authorization URLs, so a flow that forgot
+	// to send its verifier fails here exactly as a real provider would fail it.
+	//
+	// A set rather than one value because a browser may have several logins
+	// outstanding, and a real provider keys the challenge to the code it issued
+	// rather than to whichever request came last.
+	codeChallenges []string
 	// omitIDToken makes the token endpoint answer without an id_token.
 	omitIDToken bool
 	// userInfo is what /userinfo answers, and nil switches the endpoint out of
@@ -104,9 +109,9 @@ func newStubProvider(t *testing.T) *stubProvider {
 		require.NoError(t, r.ParseForm())
 		provider.lastTokenForm = r.PostForm
 
-		if provider.codeChallenge != "" {
+		if len(provider.codeChallenges) > 0 {
 			sum := sha256.Sum256([]byte(r.PostForm.Get("code_verifier")))
-			if base64.RawURLEncoding.EncodeToString(sum[:]) != provider.codeChallenge {
+			if !slices.Contains(provider.codeChallenges, base64.RawURLEncoding.EncodeToString(sum[:])) {
 				w.WriteHeader(http.StatusBadRequest)
 				writeJSON(w, map[string]string{"error": "invalid_grant"})
 				return
@@ -173,6 +178,13 @@ func (loopbackFetcher) Fetch(ctx context.Context, url string) ([]byte, error) {
 	return buffer, nil
 }
 
+// literalNull asks signIn for a claim emitted as JSON null, which is different
+// from one a provider does not send at all.
+type literalNull struct{}
+
+// testProviderID is the id the single-provider environment form is given.
+const testProviderID = config.DefaultOIDCProviderID
+
 type oidcEnv struct {
 	t        *testing.T
 	auth     *AuthController
@@ -199,15 +211,12 @@ func newOIDCEnv(t *testing.T) *oidcEnv {
 		Redis:     config.Redis{KeyPrefix: "test:" + t.Name() + ":"},
 		Auth: config.Auth{
 			Drivers: []string{verifiers.OIDCDriver},
-			OIDC: config.OIDCAuth{
-				Issuer:          provider.issuer(),
-				ClientID:        "stub-client",
-				ClientSecret:    "stub-client-secret",
-				Scopes:          []string{"openid", "email", "profile"},
-				EmailClaim:      "email",
-				GivenNameClaim:  "given_name",
-				FamilyNameClaim: "family_name",
-			},
+			OIDC: config.OIDCAuth{Provider: config.OIDCProvider{
+				ID:           testProviderID,
+				Issuer:       provider.issuer(),
+				ClientID:     "stub-client",
+				ClientSecret: "stub-client-secret",
+			}},
 		},
 	}
 
@@ -230,16 +239,25 @@ func newOIDCEnv(t *testing.T) *oidcEnv {
 // begin runs the start endpoint and returns the state the deployment minted, the
 // nonce it asked the provider for, and the binding cookie it set on the browser.
 func (env *oidcEnv) begin(redirect string) (state, nonce string, binding *http.Cookie) {
+	return env.beginCarrying(redirect, nil)
+}
+
+// beginCarrying starts a login in a browser that already holds `carried`, which
+// is what a second tab looks like.
+func (env *oidcEnv) beginCarrying(redirect string, carried *http.Cookie) (state, nonce string, binding *http.Cookie) {
 	env.t.Helper()
 
 	res := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/api/auth/oidc/start", nil)
+	req := httptest.NewRequest("GET", "/api/auth/oidc/"+testProviderID+"/start", nil)
+	if carried != nil {
+		req.AddCookie(carried)
+	}
 
 	params := oapi.StartOIDCLoginParams{}
 	if redirect != "" {
 		params.R = &redirect
 	}
-	env.auth.StartOIDCLogin(res, req, params)
+	env.auth.StartOIDCLogin(res, req, testProviderID, params)
 	require.Equal(env.t, http.StatusFound, res.Code, res.Body.String())
 
 	target, err := url.Parse(res.Header().Get("Location"))
@@ -247,12 +265,17 @@ func (env *oidcEnv) begin(redirect string) (state, nonce string, binding *http.C
 
 	query := target.Query()
 	require.Equal(env.t, "S256", query.Get("code_challenge_method"))
-	env.provider.codeChallenge = query.Get("code_challenge")
+	env.provider.codeChallenges = append(env.provider.codeChallenges, query.Get("code_challenge"))
 
 	for _, cookie := range res.Result().Cookies() {
 		if cookie.Name == auth.OIDCBindingCookieInsecure && cookie.Value != "" {
 			binding = cookie
 		}
+	}
+	if binding == nil && carried != nil {
+		// Nothing new was set because the browser's existing binding was reused,
+		// which is the point of carrying one.
+		binding = carried
 	}
 	require.NotNil(env.t, binding, "the start endpoint binds the login to this browser")
 	assert.True(env.t, binding.HttpOnly)
@@ -266,11 +289,11 @@ func (env *oidcEnv) callback(query url.Values, binding *http.Cookie) *httptest.R
 	env.t.Helper()
 
 	res := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/api/auth/oidc/callback?"+query.Encode(), nil)
+	req := httptest.NewRequest("GET", "/api/auth/oidc/"+testProviderID+"/callback?"+query.Encode(), nil)
 	if binding != nil {
 		req.AddCookie(binding)
 	}
-	env.auth.CompleteOIDCLogin(res, req, oapi.CompleteOIDCLoginParams{})
+	env.auth.CompleteOIDCLogin(res, req, testProviderID, oapi.CompleteOIDCLoginParams{})
 	return res
 }
 
@@ -281,8 +304,18 @@ func (env *oidcEnv) signIn(email string, overrides map[string]any) *httptest.Res
 
 	state, nonce, binding := env.begin("")
 	env.provider.claims = env.baseClaims(email, nonce)
+	// A nil override omits the claim rather than emitting a null, which is what
+	// a provider that simply does not send it looks like. literalNull is how a
+	// test asks for the null itself.
 	for key, value := range overrides {
-		env.provider.claims[key] = value
+		switch value.(type) {
+		case nil:
+			delete(env.provider.claims, key)
+		case literalNull:
+			env.provider.claims[key] = nil
+		default:
+			env.provider.claims[key] = value
+		}
 	}
 
 	return env.callback(url.Values{"code": {"stub-code"}, "state": {state}}, binding)
@@ -321,9 +354,6 @@ func assertLandedInConsole(t *testing.T, res *httptest.ResponseRecorder, redirec
 	for _, cookie := range res.Result().Cookies() {
 		if cookie.Name == auth.ConsoleCookieInsecure && cookie.Value != "" {
 			session = true
-		}
-		if strings.Contains(cookie.Name, "oidc_binding") {
-			assert.Empty(t, cookie.Value, "the binding is spent once the flow is consumed")
 		}
 	}
 	assert.True(t, session, "a successful login sets the session cookie")
@@ -379,6 +409,148 @@ func TestFederatedLogin(t *testing.T) {
 	})
 }
 
+// Several providers is the point of the list form: each gets its own login URL,
+// its own redirect URI, and a boundary between them.
+func TestFederatedLoginWithSeveralProviders(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	logger := zaptest.NewLogger(t)
+	mgmtDB, _, _ := teststore.RunPostgreSQL(t)
+	state := management.NewState(mgmtDB)
+	staff, contractors := newStubProvider(t), newStubProvider(t)
+
+	options, err := goredis.ParseURL(container.RunRedis(t))
+	require.NoError(t, err)
+	rdb := goredis.NewClient(options)
+	t.Cleanup(func() { rdb.Close() })
+
+	cfg := config.Node{
+		PublicURL: "https://console.example.test",
+		Redis:     config.Redis{KeyPrefix: "test:" + t.Name() + ":"},
+		Auth: config.Auth{
+			Drivers: []string{verifiers.OIDCDriver},
+			OIDC: config.OIDCAuth{Providers: []config.OIDCProvider{
+				{
+					ID: "staff", Name: "Staff directory",
+					Issuer: staff.issuer(), ClientID: "stub-client", ClientSecret: "stub-client-secret",
+				},
+				{
+					ID: "contractors", Name: "Contractors",
+					Issuer: contractors.issuer(), ClientID: "stub-client", ClientSecret: "stub-client-secret",
+					AllowedDomains: []string{"partner.test"},
+				},
+			}},
+		},
+	}
+
+	policy := ssrf.Policy{AllowPrivate: true, AllowHTTP: true}
+	controller, err := NewAuthController(logger, mgmtDB, state, cfg, rbac.NewTestEngine(t), consoleSignerFor(t), nil, nil, nil,
+		verifiers.Deps{
+			Keys:       jwks.New(jwks.Config{}, nil, loopbackFetcher{}, logger),
+			Flows:      sso.NewFlowStore(rdb, cfg.Redis.KeyPrefix),
+			Discovery:  sso.NewDiscovery(http.DefaultClient, policy, 0),
+			HTTPClient: http.DefaultClient,
+			BaseURL:    cfg.PublicBaseURL(),
+		})
+	require.NoError(t, err)
+
+	env := &oidcEnv{t: t, auth: controller, state: state}
+
+	begin := func(provider string, stub *stubProvider) (string, string, *http.Cookie) {
+		t.Helper()
+		res := httptest.NewRecorder()
+		controller.StartOIDCLogin(res, httptest.NewRequest("GET", "/start", nil), provider, oapi.StartOIDCLoginParams{})
+		require.Equal(t, http.StatusFound, res.Code, res.Body.String())
+
+		target, err := url.Parse(res.Header().Get("Location"))
+		require.NoError(t, err)
+		query := target.Query()
+		stub.codeChallenges = append(stub.codeChallenges, query.Get("code_challenge"))
+
+		var binding *http.Cookie
+		for _, cookie := range res.Result().Cookies() {
+			if cookie.Name == auth.OIDCBindingCookieInsecure && cookie.Value != "" {
+				binding = cookie
+			}
+		}
+		require.NotNil(t, binding)
+		return query.Get("state"), query.Get("nonce"), binding
+	}
+
+	callback := func(provider string, query url.Values, binding *http.Cookie) *httptest.ResponseRecorder {
+		t.Helper()
+		res := httptest.NewRecorder()
+		req := httptest.NewRequest("GET", "/callback?"+query.Encode(), nil)
+		if binding != nil {
+			req.AddCookie(binding)
+		}
+		controller.CompleteOIDCLogin(res, req, provider, oapi.CompleteOIDCLoginParams{})
+		return res
+	}
+
+	claims := func(stub *stubProvider, email, nonce string) jwt.MapClaims {
+		return jwt.MapClaims{
+			"iss": stub.issuer(), "aud": "stub-client", "sub": "subject-" + email,
+			"exp": time.Now().Add(time.Hour).Unix(), "iat": time.Now().Unix(),
+			"nonce": nonce, "email": email, "email_verified": true,
+		}
+	}
+
+	t.Run("each provider is listed with its own name", func(t *testing.T) {
+		res := httptest.NewRecorder()
+		controller.ListOIDCProviders(res, httptest.NewRequest("GET", "/api/auth/oidc/providers", nil))
+		require.Equal(t, http.StatusOK, res.Code)
+
+		var listed []oapi.OIDCProvider
+		require.NoError(t, json.Unmarshal(res.Body.Bytes(), &listed))
+		require.Len(t, listed, 2)
+		assert.Equal(t, "staff", listed[0].Id, "declaration order is preserved")
+		assert.Equal(t, "Staff directory", listed[0].Name)
+	})
+
+	t.Run("a provider nobody configured is absent", func(t *testing.T) {
+		res := httptest.NewRecorder()
+		controller.StartOIDCLogin(res, httptest.NewRequest("GET", "/start", nil), "nonexistent", oapi.StartOIDCLoginParams{})
+		assert.Equal(t, http.StatusNotFound, res.Code)
+	})
+
+	t.Run("each provider signs its own people in", func(t *testing.T) {
+		state, nonce, binding := begin("staff", staff)
+		staff.claims = claims(staff, "ada@example.test", nonce)
+		assertLandedInConsole(t, callback("staff", url.Values{"code": {"c"}, "state": {state}}, binding), "/")
+
+		identity, err := env.state.GetAdminIdentity(ctx, staff.issuer(), "subject-ada@example.test")
+		require.NoError(t, err)
+		assert.Equal(t, management.IdentityProviderOIDC, identity.Provider)
+	})
+
+	// Without this the least trustworthy provider decides who can reach every
+	// account: a verified address links to an existing admin whoever asserted it.
+	t.Run("a provider may not assert a domain outside its allow-list", func(t *testing.T) {
+		state, nonce, binding := begin("contractors", contractors)
+		contractors.claims = claims(contractors, "impostor@example.test", nonce)
+		assertRejected(t, callback("contractors", url.Values{"code": {"c"}, "state": {state}}, binding), "domain")
+
+		_, err := env.state.ResolveAdminByEmail(ctx, "impostor@example.test")
+		assert.Error(t, err, "no admin is provisioned for a domain the provider may not speak for")
+	})
+
+	t.Run("its own domain still signs in", func(t *testing.T) {
+		state, nonce, binding := begin("contractors", contractors)
+		contractors.claims = claims(contractors, "grace@partner.test", nonce)
+		assertLandedInConsole(t, callback("contractors", url.Values{"code": {"c"}, "state": {state}}, binding), "/")
+	})
+
+	// The state is a value the browser carries. Redeeming one at another
+	// provider's callback would prove it against that provider's issuer.
+	t.Run("a state issued for one provider is refused at another", func(t *testing.T) {
+		state, nonce, binding := begin("staff", staff)
+		staff.claims = claims(staff, "cross@example.test", nonce)
+		assertRejected(t, callback("contractors", url.Values{"code": {"c"}, "state": {state}}, binding), "expired")
+	})
+}
+
 // A provider may return the email and profile scopes from UserInfo rather than
 // in the ID token, which OpenID Connect permits and several implement. Without
 // the fallback every one of those logins fails with "no email address".
@@ -402,6 +574,110 @@ func TestFederatedLoginReadsUserInfoWhenTheIDTokenOmitsTheAddress(t *testing.T) 
 		assert.Equal(t, "Grace", *admin.FirstName)
 	})
 
+	// A provider may keep only the attestation at UserInfo, with the address in
+	// the token. Skipping the fetch then leaves the login unverified, and it
+	// silently never links to an account that already exists.
+	t.Run("an attestation alone is fetched when the token carries only the address", func(t *testing.T) {
+		env.provider.userInfo = map[string]any{
+			"sub":            "subject-alan@example.test",
+			"email":          "alan@example.test",
+			"email_verified": true,
+		}
+		res := env.signIn("alan@example.test", map[string]any{"email_verified": nil})
+		assertLandedInConsole(t, res, "/")
+
+		identity, err := env.state.GetAdminIdentity(context.Background(), env.provider.issuer(), "subject-alan@example.test")
+		require.NoError(t, err)
+		assert.True(t, identity.EmailVerified)
+	})
+
+	// A provider may keep the profile scope at UserInfo while the ID token
+	// carries a complete, attested address. Exempting the names from the check
+	// would provision that admin without them, permanently.
+	t.Run("names alone are fetched when the token is otherwise complete", func(t *testing.T) {
+		env.provider.userInfo = map[string]any{
+			"sub":         "subject-katherine@example.test",
+			"email":       "katherine@example.test",
+			"given_name":  "Katherine",
+			"family_name": "Johnson",
+		}
+		res := env.signIn("katherine@example.test", map[string]any{
+			"given_name": nil, "family_name": nil,
+		})
+		assertLandedInConsole(t, res, "/")
+
+		admin := env.adminFor("katherine@example.test")
+		require.NotNil(t, admin.FirstName)
+		require.NotNil(t, admin.LastName)
+		assert.Equal(t, "Katherine", *admin.FirstName)
+		assert.Equal(t, "Johnson", *admin.LastName)
+	})
+
+	// A literal null is silence, not a negative answer. Reading it as one
+	// fetched UserInfo and then discarded what it returned, so the login stayed
+	// unverified and never linked to an account that already existed.
+	t.Run("a null attestation is filled in from userinfo", func(t *testing.T) {
+		env.provider.userInfo = map[string]any{
+			"sub":            "subject-barbara@example.test",
+			"email":          "barbara@example.test",
+			"email_verified": true,
+		}
+		res := env.signIn("barbara@example.test", map[string]any{"email_verified": literalNull{}})
+		assertLandedInConsole(t, res, "/")
+
+		identity, err := env.state.GetAdminIdentity(context.Background(), env.provider.issuer(), "subject-barbara@example.test")
+		require.NoError(t, err)
+		assert.True(t, identity.EmailVerified)
+	})
+
+	// An attestation with no address attests nothing. Letting the ID token's
+	// email_verified vouch for whatever UserInfo then supplies would hand an
+	// unattested address to linkByEmail, which attaches logins to existing
+	// admins by exactly that.
+	t.Run("an attestation with no address does not vouch for the userinfo one", func(t *testing.T) {
+		env.provider.userInfo = map[string]any{
+			"sub":   "subject-mary@example.test",
+			"email": "mary@example.test",
+		}
+		res := env.signIn("mary@example.test", map[string]any{"email": nil, "email_verified": true})
+		assertLandedInConsole(t, res, "/")
+
+		identity, err := env.state.GetAdminIdentity(context.Background(), env.provider.issuer(), "subject-mary@example.test")
+		require.NoError(t, err)
+		assert.False(t, identity.EmailVerified,
+			"only userinfo can attest the address only userinfo supplied")
+	})
+
+	t.Run("userinfo supplying both halves is trusted", func(t *testing.T) {
+		env.provider.userInfo = map[string]any{
+			"sub":            "subject-dorothy@example.test",
+			"email":          "dorothy@example.test",
+			"email_verified": true,
+		}
+		res := env.signIn("dorothy@example.test", map[string]any{"email": nil, "email_verified": nil})
+		assertLandedInConsole(t, res, "/")
+
+		identity, err := env.state.GetAdminIdentity(context.Background(), env.provider.issuer(), "subject-dorothy@example.test")
+		require.NoError(t, err)
+		assert.True(t, identity.EmailVerified)
+	})
+
+	// An attestation is only about the address it accompanies.
+	t.Run("an attestation for another address does not vouch for the token's", func(t *testing.T) {
+		env.provider.userInfo = map[string]any{
+			"sub":            "subject-edsger@example.test",
+			"email":          "somebody.else@example.test",
+			"email_verified": true,
+		}
+		res := env.signIn("edsger@example.test", map[string]any{"email_verified": nil})
+		assertLandedInConsole(t, res, "/")
+
+		identity, err := env.state.GetAdminIdentity(context.Background(), env.provider.issuer(), "subject-edsger@example.test")
+		require.NoError(t, err)
+		assert.False(t, identity.EmailVerified,
+			"the address the login used was never attested, so it must not link by email")
+	})
+
 	// Otherwise the endpoint would be a way to attach one person's address --
 	// and so their account -- to another person's authenticated subject.
 	t.Run("a response describing another subject is refused", func(t *testing.T) {
@@ -415,6 +691,28 @@ func TestFederatedLoginReadsUserInfoWhenTheIDTokenOmitsTheAddress(t *testing.T) 
 		_, err := env.state.ResolveAdminByEmail(context.Background(), "victim@example.test")
 		assert.Error(t, err)
 	})
+}
+
+// A browser may have more than one login outstanding: two tabs, or a retry
+// after a back button. A binding minted per flow made the second /start
+// overwrite the first, so the first callback -- from the same person, in the
+// same browser -- was refused as coming from somewhere else.
+func TestFederatedLoginToleratesTwoLoginsInOneBrowser(t *testing.T) {
+	t.Parallel()
+	env := newOIDCEnv(t)
+
+	firstState, firstNonce, binding := env.begin("")
+	secondState, secondNonce, reused := env.beginCarrying("", binding)
+	assert.Equal(t, binding.Value, reused.Value, "the browser keeps one binding across its flows")
+
+	// The older tab finishes first.
+	env.provider.claims = env.baseClaims("first@example.test", firstNonce)
+	assertLandedInConsole(t, env.callback(url.Values{"code": {"c"}, "state": {firstState}}, binding), "/")
+
+	// And the newer one still can: completing the first must not have taken the
+	// binding the second still needs.
+	env.provider.claims = env.baseClaims("second@example.test", secondNonce)
+	assertLandedInConsole(t, env.callback(url.Values{"code": {"c"}, "state": {secondState}}, binding), "/")
 }
 
 func TestFederatedLoginRejections(t *testing.T) {
@@ -504,6 +802,21 @@ func TestFederatedLoginRejections(t *testing.T) {
 			"error": {"access_denied"}, "state": {state},
 		}, binding), "denied")
 	})
+
+	// An authorization error carries a state too, so it is only a denial once
+	// the response is one this deployment issued to this browser.
+	t.Run("a denial on a state nobody issued is not reported as a denial", func(t *testing.T) {
+		assertRejected(t, env.callback(url.Values{
+			"error": {"access_denied"}, "state": {"never-issued"},
+		}, nil), "expired")
+	})
+
+	t.Run("a denial answered in another browser is not reported as a denial", func(t *testing.T) {
+		state, _, _ := env.begin("")
+		assertRejected(t, env.callback(url.Values{
+			"error": {"access_denied"}, "state": {state},
+		}, nil), "expired")
+	})
 }
 
 // An identity provider that lets a user type any address into their profile
@@ -554,11 +867,15 @@ func TestFederatedLoginIsAbsentWithoutTheDriver(t *testing.T) {
 	require.NoError(t, err)
 
 	res := httptest.NewRecorder()
-	controller.StartOIDCLogin(res, httptest.NewRequest("GET", "/api/auth/oidc/start", nil), oapi.StartOIDCLoginParams{})
+	controller.StartOIDCLogin(res, httptest.NewRequest("GET", "/api/auth/oidc/x/start", nil), "x", oapi.StartOIDCLoginParams{})
 	assert.Equal(t, http.StatusNotFound, res.Code)
 
 	res = httptest.NewRecorder()
-	controller.CompleteOIDCLogin(res, httptest.NewRequest("GET", "/api/auth/oidc/callback", nil), oapi.CompleteOIDCLoginParams{})
+	controller.CompleteOIDCLogin(res, httptest.NewRequest("GET", "/api/auth/oidc/x/callback", nil), "x", oapi.CompleteOIDCLoginParams{})
+	assert.Equal(t, http.StatusNotFound, res.Code)
+
+	res = httptest.NewRecorder()
+	controller.ListOIDCProviders(res, httptest.NewRequest("GET", "/api/auth/oidc/providers", nil))
 	assert.Equal(t, http.StatusNotFound, res.Code)
 
 	methodsRes := httptest.NewRecorder()

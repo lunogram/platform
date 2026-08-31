@@ -31,7 +31,7 @@ func TestWithOpenIDScope(t *testing.T) {
 func TestNewOIDCRequiresItsSettings(t *testing.T) {
 	t.Parallel()
 
-	_, err := NewOIDC(testOIDCOptions(t, config.OIDCAuth{Issuer: "https://idp.test"}))
+	_, err := NewOIDC(testOIDCOptions(t, config.OIDCProvider{ID: "idp", Issuer: "https://idp.test"}))
 	require.ErrorIs(t, err, ErrOIDCNotConfigured)
 }
 
@@ -40,20 +40,22 @@ func TestNewOIDCRequiresItsSettings(t *testing.T) {
 func TestNewOIDCDerivesItsRedirectURI(t *testing.T) {
 	t.Parallel()
 
-	verifier, err := NewOIDC(testOIDCOptions(t, config.OIDCAuth{
+	verifier, err := NewOIDC(testOIDCOptions(t, config.OIDCProvider{
+		ID:           "okta",
 		Issuer:       "https://idp.test/",
 		ClientID:     "client",
 		ClientSecret: "secret",
 	}))
 	require.NoError(t, err)
 	assert.Equal(t, OIDCDriver, verifier.Driver())
-	assert.Equal(t, "https://console.example.test/api/auth/oidc/callback", verifier.RedirectURI())
+	assert.Equal(t, "https://console.example.test/api/auth/oidc/okta/callback", verifier.RedirectURI(),
+		"the id is part of the redirect URI the operator registers")
 	assert.Equal(t, "https://idp.test/", verifier.config.Issuer,
 		"an issuer identifier is compared exactly, trailing slash included")
 	assert.Equal(t, "https://idp.test/.well-known/openid-configuration", verifier.config.DiscoveryURL)
 }
 
-func testOIDCOptions(t *testing.T, settings config.OIDCAuth) OIDCOptions {
+func testOIDCOptions(t *testing.T, settings config.OIDCProvider) OIDCOptions {
 	t.Helper()
 
 	logger := zaptest.NewLogger(t)
@@ -75,7 +77,8 @@ func testOIDCOptions(t *testing.T, settings config.OIDCAuth) OIDCOptions {
 func TestNewOIDCRefusesAForeignDiscoveryURL(t *testing.T) {
 	t.Parallel()
 
-	_, err := NewOIDC(testOIDCOptions(t, config.OIDCAuth{
+	_, err := NewOIDC(testOIDCOptions(t, config.OIDCProvider{
+		ID:           "idp",
 		Issuer:       "https://idp.test",
 		ClientID:     "client",
 		ClientSecret: "secret",
@@ -103,7 +106,7 @@ func TestTokenAuthStyle(t *testing.T) {
 func TestNewOIDCPairsVerificationWithTheAddressClaim(t *testing.T) {
 	t.Parallel()
 
-	base := config.OIDCAuth{Issuer: "https://idp.test", ClientID: "client", ClientSecret: "secret"}
+	base := config.OIDCProvider{ID: "idp", Issuer: "https://idp.test", ClientID: "client", ClientSecret: "secret"}
 
 	standard := base
 	standard.EmailClaim = "email"
@@ -126,12 +129,39 @@ func TestNewOIDCPairsVerificationWithTheAddressClaim(t *testing.T) {
 	assert.Equal(t, "upn_verified", verifier.config.EmailVerifiedClaim)
 }
 
+// An allow-list that normalises away would read as "any domain", which is the
+// opposite of what somebody who configured one meant.
+func TestNewOIDCRefusesAnAllowListThatNamesNothing(t *testing.T) {
+	t.Parallel()
+
+	base := config.OIDCProvider{ID: "idp", Issuer: "https://idp.test", ClientID: "c", ClientSecret: "s"}
+
+	blank := base
+	blank.AllowedDomains = []string{"", "   "}
+	_, err := NewOIDC(testOIDCOptions(t, blank))
+	require.ErrorIs(t, err, ErrOIDCNotConfigured)
+	assert.Contains(t, err.Error(), "allowed_domains")
+
+	// A stray blank beside a real domain is just a trailing comma.
+	tolerant := base
+	tolerant.AllowedDomains = []string{"", "Example.TEST"}
+	verifier, err := NewOIDC(testOIDCOptions(t, tolerant))
+	require.NoError(t, err)
+	assert.Equal(t, []string{"example.test"}, verifier.domains)
+
+	// No allow-list at all still means any domain, which is right for a
+	// deployment with one provider.
+	unbounded, err := NewOIDC(testOIDCOptions(t, base))
+	require.NoError(t, err)
+	assert.Empty(t, unbounded.domains)
+}
+
 // A wiring mistake should point at the collaborator that is actually absent.
 func TestNewOIDCNamesTheMissingCollaborator(t *testing.T) {
 	t.Parallel()
 
-	opts := testOIDCOptions(t, config.OIDCAuth{
-		Issuer: "https://idp.test", ClientID: "client", ClientSecret: "secret",
+	opts := testOIDCOptions(t, config.OIDCProvider{
+		ID: "idp", Issuer: "https://idp.test", ClientID: "client", ClientSecret: "secret",
 	})
 	opts.Flows = nil
 

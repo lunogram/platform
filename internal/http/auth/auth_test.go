@@ -204,3 +204,33 @@ func TestGetSessionIgnoresOAuthCookie(t *testing.T) {
 		assert.Equal(t, "real-bearer-token", GetSession(r))
 	})
 }
+
+// The `__Host-` prefix is what makes the binding cookie unwritable by a sibling
+// subdomain. Accepting the unprefixed name as a fallback on a secure request
+// would let anything on *.example.com plant a binding with Domain=... and hand
+// the victim's browser the attacker's flow, which is the whole thing the
+// binding exists to prevent.
+func TestGetOIDCBindingReadsOnlyTheNameForThisScheme(t *testing.T) {
+	t.Parallel()
+
+	secure := func() *http.Request {
+		r := httptest.NewRequest("GET", "/api/auth/oidc/default/callback", nil)
+		r.Header.Set("X-Forwarded-Proto", "https")
+		return r
+	}
+
+	planted := secure()
+	planted.AddCookie(&http.Cookie{Name: OIDCBindingCookieInsecure, Value: "attacker-binding"})
+	assert.Empty(t, GetOIDCBinding(planted),
+		"a secure request must not fall back to the cookie a sibling subdomain can write")
+
+	proper := secure()
+	proper.AddCookie(&http.Cookie{Name: OIDCBindingCookieSecure, Value: "our-binding"})
+	assert.Equal(t, "our-binding", GetOIDCBinding(proper))
+
+	// Over plaintext the prefixed name is the one a browser would refuse, so
+	// the unprefixed one is what gets read.
+	insecure := httptest.NewRequest("GET", "/api/auth/oidc/default/callback", nil)
+	insecure.AddCookie(&http.Cookie{Name: OIDCBindingCookieInsecure, Value: "dev-binding"})
+	assert.Equal(t, "dev-binding", GetOIDCBinding(insecure))
+}
