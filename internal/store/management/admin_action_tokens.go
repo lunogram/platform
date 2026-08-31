@@ -70,15 +70,28 @@ func HashActionToken(plaintext string) []byte {
 }
 
 // CreateAdminActionToken records a token for an admin and the address it is
-// being sent to.
+// being sent to, and drops that admin's tokens of the same purpose that can no
+// longer be redeemed.
 //
 // The address is stored because a link is a statement about a mailbox, not
 // about an account: it says "whoever reads this holds this address". An admin's
 // address can be changed by an organization owner without anybody proving the
 // new one, so a token that named only the account would still be redeemable
 // afterwards, and would then be proving the wrong thing.
+//
+// Expiry is decided when a token is redeemed, so the delete is housekeeping
+// rather than a control: a spent or expired row is already refused. Doing it
+// here, on the only path that adds rows and scoped by the index to one admin,
+// keeps the table from growing for the life of the deployment without a
+// background sweep that has to be scheduled, recovered and observed.
 func (s *AdminActionTokensStore) CreateAdminActionToken(ctx context.Context, adminID uuid.UUID, purpose, email string, hash []byte, ttl time.Duration) error {
 	stmt := `
+	WITH spent AS (
+		DELETE FROM admin_action_tokens
+		WHERE admin_id = $1
+		AND purpose = $2
+		AND (consumed_at IS NOT NULL OR expires_at <= NOW())
+	)
 	INSERT INTO admin_action_tokens (admin_id, purpose, email, token_hash, expires_at)
 	VALUES ($1, $2, lower($3), $4, NOW() + ($5 * INTERVAL '1 second'))`
 
@@ -139,19 +152,4 @@ func (s *AdminActionTokensStore) InvalidateAdminActionTokens(ctx context.Context
 
 	_, err := s.db.ExecContext(ctx, stmt, adminID, purpose)
 	return err
-}
-
-// PurgeExpiredAdminActionTokens deletes tokens that can no longer be redeemed.
-// Retention beyond expiry buys nothing: the row holds a hash of a dead secret.
-func (s *AdminActionTokensStore) PurgeExpiredAdminActionTokens(ctx context.Context, retain time.Duration) (int64, error) {
-	stmt := `
-	DELETE FROM admin_action_tokens
-	WHERE expires_at < NOW() - $1::interval
-	OR (consumed_at IS NOT NULL AND consumed_at < NOW() - $1::interval)`
-
-	result, err := s.db.ExecContext(ctx, stmt, retain.String())
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected()
 }

@@ -26,10 +26,12 @@ CREATE TABLE admin_action_tokens (
 -- would let one token be redeemed as another.
 CREATE UNIQUE INDEX admin_action_tokens_hash_unique ON admin_action_tokens (token_hash);
 
--- Supports invalidating an admin's outstanding tokens of one purpose, which a
--- password change has to do.
-CREATE INDEX admin_action_tokens_pending_idx
-    ON admin_action_tokens (admin_id, purpose) WHERE consumed_at IS NULL;
+-- Supports both invalidating an admin's outstanding tokens of one purpose,
+-- which a password change has to do, and clearing out the ones that can no
+-- longer be redeemed as the next token of that purpose is issued. The second
+-- reads spent rows, so the index cannot be partial on consumed_at IS NULL.
+CREATE INDEX admin_action_tokens_admin_purpose_idx
+    ON admin_action_tokens (admin_id, purpose);
 
 CREATE TRIGGER set_updated_at_admin_action_tokens BEFORE UPDATE ON admin_action_tokens
     FOR EACH ROW EXECUTE PROCEDURE set_updated_at();

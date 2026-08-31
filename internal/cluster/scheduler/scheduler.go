@@ -31,7 +31,6 @@ func NewController(ctx graceful.Context, logger *zap.Logger, config config.Node,
 		inbox:                   usrs.InboxStore,
 		lists:                   usrs.ListsStore,
 		broadcasts:              mgmt.BroadcastsStore,
-		actionTokens:            mgmt.AdminActionTokensStore,
 		pub:                     pub,
 	}
 }
@@ -49,7 +48,6 @@ type Controller struct {
 	inbox                   *subjects.InboxStore
 	lists                   *subjects.ListsStore
 	broadcasts              *management.BroadcastsStore
-	actionTokens            *management.AdminActionTokensStore
 	pub                     pubsub.Publisher
 }
 
@@ -79,7 +77,6 @@ func (controller *Controller) Schedule(ctx context.Context) {
 			wg.Go(controller.ReconcileOrganizationInboxMessages(ctx))
 			wg.Go(controller.ReconcileScheduledBroadcasts(ctx))
 			wg.Go(controller.ReconcileListRecomputation(ctx))
-			wg.Go(controller.ReconcileAdminActionTokens(ctx))
 			wg.Wait() // nolint:errcheck
 			logger.Debug("reconciliation complete")
 		}

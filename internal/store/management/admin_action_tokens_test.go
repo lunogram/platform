@@ -191,16 +191,41 @@ func TestAdminActionTokensStore(t *testing.T) {
 		assert.Equal(t, HashActionToken(plaintext), stored)
 	})
 
-	t.Run("purges tokens that can no longer be redeemed", func(t *testing.T) {
+	// Every registration and every reset request writes a row, and expiry is a
+	// predicate at redemption rather than a state anything cleans up. Issuing
+	// the next token is what clears the dead ones, so the table stays bounded
+	// without a background sweep.
+	t.Run("clears unredeemable tokens when the next one is issued", func(t *testing.T) {
 		adminID := newAdmin(t, "purge@example.com")
 
-		_, hash, err := NewActionToken()
+		_, expired, err := NewActionToken()
 		require.NoError(t, err)
-		require.NoError(t, db.CreateAdminActionToken(ctx, adminID, ActionTokenPasswordReset, "purge@example.com", hash, -48*time.Hour))
+		require.NoError(t, db.CreateAdminActionToken(ctx, adminID, ActionTokenPasswordReset, "purge@example.com", expired, -48*time.Hour))
 
-		purged, err := db.PurgeExpiredAdminActionTokens(ctx, time.Hour)
+		consumedPlaintext, consumed, err := NewActionToken()
 		require.NoError(t, err)
-		assert.GreaterOrEqual(t, purged, int64(1))
+		require.NoError(t, db.CreateAdminActionToken(ctx, adminID, ActionTokenPasswordReset, "purge@example.com", consumed, PasswordResetTTL))
+		_, err = db.ConsumeAdminActionToken(ctx, ActionTokenPasswordReset, HashActionToken(consumedPlaintext))
+		require.NoError(t, err)
+
+		// A verification token for the same admin is a different purpose and
+		// must survive: the two flows expire on their own schedules.
+		_, verify, err := NewActionToken()
+		require.NoError(t, err)
+		require.NoError(t, db.CreateAdminActionToken(ctx, adminID, ActionTokenEmailVerification, "purge@example.com", verify, EmailVerificationTTL))
+
+		plaintext, hash, err := NewActionToken()
+		require.NoError(t, err)
+		require.NoError(t, db.CreateAdminActionToken(ctx, adminID, ActionTokenPasswordReset, "purge@example.com", hash, PasswordResetTTL))
+
+		var remaining [][]byte
+		require.NoError(t, raw.SelectContext(ctx, &remaining,
+			`SELECT token_hash FROM admin_action_tokens WHERE admin_id = $1 ORDER BY created_at`, adminID))
+		assert.Equal(t, [][]byte{verify, hash}, remaining)
+
+		redeemed, err := db.ConsumeAdminActionToken(ctx, ActionTokenPasswordReset, HashActionToken(plaintext))
+		require.NoError(t, err)
+		assert.Equal(t, adminID, redeemed)
 	})
 }
 
