@@ -22,9 +22,9 @@ import (
 
 // Config contains database connection settings for all databases.
 type Config struct {
-	ManagementURI string `env:"POSTGRES_MANAGEMENT_URI" envDefault:"postgres://postgres:postgrespw@postgres:5432/management?sslmode=disable"`
-	SubjectsURI   string `env:"POSTGRES_SUBJECTS_URI" envDefault:"postgres://postgres:postgrespw@postgres:5432/subjects?sslmode=disable"`
-	JourneyURI    string `env:"POSTGRES_JOURNEY_URI" envDefault:"postgres://postgres:postgrespw@postgres:5432/journey?sslmode=disable"`
+	ManagementURI string `env:"POSTGRES_MANAGEMENT_URI" yaml:"management_uri"`
+	SubjectsURI   string `env:"POSTGRES_SUBJECTS_URI" yaml:"subjects_uri"`
+	JourneyURI    string `env:"POSTGRES_JOURNEY_URI" yaml:"journey_uri"`
 }
 
 // Connections holds all database connections.

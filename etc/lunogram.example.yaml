@@ -1,0 +1,123 @@
+# Example node configuration. Point CONFIG_FILE at a copy of this file.
+#
+# Configuration is layered, and later layers win:
+#
+#   1. the defaults compiled into the binary
+#   2. this file
+#   3. the environment
+#
+# So a single environment variable overrides one setting out of this file
+# without restating the rest of it, and a key left out of this file keeps its
+# default rather than being blanked.
+#
+# The two layers are not equally expressive. This file is the complete surface;
+# the environment reaches scalar settings only, because a hook set — many
+# subscribers per event, each with its own template, credential and retry
+# policy — has no sensible flat encoding.
+#
+# A dollar-brace placeholder is expanded from the process environment when the
+# file is read, so credentials stay out of the file. A referenced variable that
+# is not set is a startup error, and one carrying a line break is refused:
+# interpolation happens before the document is parsed, so a newline would not
+# land inside the value — it would reshape the file.
+#
+# Expansion is textual and does not know what a comment is, so a placeholder
+# written in a comment is expanded too, and names a variable that has to exist.
+# Quote placeholders so that a hash inside a secret is not read as the start of
+# a comment.
+
+public_url: http://localhost:8080
+
+auth:
+  # A comma-separated list in the environment (AUTH_DRIVER), a list here. A
+  # deployment can offer several at once — "password" alongside an SSO driver
+  # while an organization migrates.
+  drivers:
+    - password
+  password:
+    # open, invite_only or disabled. invite_only is the default and
+    # additionally admits the very first account, which nobody could have
+    # invited.
+    registration: invite_only
+  console:
+    idle_ttl: 8h
+    absolute_ttl: 168h
+
+mail:
+  # smtp or webhook. There is no third value that quietly swallows mail: a
+  # deployment offering password logins has to say where its mail goes.
+  channel: smtp
+
+  from:
+    address: no-reply@example.com
+    name: Lunogram
+
+  smtp:
+    host: smtp.example.com
+    port: 587
+    username: lunogram
+    password: "${SMTP_PASSWORD}"
+    # starttls, implicit or none. none exists for a relay on a trusted local
+    # network — and for Mailpit in development — and nowhere else.
+    tls: starttls
+
+  # The webhook channel posts the rendered message to an endpoint you configure,
+  # which is how a deployment puts its own system — or an HTTP-only provider
+  # like Resend or Postmark — in the path. The body is a JSONNet template; the
+  # default produces the shape Mailpit's send API accepts.
+  #
+  # webhook:
+  #   url: https://api.example.com/send
+  #   body: file://mail.jsonnet
+  #   auth: ...        see docs/content/docs/settings/webhooks.mdx for the
+  #                    credential types and the body template context
+
+  # Every message ships a default, so this whole block is optional and so is
+  # every field in it: overriding a subject does not mean restating the body.
+  #
+  # Each value is a template evaluated against the message context — .Kind,
+  # .ProductName, .Recipient, .ActionURL, .BaseURL, .ExpiresIn — and may be
+  # given inline, as file://path, or as base64://payload. base64:// is the form
+  # to use when the value arrives from the environment: an HTML body carries
+  # newlines and quotes, and base64 is the only encoding that survives
+  # interpolation intact.
+  templates:
+    # layout:
+    #   html: file://mail/layout.html
+    #   text: file://mail/layout.txt
+    verify_email:
+      subject: Confirm your email address
+      body:
+        - Someone created a {{ .ProductName }} account with this address. Confirm it to finish setting the account up.
+      action_label: Confirm email address
+      footer: This link expires in {{ .ExpiresIn }}. If you did not create an account you can ignore this message.
+    # password_reset:
+    # account_exists:
+    # password_changed:
+
+webhook:
+  # The outbound hook engine, declared inline. A deployment that already ships a
+  # standalone hooks file can keep pointing WEBHOOK_CONFIG_FILE at it instead;
+  # this section wins when both are present.
+  #
+  # See docs/content/docs/settings/webhooks.mdx for the full reference.
+  outbound:
+    version: v1
+    defaults:
+      timeout: 10s
+      max_dispatch_time: 30s
+      retry:
+        max_attempts: 3
+    hooks:
+      project.created:
+        - id: provisioning
+          url: https://provisioning.example.com/v1/projects
+          method: POST
+          body: file://webhooks/project.created.jsonnet
+          can_interrupt: true
+          auth:
+            type: api_key
+            config:
+              in: header
+              name: X-Token
+              value: "${PROVISIONING_TOKEN}"

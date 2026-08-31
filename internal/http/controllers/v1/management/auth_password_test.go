@@ -93,6 +93,18 @@ type passwordEnv struct {
 	orgID      uuid.UUID
 }
 
+// testMailConfig is a channel that builds but never dials: every test replaces
+// the dispatcher's transport with a capturedMailer before anything is sent. It
+// exists because a deployment offering password logins with nowhere to send
+// mail is refused at boot, and these tests are such a deployment.
+func testMailConfig() mailer.Config {
+	config := mailer.DefaultConfig()
+	config.Channel = mailer.ChannelSMTP
+	config.SMTP.Host = "smtp.invalid"
+	config.From.Address = "no-reply@example.test"
+	return config
+}
+
 func newPasswordEnv(t *testing.T, registration string) *passwordEnv {
 	t.Helper()
 
@@ -106,6 +118,7 @@ func newPasswordEnv(t *testing.T, registration string) *passwordEnv {
 			Drivers:  []string{"password"},
 			Password: config.PasswordAuth{Registration: registration},
 		},
+		Mail: testMailConfig(),
 	}, nil, consoleSignerFor(t), nil)
 	require.NoError(t, err)
 
@@ -815,6 +828,7 @@ func TestGetAuthMethodsListsEveryConfiguredDriver(t *testing.T) {
 			JWKS:    clerkJWKS(t),
 			Clerk:   config.ClerkAuth{SecretKey: "sk_test_xxx"},
 		},
+		Mail: testMailConfig(),
 	}, nil, consoleSignerFor(t), nil)
 	require.NoError(t, err)
 
@@ -856,6 +870,25 @@ func TestPasswordFlowsAreOffWhenTheDriverIsNotConfigured(t *testing.T) {
 			assert.Equal(t, http.StatusNotFound, res.Code, res.Body.String())
 		})
 	}
+}
+
+// A deployment that offers password logins without configuring a mail channel
+// cannot confirm an address or reset a password. It is refused at boot rather
+// than discovered by the first person who tries to register.
+func TestNewAuthControllerRequiresAMailChannel(t *testing.T) {
+	t.Parallel()
+
+	logger := zaptest.NewLogger(t)
+	mgmtDB, _, _ := teststore.RunPostgreSQL(t)
+
+	_, err := NewAuthController(logger, mgmtDB, management.NewState(mgmtDB), config.Node{
+		Auth: config.Auth{
+			Drivers:  []string{"password"},
+			Password: config.PasswordAuth{Registration: config.RegistrationOpen},
+		},
+	}, nil, consoleSignerFor(t), nil)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "no channel is configured")
 }
 
 func TestNewAuthControllerRejectsAnUnknownRegistrationMode(t *testing.T) {

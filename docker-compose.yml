@@ -40,18 +40,28 @@ services:
       AUTH_CLERK_SECRET_KEY: ${AUTH_CLERK_SECRET_KEY:-}
       AUTH_CLERK_WEBHOOK_SECRET: ${AUTH_CLERK_WEBHOOK_SECRET:-}
       AUTH_JWKS_URL: ${AUTH_JWKS_URL:-}
-      # Where account confirmation and password reset mail is sent from. With no
-      # MAIL_HOST the platform writes the message — including the link — to its
-      # log instead of delivering it, so a fresh install can create and recover
-      # an account without an SMTP server. Set these before production.
-      MAIL_HOST: ${MAIL_HOST:-}
-      MAIL_PORT: ${MAIL_PORT:-587}
-      MAIL_USERNAME: ${MAIL_USERNAME:-}
-      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
-      MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-}
+      # Account confirmation and password reset mail. The quickstart sends to
+      # the mailpit service below, where every message is readable at
+      # http://localhost:8025 — nothing leaves the machine and no SMTP account
+      # is needed to create, confirm and recover an account.
+      #
+      # There is no channel that only logs: a deployment offering password
+      # logins has to say where its mail goes, and one that does not is refused
+      # at boot rather than at the first registration.
+      MAIL_CHANNEL: ${MAIL_CHANNEL:-smtp}
+      MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-no-reply@localhost}
       MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Lunogram}
-      # starttls, implicit or none.
-      MAIL_TLS: ${MAIL_TLS:-starttls}
+      MAIL_SMTP_HOST: ${MAIL_SMTP_HOST:-mailpit}
+      MAIL_SMTP_PORT: ${MAIL_SMTP_PORT:-1025}
+      MAIL_SMTP_USERNAME: ${MAIL_SMTP_USERNAME:-}
+      MAIL_SMTP_PASSWORD: ${MAIL_SMTP_PASSWORD:-}
+      # starttls, implicit or none. Mailpit is on the compose network and offers
+      # no TLS; a real relay must not be set to none.
+      MAIL_SMTP_TLS: ${MAIL_SMTP_TLS:-none}
+      # To exercise the other channel instead, set MAIL_CHANNEL=webhook and
+      # point it at mailpit's send API — the shipped body template already
+      # produces the shape it accepts:
+      #   MAIL_WEBHOOK_URL: http://mailpit:8025/api/v1/send
       # Public URL used to generate user-facing links (e.g. preference center, unsubscribe)
       PUBLIC_URL: ${PUBLIC_URL:-http://localhost:8080}
     volumes:
@@ -63,6 +73,21 @@ services:
         condition: service_started
       redis:
         condition: service_healthy
+      mailpit:
+        condition: service_started
+    networks:
+      - app_network
+
+  # Catches every message the platform sends and shows it at
+  # http://localhost:8025. It speaks SMTP on 1025 and also exposes a send API on
+  # 8025, so it is a valid destination for either mail channel.
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "8025:8025"
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
     networks:
       - app_network
 

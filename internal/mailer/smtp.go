@@ -26,26 +26,27 @@ import (
 // authentication is refused on an unencrypted connection to a non-local server,
 // so a misconfigured TLS mode cannot silently leak the SMTP password.
 type SMTP struct {
-	config Config
+	config SMTPConfig
 	from   mail.Address
 }
 
 func NewSMTP(config Config) (*SMTP, error) {
-	if !config.Configured() {
-		return nil, fmt.Errorf("mailer: MAIL_HOST is not set")
+	if config.SMTP.Host == "" {
+		return nil, fmt.Errorf("mailer: mail.smtp.host (MAIL_SMTP_HOST) is required for the %s channel", ChannelSMTP)
 	}
-	if config.FromAddress == "" {
-		return nil, fmt.Errorf("mailer: MAIL_FROM_ADDRESS is required when MAIL_HOST is set")
+	if config.From.Address == "" {
+		return nil, fmt.Errorf("mailer: mail.from.address (MAIL_FROM_ADDRESS) is required for the %s channel", ChannelSMTP)
 	}
-	switch config.TLS {
+	switch config.SMTP.TLS {
 	case TLSStartTLS, TLSImplicit, TLSNone:
 	default:
-		return nil, fmt.Errorf("mailer: unknown MAIL_TLS %q, expected starttls, implicit or none", config.TLS)
+		return nil, fmt.Errorf("mailer: unknown mail.smtp.tls %q, expected %q, %q or %q",
+			config.SMTP.TLS, TLSStartTLS, TLSImplicit, TLSNone)
 	}
 
 	return &SMTP{
-		config: config,
-		from:   mail.Address{Name: config.FromName, Address: config.FromAddress},
+		config: config.SMTP,
+		from:   mail.Address{Name: config.From.Name, Address: config.From.Address},
 	}, nil
 }
 
@@ -146,7 +147,7 @@ func (s *SMTP) authenticate(client *smtp.Client) error {
 
 	ok, mechanisms := client.Extension("AUTH")
 	if !ok {
-		return fmt.Errorf("mailer: %s does not offer AUTH but MAIL_USERNAME is set", s.config.Host)
+		return fmt.Errorf("mailer: %s does not offer AUTH but mail.smtp.username is set", s.config.Host)
 	}
 
 	var auth smtp.Auth

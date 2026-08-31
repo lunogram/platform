@@ -12,14 +12,14 @@ import (
 )
 
 type AzureConfig struct {
-	Account    string `env:"ACCOUNT"`
-	Container  string `env:"CONTAINER"`
-	AccountKey string `env:"ACCOUNT_KEY"`
+	Account    string `env:"ACCOUNT" yaml:"account"`
+	Container  string `env:"CONTAINER" yaml:"container"`
+	AccountKey string `env:"ACCOUNT_KEY" yaml:"account_key"`
 	// Endpoint overrides the blob service URL. Leave it empty for the public
 	// Azure cloud; set it for sovereign clouds, Azure Stack, a private
 	// endpoint, or a local Azurite emulator, in which case it must include
 	// the account path segment (e.g. http://127.0.0.1:10000/devstoreaccount1).
-	Endpoint string `env:"ENDPOINT"`
+	Endpoint string `env:"ENDPOINT" yaml:"endpoint"`
 }
 
 // ServiceURL returns the blob service URL to address the account on,

@@ -100,19 +100,37 @@ first account (nobody could have invited that one).
 > you open the port, or start with `AUTH_PASSWORD_REGISTRATION=disabled` and
 > switch it on once you hold the account.
 
-Account confirmation and password resets are sent by email. With no `MAIL_HOST`
-configured the platform writes each message — link included — to its log instead
-of delivering it, so you can create, confirm and recover an account without
-standing up an SMTP server. Before production, point it at a real one:
+Account confirmation and password resets are sent by email, so the deployment
+has to say where its mail goes. `docker compose up` runs
+[Mailpit](https://mailpit.axllent.org) alongside the platform and points it
+there: create an account, then read the confirmation link at
+<http://localhost:8025>. Nothing leaves the machine and no SMTP account is
+needed.
+
+There is deliberately no channel that only writes messages to the log. A
+deployment offering password logins with nowhere to send mail cannot confirm an
+address or reset a password, so it is refused at boot rather than at the first
+registration.
+
+Before production, point it at a real relay:
 
 ```
-MAIL_HOST=smtp.example.com
-MAIL_PORT=587
-MAIL_USERNAME=lunogram
-MAIL_PASSWORD=...
+MAIL_CHANNEL=smtp
 MAIL_FROM_ADDRESS=no-reply@example.com
-MAIL_TLS=starttls          # or implicit, or none
+MAIL_SMTP_HOST=smtp.example.com
+MAIL_SMTP_PORT=587
+MAIL_SMTP_USERNAME=lunogram
+MAIL_SMTP_PASSWORD=...
+MAIL_SMTP_TLS=starttls     # or implicit, or none
 ```
+
+Or hand delivery to your own system instead, with `MAIL_CHANNEL=webhook`: the
+platform posts the rendered message to a URL you configure, which is also how
+you reach an HTTP-only provider such as Resend or Postmark without the platform
+growing a client for each one. Both channels send the same message, and the
+copy and layout are yours to override — see
+[Configuration](https://docs.lunogram.com/docs/settings/configuration) and
+[Sending mail](https://docs.lunogram.com/docs/settings/mail).
 
 For full documentation on the platform and more information on deployment, check out our docs.
 

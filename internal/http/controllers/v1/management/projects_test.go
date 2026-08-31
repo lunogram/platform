@@ -393,7 +393,7 @@ func TestCreateProjectWebhook(t *testing.T) {
 	defer webhookServer.Close()
 
 	//nolint:staticcheck // SA1019: this test covers the deprecated compatibility path
-	hooks, err := webhook.NewEngine(logger, "", webhook.LegacyEnv{
+	hooks, err := webhook.NewEngine(logger, nil, "", webhook.LegacyEnv{
 		ProjectCreatedURL: webhookServer.URL,
 	})
 	require.NoError(t, err)

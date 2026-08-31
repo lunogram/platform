@@ -8,57 +8,186 @@ import (
 	"strings"
 	texttemplate "text/template"
 	"time"
+
+	"github.com/lunogram/platform/internal/configfile"
 )
 
 //go:embed templates/*.tmpl
 var templateFS embed.FS
 
-// content is the shape every auth message takes: a heading, a short
-// explanation, at most one call to action and a closing note.
-//
-// There is one template pair rather than one per message because these are
-// transactional notices, not marketing: giving each its own layout would mean
-// four places to fix the next rendering bug and four chances for them to drift.
-// The copy lives in the [Renderer] methods below.
-type content struct {
-	ProductName string
-	Subject     string
-	Heading     string
-	Body        []string
-	ActionLabel string
-	ActionURL   string
-	Footer      string
-}
-
 // Renderer turns an auth event into a [Message]. It is safe for concurrent use.
+//
+// Every template is resolved and parsed once, when the renderer is built, so a
+// broken override stops the service at boot rather than at the first
+// registration. An override that is simply absent is not broken: the embedded
+// default takes its place.
 type Renderer struct {
-	html        *template.Template
-	text        *texttemplate.Template
+	layoutHTML *template.Template
+	layoutText *texttemplate.Template
+
+	kinds map[string]*kindTemplates
+
 	productName string
 	baseURL     string
 }
 
-func NewRenderer(productName, baseURL string) (*Renderer, error) {
-	html, err := template.ParseFS(templateFS, "templates/message.html.tmpl")
-	if err != nil {
-		return nil, err
-	}
+// kindTemplates is one message's copy, parsed.
+type kindTemplates struct {
+	subject     *texttemplate.Template
+	heading     *texttemplate.Template
+	actionLabel *texttemplate.Template
+	footer      *texttemplate.Template
+	body        []*texttemplate.Template
+}
 
-	text, err := texttemplate.ParseFS(templateFS, "templates/message.txt.tmpl")
-	if err != nil {
-		return nil, err
-	}
+// layoutData is what the layout is evaluated against: the message context plus
+// the copy, already rendered.
+//
+// The copy arrives as plain strings and the HTML layout escapes them. An
+// operator who wants markup in the body overrides the layout, which is the
+// template that is allowed to emit HTML; keeping the copy escaped means a value
+// that reaches it from a request -- an address, a product name -- cannot inject
+// markup into somebody's mailbox.
+type layoutData struct {
+	TemplateData
+	Subject     string
+	Heading     string
+	Body        []string
+	ActionLabel string
+	Footer      string
+}
 
+// NewRenderer resolves the configured templates over the embedded defaults.
+//
+// baseDir is the directory the configuration file was read from; relative
+// file:// references resolve against it.
+func NewRenderer(config Config, baseURL, baseDir string) (*Renderer, error) {
+	productName := config.ProductName
 	if productName == "" {
 		productName = "Lunogram"
 	}
 
-	return &Renderer{
-		html:        html,
-		text:        text,
+	r := &Renderer{
+		kinds:       make(map[string]*kindTemplates, len(defaultContent)),
 		productName: productName,
 		baseURL:     strings.TrimRight(baseURL, "/"),
-	}, nil
+	}
+
+	var err error
+	if r.layoutHTML, err = r.layoutHTMLTemplate(config.Templates.Layout.HTML, baseDir); err != nil {
+		return nil, err
+	}
+	if r.layoutText, err = r.layoutTextTemplate(config.Templates.Layout.Text, baseDir); err != nil {
+		return nil, err
+	}
+
+	for kind, fallback := range defaultContent {
+		parsed, err := parseContent(kind, config.Templates.override(kind), fallback, baseDir)
+		if err != nil {
+			return nil, err
+		}
+		r.kinds[kind] = parsed
+	}
+
+	return r, nil
+}
+
+func (r *Renderer) layoutHTMLTemplate(ref, baseDir string) (*template.Template, error) {
+	raw, err := resolveOrEmbedded("mail.templates.layout.html", ref, "templates/layout.html.tmpl", baseDir)
+	if err != nil {
+		return nil, err
+	}
+	parsed, err := template.New("layout.html").Parse(string(raw))
+	if err != nil {
+		return nil, fmt.Errorf("mail.templates.layout.html: %w", err)
+	}
+	return parsed, nil
+}
+
+func (r *Renderer) layoutTextTemplate(ref, baseDir string) (*texttemplate.Template, error) {
+	raw, err := resolveOrEmbedded("mail.templates.layout.text", ref, "templates/layout.txt.tmpl", baseDir)
+	if err != nil {
+		return nil, err
+	}
+	parsed, err := texttemplate.New("layout.txt").Parse(string(raw))
+	if err != nil {
+		return nil, fmt.Errorf("mail.templates.layout.text: %w", err)
+	}
+	return parsed, nil
+}
+
+// resolveOrEmbedded resolves an operator reference, or reads the embedded
+// default when none was configured.
+//
+// The asymmetry is the point: an absent override is a deployment that did not
+// ask for anything, and it gets what ships. A present one that cannot be
+// resolved is a deployment that asked for something specific and got it wrong,
+// and falling back there would send the wrong mail with nothing in the logs to
+// explain why.
+func resolveOrEmbedded(name, ref, embedded, baseDir string) ([]byte, error) {
+	if strings.TrimSpace(ref) == "" {
+		return templateFS.ReadFile(embedded)
+	}
+	return configfile.Resolve(name, ref, baseDir)
+}
+
+// parseContent parses one message's copy, taking each field from the operator
+// when they set it and from the embedded default when they did not.
+func parseContent(kind string, override, fallback Content, baseDir string) (*kindTemplates, error) {
+	parsed := &kindTemplates{}
+
+	fields := []struct {
+		name     string
+		override string
+		fallback string
+		into     **texttemplate.Template
+	}{
+		{"subject", override.Subject, fallback.Subject, &parsed.subject},
+		{"heading", override.Heading, fallback.Heading, &parsed.heading},
+		{"action_label", override.ActionLabel, fallback.ActionLabel, &parsed.actionLabel},
+		{"footer", override.Footer, fallback.Footer, &parsed.footer},
+	}
+
+	for _, field := range fields {
+		name := fmt.Sprintf("mail.templates.%s.%s", kind, field.name)
+		tmpl, err := parseField(name, field.override, field.fallback, baseDir)
+		if err != nil {
+			return nil, err
+		}
+		*field.into = tmpl
+	}
+
+	body := override.Body
+	if len(body) == 0 {
+		body = fallback.Body
+	}
+	for i, paragraph := range body {
+		name := fmt.Sprintf("mail.templates.%s.body[%d]", kind, i)
+		tmpl, err := parseField(name, paragraph, "", baseDir)
+		if err != nil {
+			return nil, err
+		}
+		parsed.body = append(parsed.body, tmpl)
+	}
+
+	return parsed, nil
+}
+
+func parseField(name, override, fallback, baseDir string) (*texttemplate.Template, error) {
+	source := fallback
+	if strings.TrimSpace(override) != "" {
+		raw, err := configfile.Resolve(name, override, baseDir)
+		if err != nil {
+			return nil, err
+		}
+		source = string(raw)
+	}
+
+	parsed, err := texttemplate.New(name).Parse(source)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", name, err)
+	}
+	return parsed, nil
 }
 
 // BaseURL is the public origin every link in an auth message is built from.
@@ -69,90 +198,67 @@ func (r *Renderer) link(path, token string) string {
 	return r.baseURL + path + "?token=" + url.QueryEscape(token)
 }
 
-func (r *Renderer) VerifyEmail(to, token string) Message {
-	actionURL := r.link("/verify-email", token)
-	return r.render(content{
-		Subject: "Confirm your email address",
-		Heading: "Confirm your email address",
-		Body: []string{
-			fmt.Sprintf("Someone created a %s account with this address. Confirm it to finish setting the account up.", r.productName),
-		},
-		ActionLabel: "Confirm email address",
-		ActionURL:   actionURL,
-		Footer:      "This link expires in 24 hours. If you did not create an account you can ignore this message.",
-	}, to, actionURL)
+func (r *Renderer) VerifyEmail(to, token string, ttl time.Duration) Message {
+	return r.render(KindVerifyEmail, to, r.link("/verify-email", token), ttl)
 }
 
 func (r *Renderer) PasswordReset(to, token string, ttl time.Duration) Message {
-	actionURL := r.link("/reset-password", token)
-	return r.render(content{
-		Subject: "Reset your password",
-		Heading: "Reset your password",
-		Body: []string{
-			fmt.Sprintf("Someone asked to reset the password for your %s account. Choose a new one to continue.", r.productName),
-		},
-		ActionLabel: "Choose a new password",
-		ActionURL:   actionURL,
-		Footer: fmt.Sprintf(
-			"This link expires in %s and can be used once. If you did not ask for it, ignore this message: your password stays as it is.",
-			humaniseTTL(ttl)),
-	}, to, actionURL)
+	return r.render(KindPasswordReset, to, r.link("/reset-password", token), ttl)
 }
 
-// AccountExists answers a registration attempt on an address that already has an
-// account.
-//
-// The HTTP response to that attempt is identical to the response for a brand-new
-// address, because differing responses are how an account list gets scraped.
-// This message is where the person who actually owns the address -- and only
-// they -- is told what happened.
-func (r *Renderer) AccountExists(to, resetToken string) Message {
-	actionURL := r.link("/reset-password", resetToken)
-	return r.render(content{
-		Subject: "You already have an account",
-		Heading: "You already have an account",
-		Body: []string{
-			fmt.Sprintf("Someone tried to register a %s account with this address, but it already has one. There is nothing to do: sign in as usual.", r.productName),
-			"If that was you and you cannot remember your password, you can set a new one.",
-		},
-		ActionLabel: "Set a new password",
-		ActionURL:   actionURL,
-		Footer:      "This link expires in one hour. If you did not try to register, ignore this message.",
-	}, to, actionURL)
+func (r *Renderer) AccountExists(to, resetToken string, ttl time.Duration) Message {
+	return r.render(KindAccountExists, to, r.link("/reset-password", resetToken), ttl)
 }
 
-// PasswordChanged tells the account owner their password moved. It carries no
-// action link on purpose: it is a notice, and a notice that asks you to click
-// something teaches the exact reflex phishing relies on.
 func (r *Renderer) PasswordChanged(to string) Message {
-	return r.render(content{
-		Subject: "Your password was changed",
-		Heading: "Your password was changed",
-		Body: []string{
-			fmt.Sprintf("The password on your %s account has just been changed, and every other session it was signed in to has been ended.", r.productName),
-			"If this was not you, reset your password now and contact your administrator.",
-		},
-		Footer: fmt.Sprintf("You can sign in at %s.", r.baseURL),
-	}, to, "")
+	return r.render(KindPasswordChanged, to, "", 0)
 }
 
-func (r *Renderer) render(c content, to, actionURL string) Message {
-	c.ProductName = r.productName
+func (r *Renderer) render(kind, to, actionURL string, ttl time.Duration) Message {
+	data := TemplateData{
+		Kind:        kind,
+		ProductName: r.productName,
+		Recipient:   to,
+		ActionURL:   actionURL,
+		BaseURL:     r.baseURL,
+	}
+	if ttl > 0 {
+		data.ExpiresIn = humaniseTTL(ttl)
+	}
+
+	templates := r.kinds[kind]
+	layout := layoutData{
+		TemplateData: data,
+		Subject:      execute(templates.subject, data),
+		Heading:      execute(templates.heading, data),
+		ActionLabel:  execute(templates.actionLabel, data),
+		Footer:       execute(templates.footer, data),
+	}
+	for _, paragraph := range templates.body {
+		layout.Body = append(layout.Body, execute(paragraph, data))
+	}
 
 	var html, text strings.Builder
-	// Both templates are compiled at construction from an embedded source and
-	// every field is a plain string, so execution cannot fail for a reason the
-	// caller could act on. A partial body is still better than no mail at all.
-	_ = r.html.Execute(&html, c)
-	_ = r.text.Execute(&text, c)
+	// Both layouts were parsed at construction and every value is a plain
+	// string, so execution cannot fail for a reason the caller could act on. A
+	// partial body is still better than no mail at all.
+	_ = r.layoutHTML.Execute(&html, layout)
+	_ = r.layoutText.Execute(&text, layout)
 
 	return Message{
 		To:        to,
-		Subject:   c.Subject,
+		Kind:      kind,
+		Subject:   layout.Subject,
 		HTML:      html.String(),
 		Text:      text.String(),
 		ActionURL: actionURL,
 	}
+}
+
+func execute(tmpl *texttemplate.Template, data TemplateData) string {
+	var out strings.Builder
+	_ = tmpl.Execute(&out, data)
+	return out.String()
 }
 
 func humaniseTTL(ttl time.Duration) string {

@@ -1,0 +1,138 @@
+---
+title: Sending mail
+description: How Lunogram sends its own transactional mail — the SMTP and webhook channels, and overriding the messages
+---
+
+Lunogram sends four messages of its own: confirm your address, reset your password, you already have an account, and your password was changed. They are the platform's mail, not a project's — the first admin registers before any project exists, so they cannot depend on a project's configured email provider.
+
+<Callout type="info">
+This is separate from the email your **projects** send. Campaign and journey mail goes through a project's configured provider (Resend, Mailgun, SendGrid, SES…) with templates edited in the console. Nothing on this page affects it.
+</Callout>
+
+---
+
+## Choosing a channel
+
+```yaml
+mail:
+  channel: smtp        # or: webhook
+```
+
+There is no third value, and no fallback that writes messages to the log instead of sending them. A deployment offering password logins with nowhere to send mail cannot confirm an address or reset a password, so **it is refused at boot** rather than at the first registration.
+
+In development, `docker compose up` runs [Mailpit](https://mailpit.axllent.org) and points the platform at it. Every message is readable at `http://localhost:8025`; nothing leaves the machine.
+
+### SMTP
+
+```yaml
+mail:
+  channel: smtp
+  from:
+    address: no-reply@example.com
+    name: Example
+  smtp:
+    host: smtp.example.com
+    port: 587
+    username: lunogram
+    password: "${SMTP_PASSWORD}"
+    tls: starttls
+```
+
+`tls` is `starttls` (upgrade a plaintext connection, and fail if the server does not offer it), `implicit` (dial TLS directly, usually port 465), or `none`. `none` exists for a relay on a trusted local network — and for Mailpit — and nowhere else.
+
+STARTTLS does not fall back to plaintext when a server stops offering it. A server that used to and now does not is either misconfigured or being stripped, and continuing would hand it your SMTP password in the clear.
+
+### Webhook
+
+The webhook channel posts the rendered message to an endpoint you configure. It is how you put your own system in the path, and how you reach a provider that only speaks HTTP — Resend, Postmark, SendGrid, Mailgun and SES all accept a send over HTTP, and a body template is enough to produce any of their request shapes.
+
+```yaml
+mail:
+  channel: webhook
+  from:
+    address: no-reply@example.com
+  webhook:
+    url: https://api.example.com/send
+    auth:
+      type: api_key
+      config:
+        in: header
+        name: Authorization
+        value: "Bearer ${MAIL_API_KEY}"
+```
+
+It shares the guarded transport the outbound hooks use, so the SSRF policy, retry behaviour and credential types documented under [Webhooks](/docs/settings/webhooks) apply here too.
+
+The request body is a [JSONNet](https://jsonnet.org) template evaluated against the message. The default produces the shape Mailpit's send API accepts:
+
+```jsonnet
+function(ctx) {
+  From: { Email: ctx.from.address, Name: ctx.from.name },
+  To: [{ Email: ctx.message.to }],
+  Subject: ctx.message.subject,
+  HTML: ctx.message.html,
+  Text: ctx.message.text,
+}
+```
+
+Set `mail.webhook.body` to your own — inline, `file://` or `base64://` — to produce a different shape. The context is:
+
+| Field | |
+| --- | --- |
+| `ctx.kind` | `verify_email`, `password_reset`, `account_exists` or `password_changed` |
+| `ctx.from.address`, `ctx.from.name` | the configured sender |
+| `ctx.message.to` | the recipient |
+| `ctx.message.subject`, `.html`, `.text` | the rendered message |
+| `ctx.message.action_url` | the link the message carries, empty when it carries none |
+
+A receiver that wants to render its own mail can ignore the rendered fields and use `ctx.kind` and `ctx.message.action_url`.
+
+---
+
+## Overriding the messages
+
+Every message ships a default, so the `templates` block is optional and so is every field in it — overriding a subject does not mean restating the body.
+
+```yaml
+mail:
+  templates:
+    verify_email:
+      subject: Confirm your address at Example
+      body:
+        - Someone created an account with this address. Confirm it to finish setting up.
+      action_label: Confirm my address
+      footer: This link expires in {{ .ExpiresIn }}.
+```
+
+Each value is a template evaluated against the message context:
+
+| | |
+| --- | --- |
+| `.Kind` | which message this is |
+| `.ProductName` | `mail.product_name` |
+| `.Recipient` | the address being written to |
+| `.ActionURL` | the link, empty when there is none |
+| `.BaseURL` | the console's public origin |
+| `.ExpiresIn` | how long the link lasts, written out — "one hour", "24 hours" |
+
+Every value can also be given as `file://` or `base64://`. See [Configuration](/docs/settings/configuration#values-that-do-not-fit-on-one-line) for when to use which, and for what happens when a reference is broken.
+
+### The layout
+
+The four messages share one layout, so a rendering fix happens in one place rather than four. Override it to change the framing of all of them:
+
+```yaml
+mail:
+  templates:
+    layout:
+      html: file://mail/layout.html
+      text: file://mail/layout.txt
+```
+
+The layout receives the message context above plus the rendered copy — `.Subject`, `.Heading`, `.Body` (a list of paragraphs), `.ActionLabel` and `.Footer`. A deployment that genuinely needs a different frame per message can branch on `.Kind` inside its layout.
+
+The copy is escaped when it is rendered into the HTML layout, so a value that reaches it from a request cannot inject markup into somebody's mailbox. Markup you want in the message belongs in the layout, which is the template allowed to emit it.
+
+<Callout type="warn">
+`password_changed` deliberately carries no link. It is a notice, and a notice that asks you to click something teaches the exact reflex phishing relies on. An `action_label` set on it has nothing to point at.
+</Callout>

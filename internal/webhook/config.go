@@ -5,11 +5,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
-	"sort"
-	"strings"
 	"time"
 
+	"github.com/lunogram/platform/internal/configfile"
 	"github.com/lunogram/platform/internal/outbound"
 	"gopkg.in/yaml.v3"
 )
@@ -110,38 +108,10 @@ type GalleryConfig struct {
 	MaxResponseBytes int64               `yaml:"max_response_bytes"`
 }
 
-// envRef matches a ${NAME} interpolation.
-var envRef = regexp.MustCompile(`\$\{([A-Za-z_][A-Za-z0-9_]*)\}`)
-
-// interpolate expands ${NAME} references from the process environment.
-//
-// Secrets belong in the environment, not in a file that ships in a ConfigMap
-// or a git repository, so the schema carries credential *references* and this
-// resolves them. An unset variable is an error rather than an empty string:
-// silently sending an empty API key produces a 401 at 3am instead of a failure
-// at boot.
-func interpolate(raw []byte) ([]byte, error) {
-	var missing []string
-	out := envRef.ReplaceAllFunc(raw, func(match []byte) []byte {
-		name := string(envRef.FindSubmatch(match)[1])
-		value, ok := os.LookupEnv(name)
-		if !ok {
-			missing = append(missing, name)
-			return nil
-		}
-		return []byte(value)
-	})
-	if len(missing) > 0 {
-		sort.Strings(missing)
-		return nil, fmt.Errorf("unset environment variables referenced by config: %s", strings.Join(missing, ", "))
-	}
-	return out, nil
-}
-
 // ParseConfig decodes hook configuration from raw YAML. baseDir resolves
 // relative file:// template references.
 func ParseConfig(raw []byte, baseDir string) (*Config, error) {
-	expanded, err := interpolate(raw)
+	expanded, err := configfile.Interpolate(raw)
 	if err != nil {
 		return nil, err
 	}
@@ -158,6 +128,16 @@ func ParseConfig(raw []byte, baseDir string) (*Config, error) {
 	}
 
 	return cfg, nil
+}
+
+// SetBaseDir records the directory relative file:// template references resolve
+// against. A configuration parsed from its own file learns this from the path
+// it was read from; one declared inline in the node configuration has to be
+// told, because it was never a file of its own.
+func (c *Config) SetBaseDir(dir string) {
+	if c != nil {
+		c.baseDir = dir
+	}
 }
 
 // LoadConfigFile reads and parses a hook configuration file.

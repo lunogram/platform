@@ -29,7 +29,7 @@ func NewController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB
 	// a deployment that has not yet written a WEBHOOK_CONFIG_FILE keeps working.
 	// Deleting this block is what removes the compatibility path.
 	//nolint:staticcheck // SA1019: reading the deprecated settings is this call's purpose
-	hooks, err := webhook.NewEngine(logger.Named("webhook"), cfg.Webhook.ConfigFile, webhook.LegacyEnv{
+	hooks, err := webhook.NewEngine(logger.Named("webhook"), cfg.Webhook.Outbound, cfg.Webhook.ConfigFile, webhook.LegacyEnv{
 		ProjectCreatedURL:     cfg.Webhook.ProjectCreatedURL,
 		ProjectCreatedTimeout: cfg.Webhook.ProjectCreatedTimeout,
 		EmailTemplatesURL:     cfg.Webhook.EmailTemplatesURL,

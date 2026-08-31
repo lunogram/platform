@@ -93,11 +93,31 @@ func (l LegacyEnv) Config() (*Config, []string) {
 	return cfg, warnings
 }
 
-// Load resolves the effective configuration. A configuration file wins over the
-// legacy variables; when both are present the legacy ones are ignored and said
-// to be ignored, rather than merged into something neither the file nor the
-// environment describes.
-func Load(path string, legacy LegacyEnv) (*Config, []string, error) {
+// Load resolves the effective configuration from the three places it can come
+// from, in order of precedence: the webhook section of the node configuration
+// file, a standalone WEBHOOK_CONFIG_FILE, and the deprecated single-URL
+// variables.
+//
+// A lower-precedence source that is also configured is ignored and said to be
+// ignored, rather than merged into something none of them describes.
+func Load(inline *Config, path string, legacy LegacyEnv) (*Config, []string, error) {
+	if inline != nil {
+		if inline.Version != ConfigVersion {
+			return nil, nil, fmt.Errorf("webhook config version must be %q, got %q", ConfigVersion, inline.Version)
+		}
+		var warnings []string
+		if path != "" {
+			warnings = append(warnings,
+				"the node configuration carries a webhook.outbound section, so WEBHOOK_CONFIG_FILE is ignored")
+		}
+		if legacy.configured() {
+			warnings = append(warnings,
+				"the node configuration carries a webhook.outbound section, so the deprecated "+
+					"WEBHOOK_PROJECT_CREATED_URL / WEBHOOK_EMAIL_TEMPLATES_URL variables are ignored")
+		}
+		return inline, warnings, nil
+	}
+
 	if path != "" {
 		cfg, err := LoadConfigFile(path)
 		if err != nil {
@@ -122,8 +142,8 @@ func Load(path string, legacy LegacyEnv) (*Config, []string, error) {
 
 // NewEngine loads the configuration and compiles it, logging any deprecation
 // and policy warnings. It is the single entry point wiring uses.
-func NewEngine(logger *zap.Logger, path string, legacy LegacyEnv) (*Engine, error) {
-	cfg, warnings, err := Load(path, legacy)
+func NewEngine(logger *zap.Logger, inline *Config, path string, legacy LegacyEnv) (*Engine, error) {
+	cfg, warnings, err := Load(inline, path, legacy)
 	if err != nil {
 		return nil, err
 	}

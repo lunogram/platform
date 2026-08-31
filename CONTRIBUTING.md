@@ -90,10 +90,13 @@ AUTH_CONSOLE_SIGNING_KEY="$(openssl ecparam -name prime256v1 -genkey -noout)"
 ```
 
 `AUTH_DRIVER` accepts a comma-separated list, so `basic,password` gives you the
-quickstart credential and per-admin accounts at once. With no `MAIL_HOST` set,
-account confirmation and password reset mail is written to the server log —
-link included — instead of being delivered, so the local setup needs no SMTP
-server.
+quickstart credential and per-admin accounts at once. Account confirmation and
+password reset mail goes to the Mailpit container `docker compose up` starts;
+read it at <http://localhost:8025>. Running the server outside compose needs a
+mail channel of its own — `MAIL_CHANNEL=smtp` with `MAIL_SMTP_HOST=localhost`
+and `MAIL_SMTP_PORT=1025` against a local Mailpit is the shortest path — because
+a deployment offering password logins with nowhere to send mail is refused at
+boot.
 
 ## How to Contribute
 

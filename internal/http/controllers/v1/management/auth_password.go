@@ -60,13 +60,16 @@ func (c *AuthController) initPasswordAuth(cfg config.Node) error {
 		return errors.New("AUTH_PASSWORD_REGISTRATION must be one of open, invite_only or disabled")
 	}
 
-	renderer, err := mailer.NewRenderer("Lunogram", cfg.PublicBaseURL())
+	renderer, err := mailer.NewRenderer(cfg.Mail, cfg.PublicBaseURL(), cfg.BaseDir())
 	if err != nil {
 		return err
 	}
 	c.password.renderer = renderer
 
-	transport, err := mailer.New(cfg.Mail, c.logger.Named("mailer"))
+	// A deployment offering password logins with nowhere to send mail cannot
+	// confirm an address or reset a password, so it is refused here rather than
+	// discovered by the first person who tries to register.
+	transport, err := mailer.New(cfg.Mail, cfg.BaseDir(), c.logger.Named("mailer"))
 	if err != nil {
 		return err
 	}
@@ -683,7 +686,7 @@ func (c *AuthController) sendVerification(ctx context.Context, adminID uuid.UUID
 		return
 	}
 
-	c.password.mail.Dispatch(c.password.renderer.VerifyEmail(email, token))
+	c.password.mail.Dispatch(c.password.renderer.VerifyEmail(email, token, management.EmailVerificationTTL))
 }
 
 // sendAccountExists tells the owner of an already-registered address that
@@ -711,7 +714,7 @@ func (c *AuthController) sendAccountExists(ctx context.Context, admin *managemen
 		return
 	}
 
-	c.password.mail.Dispatch(c.password.renderer.AccountExists(email, token))
+	c.password.mail.Dispatch(c.password.renderer.AccountExists(email, token, management.PasswordResetTTL))
 }
 
 // passwordPolicyProblem turns a policy failure into a 400 the console can show.
