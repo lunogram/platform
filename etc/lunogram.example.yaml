@@ -15,16 +15,17 @@
 # subscribers per event, each with its own template, credential and retry
 # policy — has no sensible flat encoding.
 #
-# A dollar-brace placeholder is expanded from the process environment when the
-# file is read, so credentials stay out of the file. A referenced variable that
-# is not set is a startup error, and one carrying a line break is refused:
-# interpolation happens before the document is parsed, so a newline would not
-# land inside the value — it would reshape the file.
+# ${NAME} is expanded from the process environment when the file is read, so
+# credentials stay out of the file. A referenced variable that is not set is a
+# startup error.
 #
-# Expansion is textual and does not know what a comment is, so a placeholder
-# written in a comment is expanded too, and names a variable that has to exist.
-# Quote placeholders so that a hash inside a secret is not read as the start of
-# a comment.
+# Expansion happens on the parsed document rather than on its text, so a value
+# is free to contain a '#', a ':', a quote or a line break: it arrives exactly
+# as it was set and cannot affect how the rest of this file is read. Quotes
+# still decide the type — `port: ${PORT}` is a number, "${PORT}" is a string.
+#
+# Keys cannot be built from the environment, values are not expanded a second
+# time, and $${NAME} writes a literal ${NAME}.
 
 public_url: http://localhost:8080
 
@@ -69,18 +70,21 @@ mail:
   # webhook:
   #   url: https://api.example.com/send
   #   body: file://mail.jsonnet
-  #   auth: ...        see docs/content/docs/settings/webhooks.mdx for the
-  #                    credential types and the body template context
+  #   auth:
+  #     type: api_key
+  #     config:
+  #       in: header
+  #       name: Authorization
+  #       value: "Bearer ${MAIL_API_KEY}"
 
   # Every message ships a default, so this whole block is optional and so is
   # every field in it: overriding a subject does not mean restating the body.
   #
   # Each value is a template evaluated against the message context — .Kind,
   # .ProductName, .Recipient, .ActionURL, .BaseURL, .ExpiresIn — and may be
-  # given inline, as file://path, or as base64://payload. base64:// is the form
-  # to use when the value arrives from the environment: an HTML body carries
-  # newlines and quotes, and base64 is the only encoding that survives
-  # interpolation intact.
+  # given inline, as file://path, or as base64://payload. Reach for file:// once
+  # a body is big enough to want editing, and base64:// when it arrives from the
+  # environment and you would rather it were one opaque token.
   templates:
     # layout:
     #   html: file://mail/layout.html

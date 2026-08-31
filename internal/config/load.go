@@ -1,14 +1,12 @@
 package config
 
 import (
-	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
 
 	"github.com/caarlos0/env/v10"
 	"github.com/lunogram/platform/internal/configfile"
-	"gopkg.in/yaml.v3"
 )
 
 // ConfigFileEnv names the environment variable holding the path to the node
@@ -57,17 +55,7 @@ func (n *Node) applyFile(path string) error {
 		return fmt.Errorf("config: %w", err)
 	}
 
-	expanded, err := configfile.Interpolate(raw)
-	if err != nil {
-		return fmt.Errorf("config %s: %w", path, err)
-	}
-
-	dec := yaml.NewDecoder(bytes.NewReader(expanded))
-	// An unrecognised key is a typo, and a typo in configuration is a setting
-	// that silently did not apply. Rejecting it at boot is the whole reason the
-	// file is read before anything is served.
-	dec.KnownFields(true)
-	if err := dec.Decode(n); err != nil {
+	if err := configfile.Decode(raw, n); err != nil {
 		return fmt.Errorf("config %s: %w", path, err)
 	}
 

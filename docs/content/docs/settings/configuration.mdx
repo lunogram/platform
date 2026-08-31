@@ -65,17 +65,22 @@ Any `${NAME}` in the file is replaced with that environment variable when the fi
 ```yaml
 mail:
   smtp:
-    password: "${SMTP_PASSWORD}"
+    password: ${SMTP_PASSWORD}
 ```
 
 A referenced variable that is not set is a startup error. Lunogram will not quietly send an empty password.
 
-Two things follow from expansion happening on the raw file, before it is parsed as YAML:
+**A value can contain anything.** Expansion happens on the parsed document, not on its text, so a secret carrying a `#`, a `:`, a quote or a line break arrives exactly as you set it and cannot affect how the rest of the file is read. There is no quoting ritual to remember.
 
-- **A value carrying a line break is refused.** It would not land inside the scalar you wrote it into; it would end the line, and whatever followed would be parsed as though you had written it into the document. Use `base64://` for anything with newlines in it — see below.
-- **Quote your placeholders.** A `#` inside an unquoted value is read by YAML as the start of a comment, silently truncating it. `"${SMTP_PASSWORD}"` is immune; `${SMTP_PASSWORD}` is not.
+Quotes still mean what they normally mean in YAML — they decide the *type*, not the safety. An unquoted value takes its type from what it says, so `port: ${PORT}` becomes a number; a quoted one is always a string, which is what you want for a password that happens to look like `0755`.
 
-Expansion also does not know what a comment is, so a `${NAME}` written inside a comment is expanded too, and names a variable that has to exist.
+Three more rules, each there to keep the environment from deciding more than the value of a setting:
+
+- **Keys cannot come from the environment.** `${KEY}: value` is refused. Supplying a value is one thing; renaming or shadowing a setting is another.
+- **Expansion does not recurse.** A variable whose value is `${OTHER}` yields that text; it does not reach for another variable.
+- **Comments are not expanded**, because they are not part of the parsed document.
+
+To write a literal `${...}` — in an inline JSONNet body, say — double the dollar: `$${NAME}` yields `${NAME}`.
 
 ---
 
@@ -91,7 +96,7 @@ Anywhere the configuration takes a template or a body — mail templates, hook b
 
 Relative `file://` paths resolve against the directory holding the configuration file, so a config and the templates it points at travel together and move together.
 
-`base64://` exists because it is the only form that survives `${}` interpolation intact. An HTML email carries newlines, quotes and colons; base64 contains no character YAML treats specially, so an environment variable becomes a safe carrier for one:
+`base64://` earns its place on large values. An HTML email is a few hundred lines of markup: written inline it has to become a YAML block scalar and stay correctly indented, and passed through an environment variable it has to survive whatever the surrounding shell, ConfigMap or secret store does to line breaks. Base64 makes it one opaque token that none of those can reshape:
 
 ```yaml
 mail:
@@ -105,6 +110,8 @@ VERIFY_EMAIL_HTML="$(base64 < verify.html)"
 ```
 
 Line wrapping is ignored, so `base64` wrapping its output at 76 columns is not a problem.
+
+Nothing forces you to use it — a multi-line value expands correctly on its own, and `file://` is the better answer once a template is big enough that you want to edit it.
 
 <Callout type="warn">
 A single environment variable is capped at 128&nbsp;KiB on Linux, and base64 adds a third to whatever you encode — so a template much over 90&nbsp;KiB will not fit through the environment. Use `file://` for anything that large.

@@ -1,7 +1,6 @@
 package webhook
 
 import (
-	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -9,7 +8,6 @@ import (
 
 	"github.com/lunogram/platform/internal/configfile"
 	"github.com/lunogram/platform/internal/outbound"
-	"gopkg.in/yaml.v3"
 )
 
 // ConfigVersion is the only schema version this build understands. It is
@@ -111,15 +109,8 @@ type GalleryConfig struct {
 // ParseConfig decodes hook configuration from raw YAML. baseDir resolves
 // relative file:// template references.
 func ParseConfig(raw []byte, baseDir string) (*Config, error) {
-	expanded, err := configfile.Interpolate(raw)
-	if err != nil {
-		return nil, err
-	}
-
 	cfg := &Config{baseDir: baseDir}
-	dec := yaml.NewDecoder(bytes.NewReader(expanded))
-	dec.KnownFields(true)
-	if err := dec.Decode(cfg); err != nil {
+	if err := configfile.Decode(raw, cfg); err != nil {
 		return nil, fmt.Errorf("invalid webhook config: %w", err)
 	}
 

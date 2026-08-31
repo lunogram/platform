@@ -6,47 +6,153 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestInterpolateExpandsReferences(t *testing.T) {
-	t.Setenv("TOKEN", "s3cr3t")
-
-	out, err := Interpolate([]byte("auth: ${TOKEN}\n"))
-	require.NoError(t, err)
-	assert.Equal(t, "auth: s3cr3t\n", string(out))
+type target struct {
+	Auth     string            `yaml:"auth"`
+	Port     int               `yaml:"port"`
+	Timeout  time.Duration     `yaml:"timeout"`
+	Enabled  bool              `yaml:"enabled"`
+	HTML     string            `yaml:"html"`
+	Settings map[string]string `yaml:"settings"`
+	List     []string          `yaml:"list"`
 }
 
-func TestInterpolateRejectsUnsetReferences(t *testing.T) {
-	_, err := Interpolate([]byte("a: ${MISSING_ONE}\nb: ${MISSING_TWO}\n"))
+func TestDecodeExpandsReferences(t *testing.T) {
+	t.Setenv("TOKEN", "s3cr3t")
+
+	var out target
+	require.NoError(t, Decode([]byte("auth: ${TOKEN}\n"), &out))
+	assert.Equal(t, "s3cr3t", out.Auth)
+}
+
+func TestDecodeRejectsUnsetReferences(t *testing.T) {
+	err := Decode([]byte("auth: ${MISSING_ONE}\nhtml: ${MISSING_TWO}\n"), &target{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "MISSING_ONE")
 	assert.Contains(t, err.Error(), "MISSING_TWO")
 }
 
-// A newline in an interpolated value does not land inside the scalar it was
-// written into: it ends the line, and everything after it is parsed as though
-// the operator had written it into the document.
-func TestInterpolateRejectsLineBreaks(t *testing.T) {
-	t.Setenv("HTML", "<p>hello</p>\n<p>world</p>")
+// The point of expanding the parsed document rather than the bytes: a value is
+// data by the time it exists, so a secret is free to contain whatever a secret
+// contains. Every one of these used to either corrupt the document or be
+// silently truncated.
+func TestDecodeCarriesValuesTheTextFormCouldNot(t *testing.T) {
+	tests := map[string]string{
+		"line breaks":     "<p>one</p>\n<p>two</p>",
+		"a hash":          "pa#ssword",
+		"a trailing note": "secret # not a comment",
+		"a colon":         "key: value",
+		"a leading dash":  "- not an item",
+		"flow syntax":     "{a: b}",
+		"an alias":        "*anchor",
+		"an anchor":       "&anchor evil",
+		"a merge key":     "<<",
+		"a fake mapping":  "x\nsettings:\n  injected: yes",
+		"a tag":           "!!binary aGk=",
+		"quotes":          `she said "hello" and 'goodbye'`,
+	}
 
-	_, err := Interpolate([]byte("html: ${HTML}\n"))
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "HTML")
-	assert.Contains(t, err.Error(), "line break")
-	assert.Contains(t, err.Error(), Base64Scheme)
+	for name, value := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Setenv("SECRET", value)
+
+			var out target
+			require.NoError(t, Decode([]byte("auth: \"${SECRET}\"\nsettings:\n  a: b\n"), &out))
+
+			assert.Equal(t, value, out.Auth, "the value must arrive exactly as it was set")
+			assert.Equal(t, map[string]string{"a": "b"}, out.Settings,
+				"nothing in the value may reach the rest of the document")
+		})
+	}
 }
 
-// A '#' stays legal, because it is legitimate inside a password and rejecting
-// it would break deployments that already carry one.
-func TestInterpolateAllowsHash(t *testing.T) {
-	t.Setenv("PASSWORD", "a#b")
+// A plain scalar was written without quotes, so its type comes from what it
+// says. Quoting it asks for a string.
+func TestDecodeResolvesPlainScalarTypes(t *testing.T) {
+	t.Setenv("PORT", "2525")
+	t.Setenv("TIMEOUT", "45s")
+	t.Setenv("ENABLED", "true")
 
-	out, err := Interpolate([]byte(`password: "${PASSWORD}"` + "\n"))
-	require.NoError(t, err)
-	assert.Contains(t, string(out), "a#b")
+	var out target
+	require.NoError(t, Decode([]byte("port: ${PORT}\ntimeout: ${TIMEOUT}\nenabled: ${ENABLED}\n"), &out))
+
+	assert.Equal(t, 2525, out.Port)
+	assert.Equal(t, 45*time.Second, out.Timeout)
+	assert.True(t, out.Enabled)
+}
+
+func TestDecodeKeepsQuotedValuesAsStrings(t *testing.T) {
+	t.Setenv("VALUE", "0755")
+
+	var out target
+	require.NoError(t, Decode([]byte(`auth: "${VALUE}"`+"\n"), &out))
+	assert.Equal(t, "0755", out.Auth, "quoting asked for a string, not an octal number")
+}
+
+// A key assembled from the environment could rename or shadow a setting, which
+// is a sharper thing than supplying a value.
+func TestDecodeRefusesKeysFromTheEnvironment(t *testing.T) {
+	t.Setenv("KEY", "auth")
+
+	err := Decode([]byte("settings:\n  ${KEY}: value\n"), &target{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "keys cannot be built from the environment")
+}
+
+// A variable holding a reference yields that text rather than reaching for
+// another variable.
+func TestDecodeDoesNotExpandRecursively(t *testing.T) {
+	t.Setenv("OUTER", "${INNER}")
+	t.Setenv("INNER", "should not be reached")
+
+	var out target
+	require.NoError(t, Decode([]byte(`auth: "${OUTER}"`+"\n"), &out))
+	assert.Equal(t, "${INNER}", out.Auth)
+}
+
+// An inline JSONNet body or a shell snippet in the file needs to write the
+// literal text.
+func TestDecodeEscapesDoubledReferences(t *testing.T) {
+	var out target
+	require.NoError(t, Decode([]byte(`auth: "$${NOT_A_VARIABLE}"`+"\n"), &out))
+	assert.Equal(t, "${NOT_A_VARIABLE}", out.Auth)
+}
+
+// Expansion runs on the parsed document, and a comment is not part of it.
+func TestDecodeIgnoresComments(t *testing.T) {
+	var out target
+	require.NoError(t, Decode([]byte("# see ${UNDEFINED_VARIABLE} for details\nauth: fixed\n"), &out))
+	assert.Equal(t, "fixed", out.Auth)
+}
+
+func TestDecodeExpandsInsideSequences(t *testing.T) {
+	t.Setenv("DRIVER", "password")
+
+	var out target
+	require.NoError(t, Decode([]byte("list:\n  - ${DRIVER}\n  - clerk\n"), &out))
+	assert.Equal(t, []string{"password", "clerk"}, out.List)
+}
+
+func TestDecodeRejectsUnknownKeys(t *testing.T) {
+	err := Decode([]byte("nonsense: 1\n"), &target{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "nonsense")
+}
+
+// An empty file is "configure nothing", not "unset everything".
+func TestDecodeLeavesTheTargetAloneWhenEmpty(t *testing.T) {
+	out := target{Auth: "already set"}
+	require.NoError(t, Decode(nil, &out))
+	assert.Equal(t, "already set", out.Auth)
+}
+
+func TestDecodeReportsMalformedYAML(t *testing.T) {
+	require.Error(t, Decode([]byte("auth: [unterminated\n"), &target{}))
 }
 
 func TestResolveBase64(t *testing.T) {
@@ -108,4 +214,23 @@ func TestResolveLiteral(t *testing.T) {
 	out, err := Resolve("body", "function(ctx) { event: ctx.event }", "")
 	require.NoError(t, err)
 	assert.Equal(t, "function(ctx) { event: ctx.event }", string(out))
+}
+
+// A complex key is still a key all the way down, whether it is a sequence or a
+// mapping: everything inside it contributes to the key's identity.
+func TestDecodeRefusesReferencesInsideComplexKeys(t *testing.T) {
+	t.Setenv("KEY", "auth")
+
+	documents := map[string]string{
+		"sequence": "settings:\n  ? [\"${KEY}\"]\n  : value\n",
+		"mapping":  "settings:\n  ? {a: \"${KEY}\"}\n  : value\n",
+	}
+
+	for name, document := range documents {
+		t.Run(name, func(t *testing.T) {
+			err := Decode([]byte(document), &target{})
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "keys cannot be built from the environment")
+		})
+	}
 }

@@ -101,12 +101,52 @@ mail:
   channel: smtp
   smtp:
     host: smtp.example.com
-    password: "${SMTP_PASSWORD}"
+    password: ${SMTP_PASSWORD}
 `))
 
 	cfg, err := Load()
 	require.NoError(t, err)
 	assert.Equal(t, "s3cr3t", cfg.Mail.SMTP.Password)
+}
+
+// Expansion happens on the parsed document, so a secret is free to contain
+// whatever a secret contains -- no quoting ritual, and nothing in the value
+// can reach the rest of the file.
+func TestLoadCarriesAwkwardSecrets(t *testing.T) {
+	const secret = "pa#ss: word" + "\n" + "rate_limit:" + "\n" + "  per_minute: 1"
+	t.Setenv("SMTP_PASSWORD", secret)
+	t.Setenv(ConfigFileEnv, writeConfig(t, `
+rate_limit:
+  per_minute: 600
+mail:
+  channel: smtp
+  smtp:
+    password: ${SMTP_PASSWORD}
+`))
+
+	cfg, err := Load()
+	require.NoError(t, err)
+	assert.Equal(t, secret, cfg.Mail.SMTP.Password)
+	assert.Equal(t, 600, cfg.RateLimit.PerMinute, "the value must not reach the rest of the document")
+}
+
+// A template is often the one value large enough to want a file or a base64
+// payload, but nothing stops it being written inline any more.
+func TestLoadCarriesAMultilineTemplate(t *testing.T) {
+	const layout = "<html>\n<body>{{ .Heading }}</body>\n</html>"
+	t.Setenv("VERIFY_HTML", layout)
+	t.Setenv(ConfigFileEnv, writeConfig(t, `
+mail:
+  channel: smtp
+  templates:
+    layout:
+      html: ${VERIFY_HTML}
+`))
+
+	cfg, err := Load()
+	require.NoError(t, err)
+	assert.Contains(t, cfg.Mail.Templates.Layout.HTML, "{{ .Heading }}")
+	assert.Equal(t, layout, cfg.Mail.Templates.Layout.HTML)
 }
 
 func TestLoadReportsMissingFile(t *testing.T) {
