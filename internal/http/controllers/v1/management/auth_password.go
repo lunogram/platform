@@ -41,7 +41,11 @@ type passwordAuth struct {
 
 func (c *AuthController) initPasswordAuth(cfg config.Node) error {
 	c.password.registration = strings.ToLower(strings.TrimSpace(cfg.Auth.Basic.Registration))
-	c.password.enabled = cfg.Auth.Enabled(verifiers.BasicDriver)
+	// Taken from the built verifiers rather than from the configured names. The
+	// registry normalises case and whitespace as it builds, so reading the raw
+	// slice here could disable registration, reset and the mail setup for a
+	// driver that is nonetheless live and advertised.
+	c.password.enabled = c.Verifier(verifiers.BasicDriver) != nil
 
 	if !c.password.enabled {
 		return nil
@@ -306,18 +310,14 @@ func (c *AuthController) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	adminID, err := c.mgmt.ConsumeAdminActionToken(ctx, management.ActionTokenEmailVerification, management.HashActionToken(body.Token))
+	adminID, err := c.commitVerification(ctx, body.Token)
 	if err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
-			c.logger.Error("failed to redeem a verification token", zap.Error(err))
+			c.logger.Error("failed to confirm an email address", zap.Error(err))
+			oapi.WriteProblem(w, problem.ErrInternal())
+			return
 		}
 		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("this confirmation link is no longer valid")))
-		return
-	}
-
-	if err := c.markVerified(ctx, adminID); err != nil {
-		c.logger.Error("failed to confirm an email address", zap.String("admin_id", adminID.String()), zap.Error(err))
-		oapi.WriteProblem(w, problem.ErrInternal())
 		return
 	}
 
@@ -628,12 +628,40 @@ func (c *AuthController) ChangePassword(w http.ResponseWriter, r *http.Request) 
 }
 
 // markVerified records a confirmed address on the admin's password identity.
-func (c *AuthController) markVerified(ctx context.Context, adminID uuid.UUID) error {
-	identity, err := c.mgmt.GetLocalIdentity(ctx, adminID)
+// commitVerification redeems a confirmation link and records the address as
+// proved, as one transaction.
+//
+// Separately, the token was spent first: a failure loading or updating the
+// identity afterwards left the address unverified and the only link that could
+// prove it already consumed, with no way to retry. A link is single-use because
+// it must not be replayable, not because a transient database error should burn
+// it.
+func (c *AuthController) commitVerification(ctx context.Context, token string) (uuid.UUID, error) {
+	tx, err := c.db.BeginTxx(ctx, nil)
 	if err != nil {
-		return err
+		return uuid.Nil, err
 	}
-	return c.mgmt.MarkAdminIdentityEmailVerified(ctx, identity.ID)
+	defer tx.Rollback() //nolint:errcheck // no-op once committed
+
+	store := management.NewState(tx)
+
+	adminID, err := store.ConsumeAdminActionToken(ctx, management.ActionTokenEmailVerification, management.HashActionToken(token))
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	identity, err := store.GetLocalIdentity(ctx, adminID)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	if err := store.MarkAdminIdentityEmailVerified(ctx, identity.ID); err != nil {
+		return uuid.Nil, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return uuid.Nil, err
+	}
+	return adminID, nil
 }
 
 // admitInvitee grants the organization membership a pending invite implies, now

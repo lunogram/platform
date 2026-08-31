@@ -179,7 +179,38 @@ func decode(encoded string) (Params, []byte, []byte, error) {
 	params.SaltLength = uint32(len(salt))
 	params.KeyLength = uint32(len(key))
 
+	if err := params.usable(); err != nil {
+		return Params{}, nil, nil, err
+	}
+
 	return params, salt, key, nil
+}
+
+// maxDecodedMemory caps the memory a stored hash may ask for, well above
+// [DefaultParams] so raising the cost stays possible without a code change, and
+// far below anything that would take the process down.
+const maxDecodedMemory = 1 << 20 // 1 GiB in KiB
+
+// usable rejects parameters that are syntactically fine and operationally not.
+//
+// argon2.IDKey panics outright on a zero time or a zero parallelism, and a large
+// enough memory figure allocates until the process is killed. The values arrive
+// from a stored hash, so this is a data-integrity check rather than input
+// validation -- but the effect of skipping it is that one malformed row turns
+// every sign-in attempt on that address into a crash or an out-of-memory, which
+// is not a failure mode worth leaving to chance.
+func (p Params) usable() error {
+	switch {
+	case p.Time == 0:
+		return fmt.Errorf("%w: t=0", ErrMalformedHash)
+	case p.Parallelism == 0:
+		return fmt.Errorf("%w: p=0", ErrMalformedHash)
+	case p.Memory == 0:
+		return fmt.Errorf("%w: m=0", ErrMalformedHash)
+	case p.Memory > maxDecodedMemory:
+		return fmt.Errorf("%w: m=%d exceeds the %d KiB ceiling", ErrMalformedHash, p.Memory, maxDecodedMemory)
+	}
+	return nil
 }
 
 // dummyHash is a hash of a value nobody can present. It is built once, lazily,

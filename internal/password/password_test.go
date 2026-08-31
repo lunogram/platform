@@ -197,3 +197,24 @@ func TestHashingIsBounded(t *testing.T) {
 		t.Fatal("hashing did not resume once a slot was free")
 	}
 }
+
+// The parameters come from a stored hash, and argon2.IDKey panics outright on a
+// zero time or parallelism while a large enough memory figure allocates until
+// the process dies. One malformed row must not turn every sign-in on that
+// address into a crash.
+func TestVerifyRejectsUnusableParameters(t *testing.T) {
+	encoded := map[string]string{
+		"zero time":        "$argon2id$v=19$m=65536,t=0,p=1$c29tZXNhbHQ$c29tZWtleXNvbWVrZXlzb21la2V5c29tZWtleQ",
+		"zero parallelism": "$argon2id$v=19$m=65536,t=2,p=0$c29tZXNhbHQ$c29tZWtleXNvbWVrZXlzb21la2V5c29tZWtleQ",
+		"zero memory":      "$argon2id$v=19$m=0,t=2,p=1$c29tZXNhbHQ$c29tZWtleXNvbWVrZXlzb21la2V5c29tZWtleQ",
+		"absurd memory":    "$argon2id$v=19$m=4294967295,t=2,p=1$c29tZXNhbHQ$c29tZWtleXNvbWVrZXlzb21la2V5c29tZWtleQ",
+	}
+
+	for name, hash := range encoded {
+		t.Run(name, func(t *testing.T) {
+			match, _, err := Verify(hash, "any password at all")
+			assert.ErrorIs(t, err, ErrMalformedHash)
+			assert.False(t, match)
+		})
+	}
+}

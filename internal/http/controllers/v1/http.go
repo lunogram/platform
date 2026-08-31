@@ -82,6 +82,11 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *st
 		return nil, fmt.Errorf("failed to create management controller: %w", err)
 	}
 
+	// Queued mail is drained on shutdown rather than dropped: a verification
+	// link that was accepted and then thrown away by a deploy is a person who
+	// never hears back.
+	ctx.Closer(mgmtController.Close)
+
 	// Client session signer (ES256). Nil when no signing key is configured, which
 	// disables session minting and verification.
 	sessionSigner, err := auth.NewSessionSigner(cfg.Auth.SessionSigningKey, cfg.Auth.SessionIssuer)

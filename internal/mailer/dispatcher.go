@@ -72,10 +72,13 @@ func (d *Dispatcher) Dispatch(message Message) {
 	case d.queue <- message:
 	default:
 		// The recipient is PII and the action URL is a bearer credential, so the
-		// drop is recorded without either. A full queue means the transport is
-		// unhealthy, which is the thing worth alerting on.
+		// drop is recorded with neither -- and not with the subject either,
+		// which is an operator-supplied template that may interpolate both. The
+		// kind is a fixed identifier and says as much about which flow is
+		// affected. A full queue means the transport is unhealthy, which is the
+		// thing worth alerting on.
 		d.logger.Error("dropped an outgoing message: the mail queue is full",
-			zap.String("subject", message.Subject))
+			zap.String("kind", message.Kind))
 	}
 }
 
@@ -109,7 +112,7 @@ func (d *Dispatcher) send(message Message) {
 
 	if err := d.mailer.Send(ctx, message); err != nil {
 		d.logger.Error("failed to deliver a message",
-			zap.String("subject", message.Subject),
+			zap.String("kind", message.Kind),
 			zap.Error(err))
 	}
 }

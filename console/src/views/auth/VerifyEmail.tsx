@@ -1,5 +1,5 @@
 import { Link, useSearchParams } from "react-router"
-import { useEffect, useRef, useState } from "react"
+import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { CheckCircle2, Loader2, XCircle } from "lucide-react"
 
@@ -8,36 +8,42 @@ import AuthCard from "./AuthCard"
 
 import { Button } from "@/components/ui/button"
 
-type VerifyState = "verifying" | "verified" | "failed"
+type VerifyState = "ready" | "verifying" | "verified" | "failed"
 
 export default function VerifyEmail() {
     const { t } = useTranslation()
     const [searchParams] = useSearchParams()
     const token = searchParams.get("token") ?? ""
-    const [state, setState] = useState<VerifyState>(token ? "verifying" : "failed")
+    const [state, setState] = useState<VerifyState>(token ? "ready" : "failed")
 
-    // The token is single use, so a second redemption always fails. React runs
-    // effects twice in development, which would otherwise turn every successful
-    // confirmation into a failure on the screen.
-    const redeemed = useRef(false)
+    // Redeeming on render would let anything that merely opens the link spend
+    // the token: mail security scanners and link-preview fetchers follow URLs
+    // out of a mailbox, and one of them reaching this page first would both
+    // burn the recipient's link and confirm an address nobody had demonstrated
+    // control of. A click is what distinguishes a person from a crawler.
+    const confirm = async () => {
+        setState("verifying")
+        try {
+            await api.auth.verifyEmail(token)
+            setState("verified")
+        } catch {
+            setState("failed")
+        }
+    }
 
-    useEffect(() => {
-        if (!token || redeemed.current) return
-        redeemed.current = true
-
-        api.auth
-            .verifyEmail(token)
-            .then(() => setState("verified"))
-            .catch(() => setState("failed"))
-    }, [token])
-
-    if (state === "verifying") {
+    if (state === "ready" || state === "verifying") {
         return (
-            <AuthCard title={t("verify_email_title")}>
-                <div className="flex flex-col items-center gap-3 py-4">
-                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground">{t("loading")}</p>
-                </div>
+            <AuthCard title={t("verify_email_title")} description={t("verify_email_prompt")}>
+                <Button className="w-full" onClick={confirm} disabled={state === "verifying"}>
+                    {state === "verifying" ? (
+                        <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            {t("verify_email_working")}
+                        </>
+                    ) : (
+                        t("verify_email_action")
+                    )}
+                </Button>
             </AuthCard>
         )
     }

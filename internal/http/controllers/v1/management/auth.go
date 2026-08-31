@@ -90,6 +90,16 @@ type AuthController struct {
 	password passwordAuth
 }
 
+// Close releases what the controller owns beyond the request path.
+//
+// The mail dispatcher is the only such thing: it holds queued messages and its
+// own workers, and draining it is what stops a shutdown from swallowing a
+// verification link somebody is waiting on. Nothing called it before, so that
+// promise was only ever kept in tests.
+func (c *AuthController) Close() {
+	c.password.mail.Close()
+}
+
 // Verifier returns the verifier for one driver, or nil when that driver is not
 // configured.
 func (c *AuthController) Verifier(driver string) auth.Verifier { return c.verifiers[driver] }

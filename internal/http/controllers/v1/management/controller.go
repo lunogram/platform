@@ -103,3 +103,10 @@ type Controller struct {
 	*BroadcastsController
 	*InviteController
 }
+
+// Close releases what the controller owns beyond the request path. It is
+// registered with the server's graceful shutdown so queued work is drained
+// rather than dropped.
+func (c *Controller) Close() {
+	c.AuthController.Close()
+}
