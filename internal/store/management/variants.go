@@ -16,7 +16,12 @@ import (
 type VariantSelectorType string
 
 const (
-	// VariantSelectorStatic pins one variant for every recipient.
+	// VariantSelectorStatic pins one variant for every recipient. An empty
+	// key pins the default variant, which is how a single send is forced
+	// back to house branding past a campaign that resolves a client brand
+	// per recipient - a security notice inside an otherwise white-labelled
+	// journey, say. That is distinct from carrying no selector at all, which
+	// defers to the campaign.
 	VariantSelectorStatic VariantSelectorType = "static"
 	// VariantSelectorExpression resolves a variant per recipient from a Liquid
 	// expression such as "{{ user.data.tenant }}".
@@ -57,11 +62,9 @@ func (selector VariantSelector) Resolve(data map[string]any) (string, error) {
 func (selector VariantSelector) Validate(variants CampaignVariants) error {
 	switch selector.Type {
 	case VariantSelectorStatic:
-		key := strings.TrimSpace(selector.Key)
-		if key == "" {
-			return fmt.Errorf("static variant selector requires a key")
-		}
-		if !variants.Has(key) {
+		// Has reports true for the empty key, so pinning the default variant
+		// needs no special case here.
+		if key := strings.TrimSpace(selector.Key); !variants.Has(key) {
 			return fmt.Errorf("campaign does not declare variant %s", key)
 		}
 		return nil

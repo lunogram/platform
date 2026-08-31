@@ -3366,7 +3366,7 @@ export interface components {
              */
             type: "static" | "expression";
             /**
-             * @description Variant key. Required when type is static.
+             * @description Variant key, used when type is static. An empty key pins the default variant, which is how one send is forced back to house branding past a campaign that resolves a client brand per recipient. That differs from omitting the selector entirely, which defers to the campaign.
              * @example acme
              */
             key?: string;

@@ -281,9 +281,13 @@ func TestCreateBroadcastVariantSelector(t *testing.T) {
 			selector: &oapi.VariantSelector{Type: "static", Key: ptr.To("globex")},
 			code:     400,
 		},
-		"static without a key": {
+		"static without a key pins the default variant": {
 			selector: &oapi.VariantSelector{Type: "static"},
-			code:     400,
+			code:     201,
+		},
+		"static empty key pins the default variant": {
+			selector: &oapi.VariantSelector{Type: "static", Key: ptr.To("")},
+			code:     201,
 		},
 		"expression is accepted unvalidated": {
 			selector: &oapi.VariantSelector{Type: "expression", Expression: ptr.To("{{ user.data.tenant }}")},

@@ -14,6 +14,10 @@ import type { CampaignVariant, VariantSelector, VariantSelectorType } from "@/ty
 
 const NONE = "__none__"
 
+// Radix reads an empty string as "nothing selected" and would show the
+// placeholder, so the default variant needs a stand-in value in the dropdown.
+const DEFAULT_KEY = "__default__"
+
 interface VariantSelectorInputProps {
     value?: VariantSelector
     options: CampaignVariant[]
@@ -43,13 +47,16 @@ export function VariantSelectorInput({
     const handleModeChange = useCallback(
         (next: string) => {
             if (next === NONE) return onChange(undefined)
+            // Static mode starts on the default variant rather than on
+            // whichever client happens to sort first, so an unfinished edit
+            // cannot pin someone else's branding.
             onChange(
                 next === "static"
-                    ? { type: "static", key: options[0]?.key ?? "" }
+                    ? { type: "static", key: "" }
                     : { type: "expression", expression: "" },
             )
         },
-        [onChange, options],
+        [onChange],
     )
 
     return (
@@ -73,8 +80,10 @@ export function VariantSelectorInput({
 
             {value?.type === "static" && (
                 <Select
-                    value={value.key ?? ""}
-                    onValueChange={(key: string) => onChange({ type: "static", key })}
+                    value={value.key ? value.key : DEFAULT_KEY}
+                    onValueChange={(key: string) =>
+                        onChange({ type: "static", key: key === DEFAULT_KEY ? "" : key })
+                    }
                 >
                     <SelectTrigger className="h-9">
                         <SelectValue
@@ -82,6 +91,9 @@ export function VariantSelectorInput({
                         />
                     </SelectTrigger>
                     <SelectContent>
+                        <SelectItem value={DEFAULT_KEY}>
+                            {t("campaign.variants.default", "Default")}
+                        </SelectItem>
                         {options.map((option) => (
                             <SelectItem key={option.key} value={option.key}>
                                 {option.label || option.key}

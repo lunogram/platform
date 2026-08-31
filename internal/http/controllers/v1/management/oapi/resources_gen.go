@@ -2598,7 +2598,7 @@ type VariantSelector struct {
 	// Expression Liquid expression. Required when type is expression.
 	Expression *string `json:"expression,omitempty"`
 
-	// Key Variant key. Required when type is static.
+	// Key Variant key, used when type is static. An empty key pins the default variant, which is how one send is forced back to house branding past a campaign that resolves a client brand per recipient. That differs from omitting the selector entirely, which defers to the campaign.
 	Key *string `json:"key,omitempty"`
 
 	// Type Whether the variant is pinned or resolved per recipient

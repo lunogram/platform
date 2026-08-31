@@ -149,6 +149,16 @@ func TestResolveVariant(t *testing.T) {
 			want:     "acme",
 		},
 		{
+			// Pinning the default variant has to beat the campaign's selector
+			// rather than read as "nothing set" and fall through to it - this
+			// is what forces one send back to house branding inside an
+			// otherwise white-labelled campaign.
+			name:     "an event pinning the default variant overrides the campaign expression",
+			campaign: expression("{{ user.data.tenant }}"),
+			event:    static(""),
+			want:     "",
+		},
+		{
 			name:     "trims whitespace an expression leaves behind",
 			campaign: expression("  {{ user.data.tenant }}  "),
 			want:     "acme",
@@ -227,9 +237,8 @@ func TestVariantSelectorValidate(t *testing.T) {
 			selector: management.VariantSelector{Type: management.VariantSelectorStatic, Key: "globex"},
 			wantErr:  true,
 		},
-		"static without a key": {
+		"static without a key pins the default variant": {
 			selector: management.VariantSelector{Type: management.VariantSelectorStatic},
-			wantErr:  true,
 		},
 		"expression": {
 			selector: management.VariantSelector{Type: management.VariantSelectorExpression, Expression: "{{ user.data.tenant }}"},
