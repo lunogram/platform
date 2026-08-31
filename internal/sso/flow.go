@@ -31,6 +31,12 @@ const FlowTTL = 10 * time.Minute
 // login somebody else started: the only thing the browser carries is an opaque
 // state, and the secrets it is checked against are ours.
 type Flow struct {
+	// ProviderID is the provider this login was started with. The callback
+	// refuses a response whose path names a different one: the state is a value
+	// the browser carries, and without this a state issued for one provider
+	// could be redeemed at another's callback and proved against its issuer and
+	// client id.
+	ProviderID   string `json:"provider_id"`
 	Nonce        string `json:"nonce"`
 	CodeVerifier string `json:"code_verifier"`
 	// Binding is the flow's half of the browser binding. Its twin is set on the

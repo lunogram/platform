@@ -2690,7 +2690,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/auth/oidc/start": {
+    "/api/auth/oidc/providers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the deployment's single sign-on providers
+         * @description The providers the login page may offer, in the order the operator declared them. These are the deployment's own providers; there is no other tenant whose existence could leak, so this needs no credential.
+         */
+        get: operations["listOIDCProviders"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/oidc/{provider}/start": {
         parameters: {
             query?: never;
             header?: never;
@@ -2699,7 +2719,7 @@ export interface paths {
         };
         /**
          * Begin a single sign-on login
-         * @description Redirects the browser to the deployment's identity provider, having stored the state, the PKCE code verifier and the nonce server-side under a short lifetime, and having set a binding cookie that ties the request to this browser. The redirect_uri handed to the provider is derived from the deployment's public URL and is never taken from a request parameter.
+         * @description Redirects the browser to the named identity provider, having stored the state, the PKCE code verifier and the nonce server-side under a short lifetime, and having set a binding cookie that ties the request to this browser. The redirect_uri handed to the provider is derived from the deployment's public URL and the provider's id, and is never taken from a request parameter.
          */
         get: operations["startOIDCLogin"];
         put?: never;
@@ -2710,7 +2730,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/auth/oidc/callback": {
+    "/api/auth/oidc/{provider}/callback": {
         parameters: {
             query?: never;
             header?: never;
@@ -2719,7 +2739,7 @@ export interface paths {
         };
         /**
          * Complete a single sign-on login
-         * @description Redeems the authorization response. The state is single-use and deleted as it is read, the binding cookie must match the one the login was started with, the code is exchanged with the stored PKCE verifier, and the ID token is proved against the provider's published keys, its issuer, its audience, its expiry and the stored nonce. The browser is then redirected into the console, with or without a session.
+         * @description Redeems the authorization response. The state is single-use and deleted as it is read, it must have been issued for this provider, the binding cookie must match the one the login was started with, the code is exchanged with the stored PKCE verifier, and the ID token is proved against the provider's published keys, its issuer, its audience, its expiry and the stored nonce. The browser is then redirected into the console, with or without a session.
          */
         get: operations["completeOIDCLogin"];
         put?: never;
@@ -5589,6 +5609,12 @@ export interface components {
              */
             created_at?: string;
         };
+        OIDCProvider: {
+            /** @description Names the provider in its login URLs */
+            id: string;
+            /** @description What the login page calls it */
+            name: string;
+        };
     };
     responses: {
         /** @description Error response */
@@ -5764,6 +5790,8 @@ export interface components {
         Search: string;
         /** @description When true, return only archived (soft-deleted) items instead of active ones */
         IncludeDeleted: boolean;
+        /** @description The single sign-on provider */
+        OIDCProviderID: string;
     };
     requestBodies: never;
     headers: never;
@@ -10857,6 +10885,27 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    listOIDCProviders: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The configured providers */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OIDCProvider"][];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     startOIDCLogin: {
         parameters: {
             query?: {
@@ -10864,7 +10913,10 @@ export interface operations {
                 r?: string;
             };
             header?: never;
-            path?: never;
+            path: {
+                /** @description The single sign-on provider */
+                provider: components["parameters"]["OIDCProviderID"];
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -10887,7 +10939,10 @@ export interface operations {
                 error?: string;
             };
             header?: never;
-            path?: never;
+            path: {
+                /** @description The single sign-on provider */
+                provider: components["parameters"]["OIDCProviderID"];
+            };
             cookie?: never;
         };
         requestBody?: never;

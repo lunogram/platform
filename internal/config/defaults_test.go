@@ -47,16 +47,48 @@ func TestDefaultsMatchTheirFormerTags(t *testing.T) {
 	assert.Equal(t, former, current)
 }
 
-// A deployment that names the oidc driver and nothing else gets the claims and
-// scopes every provider documents, so the common case is three variables.
-func TestOIDCDefaults(t *testing.T) {
-	oidc := Defaults().Auth.OIDC
+// The single-provider form and the list are two ways to say the same thing, and
+// a deployment picks one. Mixing them is refused rather than merged, because
+// there is no order in which one obviously wins.
+func TestOIDCProviderForms(t *testing.T) {
+	t.Parallel()
 
-	assert.False(t, oidc.Configured(), "no issuer, no client: the driver is off unless it is configured")
-	assert.Equal(t, []string{"openid", "email", "profile"}, oidc.Scopes)
-	assert.Equal(t, "email", oidc.EmailClaim)
-	assert.Equal(t, "given_name", oidc.GivenNameClaim)
-	assert.Equal(t, "family_name", oidc.FamilyNameClaim)
+	t.Run("nothing configured resolves to nothing", func(t *testing.T) {
+		providers, err := Defaults().Auth.OIDC.Resolve()
+		require.NoError(t, err)
+		assert.Empty(t, providers)
+		assert.False(t, Defaults().Auth.OIDC.Configured())
+	})
+
+	t.Run("the environment form becomes one provider", func(t *testing.T) {
+		cfg := OIDCAuth{Provider: OIDCProvider{Issuer: "https://idp.test", ClientID: "c", ClientSecret: "s"}}
+		providers, err := cfg.Resolve()
+		require.NoError(t, err)
+		require.Len(t, providers, 1)
+		assert.Equal(t, DefaultOIDCProviderID, providers[0].ID,
+			"the id appears in the redirect URI an operator registers, so it has to be stable")
+	})
+
+	t.Run("the list is taken in declaration order", func(t *testing.T) {
+		cfg := OIDCAuth{Providers: []OIDCProvider{
+			{ID: "okta", Issuer: "https://okta.test"},
+			{ID: "entra", Issuer: "https://entra.test"},
+		}}
+		providers, err := cfg.Resolve()
+		require.NoError(t, err)
+		require.Len(t, providers, 2)
+		assert.Equal(t, "okta", providers[0].ID)
+		assert.Equal(t, "entra", providers[1].ID)
+	})
+
+	t.Run("mixing the two forms is refused", func(t *testing.T) {
+		cfg := OIDCAuth{
+			Providers: []OIDCProvider{{ID: "okta", Issuer: "https://okta.test"}},
+			Provider:  OIDCProvider{Issuer: "https://idp.test"},
+		}
+		_, err := cfg.Resolve()
+		assert.ErrorIs(t, err, ErrOIDCProviderFormsMixed)
+	})
 }
 
 // The mail defaults changed shape deliberately, so they are pinned here rather

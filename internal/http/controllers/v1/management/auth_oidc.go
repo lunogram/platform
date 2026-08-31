@@ -9,6 +9,7 @@ import (
 	"github.com/lunogram/platform/internal/http/auth"
 	"github.com/lunogram/platform/internal/http/auth/verifiers"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
+	httpjson "github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/http/problem"
 	"github.com/lunogram/platform/internal/sso"
 	"go.uber.org/zap"
@@ -26,10 +27,11 @@ const oidcProviderTimeout = 10 * time.Second
 // could authenticate as themselves, stop before following the callback, and
 // hand that URL to another person, whose browser would be given the attacker's
 // session.
-func (c *AuthController) StartOIDCLogin(w http.ResponseWriter, r *http.Request, params oapi.StartOIDCLoginParams) {
+func (c *AuthController) StartOIDCLogin(w http.ResponseWriter, r *http.Request, provider string, params oapi.StartOIDCLoginParams) {
 	ctx := r.Context()
 
-	if c.oidc == nil {
+	federated := c.oidc.Provider(provider)
+	if federated == nil {
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("single sign-on is not available on this deployment")))
 		return
 	}
@@ -39,11 +41,12 @@ func (c *AuthController) StartOIDCLogin(w http.ResponseWriter, r *http.Request, 
 		redirect = *params.R
 	}
 
-	authorization, err := c.oidc.Authorize(ctx, redirect)
+	authorization, err := federated.Authorize(ctx, r, redirect)
 	if err != nil {
 		// The provider is unreachable or its discovery document no longer
 		// passes, which is this deployment's problem rather than the caller's.
-		c.logger.Error("failed to start a federated login", zap.Error(err))
+		c.logger.Error("failed to start a federated login",
+			zap.String("provider", provider), zap.Error(err))
 		c.redirectToLogin(w, r, "failed")
 		return
 	}
@@ -60,33 +63,49 @@ func (c *AuthController) StartOIDCLogin(w http.ResponseWriter, r *http.Request, 
 // failure carries a short, non-specific reason in the query string: enough for
 // the login view to say something true, never enough to describe the
 // deployment's identity provider to a stranger.
-func (c *AuthController) CompleteOIDCLogin(w http.ResponseWriter, r *http.Request, _ oapi.CompleteOIDCLoginParams) {
+func (c *AuthController) CompleteOIDCLogin(w http.ResponseWriter, r *http.Request, provider string, _ oapi.CompleteOIDCLoginParams) {
 	ctx := r.Context()
 
-	if c.oidc == nil {
+	federated := c.oidc.Provider(provider)
+	if federated == nil {
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("single sign-on is not available on this deployment")))
 		return
 	}
 
-	// Cleared whatever happens next, and before anything can write a status: the
-	// binding is spent the moment the flow is consumed, and a Set-Cookie written
-	// after the status line is silently dropped.
-	auth.ClearOIDCBindingCookie(w, r)
-
-	identity, redirect, err := c.oidc.Complete(ctx, r)
+	identity, redirect, err := federated.Complete(ctx, r)
 	if err != nil {
-		c.logger.Warn("federated login failed", zap.Error(err))
+		c.logger.Warn("federated login failed",
+			zap.String("provider", provider), zap.Error(err))
 		c.redirectToLogin(w, r, oidcFailureReason(err))
 		return
 	}
 
 	if _, err := c.exchanger.Exchange(ctx, w, r, identity); err != nil {
-		c.logger.Error("session exchange failed after a federated login", zap.Error(err))
+		c.logger.Error("session exchange failed after a federated login",
+			zap.String("provider", provider), zap.Error(err))
 		c.redirectToLogin(w, r, "exchange")
 		return
 	}
 
 	http.Redirect(w, r, redirect, http.StatusFound)
+}
+
+// ListOIDCProviders names the providers the login page may offer.
+//
+// It is readable by anybody, which is the same disclosure as the login page
+// already makes by offering the buttons: these are the deployment's own
+// providers, and there is no other tenant whose existence could leak.
+func (c *AuthController) ListOIDCProviders(w http.ResponseWriter, r *http.Request) {
+	if c.oidc == nil {
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("single sign-on is not available on this deployment")))
+		return
+	}
+
+	providers := make([]oapi.OIDCProvider, 0, len(c.oidc.All()))
+	for _, provider := range c.oidc.All() {
+		providers = append(providers, oapi.OIDCProvider{Id: provider.ID(), Name: provider.Name()})
+	}
+	httpjson.Write(w, http.StatusOK, providers)
 }
 
 // redirectToLogin sends a failed federated login back to the login view with a
@@ -104,6 +123,8 @@ func oidcFailureReason(err error) string {
 		return "expired"
 	case errors.Is(err, verifiers.ErrOIDCProviderDenied):
 		return "denied"
+	case errors.Is(err, verifiers.ErrOIDCDomainNotAllowed):
+		return "domain"
 	case errors.Is(err, verifiers.ErrInvalidEmail):
 		return "email"
 	default:

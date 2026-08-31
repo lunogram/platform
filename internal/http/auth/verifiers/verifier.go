@@ -71,16 +71,6 @@ func New(driver string, cfg config.Auth, deps Deps) (auth.Verifier, error) {
 	switch driver {
 	case BasicDriver:
 		return NewBasic(mgmt, logger), nil
-	case OIDCDriver:
-		return NewOIDC(OIDCOptions{
-			Config:     cfg.OIDC,
-			Flows:      deps.Flows,
-			Discovery:  deps.Discovery,
-			Keys:       deps.Keys,
-			BaseURL:    deps.BaseURL,
-			HTTPClient: deps.HTTPClient,
-			Logger:     logger.Named("oidc"),
-		})
 	case ClerkDriver:
 		// Refuse to start on key material that cannot verify anything. Without a
 		// JWKS the parse in [Clerk.Verify] has no key, so every login fails --
@@ -97,31 +87,53 @@ func New(driver string, cfg config.Auth, deps Deps) (auth.Verifier, error) {
 }
 
 // Build constructs every verifier the deployment has configured, keyed by
-// driver.
+// driver, and separately the OpenID Connect providers.
+//
+// The providers come back on their own because they are not verifiers in the
+// same sense: a federated credential arrives as a browser navigation naming a
+// provider, not as something to prove on the request in hand. Keeping them out
+// of the map is also what makes the generic login callback answer 404 for
+// `oidc` without a special case asking it to.
 //
 // Several drivers may be enabled at once -- an organization migrating from a
 // shared basic credential to per-admin passwords needs both live at the same
 // time -- so this returns a set rather than the single verifier the platform
 // used to allow. Each one lands on its own callback and all of them are offered
 // by GET /api/auth/methods.
-func Build(cfg config.Auth, deps Deps) (map[string]auth.Verifier, error) {
+func Build(cfg config.Auth, deps Deps) (map[string]auth.Verifier, *OIDCSet, error) {
 	built := make(map[string]auth.Verifier, len(cfg.Drivers))
+	var federated *OIDCSet
+	seen := make(map[string]bool, len(cfg.Drivers))
 
 	for _, driver := range cfg.Drivers {
 		driver = strings.ToLower(strings.TrimSpace(driver))
-		if driver == "" {
+		if driver == "" || seen[driver] {
 			continue
 		}
-		if _, duplicate := built[driver]; duplicate {
+		seen[driver] = true
+
+		if driver == OIDCDriver {
+			set, err := NewOIDCSet(cfg.OIDC, OIDCOptions{
+				Flows:      deps.Flows,
+				Discovery:  deps.Discovery,
+				Keys:       deps.Keys,
+				BaseURL:    deps.BaseURL,
+				HTTPClient: deps.HTTPClient,
+				Logger:     deps.Logger.Named("oidc"),
+			})
+			if err != nil {
+				return nil, nil, err
+			}
+			federated = set
 			continue
 		}
 
 		verifier, err := New(driver, cfg, deps)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		built[driver] = verifier
 	}
 
-	return built, nil
+	return built, federated, nil
 }

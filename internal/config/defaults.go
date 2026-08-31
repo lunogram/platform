@@ -46,12 +46,6 @@ func Defaults() Node {
 			Basic: BasicAuth{
 				Registration: RegistrationInviteOnly,
 			},
-			OIDC: OIDCAuth{
-				Scopes:          []string{"openid", "email", "profile"},
-				EmailClaim:      "email",
-				GivenNameClaim:  "given_name",
-				FamilyNameClaim: "family_name",
-			},
 			Console: ConsoleAuth{
 				Issuer:      "https://lunogram.com/console",
 				Audience:    "lunogram-console",

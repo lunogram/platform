@@ -13,10 +13,34 @@ import (
 	"golang.org/x/sync/singleflight"
 )
 
-// loginCallbackPrefix is the path an explicit login posts to. The upgrade skips
-// it: a login mints its own session, and running both would leave the browser
-// with two rows for one sign-in.
-const loginCallbackPrefix = "/api/auth/login/"
+// loginPrefixes are the paths an explicit login goes through. The upgrade skips
+// them all: a login mints its own session, and running both would leave the
+// browser with two rows for one sign-in.
+//
+// A federated login needs both of its halves here. The callback is where the
+// second session would be minted, and /start is where the browser is sent away
+// carrying the legacy cookie -- upgrading there means the person is already
+// signed in by the time they come back, having authenticated for nothing.
+var loginPrefixes = []string{
+	"/api/auth/login/",
+	"/api/auth/oidc/",
+	// The login view's first request, asking how to sign in. Answering it by
+	// signing somebody in is the same double-session bug one step earlier: the
+	// browser leaves the login page already holding a session, and whichever
+	// driver it then chooses opens a second.
+	"/api/auth/methods",
+}
+
+// startsALogin reports whether this request is part of a login that mints its
+// own session.
+func startsALogin(path string) bool {
+	for _, prefix := range loginPrefixes {
+		if strings.HasPrefix(path, prefix) {
+			return true
+		}
+	}
+	return false
+}
 
 // UpgradeLegacySession exchanges a provider-issued session cookie for a
 // Lunogram console session, in flight.
@@ -51,7 +75,7 @@ func UpgradeLegacySession(verifier Verifier, exchanger *Exchanger, signer *Conso
 				return
 			}
 
-			if strings.HasPrefix(r.URL.Path, loginCallbackPrefix) {
+			if startsALogin(r.URL.Path) {
 				next.ServeHTTP(w, r)
 				return
 			}

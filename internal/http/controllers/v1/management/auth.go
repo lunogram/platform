@@ -45,18 +45,20 @@ func NewAuthController(logger *zap.Logger, db *sqlx.DB, mgmt *management.State, 
 	federated.Logger = logger
 	federated.Provisioner = controller.exchanger
 
-	built, err := verifiers.Build(cfg.Auth, federated)
+	built, providers, err := verifiers.Build(cfg.Auth, federated)
 	if err != nil {
 		return nil, err
 	}
 	controller.verifiers = built
-	controller.oidc, _ = built[verifiers.OIDCDriver].(*verifiers.OIDC)
+	controller.oidc = providers
 
 	// Kept in configuration order rather than map order so the console offers
 	// the drivers in the order the operator listed them, deterministically.
 	for _, driver := range cfg.Auth.Drivers {
 		driver = strings.ToLower(strings.TrimSpace(driver))
-		if _, ok := controller.verifiers[driver]; ok && !slices.Contains(controller.drivers, driver) {
+		configured := controller.verifiers[driver] != nil ||
+			(driver == verifiers.OIDCDriver && controller.oidc != nil)
+		if configured && !slices.Contains(controller.drivers, driver) {
 			controller.drivers = append(controller.drivers, driver)
 		}
 	}
@@ -92,11 +94,12 @@ type AuthController struct {
 	drivers   []string
 	exchanger *auth.Exchanger
 	throttle  *throttle
-	// oidc is the same verifier the map holds, kept typed because the federated
-	// login has a second half -- the authorization request -- that the generic
-	// [auth.Verifier] interface has no room for. Nil when the driver is not
-	// configured, and every OpenID Connect endpoint answers 404 then.
-	oidc *verifiers.OIDC
+	// oidc holds the deployment's OpenID Connect providers. They are not in the
+	// verifier map: a federated credential arrives as a browser navigation
+	// naming a provider, which the generic [auth.Verifier] contract has no room
+	// for. Nil when the driver is not configured, and every OpenID Connect
+	// endpoint answers 404 then.
+	oidc *verifiers.OIDCSet
 
 	password passwordAuth
 }
@@ -147,15 +150,6 @@ func (c *AuthController) AuthCallback(w http.ResponseWriter, r *http.Request, dr
 	verifier := c.verifiers[string(driver)]
 	if verifier == nil {
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("auth driver not found")))
-		return
-	}
-
-	// A federated login arrives as a browser navigation and has to be answered
-	// with one, so it completes at its own endpoint. Answering it here as well
-	// would be a second surface for the same credential with different
-	// semantics.
-	if verifier.Driver() == verifiers.OIDCDriver {
-		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("the oidc driver completes at /api/auth/oidc/callback")))
 		return
 	}
 

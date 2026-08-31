@@ -6458,19 +6458,43 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
-  /api/auth/oidc/start:
+  /api/auth/oidc/providers:
+    get:
+      summary: List the deployment's single sign-on providers
+      description: >-
+        The providers the login page may offer, in the order the operator
+        declared them. These are the deployment's own providers; there is no
+        other tenant whose existence could leak, so this needs no credential.
+      operationId: listOIDCProviders
+      tags:
+        - Auth
+      responses:
+        "200":
+          description: The configured providers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/OIDCProvider"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/auth/oidc/{provider}/start:
     get:
       summary: Begin a single sign-on login
       description: >-
-        Redirects the browser to the deployment's identity provider, having
-        stored the state, the PKCE code verifier and the nonce server-side under
-        a short lifetime, and having set a binding cookie that ties the request
-        to this browser. The redirect_uri handed to the provider is derived from
-        the deployment's public URL and is never taken from a request parameter.
+        Redirects the browser to the named identity provider, having stored the
+        state, the PKCE code verifier and the nonce server-side under a short
+        lifetime, and having set a binding cookie that ties the request to this
+        browser. The redirect_uri handed to the provider is derived from the
+        deployment's public URL and the provider's id, and is never taken from a
+        request parameter.
       operationId: startOIDCLogin
       tags:
         - Auth
       parameters:
+        - $ref: "#/components/parameters/OIDCProviderID"
         - name: r
           in: query
           required: false
@@ -6483,20 +6507,22 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
-  /api/auth/oidc/callback:
+  /api/auth/oidc/{provider}/callback:
     get:
       summary: Complete a single sign-on login
       description: >-
         Redeems the authorization response. The state is single-use and deleted
-        as it is read, the binding cookie must match the one the login was
-        started with, the code is exchanged with the stored PKCE verifier, and
-        the ID token is proved against the provider's published keys, its
-        issuer, its audience, its expiry and the stored nonce. The browser is
-        then redirected into the console, with or without a session.
+        as it is read, it must have been issued for this provider, the binding
+        cookie must match the one the login was started with, the code is
+        exchanged with the stored PKCE verifier, and the ID token is proved
+        against the provider's published keys, its issuer, its audience, its
+        expiry and the stored nonce. The browser is then redirected into the
+        console, with or without a session.
       operationId: completeOIDCLogin
       tags:
         - Auth
       parameters:
+        - $ref: "#/components/parameters/OIDCProviderID"
         - name: code
           in: query
           required: false
@@ -6561,6 +6587,14 @@ components:
         type: boolean
         default: false
       description: When true, return only archived (soft-deleted) items instead of active ones
+
+    OIDCProviderID:
+      name: provider
+      in: path
+      required: true
+      schema:
+        type: string
+      description: The single sign-on provider
 
   responses:
     Error:
@@ -10672,6 +10706,19 @@ components:
           type: string
           format: date-time
           example: "2025-12-31T23:59:59Z"
+
+    OIDCProvider:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: string
+          description: Names the provider in its login URLs
+        name:
+          type: string
+          description: What the login page calls it
 
   securitySchemes:
     HttpBearerAuth:
