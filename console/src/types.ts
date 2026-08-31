@@ -895,7 +895,6 @@ export type Template<
 
 export type TemplateCreateParams = Pick<Template, "data" | "locale"> & { variant?: string }
 export type TemplateUpdateParams = Pick<Template, "data" | "sender_identity_id">
-export type VariantUpdateParams = { id?: UUID }
 
 export interface TemplatePreviewParams {
     user: Record<string, unknown>
