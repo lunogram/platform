@@ -815,13 +815,20 @@ func (s *OrganizationsStore) QueryOrganizationUsersMatchingRule(ctx context.Cont
 func (s *OrganizationsStore) ScanOrganizationMembers(ctx context.Context, projectID, orgID uuid.UUID, userRule *rules.RuleSet, fn func(userID uuid.UUID) error) (n int, err error) {
 	var rows *sqlx.Rows
 
+	// Callers publish to the broker from fn for every row, so its time and its
+	// failures belong to them and not to the query. Both are kept apart from
+	// what is observed, or broker latency would be reported as query latency
+	// and a failed publish as a failed query.
+	var callback time.Duration
+	var queryErr error
+
 	if userRule != nil {
 		// Timed around the whole scan rather than just the call that opens the
 		// cursor: rows stream, so most of the query's cost is paid while
 		// iterating below.
 		start := time.Now()
 		defer func() {
-			metrics.ObserveDatasetQuery(metrics.QueryOrganizationMembers, projectID, start, n, err)
+			metrics.ObserveDatasetQuery(metrics.QueryOrganizationMembers, projectID, time.Since(start)-callback, n, queryErr)
 		}()
 
 		rows, err = s.QueryOrganizationUsersMatchingRule(ctx, projectID, orgID, *userRule)
@@ -829,6 +836,7 @@ func (s *OrganizationsStore) ScanOrganizationMembers(ctx context.Context, projec
 		rows, err = s.QueryOrganizationUserIDs(ctx, orgID)
 	}
 	if err != nil {
+		queryErr = err
 		return 0, err
 	}
 	defer rows.Close()
@@ -836,15 +844,22 @@ func (s *OrganizationsStore) ScanOrganizationMembers(ctx context.Context, projec
 	for rows.Next() {
 		var userID uuid.UUID
 		if err = rows.Scan(&userID); err != nil {
+			queryErr = err
 			return n, err
 		}
-		if err = fn(userID); err != nil {
+
+		fnStart := time.Now()
+		err = fn(userID)
+		callback += time.Since(fnStart)
+		if err != nil {
 			return n, err
 		}
+
 		n++
 	}
 
 	err = rows.Err()
+	queryErr = err
 	return n, err
 }
 

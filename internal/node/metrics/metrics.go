@@ -298,14 +298,16 @@ var DatasetQueryErrorsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 	Help: "Total rule-driven dataset queries that failed",
 }, []string{"query", "project_id"})
 
-// ObserveDatasetQuery records one rule-driven dataset query. The timing is
+// ObserveDatasetQuery records one rule-driven dataset query. The duration is
 // expected to cover compiling the ruleset as well as running the SQL, since a
-// caller waiting on a segment cannot tell the two apart.
-func ObserveDatasetQuery(query string, projectID uuid.UUID, start time.Time, rows int, err error) {
+// caller waiting on a segment cannot tell the two apart. It is passed in rather
+// than measured from a start time so a caller streaming rows through a callback
+// can hand over the query's own time and leave the callback's out of it.
+func ObserveDatasetQuery(query string, projectID uuid.UUID, duration time.Duration, rows int, err error) {
 	project := projectID.String()
 
 	DatasetQueriesTotal.WithLabelValues(query, project).Inc()
-	DatasetQueryDurationSeconds.WithLabelValues(query, project).Observe(time.Since(start).Seconds())
+	DatasetQueryDurationSeconds.WithLabelValues(query, project).Observe(duration.Seconds())
 
 	if err != nil {
 		DatasetQueryErrorsTotal.WithLabelValues(query, project).Inc()

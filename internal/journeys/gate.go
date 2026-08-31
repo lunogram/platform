@@ -1,6 +1,8 @@
 package journeys
 
 import (
+	"database/sql"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -187,21 +189,29 @@ func evaluateHistoricalRules(ctx HandlerContext, rs rules.RuleSet, state journey
 	builder := query.NewQueryBuilder(ctx.ProjectID, &ctx.UserID).WithSinceTimestamp(state.EnteredAt)
 	q, err := builder.Query(rs)
 	if err != nil {
-		metrics.ObserveDatasetQuery(metrics.QueryGateHistorical, ctx.ProjectID, start, 0, err)
+		metrics.ObserveDatasetQuery(metrics.QueryGateHistorical, ctx.ProjectID, time.Since(start), 0, err)
 		return false, err
 	}
 
 	var match uuid.UUID
 	err = ctx.DB.GetContext(ctx, &match, q.SQL, q.Args...)
-	matched := err == nil
 
-	// A miss and a query failure are indistinguishable to the caller, which
-	// treats both as "did not match", so neither is recorded as an error here.
+	matched := err == nil
 	rows := 0
 	if matched {
 		rows = 1
 	}
-	metrics.ObserveDatasetQuery(metrics.QueryGateHistorical, ctx.ProjectID, start, rows, nil)
+
+	// The caller still cannot tell a miss from a failure -- both read as "did
+	// not match", which is left as it was rather than changed underneath a
+	// journey hot path -- so this series is the only place an outage here
+	// becomes visible. Only a real failure counts: a miss arrives as
+	// sql.ErrNoRows and is what the query is asking about.
+	failure := err
+	if errors.Is(err, sql.ErrNoRows) {
+		failure = nil
+	}
+	metrics.ObserveDatasetQuery(metrics.QueryGateHistorical, ctx.ProjectID, time.Since(start), rows, failure)
 
 	return matched, nil
 }

@@ -584,7 +584,7 @@ func (s *ListsStore) PreviewListUsers(ctx context.Context, projectID uuid.UUID, 
 	builder := query.NewQueryBuilder(projectID, nil)
 	query, err := builder.Query(ruleset)
 	if err != nil {
-		metrics.ObserveDatasetQuery(metrics.QueryListPreview, projectID, start, 0, err)
+		metrics.ObserveDatasetQuery(metrics.QueryListPreview, projectID, time.Since(start), 0, err)
 		return nil, 0, err
 	}
 
@@ -616,19 +616,19 @@ func (s *ListsStore) PreviewListUsers(ctx context.Context, projectID uuid.UUID, 
 	var results []result
 	err = s.db.SelectContext(ctx, &results, sql, query.Args...)
 	if err != nil {
-		metrics.ObserveDatasetQuery(metrics.QueryListPreview, projectID, start, 0, err)
+		metrics.ObserveDatasetQuery(metrics.QueryListPreview, projectID, time.Since(start), 0, err)
 		return nil, 0, err
 	}
 
 	if len(results) == 0 {
-		metrics.ObserveDatasetQuery(metrics.QueryListPreview, projectID, start, 0, nil)
+		metrics.ObserveDatasetQuery(metrics.QueryListPreview, projectID, time.Since(start), 0, nil)
 		return []User{}, 0, nil
 	}
 
 	total := results[0].TotalCount
 	// The full match size, not the page: the preview is limited but the
 	// underlying scan is not, and the scan is what costs.
-	metrics.ObserveDatasetQuery(metrics.QueryListPreview, projectID, start, total, nil)
+	metrics.ObserveDatasetQuery(metrics.QueryListPreview, projectID, time.Since(start), total, nil)
 	users := make([]User, len(results))
 	for i, r := range results {
 		users[i] = r.User
@@ -732,7 +732,7 @@ func (s *ListsStore) RecomputeList(ctx context.Context, projectID, listID uuid.U
 	builder := query.NewQueryBuilder(projectID, nil)
 	query, err := builder.Query(ruleset)
 	if err != nil {
-		metrics.ObserveDatasetQuery(metrics.QueryListRecompute, projectID, start, 0, err)
+		metrics.ObserveDatasetQuery(metrics.QueryListRecompute, projectID, time.Since(start), 0, err)
 		return nil, err
 	}
 
@@ -772,7 +772,7 @@ func (s *ListsStore) RecomputeList(ctx context.Context, projectID, listID uuid.U
 	err = s.db.SelectContext(ctx, &results, sql, args...)
 	// Rows here are membership *changes*, not the size of the match set: the
 	// MERGE only returns users it inserted or deleted.
-	metrics.ObserveDatasetQuery(metrics.QueryListRecompute, projectID, start, len(results), err)
+	metrics.ObserveDatasetQuery(metrics.QueryListRecompute, projectID, time.Since(start), len(results), err)
 	if err != nil {
 		return results, err
 	}
