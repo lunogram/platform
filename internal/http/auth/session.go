@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"crypto/ecdsa"
+	"errors"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -91,21 +92,25 @@ func WithSession(mgmt *management.State, signer *SessionSigner) Handler {
 			jwt.WithExpirationRequired(),
 		)
 		if err != nil || !token.Valid {
-			return ctx, ErrUnauthorized
+			return ctx, sessionTokenError(err)
 		}
 
+		// The signature verified, so the token is authentically one of ours and
+		// the remaining failures are safe to describe: they mean a valid session
+		// whose claims we can't use (e.g. an expired token, or one minted under a
+		// session policy that has since been removed).
 		methodID, err := uuid.Parse(claimString(claims, sessionMethodClaim))
 		if err != nil {
-			return ctx, ErrUnauthorized
+			return ctx, rejectSession(`token is missing or has an invalid auth-method ("amid") claim`)
 		}
 		subject := claimString(claims, "sub")
 		if subject == "" {
-			return ctx, ErrUnauthorized
+			return ctx, rejectSession(`token is missing the "sub" subject claim`)
 		}
 
 		method, err := mgmt.GetSessionAuthMethod(methodID)
 		if err != nil {
-			return ctx, ErrUnauthorized
+			return ctx, rejectSession("the session's auth method no longer exists")
 		}
 
 		// The session is only valid on its own project's URL; a token minted for
@@ -124,4 +129,23 @@ func WithSession(mgmt *management.State, signer *SessionSigner) Handler {
 		)
 		return rbac.WithActor(ctx, actor), nil
 	}
+}
+
+// sessionTokenError decides what a parse/verify failure surfaces. A signature,
+// signing-method, or format failure stays a generic ErrUnauthorized: it usually
+// means the token simply wasn't minted by us (e.g. it's a trusted-issuer JWT), so
+// the auth chain must fall through to the next handler rather than short-circuit.
+// Only a claim-level failure (ErrTokenInvalidClaims) — which the parser reaches
+// solely after the signature has verified — proves the token is authentically
+// ours, and is surfaced with a precise, debuggable reason (expired, missing exp,
+// ...).
+func sessionTokenError(err error) error {
+	if err == nil || !errors.Is(err, jwt.ErrTokenInvalidClaims) {
+		return ErrUnauthorized
+	}
+	return rejectSession(describeTokenError(err))
+}
+
+func rejectSession(reason string) error {
+	return &rejectedTokenError{msg: "session token rejected: " + reason}
 }

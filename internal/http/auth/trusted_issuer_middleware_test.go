@@ -112,7 +112,13 @@ func TestWithTrustedIssuer(t *testing.T) {
 		assert.ErrorIs(t, err, ErrUnauthorized)
 	})
 
-	t.Run("rejects when verification fails (wrong key)", func(t *testing.T) {
+	// A token whose signature does not verify stays a generic ErrUnauthorized: the
+	// `iss` that selected the issuer is self-asserted (ParseUnverified), so
+	// describing the failure would tell an unauthenticated caller which issuers are
+	// configured. Only once the signature verifies does the middleware surface a
+	// precise, debuggable reason so an integrator can fix their token.
+
+	t.Run("a token signed by a wrong key stays generic", func(t *testing.T) {
 		_, method := issuerMethod(t)
 		other, err := rsa.GenerateKey(rand.Reader, 2048)
 		require.NoError(t, err)
@@ -125,7 +131,59 @@ func TestWithTrustedIssuer(t *testing.T) {
 		assert.ErrorIs(t, err, ErrUnauthorized)
 	})
 
-	t.Run("rejects an empty subject claim", func(t *testing.T) {
+	t.Run("a forged token cannot distinguish a configured issuer from an unknown one", func(t *testing.T) {
+		// Both tokens are signed with a key we do not trust; the only difference is
+		// that one names a configured issuer. The rejections must be identical, or
+		// the middleware becomes an issuer-existence oracle.
+		_, method := issuerMethod(t)
+		forged, err := rsa.GenerateKey(rand.Reader, 2048)
+		require.NoError(t, err)
+
+		configured := signRS256(t, forged, jwt.MapClaims{
+			"iss": method.Issuer,
+			"sub": "user_123",
+			"exp": time.Now().Add(time.Hour).Unix(),
+		})
+		unknown := signRS256(t, forged, jwt.MapClaims{
+			"iss": "https://not-configured.example",
+			"sub": "user_123",
+			"exp": time.Now().Add(time.Hour).Unix(),
+		})
+
+		handler := WithTrustedIssuer(newIssuerState(method), cache)
+		_, errConfigured := handler(clientRequestCtx(method.ProjectID.String()), configured)
+		_, errUnknown := handler(clientRequestCtx(method.ProjectID.String()), unknown)
+
+		assert.ErrorIs(t, errConfigured, ErrUnauthorized)
+		assert.ErrorIs(t, errUnknown, ErrUnauthorized)
+		assert.Equal(t, errUnknown.Error(), errConfigured.Error(), "the two rejections must be indistinguishable")
+	})
+
+	t.Run("rejects a missing exp claim with a debuggable reason", func(t *testing.T) {
+		key, method := issuerMethod(t)
+		token := signRS256(t, key, jwt.MapClaims{
+			"iss": method.Issuer,
+			"sub": "user_123",
+			// no "exp": WithExpirationRequired rejects it
+		})
+		_, err := WithTrustedIssuer(newIssuerState(method), cache)(clientRequestCtx(method.ProjectID.String()), token)
+		assert.NotErrorIs(t, err, ErrUnauthorized)
+		assert.ErrorContains(t, err, `"exp"`, "the reason names the missing claim")
+	})
+
+	t.Run("rejects an expired token with a debuggable reason", func(t *testing.T) {
+		key, method := issuerMethod(t)
+		token := signRS256(t, key, jwt.MapClaims{
+			"iss": method.Issuer,
+			"sub": "user_123",
+			"exp": time.Now().Add(-time.Hour).Unix(),
+		})
+		_, err := WithTrustedIssuer(newIssuerState(method), cache)(clientRequestCtx(method.ProjectID.String()), token)
+		assert.NotErrorIs(t, err, ErrUnauthorized)
+		assert.ErrorContains(t, err, "expired")
+	})
+
+	t.Run("rejects an empty subject claim with a debuggable reason", func(t *testing.T) {
 		key, method := issuerMethod(t)
 		token := signRS256(t, key, jwt.MapClaims{
 			"iss": method.Issuer,
@@ -133,7 +191,21 @@ func TestWithTrustedIssuer(t *testing.T) {
 			"exp": time.Now().Add(time.Hour).Unix(),
 		})
 		_, err := WithTrustedIssuer(newIssuerState(method), cache)(clientRequestCtx(method.ProjectID.String()), token)
-		assert.ErrorIs(t, err, ErrUnauthorized)
+		assert.NotErrorIs(t, err, ErrUnauthorized)
+		assert.ErrorContains(t, err, `"sub"`, "the reason names the missing subject claim")
+	})
+
+	t.Run("names a custom subject claim in the rejection reason", func(t *testing.T) {
+		key, method := issuerMethod(t)
+		method.SubjectClaim = "user_id"
+		token := signRS256(t, key, jwt.MapClaims{
+			"iss": method.Issuer,
+			// no "user_id": the configured subject claim is absent
+			"exp": time.Now().Add(time.Hour).Unix(),
+		})
+		_, err := WithTrustedIssuer(newIssuerState(method), cache)(clientRequestCtx(method.ProjectID.String()), token)
+		assert.NotErrorIs(t, err, ErrUnauthorized)
+		assert.ErrorContains(t, err, `"user_id"`)
 	})
 
 	t.Run("builds an end-user actor on success", func(t *testing.T) {

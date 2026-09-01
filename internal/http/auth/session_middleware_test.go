@@ -78,41 +78,81 @@ func TestWithSession(t *testing.T) {
 		assert.ErrorIs(t, err, ErrUnauthorized)
 	})
 
-	t.Run("an expired token is rejected through the handler", func(t *testing.T) {
+	// A token whose signature does not verify (wrong key, wrong alg, malformed)
+	// stays a generic ErrUnauthorized so the auth chain falls through to the next
+	// handler. Only once the signature proves the token is authentically ours does
+	// the handler surface a precise, debuggable reason for the remaining failures.
+
+	t.Run("an expired token surfaces a debuggable reason", func(t *testing.T) {
 		t.Parallel()
 		signer := testSigner(t, "")
 		token, _, err := signer.Mint(uuid.New(), "user_1", -time.Hour)
 		require.NoError(t, err)
 
 		_, err = WithSession(nil, signer)(context.Background(), token)
-		assert.ErrorIs(t, err, ErrUnauthorized)
+		assert.NotErrorIs(t, err, ErrUnauthorized)
+		assert.ErrorContains(t, err, "expired")
 	})
 
-	t.Run("a wrong issuer is rejected", func(t *testing.T) {
+	t.Run("a missing exp claim surfaces a debuggable reason", func(t *testing.T) {
 		t.Parallel()
-		// Signer expects the default issuer; mint with a different one.
+		signer := testSigner(t, "")
+		token := signES256(t, signer, jwt.MapClaims{
+			"iss":              signer.issuer,
+			"sub":              "user_1",
+			sessionMethodClaim: uuid.New().String(),
+			// no "exp": WithExpirationRequired rejects it
+		})
+		_, err := WithSession(nil, signer)(context.Background(), token)
+		assert.NotErrorIs(t, err, ErrUnauthorized)
+		assert.ErrorContains(t, err, `"exp"`)
+	})
+
+	t.Run("a wrong issuer surfaces a debuggable reason", func(t *testing.T) {
+		t.Parallel()
+		// Signer expects the default issuer; mint with a different one. The
+		// signature still verifies (same key), so this is one of our tokens.
 		minter := testSigner(t, "https://evil.example")
 		token, _, err := minter.Mint(uuid.New(), "user_1", time.Hour)
 		require.NoError(t, err)
 
 		verifier := &SessionSigner{key: minter.key, issuer: defaultSessionIssuer}
 		_, err = WithSession(nil, verifier)(context.Background(), token)
-		assert.ErrorIs(t, err, ErrUnauthorized)
+		assert.NotErrorIs(t, err, ErrUnauthorized)
+		assert.ErrorContains(t, err, "issuer")
 	})
 
-	t.Run("a missing issuer is rejected", func(t *testing.T) {
+	t.Run("a missing issuer surfaces a debuggable reason naming the claim", func(t *testing.T) {
 		t.Parallel()
+		// The signature verifies, so this is one of our tokens. WithIssuer makes
+		// "iss" mandatory, and the reason must name it rather than falling back to
+		// the exp-centric message requiredClaimReason uses when it cannot tell.
 		signer := testSigner(t, "")
 		token := signES256(t, signer, jwt.MapClaims{
 			"sub":              "user_1",
 			sessionMethodClaim: uuid.New().String(),
 			"exp":              time.Now().Add(time.Hour).Unix(),
+			// no "iss"
 		})
 		_, err := WithSession(nil, signer)(context.Background(), token)
+		assert.NotErrorIs(t, err, ErrUnauthorized)
+		assert.ErrorContains(t, err, `"iss"`)
+	})
+
+	t.Run("a token signed by a different key stays generic (chain falls through)", func(t *testing.T) {
+		t.Parallel()
+		// A token minted by a foreign key (e.g. another scheme's) must not be
+		// described as a session token; it stays ErrUnauthorized so the next
+		// handler gets a turn.
+		minter := testSigner(t, "")
+		token, _, err := minter.Mint(uuid.New(), "user_1", time.Hour)
+		require.NoError(t, err)
+
+		_, err = WithSession(nil, testSigner(t, ""))(context.Background(), token)
 		assert.ErrorIs(t, err, ErrUnauthorized)
 	})
 
-	t.Run("an unparseable method id claim is rejected", func(t *testing.T) {
+	t.Run("an unparseable method id claim surfaces a debuggable reason", func(t *testing.T) {
 		t.Parallel()
 		signer := testSigner(t, "")
 		token := signES256(t, signer, jwt.MapClaims{
@@ -122,10 +162,11 @@ func TestWithSession(t *testing.T) {
 			"exp":              time.Now().Add(time.Hour).Unix(),
 		})
 		_, err := WithSession(nil, signer)(context.Background(), token)
-		assert.ErrorIs(t, err, ErrUnauthorized)
+		assert.NotErrorIs(t, err, ErrUnauthorized)
+		assert.ErrorContains(t, err, "amid")
 	})
 
-	t.Run("a missing method id claim is rejected", func(t *testing.T) {
+	t.Run("a missing method id claim surfaces a debuggable reason", func(t *testing.T) {
 		t.Parallel()
 		signer := testSigner(t, "")
 		token := signES256(t, signer, jwt.MapClaims{
@@ -134,10 +175,11 @@ func TestWithSession(t *testing.T) {
 			"exp": time.Now().Add(time.Hour).Unix(),
 		})
 		_, err := WithSession(nil, signer)(context.Background(), token)
-		assert.ErrorIs(t, err, ErrUnauthorized)
+		assert.NotErrorIs(t, err, ErrUnauthorized)
+		assert.ErrorContains(t, err, "amid")
 	})
 
-	t.Run("an empty subject is rejected", func(t *testing.T) {
+	t.Run("an empty subject surfaces a debuggable reason", func(t *testing.T) {
 		t.Parallel()
 		signer := testSigner(t, "")
 		token := signES256(t, signer, jwt.MapClaims{
@@ -147,7 +189,8 @@ func TestWithSession(t *testing.T) {
 			"exp":              time.Now().Add(time.Hour).Unix(),
 		})
 		_, err := WithSession(nil, signer)(context.Background(), token)
-		assert.ErrorIs(t, err, ErrUnauthorized)
+		assert.NotErrorIs(t, err, ErrUnauthorized)
+		assert.ErrorContains(t, err, `"sub"`)
 	})
 }
 
@@ -161,7 +204,8 @@ func TestWithSessionUnknownMethod(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = WithSession(mgmt, signer)(context.Background(), token)
-	assert.ErrorIs(t, err, ErrUnauthorized)
+	assert.NotErrorIs(t, err, ErrUnauthorized)
+	assert.ErrorContains(t, err, "auth method")
 }
 
 func TestWithSessionBuildsActor(t *testing.T) {

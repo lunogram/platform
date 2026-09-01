@@ -5,6 +5,8 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
+	"fmt"
+	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/lunogram/platform/internal/jwks"
@@ -50,12 +52,12 @@ func WithTrustedIssuer(mgmt *management.State, cache *jwks.Cache) Handler {
 
 		claims, err := verifyTrustedIssuerToken(ctx, cache, method, tokenString)
 		if err != nil {
-			return ctx, ErrUnauthorized
+			return ctx, trustedIssuerTokenError(err)
 		}
 
 		subject := claimString(claims, method.SubjectClaim)
 		if subject == "" {
-			return ctx, ErrUnauthorized
+			return ctx, rejectTrustedIssuer(fmt.Sprintf("token is missing the %q subject claim", subjectClaimName(method.SubjectClaim)))
 		}
 
 		actor := rbac.NewActor(
@@ -106,8 +108,15 @@ func verifyTrustedIssuerToken(ctx context.Context, cache *jwks.Cache, method *ma
 			token, err = jwt.ParseWithClaims(tokenString, claims, refreshed, opts...)
 		}
 	}
-	if err != nil || !token.Valid {
-		return nil, errors.New("auth: invalid trusted-issuer token")
+	// Preserve the underlying cause (a golang-jwt sentinel such as
+	// ErrTokenRequiredClaimMissing or ErrTokenExpired) so the caller can turn it
+	// into a precise, debuggable message; describeTokenError keeps the surfaced
+	// text safe.
+	if err != nil {
+		return nil, err
+	}
+	if !token.Valid {
+		return nil, jwt.ErrTokenUnverifiable
 	}
 	return claims, nil
 }
@@ -147,11 +156,90 @@ func parsePublicKeyPEM(pemData string) (any, error) {
 
 // claimString returns the string value of the named claim (defaulting to "sub").
 func claimString(claims jwt.MapClaims, name string) string {
-	if name == "" {
-		name = "sub"
-	}
-	if v, ok := claims[name].(string); ok {
+	if v, ok := claims[subjectClaimName(name)].(string); ok {
 		return v
 	}
 	return ""
+}
+
+// subjectClaimName resolves the configured subject claim, defaulting to "sub".
+func subjectClaimName(name string) string {
+	if name == "" {
+		return "sub"
+	}
+	return name
+}
+
+// rejectedTokenError carries a human-readable reason a token was rejected.
+// Unlike ErrUnauthorized it is deliberately NOT part of the generic unauthorized
+// set, so the authentication middleware returns it (and its reason) to the caller
+// instead of collapsing it into a bare "unauthorized". It is only produced once a
+// token has proven to be authentically ours (a resolved trusted issuer, or a
+// verified session signature), so the detail aids an integrator debugging their
+// token without leaking anything they don't already know.
+type rejectedTokenError struct{ msg string }
+
+func (e *rejectedTokenError) Error() string { return e.msg }
+
+func rejectTrustedIssuer(reason string) error {
+	return &rejectedTokenError{msg: "trusted-issuer token rejected: " + reason}
+}
+
+// trustedIssuerTokenError decides what a verification failure surfaces. Resolving
+// the method proves only that the token's self-asserted `iss` names an issuer
+// configured for this project: `iss` is read with ParseUnverified, so anyone can
+// forge it. Describing a failure on that basis alone would answer "is this issuer
+// configured here?" for an unauthenticated caller. Only a claim-level failure
+// (ErrTokenInvalidClaims), which the parser reaches solely after the signature has
+// verified against the issuer's keys, proves the caller holds a token the issuer
+// really minted; every other failure stays a bare ErrUnauthorized.
+func trustedIssuerTokenError(err error) error {
+	if err == nil || !errors.Is(err, jwt.ErrTokenInvalidClaims) {
+		return ErrUnauthorized
+	}
+	return rejectTrustedIssuer(describeTokenError(err))
+}
+
+// describeTokenError maps a JWT claim-validation failure to a concise reason that
+// is safe to return to the integrator. It names the standard-claim problems an
+// integrator can actually fix (missing/expired/not-yet-valid/issuer/audience) and
+// collapses anything else to a generic reason. Callers must first establish that
+// the token is authentic (see sessionTokenError / trustedIssuerTokenError):
+// signature, malformed-token and key-resolution failures never reach here, and
+// must not, since whether they are described at all is itself observable.
+func describeTokenError(err error) string {
+	switch {
+	case errors.Is(err, jwt.ErrTokenRequiredClaimMissing):
+		// Both the mandatory "exp" and an enforced "iss"/"aud" land here; name the
+		// claim golang-jwt actually reported rather than assuming "exp".
+		return requiredClaimReason(err)
+	case errors.Is(err, jwt.ErrTokenExpired):
+		return "token has expired"
+	case errors.Is(err, jwt.ErrTokenNotValidYet):
+		return `token is not valid yet (its "nbf" not-before claim is in the future)`
+	case errors.Is(err, jwt.ErrTokenUsedBeforeIssued):
+		return `token was used before its "iat" issued-at time`
+	case errors.Is(err, jwt.ErrTokenInvalidIssuer):
+		return "token issuer does not match the expected issuer"
+	case errors.Is(err, jwt.ErrTokenInvalidAudience):
+		return "token audience does not match the expected audience"
+	default:
+		return "token could not be verified"
+	}
+}
+
+// requiredClaimReason names the standard claim golang-jwt reported as missing.
+// golang-jwt phrases the leaf as `<claim> claim is required`, so an integrator
+// sees exactly what to add — most often the mandatory "exp" expiry claim. It
+// falls back to a generic (but still exp-centric) message if the library ever
+// changes that phrasing.
+func requiredClaimReason(err error) string {
+	const marker = "missing required claim: "
+	msg := err.Error()
+	if i := strings.LastIndex(msg, marker); i >= 0 {
+		if claim := strings.TrimSuffix(msg[i+len(marker):], " claim is required"); claim != "" && !strings.ContainsRune(claim, ' ') {
+			return fmt.Sprintf("token is missing the required %q claim", claim)
+		}
+	}
+	return `token is missing a required claim (the "exp" expiry claim is mandatory)`
 }
