@@ -30,7 +30,9 @@ import (
 //
 // The mail section is excluded because it is deliberately redesigned in this
 // change -- a channel replaced a bare host, and the sender moved out of the
-// transport -- and is asserted separately below. The captured auth.JWKS was
+// transport -- and is asserted separately below. auth.oidc is excluded for the
+// opposite reason: the driver did not exist when the snapshot was taken, so it
+// has no former tags to match and is pinned separately too. The captured auth.JWKS was
 // dropped from the file because the type marshals to an object but unmarshals
 // from a string; it holds no default either way.
 func TestDefaultsMatchTheirFormerTags(t *testing.T) {
@@ -44,8 +46,65 @@ func TestDefaultsMatchTheirFormerTags(t *testing.T) {
 
 	former.Mail = mailer.Config{}
 	current.Mail = mailer.Config{}
+	current.Auth.OIDC = OIDCAuth{}
 
 	assert.Equal(t, former, current)
+}
+
+// The single-provider form and the list are two ways to say the same thing, and
+// a deployment picks one. Mixing them is refused rather than merged, because
+// there is no order in which one obviously wins.
+func TestOIDCProviderForms(t *testing.T) {
+	t.Parallel()
+
+	t.Run("nothing configured resolves to nothing", func(t *testing.T) {
+		providers, err := Defaults().Auth.OIDC.Resolve()
+		require.NoError(t, err)
+		assert.Empty(t, providers)
+		assert.False(t, Defaults().Auth.OIDC.Configured())
+	})
+
+	t.Run("the environment form becomes one provider", func(t *testing.T) {
+		cfg := OIDCAuth{Provider: OIDCProvider{Issuer: "https://idp.test", ClientID: "c", ClientSecret: "s"}}
+		providers, err := cfg.Resolve()
+		require.NoError(t, err)
+		require.Len(t, providers, 1)
+		assert.Equal(t, DefaultOIDCProviderID, providers[0].ID,
+			"the id appears in the redirect URI an operator registers, so it has to be stable")
+	})
+
+	t.Run("the list is taken in declaration order", func(t *testing.T) {
+		cfg := OIDCAuth{Providers: []OIDCProvider{
+			{ID: "okta", Issuer: "https://okta.test"},
+			{ID: "entra", Issuer: "https://entra.test"},
+		}}
+		providers, err := cfg.Resolve()
+		require.NoError(t, err)
+		require.Len(t, providers, 2)
+		assert.Equal(t, "okta", providers[0].ID)
+		assert.Equal(t, "entra", providers[1].ID)
+	})
+
+	// Any inline field counts, not just the issuer. A list declared alongside a
+	// stray AUTH_OIDC_CLIENT_SECRET is a deployment that believes it configured
+	// something it did not.
+	t.Run("mixing the two forms is refused", func(t *testing.T) {
+		for name, single := range map[string]OIDCProvider{
+			"an issuer":        {Issuer: "https://idp.test"},
+			"a client id":      {ClientID: "0oa..."},
+			"a client secret":  {ClientSecret: "shhh"},
+			"a claim override": {EmailClaim: "upn"},
+		} {
+			t.Run(name, func(t *testing.T) {
+				cfg := OIDCAuth{
+					Providers: []OIDCProvider{{ID: "okta", Issuer: "https://okta.test"}},
+					Provider:  single,
+				}
+				_, err := cfg.Resolve()
+				assert.ErrorIs(t, err, ErrOIDCProviderFormsMixed)
+			})
+		}
+	})
 }
 
 // The mail defaults changed shape deliberately, so they are pinned here rather

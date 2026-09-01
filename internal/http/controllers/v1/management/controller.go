@@ -6,12 +6,16 @@ import (
 	"github.com/lunogram/platform/internal/config"
 	"github.com/lunogram/platform/internal/gallery"
 	"github.com/lunogram/platform/internal/http/auth"
+	"github.com/lunogram/platform/internal/http/auth/verifiers"
+	"github.com/lunogram/platform/internal/jwks"
 	"github.com/lunogram/platform/internal/mailer"
 	"github.com/lunogram/platform/internal/providers"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/consumer"
 	"github.com/lunogram/platform/internal/ratelimit"
 	"github.com/lunogram/platform/internal/rbac"
+	"github.com/lunogram/platform/internal/sso"
+	"github.com/lunogram/platform/internal/ssrf"
 	"github.com/lunogram/platform/internal/storage"
 	"github.com/lunogram/platform/internal/store/management"
 	"github.com/lunogram/platform/internal/store/subjects"
@@ -21,7 +25,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func NewController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB, cfg config.Node, storage storage.Storage, urlResolver *storage.URLResolver, pub pubsub.Publisher, req pubsub.Caller, jet jetstream.JetStream, registry *providers.Registry, actionRegistry *actions.Registry, engine *rbac.Engine, rdb *goredis.Client, consoleSigner *auth.ConsoleSigner, limiter *ratelimit.Limiter) (_ *Controller, err error) {
+func NewController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB, cfg config.Node, storage storage.Storage, urlResolver *storage.URLResolver, pub pubsub.Publisher, req pubsub.Caller, jet jetstream.JetStream, registry *providers.Registry, actionRegistry *actions.Registry, engine *rbac.Engine, rdb *goredis.Client, jwksCache *jwks.Cache, consoleSigner *auth.ConsoleSigner, limiter *ratelimit.Limiter) (_ *Controller, err error) {
 	mgmt := management.NewState(managementDB, management.WithRedis(rdb, cfg.Redis.KeyPrefix))
 	projects := management.NewProjectsStore(managementDB)
 	usrs := subjects.NewState(usersDB, logger)
@@ -65,6 +69,19 @@ func NewController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB
 		mail = mailer.NewDispatcher(transport, logger.Named("mailer"), cfg.Mail.Timeout)
 	}
 
+	// The collaborators the OpenID Connect driver needs beyond the
+	// configuration. They are always built: whether the deployment offers a
+	// federated login is decided by AUTH_DRIVER, and the driver itself refuses
+	// to build when the settings behind it are missing.
+	provider := ssrf.SafeHTTPClient(oidcProviderTimeout)
+	federated := verifiers.Deps{
+		Keys:       jwksCache,
+		Flows:      sso.NewFlowStore(rdb, cfg.Redis.KeyPrefix),
+		Discovery:  sso.NewDiscovery(provider, ssrf.Policy{}, 0),
+		HTTPClient: provider,
+		BaseURL:    cfg.PublicBaseURL(),
+	}
+
 	controller := &Controller{
 		ProjectsController:         NewProjectsController(logger, managementDB, usersDB, journeyDB, hooks, pub, engine),
 		CampaignsController:        NewCampaignsController(logger, managementDB, usersDB, engine),
@@ -91,7 +108,7 @@ func NewController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB
 		mail:                       mail,
 	}
 
-	controller.AuthController, err = NewAuthController(logger, managementDB, mgmt, cfg, engine, consoleSigner, limiter, mail, renderer)
+	controller.AuthController, err = NewAuthController(logger, managementDB, mgmt, cfg, engine, consoleSigner, limiter, mail, renderer, federated)
 	if err != nil {
 		return nil, err
 	}

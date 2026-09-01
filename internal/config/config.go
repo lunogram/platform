@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"slices"
 	"strings"
 	"time"
@@ -63,6 +64,7 @@ type Auth struct {
 	JWKS    claim.JWKS  `env:"JWKS_URL" yaml:"jwks"`
 	Basic   BasicAuth   `envPrefix:"BASIC_" yaml:"basic"`
 	Clerk   ClerkAuth   `envPrefix:"CLERK_" yaml:"clerk"`
+	OIDC    OIDCAuth    `envPrefix:"OIDC_" yaml:"oidc"`
 	Console ConsoleAuth `envPrefix:"CONSOLE_" yaml:"console"`
 
 	// LegacyIdentityAdoption lets an upstream identity claim a
@@ -167,6 +169,119 @@ const (
 	// that provisions its admins some other way.
 	RegistrationDisabled = "disabled"
 )
+
+// OIDCAuth configures the deployment's OpenID Connect providers. They are
+// operator settings like AUTH_BASIC_* and AUTH_CLERK_*, not something a
+// customer creates at runtime.
+//
+// There are two forms and a deployment picks one. A single provider is
+// configured from the environment (AUTH_OIDC_ISSUER and its siblings), which is
+// what a compose-only deployment can express. Several providers are declared as
+// a list in the configuration file, where ${VAR} references keep the secrets in
+// the environment. Setting both is refused rather than merged, because there is
+// no order in which one of them obviously wins.
+type OIDCAuth struct {
+	Providers []OIDCProvider `yaml:"providers"`
+
+	// Provider is the single-provider form. Its fields carry no envPrefix of
+	// their own, so they read AUTH_OIDC_ISSUER rather than
+	// AUTH_OIDC_PROVIDER_ISSUER.
+	Provider OIDCProvider `yaml:",inline"`
+}
+
+// OIDCProvider is one identity provider.
+type OIDCProvider struct {
+	// ID names the provider in its login URLs, so it has to survive a URL path
+	// segment. The single-provider form has none and is given "default".
+	ID string `yaml:"id"`
+	// Name is what the login page calls it. Empty falls back to the id.
+	Name string `yaml:"name"`
+	// Issuer is the URL the provider stamps as `iss`, and is taken verbatim.
+	// OpenID Connect issuer identifiers are compared exactly, trailing slash
+	// included, so this is never normalised beyond trimming whitespace.
+	Issuer string `env:"ISSUER" yaml:"issuer"`
+	// DiscoveryURL overrides where the provider's metadata is published. Empty
+	// means the well-known location under the issuer. Wherever it points, it
+	// must be served by the issuer's own origin: whoever chooses this URL
+	// otherwise also chooses the token endpoint and the JWKS.
+	DiscoveryURL string `env:"DISCOVERY_URL" yaml:"discovery_url"`
+	ClientID     string `env:"CLIENT_ID" yaml:"client_id"`
+	ClientSecret string `env:"CLIENT_SECRET" yaml:"client_secret"`
+	// Scopes are requested at the authorization endpoint. openid is required by
+	// the protocol and is added when it is missing.
+	Scopes []string `env:"SCOPES" envSeparator:"," yaml:"scopes"`
+	// AllowedDomains bounds the email domains this provider may assert. Empty
+	// means any, which is the right answer for a deployment with one provider.
+	//
+	// It matters once there are several. A verified address links a login to an
+	// existing admin whichever provider asserted it, so without this the least
+	// trustworthy provider decides who can reach every account -- a consumer
+	// tenant added "so contractors can sign in" would be able to assert a staff
+	// address. Unlike a customer-created connection there is nothing to prove
+	// here: the operator owns every provider in this list.
+	AllowedDomains []string `env:"ALLOWED_DOMAINS" envSeparator:"," yaml:"allowed_domains"`
+	// The claims carrying the profile. Providers disagree about these often
+	// enough that they are configurable rather than assumed.
+	EmailClaim string `env:"EMAIL_CLAIM" yaml:"email_claim"`
+	// EmailVerifiedClaim attests the address EmailClaim carries. It defaults to
+	// email_verified ONLY when the address comes from the standard email claim,
+	// because that is the only pairing OpenID Connect defines. Point EmailClaim
+	// somewhere else and addresses are unverified until this names the claim
+	// that attests them.
+	EmailVerifiedClaim string `env:"EMAIL_VERIFIED_CLAIM" yaml:"email_verified_claim"`
+	GivenNameClaim     string `env:"GIVEN_NAME_CLAIM" yaml:"given_name_claim"`
+	FamilyNameClaim    string `env:"FAMILY_NAME_CLAIM" yaml:"family_name_claim"`
+}
+
+// DefaultOIDCProviderID is the id the single-provider form logs in under. It
+// appears in that deployment's login URLs, so it is part of the redirect URI an
+// operator registers with their provider.
+const DefaultOIDCProviderID = "default"
+
+// ErrOIDCProviderFormsMixed reports that both configuration forms are populated.
+var ErrOIDCProviderFormsMixed = errors.New("configure AUTH_OIDC_* or auth.oidc.providers, not both")
+
+// Configured reports whether the deployment has anything to build a federated
+// login from. AUTH_DRIVER=oidc without it is refused at boot rather than
+// discovered by the first person who presses the button.
+func (o OIDCAuth) Configured() bool {
+	return len(o.Providers) > 0 || !o.Provider.empty()
+}
+
+// empty reports whether the operator set nothing on this provider.
+//
+// Every field counts, not just the issuer. A list declared alongside a stray
+// AUTH_OIDC_CLIENT_SECRET is a deployment that believes it configured something
+// it did not, and silently ignoring the variable is how a secret ends up
+// looking set when nothing reads it.
+func (p OIDCProvider) empty() bool {
+	return p.ID == "" && p.Name == "" && p.Issuer == "" && p.DiscoveryURL == "" &&
+		p.ClientID == "" && p.ClientSecret == "" &&
+		len(p.Scopes) == 0 && len(p.AllowedDomains) == 0 &&
+		p.EmailClaim == "" && p.EmailVerifiedClaim == "" &&
+		p.GivenNameClaim == "" && p.FamilyNameClaim == ""
+}
+
+// Resolve returns the providers the deployment configured, in the order it
+// declared them.
+func (o OIDCAuth) Resolve() ([]OIDCProvider, error) {
+	single := o.Provider
+	if len(o.Providers) > 0 && !single.empty() {
+		return nil, ErrOIDCProviderFormsMixed
+	}
+
+	if len(o.Providers) > 0 {
+		return o.Providers, nil
+	}
+	if single.empty() {
+		return nil, nil
+	}
+
+	if single.ID == "" {
+		single.ID = DefaultOIDCProviderID
+	}
+	return []OIDCProvider{single}, nil
+}
 
 type ClerkAuth struct {
 	SecretKey     string `env:"SECRET_KEY" yaml:"secret_key"`

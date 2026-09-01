@@ -14,11 +14,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/config"
 	"github.com/lunogram/platform/internal/http/auth"
+	"github.com/lunogram/platform/internal/jwks"
+	"github.com/lunogram/platform/internal/sso"
 	"github.com/lunogram/platform/internal/store/management"
 	"go.uber.org/zap"
 )
@@ -42,8 +45,29 @@ type Provisioner interface {
 	Provision(ctx context.Context, identity *auth.VerifiedIdentity) (uuid.UUID, error)
 }
 
+// Deps are the collaborators a verifier may need beyond the configuration and
+// the management store. They are supplied by the caller rather than built here
+// because the deployment decides the SSRF policy on outbound calls and owns the
+// Redis connection and the JWKS cache the rest of the process shares.
+type Deps struct {
+	Mgmt        *management.State
+	Logger      *zap.Logger
+	Provisioner Provisioner
+	// Keys, Flows and HTTPClient are only read by the oidc driver. A deployment
+	// that does not configure it may leave them nil.
+	Keys       *jwks.Cache
+	Flows      *sso.FlowStore
+	Discovery  *sso.Discovery
+	HTTPClient *http.Client
+	// BaseURL is the deployment's public URL, which the OpenID Connect
+	// redirect_uri is derived from.
+	BaseURL string
+}
+
 // New builds a verifier for one driver.
-func New(driver string, cfg config.Auth, mgmt *management.State, logger *zap.Logger, provisioner Provisioner) (auth.Verifier, error) {
+func New(driver string, cfg config.Auth, deps Deps) (auth.Verifier, error) {
+	mgmt, logger := deps.Mgmt, deps.Logger
+
 	switch driver {
 	case BasicDriver:
 		return NewBasic(mgmt, logger), nil
@@ -56,38 +80,60 @@ func New(driver string, cfg config.Auth, mgmt *management.State, logger *zap.Log
 		if keyFunc == nil {
 			return nil, fmt.Errorf("%w: the clerk auth driver verifies sessions against the provider's JWKS; set AUTH_JWKS_URL to your Clerk instance's JWKS endpoint (https://<your-instance>/.well-known/jwks.json)", ErrMissingJWKS)
 		}
-		return NewClerk(cfg.Clerk, mgmt, logger, keyFunc, provisioner)
+		return NewClerk(cfg.Clerk, mgmt, logger, keyFunc, deps.Provisioner)
 	default:
 		return nil, fmt.Errorf("%w: %q", ErrUnknownDriver, driver)
 	}
 }
 
 // Build constructs every verifier the deployment has configured, keyed by
-// driver.
+// driver, and separately the OpenID Connect providers.
+//
+// The providers come back on their own because they are not verifiers in the
+// same sense: a federated credential arrives as a browser navigation naming a
+// provider, not as something to prove on the request in hand. Keeping them out
+// of the map is also what makes the generic login callback answer 404 for
+// `oidc` without a special case asking it to.
 //
 // Several drivers may be enabled at once -- an organization migrating from a
 // shared basic credential to per-admin passwords needs both live at the same
 // time -- so this returns a set rather than the single verifier the platform
 // used to allow. Each one lands on its own callback and all of them are offered
 // by GET /api/auth/methods.
-func Build(cfg config.Auth, mgmt *management.State, logger *zap.Logger, provisioner Provisioner) (map[string]auth.Verifier, error) {
+func Build(cfg config.Auth, deps Deps) (map[string]auth.Verifier, *OIDCSet, error) {
 	built := make(map[string]auth.Verifier, len(cfg.Drivers))
+	var federated *OIDCSet
+	seen := make(map[string]bool, len(cfg.Drivers))
 
 	for _, driver := range cfg.Drivers {
 		driver = strings.ToLower(strings.TrimSpace(driver))
-		if driver == "" {
+		if driver == "" || seen[driver] {
 			continue
 		}
-		if _, duplicate := built[driver]; duplicate {
+		seen[driver] = true
+
+		if driver == OIDCDriver {
+			set, err := NewOIDCSet(cfg.OIDC, OIDCOptions{
+				Flows:      deps.Flows,
+				Discovery:  deps.Discovery,
+				Keys:       deps.Keys,
+				BaseURL:    deps.BaseURL,
+				HTTPClient: deps.HTTPClient,
+				Logger:     deps.Logger.Named("oidc"),
+			})
+			if err != nil {
+				return nil, nil, err
+			}
+			federated = set
 			continue
 		}
 
-		verifier, err := New(driver, cfg, mgmt, logger, provisioner)
+		verifier, err := New(driver, cfg, deps)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		built[driver] = verifier
 	}
 
-	return built, nil
+	return built, federated, nil
 }

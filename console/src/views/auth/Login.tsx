@@ -31,7 +31,19 @@ interface LoginFormValues {
     password: string
 }
 
-const SUPPORTED_DRIVERS: AuthDriver[] = [AUTH_DRIVERS.BASIC, AUTH_DRIVERS.CLERK]
+// The callback bounces a failed federated login back here with a coarse reason.
+// It is deliberately coarse: enough to say something true, never enough to
+// describe the deployment's identity provider to a stranger.
+const SSO_ERRORS: Record<string, string> = {
+    expired: "sso_error_expired",
+    denied: "sso_error_denied",
+    domain: "sso_error_domain",
+    email: "sso_error_email",
+    exchange: "sso_error_failed",
+    failed: "sso_error_failed",
+}
+
+const SUPPORTED_DRIVERS: AuthDriver[] = [AUTH_DRIVERS.BASIC, AUTH_DRIVERS.CLERK, AUTH_DRIVERS.OIDC]
 
 export default function Login() {
     const { t } = useTranslation()
@@ -40,6 +52,7 @@ export default function Login() {
     const [selectedDriver, setSelectedDriver] = useState<AuthDriver>()
     const [error, setError] = useState<string>()
     const [isSubmitting, setIsSubmitting] = useState(false)
+    const [ssoProviders, setSsoProviders] = useState<Array<{ id: string; name: string }>>()
     const redirect = validateRedirect(searchParams.get("r"))
 
     const form = useForm<LoginFormValues>({
@@ -72,6 +85,13 @@ export default function Login() {
     }
 
     useEffect(() => {
+        const failure = searchParams.get("sso_error")
+        if (failure) {
+            setError(t(SSO_ERRORS[failure] ?? "sso_error_failed"))
+        }
+    }, [searchParams, t])
+
+    useEffect(() => {
         api.auth
             .methods()
             .then((methods) => {
@@ -79,15 +99,38 @@ export default function Login() {
                     SUPPORTED_DRIVERS.includes(driver),
                 )
                 setDrivers(supportedDrivers)
+                // Selected directly rather than through handleSelectDriver,
+                // which clears the error. On a deployment offering only single
+                // sign-on this runs right after a failed callback set one, and
+                // clearing it would leave the person looking at the button they
+                // just came back from with no explanation.
                 if (supportedDrivers.length === 1) {
-                    handleSelectDriver(supportedDrivers[0])
+                    setSelectedDriver(supportedDrivers[0])
                 }
             })
             .catch((err) => {
                 console.error("Failed to fetch auth methods:", err)
                 setError(t("login_methods_error"))
             })
-    }, [handleSelectDriver, t])
+    }, [t])
+
+    // Fetched only once the deployment says it offers the driver, so a
+    // deployment without single sign-on makes no call that would 404.
+    useEffect(() => {
+        if (!drivers?.includes(AUTH_DRIVERS.OIDC)) return
+
+        api.auth
+            .ssoProviders()
+            .then(setSsoProviders)
+            .catch((err) => {
+                console.error("Failed to fetch sso providers:", err)
+                // Leaving this undefined would spin the loader forever behind
+                // the error message. There is nothing to offer, so say so by
+                // having nothing to render.
+                setSsoProviders([])
+                setError(t("sso_error_failed"))
+            })
+    }, [drivers, t])
 
     // Loading state
     if (!drivers || drivers.length === 0) {
@@ -122,11 +165,20 @@ export default function Login() {
 
     const isCredentialDriver = selectedDriver === AUTH_DRIVERS.BASIC
     const offersAccounts = isCredentialDriver
+    const isSsoDriver = selectedDriver === AUTH_DRIVERS.OIDC
 
     return (
         <AuthCard
             title={t("welcome")}
-            description={selectedDriver ? t("login_basic_instructions") : t("login_select_method")}
+            description={
+                selectedDriver
+                    ? isSsoDriver
+                        ? ssoProviders && ssoProviders.length > 1
+                            ? t("sso_choose_provider")
+                            : t("sso_instructions")
+                        : t("login_basic_instructions")
+                    : t("login_select_method")
+            }
             footer={
                 offersAccounts ? (
                     <Link to="/register" className="underline underline-offset-4">
@@ -154,6 +206,44 @@ export default function Login() {
                             {t(`auth_driver_${driver}`)}
                         </Button>
                     ))}
+                </div>
+            )}
+
+            {isSsoDriver && (
+                <div className="space-y-4">
+                    {!ssoProviders && (
+                        <div className="flex justify-center py-4">
+                            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                        </div>
+                    )}
+
+                    {ssoProviders?.map((provider) => (
+                        <Button
+                            key={provider.id}
+                            type="button"
+                            className="w-full"
+                            disabled={isSubmitting}
+                            onClick={() => {
+                                setIsSubmitting(true)
+                                api.auth.ssoStart(provider.id, redirect)
+                            }}
+                        >
+                            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            {ssoProviders.length === 1 ? t("sso_continue") : provider.name}
+                        </Button>
+                    ))}
+
+                    {drivers.length > 1 && (
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            className="w-full"
+                            onClick={() => setSelectedDriver(undefined)}
+                        >
+                            <ArrowLeft className="mr-2 h-4 w-4" />
+                            {t("back")}
+                        </Button>
+                    )}
                 </div>
             )}
 

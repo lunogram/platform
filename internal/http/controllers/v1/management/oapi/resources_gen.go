@@ -1579,6 +1579,15 @@ type Locale struct {
 	UpdatedAt time.Time          `json:"updated_at"`
 }
 
+// OIDCProvider defines model for OIDCProvider.
+type OIDCProvider struct {
+	// Id Names the provider in its login URLs
+	Id string `json:"id"`
+
+	// Name What the login page calls it
+	Name string `json:"name"`
+}
+
 // Organization defines model for Organization.
 type Organization struct {
 	CreatedAt time.Time          `json:"created_at"`
@@ -2536,6 +2545,9 @@ type IncludeDeleted = bool
 // Limit defines model for Limit.
 type Limit = PaginationLimit
 
+// OIDCProviderID defines model for OIDCProviderID.
+type OIDCProviderID = string
+
 // Offset defines model for Offset.
 type Offset = PaginationOffset
 
@@ -3179,6 +3191,19 @@ type ListAdminsParams struct {
 
 // AuthCallbackParamsDriver defines parameters for AuthCallback.
 type AuthCallbackParamsDriver string
+
+// CompleteOIDCLoginParams defines parameters for CompleteOIDCLogin.
+type CompleteOIDCLoginParams struct {
+	Code  *string `form:"code,omitempty" json:"code,omitempty"`
+	State *string `form:"state,omitempty" json:"state,omitempty"`
+	Error *string `form:"error,omitempty" json:"error,omitempty"`
+}
+
+// StartOIDCLoginParams defines parameters for StartOIDCLogin.
+type StartOIDCLoginParams struct {
+	// R Where the console should land once the session exists. Reduced to a same-site path.
+	R *string `form:"r,omitempty" json:"r,omitempty"`
+}
 
 // AuthWebhookParamsDriver defines parameters for AuthWebhook.
 type AuthWebhookParamsDriver string
@@ -4090,6 +4115,15 @@ type ClientInterface interface {
 
 	// GetAuthMethods request
 	GetAuthMethods(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListOIDCProviders request
+	ListOIDCProviders(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CompleteOIDCLogin request
+	CompleteOIDCLogin(ctx context.Context, provider OIDCProviderID, params *CompleteOIDCLoginParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// StartOIDCLogin request
+	StartOIDCLogin(ctx context.Context, provider OIDCProviderID, params *StartOIDCLoginParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// RequestPasswordResetWithBody request with any body
 	RequestPasswordResetWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -6922,6 +6956,42 @@ func (c *Client) Logout(ctx context.Context, reqEditors ...RequestEditorFn) (*ht
 
 func (c *Client) GetAuthMethods(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetAuthMethodsRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListOIDCProviders(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListOIDCProvidersRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CompleteOIDCLogin(ctx context.Context, provider OIDCProviderID, params *CompleteOIDCLoginParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCompleteOIDCLoginRequest(c.Server, provider, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) StartOIDCLogin(ctx context.Context, provider OIDCProviderID, params *StartOIDCLoginParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStartOIDCLoginRequest(c.Server, provider, params)
 	if err != nil {
 		return nil, err
 	}
@@ -16701,6 +16771,179 @@ func NewGetAuthMethodsRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewListOIDCProvidersRequest generates requests for ListOIDCProviders
+func NewListOIDCProvidersRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/auth/oidc/providers")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCompleteOIDCLoginRequest generates requests for CompleteOIDCLogin
+func NewCompleteOIDCLoginRequest(server string, provider OIDCProviderID, params *CompleteOIDCLoginParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "provider", provider, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/auth/oidc/%s/callback", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Code != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "code", *params.Code, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.State != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "state", *params.State, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Error != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "error", *params.Error, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewStartOIDCLoginRequest generates requests for StartOIDCLogin
+func NewStartOIDCLoginRequest(server string, provider OIDCProviderID, params *StartOIDCLoginParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "provider", provider, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/auth/oidc/%s/start", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.R != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "r", *params.R, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewRequestPasswordResetRequest calls the generic RequestPasswordReset builder with application/json body
 func NewRequestPasswordResetRequest(server string, body RequestPasswordResetJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -17671,6 +17914,15 @@ type ClientWithResponsesInterface interface {
 
 	// GetAuthMethodsWithResponse request
 	GetAuthMethodsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetAuthMethodsResponse, error)
+
+	// ListOIDCProvidersWithResponse request
+	ListOIDCProvidersWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListOIDCProvidersResponse, error)
+
+	// CompleteOIDCLoginWithResponse request
+	CompleteOIDCLoginWithResponse(ctx context.Context, provider OIDCProviderID, params *CompleteOIDCLoginParams, reqEditors ...RequestEditorFn) (*CompleteOIDCLoginResponse, error)
+
+	// StartOIDCLoginWithResponse request
+	StartOIDCLoginWithResponse(ctx context.Context, provider OIDCProviderID, params *StartOIDCLoginParams, reqEditors ...RequestEditorFn) (*StartOIDCLoginResponse, error)
 
 	// RequestPasswordResetWithBodyWithResponse request with any body
 	RequestPasswordResetWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RequestPasswordResetResponse, error)
@@ -23242,6 +23494,97 @@ func (r GetAuthMethodsResponse) ContentType() string {
 	return ""
 }
 
+type ListOIDCProvidersResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]OIDCProvider
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListOIDCProvidersResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListOIDCProvidersResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListOIDCProvidersResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CompleteOIDCLoginResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CompleteOIDCLoginResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CompleteOIDCLoginResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CompleteOIDCLoginResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type StartOIDCLoginResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r StartOIDCLoginResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r StartOIDCLoginResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r StartOIDCLoginResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type RequestPasswordResetResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -25535,6 +25878,33 @@ func (c *ClientWithResponses) GetAuthMethodsWithResponse(ctx context.Context, re
 		return nil, err
 	}
 	return ParseGetAuthMethodsResponse(rsp)
+}
+
+// ListOIDCProvidersWithResponse request returning *ListOIDCProvidersResponse
+func (c *ClientWithResponses) ListOIDCProvidersWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListOIDCProvidersResponse, error) {
+	rsp, err := c.ListOIDCProviders(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListOIDCProvidersResponse(rsp)
+}
+
+// CompleteOIDCLoginWithResponse request returning *CompleteOIDCLoginResponse
+func (c *ClientWithResponses) CompleteOIDCLoginWithResponse(ctx context.Context, provider OIDCProviderID, params *CompleteOIDCLoginParams, reqEditors ...RequestEditorFn) (*CompleteOIDCLoginResponse, error) {
+	rsp, err := c.CompleteOIDCLogin(ctx, provider, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCompleteOIDCLoginResponse(rsp)
+}
+
+// StartOIDCLoginWithResponse request returning *StartOIDCLoginResponse
+func (c *ClientWithResponses) StartOIDCLoginWithResponse(ctx context.Context, provider OIDCProviderID, params *StartOIDCLoginParams, reqEditors ...RequestEditorFn) (*StartOIDCLoginResponse, error) {
+	rsp, err := c.StartOIDCLogin(ctx, provider, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStartOIDCLoginResponse(rsp)
 }
 
 // RequestPasswordResetWithBodyWithResponse request with arbitrary body returning *RequestPasswordResetResponse
@@ -31246,6 +31616,91 @@ func ParseGetAuthMethodsResponse(rsp *http.Response) (*GetAuthMethodsResponse, e
 	return response, nil
 }
 
+// ParseListOIDCProvidersResponse parses an HTTP response from a ListOIDCProvidersWithResponse call
+func ParseListOIDCProvidersResponse(rsp *http.Response) (*ListOIDCProvidersResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListOIDCProvidersResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []OIDCProvider
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCompleteOIDCLoginResponse parses an HTTP response from a CompleteOIDCLoginWithResponse call
+func ParseCompleteOIDCLoginResponse(rsp *http.Response) (*CompleteOIDCLoginResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CompleteOIDCLoginResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseStartOIDCLoginResponse parses an HTTP response from a StartOIDCLoginWithResponse call
+func ParseStartOIDCLoginResponse(rsp *http.Response) (*StartOIDCLoginResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &StartOIDCLoginResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseRequestPasswordResetResponse parses an HTTP response from a RequestPasswordResetWithResponse call
 func ParseRequestPasswordResetResponse(rsp *http.Response) (*RequestPasswordResetResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -32013,6 +32468,15 @@ type ServerInterface interface {
 	// Get available auth methods
 	// (GET /api/auth/methods)
 	GetAuthMethods(w http.ResponseWriter, r *http.Request)
+	// List the deployment's single sign-on providers
+	// (GET /api/auth/oidc/providers)
+	ListOIDCProviders(w http.ResponseWriter, r *http.Request)
+	// Complete a single sign-on login
+	// (GET /api/auth/oidc/{provider}/callback)
+	CompleteOIDCLogin(w http.ResponseWriter, r *http.Request, provider OIDCProviderID, params CompleteOIDCLoginParams)
+	// Begin a single sign-on login
+	// (GET /api/auth/oidc/{provider}/start)
+	StartOIDCLogin(w http.ResponseWriter, r *http.Request, provider OIDCProviderID, params StartOIDCLoginParams)
 	// Request a password reset
 	// (POST /api/auth/password/reset)
 	RequestPasswordReset(w http.ResponseWriter, r *http.Request)
@@ -33108,6 +33572,24 @@ func (_ Unimplemented) Logout(w http.ResponseWriter, r *http.Request) {
 // Get available auth methods
 // (GET /api/auth/methods)
 func (_ Unimplemented) GetAuthMethods(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// List the deployment's single sign-on providers
+// (GET /api/auth/oidc/providers)
+func (_ Unimplemented) ListOIDCProviders(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Complete a single sign-on login
+// (GET /api/auth/oidc/{provider}/callback)
+func (_ Unimplemented) CompleteOIDCLogin(w http.ResponseWriter, r *http.Request, provider OIDCProviderID, params CompleteOIDCLoginParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Begin a single sign-on login
+// (GET /api/auth/oidc/{provider}/start)
+func (_ Unimplemented) StartOIDCLogin(w http.ResponseWriter, r *http.Request, provider OIDCProviderID, params StartOIDCLoginParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -41647,6 +42129,130 @@ func (siw *ServerInterfaceWrapper) GetAuthMethods(w http.ResponseWriter, r *http
 	handler.ServeHTTP(w, r)
 }
 
+// ListOIDCProviders operation middleware
+func (siw *ServerInterfaceWrapper) ListOIDCProviders(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListOIDCProviders(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CompleteOIDCLogin operation middleware
+func (siw *ServerInterfaceWrapper) CompleteOIDCLogin(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "provider" -------------
+	var provider OIDCProviderID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "provider", chi.URLParam(r, "provider"), &provider, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "provider", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CompleteOIDCLoginParams
+
+	// ------------- Optional query parameter "code" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "code", r.URL.Query(), &params.Code, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "code"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "code", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "state" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "state", r.URL.Query(), &params.State, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "state"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "state", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "error" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "error", r.URL.Query(), &params.Error, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "error"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "error", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CompleteOIDCLogin(w, r, provider, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// StartOIDCLogin operation middleware
+func (siw *ServerInterfaceWrapper) StartOIDCLogin(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "provider" -------------
+	var provider OIDCProviderID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "provider", chi.URLParam(r, "provider"), &provider, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "provider", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params StartOIDCLoginParams
+
+	// ------------- Optional query parameter "r" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "r", r.URL.Query(), &params.R, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "r"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "r", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.StartOIDCLogin(w, r, provider, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // RequestPasswordReset operation middleware
 func (siw *ServerInterfaceWrapper) RequestPasswordReset(w http.ResponseWriter, r *http.Request) {
 
@@ -42447,6 +43053,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/auth/methods", wrapper.GetAuthMethods)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/auth/oidc/providers", wrapper.ListOIDCProviders)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/auth/oidc/{provider}/callback", wrapper.CompleteOIDCLogin)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/auth/oidc/{provider}/start", wrapper.StartOIDCLogin)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/auth/password/reset", wrapper.RequestPasswordReset)

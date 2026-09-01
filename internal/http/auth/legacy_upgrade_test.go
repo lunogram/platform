@@ -326,10 +326,10 @@ func TestUpgradeLegacySessionCreatesOneSessionForAFirstBurst(t *testing.T) {
 	assert.Equal(t, 1, countSessions(t, env), "a first burst must open exactly one session")
 }
 
-// TestUpgradeLegacySessionSkipsTheLoginCallback pins that an explicit login
-// mints its own session rather than being upgraded into an existing one, which
-// would leave two rows for a single sign-in.
-func TestUpgradeLegacySessionSkipsTheLoginCallback(t *testing.T) {
+// TestUpgradeLegacySessionSkipsALogin pins that an explicit login mints its own
+// session rather than being upgraded into an existing one, which would leave two
+// rows for a single sign-in.
+func TestUpgradeLegacySessionSkipsALogin(t *testing.T) {
 	t.Parallel()
 
 	env := newExchangeEnv(t)
@@ -342,15 +342,30 @@ func TestUpgradeLegacySessionSkipsTheLoginCallback(t *testing.T) {
 		http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) }),
 	)
 
-	w := httptest.NewRecorder()
-	r := httptest.NewRequest(http.MethodPost, "/api/auth/login/clerk/callback", nil)
-	r.AddCookie(&http.Cookie{Name: LegacySessionCookie, Value: "legacy-cookie-value"})
+	for _, path := range []string{
+		"/api/auth/login/clerk/callback",
+		// Both halves of a federated login. The callback is where a second
+		// session would be minted; /start is where the browser is sent away
+		// carrying the legacy cookie, and upgrading there signs the person in
+		// before they have authenticated with anything.
+		"/api/auth/oidc/default/start",
+		"/api/auth/oidc/default/callback",
+		// The login view's bootstrap. Upgrading here hands the browser a
+		// session before it has chosen a driver at all.
+		"/api/auth/methods",
+	} {
+		t.Run(path, func(t *testing.T) {
+			w := httptest.NewRecorder()
+			r := httptest.NewRequest(http.MethodPost, path, nil)
+			r.AddCookie(&http.Cookie{Name: LegacySessionCookie, Value: "legacy-cookie-value"})
 
-	handler.ServeHTTP(w, r)
+			handler.ServeHTTP(w, r)
 
-	assert.Zero(t, verifier.callCount(), "the login callback does its own verification")
-	assert.Empty(t, w.Result().Cookies())
-	assert.Zero(t, countSessions(t, env))
+			assert.Zero(t, verifier.callCount(), "a login does its own verification")
+			assert.Empty(t, w.Result().Cookies())
+			assert.Zero(t, countSessions(t, env))
+		})
+	}
 }
 
 // TestUpgradeLegacySessionNeverReusesAnImpersonatedSession pins that an

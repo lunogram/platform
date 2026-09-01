@@ -382,6 +382,97 @@ func ClearConsoleSessionCookies(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// OIDC binding cookie names. The `__Host-` prefixed one is used wherever the
+// browser will accept it, exactly as the session cookie is.
+const (
+	OIDCBindingCookieSecure   = "__Host-lunogram_oidc_binding"
+	OIDCBindingCookieInsecure = "lunogram_oidc_binding"
+)
+
+// SetOIDCBindingCookie ties an authorization request to the browser that
+// started it. The value's twin is held server-side with the flow, and the
+// callback refuses a response the two do not agree on.
+//
+// SameSite=Lax rather than Strict: the browser arrives back from the identity
+// provider by top-level navigation, which Lax allows and Strict does not, and
+// the cookie would then be missing from exactly the request that needs it.
+//
+// It is refreshed rather than replaced -- see [BrowserBinding] -- so that two
+// logins started in one browser do not invalidate each other.
+func SetOIDCBindingCookie(w http.ResponseWriter, r *http.Request, binding string, ttl time.Duration) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     oidcBindingCookieName(r),
+		Value:    binding,
+		Path:     "/",
+		Expires:  time.Now().Add(ttl),
+		HttpOnly: true,
+		Secure:   requestIsSecure(r),
+		SameSite: http.SameSiteLaxMode,
+	})
+}
+
+// ClearOIDCBindingCookie expires both names. It is NOT called when a login
+// completes: a browser may have more than one flow outstanding -- two tabs, or a
+// retry after a back button -- and they share one binding, so clearing it on the
+// first callback would make the others uncompletable. The cookie lapses with the
+// flows it belongs to instead.
+func ClearOIDCBindingCookie(w http.ResponseWriter, r *http.Request) {
+	for _, name := range []string{OIDCBindingCookieSecure, OIDCBindingCookieInsecure} {
+		http.SetCookie(w, &http.Cookie{
+			Name:     name,
+			Value:    "",
+			Path:     "/",
+			Expires:  time.Unix(0, 0),
+			MaxAge:   -1,
+			HttpOnly: true,
+			Secure:   requestIsSecure(r),
+			SameSite: http.SameSiteLaxMode,
+		})
+	}
+}
+
+// GetOIDCBinding returns the browser binding presented on a callback, or "".
+//
+// Only the name this request's scheme would have been given is read, and the
+// unprefixed one is deliberately NOT accepted as a fallback on a secure
+// request. `__Host-` is what makes the cookie unwritable by a sibling
+// subdomain; reading the unprefixed name too would let anything on
+// *.example.com plant a binding of its own choosing and hand the victim's
+// browser the attacker's flow, which is the whole thing the binding prevents.
+func GetOIDCBinding(r *http.Request) string {
+	cookie, err := r.Cookie(oidcBindingCookieName(r))
+	if err != nil || cookie.Value == "" {
+		return ""
+	}
+	return cookie.Value
+}
+
+// BrowserBinding returns the binding to record against a new flow: the one this
+// browser already carries, or a fresh one when it carries none.
+//
+// Reusing it is what lets a browser hold several flows at once. A value per
+// flow would mean the second /start overwrites the first, and the first
+// callback -- perfectly legitimate, from the same person, in the same browser --
+// would then be refused as coming from somewhere else.
+//
+// Sharing costs nothing the per-flow value was buying. The binding answers "is
+// this the browser that started the login", which is a property of the browser,
+// not of the flow; what makes a response unrepeatable is the state, which is
+// single-use server-side.
+func BrowserBinding(r *http.Request, mint func() (string, error)) (string, error) {
+	if existing := GetOIDCBinding(r); existing != "" {
+		return existing, nil
+	}
+	return mint()
+}
+
+func oidcBindingCookieName(r *http.Request) string {
+	if requestIsSecure(r) {
+		return OIDCBindingCookieSecure
+	}
+	return OIDCBindingCookieInsecure
+}
+
 // requestIsSecure reports whether the original client request reached us over
 // HTTPS. In the common deployment a reverse proxy terminates TLS and forwards
 // plaintext, so r.TLS is nil; we then trust X-Forwarded-Proto. Trusting that

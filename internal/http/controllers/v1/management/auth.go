@@ -30,7 +30,7 @@ import (
 // reads through. Building a separate one here would leave logout unable to
 // invalidate the shared session cache, so a revoked session would keep
 // authenticating on other replicas until the cache TTL elapsed.
-func NewAuthController(logger *zap.Logger, db *sqlx.DB, mgmt *management.State, cfg config.Node, engine *rbac.Engine, signer *auth.ConsoleSigner, limiter *ratelimit.Limiter, mail *mailer.Dispatcher, renderer *mailer.Renderer) (*AuthController, error) {
+func NewAuthController(logger *zap.Logger, db *sqlx.DB, mgmt *management.State, cfg config.Node, engine *rbac.Engine, signer *auth.ConsoleSigner, limiter *ratelimit.Limiter, mail *mailer.Dispatcher, renderer *mailer.Renderer, federated verifiers.Deps) (*AuthController, error) {
 	controller := &AuthController{
 		logger:   logger,
 		mgmt:     mgmt,
@@ -41,17 +41,24 @@ func NewAuthController(logger *zap.Logger, db *sqlx.DB, mgmt *management.State, 
 
 	controller.exchanger = auth.NewExchanger(db, mgmt, engine, signer, nil, logger, cfg.Auth.LegacyIdentityAdoption)
 
-	built, err := verifiers.Build(cfg.Auth, mgmt, logger, controller.exchanger)
+	federated.Mgmt = mgmt
+	federated.Logger = logger
+	federated.Provisioner = controller.exchanger
+
+	built, providers, err := verifiers.Build(cfg.Auth, federated)
 	if err != nil {
 		return nil, err
 	}
 	controller.verifiers = built
+	controller.oidc = providers
 
 	// Kept in configuration order rather than map order so the console offers
 	// the drivers in the order the operator listed them, deterministically.
 	for _, driver := range cfg.Auth.Drivers {
 		driver = strings.ToLower(strings.TrimSpace(driver))
-		if _, ok := controller.verifiers[driver]; ok && !slices.Contains(controller.drivers, driver) {
+		configured := controller.verifiers[driver] != nil ||
+			(driver == verifiers.OIDCDriver && controller.oidc != nil)
+		if configured && !slices.Contains(controller.drivers, driver) {
 			controller.drivers = append(controller.drivers, driver)
 		}
 	}
@@ -87,6 +94,12 @@ type AuthController struct {
 	drivers   []string
 	exchanger *auth.Exchanger
 	throttle  *throttle
+	// oidc holds the deployment's OpenID Connect providers. They are not in the
+	// verifier map: a federated credential arrives as a browser navigation
+	// naming a provider, which the generic [auth.Verifier] contract has no room
+	// for. Nil when the driver is not configured, and every OpenID Connect
+	// endpoint answers 404 then.
+	oidc *verifiers.OIDCSet
 
 	password passwordAuth
 }
