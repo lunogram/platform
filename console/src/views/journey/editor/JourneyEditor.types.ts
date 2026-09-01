@@ -22,7 +22,6 @@ export interface JourneyNodeData extends Record<string, unknown> {
     height?: number
     skipDelay?: (stepId: string) => Promise<void>
     openUserModal?: (nodeId: string) => void
-    setViewUsersStep?: (step: { stepId: UUID; stepType: string; stepName?: string }) => void
 }
 
 export type JourneyNode = Node<JourneyNodeData, "step">

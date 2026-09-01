@@ -7,8 +7,6 @@ import { useResolver } from "@/hooks"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { Button } from "@/components/ui/button"
 import { useTranslation } from "react-i18next"
-import { JourneyStepUsers } from "../JourneyStepUsers"
-import type { UUID } from "@/types/common"
 import { UserSelectionModal } from "../JourneyUserSelectionModal"
 
 import { stepsToNodes } from "./JourneyEditor.utils"
@@ -33,11 +31,6 @@ export default function JourneyEditor() {
     const [routerSearchParams] = useRouterSearchParams()
     const entranceId = routerSearchParams.get("entrance")
     const replayUserId = routerSearchParams.get("user")
-    const [viewUsersStep, setViewUsersStep] = useState<null | {
-        stepId: UUID
-        stepType: string
-        stepName: string
-    }>(null)
     const [userModalEntranceId, setUserModalEntranceId] = useState<string | null>(null)
     const [sidebarTab, setSidebarTab] = useState<"components" | "actions">("components")
     const isMobile = useIsMobile()
@@ -122,23 +115,12 @@ export default function JourneyEditor() {
 
     const openUserModal = useCallback((nodeId: string) => setUserModalEntranceId(nodeId), [])
 
-    const openViewUsersStep = useCallback(
-        (step: { stepId: UUID; stepType: string; stepName?: string }) =>
-            setViewUsersStep({
-                stepId: step.stepId,
-                stepType: step.stepType,
-                stepName: step.stepName ?? "",
-            }),
-        [],
-    )
-
     const nodeActions = useMemo(
         () => ({
-            setViewUsersStep: openViewUsersStep,
             skipDelay: skipDelayForActiveUser,
             openUserModal,
         }),
-        [openViewUsersStep, skipDelayForActiveUser, openUserModal],
+        [skipDelayForActiveUser, openUserModal],
     )
 
     useEffect(() => {
@@ -293,8 +275,6 @@ export default function JourneyEditor() {
                                     sidebar={{
                                         tab: sidebarTab,
                                         onTabChange: setSidebarTab,
-                                        onViewUsers: (stepId, stepType, stepName) =>
-                                            setViewUsersStep({ stepId, stepType, stepName }),
                                         onSaveDraft: handleSaveDraft,
                                     }}
                                     runtime={{
@@ -337,18 +317,6 @@ export default function JourneyEditor() {
                     onUserEnteredNode(entranceId ?? "")
                 }}
             />
-
-            {!!viewUsersStep && (
-                <JourneyStepUsers
-                    open={!!viewUsersStep}
-                    onClose={(open) => {
-                        if (!open) setViewUsersStep(null)
-                    }}
-                    stepType={viewUsersStep.stepType}
-                    stepId={viewUsersStep.stepId}
-                    stepName={viewUsersStep.stepName}
-                />
-            )}
         </div>
     )
 }

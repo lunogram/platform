@@ -17,7 +17,6 @@ import type {
     EmailTemplate,
     Image,
     Journey,
-    JourneyEntranceDetail,
     JourneyStepMap,
     JourneyUserStep,
     List,
@@ -32,8 +31,6 @@ import type {
     AuthMethod,
     CreateAuthMethodParams,
     UpdateAuthMethodParams,
-    Resource,
-    RulePath,
     SearchParams,
     SearchResult,
     SessionRefresh,
@@ -43,11 +40,8 @@ import type {
     SubscriptionParams,
     SubjectOrganization,
     SubjectOrganizationCreateParams,
-    SubjectOrganizationMember,
-    SubjectOrganizationMemberParams,
     SubjectOrganizationUpdateParams,
     SubscriptionUpdateParams,
-    Tag,
     Template,
     TemplateCreateParams,
     TemplateUpdateParams,
@@ -430,23 +424,6 @@ const api = {
         },
     },
 
-    data: {
-        userPaths: {
-            search: async (projectId: UUID, params: SearchParams) =>
-                await client
-                    .get<
-                        SearchResult<RulePath>
-                    >(`${projectUrl(projectId)}/data/paths/users`, { params })
-                    .then((r) => r.data),
-            update: async (projectId: UUID, entityId: UUID, params: Partial<RulePath>) =>
-                await client
-                    .put<RulePath>(`${projectUrl(projectId)}/data/paths/users/${entityId}`, params)
-                    .then((r) => r.data),
-        },
-        rebuild: async (projectId: UUID) =>
-            await client.post(`${projectUrl(projectId)}/data/paths/sync`).then((r) => r.data),
-    },
-
     authMethods: createProjectEntityPath<
         AuthMethod,
         CreateAuthMethodParams,
@@ -546,31 +523,6 @@ const api = {
                         stepData,
                     )
                     .then((r) => r.data),
-            searchUsers: async (
-                projectId: UUID,
-                journeyId: UUID,
-                stepId: UUID,
-                params: SearchParams,
-            ) =>
-                await client
-                    .get<
-                        SearchResult<JourneyUserStep>
-                    >(`/admin/projects/${projectId}/journeys/${journeyId}/steps/${stepId}/users`, { params })
-                    .then((r) => r.data),
-        },
-        entrances: {
-            search: async (projectId: UUID, journeyId: UUID, params: SearchParams) =>
-                await client
-                    .get<
-                        SearchResult<JourneyUserStep>
-                    >(`/admin/projects/${projectId}/journeys/${journeyId}/entrances`, { params })
-                    .then((r) => r.data),
-            log: async (projectId: UUID, entranceId: UUID) =>
-                await client
-                    .get<JourneyEntranceDetail>(
-                        `${projectUrl(projectId)}/journeys/entrances/${entranceId}`,
-                    )
-                    .then((r) => r.data),
         },
         users: {
             getState: async (projectId: UUID, journeyId: UUID, userId: UUID, entranceId?: UUID) => {
@@ -585,34 +537,11 @@ const api = {
                 })
                 return response.data
             },
-            skipDelay: async (projectId: UUID, journeyId: UUID, userId: UUID, stepId: UUID) =>
-                await client
-                    .post<JourneyEntranceDetail>(
-                        `${projectUrl(projectId)}/journeys/${journeyId}/users/${userId}/steps/${stepId}/resume`,
-                    )
-                    .then((r) => r.data),
-            removeFromJourney: async (
-                projectId: UUID,
-                journeyId: UUID,
-                userId: UUID,
-                stepId: UUID,
-            ) =>
-                await client
-                    .delete<number>(
-                        `${projectUrl(projectId)}/journeys/${journeyId}/users/${userId}/step/${stepId}`,
-                    )
-                    .then((r) => r.data),
         },
     },
 
     users: {
         ...createProjectEntityPath<User>("subjects/users"),
-        lists: async (projectId: UUID, userId: UUID, params: SearchParams) =>
-            await client
-                .get<
-                    SearchResult<List>
-                >(`${projectUrl(projectId)}/subjects/users/${userId}/lists`, { params })
-                .then((r) => r.data),
         events: async (projectId: UUID, userId: UUID, params: SearchParams) =>
             await client
                 .get<
@@ -651,38 +580,11 @@ const api = {
         },
     },
 
-    organizations: {
-        ...createProjectEntityPath<
-            SubjectOrganization,
-            SubjectOrganizationCreateParams,
-            SubjectOrganizationUpdateParams
-        >("subjects/organizations"),
-        members: {
-            search: async (projectId: UUID, organizationId: UUID, params: SearchParams) =>
-                await client
-                    .get<
-                        SearchResult<SubjectOrganizationMember>
-                    >(`${projectUrl(projectId)}/subjects/organizations/${organizationId}/members`, { params })
-                    .then((r) => r.data),
-            add: async (
-                projectId: UUID,
-                organizationId: UUID,
-                params: SubjectOrganizationMemberParams,
-            ) =>
-                await client
-                    .post(
-                        `${projectUrl(projectId)}/subjects/organizations/${organizationId}/members`,
-                        params,
-                    )
-                    .then((r) => r.data),
-            remove: async (projectId: UUID, organizationId: UUID, userId: UUID) =>
-                await client
-                    .delete(
-                        `${projectUrl(projectId)}/subjects/organizations/${organizationId}/members/${userId}`,
-                    )
-                    .then((r) => r.data),
-        },
-    },
+    organizations: createProjectEntityPath<
+        SubjectOrganization,
+        SubjectOrganizationCreateParams,
+        SubjectOrganizationUpdateParams
+    >("subjects/organizations"),
 
     lists: {
         ...createProjectEntityPath<List, ListCreateParams, ListUpdateParams>("lists"),
@@ -706,10 +608,6 @@ const api = {
         duplicate: async (projectId: UUID, listId: UUID) =>
             await client
                 .post<List>(`${projectUrl(projectId)}/lists/${listId}/duplicate`)
-                .then((r) => r.data),
-        recount: async (projectId: UUID, listId: UUID) =>
-            await client
-                .post<List>(`${projectUrl(projectId)}/lists/${listId}/recount`)
                 .then((r) => r.data),
     },
 
@@ -751,35 +649,6 @@ const api = {
                     responseType: "blob",
                 })
                 .then((r) => r.data),
-    },
-
-    resources: {
-        all: async (projectId: UUID, type: string = "font") =>
-            await client
-                .get<Resource[]>(`${projectUrl(projectId)}/resources?type=${type}`)
-                .then((r) => r.data),
-        create: async (projectId: UUID, params: Partial<Resource>) =>
-            await client
-                .post<Resource>(`${projectUrl(projectId)}/resources`, params)
-                .then((r) => r.data),
-        delete: async (projectId: UUID, id: UUID) =>
-            await client
-                .delete<number>(`${projectUrl(projectId)}/resources/${id}`)
-                .then((r) => r.data),
-    },
-
-    tags: {
-        ...createProjectEntityPath<Tag>("tags"),
-        used: async (projectId: UUID, entity: string) =>
-            await client
-                .get<Tag[]>(`${projectUrl(projectId)}/tags/used/${entity}`)
-                .then((r) => r.data),
-        assign: async (projectId: UUID, entity: string, entityId: UUID, tags: string[]) =>
-            await client
-                .put<string[]>(`${projectUrl(projectId)}/tags/assign`, { entity, entityId, tags })
-                .then((r) => r.data),
-        all: async (projectId: UUID) =>
-            await client.get<Tag[]>(`${projectUrl(projectId)}/tags`).then((r) => r.data),
     },
 
     locales: {
