@@ -11,6 +11,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.32.2
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.2
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.92.1
+	github.com/beevik/etree v1.6.0
 	github.com/caarlos0/env/v10 v10.0.0
 	github.com/clerk/clerk-sdk-go/v2 v2.5.1
 	github.com/cloudproud/graceful v1.1.2
@@ -39,7 +40,7 @@ require (
 	github.com/osteele/liquid v1.7.0
 	github.com/prometheus/client_golang v1.23.2
 	github.com/redis/go-redis/v9 v9.17.1
-	github.com/russellhaering/goxmldsig v1.4.0
+	github.com/russellhaering/goxmldsig v1.6.0
 	github.com/stretchr/testify v1.11.1
 	github.com/svix/svix-webhooks v1.84.1
 	github.com/testcontainers/testcontainers-go v0.40.0
@@ -64,7 +65,6 @@ require sigs.k8s.io/yaml v1.6.0 // indirect
 require (
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.22.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.12.0 // indirect
-	github.com/beevik/etree v1.5.0 // indirect
 	github.com/go-jose/go-jose/v4 v4.1.4 // indirect
 	github.com/jonboulle/clockwork v0.5.0 // indirect
 )
