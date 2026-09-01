@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"time"
 
@@ -57,9 +56,7 @@ type Flow struct {
 // answered /start and finishes on whichever answers /callback, and those are not
 // the same process.
 type FlowStore struct {
-	client *goredis.Client
-	prefix string
-	ttl    time.Duration
+	single singleUse
 }
 
 // NewFlowStore returns nil when there is no Redis client, because a deployment
@@ -70,41 +67,20 @@ func NewFlowStore(client *goredis.Client, prefix string) *FlowStore {
 	if client == nil {
 		return nil
 	}
-	return &FlowStore{client: client, prefix: prefix + "auth:oidc:flow:", ttl: FlowTTL}
+	return &FlowStore{single: singleUse{client: client, prefix: prefix + "auth:oidc:flow:", ttl: FlowTTL}}
 }
 
 // Save records a flow under its state for the TTL.
 func (s *FlowStore) Save(ctx context.Context, state string, flow Flow) error {
-	encoded, err := json.Marshal(flow)
-	if err != nil {
-		return err
-	}
-	return s.client.Set(ctx, s.prefix+state, encoded, s.ttl).Err()
+	return s.single.save(ctx, state, flow)
 }
 
 // Consume reads a flow and deletes it in the same round trip, so a state can be
-// redeemed exactly once.
-//
-// Single use is the whole reason this is GETDEL rather than GET followed by DEL:
-// a replayed authorization response -- from a browser back button, a leaked
-// referrer, or an attacker who captured the callback URL -- must not be able to
-// open a second session.
+// redeemed exactly once. See [singleUse.consume].
 func (s *FlowStore) Consume(ctx context.Context, state string) (Flow, error) {
-	if state == "" {
-		return Flow{}, ErrFlowNotFound
-	}
-
-	encoded, err := s.client.GetDel(ctx, s.prefix+state).Bytes()
-	if errors.Is(err, goredis.Nil) {
-		return Flow{}, ErrFlowNotFound
-	}
-	if err != nil {
-		return Flow{}, err
-	}
-
 	var flow Flow
-	if err := json.Unmarshal(encoded, &flow); err != nil {
-		return Flow{}, ErrFlowNotFound
+	if err := s.single.consume(ctx, state, &flow); err != nil {
+		return Flow{}, err
 	}
 	return flow, nil
 }

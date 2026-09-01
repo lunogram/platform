@@ -63,6 +63,30 @@ services:
       AUTH_OIDC_EMAIL_VERIFIED_CLAIM: ${AUTH_OIDC_EMAIL_VERIFIED_CLAIM:-}
       AUTH_OIDC_GIVEN_NAME_CLAIM: ${AUTH_OIDC_GIVEN_NAME_CLAIM:-}
       AUTH_OIDC_FAMILY_NAME_CLAIM: ${AUTH_OIDC_FAMILY_NAME_CLAIM:-}
+      # Add saml to AUTH_DRIVER above for a directory that does not speak
+      # OpenID Connect. The assertion consumer service URL to register is
+      # PUBLIC_URL + /api/auth/saml/default/acs, and the metadata most
+      # providers will read it from is PUBLIC_URL + /api/auth/saml/default/metadata.
+      # PUBLIC_URL has to be https for this driver -- see the README.
+      #
+      # Set the metadata URL, or the sign-on URL and certificate, not both.
+      AUTH_SAML_ENTITY_ID: ${AUTH_SAML_ENTITY_ID:-}
+      AUTH_SAML_METADATA_URL: ${AUTH_SAML_METADATA_URL:-}
+      AUTH_SAML_SSO_URL: ${AUTH_SAML_SSO_URL:-}
+      AUTH_SAML_CERTIFICATE: ${AUTH_SAML_CERTIFICATE:-}
+      # This deployment's own key pair, needed only by a provider that wants
+      # signed requests or encrypts its assertions. Both or neither.
+      AUTH_SAML_SP_ENTITY_ID: ${AUTH_SAML_SP_ENTITY_ID:-}
+      AUTH_SAML_SP_CERTIFICATE: ${AUTH_SAML_SP_CERTIFICATE:-}
+      AUTH_SAML_SP_PRIVATE_KEY: ${AUTH_SAML_SP_PRIVATE_KEY:-}
+      # The rest have defaults, forwarded for the same reason the OpenID
+      # Connect ones are: a directory whose attributes are named unusually
+      # cannot be configured from a compose file otherwise.
+      AUTH_SAML_ALLOWED_DOMAINS: ${AUTH_SAML_ALLOWED_DOMAINS:-}
+      AUTH_SAML_EMAIL_ATTRIBUTE: ${AUTH_SAML_EMAIL_ATTRIBUTE:-}
+      AUTH_SAML_GIVEN_NAME_ATTRIBUTE: ${AUTH_SAML_GIVEN_NAME_ATTRIBUTE:-}
+      AUTH_SAML_FAMILY_NAME_ATTRIBUTE: ${AUTH_SAML_FAMILY_NAME_ATTRIBUTE:-}
+      AUTH_SAML_NAME_ID_FORMAT: ${AUTH_SAML_NAME_ID_FORMAT:-}
       AUTH_CLERK_SECRET_KEY: ${AUTH_CLERK_SECRET_KEY:-}
       AUTH_CLERK_WEBHOOK_SECRET: ${AUTH_CLERK_WEBHOOK_SECRET:-}
       AUTH_JWKS_URL: ${AUTH_JWKS_URL:-}

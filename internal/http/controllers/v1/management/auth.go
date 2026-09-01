@@ -50,14 +50,15 @@ func NewAuthController(logger *zap.Logger, db *sqlx.DB, mgmt *management.State, 
 		return nil, err
 	}
 	controller.verifiers = built
-	controller.oidc = providers
+	controller.federated = providers
 
 	// Kept in configuration order rather than map order so the console offers
 	// the drivers in the order the operator listed them, deterministically.
 	for _, driver := range cfg.Auth.Drivers {
 		driver = strings.ToLower(strings.TrimSpace(driver))
 		configured := controller.verifiers[driver] != nil ||
-			(driver == verifiers.OIDCDriver && controller.oidc != nil)
+			(driver == verifiers.OIDCDriver && controller.federated.OIDC != nil) ||
+			(driver == verifiers.SAMLDriver && controller.federated.SAML != nil)
 		if configured && !slices.Contains(controller.drivers, driver) {
 			controller.drivers = append(controller.drivers, driver)
 		}
@@ -94,12 +95,12 @@ type AuthController struct {
 	drivers   []string
 	exchanger *auth.Exchanger
 	throttle  *throttle
-	// oidc holds the deployment's OpenID Connect providers. They are not in the
-	// verifier map: a federated credential arrives as a browser navigation
-	// naming a provider, which the generic [auth.Verifier] contract has no room
-	// for. Nil when the driver is not configured, and every OpenID Connect
-	// endpoint answers 404 then.
-	oidc *verifiers.OIDCSet
+	// federated holds the deployment's redirect-based providers, per protocol.
+	// They are not in the verifier map: such a credential arrives as a browser
+	// navigation naming a provider, which the generic [auth.Verifier] contract
+	// has no room for. A protocol's set is nil when its driver is not
+	// configured, and that protocol's endpoints answer 404 then.
+	federated *verifiers.Federated
 
 	password passwordAuth
 }

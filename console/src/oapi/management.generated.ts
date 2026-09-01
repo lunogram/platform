@@ -2750,6 +2750,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/saml/providers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the deployment's SAML providers
+         * @description The SAML providers the login page may offer, in the order the operator declared them. These are the deployment's own providers; there is no other tenant whose existence could leak, so this needs no credential.
+         */
+        get: operations["listSAMLProviders"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/saml/{provider}/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Begin a SAML login
+         * @description Sends the browser to the named identity provider, having stored the AuthnRequest ID server-side under a short lifetime and set a binding cookie that ties the request to this browser. Answers 302 when the provider takes the HTTP-Redirect binding, and 200 with a self-submitting form when it only takes HTTP-POST. The assertion consumer service URL handed to the provider derives from the deployment's public URL and the provider's id, and is never taken from a request parameter.
+         */
+        get: operations["startSAMLLogin"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/saml/{provider}/acs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Complete a SAML login
+         * @description The assertion consumer service. Redeems the RelayState, which is single-use and deleted as it is read and must have been issued for this provider; requires the binding cookie to match the one the login was started with; and proves the response against the provider's signing certificates, its entity id, the InResponseTo of the request this deployment issued, the destination, the audience and the assertion's own validity window. The assertion ID is recorded so the same assertion can never be accepted twice. Unsolicited (identity-provider-initiated) responses are refused. The browser is then redirected into the console, with or without a session.
+         */
+        post: operations["completeSAMLLogin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/saml/{provider}/metadata": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * This deployment's SAML service provider metadata
+         * @description The metadata an operator registers with their identity provider: this deployment's entity id, its assertion consumer service URL, and the public half of its signing certificate. It carries no secret.
+         */
+        get: operations["getSAMLMetadata"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -5615,6 +5695,12 @@ export interface components {
             /** @description What the login page calls it */
             name: string;
         };
+        SAMLProvider: {
+            /** @description Names the provider in its login URLs */
+            id: string;
+            /** @description What the login page calls it */
+            name: string;
+        };
     };
     responses: {
         /** @description Error response */
@@ -5792,6 +5878,8 @@ export interface components {
         IncludeDeleted: boolean;
         /** @description The single sign-on provider */
         OIDCProviderID: string;
+        /** @description The SAML single sign-on provider */
+        SAMLProviderID: string;
     };
     requestBodies: never;
     headers: never;
@@ -10953,6 +11041,114 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listSAMLProviders: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The configured providers */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SAMLProvider"][];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    startSAMLLogin: {
+        parameters: {
+            query?: {
+                /** @description Where the console should land once the session exists. Reduced to a same-site path. */
+                r?: string;
+            };
+            header?: never;
+            path: {
+                /** @description The SAML single sign-on provider */
+                provider: components["parameters"]["SAMLProviderID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A self-submitting form carrying the request over the HTTP-POST binding */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/html": string;
+                };
+            };
+            /** @description Redirect to the identity provider */
+            302: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    completeSAMLLogin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The SAML single sign-on provider */
+                provider: components["parameters"]["SAMLProviderID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/x-www-form-urlencoded": {
+                    SAMLResponse?: string;
+                    RelayState?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Redirect into the console */
+            302: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getSAMLMetadata: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The SAML single sign-on provider */
+                provider: components["parameters"]["SAMLProviderID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The service provider metadata */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/samlmetadata+xml": string;
+                };
             };
             default: components["responses"]["Error"];
         };

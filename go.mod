@@ -15,6 +15,7 @@ require (
 	github.com/clerk/clerk-sdk-go/v2 v2.5.1
 	github.com/cloudproud/graceful v1.1.2
 	github.com/coreos/go-oidc/v3 v3.20.0
+	github.com/crewjam/saml v0.5.1
 	github.com/docker/go-connections v0.6.0
 	github.com/extism/go-sdk v1.7.1
 	github.com/getkin/kin-openapi v0.133.0
@@ -28,6 +29,7 @@ require (
 	github.com/jackc/pgx/v5 v5.8.0
 	github.com/jmoiron/sqlx v1.3.5
 	github.com/lib/pq v1.10.9
+	github.com/mattermost/xml-roundtrip-validator v0.1.0
 	github.com/nats-io/nats.go v1.48.0
 	github.com/nyaruka/phonenumbers v1.6.7
 	github.com/oapi-codegen/nethttp-middleware v1.1.2
@@ -37,6 +39,7 @@ require (
 	github.com/osteele/liquid v1.7.0
 	github.com/prometheus/client_golang v1.23.2
 	github.com/redis/go-redis/v9 v9.17.1
+	github.com/russellhaering/goxmldsig v1.4.0
 	github.com/stretchr/testify v1.11.1
 	github.com/svix/svix-webhooks v1.84.1
 	github.com/testcontainers/testcontainers-go v0.40.0
@@ -61,7 +64,9 @@ require sigs.k8s.io/yaml v1.6.0 // indirect
 require (
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.22.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.12.0 // indirect
+	github.com/beevik/etree v1.5.0 // indirect
 	github.com/go-jose/go-jose/v4 v4.1.4 // indirect
+	github.com/jonboulle/clockwork v0.5.0 // indirect
 )
 
 require (

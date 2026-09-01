@@ -8,7 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { loginSchema } from "@/validation/auth/login"
 
 import api from "../../api"
-import { type AuthDriver, AUTH_DRIVERS } from "../../types"
+import { type AuthDriver, type SsoDriver, AUTH_DRIVERS } from "../../types"
 import { validateRedirect } from "@/lib/validate-redirect"
 import AuthCard from "./AuthCard"
 import PasswordField from "./PasswordField"
@@ -39,20 +39,56 @@ const SSO_ERRORS: Record<string, string> = {
     denied: "sso_error_denied",
     domain: "sso_error_domain",
     email: "sso_error_email",
+    transient: "sso_error_transient",
     exchange: "sso_error_failed",
     failed: "sso_error_failed",
 }
 
-const SUPPORTED_DRIVERS: AuthDriver[] = [AUTH_DRIVERS.BASIC, AUTH_DRIVERS.CLERK, AUTH_DRIVERS.OIDC]
+const SUPPORTED_DRIVERS: AuthDriver[] = [
+    AUTH_DRIVERS.BASIC,
+    AUTH_DRIVERS.CLERK,
+    AUTH_DRIVERS.OIDC,
+    AUTH_DRIVERS.SAML,
+]
+
+// The drivers that start a login by navigating away to an identity provider.
+const SSO_DRIVERS: SsoDriver[] = [AUTH_DRIVERS.OIDC, AUTH_DRIVERS.SAML]
+
+// A deployment may enable both protocols, but "sign in with OpenID Connect" and
+// "sign in with SAML" is not a choice anybody wants to make: which protocol a
+// directory speaks is the operator's problem, not the problem of the person
+// signing in. The two drivers therefore collapse into one choice on the method
+// picker, and the providers behind them into one list of buttons that carry
+// their own protocol.
+const SSO_CHOICE = "sso" as const
+
+type DriverChoice = AuthDriver | typeof SSO_CHOICE
+
+interface SsoProvider {
+    id: string
+    name: string
+    driver: SsoDriver
+}
+
+// driverChoices replaces however many single sign-on drivers are enabled with
+// the single collapsed choice, keeping the operator's declared order otherwise.
+function driverChoices(drivers: AuthDriver[]): DriverChoice[] {
+    const choices: DriverChoice[] = []
+    for (const driver of drivers) {
+        const choice: DriverChoice = SSO_DRIVERS.includes(driver as SsoDriver) ? SSO_CHOICE : driver
+        if (!choices.includes(choice)) choices.push(choice)
+    }
+    return choices
+}
 
 export default function Login() {
     const { t } = useTranslation()
     const [searchParams] = useSearchParams()
     const [drivers, setDrivers] = useState<AuthDriver[]>()
-    const [selectedDriver, setSelectedDriver] = useState<AuthDriver>()
+    const [selectedDriver, setSelectedDriver] = useState<DriverChoice>()
     const [error, setError] = useState<string>()
     const [isSubmitting, setIsSubmitting] = useState(false)
-    const [ssoProviders, setSsoProviders] = useState<Array<{ id: string; name: string }>>()
+    const [ssoProviders, setSsoProviders] = useState<SsoProvider[]>()
     const redirect = validateRedirect(searchParams.get("r"))
 
     const form = useForm<LoginFormValues>({
@@ -63,7 +99,7 @@ export default function Login() {
         },
     })
 
-    const handleSelectDriver = useCallback((driver: AuthDriver) => {
+    const handleSelectDriver = useCallback((driver: DriverChoice) => {
         setSelectedDriver(driver)
         setError(undefined)
     }, [])
@@ -99,13 +135,14 @@ export default function Login() {
                     SUPPORTED_DRIVERS.includes(driver),
                 )
                 setDrivers(supportedDrivers)
+                const choices = driverChoices(supportedDrivers)
                 // Selected directly rather than through handleSelectDriver,
                 // which clears the error. On a deployment offering only single
                 // sign-on this runs right after a failed callback set one, and
                 // clearing it would leave the person looking at the button they
                 // just came back from with no explanation.
-                if (supportedDrivers.length === 1) {
-                    setSelectedDriver(supportedDrivers[0])
+                if (choices.length === 1) {
+                    setSelectedDriver(choices[0])
                 }
             })
             .catch((err) => {
@@ -114,14 +151,23 @@ export default function Login() {
             })
     }, [t])
 
-    // Fetched only once the deployment says it offers the driver, so a
-    // deployment without single sign-on makes no call that would 404.
+    // Fetched only for the protocols the deployment says it offers, so a
+    // deployment without single sign-on makes no call that would 404, and one
+    // with only SAML never asks for OpenID Connect providers.
     useEffect(() => {
-        if (!drivers?.includes(AUTH_DRIVERS.OIDC)) return
+        if (!drivers) return
+        const enabled = SSO_DRIVERS.filter((driver) => drivers.includes(driver))
+        if (enabled.length === 0) return
 
-        api.auth
-            .ssoProviders()
-            .then(setSsoProviders)
+        Promise.all(
+            enabled.map(async (driver) =>
+                (await api.auth.ssoProviders(driver)).map((provider) => ({
+                    ...provider,
+                    driver,
+                })),
+            ),
+        )
+            .then((lists) => setSsoProviders(lists.flat()))
             .catch((err) => {
                 console.error("Failed to fetch sso providers:", err)
                 // Leaving this undefined would spin the loader forever behind
@@ -153,7 +199,7 @@ export default function Login() {
                 <SignIn
                     forceRedirectUrl={`/login/clerk/callback?r=${encodeURIComponent(redirect)}`}
                 />
-                {drivers.length > 1 && (
+                {driverChoices(drivers).length > 1 && (
                     <Button variant="ghost" onClick={() => setSelectedDriver(undefined)}>
                         <ArrowLeft className="mr-2 h-4 w-4" />
                         {t("back")}
@@ -163,9 +209,10 @@ export default function Login() {
         )
     }
 
+    const choices = driverChoices(drivers)
     const isCredentialDriver = selectedDriver === AUTH_DRIVERS.BASIC
     const offersAccounts = isCredentialDriver
-    const isSsoDriver = selectedDriver === AUTH_DRIVERS.OIDC
+    const isSsoDriver = selectedDriver === SSO_CHOICE
 
     return (
         <AuthCard
@@ -196,14 +243,14 @@ export default function Login() {
 
             {!selectedDriver && (
                 <div className="flex flex-col gap-3">
-                    {drivers.map((driver) => (
+                    {choices.map((choice) => (
                         <Button
-                            key={driver}
+                            key={choice}
                             variant="outline"
                             className="w-full"
-                            onClick={() => handleSelectDriver(driver)}
+                            onClick={() => handleSelectDriver(choice)}
                         >
-                            {t(`auth_driver_${driver}`)}
+                            {t(`auth_driver_${choice}`)}
                         </Button>
                     ))}
                 </div>
@@ -225,7 +272,7 @@ export default function Login() {
                             disabled={isSubmitting}
                             onClick={() => {
                                 setIsSubmitting(true)
-                                api.auth.ssoStart(provider.id, redirect)
+                                api.auth.ssoStart(provider.driver, provider.id, redirect)
                             }}
                         >
                             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -233,7 +280,7 @@ export default function Login() {
                         </Button>
                     ))}
 
-                    {drivers.length > 1 && (
+                    {choices.length > 1 && (
                         <Button
                             type="button"
                             variant="ghost"
@@ -296,7 +343,7 @@ export default function Login() {
                             {t("submit")}
                         </Button>
 
-                        {drivers.length > 1 && (
+                        {choices.length > 1 && (
                             <Button
                                 type="button"
                                 variant="ghost"
