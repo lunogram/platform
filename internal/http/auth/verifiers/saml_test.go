@@ -98,6 +98,41 @@ func TestNewSAMLDerivesItsURLs(t *testing.T) {
 	assert.Equal(t, "okta", provider.Name(), "an unnamed provider is called by its id")
 }
 
+// An unset sp_entity_id means this provider's metadata URL, which is what the
+// operator registers and what the published metadata says either way. The
+// service provider library applies that default itself, at the audience it
+// validates an assertion against as well as at the issuer it puts on an
+// AuthnRequest, so the id is passed through verbatim rather than filled in
+// twice. This pins that, because the two would disagree if it ever stopped.
+func TestSAMLEntityIDDefaultsToItsMetadataURL(t *testing.T) {
+	t.Parallel()
+
+	settings := config.SAMLProvider{
+		ID: "okta", EntityID: "urn:idp", SSOURL: "https://idp.test/sso", Certificate: testCertificatePEM(t),
+	}
+
+	provider, err := NewSAML(testSAMLOptions(t, settings))
+	require.NoError(t, err)
+
+	sp, _, err := provider.serviceProvider(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, provider.MetadataURL(), sp.Metadata().EntityID)
+
+	request, err := sp.MakeAuthenticationRequest(sp.GetSSOBindingLocation(saml.HTTPRedirectBinding), saml.HTTPRedirectBinding, saml.HTTPPostBinding)
+	require.NoError(t, err)
+	assert.Equal(t, provider.MetadataURL(), request.Issuer.Value)
+
+	opts := testSAMLOptions(t, settings)
+	opts.EntityID = "https://console.example.test/saml"
+	provider, err = NewSAML(opts)
+	require.NoError(t, err)
+
+	sp, _, err = provider.serviceProvider(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, "https://console.example.test/saml", sp.Metadata().EntityID,
+		"a configured entity id is what the deployment is known by")
+}
+
 // An allow-list that normalises away to nothing would read as "any domain",
 // which is the opposite of what somebody who configured one meant.
 func TestNewSAMLRefusesAnEmptyAllowList(t *testing.T) {
