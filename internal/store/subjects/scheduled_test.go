@@ -1792,7 +1792,12 @@ func TestUpsertUserScheduleRecurring(t *testing.T) {
 	scheduleID, err := db.UpsertSchedule(ctx, projectID, "upsert_recurring", "recurring")
 	require.NoError(t, err)
 
-	startAt := time.Now().Add(-14 * 24 * time.Hour).UTC().Truncate(time.Microsecond)
+	// Deliberately not a whole multiple of the interval. The store returns the
+	// first occurrence strictly after the database's clock, so an anchor exactly
+	// N intervals back puts that occurrence on this very instant -- and a
+	// database a millisecond behind this process returns it rather than the one
+	// after, already past by the time it is asserted on.
+	startAt := time.Now().Add(-10 * 24 * time.Hour).UTC().Truncate(time.Microsecond)
 	interval := "7 days"
 
 	us, err := db.UpsertUserSchedule(ctx, uuid.Nil, userID, scheduleID, nil, &startAt, &interval, json.RawMessage(`{}`))
@@ -1818,7 +1823,12 @@ func TestUpsertOrganizationScheduleRecurring(t *testing.T) {
 	scheduleID, err := db.UpsertSchedule(ctx, projectID, "org_upsert_recurring", "recurring")
 	require.NoError(t, err)
 
-	startAt := time.Now().Add(-14 * 24 * time.Hour).UTC().Truncate(time.Microsecond)
+	// Deliberately not a whole multiple of the interval. The store returns the
+	// first occurrence strictly after the database's clock, so an anchor exactly
+	// N intervals back puts that occurrence on this very instant -- and a
+	// database a millisecond behind this process returns it rather than the one
+	// after, already past by the time it is asserted on.
+	startAt := time.Now().Add(-10 * 24 * time.Hour).UTC().Truncate(time.Microsecond)
 	interval := "7 days"
 
 	os, err := db.UpsertOrganizationSchedule(ctx, uuid.Nil, orgID, scheduleID, nil, &startAt, &interval, json.RawMessage(`{}`))
