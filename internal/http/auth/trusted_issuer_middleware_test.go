@@ -112,11 +112,13 @@ func TestWithTrustedIssuer(t *testing.T) {
 		assert.ErrorIs(t, err, ErrUnauthorized)
 	})
 
-	// Failures before the issuer resolves stay a generic ErrUnauthorized (above);
-	// once the token resolves to a configured issuer, the middleware surfaces a
-	// precise, debuggable reason instead so an integrator can fix their token.
+	// A token whose signature does not verify stays a generic ErrUnauthorized: the
+	// `iss` that selected the issuer is self-asserted (ParseUnverified), so
+	// describing the failure would tell an unauthenticated caller which issuers are
+	// configured. Only once the signature verifies does the middleware surface a
+	// precise, debuggable reason so an integrator can fix their token.
 
-	t.Run("rejects when verification fails (wrong key) with a debuggable reason", func(t *testing.T) {
+	t.Run("a token signed by a wrong key stays generic", func(t *testing.T) {
 		_, method := issuerMethod(t)
 		other, err := rsa.GenerateKey(rand.Reader, 2048)
 		require.NoError(t, err)
@@ -126,8 +128,35 @@ func TestWithTrustedIssuer(t *testing.T) {
 			"exp": time.Now().Add(time.Hour).Unix(),
 		})
 		_, err = WithTrustedIssuer(newIssuerState(method), cache)(clientRequestCtx(method.ProjectID.String()), token)
-		assert.NotErrorIs(t, err, ErrUnauthorized, "a resolved issuer surfaces a reason, not a bare unauthorized")
-		assert.ErrorContains(t, err, "signature could not be verified")
+		assert.ErrorIs(t, err, ErrUnauthorized)
+	})
+
+	t.Run("a forged token cannot distinguish a configured issuer from an unknown one", func(t *testing.T) {
+		// Both tokens are signed with a key we do not trust; the only difference is
+		// that one names a configured issuer. The rejections must be identical, or
+		// the middleware becomes an issuer-existence oracle.
+		_, method := issuerMethod(t)
+		forged, err := rsa.GenerateKey(rand.Reader, 2048)
+		require.NoError(t, err)
+
+		configured := signRS256(t, forged, jwt.MapClaims{
+			"iss": method.Issuer,
+			"sub": "user_123",
+			"exp": time.Now().Add(time.Hour).Unix(),
+		})
+		unknown := signRS256(t, forged, jwt.MapClaims{
+			"iss": "https://not-configured.example",
+			"sub": "user_123",
+			"exp": time.Now().Add(time.Hour).Unix(),
+		})
+
+		handler := WithTrustedIssuer(newIssuerState(method), cache)
+		_, errConfigured := handler(clientRequestCtx(method.ProjectID.String()), configured)
+		_, errUnknown := handler(clientRequestCtx(method.ProjectID.String()), unknown)
+
+		assert.ErrorIs(t, errConfigured, ErrUnauthorized)
+		assert.ErrorIs(t, errUnknown, ErrUnauthorized)
+		assert.Equal(t, errUnknown.Error(), errConfigured.Error(), "the two rejections must be indistinguishable")
 	})
 
 	t.Run("rejects a missing exp claim with a debuggable reason", func(t *testing.T) {

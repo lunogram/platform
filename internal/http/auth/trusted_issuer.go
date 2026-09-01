@@ -50,16 +50,9 @@ func WithTrustedIssuer(mgmt *management.State, cache *jwks.Cache) Handler {
 			return ctx, ErrUnauthorized
 		}
 
-		// Past this point the token has resolved to a configured trusted issuer,
-		// so a failure is almost always a malformed or misconfigured integration
-		// token rather than a probe. Surface a precise reason (which claim is
-		// missing, expired, etc.) instead of a bare "unauthorized": the failures
-		// above stay generic because revealing them would leak whether an issuer
-		// or project exists, but here the caller already proved knowledge of a
-		// real issuer, so a debuggable message is safe and far more useful.
 		claims, err := verifyTrustedIssuerToken(ctx, cache, method, tokenString)
 		if err != nil {
-			return ctx, rejectTrustedIssuer(describeTokenError(err))
+			return ctx, trustedIssuerTokenError(err)
 		}
 
 		subject := claimString(claims, method.SubjectClaim)
@@ -192,11 +185,28 @@ func rejectTrustedIssuer(reason string) error {
 	return &rejectedTokenError{msg: "trusted-issuer token rejected: " + reason}
 }
 
-// describeTokenError maps a JWT verification failure to a concise reason that is
-// safe to return to the integrator. It names the standard-claim problems an
-// integrator can actually fix (missing/expired/not-yet-valid/issuer/audience);
-// anything else — signature, malformed token, key resolution — collapses to a
-// generic reason so verification internals are never leaked.
+// trustedIssuerTokenError decides what a verification failure surfaces. Resolving
+// the method proves only that the token's self-asserted `iss` names an issuer
+// configured for this project: `iss` is read with ParseUnverified, so anyone can
+// forge it. Describing a failure on that basis alone would answer "is this issuer
+// configured here?" for an unauthenticated caller. Only a claim-level failure
+// (ErrTokenInvalidClaims), which the parser reaches solely after the signature has
+// verified against the issuer's keys, proves the caller holds a token the issuer
+// really minted; every other failure stays a bare ErrUnauthorized.
+func trustedIssuerTokenError(err error) error {
+	if err == nil || !errors.Is(err, jwt.ErrTokenInvalidClaims) {
+		return ErrUnauthorized
+	}
+	return rejectTrustedIssuer(describeTokenError(err))
+}
+
+// describeTokenError maps a JWT claim-validation failure to a concise reason that
+// is safe to return to the integrator. It names the standard-claim problems an
+// integrator can actually fix (missing/expired/not-yet-valid/issuer/audience) and
+// collapses anything else to a generic reason. Callers must first establish that
+// the token is authentic (see sessionTokenError / trustedIssuerTokenError):
+// signature, malformed-token and key-resolution failures never reach here, and
+// must not, since whether they are described at all is itself observable.
 func describeTokenError(err error) string {
 	switch {
 	case errors.Is(err, jwt.ErrTokenRequiredClaimMissing):
@@ -213,8 +223,6 @@ func describeTokenError(err error) string {
 		return "token issuer does not match the expected issuer"
 	case errors.Is(err, jwt.ErrTokenInvalidAudience):
 		return "token audience does not match the expected audience"
-	case errors.Is(err, jwt.ErrTokenSignatureInvalid), errors.Is(err, jwt.ErrTokenUnverifiable):
-		return "token signature could not be verified against the issuer's keys"
 	default:
 		return "token could not be verified"
 	}

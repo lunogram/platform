@@ -122,6 +122,23 @@ func TestWithSession(t *testing.T) {
 		assert.ErrorContains(t, err, "issuer")
 	})
 
+	t.Run("a missing issuer surfaces a debuggable reason naming the claim", func(t *testing.T) {
+		t.Parallel()
+		// The signature verifies, so this is one of our tokens. WithIssuer makes
+		// "iss" mandatory, and the reason must name it rather than falling back to
+		// the exp-centric message requiredClaimReason uses when it cannot tell.
+		signer := testSigner(t, "")
+		token := signES256(t, signer, jwt.MapClaims{
+			"sub":              "user_1",
+			sessionMethodClaim: uuid.New().String(),
+			"exp":              time.Now().Add(time.Hour).Unix(),
+			// no "iss"
+		})
+		_, err := WithSession(nil, signer)(context.Background(), token)
+		assert.NotErrorIs(t, err, ErrUnauthorized)
+		assert.ErrorContains(t, err, `"iss"`)
+	})
+
 	t.Run("a token signed by a different key stays generic (chain falls through)", func(t *testing.T) {
 		t.Parallel()
 		// A token minted by a foreign key (e.g. another scheme's) must not be
