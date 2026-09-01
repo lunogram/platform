@@ -87,6 +87,13 @@ func NewSAMLMetadata(client *http.Client, policy ssrf.Policy, ttl time.Duration)
 	if ttl <= 0 {
 		ttl = samlMetadataTTL
 	}
+	// A caller with no client gets one that dials under the same policy rather
+	// than a panic on the first fetch. Not http.DefaultClient: this type exists
+	// to hold an outbound document to the policy, and a default client would
+	// quietly dial anywhere.
+	if client == nil {
+		client = ssrf.PolicyHTTPClient(samlMetadataFetchTimeout, policy)
+	}
 	return &SAMLMetadata{
 		client:       client,
 		ttl:          ttl,
