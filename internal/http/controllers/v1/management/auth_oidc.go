@@ -101,8 +101,9 @@ func (c *AuthController) ListOIDCProviders(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	providers := make([]oapi.OIDCProvider, 0, len(c.federated.OIDC.All()))
-	for _, provider := range c.federated.OIDC.All() {
+	declared := c.federated.OIDC.All()
+	providers := make([]oapi.OIDCProvider, 0, len(declared))
+	for _, provider := range declared {
 		providers = append(providers, oapi.OIDCProvider{Id: provider.ID(), Name: provider.Name()})
 	}
 	httpjson.Write(w, http.StatusOK, providers)

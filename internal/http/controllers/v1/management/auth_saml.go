@@ -112,8 +112,9 @@ func (c *AuthController) ListSAMLProviders(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	providers := make([]oapi.SAMLProvider, 0, len(c.federated.SAML.All()))
-	for _, provider := range c.federated.SAML.All() {
+	declared := c.federated.SAML.All()
+	providers := make([]oapi.SAMLProvider, 0, len(declared))
+	for _, provider := range declared {
 		providers = append(providers, oapi.SAMLProvider{Id: provider.ID(), Name: provider.Name()})
 	}
 	httpjson.Write(w, http.StatusOK, providers)
