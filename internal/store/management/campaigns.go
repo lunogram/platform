@@ -35,6 +35,7 @@ type Campaign struct {
 	Transactional  bool                           `db:"transactional"`
 	Delivery       store.JSONB[Delivery]          `db:"delivery"`
 	Variables      store.JSONB[CampaignVariables] `db:"variables"`
+	Variants       store.JSONB[CampaignVariants]  `db:"variants"`
 	Templates      Templates                      `db:"-"`
 	CreatedAt      time.Time                      `db:"created_at"`
 	UpdatedAt      time.Time                      `db:"updated_at"`
@@ -50,6 +51,8 @@ func (campaign Campaign) OAPI() oapi.Campaign {
 		}
 	}
 
+	variants := campaign.Variants.Data.OAPI()
+
 	archived := campaign.DeletedAt != nil
 	result := oapi.Campaign{
 		Id:             campaign.ID,
@@ -60,6 +63,7 @@ func (campaign Campaign) OAPI() oapi.Campaign {
 		Transactional:  campaign.Transactional,
 		Delivery:       campaign.Delivery.Data.OAPI(),
 		Variables:      &variables,
+		Variants:       &variants,
 		Templates:      campaign.Templates.OAPI(),
 		CreatedAt:      campaign.CreatedAt,
 		UpdatedAt:      campaign.UpdatedAt,
@@ -99,12 +103,17 @@ type CampaignsStore struct {
 
 func (s *CampaignsStore) CreateCampaign(ctx context.Context, campaign Campaign) (uuid.UUID, error) {
 	stmt := `
-	INSERT INTO campaigns (project_id, name, channel, subscription_id, transactional)
-	VALUES ($1, $2, $3, $4, $5)
+	INSERT INTO campaigns (project_id, name, channel, subscription_id, transactional, variants)
+	VALUES ($1, $2, $3, $4, $5, $6)
 	RETURNING id`
 
+	variants, err := campaign.Variants.Value()
+	if err != nil {
+		return uuid.Nil, err
+	}
+
 	var id uuid.UUID
-	err := s.db.GetContext(ctx, &id, stmt, campaign.ProjectID, campaign.Name, campaign.Channel, campaign.SubscriptionID, campaign.Transactional)
+	err = s.db.GetContext(ctx, &id, stmt, campaign.ProjectID, campaign.Name, campaign.Channel, campaign.SubscriptionID, campaign.Transactional, variants)
 	if err != nil {
 		return uuid.Nil, err
 	}
@@ -114,7 +123,7 @@ func (s *CampaignsStore) CreateCampaign(ctx context.Context, campaign Campaign) 
 
 func (s *CampaignsStore) ListCampaigns(ctx context.Context, project uuid.UUID, pagination store.Pagination, search string, archivedOnly bool) (Campaigns, int, error) {
 	query := `
-	SELECT id, project_id, COALESCE(name, '') AS name, channel, subscription_id, transactional, delivery, variables, created_at, updated_at, deleted_at,
+	SELECT id, project_id, COALESCE(name, '') AS name, channel, subscription_id, transactional, delivery, variables, variants, created_at, updated_at, deleted_at,
 		COUNT(*) OVER () AS total_count
 	FROM campaigns
 	WHERE project_id = $1
@@ -147,7 +156,7 @@ func (s *CampaignsStore) ListCampaigns(ctx context.Context, project uuid.UUID, p
 
 func (s *CampaignsStore) GetCampaign(ctx context.Context, projectID, campaignID uuid.UUID) (*Campaign, error) {
 	query := `
-	SELECT id, project_id, COALESCE(name, '') AS name, channel, subscription_id, transactional, delivery, variables, created_at, updated_at, deleted_at
+	SELECT id, project_id, COALESCE(name, '') AS name, channel, subscription_id, transactional, delivery, variables, variants, created_at, updated_at, deleted_at
 	FROM campaigns
 	WHERE project_id = $1
 	AND id = $2
@@ -172,6 +181,7 @@ type CampaignUpdate struct {
 	SubscriptionID *uuid.UUID
 	Transactional  *bool
 	Variables      *store.JSONB[CampaignVariables]
+	Variants       *store.JSONB[CampaignVariants]
 }
 
 func (s *CampaignsStore) UpdateCampaign(ctx context.Context, projectID, campaignID uuid.UUID, update CampaignUpdate) error {
@@ -184,9 +194,10 @@ func (s *CampaignsStore) UpdateCampaign(ctx context.Context, projectID, campaign
 		subscription_id = CASE
 			WHEN COALESCE($3, transactional) THEN NULL
 			ELSE COALESCE($4, subscription_id)
-		END
-	WHERE project_id = $5
-	AND id = $6
+		END,
+		variants = COALESCE($5, variants)
+	WHERE project_id = $6
+	AND id = $7
 	AND deleted_at IS NULL`
 
 	var variablesVal any
@@ -198,7 +209,16 @@ func (s *CampaignsStore) UpdateCampaign(ctx context.Context, projectID, campaign
 		variablesVal = v
 	}
 
-	_, err := s.db.ExecContext(ctx, query, update.Name, variablesVal, update.Transactional, update.SubscriptionID, projectID, campaignID)
+	var variantsVal any
+	if update.Variants != nil {
+		v, err := update.Variants.Value()
+		if err != nil {
+			return err
+		}
+		variantsVal = v
+	}
+
+	_, err := s.db.ExecContext(ctx, query, update.Name, variablesVal, update.Transactional, update.SubscriptionID, variantsVal, projectID, campaignID)
 	return err
 }
 

@@ -47,6 +47,9 @@ const channelIcons: Record<ChannelType, typeof Mail> = {
     inbox: Inbox,
 }
 
+import { VariantSelectorInput } from "@/views/campaign/VariantSelectorInput"
+import { isEnterprise } from "@/config/enterprise"
+
 interface CreateBroadcastDialogProps {
     open: boolean
     onOpenChange: (open: boolean) => void
@@ -150,6 +153,7 @@ export function CreateBroadcastDialog({
                         ...(values.is_scheduled && values.scheduled_at
                             ? { scheduled_at: new Date(values.scheduled_at).toISOString() }
                             : {}),
+                        ...(values.variant ? { variant: values.variant } : {}),
                     },
                 },
             )
@@ -199,7 +203,15 @@ export function CreateBroadcastDialog({
                             render={({ field }) => (
                                 <Select
                                     value={field.value}
-                                    onValueChange={field.onChange}
+                                    onValueChange={(value) => {
+                                        // Variant keys are declared per
+                                        // campaign, so one left over from the
+                                        // previous pick either fails the save
+                                        // or, worse, matches a key another
+                                        // client happens to use.
+                                        form.setValue("variant", undefined)
+                                        field.onChange(value)
+                                    }}
                                     disabled={!!preselectedCampaignId}
                                 >
                                     <SelectTrigger>
@@ -245,6 +257,28 @@ export function CreateBroadcastDialog({
                             </p>
                         )}
                     </div>
+
+                    {/* Variant Selector - only for campaigns that declare variants */}
+                    {isEnterprise && (selectedCampaign?.variants?.options?.length ?? 0) > 0 && (
+                        <div className="grid gap-2">
+                            <Label>{t("campaign.variants.title", "Variant")}</Label>
+                            <Controller
+                                control={form.control}
+                                name="variant"
+                                render={({ field }) => (
+                                    <VariantSelectorInput
+                                        value={field.value}
+                                        options={selectedCampaign?.variants?.options ?? []}
+                                        onChange={field.onChange}
+                                        emptyLabel={t(
+                                            "broadcast.variant_inherit",
+                                            "Whatever the campaign decides",
+                                        )}
+                                    />
+                                )}
+                            />
+                        </div>
+                    )}
 
                     {/* List Selector */}
                     <div className="grid gap-2">

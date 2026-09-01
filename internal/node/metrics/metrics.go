@@ -90,6 +90,20 @@ var JourneyExperimentAssignmentsTotal = promauto.NewCounterVec(prometheus.Counte
 }, []string{"project_id", "branch"})
 
 // ============================================================================
+// Campaign Sends
+// ============================================================================
+
+// CampaignVariantSelectionsTotal counts template variant selections by
+// outcome: "matched" when the requested variant had a template, "fallback"
+// when it did not and the send used another variant's template instead. A
+// fallback still delivers a message, so this counter is the only signal that a
+// white-label template is missing.
+var CampaignVariantSelectionsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "lunogram_campaign_variant_selections_total",
+	Help: "Total campaign template variant selections by outcome",
+}, []string{"project_id", "outcome"})
+
+// ============================================================================
 // Reconciliation (Leader Scheduler)
 // ============================================================================
 

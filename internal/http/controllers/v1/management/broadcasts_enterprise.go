@@ -87,6 +87,24 @@ func (srv *BroadcastsController) CreateBroadcast(w http.ResponseWriter, r *http.
 		return
 	}
 
+	// Pinning a broadcast to a variant the campaign never declared would send
+	// the whole list the default branding while the operator believes they
+	// picked a client, so refuse it outright rather than falling back.
+	var variant *management.VariantSelector
+	if body.Variant != nil {
+		if !variantsAvailable {
+			oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("template variants are not available in the open-source version")))
+			return
+		}
+
+		selector := management.VariantSelectorFromOAPI(*body.Variant)
+		if err := selector.Validate(campaign.Variants.Data); err != nil {
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe(err.Error())))
+			return
+		}
+		variant = &selector
+	}
+
 	list, err := srv.usrs.GetList(ctx, projectID, body.ListId)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("list not found", zap.Stringer("list_id", body.ListId))
@@ -107,6 +125,7 @@ func (srv *BroadcastsController) CreateBroadcast(w http.ResponseWriter, r *http.
 		ListName:    list.Name,
 		ListType:    string(list.Type),
 		ScheduledAt: body.ScheduledAt,
+		Variant:     store.JSONB[*management.VariantSelector]{Data: variant},
 	})
 	if err != nil {
 		logger.Error("failed to create broadcast", zap.Error(err))

@@ -1,6 +1,6 @@
 import { useCallback } from "react"
 import api from "../../../api"
-import type { Campaign, CampaignVariable, JourneyStepType } from "../../../types"
+import type { Campaign, CampaignVariable, JourneyStepType, VariantSelector } from "../../../types"
 import type { VariableGroup } from "../JourneyVariableContext"
 import { Combobox } from "@/components/ui/combobox"
 import { Label } from "@/components/ui/label"
@@ -16,10 +16,13 @@ import { PlusIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { TemplateInput } from "@/components/ui/template-input"
 import { useJourneyVariableContext } from "../JourneyVariableContext"
+import { isEnterprise } from "@/config/enterprise"
+import { VariantSelectorInput } from "../../campaign/VariantSelectorInput"
 
 interface CampaignConfig {
     campaign_id: UUID
     data?: Record<string, string>
+    variant?: VariantSelector
 }
 
 type CampaignOption = Campaign & { path: string }
@@ -90,6 +93,7 @@ export const campaignStep: JourneyStepType<CampaignConfig> = {
         )
 
         const variables = campaign?.variables ?? []
+        const campaignVariants = campaign?.variants?.options ?? []
         const journeyVariables = nodeId ? getVariablesForNode(nodeId) : []
 
         const handleVariableChange = (name: string, newValue: string) => {
@@ -146,7 +150,12 @@ export const campaignStep: JourneyStepType<CampaignConfig> = {
                         value={value.campaign_id === NIL ? "" : value.campaign_id}
                         displayValue={campaign?.name}
                         onValueChange={(id) =>
-                            onChange({ ...value, campaign_id: (id || NIL) as UUID, data: {} })
+                            onChange({
+                                ...value,
+                                campaign_id: (id || NIL) as UUID,
+                                data: {},
+                                variant: undefined,
+                            })
                         }
                         placeholder={t("campaign.singular")}
                         renderOption={(option) => option.name}
@@ -166,6 +175,30 @@ export const campaignStep: JourneyStepType<CampaignConfig> = {
                         </Button>
                     }
                 />
+
+                {isEnterprise && campaign && campaignVariants.length > 0 && (
+                    <div className="space-y-1.5 border-t pt-3">
+                        <Label className="text-sm font-medium">
+                            {t("campaign.variants.title", "Variant")}
+                        </Label>
+                        <p className="text-xs text-muted-foreground">
+                            {t(
+                                "journey.campaign.variant_description",
+                                "Which design this step sends.",
+                            )}
+                        </p>
+                        <VariantSelectorInput
+                            value={value.variant}
+                            options={campaignVariants}
+                            onChange={(variant) => onChange({ ...value, variant })}
+                            variables={journeyVariables}
+                            emptyLabel={t(
+                                "journey.campaign.variant_inherit",
+                                "Whatever the campaign decides",
+                            )}
+                        />
+                    </div>
+                )}
 
                 {campaign && variables.length > 0 && (
                     <div className="space-y-3 border-t pt-3">
