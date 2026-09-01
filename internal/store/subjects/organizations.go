@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
+	"github.com/lunogram/platform/internal/node/metrics"
 	"github.com/lunogram/platform/internal/rules"
 	"github.com/lunogram/platform/internal/rules/query"
 	"github.com/lunogram/platform/internal/store"
@@ -811,33 +812,55 @@ func (s *OrganizationsStore) QueryOrganizationUsersMatchingRule(ctx context.Cont
 // ScanOrganizationMembers iterates over user IDs in an organization, optionally
 // filtered by a ruleset, and calls fn for each user ID. Rows are read via a
 // cursor so large result sets do not need to be held entirely in memory.
-func (s *OrganizationsStore) ScanOrganizationMembers(ctx context.Context, projectID, orgID uuid.UUID, userRule *rules.RuleSet, fn func(userID uuid.UUID) error) (int, error) {
+func (s *OrganizationsStore) ScanOrganizationMembers(ctx context.Context, projectID, orgID uuid.UUID, userRule *rules.RuleSet, fn func(userID uuid.UUID) error) (n int, err error) {
 	var rows *sqlx.Rows
-	var err error
+
+	// Callers publish to the broker from fn for every row, so its time and its
+	// failures belong to them and not to the query. Both are kept apart from
+	// what is observed, or broker latency would be reported as query latency
+	// and a failed publish as a failed query.
+	var callback time.Duration
+	var queryErr error
 
 	if userRule != nil {
+		// Timed around the whole scan rather than just the call that opens the
+		// cursor: rows stream, so most of the query's cost is paid while
+		// iterating below.
+		start := time.Now()
+		defer func() {
+			metrics.ObserveDatasetQuery(metrics.QueryOrganizationMembers, projectID, time.Since(start)-callback, n, queryErr)
+		}()
+
 		rows, err = s.QueryOrganizationUsersMatchingRule(ctx, projectID, orgID, *userRule)
 	} else {
 		rows, err = s.QueryOrganizationUserIDs(ctx, orgID)
 	}
 	if err != nil {
+		queryErr = err
 		return 0, err
 	}
 	defer rows.Close()
 
-	var n int
 	for rows.Next() {
 		var userID uuid.UUID
-		if err := rows.Scan(&userID); err != nil {
+		if err = rows.Scan(&userID); err != nil {
+			queryErr = err
 			return n, err
 		}
-		if err := fn(userID); err != nil {
+
+		fnStart := time.Now()
+		err = fn(userID)
+		callback += time.Since(fnStart)
+		if err != nil {
 			return n, err
 		}
+
 		n++
 	}
 
-	return n, rows.Err()
+	err = rows.Err()
+	queryErr = err
+	return n, err
 }
 
 // InsertMatchingOrganizationEvents finds all organizations whose JSONB data

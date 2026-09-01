@@ -21,6 +21,7 @@ import (
 func Defaults() Node {
 	return Node{
 		HTTPAddress:     ":8080",
+		MetricsAddress:  ":9101",
 		DatabaseMigrate: true,
 		PublicURL:       "http://localhost:8080",
 

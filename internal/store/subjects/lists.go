@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
+	"github.com/lunogram/platform/internal/node/metrics"
 	"github.com/lunogram/platform/internal/rules"
 	"github.com/lunogram/platform/internal/rules/query"
 	"github.com/lunogram/platform/internal/store"
@@ -578,9 +579,12 @@ func (s *ListsStore) SelectListUsers(ctx context.Context, projectID, listID uuid
 // matching users without modifying the list_users table. This is used to show a
 // preview of which users would be included when the draft rule is published.
 func (s *ListsStore) PreviewListUsers(ctx context.Context, projectID uuid.UUID, ruleset rules.RuleSet, limit int) (Users, int, error) {
+	start := time.Now()
+
 	builder := query.NewQueryBuilder(projectID, nil)
 	query, err := builder.Query(ruleset)
 	if err != nil {
+		metrics.ObserveDatasetQuery(metrics.QueryListPreview, projectID, time.Since(start), 0, err)
 		return nil, 0, err
 	}
 
@@ -612,14 +616,19 @@ func (s *ListsStore) PreviewListUsers(ctx context.Context, projectID uuid.UUID, 
 	var results []result
 	err = s.db.SelectContext(ctx, &results, sql, query.Args...)
 	if err != nil {
+		metrics.ObserveDatasetQuery(metrics.QueryListPreview, projectID, time.Since(start), 0, err)
 		return nil, 0, err
 	}
 
 	if len(results) == 0 {
+		metrics.ObserveDatasetQuery(metrics.QueryListPreview, projectID, time.Since(start), 0, nil)
 		return []User{}, 0, nil
 	}
 
 	total := results[0].TotalCount
+	// The full match size, not the page: the preview is limited but the
+	// underlying scan is not, and the scan is what costs.
+	metrics.ObserveDatasetQuery(metrics.QueryListPreview, projectID, time.Since(start), total, nil)
 	users := make([]User, len(results))
 	for i, r := range results {
 		users[i] = r.User
@@ -718,9 +727,12 @@ type Recomputed struct {
 // This function only changes database state and does not persist or cache the
 // recomputed result. All updates occur in a single SQL statement.
 func (s *ListsStore) RecomputeList(ctx context.Context, projectID, listID uuid.UUID, ruleset rules.RuleSet) ([]Recomputed, error) {
+	start := time.Now()
+
 	builder := query.NewQueryBuilder(projectID, nil)
 	query, err := builder.Query(ruleset)
 	if err != nil {
+		metrics.ObserveDatasetQuery(metrics.QueryListRecompute, projectID, time.Since(start), 0, err)
 		return nil, err
 	}
 
@@ -758,6 +770,9 @@ func (s *ListsStore) RecomputeList(ctx context.Context, projectID, listID uuid.U
 
 	var results []Recomputed
 	err = s.db.SelectContext(ctx, &results, sql, args...)
+	// Rows here are membership *changes*, not the size of the match set: the
+	// MERGE only returns users it inserted or deleted.
+	metrics.ObserveDatasetQuery(metrics.QueryListRecompute, projectID, time.Since(start), len(results), err)
 	if err != nil {
 		return results, err
 	}

@@ -24,6 +24,10 @@ import (
 // local-credential drivers became one; the key moves in the file and its value
 // does not, which is exactly the guarantee this test exists to make.
 //
+// metrics_address postdates the capture: it arrived with the endpoint that
+// serves the registry, and its entry in the file records the envDefault tag it
+// was introduced with, so the setting is held to the same guarantee as the rest.
+//
 // The mail section is excluded because it is deliberately redesigned in this
 // change -- a channel replaced a bare host, and the sender moved out of the
 // transport -- and is asserted separately below. The captured auth.JWKS was
