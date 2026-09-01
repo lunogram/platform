@@ -24,6 +24,10 @@ import (
 var loginPrefixes = []string{
 	"/api/auth/login/",
 	"/api/auth/oidc/",
+	// SAML's halves are /start and the assertion consumer service, and the
+	// window between them is wider than OpenID Connect's: the browser is away
+	// at the provider for as long as somebody takes to sign in there.
+	"/api/auth/saml/",
 	// The login view's first request, asking how to sign in. Answering it by
 	// signing somebody in is the same double-session bug one step earlier: the
 	// browser leaves the login page already holding a session, and whichever

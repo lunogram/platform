@@ -268,9 +268,13 @@ export default function Login() {
                         </div>
                     )}
 
+                    {/* Ids are unique within a protocol and not across them:
+                        each driver's single-provider form calls itself
+                        "default", so a deployment offering both would collide
+                        on a bare id. */}
                     {ssoProviders?.map((provider) => (
                         <Button
-                            key={provider.id}
+                            key={`${provider.driver}:${provider.id}`}
                             type="button"
                             className="w-full"
                             disabled={isSubmitting}
