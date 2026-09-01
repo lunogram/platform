@@ -496,7 +496,12 @@ func TestUpsertUserScheduledRecurring(t *testing.T) {
 	userID := tc.createUser(t)
 	sid := tc.createSchedule(t, "user_recurring", "recurring")
 
-	startAt := time.Now().Add(-14 * 24 * time.Hour).UTC().Truncate(time.Microsecond)
+	// Deliberately not a whole multiple of the interval. The store returns the
+	// first occurrence strictly after the database's clock, so an anchor exactly
+	// N intervals back puts that occurrence on this very instant -- and a
+	// database a millisecond behind this process returns it rather than the one
+	// after, already past by the time it is asserted on.
+	startAt := time.Now().Add(-10 * 24 * time.Hour).UTC().Truncate(time.Microsecond)
 	interval := "7 days"
 	data := json.RawMessage(`{}`)
 	body, _ := json.Marshal(oapi.UpsertUserScheduledRequest{
@@ -982,7 +987,12 @@ func TestUpsertOrganizationScheduledRecurring(t *testing.T) {
 	orgID := tc.createOrg(t)
 	sid := tc.createSchedule(t, "org_recurring", "recurring")
 
-	startAt := time.Now().Add(-14 * 24 * time.Hour).UTC().Truncate(time.Microsecond)
+	// Deliberately not a whole multiple of the interval. The store returns the
+	// first occurrence strictly after the database's clock, so an anchor exactly
+	// N intervals back puts that occurrence on this very instant -- and a
+	// database a millisecond behind this process returns it rather than the one
+	// after, already past by the time it is asserted on.
+	startAt := time.Now().Add(-10 * 24 * time.Hour).UTC().Truncate(time.Microsecond)
 	interval := "7 days"
 	data := json.RawMessage(`{}`)
 	body, _ := json.Marshal(oapi.UpsertOrganizationScheduledRequest{
