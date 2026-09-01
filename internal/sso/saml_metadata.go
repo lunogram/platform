@@ -43,6 +43,10 @@ var (
 // magnitude.
 const maxSAMLMetadataBytes = 4 << 20
 
+// samlMetadataFetchTimeout bounds a coalesced fetch. The outbound client
+// carries its own timeout and will normally be the one to fire; this is a
+// backstop, because the fetch context is deliberately detached from every
+// caller and so needs a deadline that does not depend on one being configured.
 const samlMetadataFetchTimeout = 15 * time.Second
 
 // samlMetadataTTL is how long a provider's metadata is kept in process.

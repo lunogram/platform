@@ -6614,6 +6614,13 @@ paths:
         never be accepted twice. Unsolicited (identity-provider-initiated)
         responses are refused. The browser is then redirected into the console,
         with or without a session.
+
+        Both form fields are supplied by the identity provider rather than by a
+        caller, and neither is marked required: a response missing either is
+        refused by the handler, which answers the navigation with a redirect
+        the person can read rather than a problem document they cannot.
+        RelayState is absent on exactly the unsolicited responses this
+        deployment declines to accept.
       operationId: completeSAMLLogin
       tags:
         - Auth

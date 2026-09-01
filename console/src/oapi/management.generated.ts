@@ -2802,6 +2802,7 @@ export interface paths {
         /**
          * Complete a SAML login
          * @description The assertion consumer service. Redeems the RelayState, which is single-use and deleted as it is read and must have been issued for this provider; requires the binding cookie to match the one the login was started with; and proves the response against the provider's signing certificates, its entity id, the InResponseTo of the request this deployment issued, the destination, the audience and the assertion's own validity window. The assertion ID is recorded so the same assertion can never be accepted twice. Unsolicited (identity-provider-initiated) responses are refused. The browser is then redirected into the console, with or without a session.
+         *     Both form fields are supplied by the identity provider rather than by a caller, and neither is marked required: a response missing either is refused by the handler, which answers the navigation with a redirect the person can read rather than a problem document they cannot. RelayState is absent on exactly the unsolicited responses this deployment declines to accept.
          */
         post: operations["completeSAMLLogin"];
         delete?: never;
