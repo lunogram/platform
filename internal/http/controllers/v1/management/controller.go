@@ -73,7 +73,7 @@ func NewController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB
 	// They are always built: whether the deployment offers a federated login is
 	// decided by AUTH_DRIVER, and each driver itself refuses to build when the
 	// settings behind it are missing.
-	provider := ssrf.SafeHTTPClient(oidcProviderTimeout)
+	provider := ssrf.SafeHTTPClient(federatedProviderTimeout)
 	federated := verifiers.Deps{
 		Keys:         jwksCache,
 		Flows:        sso.NewFlowStore(rdb, cfg.Redis.KeyPrefix),

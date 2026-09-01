@@ -194,9 +194,15 @@ func ParseSAMLMetadata(document []byte) (*saml.EntityDescriptor, error) {
 	return descriptor, nil
 }
 
-// ValidateDescriptor holds every endpoint the document advertises to the
-// deployment's outbound policy, and requires at least one usable sign-on
-// endpoint and one signing certificate.
+// ValidateDescriptor holds the sign-on endpoint this deployment would use to
+// the outbound policy, and requires that there is one and that the document
+// carries a signing certificate.
+//
+// It is the chosen endpoint rather than every endpoint in the document: what is
+// advertised under a binding this deployment does not send, or on a role it
+// does not use, is never dialled and never redirected to. [SAMLSignOnLocation]
+// chooses here on the same preference the login does, so the one checked is the
+// one used.
 //
 // The document, not the operator, is what names the sign-on endpoint, so an
 // endpoint in it is as sensitive as one an operator configured. Checking only

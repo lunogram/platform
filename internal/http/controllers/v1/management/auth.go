@@ -22,6 +22,13 @@ import (
 	"go.uber.org/zap"
 )
 
+// federatedProviderTimeout bounds a single call out to an identity provider --
+// OpenID Connect discovery or its token exchange, a SAML metadata fetch. One
+// outbound client carries it for both protocols, because what it is sized for
+// is the same in either: a login is a person waiting at a redirect, so a
+// provider that has stopped answering has to fail rather than hang.
+const federatedProviderTimeout = 10 * time.Second
+
 // NewAuthController wires the login callbacks: one verifier per configured
 // driver, and one exchanger that turns whatever any of them proves into a
 // Lunogram console session.

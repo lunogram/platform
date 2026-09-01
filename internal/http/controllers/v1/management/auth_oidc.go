@@ -4,7 +4,6 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
-	"time"
 
 	"github.com/lunogram/platform/internal/http/auth"
 	"github.com/lunogram/platform/internal/http/auth/verifiers"
@@ -14,11 +13,6 @@ import (
 	"github.com/lunogram/platform/internal/sso"
 	"go.uber.org/zap"
 )
-
-// oidcProviderTimeout bounds a single call out to the identity provider --
-// discovery, or the token exchange. A login is a person waiting at a redirect,
-// so a provider that has stopped answering has to fail rather than hang.
-const oidcProviderTimeout = 10 * time.Second
 
 // StartOIDCLogin sends the browser to the deployment's identity provider.
 //
