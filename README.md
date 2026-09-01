@@ -324,8 +324,12 @@ AUTH_SAML_SSO_URL=https://example.okta.com/app/exk.../sso/saml
 AUTH_SAML_CERTIFICATE="$(cat idp.pem)"
 ```
 
-Set the metadata URL **or** that pair, not both. `AUTH_SAML_CERTIFICATE` holds
-the provider's signing certificates as PEM; paste both during a rotation.
+Set the metadata URL **or** that pair, not both. Either way the sign-on endpoint
+is held to the deployment's outbound policy, which refuses plaintext, so
+`AUTH_SAML_SSO_URL` must be `https`. `AUTH_SAML_CERTIFICATE` holds the provider's
+signing certificates as PEM; paste both during a rotation. Anything after the
+last certificate is refused rather than ignored, so a bundle that was truncated
+on its way into the environment is not read as a bundle of one.
 
 The rest have defaults worth knowing about:
 

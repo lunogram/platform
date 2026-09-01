@@ -124,7 +124,7 @@ func (m *SAMLMetadata) Descriptor(ctx context.Context, metadataURL, entityID str
 		if descriptor.EntityID != entityID {
 			return nil, fmt.Errorf("%w: %q", ErrSAMLEntityMismatch, descriptor.EntityID)
 		}
-		if err := m.validateDescriptor(descriptor); err != nil {
+		if err := m.ValidateDescriptor(descriptor); err != nil {
 			return nil, err
 		}
 
@@ -190,7 +190,7 @@ func ParseSAMLMetadata(document []byte) (*saml.EntityDescriptor, error) {
 	return descriptor, nil
 }
 
-// validateDescriptor holds every endpoint the document advertises to the
+// ValidateDescriptor holds every endpoint the document advertises to the
 // deployment's outbound policy, and requires at least one usable sign-on
 // endpoint and one signing certificate.
 //
@@ -198,7 +198,7 @@ func ParseSAMLMetadata(document []byte) (*saml.EntityDescriptor, error) {
 // endpoint in it is as sensitive as one an operator configured. Checking only
 // that the field is non-empty would accept a plaintext sign-on URL, which is a
 // browser redirect an attacker on the path could rewrite.
-func (m *SAMLMetadata) validateDescriptor(descriptor *saml.EntityDescriptor) error {
+func (m *SAMLMetadata) ValidateDescriptor(descriptor *saml.EntityDescriptor) error {
 	location := SAMLSignOnLocation(descriptor)
 	if location == "" {
 		return fmt.Errorf("%w: it advertises no HTTP-Redirect or HTTP-POST SingleSignOnService", ErrSAMLMetadataIncomplete)
@@ -340,8 +340,13 @@ func ParseCertificates(bundle string) ([]*x509.Certificate, error) {
 	for len(rest) > 0 {
 		var block *pem.Block
 		block, rest = pem.Decode(rest)
+		// Whatever is left is not a certificate. Stopping quietly here would
+		// take a bundle whose second block is truncated as a bundle of one,
+		// and the deployment would go live trusting half the keys the operator
+		// pasted in -- which only shows up as failed logins at the rotation
+		// the second key was there for.
 		if block == nil {
-			break
+			return nil, fmt.Errorf("sso: %d bytes after the last certificate are not a PEM block", len(bytes.TrimSpace(rest)))
 		}
 		if block.Type != "CERTIFICATE" {
 			return nil, fmt.Errorf("sso: expected a CERTIFICATE block, found %q", block.Type)
@@ -352,6 +357,7 @@ func ParseCertificates(bundle string) ([]*x509.Certificate, error) {
 			return nil, fmt.Errorf("sso: the certificate could not be read: %w", err)
 		}
 		certificates = append(certificates, certificate)
+		rest = bytes.TrimSpace(rest)
 	}
 
 	return certificates, nil

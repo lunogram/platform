@@ -159,8 +159,9 @@ type SAMLOptions struct {
 	// finishes on different replicas.
 	Flows      *sso.SAMLFlowStore
 	Assertions *sso.AssertionReplayStore
-	// Metadata resolves and caches a provider's published metadata. It is
-	// unused by a provider configured with explicit fields.
+	// Metadata resolves and caches a provider's published metadata. A provider
+	// configured with explicit fields has nothing to resolve, but is still held
+	// to the outbound policy Metadata carries.
 	Metadata *sso.SAMLMetadata
 	// BaseURL is the deployment's public URL. The assertion consumer service
 	// URL derives from it and never from a request parameter, so an open
@@ -265,6 +266,14 @@ func NewSAML(opts SAMLOptions) (*SAML, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Held to the same outbound policy as a document that was fetched, because
+	// the sign-on URL is where the browser is sent with an AuthnRequest and
+	// nothing downstream distinguishes an endpoint the operator typed from one
+	// a provider published. Without this a plaintext sso_url is accepted at
+	// boot and every login is carried over it.
+	if err := opts.Metadata.ValidateDescriptor(descriptor); err != nil {
+		return nil, err
+	}
 	provider.descriptor = descriptor
 	return provider, nil
 }
@@ -296,8 +305,8 @@ func missingSAMLCollaborators(opts SAMLOptions) []string {
 	if opts.Assertions == nil {
 		missing = append(missing, "Redis, which records the assertions already redeemed")
 	}
-	if opts.Metadata == nil && opts.Config.MetadataURL != "" {
-		missing = append(missing, "a metadata cache")
+	if opts.Metadata == nil {
+		missing = append(missing, "a metadata cache, which carries the outbound policy both configuration forms are held to")
 	}
 	return missing
 }

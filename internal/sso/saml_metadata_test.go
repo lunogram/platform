@@ -165,6 +165,12 @@ func TestParseCertificatesReadsABundle(t *testing.T) {
 
 	_, err = ParseCertificates(string(pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: []byte("nope")})))
 	require.Error(t, err, "a private key pasted where a certificate belongs is refused, not ignored")
+
+	// Reading this as a bundle of one would put the deployment live trusting
+	// half the keys the operator pasted in, and it would only show up as failed
+	// logins at the rotation the second key was there for.
+	_, err = ParseCertificates(bundle[:len(bundle)-40])
+	require.Error(t, err, "a truncated second certificate is refused, not silently dropped")
 }
 
 // The redirect binding is preferred because that is what the deployment sends,

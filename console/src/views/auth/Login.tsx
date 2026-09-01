@@ -153,10 +153,14 @@ export default function Login() {
 
     // Fetched only for the protocols the deployment says it offers, so a
     // deployment without single sign-on makes no call that would 404, and one
-    // with only SAML never asks for OpenID Connect providers.
+    // with only SAML never asks for OpenID Connect providers. Iterated in the
+    // operator's declared order rather than SSO_DRIVERS', because that order is
+    // what the buttons end up in and driverChoices already honours it.
     useEffect(() => {
         if (!drivers) return
-        const enabled = SSO_DRIVERS.filter((driver) => drivers.includes(driver))
+        const enabled = drivers.filter((driver): driver is SsoDriver =>
+            SSO_DRIVERS.includes(driver as SsoDriver),
+        )
         if (enabled.length === 0) return
 
         Promise.all(

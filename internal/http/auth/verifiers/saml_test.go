@@ -133,6 +133,18 @@ func TestSAMLEntityIDDefaultsToItsMetadataURL(t *testing.T) {
 		"a configured entity id is what the deployment is known by")
 }
 
+// A sign-on URL the operator typed is held to the same outbound policy as one a
+// provider published, because it is where the browser is sent with an
+// AuthnRequest and nothing downstream tells the two apart.
+func TestNewSAMLRefusesAPlaintextSignOnURL(t *testing.T) {
+	t.Parallel()
+
+	_, err := NewSAML(testSAMLOptions(t, config.SAMLProvider{
+		ID: "idp", EntityID: "urn:idp", SSOURL: "http://idp.test/sso", Certificate: testCertificatePEM(t),
+	}))
+	require.ErrorIs(t, err, sso.ErrSAMLMetadataInsecure)
+}
+
 // An allow-list that normalises away to nothing would read as "any domain",
 // which is the opposite of what somebody who configured one meant.
 func TestNewSAMLRefusesAnEmptyAllowList(t *testing.T) {
