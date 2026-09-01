@@ -1,6 +1,6 @@
 module github.com/lunogram/platform/modules/mailgun
 
-go 1.25.1
+go 1.25.7
 
 require (
 	github.com/extism/go-pdk v1.1.3
