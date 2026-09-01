@@ -4,23 +4,29 @@ import (
 	"bytes"
 	"compress/flate"
 	"context"
+	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/base64"
 	"encoding/pem"
 	"fmt"
+	"html"
 	"io"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/beevik/etree"
+	"github.com/crewjam/saml"
+	"github.com/crewjam/saml/xmlenc"
 	"github.com/lunogram/platform/internal/config"
 	"github.com/lunogram/platform/internal/container"
 	"github.com/lunogram/platform/internal/http/auth"
@@ -59,12 +65,22 @@ type stubIdP struct {
 func newStubIdP(t *testing.T) *stubIdP {
 	t.Helper()
 
+	key, certificate := newTestKeypair(t, "stub-idp")
+	return &stubIdP{key: key, cert: certificate}
+}
+
+// newTestKeypair mints a throwaway self-signed pair. Both sides of these tests
+// need one: the stub identity provider signs assertions with its half, and the
+// deployment signs requests and receives encrypted assertions with its own.
+func newTestKeypair(t *testing.T, commonName string) (*rsa.PrivateKey, *x509.Certificate) {
+	t.Helper()
+
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	require.NoError(t, err)
 
 	template := x509.Certificate{
 		SerialNumber: big.NewInt(1),
-		Subject:      pkix.Name{CommonName: "stub-idp"},
+		Subject:      pkix.Name{CommonName: commonName},
 		NotBefore:    time.Now().Add(-time.Hour),
 		NotAfter:     time.Now().Add(24 * time.Hour),
 	}
@@ -73,12 +89,35 @@ func newStubIdP(t *testing.T) *stubIdP {
 
 	certificate, err := x509.ParseCertificate(raw)
 	require.NoError(t, err)
+	return key, certificate
+}
 
-	return &stubIdP{key: key, cert: certificate}
+func certificatePEM(certificate *x509.Certificate) string {
+	return string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certificate.Raw}))
+}
+
+func privateKeyPEM(key *rsa.PrivateKey) string {
+	return string(pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(key)}))
 }
 
 func (idp *stubIdP) certificatePEM() string {
-	return string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: idp.cert.Raw}))
+	return certificatePEM(idp.cert)
+}
+
+// metadataDocument is what the stub publishes when a test configures the
+// provider by metadata URL rather than by explicit fields.
+func (idp *stubIdP) metadataDocument(binding, location string) string {
+	return fmt.Sprintf(`<?xml version="1.0"?>
+<EntityDescriptor xmlns="urn:oasis:names:tc:SAML:2.0:metadata" entityID="%s">
+  <IDPSSODescriptor protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol" WantAuthnRequestsSigned="true">
+    <KeyDescriptor use="signing">
+      <KeyInfo xmlns="http://www.w3.org/2000/09/xmldsig#">
+        <X509Data><X509Certificate>%s</X509Certificate></X509Data>
+      </KeyInfo>
+    </KeyDescriptor>
+    <SingleSignOnService Binding="%s" Location="%s"/>
+  </IDPSSODescriptor>
+</EntityDescriptor>`, idpEntityID, base64.StdEncoding.EncodeToString(idp.cert.Raw), binding, location)
 }
 
 // assertionOptions is what a test varies about the response the stub issues.
@@ -99,6 +138,11 @@ type assertionOptions struct {
 	unsigned bool
 	// signedByOther signs with a key the provider never published.
 	signedByOther *stubIdP
+	// encryptTo wraps the signed assertion in an EncryptedAssertion for this
+	// certificate, which is what a provider configured to encrypt sends. The
+	// assertion is signed first and encrypted second, so the signature the
+	// deployment checks is the one inside the envelope.
+	encryptTo *x509.Certificate
 }
 
 // respond builds and signs a SAML Response and returns it base64 encoded, as
@@ -178,6 +222,10 @@ func (idp *stubIdP) respond(t *testing.T, opts assertionOptions) string {
 		assertion = signer.sign(t, assertion)
 	}
 
+	if opts.encryptTo != nil {
+		assertion = encryptAssertion(t, assertion, opts.encryptTo)
+	}
+
 	response := etree.NewElement("samlp:Response")
 	response.CreateAttr("xmlns:samlp", samlpNS)
 	response.CreateAttr("xmlns:saml", samlNS)
@@ -199,6 +247,26 @@ func (idp *stubIdP) respond(t *testing.T, opts assertionOptions) string {
 	return base64.StdEncoding.EncodeToString(raw)
 }
 
+// encryptAssertion wraps a signed assertion in an EncryptedAssertion addressed
+// to the deployment's own certificate, which is what a provider configured to
+// encrypt sends.
+func encryptAssertion(t *testing.T, assertion *etree.Element, certificate *x509.Certificate) *etree.Element {
+	t.Helper()
+
+	document := etree.NewDocument()
+	document.SetRoot(assertion.Copy())
+	plaintext, err := document.WriteToBytes()
+	require.NoError(t, err)
+
+	encryptedData, err := xmlenc.OAEP().Encrypt(certificate, plaintext, nil)
+	require.NoError(t, err)
+
+	encrypted := etree.NewElement("saml:EncryptedAssertion")
+	encrypted.CreateAttr("xmlns:saml", samlNS)
+	encrypted.AddChild(encryptedData)
+	return encrypted
+}
+
 func (idp *stubIdP) sign(t *testing.T, el *etree.Element) *etree.Element {
 	t.Helper()
 
@@ -218,9 +286,34 @@ type samlEnv struct {
 	state *management.State
 	idp   *stubIdP
 	acs   string
+	// spKey and spCert are the deployment's own key pair, set only when the
+	// options asked for one. A test encrypts to spCert and verifies a request
+	// signature against spCert's public half.
+	spKey  *rsa.PrivateKey
+	spCert *x509.Certificate
+}
+
+// samlEnvOptions selects which of the driver's configurations the harness
+// builds. The zero value is the one most deployments run: explicit sign-on URL
+// and certificate, no key pair of our own.
+type samlEnvOptions struct {
+	// viaMetadata configures the provider by metadata URL, served from a
+	// loopback stub, rather than by explicit fields.
+	viaMetadata bool
+	// binding is the one the published metadata advertises. Only read when
+	// viaMetadata is set; empty means the redirect binding.
+	binding string
+	// withKeypair gives the deployment a certificate and key, which is what
+	// signs AuthnRequests and decrypts encrypted assertions.
+	withKeypair bool
 }
 
 func newSAMLEnv(t *testing.T) *samlEnv {
+	t.Helper()
+	return newSAMLEnvWith(t, samlEnvOptions{})
+}
+
+func newSAMLEnvWith(t *testing.T, opts samlEnvOptions) *samlEnv {
 	t.Helper()
 
 	logger := zaptest.NewLogger(t)
@@ -234,20 +327,55 @@ func newSAMLEnv(t *testing.T) *samlEnv {
 	rdb := goredis.NewClient(options)
 	t.Cleanup(func() { rdb.Close() })
 
+	env := &samlEnv{
+		t:     t,
+		state: state,
+		idp:   idp,
+		acs:   "https://console.example.test/api/auth/saml/" + testProviderID + "/acs",
+	}
+
+	provider := config.SAMLProvider{
+		ID:          testProviderID,
+		EntityID:    idpEntityID,
+		SSOURL:      "https://idp.example.test/sso",
+		Certificate: idp.certificatePEM(),
+	}
+
+	// The stub publishes over loopback plaintext, so the metadata tests run
+	// under relaxations an operator would have to opt into explicitly.
+	policy := ssrf.Policy{}
+	if opts.viaMetadata {
+		binding := opts.binding
+		if binding == "" {
+			binding = saml.HTTPRedirectBinding
+		}
+
+		var server *httptest.Server
+		server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "application/samlmetadata+xml")
+			fmt.Fprint(w, idp.metadataDocument(binding, server.URL+"/sso"))
+		}))
+		t.Cleanup(server.Close)
+
+		provider.SSOURL = ""
+		provider.Certificate = ""
+		provider.MetadataURL = server.URL
+		policy = ssrf.Policy{AllowPrivate: true, AllowHTTP: true}
+	}
+
+	samlAuth := config.SAMLAuth{EntityID: spEntityID, Provider: provider}
+	if opts.withKeypair {
+		env.spKey, env.spCert = newTestKeypair(t, "console.example.test")
+		samlAuth.Certificate = certificatePEM(env.spCert)
+		samlAuth.PrivateKey = privateKeyPEM(env.spKey)
+	}
+
 	cfg := config.Node{
 		PublicURL: "https://console.example.test",
 		Redis:     config.Redis{KeyPrefix: "test:" + t.Name() + ":"},
 		Auth: config.Auth{
 			Drivers: []string{verifiers.SAMLDriver},
-			SAML: config.SAMLAuth{
-				EntityID: spEntityID,
-				Provider: config.SAMLProvider{
-					ID:          testProviderID,
-					EntityID:    idpEntityID,
-					SSOURL:      "https://idp.example.test/sso",
-					Certificate: idp.certificatePEM(),
-				},
-			},
+			SAML:    samlAuth,
 		},
 	}
 
@@ -255,18 +383,13 @@ func newSAMLEnv(t *testing.T) *samlEnv {
 		verifiers.Deps{
 			SAMLFlows:    sso.NewSAMLFlowStore(rdb, cfg.Redis.KeyPrefix),
 			Assertions:   sso.NewAssertionReplayStore(rdb, cfg.Redis.KeyPrefix),
-			SAMLMetadata: sso.NewSAMLMetadata(http.DefaultClient, ssrf.Policy{}, 0),
+			SAMLMetadata: sso.NewSAMLMetadata(http.DefaultClient, policy, 0),
 			BaseURL:      cfg.PublicBaseURL(),
 		})
 	require.NoError(t, err)
 
-	return &samlEnv{
-		t:     t,
-		auth:  controller,
-		state: state,
-		idp:   idp,
-		acs:   "https://console.example.test/api/auth/saml/" + testProviderID + "/acs",
-	}
+	env.auth = controller
+	return env
 }
 
 // begin runs the start endpoint and returns the RelayState the deployment
@@ -331,9 +454,66 @@ func authnRequestID(t *testing.T, encoded string) string {
 	raw, err := io.ReadAll(flate.NewReader(bytes.NewReader(compressed)))
 	require.NoError(t, err)
 
+	return authnRequest(t, raw).SelectAttrValue("ID", "")
+}
+
+func authnRequest(t *testing.T, raw []byte) *etree.Element {
+	t.Helper()
+
 	document := etree.NewDocument()
 	require.NoError(t, document.ReadFromBytes(raw))
-	return document.Root().SelectAttrValue("ID", "")
+	return document.Root()
+}
+
+// beginOverPostBinding runs the start endpoint against a provider that
+// advertises only HTTP-POST, and reads the self-submitting form the deployment
+// answers with the way the browser would submit it.
+func (env *samlEnv) beginOverPostBinding() (relayState, requestID string, binding *http.Cookie, request *etree.Element) {
+	env.t.Helper()
+
+	res := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/auth/saml/"+testProviderID+"/start", nil)
+	env.auth.StartSAMLLogin(res, req, testProviderID, oapi.StartSAMLLoginParams{})
+
+	require.Equal(env.t, http.StatusOK, res.Code, res.Body.String())
+	assert.Contains(env.t, res.Header().Get("Content-Type"), "text/html")
+
+	form := res.Body.String()
+	encoded := formValue(env.t, form, "SAMLRequest")
+	relayState = formValue(env.t, form, "RelayState")
+
+	// The POST binding carries the request as plain base64 rather than the
+	// deflated form the redirect binding uses.
+	raw, err := base64.StdEncoding.DecodeString(encoded)
+	require.NoError(env.t, err)
+	request = authnRequest(env.t, raw)
+
+	for _, cookie := range res.Result().Cookies() {
+		if cookie.Name == auth.SAMLBindingCookie && cookie.Value != "" {
+			binding = cookie
+		}
+	}
+	require.NotNil(env.t, binding, "the POST binding binds the login to this browser too")
+
+	return relayState, request.SelectAttrValue("ID", ""), binding, request
+}
+
+var formValuePattern = regexp.MustCompile(`name="([^"]+)" value="([^"]*)"`)
+
+// formValue reads a hidden field out of the self-submitting form, undoing the
+// HTML escaping a browser would undo for us. The form is built by
+// html/template, which escapes `+` and `=` in an attribute — both of which
+// base64 uses — so the raw attribute text is not the value that gets submitted.
+func formValue(t *testing.T, document, name string) string {
+	t.Helper()
+
+	for _, match := range formValuePattern.FindAllStringSubmatch(document, -1) {
+		if match[1] == name {
+			return html.UnescapeString(match[2])
+		}
+	}
+	require.Failf(t, "missing form field", "the request form carries no %q", name)
+	return ""
 }
 
 // acsPost runs the assertion consumer service with a form body, carrying the
@@ -543,6 +723,108 @@ func TestSAMLBindingIsSharedAcrossFlows(t *testing.T) {
 		email: "tabs@example.test", inResponseTo: firstRequest, destination: env.acs,
 	})
 	assertLandedInConsole(t, env.acsPost(response, first, binding), "/")
+}
+
+// A provider configured by metadata URL resolves its sign-on endpoint and its
+// signing certificate from the published document rather than from
+// configuration, and a login through it is otherwise identical.
+func TestSAMLLoginThroughPublishedMetadata(t *testing.T) {
+	t.Parallel()
+	env := newSAMLEnvWith(t, samlEnvOptions{viaMetadata: true})
+
+	res := env.signIn(assertionOptions{email: "metadata@example.test"})
+	assertLandedInConsole(t, res, "/")
+
+	identity, err := env.state.GetAdminIdentity(context.Background(), idpEntityID, "subject-metadata@example.test")
+	require.NoError(t, err)
+	assert.Equal(t, management.IdentityProviderSAML, identity.Provider)
+
+	// The certificate came out of the document, so an assertion signed by
+	// anything else is still refused.
+	assertRejected(t, env.signIn(assertionOptions{
+		email: "forged@example.test", signedByOther: newStubIdP(t),
+	}), "failed")
+}
+
+// A provider advertising only HTTP-POST gets a self-submitting form rather than
+// a redirect. The response comes back over POST either way.
+func TestSAMLLoginOverThePostRequestBinding(t *testing.T) {
+	t.Parallel()
+	env := newSAMLEnvWith(t, samlEnvOptions{viaMetadata: true, binding: saml.HTTPPostBinding})
+
+	relayState, requestID, binding, request := env.beginOverPostBinding()
+	assert.Equal(t, env.acs, request.SelectAttrValue("AssertionConsumerServiceURL", ""),
+		"the ACS URL derives from the deployment's public URL, not from the request")
+
+	response := env.idp.respond(t, assertionOptions{
+		email: "posted@example.test", inResponseTo: requestID, destination: env.acs,
+	})
+	assertLandedInConsole(t, env.acsPost(response, relayState, binding), "/")
+}
+
+// A provider that wants signed requests refuses unsigned ones, so a deployment
+// holding a key signs whatever it sends.
+func TestSAMLSignsItsAuthnRequest(t *testing.T) {
+	t.Parallel()
+	env := newSAMLEnvWith(t, samlEnvOptions{withKeypair: true})
+
+	res := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/auth/saml/"+testProviderID+"/start", nil)
+	env.auth.StartSAMLLogin(res, req, testProviderID, oapi.StartSAMLLoginParams{})
+	require.Equal(t, http.StatusFound, res.Code, res.Body.String())
+
+	target, err := url.Parse(res.Header().Get("Location"))
+	require.NoError(t, err)
+
+	assert.Equal(t, dsig.RSASHA256SignatureMethod, target.Query().Get("SigAlg"))
+
+	// The redirect binding signs the query string up to the signature itself,
+	// so that is what the identity provider verifies and what is verified here.
+	raw := target.RawQuery
+	cut := strings.Index(raw, "&Signature=")
+	require.Positive(t, cut, "a signed request carries its signature in the query")
+
+	signature, err := base64.StdEncoding.DecodeString(target.Query().Get("Signature"))
+	require.NoError(t, err)
+
+	digest := sha256.Sum256([]byte(raw[:cut]))
+	require.NoError(t, rsa.VerifyPKCS1v15(&env.spKey.PublicKey, crypto.SHA256, digest[:], signature),
+		"the request is signed by the key the deployment publishes in its metadata")
+
+	// The published metadata is what the provider verifies against, so it has
+	// to carry the same certificate.
+	metadata := httptest.NewRecorder()
+	env.auth.GetSAMLMetadata(metadata, httptest.NewRequest("GET", "/api/auth/saml/"+testProviderID+"/metadata", nil), testProviderID)
+	assert.Contains(t, metadata.Body.String(), base64.StdEncoding.EncodeToString(env.spCert.Raw))
+}
+
+// A provider configured to encrypt sends the assertion inside an envelope only
+// this deployment's key opens. The signature it is proved by is the one inside.
+func TestSAMLAcceptsAnEncryptedAssertion(t *testing.T) {
+	t.Parallel()
+	env := newSAMLEnvWith(t, samlEnvOptions{withKeypair: true})
+
+	res := env.signIn(assertionOptions{email: "sealed@example.test", encryptTo: env.spCert})
+	assertLandedInConsole(t, res, "/")
+
+	identity, err := env.state.GetAdminIdentity(context.Background(), idpEntityID, "subject-sealed@example.test")
+	require.NoError(t, err)
+	assert.Equal(t, management.IdentityProviderSAML, identity.Provider)
+
+	// Encryption is not authentication: an envelope this deployment can open,
+	// carrying an assertion signed by somebody else, is still refused.
+	assertRejected(t, env.signIn(assertionOptions{
+		email:         "sealed-forgery@example.test",
+		signedByOther: newStubIdP(t),
+		encryptTo:     env.spCert,
+	}), "failed")
+
+	// And one that was never signed at all.
+	assertRejected(t, env.signIn(assertionOptions{
+		email:     "sealed-unsigned@example.test",
+		unsigned:  true,
+		encryptTo: env.spCert,
+	}), "failed")
 }
 
 // The metadata an operator registers is published rather than described in
