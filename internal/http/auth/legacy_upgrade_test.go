@@ -350,6 +350,8 @@ func TestUpgradeLegacySessionSkipsALogin(t *testing.T) {
 		// before they have authenticated with anything.
 		"/api/auth/oidc/default/start",
 		"/api/auth/oidc/default/callback",
+		"/api/auth/saml/default/start",
+		"/api/auth/saml/default/acs",
 		// The login view's bootstrap. Upgrading here hands the browser a
 		// session before it has chosen a driver at all.
 		"/api/auth/methods",

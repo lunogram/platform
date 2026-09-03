@@ -6544,6 +6544,127 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
+  /api/auth/saml/providers:
+    get:
+      summary: List the deployment's SAML providers
+      description: >-
+        The SAML providers the login page may offer, in the order the operator
+        declared them. These are the deployment's own providers; there is no
+        other tenant whose existence could leak, so this needs no credential.
+      operationId: listSAMLProviders
+      tags:
+        - Auth
+      responses:
+        "200":
+          description: The configured providers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SAMLProvider"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/auth/saml/{provider}/start:
+    get:
+      summary: Begin a SAML login
+      description: >-
+        Sends the browser to the named identity provider, having stored the
+        AuthnRequest ID server-side under a short lifetime and set a binding
+        cookie that ties the request to this browser. Answers 302 when the
+        provider takes the HTTP-Redirect binding, and 200 with a self-submitting
+        form when it only takes HTTP-POST. The assertion consumer service URL
+        handed to the provider derives from the deployment's public URL and the
+        provider's id, and is never taken from a request parameter.
+      operationId: startSAMLLogin
+      tags:
+        - Auth
+      parameters:
+        - $ref: "#/components/parameters/SAMLProviderID"
+        - name: r
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Where the console should land once the session exists. Reduced to a same-site path.
+      responses:
+        "302":
+          description: Redirect to the identity provider
+        "200":
+          description: A self-submitting form carrying the request over the HTTP-POST binding
+          content:
+            text/html:
+              schema:
+                type: string
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/auth/saml/{provider}/acs:
+    post:
+      summary: Complete a SAML login
+      description: >-
+        The assertion consumer service. Redeems the RelayState, which is
+        single-use and deleted as it is read and must have been issued for this
+        provider; requires the binding cookie to match the one the login was
+        started with; and proves the response against the provider's signing
+        certificates, its entity id, the InResponseTo of the request this
+        deployment issued, the destination, the audience and the assertion's own
+        validity window. The assertion ID is recorded so the same assertion can
+        never be accepted twice. Unsolicited (identity-provider-initiated)
+        responses are refused. The browser is then redirected into the console,
+        with or without a session.
+
+        Both form fields are supplied by the identity provider rather than by a
+        caller, and neither is marked required: a response missing either is
+        refused by the handler, which answers the navigation with a redirect
+        the person can read rather than a problem document they cannot.
+        RelayState is absent on exactly the unsolicited responses this
+        deployment declines to accept.
+      operationId: completeSAMLLogin
+      tags:
+        - Auth
+      parameters:
+        - $ref: "#/components/parameters/SAMLProviderID"
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                SAMLResponse:
+                  type: string
+                RelayState:
+                  type: string
+      responses:
+        "302":
+          description: Redirect into the console
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/auth/saml/{provider}/metadata:
+    get:
+      summary: This deployment's SAML service provider metadata
+      description: >-
+        The metadata an operator registers with their identity provider: this
+        deployment's entity id, its assertion consumer service URL, and the
+        public half of its signing certificate. It carries no secret.
+      operationId: getSAMLMetadata
+      tags:
+        - Auth
+      parameters:
+        - $ref: "#/components/parameters/SAMLProviderID"
+      responses:
+        "200":
+          description: The service provider metadata
+          content:
+            application/samlmetadata+xml:
+              schema:
+                type: string
+        default:
+          $ref: "#/components/responses/Error"
+
 
 components:
   parameters:
@@ -6595,6 +6716,14 @@ components:
       schema:
         type: string
       description: The single sign-on provider
+
+    SAMLProviderID:
+      name: provider
+      in: path
+      required: true
+      schema:
+        type: string
+      description: The SAML single sign-on provider
 
   responses:
     Error:
@@ -10708,6 +10837,19 @@ components:
           example: "2025-12-31T23:59:59Z"
 
     OIDCProvider:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: string
+          description: Names the provider in its login URLs
+        name:
+          type: string
+          description: What the login page calls it
+
+    SAMLProvider:
       type: object
       required:
         - id

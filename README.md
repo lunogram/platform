@@ -32,7 +32,7 @@
 - 👥 **Segmentation** Create dynamic lists to target users matching any event or user based criteria in real time.
 - 📣 **Campaigns** Build campaigns that target specific lists of users and go out at pre-defined times.
 - 🔗 **Integrations** Connect Lunogram to your applications using our easy to use SDKs and APIs.
-- 🔒 **Secure** OpenID Connect single sign-on, configured like any other login driver, no add-ons. SAML is not supported.
+- 🔒 **Secure** OpenID Connect and SAML single sign-on, configured like any other login driver, no add-ons.
 - 📦 **Open Source** Easy to setup and get running in your own cloud.
 
 ## 🚀 Deployment
@@ -152,13 +152,15 @@ the address, not by holding the link. Invitations expire after 48 hours. See
 
 ### Signing in with your company's identity provider
 
-Point the deployment at your own OpenID Connect providers — Okta, Entra ID,
-Google Workspace, Keycloak, Auth0 — and your staff sign in there. It is a driver
-like the others: add `oidc` to `AUTH_DRIVER` and configure it. One provider is
-configured from the environment; several are declared in the configuration file.
+Point the deployment at your own identity providers — Okta, Entra ID, Google
+Workspace, Keycloak, Auth0, ADFS, Shibboleth — and your staff sign in there.
+Both protocols are drivers like the others: add `oidc` or `saml` to
+`AUTH_DRIVER` and configure it. One provider is configured from the environment;
+several are declared in the configuration file.
 
-SAML is deliberately not supported, and is not planned. OpenID Connect is what
-the platform speaks.
+Prefer OpenID Connect where your provider offers both. It has discovery, so a
+key rotation is picked up on its own, and it carries an `email_verified` claim
+the platform can act on. SAML is there for the directories that only speak SAML.
 
 #### 1. Register the application with your identity provider
 
@@ -264,6 +266,153 @@ attests `email` and nothing else, so pointing `AUTH_OIDC_EMAIL_CLAIM` at an
 editable claim such as `preferred_username` or `upn` leaves addresses unverified
 — and therefore never linked to an existing account — until
 `AUTH_OIDC_EMAIL_VERIFIED_CLAIM` names the claim that attests them.
+
+### Signing in with SAML
+
+Use this where your identity provider does not offer OpenID Connect. Everything
+after the proof is identical: a SAML login lands an admin in exactly the same
+place, and an admin may hold both identities at once.
+
+#### 1. Register this deployment with your identity provider
+
+Create a SAML 2.0 application. The two values it asks for are published at:
+
+```
+https://<your-lunogram-host>/api/auth/saml/default/metadata
+```
+
+Most providers accept that URL directly. For one that wants the fields typed in,
+they are the entity id (`AUTH_SAML_SP_ENTITY_ID`, defaulting to that metadata
+URL) and the assertion consumer service URL:
+
+```
+https://<your-lunogram-host>/api/auth/saml/default/acs
+```
+
+Both derive from `PUBLIC_URL` and the provider's id — `default` for the
+single-provider form — and never from anything in a request. A second provider
+registers `.../api/auth/saml/<its-id>/acs`.
+
+Ask the provider to send a **persistent** NameID or an email address. A
+transient NameID names a session rather than a person, so it is refused: taken
+as an identity it would provision a new admin on every sign-in.
+
+`PUBLIC_URL` must be `https`. The cookie that ties a login to the browser that
+started it has to be `SameSite=None` to survive the cross-site form POST your
+provider answers with, and browsers refuse a `SameSite=None` cookie that is not
+`Secure`. A plaintext deployment is refused at startup rather than run without
+that binding.
+
+#### 2. Configure the driver
+
+```
+AUTH_DRIVER=basic,saml
+AUTH_SAML_ENTITY_ID=http://www.okta.com/exk...
+AUTH_SAML_METADATA_URL=https://example.okta.com/app/exk.../sso/saml/metadata
+```
+
+`AUTH_SAML_ENTITY_ID` is what your provider stamps as the `Issuer` of every
+response, compared exactly. It is an opaque URI — Entra publishes an `https`
+URL, others publish a `urn:` — so it is never parsed or normalised.
+
+`AUTH_SAML_METADATA_URL` is re-read as it expires, so a certificate rotation is
+picked up without a restart. Where the deployment cannot reach it — an egress
+policy, or a provider that only offers a file — give the two fields instead:
+
+```
+AUTH_SAML_SSO_URL=https://example.okta.com/app/exk.../sso/saml
+AUTH_SAML_CERTIFICATE="$(cat idp.pem)"
+```
+
+Set the metadata URL **or** that pair, not both. Either way the sign-on endpoint
+is held to the deployment's outbound policy, which refuses plaintext, so
+`AUTH_SAML_SSO_URL` must be `https`. `AUTH_SAML_CERTIFICATE` holds the provider's
+signing certificates as PEM; paste both during a rotation. Anything after the
+last certificate is refused rather than ignored, so a bundle that was truncated
+on its way into the environment is not read as a bundle of one.
+
+The rest have defaults worth knowing about:
+
+| Variable | Default | What it is |
+| --- | --- | --- |
+| `AUTH_SAML_EMAIL_ATTRIBUTE` | the common claim URIs, then the NameID when its format is an address | Which attribute carries the address |
+| `AUTH_SAML_GIVEN_NAME_ATTRIBUTE` | the common claim URIs | Which attribute carries the first name |
+| `AUTH_SAML_FAMILY_NAME_ATTRIBUTE` | the common claim URIs | Which attribute carries the last name |
+| `AUTH_SAML_NAME_ID_FORMAT` | whatever the provider is configured for | What the request asks for |
+| `AUTH_SAML_TRUST_EMAIL` | `true` | Whether an address this provider asserts may link to an existing account |
+| `AUTH_SAML_SIGN_REQUESTS` | signed whenever a key pair is configured | Whether outgoing requests are signed |
+
+SAML has no standard attribute names, so the address is looked for under the
+WS-Federation claim URI Entra and ADFS send, the X.500 object identifier
+Shibboleth sends, and the bare words most others send. A directory using
+something else names it explicitly — and a name you set is used on its own, so a
+typo reads as a missing address rather than quietly finding a different one.
+
+#### Signed requests and encrypted assertions
+
+Providers that require a signed `AuthnRequest`, or that encrypt their
+assertions, need this deployment to hold a key pair:
+
+```
+AUTH_SAML_SP_CERTIFICATE="$(cat sp.pem)"
+AUTH_SAML_SP_PRIVATE_KEY="$(cat sp.key)"
+```
+
+A self-signed pair is what these are; they authenticate this deployment to your
+provider and nothing else. Both or neither — one on its own is refused at
+startup. They are published in the metadata above, so registering the metadata
+URL is all your provider needs.
+
+Do not reuse `AUTH_CONSOLE_SIGNING_KEY` here. That key mints this deployment's
+sessions; this one is handed to third parties.
+
+#### More than one provider
+
+Declared in the configuration file, exactly as the OpenID Connect ones are:
+
+```yaml
+auth:
+  drivers: [basic, saml]
+  saml:
+    sp_entity_id: https://console.example.com/saml
+    sp_certificate: ${SAML_SP_CERTIFICATE}
+    sp_private_key: ${SAML_SP_PRIVATE_KEY}
+    providers:
+      - id: staff
+        name: Staff directory
+        entity_id: http://www.okta.com/exk...
+        metadata_url: https://example.okta.com/app/exk.../sso/saml/metadata
+      - id: contractors
+        name: Contractors
+        entity_id: urn:partner:idp
+        sso_url: https://idp.partner.example/sso
+        certificate: ${PARTNER_IDP_CERTIFICATE}
+        allowed_domains: [partner.example]
+```
+
+`sp_entity_id`, `sp_certificate` and `sp_private_key` belong to the deployment
+rather than to a provider: you are one service provider however many directories
+you federate with. Set `AUTH_SAML_*` **or** `auth.saml.providers` for the
+providers themselves, not both.
+
+`allowed_domains` means what it does for OpenID Connect, and matters more here.
+
+#### What SAML does not carry
+
+There is no `email_verified` in SAML. Nothing an assertion can carry attests an
+address the way an OpenID Connect claim does, so the attestation is yours: by
+configuring a provider you are saying it is authoritative for the addresses it
+asserts, which is true of a corporate directory. That is why `trust_email`
+defaults to `true`, and why `allowed_domains` is the thing to reach for when it
+should only speak for some addresses. Set `trust_email: false` for a directory
+whose users can edit their own address, and logins through it will only ever
+reach an account it provisioned itself.
+
+Two more things are deliberately absent. Identity-provider-initiated sign-on —
+the tile in your provider's dashboard — is refused: an unsolicited assertion
+answers no request this deployment issued, so the RelayState, the browser
+binding and `InResponseTo` all have nothing to check. Start from the login page
+instead. Single logout is not implemented; signing out ends the session here.
 
 For full documentation on the platform and more information on deployment, check out our docs.
 

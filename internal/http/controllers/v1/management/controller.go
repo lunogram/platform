@@ -69,17 +69,20 @@ func NewController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB
 		mail = mailer.NewDispatcher(transport, logger.Named("mailer"), cfg.Mail.Timeout)
 	}
 
-	// The collaborators the OpenID Connect driver needs beyond the
-	// configuration. They are always built: whether the deployment offers a
-	// federated login is decided by AUTH_DRIVER, and the driver itself refuses
-	// to build when the settings behind it are missing.
-	provider := ssrf.SafeHTTPClient(oidcProviderTimeout)
+	// The collaborators the federated drivers need beyond the configuration.
+	// They are always built: whether the deployment offers a federated login is
+	// decided by AUTH_DRIVER, and each driver itself refuses to build when the
+	// settings behind it are missing.
+	provider := ssrf.SafeHTTPClient(federatedProviderTimeout)
 	federated := verifiers.Deps{
-		Keys:       jwksCache,
-		Flows:      sso.NewFlowStore(rdb, cfg.Redis.KeyPrefix),
-		Discovery:  sso.NewDiscovery(provider, ssrf.Policy{}, 0),
-		HTTPClient: provider,
-		BaseURL:    cfg.PublicBaseURL(),
+		Keys:         jwksCache,
+		Flows:        sso.NewFlowStore(rdb, cfg.Redis.KeyPrefix),
+		Discovery:    sso.NewDiscovery(provider, ssrf.Policy{}, 0),
+		HTTPClient:   provider,
+		SAMLFlows:    sso.NewSAMLFlowStore(rdb, cfg.Redis.KeyPrefix),
+		Assertions:   sso.NewAssertionReplayStore(rdb, cfg.Redis.KeyPrefix),
+		SAMLMetadata: sso.NewSAMLMetadata(provider, ssrf.Policy{}, 0),
+		BaseURL:      cfg.PublicBaseURL(),
 	}
 
 	controller := &Controller{
