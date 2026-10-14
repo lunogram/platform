@@ -118,6 +118,47 @@ func (srv *AuthMethodsController) GetAuthMethod(w http.ResponseWriter, r *http.R
 	json.Write(w, http.StatusOK, toOAPIAuthMethod(method, false))
 }
 
+// GetCurrentAPIKey tells an API key which project and organization it is scoped
+// to, and its role. Every other management endpoint either names the project in
+// its URL or is reserved for admins, so without this a caller holding only a
+// key has no way to learn the project it should address.
+//
+// It needs no permission check beyond authentication: the key is told only
+// about itself, which is the one project it can already act on. The method is
+// read back through the key's own project, so a key revoked since the
+// authentication cache was filled is answered with a 404.
+func (srv *AuthMethodsController) GetCurrentAPIKey(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	actor := rbac.FromContext(ctx)
+	if actor == nil || actor.ID == "" {
+		oapi.WriteProblem(w, problem.ErrUnauthorized())
+		return
+	}
+	if actor.Type != rbac.ActorAPIKey {
+		oapi.WriteProblem(w, problem.ErrForbidden(problem.Describe("this endpoint is only available to api keys")))
+		return
+	}
+
+	methodID, err := uuid.Parse(actor.ID)
+	if err != nil {
+		oapi.WriteProblem(w, problem.ErrUnauthorized())
+		return
+	}
+
+	method := srv.fetch(ctx, w, actor.ProjectID, methodID)
+	if method == nil {
+		return
+	}
+
+	json.Write(w, http.StatusOK, oapi.CurrentAPIKey{
+		Id:             method.ID,
+		Name:           method.Name,
+		ProjectId:      method.ProjectID,
+		OrganizationId: actor.OrganizationID,
+		Role:           oapi.ProjectRole(method.Role),
+	})
+}
+
 func (srv *AuthMethodsController) UpdateAuthMethod(w http.ResponseWriter, r *http.Request, projectID, methodID uuid.UUID) {
 	ctx := r.Context()
 	if !srv.authorizeProject(ctx, w, projectID, rbac.Update) {
