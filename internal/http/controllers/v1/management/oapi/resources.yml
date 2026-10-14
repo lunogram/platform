@@ -5008,6 +5008,30 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
+  /api/admin/auth/key:
+    get:
+      summary: Get the calling API key
+      description: |
+        Returns the identity of the API key that authenticated the request: the
+        project and organization it is scoped to, and its role. A key learns
+        nothing beyond the project it already has access to, so an integration
+        holding only a key can discover which project to address. Only API keys
+        may call this endpoint; any other caller is refused.
+      operationId: getCurrentAPIKey
+      tags:
+        - Auth Methods
+      security:
+        - HttpBearerAuth: []
+      responses:
+        "200":
+          description: The calling API key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrentAPIKey"
+        default:
+          $ref: "#/components/responses/Error"
+
   /api/admin/projects/{projectID}/auth-methods:
     get:
       summary: List auth methods
@@ -9792,6 +9816,31 @@ components:
         updated_at:
           type: string
           format: date-time
+
+    CurrentAPIKey:
+      type: object
+      description: The API key that authenticated the request.
+      required:
+        - id
+        - name
+        - project_id
+        - organization_id
+        - role
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: "Production key"
+        project_id:
+          type: string
+          format: uuid
+        organization_id:
+          type: string
+          format: uuid
+        role:
+          $ref: "#/components/schemas/ProjectRole"
 
     CreateAuthMethod:
       type: object
