@@ -1,9 +1,9 @@
-import { useCallback, useContext, useEffect, useMemo, useState, type JSX } from "react"
+import { useCallback, useContext, useEffect, useMemo, useState } from "react"
 import { Controller, useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useNavigate, useParams } from "react-router"
 import { useTranslation } from "react-i18next"
-import { Inbox, Info, Mail, MessageSquareDot, Smartphone } from "lucide-react"
+import { Info } from "lucide-react"
 import { toast } from "sonner"
 
 import api from "@/api"
@@ -26,15 +26,9 @@ import {
 import { Switch } from "@/components/ui/switch"
 
 import { CampaignVariables } from "./CampaignVariables"
+import { ChannelSummary } from "./ChannelSummary"
 import { newCampaignSchema, type NewCampaignFormValues } from "@/validation/campaign/new-campaign"
 import { defaultTemplateData } from "@/validation/campaign/template/data"
-
-type ChannelConfig = {
-    title: string
-    description: string
-    icon: JSX.Element
-    colorClass: string
-}
 
 function isChannelType(value?: string): value is ChannelType {
     return value === "email" || value === "sms" || value === "push" || value === "inbox"
@@ -106,41 +100,6 @@ export default function NewCampaign() {
         }
     }, [isTransactional, subscriptionsLoading, filteredSubscriptions, subscriptionId, form])
 
-    const channelConfig = useMemo<ChannelConfig | null>(() => {
-        if (!channel) {
-            return null
-        }
-
-        const config: Record<ChannelType, ChannelConfig> = {
-            email: {
-                title: t("channels.email.title"),
-                description: t("channels.email.description"),
-                icon: <Mail className="h-4 w-4" />,
-                colorClass: "bg-green-50 text-green-600",
-            },
-            sms: {
-                title: t("channels.sms.title"),
-                description: t("channels.sms.description"),
-                icon: <Smartphone className="h-4 w-4" />,
-                colorClass: "bg-blue-50 text-blue-600",
-            },
-            push: {
-                title: t("channels.push.title"),
-                description: t("channels.push.description"),
-                icon: <MessageSquareDot className="h-4 w-4" />,
-                colorClass: "bg-purple-50 text-purple-600",
-            },
-            inbox: {
-                title: t("channels.inbox.title"),
-                description: t("channels.inbox.description"),
-                icon: <Inbox className="h-4 w-4" />,
-                colorClass: "bg-amber-50 text-amber-600",
-            },
-        }
-
-        return config[channel]
-    }, [channel, t])
-
     const canCreate = form.formState.isValid && !!project?.id && !!channel && !isCreating
 
     async function createCampaign(data: NewCampaignFormValues) {
@@ -201,7 +160,7 @@ export default function NewCampaign() {
         }
     }
 
-    if (!project || !channel || !channelConfig) {
+    if (!project || !channel) {
         return null
     }
 
@@ -224,19 +183,7 @@ export default function NewCampaign() {
                     <FieldGroup>
                         <Field className="gap-2">
                             <FieldLabel>{t("channel", "Channel")}</FieldLabel>
-                            <div className="flex items-start gap-3 rounded-md border p-3">
-                                <div
-                                    className={`mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md ${channelConfig.colorClass}`}
-                                >
-                                    {channelConfig.icon}
-                                </div>
-                                <div>
-                                    <p className="font-medium">{channelConfig.title}</p>
-                                    <p className="text-sm text-muted-foreground">
-                                        {channelConfig.description}
-                                    </p>
-                                </div>
-                            </div>
+                            <ChannelSummary channel={channel} />
                         </Field>
                     </FieldGroup>
 

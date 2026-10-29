@@ -1,8 +1,10 @@
-import { queryOptions, useMutation, useQueryClient } from "@tanstack/react-query"
+import { keepPreviousData, queryOptions, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useContext } from "react"
 import { t } from "i18next"
 import api from "@/api"
 import { CampaignContext, ProjectContext } from "@/contexts"
+import { oapiClient } from "@/oapi/client"
+import { unwrap } from "@/oapi/unwrap"
 import type { Campaign, Template } from "@/types"
 import type { UUID } from "@/types/common"
 import { warnUnknownTemplateData } from "@/validation/campaign/template/data"
@@ -33,6 +35,94 @@ export function campaignQuery(projectId: UUID, campaignId: UUID) {
             return campaign
         },
     })
+}
+
+export const CAMPAIGN_PAGE_SIZE = 25
+
+interface CampaignListParams {
+    offset: number
+    search: string
+    /** The archived view also lists deleted campaigns. */
+    archived: boolean
+}
+
+/** One page of the campaigns list. */
+export function campaignListQuery(
+    projectId: UUID,
+    { offset, search, archived }: CampaignListParams,
+) {
+    return queryOptions({
+        queryKey: [...campaignKeys.all(projectId), "list", { offset, search, archived }] as const,
+        queryFn: async () =>
+            unwrap(
+                await oapiClient.GET("/api/admin/projects/{projectID}/campaigns", {
+                    params: {
+                        path: { projectID: projectId },
+                        query: {
+                            limit: CAMPAIGN_PAGE_SIZE,
+                            offset,
+                            search: search || undefined,
+                            ...(archived ? { include_deleted: true } : {}),
+                        },
+                    },
+                }),
+            ),
+        // Keep the current page on screen while the next one loads.
+        placeholderData: keepPreviousData,
+    })
+}
+
+// useCampaignListMutation runs a campaigns-list action, then refreshes every
+// cached list (and campaign) of the project so the change shows everywhere.
+function useCampaignListMutation<T>(
+    request: (projectId: UUID, campaignId: UUID) => Promise<T>,
+    errorMessage: string,
+) {
+    const [project] = useContext(ProjectContext)
+    const queryClient = useQueryClient()
+    return useMutation({
+        mutationFn: (campaignId: UUID) => request(project.id, campaignId),
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: campaignKeys.all(project.id) }),
+        meta: { errorMessage },
+    })
+}
+
+export function useDuplicateCampaign() {
+    return useCampaignListMutation(
+        async (projectId, campaignId) =>
+            unwrap(
+                await oapiClient.POST(
+                    "/api/admin/projects/{projectID}/campaigns/{campaignID}/duplicate",
+                    { params: { path: { projectID: projectId, campaignID: campaignId } } },
+                ),
+            ),
+        t("campaign.duplicate_failed", "Couldn't duplicate the campaign"),
+    )
+}
+
+export function useArchiveCampaign() {
+    return useCampaignListMutation(
+        async (projectId, campaignId) =>
+            unwrap(
+                await oapiClient.DELETE("/api/admin/projects/{projectID}/campaigns/{campaignID}", {
+                    params: { path: { projectID: projectId, campaignID: campaignId } },
+                }),
+            ),
+        t("campaign.archive_failed", "Couldn't archive the campaign"),
+    )
+}
+
+export function useUnarchiveCampaign() {
+    return useCampaignListMutation(
+        async (projectId, campaignId) =>
+            unwrap(
+                await oapiClient.POST(
+                    "/api/admin/projects/{projectID}/campaigns/{campaignID}/unarchive",
+                    { params: { path: { projectID: projectId, campaignID: campaignId } } },
+                ),
+            ),
+        t("campaign.unarchive_failed", "Couldn't unarchive the campaign"),
+    )
 }
 
 // useCampaignCache addresses the cached copy of the campaign in context.

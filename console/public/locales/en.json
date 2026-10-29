@@ -196,7 +196,10 @@
             "title": "Review",
             "description": "Review your campaign before sending."
         },
-        "channel_unsupported": "This channel type is not yet supported."
+        "channel_unsupported": "This channel type is not yet supported.",
+        "duplicate_failed": "Couldn't duplicate the campaign",
+        "archive_failed": "Couldn't archive the campaign",
+        "unarchive_failed": "Couldn't unarchive the campaign"
     },
     "channel_list": "Channels",
     "channels": {
@@ -1137,5 +1140,6 @@
     "sso_error_email": "Your identity provider returned no email address.",
     "sso_error_failed": "Single sign-on failed. Please try again.",
     "sso_choose_provider": "Choose how you would like to sign in.",
-    "sso_error_domain": "Your identity provider returned an address it is not configured to sign in."
+    "sso_error_domain": "Your identity provider returned an address it is not configured to sign in.",
+    "campaigns_load_failed": "Couldn't load campaigns."
 }
