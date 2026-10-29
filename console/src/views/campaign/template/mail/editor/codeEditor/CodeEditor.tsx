@@ -181,7 +181,8 @@ import { useEditorMode, getInitialEditorMode, type EditorMode } from "./hooks/us
 import { useSendTestEmail } from "../hooks/useSendTestEmail"
 import { useMonacoSetup } from "./hooks/useMonacoSetup"
 import { useInsertActions } from "./hooks/useInsertActions"
-import { useTemplatePersistence } from "../hooks/useTemplatePersistence"
+import { useEmailTemplateSave } from "../hooks/useEmailTemplateSave"
+import { StepLayout } from "../../../StepLayout"
 import { compileEmail } from "./compileEmail"
 
 export function CodeEditor() {
@@ -481,19 +482,18 @@ function CodeEditorInner() {
     const { variableGroups } = useCampaignVariableContext()
     const { selectSection, deselectSection } = useBuilderActionsOptional()
 
+    // The editor step only exists for email campaigns.
+    const email = template.type === "email" ? template.data : undefined
+
     const plainTextEditorRef = useRef<PlainTextEditorRef | null>(null)
 
     // Editor state — shared between code editor and builder
-    const [code, setCode] = useState<string>(
-        template?.data?.code?.source ?? DEFAULT_REACT_EMAIL_TEMPLATE,
-    )
+    const [code, setCode] = useState<string>(email?.code?.source ?? DEFAULT_REACT_EMAIL_TEMPLATE)
 
     // Plain text state
-    const [customPlainText, setCustomPlainText] = useState<string>(
-        template?.data?.plaintext?.custom ?? "",
-    )
+    const [customPlainText, setCustomPlainText] = useState<string>(email?.plaintext?.custom ?? "")
     const [useCustomPlainText, setUseCustomPlainText] = useState<boolean>(
-        !!template?.data?.plaintext?.custom,
+        !!email?.plaintext?.custom,
     )
 
     // UI state
@@ -532,16 +532,25 @@ function CodeEditorInner() {
         cancelModeSwitch,
         handleBlocksChange,
     } = useEditorMode({
-        initialMode: getInitialEditorMode(template?.data),
+        initialMode: getInitialEditorMode(email),
         code,
         setCode,
         editorRef,
-        initialBlocksData: (template?.data?.blocks as EmailDocument) ?? null,
+        initialBlocksData: email?.blocks ?? null,
     })
 
     const { compiledHtml, compileError, autoPlainText } = useCompilation(code, previewProps)
 
+    const save = useEmailTemplateSave({
+        editorMode,
+        code,
+        blocksData,
+        useCustomPlainText,
+        customPlainText,
+    })
+
     const { sending, handleSendTest } = useSendTestEmail({
+        save,
         previewProps,
         projectId: project.id,
         campaignId: campaign.id,
@@ -552,14 +561,6 @@ function CodeEditorInner() {
         activeTab,
         insertAtCursorCode,
         plainTextEditorRef,
-    })
-
-    useTemplatePersistence({
-        editorMode,
-        code,
-        blocksData,
-        useCustomPlainText,
-        customPlainText,
     })
 
     // Handle source changes from the AI builder
@@ -586,59 +587,230 @@ function CodeEditorInner() {
     // --- Block editor: full-width layout (no split panels, no preview) ---
     if (editorMode === "blocks") {
         return (
-            <div className="flex flex-col h-full w-full">
-                <div className="flex items-center justify-between border-b bg-background">
-                    <div className="flex items-center">
-                        <TabButton
-                            active={blockEditorTab === "editor"}
-                            onClick={() => setBlockEditorTab("editor")}
-                            icon={<LayoutGrid className="h-4 w-4" />}
-                            label="Editor"
-                        />
-                        <TabButton
-                            active={blockEditorTab === "preview-text"}
-                            onClick={() => setBlockEditorTab("preview-text")}
-                            icon={<FileText className="h-4 w-4" />}
-                            label="Preview Text"
-                        />
-                    </div>
-                    <div className="flex items-center gap-1 pr-3">
-                        <ModeToggle editorMode={editorMode} onModeSwitch={handleModeSwitch} />
-                        <div className="mx-1 h-4 w-px bg-border" />
-                        <UserSelection
-                            projectId={project.id}
-                            value={selectedUser}
-                            onChange={handleUserSelect}
-                            size="sm"
-                            ariaLabel="Send test recipient"
-                            searchInputAriaLabel="Search send test recipients"
-                        />
-                        <Button
-                            variant="default"
-                            size="sm"
-                            className="h-8 gap-1.5 px-2.5"
-                            onClick={handleSendTest}
-                            disabled={sending}
-                        >
-                            <Rocket className="h-3.5 w-3.5" />
-                            <span className="text-xs">Send test</span>
-                        </Button>
-                    </div>
-                </div>
-
-                <div className="flex-1 min-h-0">
-                    {LazyBlockEditorWrapped && (
-                        <Suspense fallback={<div className="flex-1" />}>
-                            <LazyBlockEditorWrapped
-                                initialDocument={blocksData ?? undefined}
-                                onChange={handleBlocksChange}
-                                activeTab={blockEditorTab}
-                                onTabChange={setBlockEditorTab}
-                                variableGroups={variableGroups}
+            <StepLayout save={save}>
+                <div className="flex flex-col h-full w-full">
+                    <div className="flex items-center justify-between border-b bg-background">
+                        <div className="flex items-center">
+                            <TabButton
+                                active={blockEditorTab === "editor"}
+                                onClick={() => setBlockEditorTab("editor")}
+                                icon={<LayoutGrid className="h-4 w-4" />}
+                                label="Editor"
                             />
-                        </Suspense>
-                    )}
+                            <TabButton
+                                active={blockEditorTab === "preview-text"}
+                                onClick={() => setBlockEditorTab("preview-text")}
+                                icon={<FileText className="h-4 w-4" />}
+                                label="Preview Text"
+                            />
+                        </div>
+                        <div className="flex items-center gap-1 pr-3">
+                            <ModeToggle editorMode={editorMode} onModeSwitch={handleModeSwitch} />
+                            <div className="mx-1 h-4 w-px bg-border" />
+                            <UserSelection
+                                projectId={project.id}
+                                value={selectedUser}
+                                onChange={handleUserSelect}
+                                size="sm"
+                                ariaLabel="Send test recipient"
+                                searchInputAriaLabel="Search send test recipients"
+                            />
+                            <Button
+                                variant="default"
+                                size="sm"
+                                className="h-8 gap-1.5 px-2.5"
+                                onClick={handleSendTest}
+                                disabled={sending}
+                            >
+                                <Rocket className="h-3.5 w-3.5" />
+                                <span className="text-xs">Send test</span>
+                            </Button>
+                        </div>
+                    </div>
+
+                    <div className="flex-1 min-h-0">
+                        {LazyBlockEditorWrapped && (
+                            <Suspense fallback={<div className="flex-1" />}>
+                                <LazyBlockEditorWrapped
+                                    initialDocument={blocksData ?? undefined}
+                                    onChange={handleBlocksChange}
+                                    activeTab={blockEditorTab}
+                                    onTabChange={setBlockEditorTab}
+                                    variableGroups={variableGroups}
+                                />
+                            </Suspense>
+                        )}
+                    </div>
+
+                    {isEnterprise && <BuilderCompileCheck previewPropsRef={previewPropsRef} />}
+
+                    <ModeSwitchDialog
+                        pendingMode={pendingMode}
+                        currentMode={editorMode}
+                        onConfirm={confirmModeSwitch}
+                        onCancel={cancelModeSwitch}
+                    />
+                    <MediaManager
+                        open={imageModalOpen}
+                        onOpenChange={setImageModalOpen}
+                        onSelect={insertImage}
+                    />
                 </div>
+            </StepLayout>
+        )
+    }
+
+    // --- Code editor / AI builder: split-panel layout with preview ---
+    return (
+        <StepLayout save={save}>
+            <div className="flex flex-col h-full w-full">
+                <ResizablePanelGroup orientation="horizontal" className="flex-1 min-h-0">
+                    {/* Left panel: Code editor or Builder chat */}
+                    <ResizablePanel defaultSize={50} minSize={30} className="overflow-hidden">
+                        <div className="flex flex-col h-full">
+                            <div className="flex items-center justify-between border-b bg-background">
+                                <div className="flex items-center">
+                                    {editorMode === "code" ? (
+                                        <>
+                                            <TabButton
+                                                active={activeTab === "code"}
+                                                onClick={() => setActiveTab("code")}
+                                                icon={<FileCode className="h-4 w-4" />}
+                                                label="template.tsx"
+                                            />
+                                            <TabButton
+                                                active={activeTab === "plaintext"}
+                                                onClick={() => setActiveTab("plaintext")}
+                                                icon={<FileText className="h-4 w-4" />}
+                                                label="plaintext.txt"
+                                            />
+                                        </>
+                                    ) : (
+                                        <TabButton
+                                            active={true}
+                                            onClick={() => {}}
+                                            icon={<Sparkles className="h-4 w-4" />}
+                                            label="AI Builder"
+                                        />
+                                    )}
+                                </div>
+                                <div className="pr-3">
+                                    <ModeToggle
+                                        editorMode={editorMode}
+                                        onModeSwitch={handleModeSwitch}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="flex-1 min-h-0 relative">
+                                {editorMode === "code" ? (
+                                    <>
+                                        {activeTab === "code" ? (
+                                            <>
+                                                <EditorToolbar
+                                                    onImageClick={() => setImageModalOpen(true)}
+                                                    onInsertVariable={insertVariable}
+                                                    variableGroups={variableGroups}
+                                                    showImageButton={true}
+                                                />
+                                                <Editor
+                                                    value={code}
+                                                    defaultLanguage="typescript"
+                                                    defaultPath="file:///template.tsx"
+                                                    onChange={handleCodeChange}
+                                                    onMount={handleEditorMount}
+                                                    options={{
+                                                        automaticLayout: true,
+                                                        minimap: { enabled: false },
+                                                        fontSize: 13,
+                                                        lineHeight: 20,
+                                                        scrollBeyondLastLine: false,
+                                                        padding: { top: 12, bottom: 12 },
+                                                        renderLineHighlight: "line",
+                                                        smoothScrolling: true,
+                                                        cursorBlinking: "smooth",
+                                                        cursorSmoothCaretAnimation: "on",
+                                                        bracketPairColorization: { enabled: true },
+                                                        guides: { indentation: false },
+                                                        stickyScroll: { enabled: false },
+                                                        tabSize: 2,
+                                                        wordWrap: "on",
+                                                        folding: true,
+                                                        suggest: {
+                                                            showKeywords: true,
+                                                            showSnippets: true,
+                                                        },
+                                                    }}
+                                                />
+                                            </>
+                                        ) : (
+                                            <PlainTextEditor
+                                                ref={plainTextEditorRef}
+                                                autoText={autoPlainText}
+                                                customText={customPlainText}
+                                                onCustomTextChange={setCustomPlainText}
+                                                useCustom={useCustomPlainText}
+                                                onToggleCustom={setUseCustomPlainText}
+                                                onImageClick={() => setImageModalOpen(true)}
+                                                onInsertVariable={insertVariable}
+                                                variableGroups={variableGroups}
+                                            />
+                                        )}
+                                    </>
+                                ) : isEnterprise ? (
+                                    <BuilderPanel
+                                        currentSource={code}
+                                        onSourceChange={handleBuilderSourceChange}
+                                    />
+                                ) : null}
+                            </div>
+                        </div>
+                    </ResizablePanel>
+
+                    <ResizableHandle withHandle />
+
+                    {/* Right panel: Preview + Props editor */}
+                    <ResizablePanel defaultSize={50} minSize={25} className="overflow-hidden">
+                        <div className="flex flex-col h-full">
+                            <div className="flex items-center justify-between border-b bg-background">
+                                <PreviewTab icon={<Eye className="h-4 w-4" />} label="Preview" />
+                                <PreviewToolbar
+                                    viewport={viewport}
+                                    setViewport={setViewport}
+                                    selectorActive={selectorActive}
+                                    setSelectorActive={(v) => setSelectorActive(v)}
+                                    editorMode={editorMode}
+                                    sending={sending}
+                                    onSendTest={handleSendTest}
+                                />
+                            </div>
+
+                            <div className="flex-1 min-h-0 min-w-0 overflow-hidden bg-muted/30">
+                                <EmailPreviewPanel
+                                    html={compiledHtml}
+                                    error={compileError}
+                                    viewport={viewport}
+                                    viewportWidth={VIEWPORT_WIDTHS[viewport]}
+                                    onSectionSelect={handleSectionSelect}
+                                    onSectionDeselect={handleSectionDeselect}
+                                    selectorActive={selectorActive}
+                                />
+                            </div>
+
+                            <PropsEditorPanel
+                                value={propsJsonString}
+                                onChange={handlePropsJsonChange}
+                                onReset={handlePropsReset}
+                                isCustomized={propsJsonString !== prevDefaultsRef.current}
+                                validationError={propsValidationError}
+                                extraProps={extraProps}
+                                projectId={project.id}
+                                selectedUser={selectedUser}
+                                onUserSelect={handleUserSelect}
+                            />
+                        </div>
+                    </ResizablePanel>
+                </ResizablePanelGroup>
 
                 {isEnterprise && <BuilderCompileCheck previewPropsRef={previewPropsRef} />}
 
@@ -654,173 +826,6 @@ function CodeEditorInner() {
                     onSelect={insertImage}
                 />
             </div>
-        )
-    }
-
-    // --- Code editor / AI builder: split-panel layout with preview ---
-    return (
-        <div className="flex flex-col h-full w-full">
-            <ResizablePanelGroup orientation="horizontal" className="flex-1 min-h-0">
-                {/* Left panel: Code editor or Builder chat */}
-                <ResizablePanel defaultSize={50} minSize={30} className="overflow-hidden">
-                    <div className="flex flex-col h-full">
-                        <div className="flex items-center justify-between border-b bg-background">
-                            <div className="flex items-center">
-                                {editorMode === "code" ? (
-                                    <>
-                                        <TabButton
-                                            active={activeTab === "code"}
-                                            onClick={() => setActiveTab("code")}
-                                            icon={<FileCode className="h-4 w-4" />}
-                                            label="template.tsx"
-                                        />
-                                        <TabButton
-                                            active={activeTab === "plaintext"}
-                                            onClick={() => setActiveTab("plaintext")}
-                                            icon={<FileText className="h-4 w-4" />}
-                                            label="plaintext.txt"
-                                        />
-                                    </>
-                                ) : (
-                                    <TabButton
-                                        active={true}
-                                        onClick={() => {}}
-                                        icon={<Sparkles className="h-4 w-4" />}
-                                        label="AI Builder"
-                                    />
-                                )}
-                            </div>
-                            <div className="pr-3">
-                                <ModeToggle
-                                    editorMode={editorMode}
-                                    onModeSwitch={handleModeSwitch}
-                                />
-                            </div>
-                        </div>
-
-                        <div className="flex-1 min-h-0 relative">
-                            {editorMode === "code" ? (
-                                <>
-                                    {activeTab === "code" ? (
-                                        <>
-                                            <EditorToolbar
-                                                onImageClick={() => setImageModalOpen(true)}
-                                                onInsertVariable={insertVariable}
-                                                variableGroups={variableGroups}
-                                                showImageButton={true}
-                                            />
-                                            <Editor
-                                                value={code}
-                                                defaultLanguage="typescript"
-                                                defaultPath="file:///template.tsx"
-                                                onChange={handleCodeChange}
-                                                onMount={handleEditorMount}
-                                                options={{
-                                                    automaticLayout: true,
-                                                    minimap: { enabled: false },
-                                                    fontSize: 13,
-                                                    lineHeight: 20,
-                                                    scrollBeyondLastLine: false,
-                                                    padding: { top: 12, bottom: 12 },
-                                                    renderLineHighlight: "line",
-                                                    smoothScrolling: true,
-                                                    cursorBlinking: "smooth",
-                                                    cursorSmoothCaretAnimation: "on",
-                                                    bracketPairColorization: { enabled: true },
-                                                    guides: { indentation: false },
-                                                    stickyScroll: { enabled: false },
-                                                    tabSize: 2,
-                                                    wordWrap: "on",
-                                                    folding: true,
-                                                    suggest: {
-                                                        showKeywords: true,
-                                                        showSnippets: true,
-                                                    },
-                                                }}
-                                            />
-                                        </>
-                                    ) : (
-                                        <PlainTextEditor
-                                            ref={plainTextEditorRef}
-                                            autoText={autoPlainText}
-                                            customText={customPlainText}
-                                            onCustomTextChange={setCustomPlainText}
-                                            useCustom={useCustomPlainText}
-                                            onToggleCustom={setUseCustomPlainText}
-                                            onImageClick={() => setImageModalOpen(true)}
-                                            onInsertVariable={insertVariable}
-                                            variableGroups={variableGroups}
-                                        />
-                                    )}
-                                </>
-                            ) : isEnterprise ? (
-                                <BuilderPanel
-                                    currentSource={code}
-                                    onSourceChange={handleBuilderSourceChange}
-                                />
-                            ) : null}
-                        </div>
-                    </div>
-                </ResizablePanel>
-
-                <ResizableHandle withHandle />
-
-                {/* Right panel: Preview + Props editor */}
-                <ResizablePanel defaultSize={50} minSize={25} className="overflow-hidden">
-                    <div className="flex flex-col h-full">
-                        <div className="flex items-center justify-between border-b bg-background">
-                            <PreviewTab icon={<Eye className="h-4 w-4" />} label="Preview" />
-                            <PreviewToolbar
-                                viewport={viewport}
-                                setViewport={setViewport}
-                                selectorActive={selectorActive}
-                                setSelectorActive={(v) => setSelectorActive(v)}
-                                editorMode={editorMode}
-                                sending={sending}
-                                onSendTest={handleSendTest}
-                            />
-                        </div>
-
-                        <div className="flex-1 min-h-0 min-w-0 overflow-hidden bg-muted/30">
-                            <EmailPreviewPanel
-                                html={compiledHtml}
-                                error={compileError}
-                                viewport={viewport}
-                                viewportWidth={VIEWPORT_WIDTHS[viewport]}
-                                onSectionSelect={handleSectionSelect}
-                                onSectionDeselect={handleSectionDeselect}
-                                selectorActive={selectorActive}
-                            />
-                        </div>
-
-                        <PropsEditorPanel
-                            value={propsJsonString}
-                            onChange={handlePropsJsonChange}
-                            onReset={handlePropsReset}
-                            isCustomized={propsJsonString !== prevDefaultsRef.current}
-                            validationError={propsValidationError}
-                            extraProps={extraProps}
-                            projectId={project.id}
-                            selectedUser={selectedUser}
-                            onUserSelect={handleUserSelect}
-                        />
-                    </div>
-                </ResizablePanel>
-            </ResizablePanelGroup>
-
-            {isEnterprise && <BuilderCompileCheck previewPropsRef={previewPropsRef} />}
-
-            <ModeSwitchDialog
-                pendingMode={pendingMode}
-                currentMode={editorMode}
-                onConfirm={confirmModeSwitch}
-                onCancel={cancelModeSwitch}
-            />
-            <MediaManager
-                open={imageModalOpen}
-                onOpenChange={setImageModalOpen}
-                onSelect={insertImage}
-            />
-        </div>
+        </StepLayout>
     )
 }

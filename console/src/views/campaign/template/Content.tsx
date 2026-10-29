@@ -1,56 +1,55 @@
-import { useContext, useEffect } from "react"
+import { useCallback, useContext } from "react"
+import type { FieldValues } from "react-hook-form"
 import { CampaignContext, TemplateContext as CurrentTemplateContext } from "@/contexts"
 import { useTranslation } from "react-i18next"
+import { knownTemplateData } from "@/validation/campaign/template/data"
 
 import { useUpdateTemplate } from "../queries"
-import { channels, type ChannelConfig } from "./channels"
-import { TemplateWorkflowContext } from "./contexts"
+import { withChannel, type ChannelConfig } from "./channels"
+import { saveWith, type SaveResult } from "./contexts"
+import { StepLayout } from "./StepLayout"
 import { UnsupportedChannel } from "./UnsupportedChannel"
 
 export default function TemplateContent() {
     const [campaign] = useContext(CampaignContext)
-    const config = channels[campaign.channel]
 
-    if (!config) {
-        return <UnsupportedChannel />
-    }
-
-    return <ChannelContent config={config} />
+    return (
+        withChannel(campaign.channel, (config) => <ChannelContent config={config} />) ?? (
+            <StepLayout>
+                <UnsupportedChannel />
+            </StepLayout>
+        )
+    )
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function ChannelContent({ config }: { config: ChannelConfig<any> }) {
+function ChannelContent<T extends FieldValues>({ config }: { config: ChannelConfig<T> }) {
     const [campaign] = useContext(CampaignContext)
-    const { onSubmit } = useContext(TemplateWorkflowContext)
     const [template] = useContext(CurrentTemplateContext)
     const { mutateAsync: updateTemplate } = useUpdateTemplate()
     const { t } = useTranslation()
 
-    const { useForm: useChannelForm, FormControl, Preview } = config
+    const { useForm: useChannelForm, toTemplate, FormControl, Preview } = config
     const form = useChannelForm(campaign, template)
 
-    useEffect(() => {
-        const unsubscribe = onSubmit(async () => {
-            const isValid = await form.trigger()
-            if (!isValid) {
-                return false
-            }
+    const save = useCallback(async (): Promise<SaveResult> => {
+        if (!(await form.trigger())) {
+            return { ok: false, reason: "invalid" }
+        }
 
-            const { sender_identity_id, ...data } = form.getValues()
-            await updateTemplate({
+        const changes = toTemplate(form.getValues())
+        return saveWith(() =>
+            updateTemplate({
                 templateId: template.id,
                 params: {
-                    data: { ...template.data, ...data },
-                    sender_identity_id: sender_identity_id || null,
+                    data: knownTemplateData(template.type, { ...template.data, ...changes.data }),
+                    sender_identity_id: changes.sender_identity_id,
                 },
-            })
-            return true
-        })
-        return unsubscribe
-    }, [onSubmit, form, template, updateTemplate])
+            }),
+        )
+    }, [form, toTemplate, template, updateTemplate])
 
     return (
-        <div className="flex flex-1 bg-muted/20 overflow-hidden">
+        <StepLayout save={save}>
             <div className="h-full overflow-y-auto w-2/5 bg-background p-8">
                 <div className="mb-6">
                     <h1 className="text-2xl font-semibold">{t("campaign.template.setup.title")}</h1>
@@ -65,6 +64,6 @@ function ChannelContent({ config }: { config: ChannelConfig<any> }) {
             <div className="w-3/5 bg-background p-8 pb-0 flex flex-col border-l">
                 <Preview campaign={campaign} form={form} />
             </div>
-        </div>
+        </StepLayout>
     )
 }

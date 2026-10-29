@@ -4,7 +4,6 @@ import type { Campaign, User } from "@/types"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router"
 import { useProjectLocales } from "@/hooks/use-project-locales"
-import type * as z from "zod"
 
 import { Render } from "@/renderTemplates"
 import { PhoneFrame } from "@/components/preview/PhoneFrame"
@@ -25,11 +24,11 @@ import { ProjectContext, TemplateContext } from "@/contexts"
 import { useCampaignVariableContext } from "../../CampaignVariableContext"
 import { useSendTestSMS } from "./useSendTestSMS"
 
-import type { textSetupFormSchema } from "@/validation/campaign/template/text/setup"
+import type { TextFormValues } from "@/validation/campaign/template/text/setup"
 
 interface TextFormControlProps {
     campaign: Campaign
-    form: UseFormReturn<z.infer<typeof textSetupFormSchema>>
+    form: UseFormReturn<TextFormValues>
     disabled?: boolean
 }
 
@@ -91,7 +90,7 @@ export function TextFormControl({
 
 export interface TextSetupProps {
     campaign: Campaign
-    form: UseFormReturn<z.infer<typeof textSetupFormSchema>>
+    form: UseFormReturn<TextFormValues>
     edit?: boolean
 }
 

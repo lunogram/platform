@@ -4,3 +4,5 @@ export const textSetupFormSchema = z.object({
     sender_identity_id: z.string().optional(),
     body: z.string("Message is required").min(1, "Message is required"),
 })
+
+export type TextFormValues = z.infer<typeof textSetupFormSchema>

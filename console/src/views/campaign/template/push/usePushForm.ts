@@ -1,26 +1,27 @@
-import { useForm } from "react-hook-form"
+import { useForm, type UseFormReturn } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import type { z } from "zod"
 import type { Campaign, Template } from "@/types"
-import { pushSetupFormSchema } from "@/validation/campaign/template/push/setup"
+import type { TemplateChanges } from "@/validation/campaign/template/data"
+import { pushSetupFormSchema, type PushFormValues } from "@/validation/campaign/template/push/setup"
 
-export function usePushForm(_campaign: Campaign, template?: Template) {
-    const formSchema = pushSetupFormSchema.extend({})
+export function usePushForm(
+    _campaign: Campaign,
+    template?: Template,
+): UseFormReturn<PushFormValues> {
+    const push = template?.type === "push" ? template : undefined
 
-    const defaultValues: z.infer<typeof pushSetupFormSchema> = {
-        title: "",
-        body: "",
-        custom: undefined,
-    }
-
-    if (template && template.type == "push") {
-        defaultValues.title = template.data.title
-        defaultValues.body = template.data.body
-        defaultValues.custom = template.data.custom
-    }
-
-    return useForm({
-        resolver: zodResolver(formSchema),
-        defaultValues,
+    return useForm<PushFormValues>({
+        resolver: zodResolver(pushSetupFormSchema),
+        defaultValues: {
+            title: push?.data.title ?? "",
+            body: push?.data.body ?? "",
+        },
     })
+}
+
+export function pushTemplateChanges(values: PushFormValues): TemplateChanges {
+    return {
+        data: { title: values.title, body: values.body },
+        sender_identity_id: null,
+    }
 }

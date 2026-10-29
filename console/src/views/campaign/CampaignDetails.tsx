@@ -4,7 +4,7 @@ import { CampaignContext, ProjectContext } from "@/contexts"
 import type { Campaign, Template } from "@/types"
 import type { UUID } from "@/types/common"
 import { useTranslation } from "react-i18next"
-import { Controller, useForm } from "react-hook-form"
+import { Controller, useForm, type FieldValues } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useNavigate } from "react-router"
 import api from "@/api"
@@ -13,7 +13,7 @@ import { Radio } from "lucide-react"
 import { isEnterprise } from "@/config/enterprise"
 
 import { useCreateTemplate, useUpdateCampaign } from "./queries"
-import { channels } from "./template/channels"
+import { withChannel, type ChannelConfig } from "./template/channels"
 import { TemplateProvider } from "./template/TemplateProvider"
 import { UnsupportedChannel } from "./template/UnsupportedChannel"
 import { CampaignVariables } from "./CampaignVariables"
@@ -38,14 +38,14 @@ import { campaignSchema, type CampaignReviewFormData } from "@/validation/campai
 
 // DetailsPreview owns the channel form the preview reads from. It is keyed by
 // template, so switching locale seeds subject, sender and body from the same template.
-function DetailsPreview({
+function DetailsPreview<T extends FieldValues>({
     campaign,
     template,
     config,
 }: {
     campaign: Campaign
     template: Template
-    config: NonNullable<(typeof channels)[keyof typeof channels]>
+    config: ChannelConfig<T>
 }) {
     const { useForm: useChannelForm, ContentPreview } = config
     const channelForm = useChannelForm(campaign, template)
@@ -99,8 +99,10 @@ function CampaignReview({
         },
     })
 
-    const config = channels[campaign.channel]
-    if (!config) {
+    const preview = withChannel(campaign.channel, (config) => (
+        <DetailsPreview key={template.id} campaign={campaign} template={template} config={config} />
+    ))
+    if (!preview) {
         return <UnsupportedChannel />
     }
 
@@ -267,12 +269,7 @@ function CampaignReview({
                     <div className="w-3/5 bg-background p-8 pb-0 border-l">
                         <Tabs defaultValue="preview" className="h-full flex flex-col">
                             <TabsContent value="preview" className="flex-1">
-                                <DetailsPreview
-                                    key={template.id}
-                                    campaign={campaign}
-                                    template={template}
-                                    config={config}
-                                />
+                                {preview}
                             </TabsContent>
                         </Tabs>
                     </div>

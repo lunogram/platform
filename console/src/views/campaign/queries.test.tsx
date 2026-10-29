@@ -22,8 +22,18 @@ const toastError = vi.hoisted(() => vi.fn())
 vi.mock("sonner", () => ({ toast: { error: toastError } }))
 
 const project = { id: "project-1" } as Project
-const english = { id: "template-en", locale: "en", data: { subject: "Hi" } } as unknown as Template
-const dutch = { id: "template-nl", locale: "nl", data: { subject: "Hoi" } } as unknown as Template
+const english = {
+    id: "template-en",
+    type: "email",
+    locale: "en",
+    data: { subject: "Hi" },
+} as unknown as Template
+const dutch = {
+    id: "template-nl",
+    type: "email",
+    locale: "nl",
+    data: { subject: "Hoi" },
+} as unknown as Template
 const campaign = { id: "campaign-1", name: "Welcome", templates: [english, dutch] } as Campaign
 const key = campaignKeys.detail(project.id, campaign.id)
 
@@ -68,7 +78,12 @@ describe("campaign mutations", () => {
     })
 
     it("adds a created template to the cached campaign", async () => {
-        const german = { id: "template-de", locale: "de", data: {} } as unknown as Template
+        const german = {
+            id: "template-de",
+            type: "email",
+            locale: "de",
+            data: {},
+        } as unknown as Template
         vi.mocked(api.campaigns.templates.create).mockResolvedValue(german)
 
         const { result } = renderHook(() => useCreateTemplate(), { wrapper })

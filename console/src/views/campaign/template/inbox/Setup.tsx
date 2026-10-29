@@ -7,7 +7,6 @@ import { ProjectContext, TemplateContext } from "@/contexts"
 import { useNavigate } from "react-router"
 import { Button } from "@/components/ui/button"
 import { useProjectLocales } from "@/hooks/use-project-locales"
-import type { z } from "zod"
 
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { TemplateInput } from "@/components/ui/template-input"
@@ -26,11 +25,11 @@ import { useCampaignVariableContext } from "../../CampaignVariableContext"
 import { InboxNotificationCenter } from "./InboxNotificationCenter"
 import { useSendTestInbox } from "./useSendTestInbox"
 
-import type { inboxSetupFormSchema } from "@/validation/campaign/template/inbox/setup"
+import type { InboxFormValues } from "@/validation/campaign/template/inbox/setup"
 
 interface InboxFormControlProps {
     campaign: Campaign
-    form: UseFormReturn<z.infer<typeof inboxSetupFormSchema>>
+    form: UseFormReturn<InboxFormValues>
     disabled?: boolean
 }
 
@@ -105,7 +104,7 @@ function sampleMessage() {
 
 export interface InboxSetupProps {
     campaign: Campaign
-    form: UseFormReturn<z.infer<typeof inboxSetupFormSchema>>
+    form: UseFormReturn<InboxFormValues>
     edit?: boolean
 }
 

@@ -1,4 +1,5 @@
-import { useContext, useState, useEffect } from "react"
+import { useCallback, useContext, useState } from "react"
+import type { FieldValues } from "react-hook-form"
 import {
     CampaignContext,
     ProjectContext,
@@ -9,43 +10,33 @@ import api from "@/api"
 import { Radio } from "lucide-react"
 import { isEnterprise } from "@/config/enterprise"
 
-import { channels, type ChannelConfig } from "./channels"
+import { withChannel, type ChannelConfig } from "./channels"
+import { saveWith } from "./contexts"
+import { StepLayout } from "./StepLayout"
 
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { TemplateWorkflowContext } from "./contexts"
 import { UnsupportedChannel } from "./UnsupportedChannel"
 import { CreateBroadcastDialog } from "@/views/broadcast/CreateBroadcastDialog"
 
 export default function TemplateReview() {
     const [campaign] = useContext(CampaignContext)
-    const [project] = useContext(ProjectContext)
-    const { onSubmit } = useContext(TemplateWorkflowContext)
 
-    useEffect(() => {
-        const unsubscribe = onSubmit(async () => {
-            await api.campaigns.update(project.id, campaign.id, {
-                state: "running",
-            })
-
-            return true
-        })
-        return unsubscribe
-    }, [onSubmit, project.id, campaign.id])
-
-    const config = channels[campaign.channel]
-
-    if (!config) {
-        return <UnsupportedChannel />
-    }
-
-    return <ChannelReview config={config} />
+    return (
+        withChannel(campaign.channel, (config) => <ChannelReview config={config} />) ?? (
+            <StepLayout>
+                <UnsupportedChannel />
+            </StepLayout>
+        )
+    )
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function ChannelReview({ config }: { config: ChannelConfig<any> }) {
+// The review step has no edits of its own, so it keeps StepLayout's default
+// save; its only action is Publish.
+function ChannelReview<T extends FieldValues>({ config }: { config: ChannelConfig<T> }) {
     const [campaign] = useContext(CampaignContext)
+    const [project] = useContext(ProjectContext)
     const [template] = useContext(CurrentTemplateContext)
     const { t } = useTranslation()
     const [isBroadcastOpen, setIsBroadcastOpen] = useState(false)
@@ -53,8 +44,18 @@ function ChannelReview({ config }: { config: ChannelConfig<any> }) {
     const { useForm: useChannelForm, FormControl, ContentPreview } = config
     const form = useChannelForm(campaign, template)
 
+    const publish = useCallback(
+        () =>
+            saveWith(() =>
+                api.campaigns.update(project.id, campaign.id, {
+                    state: "running",
+                }),
+            ),
+        [project.id, campaign.id],
+    )
+
     return (
-        <div className="flex flex-1 bg-muted/20 overflow-hidden">
+        <StepLayout onPublish={publish}>
             <div className="h-full overflow-y-auto w-2/5 bg-background p-8">
                 <div className="mb-6">
                     <h1 className="text-2xl font-semibold">
@@ -94,6 +95,6 @@ function ChannelReview({ config }: { config: ChannelConfig<any> }) {
             <div className="w-3/5 bg-background p-8 pb-0 border-l">
                 <ContentPreview campaign={campaign} form={form} />
             </div>
-        </div>
+        </StepLayout>
     )
 }

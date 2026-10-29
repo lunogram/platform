@@ -8,7 +8,6 @@ import { useNavigate } from "react-router"
 import { Button } from "@/components/ui/button"
 import { oapiClient } from "@/oapi/client"
 import { useProjectLocales } from "@/hooks/use-project-locales"
-import type { z } from "zod"
 
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { TemplateInput } from "@/components/ui/template-input"
@@ -25,11 +24,11 @@ import { useSendTestPush } from "./useSendTestPush"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { PushFrame } from "@/components/preview/PushFrame"
 
-import type { pushSetupFormSchema } from "@/validation/campaign/template/push/setup"
+import type { PushFormValues } from "@/validation/campaign/template/push/setup"
 
 interface PushFormControlProps {
     campaign: Campaign
-    form: UseFormReturn<z.infer<typeof pushSetupFormSchema>>
+    form: UseFormReturn<PushFormValues>
     disabled?: boolean
 }
 
@@ -103,7 +102,7 @@ function randomNotification() {
 
 export interface PushSetupProps {
     campaign: Campaign
-    form: UseFormReturn<z.infer<typeof pushSetupFormSchema>>
+    form: UseFormReturn<PushFormValues>
     edit?: boolean
 }
 

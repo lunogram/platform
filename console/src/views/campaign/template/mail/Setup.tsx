@@ -5,7 +5,6 @@ import { useTranslation } from "react-i18next"
 import { ProjectContext, TemplateContext } from "@/contexts"
 import { useNavigate } from "react-router"
 import { useProjectLocales } from "@/hooks/use-project-locales"
-import type * as z from "zod"
 import { Render } from "@/renderTemplates"
 import { compileEmail } from "./editor/codeEditor/compileEmail"
 import { getSystemPreviewProps } from "./editor/variableScope"
@@ -29,7 +28,7 @@ import { SenderIdentityCombobox } from "@/components/sender-identity-combobox"
 import type { SenderIdentity } from "@/oapi/client"
 import { useCampaignVariableContext } from "../../CampaignVariableContext"
 
-import type { emailSetupFormSchema } from "@/validation/campaign/template/mail/setup"
+import type { EmailFormValues } from "@/validation/campaign/template/mail/setup"
 
 const randomSubjects = [
     "You won't believe what we have for you...",
@@ -51,7 +50,7 @@ function randomSubject() {
 
 interface EmailFormControlProps {
     campaign: Campaign
-    form: UseFormReturn<z.infer<typeof emailSetupFormSchema>>
+    form: UseFormReturn<EmailFormValues>
     disabled?: boolean
 }
 
@@ -165,7 +164,7 @@ export function EmailFormControl({
 
 export interface EmailSetupProps {
     campaign: Campaign
-    form: UseFormReturn<z.infer<typeof emailSetupFormSchema>>
+    form: UseFormReturn<EmailFormValues>
     edit?: boolean
 }
 
@@ -300,17 +299,14 @@ export function EmailContentPreview({ campaign, form, edit = false }: EmailSetup
     const navigate = useNavigate()
     const abortRef = useRef<AbortController | null>(null)
 
+    // Only an email template has code to compile.
+    const source = template.type === "email" ? template.data.code?.source : undefined
+
     // Compile code.source to HTML whenever the template or selected user changes.
     // The user is passed as a prop so JSX expressions like `props.user.data.first_name`
     // resolve with real values at React render time.
     useEffect(() => {
         setCompileError(null)
-        if (template.type != "email") {
-            setCompiledHtml("")
-            return
-        }
-
-        const source = template?.data?.code?.source
         if (!source) {
             setCompiledHtml("")
             return
@@ -344,14 +340,10 @@ export function EmailContentPreview({ campaign, form, edit = false }: EmailSetup
         return () => {
             abortController.abort()
         }
-        // @ts-expect-error template.data.code can not be undefined here because this page doesn't load without the email being selected,
-        // and the email template type requires code to be defined.
-    }, [template?.data?.code?.source, selectedUser, template?.type])
+    }, [source, selectedUser])
 
     const { subject, from, reply_to: replyTo } = form.watch()
 
-    // The useEffect above already clears compiledHtml when the template is not an
-    // email, so we only need to bail out of rendering the email preview here.
     if (template.type != "email") {
         return null
     }

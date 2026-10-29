@@ -5,6 +5,7 @@ import api from "@/api"
 import { CampaignContext, ProjectContext } from "@/contexts"
 import type { Campaign, Template } from "@/types"
 import type { UUID } from "@/types/common"
+import { warnUnknownTemplateData } from "@/validation/campaign/template/data"
 
 type CampaignUpdateParams = Parameters<typeof api.campaigns.update>[2]
 type TemplateCreateParams = Parameters<typeof api.campaigns.templates.create>[2]
@@ -26,7 +27,11 @@ export const campaignKeys = {
 export function campaignQuery(projectId: UUID, campaignId: UUID) {
     return queryOptions({
         queryKey: campaignKeys.detail(projectId, campaignId),
-        queryFn: () => api.campaigns.get(projectId, campaignId),
+        queryFn: async () => {
+            const campaign = await api.campaigns.get(projectId, campaignId)
+            campaign.templates.forEach(warnUnknownTemplateData)
+            return campaign
+        },
     })
 }
 
@@ -42,12 +47,21 @@ function useCampaignCache() {
             prev ? { ...prev, templates: update(prev.templates) } : prev,
         )
 
-    return {
-        projectId: project.id,
-        campaignId: campaign.id,
-        setCampaign: (campaign: Campaign) => queryClient.setQueryData(queryKey, campaign),
-        updateTemplates,
+    const setCampaign = (campaign: Campaign) => {
+        campaign.templates.forEach(warnUnknownTemplateData)
+        queryClient.setQueryData(queryKey, campaign)
     }
+
+    const setTemplate = (template: Template) => {
+        warnUnknownTemplateData(template)
+        updateTemplates((templates) =>
+            templates.some((t) => t.id === template.id)
+                ? templates.map((t) => (t.id === template.id ? template : t))
+                : [...templates, template],
+        )
+    }
+
+    return { projectId: project.id, campaignId: campaign.id, setCampaign, setTemplate }
 }
 
 export function useUpdateCampaign() {
@@ -61,11 +75,11 @@ export function useUpdateCampaign() {
 }
 
 export function useCreateTemplate() {
-    const { projectId, campaignId, updateTemplates } = useCampaignCache()
+    const { projectId, campaignId, setTemplate } = useCampaignCache()
     return useMutation({
         mutationFn: (params: TemplateCreateParams) =>
             api.campaigns.templates.create(projectId, campaignId, params),
-        onSuccess: (template) => updateTemplates((templates) => [...templates, template]),
+        onSuccess: setTemplate,
         meta: {
             errorMessage: t("campaign.template.create_failed", "Couldn't create the template"),
         },
@@ -73,14 +87,11 @@ export function useCreateTemplate() {
 }
 
 export function useUpdateTemplate() {
-    const { projectId, campaignId, updateTemplates } = useCampaignCache()
+    const { projectId, campaignId, setTemplate } = useCampaignCache()
     return useMutation({
         mutationFn: ({ templateId, params }: { templateId: UUID; params: TemplateUpdateParams }) =>
             api.campaigns.templates.update(projectId, campaignId, templateId, params),
-        onSuccess: (updated) =>
-            updateTemplates((templates) =>
-                templates.map((template) => (template.id === updated.id ? updated : template)),
-            ),
+        onSuccess: setTemplate,
         meta: { errorMessage: t("campaign.template.save_failed", "Couldn't save the template") },
     })
 }
