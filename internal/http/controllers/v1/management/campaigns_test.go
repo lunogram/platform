@@ -610,3 +610,107 @@ func TestGetCampaignUsers(t *testing.T) {
 		})
 	}
 }
+
+func TestCreateCampaignDefaultTemplate(t *testing.T) {
+	t.Parallel()
+
+	logger := zaptest.NewLogger(t)
+	ctx := t.Context()
+	mgmt, usrs, _ := teststore.RunPostgreSQL(t)
+
+	projects := management.NewProjectsStore(mgmt)
+	projectID, err := projects.CreateProject(ctx, DefaultProject)
+	require.NoError(t, err)
+
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(uuid.New()),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
+	campaigns := NewCampaignsController(logger, mgmt, usrs, engine)
+
+	type test struct {
+		createDefaultTemplate *bool
+		templates             int
+	}
+
+	tests := map[string]test{
+		"left out": {
+			createDefaultTemplate: nil,
+			templates:             1,
+		},
+		"asked for": {
+			createDefaultTemplate: ptr.To(true),
+			templates:             1,
+		},
+		"declined": {
+			createDefaultTemplate: ptr.To(false),
+			templates:             0,
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			bb, err := json.Marshal(oapi.CreateCampaignJSONRequestBody{
+				Channel:               oapi.ChannelEmail,
+				Name:                  "Welcome",
+				CreateDefaultTemplate: test.createDefaultTemplate,
+			})
+			require.NoError(t, err)
+
+			res := httptest.NewRecorder()
+			req := httptest.NewRequest("POST", "/v1/campaigns", bytes.NewReader(bb))
+			req = req.WithContext(actorCtx)
+			campaigns.CreateCampaign(res, req, projectID)
+			require.Equal(t, 201, res.Code, res.Body.String())
+
+			var created oapi.Campaign
+			require.NoError(t, json.Unmarshal(res.Body.Bytes(), &created))
+			require.Len(t, created.Templates, test.templates)
+
+			stored, err := management.NewTemplatesStore(mgmt).ListTemplates(ctx, projectID, created.Id)
+			require.NoError(t, err)
+			require.Len(t, stored, test.templates)
+		})
+	}
+}
+
+// TestGetCampaignMatchesSpec reads the handler's response with the client
+// generated from the spec, so the spec and the server can't drift apart again.
+func TestGetCampaignMatchesSpec(t *testing.T) {
+	t.Parallel()
+
+	logger := zaptest.NewLogger(t)
+	ctx := t.Context()
+	mgmt, usrs, _ := teststore.RunPostgreSQL(t)
+
+	projects := management.NewProjectsStore(mgmt)
+	projectID, err := projects.CreateProject(ctx, DefaultProject)
+	require.NoError(t, err)
+
+	campaignID, err := management.NewCampaignsStore(mgmt).CreateCampaign(ctx, management.Campaign{
+		ProjectID: projectID,
+		Name:      "Test Campaign",
+		Channel:   "email",
+	})
+	require.NoError(t, err)
+
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(uuid.New()),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
+	res := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/v1/campaigns/"+campaignID.String(), nil)
+	req = req.WithContext(actorCtx)
+	NewCampaignsController(logger, mgmt, usrs, engine).GetCampaign(res, req, projectID, campaignID)
+	require.Equal(t, 200, res.Code, res.Body.String())
+
+	parsed, err := oapi.ParseGetCampaignResponse(res.Result())
+	require.NoError(t, err)
+	require.NotNil(t, parsed.JSON200)
+	require.Equal(t, campaignID, parsed.JSON200.Id)
+	require.Equal(t, "Test Campaign", parsed.JSON200.Name)
+}
