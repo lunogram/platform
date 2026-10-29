@@ -7,12 +7,12 @@ import { useTranslation } from "react-i18next"
 import { Controller, useForm, type FieldValues } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useNavigate } from "react-router"
-import api from "@/api"
 import { defaultTemplateData } from "@/validation/campaign/template/data"
 import { Radio } from "lucide-react"
 import { isEnterprise } from "@/config/enterprise"
 
-import { useCreateTemplate, useUpdateCampaign } from "./queries"
+import { subscriptionsQuery, useCreateTemplate, useUpdateCampaign } from "./queries"
+import { SubscriptionSelect } from "./SubscriptionSelect"
 import { withChannel, type ChannelConfig } from "./template/channels"
 import { TemplateProvider } from "./template/TemplateProvider"
 import { UnsupportedChannel } from "./template/UnsupportedChannel"
@@ -25,13 +25,6 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select"
 import { CreateBroadcastDialog } from "@/views/broadcast/CreateBroadcastDialog"
 
 import { campaignSchema, type CampaignReviewFormData } from "@/validation/campaign/campaign-details"
@@ -68,13 +61,7 @@ function CampaignReview({
     const [isTransactional, setTransactional] = useState(campaign.transactional ?? false)
     const [subscriptionId, setSubscriptionId] = useState<string>(campaign.subscription_id ?? "")
 
-    const { data: subscriptions } = useQuery({
-        queryKey: ["projects", project.id, "subscriptions"],
-        queryFn: async () => {
-            const result = await api.subscriptions.search(project.id, { limit: 100 })
-            return result.results ?? []
-        },
-    })
+    const { data: subscriptions } = useQuery(subscriptionsQuery(project.id))
 
     const filteredSubscriptions = useMemo(() => {
         if (!subscriptions) return []
@@ -205,37 +192,12 @@ function CampaignReview({
                                         <FieldLabel htmlFor="subscription-select">
                                             {t("campaign.subscription", "Subscription")}
                                         </FieldLabel>
-                                        <Select
+                                        <SubscriptionSelect
+                                            id="subscription-select"
+                                            channel={campaign.channel}
                                             value={effectiveSubscriptionId}
-                                            onValueChange={setSubscriptionId}
-                                        >
-                                            <SelectTrigger id="subscription-select">
-                                                <SelectValue
-                                                    placeholder={t(
-                                                        "campaign.subscription.placeholder",
-                                                        "Select subscription",
-                                                    )}
-                                                />
-                                            </SelectTrigger>
-                                            <SelectContent className="z-[1100]">
-                                                {filteredSubscriptions.length === 0 && (
-                                                    <SelectItem value="__empty" disabled>
-                                                        {t(
-                                                            "campaign.subscription.empty",
-                                                            "No subscriptions for this channel",
-                                                        )}
-                                                    </SelectItem>
-                                                )}
-                                                {filteredSubscriptions.map((subscription) => (
-                                                    <SelectItem
-                                                        key={subscription.id}
-                                                        value={subscription.id}
-                                                    >
-                                                        {subscription.name}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                            onChange={setSubscriptionId}
+                                        />
                                     </Field>
                                 </FieldGroup>
                             )}

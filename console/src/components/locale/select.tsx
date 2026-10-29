@@ -1,7 +1,12 @@
 import { useContext, useState, useEffect, useMemo } from "react"
+import { useQueryClient } from "@tanstack/react-query"
+import { toast } from "sonner"
 import { LocaleContext, ProjectContext } from "@/contexts"
+import { projectLocalesQuery } from "@/hooks/use-project-locales"
 import { oapiClient } from "@/oapi/client"
+import { ApiError } from "@/oapi/unwrap"
 import type { Locale } from "@/types"
+import { problemDetail } from "@/utils"
 
 import { Plus, Check, ChevronsUpDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -32,12 +37,17 @@ import { LocalePicker } from "./picker"
 import { resolveLocaleName } from "./locales"
 
 interface LocaleSelectProps {
-    onChange?: (localeKey: string) => void | Promise<void>
+    /**
+     * Switches to the locale. Return false when it didn't switch (e.g. the
+     * current work couldn't be saved), so the picker keeps showing the current one.
+     */
+    onChange?: (localeKey: string) => boolean | void | Promise<boolean | void>
 }
 
 export function LocaleSelect({ onChange }: LocaleSelectProps) {
     const { t } = useTranslation()
     const [project] = useContext(ProjectContext)
+    const queryClient = useQueryClient()
     const [localeSelection, setLocaleSelection] = useContext(LocaleContext)
     const [open, setOpen] = useState(false)
     const [isLoading, setIsLoading] = useState(false)
@@ -79,12 +89,13 @@ export function LocaleSelect({ onChange }: LocaleSelectProps) {
         const selectedLocale = locales.find((locale) => locale.key === value)
 
         if (selectedLocale) {
-            if (onChange) await onChange(selectedLocale.key)
-
-            setLocaleSelection((prev) => ({
-                ...prev,
-                currentLocale: selectedLocale,
-            }))
+            const switched = onChange ? await onChange(selectedLocale.key) : true
+            if (switched !== false) {
+                setLocaleSelection((prev) => ({
+                    ...prev,
+                    currentLocale: selectedLocale,
+                }))
+            }
         }
 
         setOpen(false)
@@ -100,24 +111,35 @@ export function LocaleSelect({ onChange }: LocaleSelectProps) {
         setIsCreating(true)
         try {
             const label = resolveLocaleName(newLocaleKey)
-            const { data: newLocale } = await oapiClient.POST(
+            const { data: newLocale, error } = await oapiClient.POST(
                 "/api/admin/projects/{projectID}/locales",
                 {
                     params: { path: { projectID: project.id } },
                     body: { key: newLocaleKey, label },
                 },
             )
-            if (!newLocale) return
+            if (error || !newLocale) {
+                toast.error(
+                    problemDetail(new ApiError(error)) ??
+                        t("locale.create_failed", "Couldn't add the language"),
+                )
+                return
+            }
 
             setLocaleSelection((prev) => ({
                 ...prev,
-                currentLocale: newLocale,
                 allLocales: [...prev.allLocales, newLocale],
             }))
-
             setLocales((prev) => [newLocale, ...prev])
+            // Other locale lists (such as the previews' pickers) include it now too.
+            void queryClient.invalidateQueries({
+                queryKey: projectLocalesQuery(project.id).queryKey,
+            })
 
-            if (onChange) await onChange(newLocale.key)
+            const switched = onChange ? await onChange(newLocale.key) : true
+            if (switched !== false) {
+                setLocaleSelection((prev) => ({ ...prev, currentLocale: newLocale }))
+            }
 
             setNewLocaleKey(undefined)
             setIsDialogOpen(false)

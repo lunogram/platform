@@ -41,7 +41,8 @@
         "create": {
             "action": "Create Campaign",
             "title": "New Campaign",
-            "description": "Select a campaign type you would like to create."
+            "description": "Select a campaign type you would like to create.",
+            "setup_failed": "The campaign was created, but its setup didn't finish"
         },
         "details": {
             "title": "Campaign",
@@ -199,7 +200,8 @@
         "channel_unsupported": "This channel type is not yet supported.",
         "duplicate_failed": "Couldn't duplicate the campaign",
         "archive_failed": "Couldn't archive the campaign",
-        "unarchive_failed": "Couldn't unarchive the campaign"
+        "unarchive_failed": "Couldn't unarchive the campaign",
+        "subscriptions_load_failed": "Couldn't load subscriptions."
     },
     "channel_list": "Channels",
     "channels": {
@@ -248,7 +250,8 @@
                 "create": "Create Locale"
             }
         },
-        "load_failed": "Couldn't load locales."
+        "load_failed": "Couldn't load locales.",
+        "create_failed": "Couldn't add the language"
     },
     "provider": {
         "select": {

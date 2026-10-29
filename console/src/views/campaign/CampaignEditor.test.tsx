@@ -6,6 +6,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite
 import api from "@/api"
 import { ProjectContext } from "@/contexts"
 import { queryClient } from "@/lib/query"
+import { oapiClient } from "@/oapi/client"
 import { ApiError } from "@/oapi/unwrap"
 import type { Campaign, Project, Template } from "@/types"
 import CampaignView from "./Campaign"
@@ -127,6 +128,23 @@ function renderAt(path: string) {
     return router
 }
 
+const locales = [
+    { key: "en", label: "English" },
+    { key: "nl", label: "Dutch" },
+]
+
+// The locale picker in the editor's footer, labelled with the locale on screen.
+const footerLocalePicker = () =>
+    screen
+        .getAllByRole("combobox")
+        .find((el) => locales.some((locale) => el.textContent?.includes(locale.label)))
+
+async function chooseFooterLocale(label: string) {
+    await waitFor(() => expect(footerLocalePicker()).toBeTruthy())
+    await userEvent.click(footerLocalePicker()!)
+    await userEvent.click(await screen.findByRole("option", { name: new RegExp(label) }))
+}
+
 const cachedCampaign = () => queryClient.getQueryData<Campaign>(campaignKeys.detail("p1", "c1"))
 
 describe("campaign editor", () => {
@@ -145,12 +163,15 @@ describe("campaign editor", () => {
     beforeEach(() => {
         vi.mocked(api.campaigns.get).mockImplementation(async () => structuredClone(campaign))
         vi.mocked(api.locales.search).mockResolvedValue({
-            results: [
-                { key: "en", label: "English" },
-                { key: "nl", label: "Dutch" },
-            ],
+            results: locales,
             total: 2,
         } as unknown as Awaited<ReturnType<typeof api.locales.search>>)
+        // The footer's locale picker searches locales itself.
+        vi.mocked(oapiClient.GET).mockImplementation((async (path: string) => ({
+            data: path.includes("/locales")
+                ? { results: locales, total: 2 }
+                : { results: [], total: 0 },
+        })) as unknown as typeof oapiClient.GET)
     })
 
     afterEach(() => {
@@ -219,5 +240,31 @@ describe("campaign editor", () => {
                 false,
             ),
         )
+    })
+    it("keeps the footer's locale picker on the current locale when switching is blocked", async () => {
+        vi.mocked(api.campaigns.templates.update).mockRejectedValue(
+            new ApiError({ detail: "title is too long" }),
+        )
+
+        const router = renderAt(contentPath)
+        await screen.findAllByText("Hello there")
+        await chooseFooterLocale("Dutch")
+
+        await waitFor(() => expect(toastError).toHaveBeenCalledWith("title is too long"))
+        expect(router.state.location.pathname).toBe(contentPath)
+        expect(footerLocalePicker()?.textContent).toContain("English")
+    })
+
+    it("switches the template and the footer's locale picker together", async () => {
+        vi.mocked(api.campaigns.templates.update).mockResolvedValue(english)
+
+        const router = renderAt(contentPath)
+        await screen.findAllByText("Hello there")
+        await chooseFooterLocale("Dutch")
+
+        await waitFor(() =>
+            expect(router.state.location.pathname).toBe(`${detailsPath}/templates/t-nl`),
+        )
+        await waitFor(() => expect(footerLocalePicker()?.textContent).toContain("Dutch"))
     })
 })

@@ -1,4 +1,5 @@
-import { useCallback, useContext, useEffect, useMemo, useState } from "react"
+import { useContext, useEffect, useMemo, useState } from "react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Controller, useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useNavigate, useParams } from "react-router"
@@ -8,25 +9,22 @@ import { toast } from "sonner"
 
 import api from "@/api"
 import { ProjectContext } from "@/contexts"
-import { useResolver } from "@/hooks"
 import { oapiClient } from "@/oapi/client"
-import type { CampaignVariable, ChannelType, Subscription } from "@/types"
+import { unwrap } from "@/oapi/unwrap"
+import type { CampaignVariable, ChannelType } from "@/types"
+import type { UUID } from "@/types/common"
+import { problemDetail } from "@/utils"
 
 import { Button } from "@/components/ui/button"
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 
 import { CampaignVariables } from "./CampaignVariables"
 import { ChannelSummary } from "./ChannelSummary"
+import { invalidateCampaignLists, subscriptionsQuery } from "./queries"
+import { SubscriptionSelect } from "./SubscriptionSelect"
 import { newCampaignSchema, type NewCampaignFormValues } from "@/validation/campaign/new-campaign"
 import { defaultTemplateData } from "@/validation/campaign/template/data"
 
@@ -37,6 +35,7 @@ function isChannelType(value?: string): value is ChannelType {
 export default function NewCampaign() {
     const [project] = useContext(ProjectContext)
     const navigate = useNavigate()
+    const queryClient = useQueryClient()
     const { t } = useTranslation()
     const { channel: channelParam } = useParams()
 
@@ -61,20 +60,14 @@ export default function NewCampaign() {
     const isTransactional = form.watch("transactional")
     const subscriptionId = form.watch("subscription_id")
 
-    const [subscriptions] = useResolver(
-        useCallback(async (): Promise<Subscription[]> => {
-            if (!project?.id) return []
-            const response = await api.subscriptions.search(project.id, { limit: 100 })
-            return response.results ?? []
-        }, [project?.id]),
-    )
+    const subscriptions = useQuery(subscriptionsQuery(project.id))
 
     const filteredSubscriptions = useMemo(() => {
-        if (!subscriptions || !channel) return []
-        return subscriptions.filter((subscription) => subscription.channel === channel)
-    }, [subscriptions, channel])
+        if (!subscriptions.data || !channel) return []
+        return subscriptions.data.filter((subscription) => subscription.channel === channel)
+    }, [subscriptions.data, channel])
 
-    const subscriptionsLoading = subscriptions === null
+    const subscriptionsLoading = subscriptions.isPending
 
     useEffect(() => {
         if (!project?.id || channel) {
@@ -109,15 +102,11 @@ export default function NewCampaign() {
 
         setIsCreating(true)
 
+        let campaignId: UUID
         try {
-            const createResult = await oapiClient.POST(
-                "/api/admin/projects/{projectID}/campaigns",
-                {
-                    params: {
-                        path: {
-                            projectID: project.id,
-                        },
-                    },
+            const created = unwrap(
+                await oapiClient.POST("/api/admin/projects/{projectID}/campaigns", {
+                    params: { path: { projectID: project.id } },
                     body: {
                         name: data.name.trim(),
                         channel,
@@ -125,15 +114,21 @@ export default function NewCampaign() {
                         subscription_id:
                             isInbox || data.transactional ? undefined : data.subscription_id,
                     },
-                },
+                }),
             )
+            campaignId = created.id
+        } catch (err) {
+            toast.error(
+                problemDetail(err) ?? t("campaign.create.error", "Failed to create campaign"),
+            )
+            setIsCreating(false)
+            return
+        }
+        void invalidateCampaignLists(queryClient, project.id)
 
-            if (createResult.error || !createResult.data?.id) {
-                toast.error(t("campaign.create.error", "Failed to create campaign"))
-                return
-            }
-
-            const campaignId = createResult.data.id
+        // The campaign exists from here on. If a later step fails, open it rather
+        // than leave this form up, where creating again would make a second one.
+        try {
             const cleanedVariables = variables
                 .map((variable) => ({
                     name: variable.name.trim(),
@@ -153,8 +148,15 @@ export default function NewCampaign() {
             })
 
             navigate(`/projects/${project.id}/campaigns/${campaignId}/templates/${template.id}`)
-        } catch {
-            toast.error(t("campaign.create.error", "Failed to create campaign"))
+        } catch (err) {
+            toast.error(
+                t(
+                    "campaign.create.setup_failed",
+                    "The campaign was created, but its setup didn't finish",
+                ),
+                { description: problemDetail(err) ?? undefined },
+            )
+            navigate(`/projects/${project.id}/campaigns/${campaignId}`)
         } finally {
             setIsCreating(false)
         }
@@ -281,40 +283,12 @@ export default function NewCampaign() {
                                     control={form.control}
                                     name="subscription_id"
                                     render={({ field }) => (
-                                        <Select value={field.value} onValueChange={field.onChange}>
-                                            <SelectTrigger id="subscription-select">
-                                                <SelectValue
-                                                    placeholder={t(
-                                                        "campaign.subscription.placeholder",
-                                                        "Select subscription",
-                                                    )}
-                                                />
-                                            </SelectTrigger>
-                                            <SelectContent className="z-[1100]">
-                                                {subscriptionsLoading && (
-                                                    <SelectItem value="__loading" disabled>
-                                                        {t("loading", "Loading...")}
-                                                    </SelectItem>
-                                                )}
-                                                {!subscriptionsLoading &&
-                                                    filteredSubscriptions.length === 0 && (
-                                                        <SelectItem value="__empty" disabled>
-                                                            {t(
-                                                                "campaign.subscription.empty",
-                                                                "No subscriptions for this channel",
-                                                            )}
-                                                        </SelectItem>
-                                                    )}
-                                                {filteredSubscriptions.map((subscription) => (
-                                                    <SelectItem
-                                                        key={subscription.id}
-                                                        value={subscription.id}
-                                                    >
-                                                        {subscription.name}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                        <SubscriptionSelect
+                                            id="subscription-select"
+                                            channel={channel}
+                                            value={field.value ?? ""}
+                                            onChange={field.onChange}
+                                        />
                                     )}
                                 />
                             </Field>

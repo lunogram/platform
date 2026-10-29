@@ -1,4 +1,10 @@
-import { keepPreviousData, queryOptions, useMutation, useQueryClient } from "@tanstack/react-query"
+import {
+    keepPreviousData,
+    queryOptions,
+    useMutation,
+    useQueryClient,
+    type QueryClient,
+} from "@tanstack/react-query"
 import { useContext } from "react"
 import { t } from "i18next"
 import api from "@/api"
@@ -35,6 +41,20 @@ export function campaignQuery(projectId: UUID, campaignId: UUID) {
             return campaign
         },
     })
+}
+
+/** The project's subscriptions; one cached request shared by every campaign page. */
+export function subscriptionsQuery(projectId: UUID) {
+    return queryOptions({
+        queryKey: ["projects", projectId, "subscriptions"],
+        queryFn: async () =>
+            (await api.subscriptions.search(projectId, { limit: 100 })).results ?? [],
+    })
+}
+
+/** Marks every cached campaigns list of the project as outdated. */
+export function invalidateCampaignLists(queryClient: QueryClient, projectId: UUID) {
+    return queryClient.invalidateQueries({ queryKey: [...campaignKeys.all(projectId), "list"] })
 }
 
 export const CAMPAIGN_PAGE_SIZE = 25
@@ -140,6 +160,8 @@ function useCampaignCache() {
     const setCampaign = (campaign: Campaign) => {
         campaign.templates.forEach(warnUnknownTemplateData)
         queryClient.setQueryData(queryKey, campaign)
+        // The list shows the campaign's name, so it is outdated now too.
+        void invalidateCampaignLists(queryClient, project.id)
     }
 
     const setTemplate = (template: Template) => {

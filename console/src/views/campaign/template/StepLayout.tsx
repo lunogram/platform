@@ -96,11 +96,12 @@ function StepFooter({
     const nextStep =
         currentIndex !== -1 && currentIndex < steps.length - 1 ? steps[currentIndex + 1] : undefined
 
-    // Every footer action saves the step first, and stops when the save didn't succeed.
-    const run = async (action: () => Promise<void>) => {
+    // Every footer action saves the step first, and stops when the save didn't
+    // succeed. Resolves to whether the action went through.
+    const run = async (action: () => Promise<boolean>) => {
         setBusy(true)
         try {
-            if ((await save()).ok) await action()
+            return (await save()).ok && (await action())
         } finally {
             setBusy(false)
         }
@@ -109,12 +110,14 @@ function StepFooter({
     const next = () =>
         run(async () => {
             if (nextStep) navigate(nextStep.href)
+            return true
         })
 
     const publish = () =>
         run(async () => {
             const published = onPublish ? await onPublish() : { ok: true }
             if (published.ok) navigate(`/projects/${project.id}/campaigns`)
+            return published.ok
         })
 
     const navigateToTemplate = (templateId: string) => {
@@ -123,20 +126,29 @@ function StepFooter({
         navigate(basePath + suffix)
     }
 
+    // Tells the locale picker whether it switched, so it never shows a locale
+    // whose template isn't on screen.
     const switchLocale = (localeKey: string) =>
         run(async () => {
             const existing = campaign.templates.find((t) => t.locale === localeKey)
             if (existing) {
                 navigateToTemplate(existing.id)
-                return
+                return true
             }
 
             // The mutation adds the new template to the cached campaign, so the
             // template route can find it once we navigate there.
-            createTemplate.mutate(
-                { locale: localeKey, data: defaultTemplateData(campaign.channel) },
-                { onSuccess: (created) => navigateToTemplate(created.id) },
-            )
+            try {
+                const created = await createTemplate.mutateAsync({
+                    locale: localeKey,
+                    data: defaultTemplateData(campaign.channel),
+                })
+                navigateToTemplate(created.id)
+                return true
+            } catch {
+                // The mutation cache already told the user why.
+                return false
+            }
         })
 
     const disabled = busy || createTemplate.isPending
