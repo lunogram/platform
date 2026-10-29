@@ -1,11 +1,11 @@
 import { useContext, useState, useEffect, useRef } from "react"
 import { Controller, useForm, type UseFormReturn } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import type { Campaign, Template, User, Locale, EmailTemplateData } from "@/types"
+import type { Campaign, Template, User, EmailTemplateData } from "@/types"
 import { useTranslation } from "react-i18next"
 import { ProjectContext, TemplateContext } from "@/contexts"
 import { useNavigate } from "react-router"
-import oapiClient from "@/oapi/client"
+import { useProjectLocales } from "@/hooks/use-project-locales"
 import * as z from "zod"
 import { Render } from "@/renderTemplates"
 import { compileEmail } from "./editor/codeEditor/compileEmail"
@@ -62,8 +62,8 @@ export function EmailForm(_campaign: Campaign, template?: Template<EmailTemplate
             from: {
                 name: template?.data.from?.name ?? "",
             },
-            subject: template?.data.subject ?? randomSubject(),
-            replyTo: template?.data.reply_to ?? "",
+            subject: template?.data.subject ?? "",
+            reply_to: template?.data.reply_to ?? "",
         },
     })
 
@@ -84,6 +84,9 @@ export function EmailFormControl({
     const { t } = useTranslation()
     const [project] = useContext(ProjectContext)
     const { variableGroups } = useCampaignVariableContext()
+    // Only a suggestion: it must never become the form value, or an
+    // untouched form would save a random subject.
+    const [subjectPlaceholder] = useState(randomSubject)
 
     return (
         <FieldGroup className="mt-7">
@@ -99,7 +102,7 @@ export function EmailFormControl({
                             value={field.value}
                             onChange={field.onChange}
                             id="form-rhf-demo-subject"
-                            placeholder=""
+                            placeholder={subjectPlaceholder}
                             disabled={disabled}
                             variables={variableGroups}
                         />
@@ -157,7 +160,7 @@ export function EmailFormControl({
                 )}
             />
             <Controller
-                name="replyTo"
+                name="reply_to"
                 control={form.control}
                 render={({ field, fieldState }) => (
                     <Field data-invalid={fieldState.invalid}>
@@ -312,25 +315,10 @@ export function EmailContentPreview({ campaign, form, edit = false }: EmailSetup
     const { t } = useTranslation()
     const [selectedUser, setSelectedUser] = useState<User | null>(null)
     const [selectedLocale, setSelectedLocale] = useState(template.locale)
-    const [locales, setLocales] = useState<Locale[]>([])
+    const locales = useProjectLocales(project?.id)
     const [compiledHtml, setCompiledHtml] = useState<string>("")
     const navigate = useNavigate()
     const abortRef = useRef<AbortController | null>(null)
-
-    useEffect(() => {
-        const fetchLocales = async () => {
-            if (project?.id) {
-                const { data } = await oapiClient.GET("/api/admin/projects/{projectID}/locales", {
-                    params: {
-                        path: { projectID: project.id },
-                        query: { limit: 100 },
-                    },
-                })
-                setLocales(data?.results ?? [])
-            }
-        }
-        fetchLocales()
-    }, [project?.id])
 
     // Compile code.source to HTML whenever the template or selected user changes.
     // The user is passed as a prop so JSX expressions like `props.user.data.first_name`
@@ -378,7 +366,7 @@ export function EmailContentPreview({ campaign, form, edit = false }: EmailSetup
         // and the email template type requires code to be defined.
     }, [template?.data?.code?.source, selectedUser, template?.type])
 
-    const { subject, from, replyTo } = form.watch()
+    const { subject, from, reply_to: replyTo } = form.watch()
 
     // The useEffect above already clears compiledHtml when the template is not an
     // email, so we only need to bail out of rendering the email preview here.

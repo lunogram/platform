@@ -1,6 +1,6 @@
 import { Controller, useForm, type UseFormReturn } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import type { Campaign, Template, User, Device, Locale } from "@/types"
+import type { Campaign, Template, User, Device } from "@/types"
 import { Rocket } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { useContext, useState, useEffect } from "react"
@@ -8,7 +8,7 @@ import { ProjectContext, TemplateContext } from "@/contexts"
 import { useNavigate } from "react-router"
 import { Button } from "@/components/ui/button"
 import { oapiClient } from "@/oapi/client"
-import api from "@/api"
+import { useProjectLocales } from "@/hooks/use-project-locales"
 import type { z } from "zod"
 
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
@@ -135,7 +135,7 @@ export function PushPreview({ campaign, form, edit = false }: PushSetupProps) {
     const { t } = useTranslation()
     const [selectedUser, setSelectedUser] = useState<User | null>(null)
     const [selectedLocale, setSelectedLocale] = useState(template.locale)
-    const [locales, setLocales] = useState<Locale[]>([])
+    const locales = useProjectLocales(project?.id)
     const [devices, setDevices] = useState<Device[]>([])
     const [selectedDevice, setSelectedDevice] = useState<Device | null>(null)
     const navigate = useNavigate()
@@ -145,16 +145,6 @@ export function PushPreview({ campaign, form, edit = false }: PushSetupProps) {
         campaignId: campaign.id,
         templateId: template.id,
     })
-
-    useEffect(() => {
-        const fetchLocales = async () => {
-            if (project?.id) {
-                const result = await api.locales.search(project.id, { limit: 100 })
-                setLocales(result.results)
-            }
-        }
-        fetchLocales()
-    }, [project?.id])
 
     useEffect(() => {
         const fetchDevices = async () => {

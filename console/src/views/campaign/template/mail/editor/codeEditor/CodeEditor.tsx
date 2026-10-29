@@ -558,7 +558,6 @@ function CodeEditorInner() {
         editorMode,
         code,
         blocksData,
-        autoPlainText,
         useCustomPlainText,
         customPlainText,
     })

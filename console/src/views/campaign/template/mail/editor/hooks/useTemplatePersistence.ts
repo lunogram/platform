@@ -9,7 +9,6 @@ interface UseTemplatePersistenceOptions {
     editorMode: EditorMode
     code: string
     blocksData: EmailDocument | null
-    autoPlainText: string
     useCustomPlainText: boolean
     customPlainText: string
 }
@@ -22,7 +21,6 @@ export function useTemplatePersistence({
     editorMode,
     code,
     blocksData,
-    autoPlainText,
     useCustomPlainText,
     customPlainText,
 }: UseTemplatePersistenceOptions): void {
@@ -46,12 +44,12 @@ export function useTemplatePersistence({
                             source: code,
                         },
                         ...(blocksData ? { blocks: blocksData } : { blocks: undefined }),
-                        plaintext: {
-                            generated: autoPlainText,
-                            ...(useCustomPlainText && customPlainText
+                        // Only the custom override is stored. The backend renders the
+                        // generated plain text itself at send time.
+                        plaintext:
+                            useCustomPlainText && customPlainText
                                 ? { custom: customPlainText }
-                                : {}),
-                        },
+                                : {},
                     },
                 },
             )
@@ -68,7 +66,6 @@ export function useTemplatePersistence({
         editorMode,
         code,
         blocksData,
-        autoPlainText,
         useCustomPlainText,
         customPlainText,
         setTemplate,

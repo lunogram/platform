@@ -6,5 +6,5 @@ export const emailSetupFormSchema = z.object({
     from: z.object({
         name: z.string().optional(),
     }),
-    replyTo: z.email("Invalid reply-to email address").optional().or(z.literal("")),
+    reply_to: z.email("Invalid reply-to email address").optional().or(z.literal("")),
 })

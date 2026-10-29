@@ -4,6 +4,7 @@ import { useCallback, useContext, useMemo, memo, useState, useEffect, useRef } f
 import { CampaignContext, LocaleContext, ProjectContext, type LocaleSelection } from "@/contexts"
 import { CampaignVariableProvider } from "../CampaignVariableContext"
 import api from "@/api"
+import { fetchProjectLocales } from "@/hooks/use-project-locales"
 
 import { Pagination, PaginationContent, PaginationItem } from "@/components/ui/pagination"
 
@@ -178,36 +179,17 @@ export default function Template() {
             if (!project?.id) return
 
             setPageLoading(true)
-
-            const allLocalesResult = await api.locales.search(project.id, {
-                limit: 5,
-            })
-            if (currentTemplate) {
-                try {
-                    const selectedLocale = await api.locales.getByKey(
-                        project.id,
-                        currentTemplate.locale,
-                    )
-                    setLocaleSelection({
-                        currentLocale: selectedLocale,
-                        allLocales: allLocalesResult.results,
-                    })
-                } catch {
-                    // Locale not found, use default or first available locale
-                    console.warn(`Locale ${currentTemplate.locale} not found, using default`)
-                    setLocaleSelection({
-                        currentLocale: allLocalesResult.results[0],
-                        allLocales: allLocalesResult.results,
-                    })
-                }
-            } else {
-                setLocaleSelection({
-                    currentLocale: undefined,
-                    allLocales: allLocalesResult.results,
-                })
+            try {
+                const allLocales = await fetchProjectLocales(project.id)
+                // Fall back to the first locale when the template's locale was deleted.
+                const currentLocale = currentTemplate
+                    ? (allLocales.find((locale) => locale.key === currentTemplate.locale) ??
+                      allLocales[0])
+                    : undefined
+                setLocaleSelection({ currentLocale, allLocales })
+            } finally {
+                setPageLoading(false)
             }
-
-            setPageLoading(false)
         }
 
         fetchLocales()
