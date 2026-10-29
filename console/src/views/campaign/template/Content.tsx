@@ -1,12 +1,8 @@
 import { useContext, useEffect } from "react"
-import {
-    CampaignContext,
-    ProjectContext,
-    TemplateContext as CurrentTemplateContext,
-} from "@/contexts"
+import { CampaignContext, TemplateContext as CurrentTemplateContext } from "@/contexts"
 import { useTranslation } from "react-i18next"
-import api from "@/api"
 
+import { useUpdateTemplate } from "../queries"
 import { channels } from "./channels"
 import { TemplateWorkflowContext } from "./contexts"
 import { UnsupportedChannel } from "./UnsupportedChannel"
@@ -14,8 +10,8 @@ import { UnsupportedChannel } from "./UnsupportedChannel"
 export default function TemplateContent() {
     const [campaign] = useContext(CampaignContext)
     const { onSubmit } = useContext(TemplateWorkflowContext)
-    const [template, setTemplate] = useContext(CurrentTemplateContext)
-    const [project] = useContext(ProjectContext)
+    const [template] = useContext(CurrentTemplateContext)
+    const updateTemplate = useUpdateTemplate()
     const { t } = useTranslation()
 
     const config = channels[campaign.channel]
@@ -38,17 +34,13 @@ export default function TemplateContent() {
             }
 
             const { sender_identity_id, ...data } = form.getValues()
-            const updated = await api.campaigns.templates.update(
-                project.id,
-                campaign.id,
-                template.id,
-                {
+            await updateTemplate.mutateAsync({
+                templateId: template.id,
+                params: {
                     data: { ...template.data, ...data },
                     sender_identity_id: sender_identity_id || null,
                 },
-            )
-
-            setTemplate(updated)
+            })
             return true
         })
         return unsubscribe

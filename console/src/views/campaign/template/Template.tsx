@@ -1,13 +1,21 @@
 import { ChevronRight, Loader2 } from "lucide-react"
-import { Link, Outlet, useLocation, useNavigate, useParams } from "react-router"
+import { Link, Outlet, useLocation, useNavigate } from "react-router"
 import { useCallback, useContext, useMemo, memo, useState, useEffect, useRef } from "react"
-import { CampaignContext, LocaleContext, ProjectContext, type LocaleSelection } from "@/contexts"
+import { useQuery } from "@tanstack/react-query"
+import {
+    CampaignContext,
+    LocaleContext,
+    ProjectContext,
+    TemplateContext,
+    type LocaleSelection,
+} from "@/contexts"
 import { CampaignVariableProvider } from "../CampaignVariableContext"
 import { toast } from "sonner"
-import api from "@/api"
-import { fetchProjectLocales } from "@/hooks/use-project-locales"
+import { projectLocalesQuery } from "@/hooks/use-project-locales"
+import { wasReported } from "@/lib/query"
 import { problemDetail } from "@/utils"
 import { defaultTemplateData } from "@/validation/campaign/template/data"
+import { useCreateTemplate } from "../queries"
 
 import { Pagination, PaginationContent, PaginationItem } from "@/components/ui/pagination"
 
@@ -48,29 +56,41 @@ const TemplateSteps = memo(function CampaignSteps({ steps }: CampaignStepProps) 
     )
 })
 
+// reportUnlessShown toasts an error, unless the mutation cache already did.
+function reportUnlessShown(err: unknown, fallback: string) {
+    if (!wasReported(err)) toast.error(problemDetail(err) ?? fallback)
+}
+
 export default function Template() {
-    const [campaign, setCampaign] = useContext(CampaignContext)
+    const [campaign] = useContext(CampaignContext)
     const [project] = useContext(ProjectContext)
-    const { templateId } = useParams()
+    const [template] = useContext(TemplateContext)
     const location = useLocation()
     const navigate = useNavigate()
+    const createTemplate = useCreateTemplate()
+    const locales = useQuery(projectLocalesQuery(project.id))
 
     const [localeState, setLocaleSelection] = useState<LocaleSelection>({
         allLocales: [],
     })
-    const [pageLoading, setPageLoading] = useState(true)
     const [isNextLoading, setIsNextLoading] = useState(false)
     const [canProceed, setCanProceed] = useState(true)
-    const [localesFailed, setLocalesFailed] = useState(false)
-    const [localesAttempt, setLocalesAttempt] = useState(0)
     const handler = useRef<(() => Promise<boolean> | boolean) | null>(null)
 
-    const steps = useMemo(() => {
-        const templates = campaign.templates || []
-        const selectedTemplateId =
-            templateId ?? templates.find((t) => t.locale === project.locale)?.id ?? templates[0]?.id
+    // LocaleSelect keeps its own copy in LocaleContext (it adds locales it
+    // creates), so seed it from the query whenever the query or template changes.
+    useEffect(() => {
+        if (!locales.data) return
+        setLocaleSelection({
+            // Fall back to the first locale when the template's locale was deleted.
+            currentLocale:
+                locales.data.find((locale) => locale.key === template.locale) ?? locales.data[0],
+            allLocales: locales.data,
+        })
+    }, [locales.data, template.locale])
 
-        const basePath = `/projects/${project.id}/campaigns/${campaign.id}/templates/${selectedTemplateId}`
+    const steps = useMemo(() => {
+        const basePath = `/projects/${project.id}/campaigns/${campaign.id}/templates/${template.id}`
 
         const navSteps = [{ name: "Content", href: basePath }]
 
@@ -81,7 +101,7 @@ export default function Template() {
         navSteps.push({ name: "Review", href: `${basePath}/review` })
 
         return navSteps
-    }, [project.id, campaign.id, campaign.channel, campaign.templates, project.locale, templateId])
+    }, [project.id, campaign.id, campaign.channel, template.id])
 
     const nextStep = useMemo(() => {
         const currentIndex = steps.findIndex((step) => step.href === location.pathname)
@@ -116,19 +136,12 @@ export default function Template() {
             const next = await handler.current()
             if (next && nextStep) navigate(nextStep.href)
         } catch (err) {
-            toast.error(
-                problemDetail(err) ??
-                    t("campaign.template.save_failed", "Couldn't save the template"),
-            )
+            reportUnlessShown(err, t("campaign.template.save_failed", "Couldn't save the template"))
         } finally {
             setIsNextLoading(false)
         }
     }, [navigate, nextStep])
 
-    const currentTemplate = useMemo(
-        () => campaign.templates?.find((t) => t.id === templateId),
-        [campaign.templates, templateId],
-    )
     const workflowContextValue = useMemo(
         () => ({ onSubmit, submit, save, canProceed, setCanProceed }),
         [onSubmit, submit, save, canProceed],
@@ -142,9 +155,9 @@ export default function Template() {
             const published = await handler.current()
             if (published) navigate(`/projects/${project.id}/campaigns`)
         } catch (err) {
-            toast.error(
-                problemDetail(err) ??
-                    t("campaign.template.publish_failed", "Couldn't publish the campaign"),
+            reportUnlessShown(
+                err,
+                t("campaign.template.publish_failed", "Couldn't publish the campaign"),
             )
         } finally {
             setIsNextLoading(false)
@@ -170,9 +183,9 @@ export default function Template() {
                     }
                 }
             } catch (err) {
-                toast.error(
-                    problemDetail(err) ??
-                        t("campaign.template.save_failed", "Couldn't save the template"),
+                reportUnlessShown(
+                    err,
+                    t("campaign.template.save_failed", "Couldn't save the template"),
                 )
                 return
             }
@@ -185,100 +198,52 @@ export default function Template() {
                 return
             }
 
-            setPageLoading(true)
-            try {
-                const template = await api.campaigns.templates.create(project.id, campaign.id, {
-                    locale: localeKey,
-                    data: defaultTemplateData(campaign.channel),
-                })
-
-                setCampaign({
-                    ...campaign,
-                    templates: [...campaign.templates, template],
-                })
-
-                navigateToTemplate(template.id)
-            } catch (err) {
-                toast.error(
-                    problemDetail(err) ??
-                        t("campaign.template.create_failed", "Couldn't create the template"),
-                )
-            } finally {
-                setPageLoading(false)
-            }
+            // The mutation adds the new template to the cached campaign, so the
+            // template route can find it once we navigate there.
+            createTemplate.mutate(
+                { locale: localeKey, data: defaultTemplateData(campaign.channel) },
+                { onSuccess: (created) => navigateToTemplate(created.id) },
+            )
         },
-        [campaign, project?.id, setCampaign, navigateToTemplate],
+        [campaign.templates, campaign.channel, createTemplate, navigateToTemplate],
     )
-
-    // Fetch locales when template changes
-    useEffect(() => {
-        if (!project?.id) return
-        // Ignore a response that arrives after a newer fetch has started.
-        let stale = false
-
-        const fetchLocales = async () => {
-            setPageLoading(true)
-            setLocalesFailed(false)
-            try {
-                const allLocales = await fetchProjectLocales(project.id)
-                if (stale) return
-                // Fall back to the first locale when the template's locale was deleted.
-                const currentLocale = currentTemplate
-                    ? (allLocales.find((locale) => locale.key === currentTemplate.locale) ??
-                      allLocales[0])
-                    : undefined
-                setLocaleSelection({ currentLocale, allLocales })
-            } catch (err) {
-                if (stale) return
-                // The editor still works without locales; only the picker needs them.
-                console.error(err)
-                setLocalesFailed(true)
-            } finally {
-                if (!stale) setPageLoading(false)
-            }
-        }
-
-        fetchLocales()
-        return () => {
-            stale = true
-        }
-    }, [project?.id, currentTemplate, localesAttempt])
 
     return (
         <TemplateWorkflowContext.Provider value={workflowContextValue}>
             <LocaleContext.Provider value={[localeState, setLocaleSelection]}>
                 <div className="flex flex-col h-screen">
                     <div className="flex flex-1 bg-muted/20 overflow-hidden">
-                        {pageLoading ? (
+                        {createTemplate.isPending ? (
                             <div className="flex items-center justify-center w-full">
                                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                             </div>
                         ) : (
-                            <CampaignVariableProvider>
+                            // Keyed so every step's forms and editor state are seeded
+                            // again when switching to another template.
+                            <CampaignVariableProvider key={template.id}>
                                 <Outlet />
                             </CampaignVariableProvider>
                         )}
                     </div>
                     <div className="border-t bg-background flex items-center justify-between px-6 py-4 min-w-0 gap-4">
-                        {templateId &&
-                            (localesFailed ? (
-                                <div className="shrink-0 flex items-center gap-2">
-                                    <span className="text-sm text-muted-foreground">
-                                        {t("locale.load_failed", "Couldn't load locales.")}
-                                    </span>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => setLocalesAttempt((n) => n + 1)}
-                                    >
-                                        {t("retry", "Retry")}
-                                    </Button>
-                                </div>
-                            ) : (
-                                <div className="shrink-0">
-                                    <LocaleSelect onChange={handleLocaleChange} />
-                                </div>
-                            ))}
+                        {locales.isError ? (
+                            <div className="shrink-0 flex items-center gap-2">
+                                <span className="text-sm text-muted-foreground">
+                                    {t("locale.load_failed", "Couldn't load locales.")}
+                                </span>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => locales.refetch()}
+                                >
+                                    {t("retry", "Retry")}
+                                </Button>
+                            </div>
+                        ) : (
+                            <div className="shrink-0">
+                                <LocaleSelect onChange={handleLocaleChange} />
+                            </div>
+                        )}
                         <TemplateSteps steps={steps} />
                         <div className="shrink-0">
                             {!nextStep ? (

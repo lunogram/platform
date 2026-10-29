@@ -1,19 +1,20 @@
-import { useCallback, useContext, useEffect, useMemo, useState } from "react"
-import { CampaignContext, ProjectContext, TemplateContext } from "@/contexts"
-import type { Campaign, Template, Subscription } from "@/types"
+import { useContext, useMemo, useState } from "react"
+import { useQuery } from "@tanstack/react-query"
+import { CampaignContext, ProjectContext } from "@/contexts"
+import type { Campaign, Template } from "@/types"
+import type { UUID } from "@/types/common"
 import { useTranslation } from "react-i18next"
 import { Controller, useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useNavigate } from "react-router"
-import { toast } from "sonner"
 import api from "@/api"
-import { problemDetail } from "@/utils"
 import { defaultTemplateData } from "@/validation/campaign/template/data"
 import { Radio } from "lucide-react"
 import { isEnterprise } from "@/config/enterprise"
-import { useResolver } from "@/hooks"
 
+import { useCreateTemplate, useUpdateCampaign } from "./queries"
 import { channels } from "./template/channels"
+import { TemplateProvider } from "./template/TemplateProvider"
 import { UnsupportedChannel } from "./template/UnsupportedChannel"
 import { CampaignVariables } from "./CampaignVariables"
 
@@ -35,23 +36,45 @@ import { CreateBroadcastDialog } from "@/views/broadcast/CreateBroadcastDialog"
 
 import { campaignSchema, type CampaignReviewFormData } from "@/validation/campaign/campaign-details"
 
-function CampaignReview({ campaign, template }: { campaign: Campaign; template: Template }) {
+// DetailsPreview owns the channel form the preview reads from. It is keyed by
+// template, so switching locale seeds subject, sender and body from the same template.
+function DetailsPreview({
+    campaign,
+    template,
+    config,
+}: {
+    campaign: Campaign
+    template: Template
+    config: NonNullable<(typeof channels)[keyof typeof channels]>
+}) {
+    const channelForm = config.form(campaign, template)
+    const { ContentPreview } = config
+    return <ContentPreview campaign={campaign} form={channelForm} edit />
+}
+
+function CampaignReview({
+    campaign,
+    template,
+    onSelectTemplate,
+}: {
+    campaign: Campaign
+    template: Template
+    onSelectTemplate: (templateId: UUID) => void
+}) {
     const { t } = useTranslation()
     const [project] = useContext(ProjectContext)
-    const [, setCampaign] = useContext(CampaignContext)
-    const templateState = useState<Template>(template)
-    const [isSubmitting, setIsSubmitting] = useState(false)
+    const updateCampaign = useUpdateCampaign()
     const [isBroadcastOpen, setIsBroadcastOpen] = useState(false)
     const [isTransactional, setTransactional] = useState(campaign.transactional ?? false)
     const [subscriptionId, setSubscriptionId] = useState<string>(campaign.subscription_id ?? "")
 
-    const [subscriptions] = useResolver(
-        useCallback(async (): Promise<Subscription[]> => {
-            if (!project?.id) return []
+    const { data: subscriptions } = useQuery({
+        queryKey: ["projects", project.id, "subscriptions"],
+        queryFn: async () => {
             const result = await api.subscriptions.search(project.id, { limit: 100 })
             return result.results ?? []
-        }, [project?.id]),
-    )
+        },
+    })
 
     const filteredSubscriptions = useMemo(() => {
         if (!subscriptions) return []
@@ -81,35 +104,18 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
         return <UnsupportedChannel />
     }
 
-    const channelForm = config.form(campaign, template)
-    const { ContentPreview } = config
-
-    const onSubmit = async (data: CampaignReviewFormData) => {
-        if (!project) return
-
-        setIsSubmitting(true)
-        try {
-            const updatedCampaign = await api.campaigns.update(project.id, campaign.id, {
-                name: data.name,
-                transactional: isTransactional,
-                subscription_id: isTransactional ? undefined : effectiveSubscriptionId || undefined,
-                variables: data.variables.filter((v) => v.name),
-            })
-
-            setCampaign(updatedCampaign)
-        } catch (err) {
-            toast.error(
-                problemDetail(err) ??
-                    t("campaign.details.save_failed", "Couldn't save the campaign"),
-            )
-        } finally {
-            setIsSubmitting(false)
-        }
+    const onSubmit = (data: CampaignReviewFormData) => {
+        updateCampaign.mutate({
+            name: data.name,
+            transactional: isTransactional,
+            subscription_id: isTransactional ? undefined : effectiveSubscriptionId || undefined,
+            variables: data.variables.filter((v) => v.name),
+        })
     }
 
     return (
         <CampaignVariableProvider>
-            <TemplateContext.Provider value={templateState}>
+            <TemplateProvider template={template} onSelect={onSelectTemplate}>
                 <div className="flex h-screen bg-muted/20 overflow-hidden">
                     <div className="h-full overflow-y-auto w-2/5 bg-background p-8">
                         <div className="mb-6">
@@ -235,8 +241,8 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
                             <div className="flex items-center gap-2">
                                 <Button
                                     type="submit"
-                                    disabled={isSubmitting}
-                                    isLoading={isSubmitting}
+                                    disabled={updateCampaign.isPending}
+                                    isLoading={updateCampaign.isPending}
                                 >
                                     {t("actions.save")}
                                 </Button>
@@ -261,12 +267,17 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
                     <div className="w-3/5 bg-background p-8 pb-0 border-l">
                         <Tabs defaultValue="preview" className="h-full flex flex-col">
                             <TabsContent value="preview" className="flex-1">
-                                <ContentPreview campaign={campaign} form={channelForm} edit />
+                                <DetailsPreview
+                                    key={template.id}
+                                    campaign={campaign}
+                                    template={template}
+                                    config={config}
+                                />
                             </TabsContent>
                         </Tabs>
                     </div>
                 </div>
-            </TemplateContext.Provider>
+            </TemplateProvider>
         </CampaignVariableProvider>
     )
 }
@@ -276,28 +287,19 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
 function NoTemplates({ campaign }: { campaign: Campaign }) {
     const { t } = useTranslation()
     const [project] = useContext(ProjectContext)
-    const [, setCampaign] = useContext(CampaignContext)
     const navigate = useNavigate()
-    const [isCreating, setIsCreating] = useState(false)
+    const createTemplate = useCreateTemplate()
 
-    const createTemplate = async () => {
-        setIsCreating(true)
-        try {
-            const template = await api.campaigns.templates.create(project.id, campaign.id, {
-                locale: project.locale,
-                data: defaultTemplateData(campaign.channel),
-            })
-            setCampaign({ ...campaign, templates: [template] })
-            navigate(`/projects/${project.id}/campaigns/${campaign.id}/templates/${template.id}`)
-        } catch (err) {
-            toast.error(
-                problemDetail(err) ??
-                    t("campaign.template.create_failed", "Couldn't create the template"),
-            )
-        } finally {
-            setIsCreating(false)
-        }
-    }
+    const create = () =>
+        createTemplate.mutate(
+            { locale: project.locale, data: defaultTemplateData(campaign.channel) },
+            {
+                onSuccess: (template) =>
+                    navigate(
+                        `/projects/${project.id}/campaigns/${campaign.id}/templates/${template.id}`,
+                    ),
+            },
+        )
 
     return (
         <div className="flex h-screen items-center justify-center bg-muted/20">
@@ -305,7 +307,11 @@ function NoTemplates({ campaign }: { campaign: Campaign }) {
                 <p className="text-muted-foreground">
                     {t("campaign.details.no_templates", "This campaign has no template yet.")}
                 </p>
-                <Button onClick={createTemplate} isLoading={isCreating} disabled={isCreating}>
+                <Button
+                    onClick={create}
+                    isLoading={createTemplate.isPending}
+                    disabled={createTemplate.isPending}
+                >
                     {t("campaign.details.create_template", "Create template")}
                 </Button>
             </div>
@@ -316,23 +322,24 @@ function NoTemplates({ campaign }: { campaign: Campaign }) {
 export default function CampaignDetails() {
     const [campaign] = useContext(CampaignContext)
     const [project] = useContext(ProjectContext)
-    const [template, setTemplate] = useState<Template | null>(null)
+    // Only the choice is kept here; the template itself is always read from the
+    // cached campaign, so it reflects the latest save.
+    const [selectedTemplateId, setSelectedTemplateId] = useState<UUID>()
 
-    useEffect(() => {
-        if (!campaign || campaign.templates.length === 0) return
-        const selected =
-            campaign.templates.find((t) => t.locale === project.locale) ?? campaign.templates[0]
-        setTemplate((prev) => (prev?.id !== selected.id ? selected : prev))
-    }, [campaign, project.locale])
-
-    if (campaign && campaign.templates.length === 0) {
+    if (campaign.templates.length === 0) {
         return <NoTemplates campaign={campaign} />
     }
 
-    // Only for the render before the effect above has picked a template.
-    if (!campaign || !project || !template) {
-        return null
-    }
+    const template =
+        campaign.templates.find((t) => t.id === selectedTemplateId) ??
+        campaign.templates.find((t) => t.locale === project.locale) ??
+        campaign.templates[0]
 
-    return <CampaignReview campaign={campaign} template={template} />
+    return (
+        <CampaignReview
+            campaign={campaign}
+            template={template}
+            onSelectTemplate={setSelectedTemplateId}
+        />
+    )
 }

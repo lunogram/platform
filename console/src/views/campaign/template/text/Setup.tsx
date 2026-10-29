@@ -121,7 +121,7 @@ export function TextPreview({ campaign, form, edit = false }: TextSetupProps) {
     const { t } = useTranslation()
     const [selectedUser, setSelectedUser] = useState<User | null>(null)
     const [selectedLocale, setSelectedLocale] = useState(template.locale)
-    const locales = useProjectLocales(project?.id)
+    const locales = useProjectLocales(project.id)
     const navigate = useNavigate()
 
     const { sending, handleSendTest } = useSendTestSMS({

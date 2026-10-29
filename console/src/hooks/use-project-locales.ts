@@ -1,6 +1,5 @@
-import { useCallback } from "react"
+import { queryOptions, useQuery } from "@tanstack/react-query"
 import api from "@/api"
-import { useResolver } from "@/hooks"
 import type { Locale } from "@/types"
 import type { UUID } from "@/types/common"
 
@@ -14,12 +13,15 @@ export async function fetchProjectLocales(projectId: UUID): Promise<Locale[]> {
     return result.results ?? []
 }
 
-export function useProjectLocales(projectId: UUID | undefined): Locale[] {
-    const [locales] = useResolver(
-        useCallback(
-            async () => (projectId ? await fetchProjectLocales(projectId) : []),
-            [projectId],
-        ),
-    )
-    return locales ?? []
+export function projectLocalesQuery(projectId: UUID) {
+    return queryOptions({
+        queryKey: ["projects", projectId, "locales"],
+        queryFn: () => fetchProjectLocales(projectId),
+    })
+}
+
+/** @returns the project's locales, shared by every caller through the query cache. */
+export function useProjectLocales(projectId: UUID): Locale[] {
+    const { data } = useQuery(projectLocalesQuery(projectId))
+    return data ?? []
 }

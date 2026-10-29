@@ -1,9 +1,9 @@
 import { useContext, useEffect } from "react"
 import { TemplateWorkflowContext } from "../../../contexts"
-import { CampaignContext, ProjectContext, TemplateContext } from "@/contexts"
+import { TemplateContext } from "@/contexts"
 import type { EmailDocument } from "../codeEditor/hooks/useEditorMode"
 import type { EditorMode } from "../codeEditor/hooks/useEditorMode"
-import api from "@/api"
+import { useUpdateTemplate } from "../../../../queries"
 
 interface UseTemplatePersistenceOptions {
     editorMode: EditorMode
@@ -25,17 +25,14 @@ export function useTemplatePersistence({
     customPlainText,
 }: UseTemplatePersistenceOptions): void {
     const { onSubmit } = useContext(TemplateWorkflowContext)
-    const [project] = useContext(ProjectContext)
-    const [campaign] = useContext(CampaignContext)
-    const [template, setTemplate] = useContext(TemplateContext)
+    const [template] = useContext(TemplateContext)
+    const { mutateAsync: updateTemplate } = useUpdateTemplate()
 
     useEffect(() => {
         const unsubscribe = onSubmit(async () => {
-            const updated = await api.campaigns.templates.update(
-                project.id,
-                campaign.id,
-                template.id,
-                {
+            await updateTemplate({
+                templateId: template.id,
+                params: {
                     data: {
                         ...template.data,
                         type: "react-email",
@@ -52,22 +49,18 @@ export function useTemplatePersistence({
                                 : {},
                     },
                 },
-            )
-
-            setTemplate(updated)
+            })
             return true
         })
         return unsubscribe
     }, [
         onSubmit,
-        project.id,
-        campaign.id,
+        updateTemplate,
         template,
         editorMode,
         code,
         blocksData,
         useCustomPlainText,
         customPlainText,
-        setTemplate,
     ])
 }
