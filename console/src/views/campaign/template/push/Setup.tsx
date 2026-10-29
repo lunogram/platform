@@ -153,7 +153,7 @@ export function PushPreview({ campaign, form, edit = false }: PushSetupProps) {
                 setSelectedDevice(null)
                 return
             }
-            const { data } = await oapiClient.GET(
+            const { data, error } = await oapiClient.GET(
                 "/api/admin/projects/{projectID}/subjects/users/{userID}/devices",
                 {
                     params: {
@@ -161,6 +161,7 @@ export function PushPreview({ campaign, form, edit = false }: PushSetupProps) {
                     },
                 },
             )
+            if (error) console.error(error)
             const results = data?.results ?? []
             setDevices(results as Device[])
             setSelectedDevice(results.length > 0 ? (results[0] as Device) : null)

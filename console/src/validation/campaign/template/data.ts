@@ -44,3 +44,15 @@ export const inboxTemplateDataSchema = z.object({
     title: z.string().default(""),
     body: z.string().default(""),
 })
+
+export const templateDataSchemas = {
+    email: emailTemplateDataSchema,
+    sms: textTemplateDataSchema,
+    push: pushTemplateDataSchema,
+    inbox: inboxTemplateDataSchema,
+} as const
+
+// defaultTemplateData is the data a newly created template of a channel starts with.
+export function defaultTemplateData(channel: keyof typeof templateDataSchemas) {
+    return templateDataSchemas[channel].parse({})
+}

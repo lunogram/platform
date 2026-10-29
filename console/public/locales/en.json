@@ -45,7 +45,10 @@
         },
         "details": {
             "title": "Campaign",
-            "description": "Configure your campaign settings and preview how it will appear to users."
+            "description": "Configure your campaign settings and preview how it will appear to users.",
+            "no_templates": "This campaign has no template yet.",
+            "create_template": "Create template",
+            "save_failed": "Couldn't save the campaign"
         },
         "provider": {
             "title": "Select Provider",
@@ -184,12 +187,16 @@
                         "upload_hint": "Click to browse and select an image"
                     }
                 }
-            }
+            },
+            "save_failed": "Couldn't save the template",
+            "publish_failed": "Couldn't publish the campaign",
+            "create_failed": "Couldn't create the template"
         },
         "review": {
             "title": "Review",
             "description": "Review your campaign before sending."
-        }
+        },
+        "channel_unsupported": "This channel type is not yet supported."
     },
     "channel_list": "Channels",
     "channels": {
@@ -237,7 +244,8 @@
                 "cancel": "Cancel",
                 "create": "Create Locale"
             }
-        }
+        },
+        "load_failed": "Couldn't load locales."
     },
     "provider": {
         "select": {

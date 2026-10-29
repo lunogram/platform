@@ -27,12 +27,7 @@ import { Switch } from "@/components/ui/switch"
 
 import { CampaignVariables } from "./CampaignVariables"
 import { newCampaignSchema, type NewCampaignFormValues } from "@/validation/campaign/new-campaign"
-import {
-    emailTemplateDataSchema,
-    textTemplateDataSchema,
-    pushTemplateDataSchema,
-    inboxTemplateDataSchema,
-} from "@/validation/campaign/template/data"
+import { defaultTemplateData } from "@/validation/campaign/template/data"
 
 type ChannelConfig = {
     title: string
@@ -148,13 +143,6 @@ export default function NewCampaign() {
 
     const canCreate = form.formState.isValid && !!project?.id && !!channel && !isCreating
 
-    const templateSchemaMap = {
-        email: emailTemplateDataSchema,
-        sms: textTemplateDataSchema,
-        push: pushTemplateDataSchema,
-        inbox: inboxTemplateDataSchema,
-    } as const
-
     async function createCampaign(data: NewCampaignFormValues) {
         if (!project?.id || !channel) {
             return
@@ -202,7 +190,7 @@ export default function NewCampaign() {
 
             const template = await api.campaigns.templates.create(project.id, campaignId, {
                 locale: project.locale,
-                data: templateSchemaMap[channel].parse({}),
+                data: defaultTemplateData(channel),
             })
 
             navigate(`/projects/${project.id}/campaigns/${campaignId}/templates/${template.id}`)

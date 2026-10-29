@@ -317,6 +317,7 @@ export function EmailContentPreview({ campaign, form, edit = false }: EmailSetup
     const [selectedLocale, setSelectedLocale] = useState(template.locale)
     const locales = useProjectLocales(project?.id)
     const [compiledHtml, setCompiledHtml] = useState<string>("")
+    const [compileError, setCompileError] = useState<string | null>(null)
     const navigate = useNavigate()
     const abortRef = useRef<AbortController | null>(null)
 
@@ -324,6 +325,7 @@ export function EmailContentPreview({ campaign, form, edit = false }: EmailSetup
     // The user is passed as a prop so JSX expressions like `props.user.data.first_name`
     // resolve with real values at React render time.
     useEffect(() => {
+        setCompileError(null)
         if (template.type != "email") {
             setCompiledHtml("")
             return
@@ -356,6 +358,7 @@ export function EmailContentPreview({ campaign, form, edit = false }: EmailSetup
                 if (err instanceof DOMException && err.name === "AbortError") return
                 if (!abortController.signal.aborted) {
                     setCompiledHtml("")
+                    setCompileError(err instanceof Error ? err.message : String(err))
                 }
             })
 
@@ -443,6 +446,15 @@ export function EmailContentPreview({ campaign, form, edit = false }: EmailSetup
                         title="Email Preview"
                         sandbox="allow-same-origin"
                     />
+                ) : compileError ? (
+                    <div className="m-4 rounded-lg border border-destructive/30 bg-destructive/5 p-4">
+                        <p className="text-sm font-medium text-destructive">
+                            {t("campaign.template.email.editor.compileError", "Compilation Error")}
+                        </p>
+                        <pre className="mt-2 text-xs text-destructive/80 whitespace-pre-wrap break-words font-mono">
+                            {compileError}
+                        </pre>
+                    </div>
                 ) : null}
             </EmailFrame>
 

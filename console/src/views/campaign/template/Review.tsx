@@ -16,6 +16,7 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { TemplateWorkflowContext } from "./contexts"
+import { UnsupportedChannel } from "./UnsupportedChannel"
 import { CreateBroadcastDialog } from "@/views/broadcast/CreateBroadcastDialog"
 
 export default function TemplateReview() {
@@ -29,11 +30,15 @@ export default function TemplateReview() {
 
     useEffect(() => {
         if (!selectedUser && project?.id) {
-            api.users.search(project.id, { limit: 1 }).then((result) => {
-                if (result.results && result.results.length > 0) {
-                    setSelectedUser(result.results[0])
-                }
-            })
+            // The preview works without a user, so a failure only needs logging.
+            api.users
+                .search(project.id, { limit: 1 })
+                .then((result) => {
+                    if (result.results && result.results.length > 0) {
+                        setSelectedUser(result.results[0])
+                    }
+                })
+                .catch(console.error)
         }
     }, [project?.id, selectedUser])
 
@@ -63,7 +68,7 @@ export default function TemplateReview() {
     const config = channels[campaign.channel]
 
     if (!config) {
-        return null
+        return <UnsupportedChannel />
     }
 
     const form = config.form(campaign, template)

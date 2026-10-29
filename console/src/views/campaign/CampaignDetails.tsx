@@ -4,12 +4,17 @@ import type { Campaign, Template, Subscription } from "@/types"
 import { useTranslation } from "react-i18next"
 import { Controller, useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
+import { useNavigate } from "react-router"
+import { toast } from "sonner"
 import api from "@/api"
+import { problemDetail } from "@/utils"
+import { defaultTemplateData } from "@/validation/campaign/template/data"
 import { Radio } from "lucide-react"
 import { isEnterprise } from "@/config/enterprise"
 import { useResolver } from "@/hooks"
 
 import { channels } from "./template/channels"
+import { UnsupportedChannel } from "./template/UnsupportedChannel"
 import { CampaignVariables } from "./CampaignVariables"
 
 import { CampaignVariableProvider } from "./CampaignVariableContext"
@@ -73,7 +78,7 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
 
     const config = channels[campaign.channel]
     if (!config) {
-        return null
+        return <UnsupportedChannel />
     }
 
     const channelForm = config.form(campaign, template)
@@ -92,6 +97,11 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
             })
 
             setCampaign(updatedCampaign)
+        } catch (err) {
+            toast.error(
+                problemDetail(err) ??
+                    t("campaign.details.save_failed", "Couldn't save the campaign"),
+            )
         } finally {
             setIsSubmitting(false)
         }
@@ -261,6 +271,48 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
     )
 }
 
+// NoTemplates is shown for a campaign whose template was never created, for
+// example when creating the campaign failed halfway through.
+function NoTemplates({ campaign }: { campaign: Campaign }) {
+    const { t } = useTranslation()
+    const [project] = useContext(ProjectContext)
+    const [, setCampaign] = useContext(CampaignContext)
+    const navigate = useNavigate()
+    const [isCreating, setIsCreating] = useState(false)
+
+    const createTemplate = async () => {
+        setIsCreating(true)
+        try {
+            const template = await api.campaigns.templates.create(project.id, campaign.id, {
+                locale: project.locale,
+                data: defaultTemplateData(campaign.channel),
+            })
+            setCampaign({ ...campaign, templates: [template] })
+            navigate(`/projects/${project.id}/campaigns/${campaign.id}/templates/${template.id}`)
+        } catch (err) {
+            toast.error(
+                problemDetail(err) ??
+                    t("campaign.template.create_failed", "Couldn't create the template"),
+            )
+        } finally {
+            setIsCreating(false)
+        }
+    }
+
+    return (
+        <div className="flex h-screen items-center justify-center bg-muted/20">
+            <div className="flex flex-col items-center gap-4 text-center">
+                <p className="text-muted-foreground">
+                    {t("campaign.details.no_templates", "This campaign has no template yet.")}
+                </p>
+                <Button onClick={createTemplate} isLoading={isCreating} disabled={isCreating}>
+                    {t("campaign.details.create_template", "Create template")}
+                </Button>
+            </div>
+        </div>
+    )
+}
+
 export default function CampaignDetails() {
     const [campaign] = useContext(CampaignContext)
     const [project] = useContext(ProjectContext)
@@ -273,6 +325,11 @@ export default function CampaignDetails() {
         setTemplate((prev) => (prev?.id !== selected.id ? selected : prev))
     }, [campaign, project.locale])
 
+    if (campaign && campaign.templates.length === 0) {
+        return <NoTemplates campaign={campaign} />
+    }
+
+    // Only for the render before the effect above has picked a template.
     if (!campaign || !project || !template) {
         return null
     }

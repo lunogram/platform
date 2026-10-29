@@ -9,6 +9,7 @@ import api from "@/api"
 
 import { channels } from "./channels"
 import { TemplateWorkflowContext } from "./contexts"
+import { UnsupportedChannel } from "./UnsupportedChannel"
 
 export default function TemplateContent() {
     const [campaign] = useContext(CampaignContext)
@@ -54,13 +55,7 @@ export default function TemplateContent() {
     })
 
     if (!config || !form) {
-        return (
-            <div className="flex flex-1 items-center justify-center bg-muted/20">
-                <div className="text-center">
-                    <p className="text-muted-foreground">This channel type is not yet supported.</p>
-                </div>
-            </div>
-        )
+        return <UnsupportedChannel />
     }
 
     const FormControlComponent = config.FormControl
