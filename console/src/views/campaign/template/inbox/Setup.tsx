@@ -1,14 +1,12 @@
-import { Controller, useForm, type UseFormReturn } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import type { Campaign, Template, User, Locale } from "@/types"
+import { Controller, type UseFormReturn } from "react-hook-form"
+import type { Campaign, User } from "@/types"
 import { Rocket } from "lucide-react"
 import { useTranslation } from "react-i18next"
-import { useContext, useState, useEffect } from "react"
+import { useContext, useState } from "react"
 import { ProjectContext, TemplateContext } from "@/contexts"
 import { useNavigate } from "react-router"
 import { Button } from "@/components/ui/button"
-import api from "@/api"
-import type { z } from "zod"
+import { useProjectLocales } from "@/hooks/use-project-locales"
 
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { TemplateInput } from "@/components/ui/template-input"
@@ -27,30 +25,11 @@ import { useCampaignVariableContext } from "../../CampaignVariableContext"
 import { InboxNotificationCenter } from "./InboxNotificationCenter"
 import { useSendTestInbox } from "./useSendTestInbox"
 
-import { inboxSetupFormSchema } from "@/validation/campaign/template/inbox/setup"
-
-export function InboxForm(_campaign: Campaign, template?: Template) {
-    const formSchema = inboxSetupFormSchema.extend({})
-
-    const defaultValues: z.infer<typeof inboxSetupFormSchema> = {
-        title: "",
-        body: "",
-    }
-
-    if (template && template.type == "inbox") {
-        defaultValues.title = template.data.title
-        defaultValues.body = template.data.body
-    }
-
-    return useForm({
-        resolver: zodResolver(formSchema),
-        defaultValues,
-    })
-}
+import type { InboxFormValues } from "@/validation/campaign/template/inbox/setup"
 
 interface InboxFormControlProps {
     campaign: Campaign
-    form: UseFormReturn<z.infer<typeof inboxSetupFormSchema>>
+    form: UseFormReturn<InboxFormValues>
     disabled?: boolean
 }
 
@@ -125,7 +104,7 @@ function sampleMessage() {
 
 export interface InboxSetupProps {
     campaign: Campaign
-    form: UseFormReturn<z.infer<typeof inboxSetupFormSchema>>
+    form: UseFormReturn<InboxFormValues>
     edit?: boolean
 }
 
@@ -135,20 +114,10 @@ export function InboxPreview({ campaign, form, edit = false }: InboxSetupProps) 
     const { t } = useTranslation()
     const [selectedUser, setSelectedUser] = useState<User | null>(null)
     const [selectedLocale, setSelectedLocale] = useState(template.locale)
-    const [locales, setLocales] = useState<Locale[]>([])
+    const locales = useProjectLocales(project.id)
     const navigate = useNavigate()
 
     const { sending, handleSendTest } = useSendTestInbox({ projectId: project.id })
-
-    useEffect(() => {
-        const fetchLocales = async () => {
-            if (project?.id) {
-                const result = await api.locales.search(project.id, { limit: 100 })
-                setLocales(result.results)
-            }
-        }
-        fetchLocales()
-    }, [project?.id])
 
     const [[placeholderTitle, placeholderBody]] = useState(() => sampleMessage())
     const rawTitle = form.watch("title") || placeholderTitle

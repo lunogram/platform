@@ -1079,10 +1079,13 @@ type CreateBroadcast struct {
 // CreateCampaign defines model for CreateCampaign.
 type CreateCampaign struct {
 	// Channel Communication channel type
-	Channel        Channel             `json:"channel"`
-	Name           string              `json:"name"`
-	SubscriptionId *openapi_types.UUID `json:"subscription_id,omitempty"`
-	Transactional  *bool               `json:"transactional,omitempty"`
+	Channel Channel `json:"channel"`
+
+	// CreateDefaultTemplate Whether to create an empty template in the project's locale along with the campaign. Defaults to true. Set to false when creating the campaign's templates yourself, so the campaign has no blank template next to them.
+	CreateDefaultTemplate *bool               `json:"create_default_template,omitempty"`
+	Name                  string              `json:"name"`
+	SubscriptionId        *openapi_types.UUID `json:"subscription_id,omitempty"`
+	Transactional         *bool               `json:"transactional,omitempty"`
 }
 
 // CreateInboxMessageRequest defines model for CreateInboxMessageRequest.
@@ -19178,10 +19181,8 @@ func (r DeleteCampaignResponse) ContentType() string {
 type GetCampaignResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *struct {
-		Data Campaign `json:"data"`
-	}
-	JSONDefault *Error
+	JSON200      *Campaign
+	JSONDefault  *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -19334,10 +19335,8 @@ func (r DeleteTemplateResponse) ContentType() string {
 type GetTemplateResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *struct {
-		Data Template `json:"data"`
-	}
-	JSONDefault *Error
+	JSON200      *Template
+	JSONDefault  *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -27268,9 +27267,7 @@ func ParseGetCampaignResponse(rsp *http.Response) (*GetCampaignResponse, error) 
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest struct {
-			Data Campaign `json:"data"`
-		}
+		var dest Campaign
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -27428,9 +27425,7 @@ func ParseGetTemplateResponse(rsp *http.Response) (*GetTemplateResponse, error) 
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest struct {
-			Data Template `json:"data"`
-		}
+		var dest Template
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

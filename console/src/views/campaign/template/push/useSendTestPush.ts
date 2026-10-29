@@ -2,7 +2,7 @@ import { useCallback, useContext, useState } from "react"
 import { toast } from "sonner"
 import type { Device, User } from "@/types"
 import { oapiClient } from "@/oapi/client"
-import { TemplateWorkflowContext } from "../contexts"
+import { StepSaveContext } from "../contexts"
 
 interface UseSendTestPushOptions {
     projectId: string
@@ -28,17 +28,20 @@ export function useSendTestPush({
     templateId,
 }: UseSendTestPushOptions): UseSendTestPushResult {
     const [sending, setSending] = useState(false)
-    const { save } = useContext(TemplateWorkflowContext)
+    const save = useContext(StepSaveContext)
 
     const handleSendTest = useCallback(
         async (device: Device, user?: User | null) => {
             setSending(true)
             try {
                 // Persist the current editor state so the backend has up-to-date
-                // template data (title, body, custom data, etc.).
+                // template data (title, body, etc.).
+                // A failed save was already reported; only an invalid form needs saying here.
                 const saved = await save()
-                if (!saved) {
-                    toast.error("Failed to save template before sending test push notification")
+                if (!saved.ok) {
+                    if (saved.reason === "invalid") {
+                        toast.error("Fix the form's errors before sending a test push notification")
+                    }
                     return
                 }
 

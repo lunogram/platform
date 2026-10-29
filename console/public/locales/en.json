@@ -41,11 +41,15 @@
         "create": {
             "action": "Create Campaign",
             "title": "New Campaign",
-            "description": "Select a campaign type you would like to create."
+            "description": "Select a campaign type you would like to create.",
+            "setup_failed": "The campaign was created, but its setup didn't finish"
         },
         "details": {
             "title": "Campaign",
-            "description": "Configure your campaign settings and preview how it will appear to users."
+            "description": "Configure your campaign settings and preview how it will appear to users.",
+            "no_templates": "This campaign has no template yet.",
+            "create_template": "Create template",
+            "save_failed": "Couldn't save the campaign"
         },
         "provider": {
             "title": "Select Provider",
@@ -184,12 +188,20 @@
                         "upload_hint": "Click to browse and select an image"
                     }
                 }
-            }
+            },
+            "save_failed": "Couldn't save the template",
+            "publish_failed": "Couldn't publish the campaign",
+            "create_failed": "Couldn't create the template"
         },
         "review": {
             "title": "Review",
             "description": "Review your campaign before sending."
-        }
+        },
+        "channel_unsupported": "This channel type is not yet supported.",
+        "duplicate_failed": "Couldn't duplicate the campaign",
+        "archive_failed": "Couldn't archive the campaign",
+        "unarchive_failed": "Couldn't unarchive the campaign",
+        "subscriptions_load_failed": "Couldn't load subscriptions."
     },
     "channel_list": "Channels",
     "channels": {
@@ -237,7 +249,9 @@
                 "cancel": "Cancel",
                 "create": "Create Locale"
             }
-        }
+        },
+        "load_failed": "Couldn't load locales.",
+        "create_failed": "Couldn't add the language"
     },
     "provider": {
         "select": {
@@ -1129,5 +1143,6 @@
     "sso_error_email": "Your identity provider returned no email address.",
     "sso_error_failed": "Single sign-on failed. Please try again.",
     "sso_choose_provider": "Choose how you would like to sign in.",
-    "sso_error_domain": "Your identity provider returned an address it is not configured to sign in."
+    "sso_error_domain": "Your identity provider returned an address it is not configured to sign in.",
+    "campaigns_load_failed": "Couldn't load campaigns."
 }

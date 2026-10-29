@@ -2,7 +2,7 @@ import { useCallback, useContext, useState } from "react"
 import { toast } from "sonner"
 import { oapiClient } from "@/oapi/client"
 import type { User } from "@/types"
-import { TemplateWorkflowContext } from "../contexts"
+import { StepSaveContext } from "../contexts"
 
 interface UseSendTestSMSOptions {
     projectId: string
@@ -28,7 +28,7 @@ export function useSendTestSMS({
     templateId,
 }: UseSendTestSMSOptions): UseSendTestSMSResult {
     const [sending, setSending] = useState(false)
-    const { save } = useContext(TemplateWorkflowContext)
+    const save = useContext(StepSaveContext)
 
     const handleSendTest = useCallback(
         async (phoneNumber: string, user?: User | null) => {
@@ -43,9 +43,12 @@ export function useSendTestSMS({
             try {
                 // Persist the current editor state so the backend has up-to-date
                 // template data (message body, sender identity, etc.).
+                // A failed save was already reported; only an invalid form needs saying here.
                 const saved = await save()
-                if (!saved) {
-                    toast.error("Failed to save template before sending test SMS")
+                if (!saved.ok) {
+                    if (saved.reason === "invalid") {
+                        toast.error("Fix the form's errors before sending a test SMS")
+                    }
                     return
                 }
 
