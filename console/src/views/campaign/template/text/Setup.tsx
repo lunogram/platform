@@ -1,7 +1,6 @@
-import { Controller, useForm, type UseFormReturn } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
+import { Controller, type UseFormReturn } from "react-hook-form"
 import { Ellipsis, Rocket } from "lucide-react"
-import type { Campaign, Template, User } from "@/types"
+import type { Campaign, User } from "@/types"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router"
 import { useProjectLocales } from "@/hooks/use-project-locales"
@@ -26,26 +25,7 @@ import { ProjectContext, TemplateContext } from "@/contexts"
 import { useCampaignVariableContext } from "../../CampaignVariableContext"
 import { useSendTestSMS } from "./useSendTestSMS"
 
-import { textSetupFormSchema } from "@/validation/campaign/template/text/setup"
-
-export function TextForm(_campaign: Campaign, template?: Template) {
-    const formSchema = textSetupFormSchema
-
-    const defaultValues: z.infer<typeof textSetupFormSchema> = {
-        sender_identity_id: "",
-        body: "",
-    }
-
-    if (template && template.type === "sms") {
-        defaultValues.sender_identity_id = template.sender_identity_id ?? ""
-        defaultValues.body = template.data.body
-    }
-
-    return useForm({
-        resolver: zodResolver(formSchema),
-        defaultValues: defaultValues,
-    })
-}
+import type { textSetupFormSchema } from "@/validation/campaign/template/text/setup"
 
 interface TextFormControlProps {
     campaign: Campaign

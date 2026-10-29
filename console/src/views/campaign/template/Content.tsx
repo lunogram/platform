@@ -3,38 +3,41 @@ import { CampaignContext, TemplateContext as CurrentTemplateContext } from "@/co
 import { useTranslation } from "react-i18next"
 
 import { useUpdateTemplate } from "../queries"
-import { channels } from "./channels"
+import { channels, type ChannelConfig } from "./channels"
 import { TemplateWorkflowContext } from "./contexts"
 import { UnsupportedChannel } from "./UnsupportedChannel"
 
 export default function TemplateContent() {
     const [campaign] = useContext(CampaignContext)
-    const { onSubmit } = useContext(TemplateWorkflowContext)
-    const [template] = useContext(CurrentTemplateContext)
-    const updateTemplate = useUpdateTemplate()
-    const { t } = useTranslation()
-
     const config = channels[campaign.channel]
 
-    const form = config?.form(campaign, template)
+    if (!config) {
+        return <UnsupportedChannel />
+    }
+
+    return <ChannelContent config={config} />
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function ChannelContent({ config }: { config: ChannelConfig<any> }) {
+    const [campaign] = useContext(CampaignContext)
+    const { onSubmit } = useContext(TemplateWorkflowContext)
+    const [template] = useContext(CurrentTemplateContext)
+    const { mutateAsync: updateTemplate } = useUpdateTemplate()
+    const { t } = useTranslation()
+
+    const { useForm: useChannelForm, FormControl, Preview } = config
+    const form = useChannelForm(campaign, template)
 
     useEffect(() => {
-        if (!config || !form) {
-            return
-        }
-
         const unsubscribe = onSubmit(async () => {
-            if (!template) {
-                return false
-            }
-
             const isValid = await form.trigger()
             if (!isValid) {
                 return false
             }
 
             const { sender_identity_id, ...data } = form.getValues()
-            await updateTemplate.mutateAsync({
+            await updateTemplate({
                 templateId: template.id,
                 params: {
                     data: { ...template.data, ...data },
@@ -44,14 +47,7 @@ export default function TemplateContent() {
             return true
         })
         return unsubscribe
-    })
-
-    if (!config || !form) {
-        return <UnsupportedChannel />
-    }
-
-    const FormControlComponent = config.FormControl
-    const PreviewComponent = config.Preview
+    }, [onSubmit, form, template, updateTemplate])
 
     return (
         <div className="flex flex-1 bg-muted/20 overflow-hidden">
@@ -63,11 +59,11 @@ export default function TemplateContent() {
                     </p>
                 </div>
 
-                <FormControlComponent campaign={campaign} form={form} />
+                <FormControl campaign={campaign} form={form} />
             </div>
 
             <div className="w-3/5 bg-background p-8 pb-0 flex flex-col border-l">
-                <PreviewComponent campaign={campaign} form={form} />
+                <Preview campaign={campaign} form={form} />
             </div>
         </div>
     )

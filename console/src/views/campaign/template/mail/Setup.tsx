@@ -1,12 +1,11 @@
 import { useContext, useState, useEffect, useRef } from "react"
-import { Controller, useForm, type UseFormReturn } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import type { Campaign, Template, User, EmailTemplateData } from "@/types"
+import { Controller, type UseFormReturn } from "react-hook-form"
+import type { Campaign, User } from "@/types"
 import { useTranslation } from "react-i18next"
 import { ProjectContext, TemplateContext } from "@/contexts"
 import { useNavigate } from "react-router"
 import { useProjectLocales } from "@/hooks/use-project-locales"
-import * as z from "zod"
+import type * as z from "zod"
 import { Render } from "@/renderTemplates"
 import { compileEmail } from "./editor/codeEditor/compileEmail"
 import { getSystemPreviewProps } from "./editor/variableScope"
@@ -30,7 +29,7 @@ import { SenderIdentityCombobox } from "@/components/sender-identity-combobox"
 import type { SenderIdentity } from "@/oapi/client"
 import { useCampaignVariableContext } from "../../CampaignVariableContext"
 
-import { emailSetupFormSchema } from "@/validation/campaign/template/mail/setup"
+import type { emailSetupFormSchema } from "@/validation/campaign/template/mail/setup"
 
 const randomSubjects = [
     "You won't believe what we have for you...",
@@ -48,26 +47,6 @@ const randomSubjects = [
 function randomSubject() {
     const index = Math.floor(Math.random() * randomSubjects.length)
     return randomSubjects[index]
-}
-
-export function EmailForm(_campaign: Campaign, template?: Template<EmailTemplateData>) {
-    const formSchema = emailSetupFormSchema.extend({
-        sender_identity_id: z.string("From address is required").min(1),
-    })
-
-    const form = useForm({
-        resolver: zodResolver(formSchema),
-        defaultValues: {
-            sender_identity_id: template?.sender_identity_id ?? "",
-            from: {
-                name: template?.data.from?.name ?? "",
-            },
-            subject: template?.data.subject ?? "",
-            reply_to: template?.data.reply_to ?? "",
-        },
-    })
-
-    return form
 }
 
 interface EmailFormControlProps {

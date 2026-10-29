@@ -4,13 +4,12 @@ import {
     ProjectContext,
     TemplateContext as CurrentTemplateContext,
 } from "@/contexts"
-import type { User } from "@/types"
 import { useTranslation } from "react-i18next"
 import api from "@/api"
 import { Radio } from "lucide-react"
 import { isEnterprise } from "@/config/enterprise"
 
-import { channels } from "./channels"
+import { channels, type ChannelConfig } from "./channels"
 
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
@@ -23,35 +22,9 @@ export default function TemplateReview() {
     const [campaign] = useContext(CampaignContext)
     const [project] = useContext(ProjectContext)
     const { onSubmit } = useContext(TemplateWorkflowContext)
-    const [template] = useContext(CurrentTemplateContext)
-    const { t } = useTranslation()
-    const [selectedUser, setSelectedUser] = useState<User | null>(null)
-    const [isBroadcastOpen, setIsBroadcastOpen] = useState(false)
 
     useEffect(() => {
-        if (!selectedUser && project?.id) {
-            // The preview works without a user, so a failure only needs logging.
-            api.users
-                .search(project.id, { limit: 1 })
-                .then((result) => {
-                    if (result.results && result.results.length > 0) {
-                        setSelectedUser(result.results[0])
-                    }
-                })
-                .catch(console.error)
-        }
-    }, [project?.id, selectedUser])
-
-    useEffect(() => {
-        if (!campaign || !project || !template) {
-            return
-        }
-
         const unsubscribe = onSubmit(async () => {
-            if (!template) {
-                return false
-            }
-
             await api.campaigns.update(project.id, campaign.id, {
                 state: "running",
             })
@@ -59,11 +32,7 @@ export default function TemplateReview() {
             return true
         })
         return unsubscribe
-    }, [onSubmit, template, project, campaign])
-
-    if (!campaign || !project || !template) {
-        return null
-    }
+    }, [onSubmit, project.id, campaign.id])
 
     const config = channels[campaign.channel]
 
@@ -71,9 +40,18 @@ export default function TemplateReview() {
         return <UnsupportedChannel />
     }
 
-    const form = config.form(campaign, template)
-    const ChannelFormControl = config.FormControl
-    const ChannelPreview = config.ContentPreview
+    return <ChannelReview config={config} />
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function ChannelReview({ config }: { config: ChannelConfig<any> }) {
+    const [campaign] = useContext(CampaignContext)
+    const [template] = useContext(CurrentTemplateContext)
+    const { t } = useTranslation()
+    const [isBroadcastOpen, setIsBroadcastOpen] = useState(false)
+
+    const { useForm: useChannelForm, FormControl, ContentPreview } = config
+    const form = useChannelForm(campaign, template)
 
     return (
         <div className="flex flex-1 bg-muted/20 overflow-hidden">
@@ -95,7 +73,7 @@ export default function TemplateReview() {
                         </Field>
                     </FieldGroup>
 
-                    <ChannelFormControl campaign={campaign} form={form} disabled />
+                    <FormControl campaign={campaign} form={form} disabled />
 
                     {isEnterprise && (
                         <div className="pt-4">
@@ -114,7 +92,7 @@ export default function TemplateReview() {
             </div>
 
             <div className="w-3/5 bg-background p-8 pb-0 border-l">
-                <ChannelPreview campaign={campaign} form={form} />
+                <ContentPreview campaign={campaign} form={form} />
             </div>
         </div>
     )

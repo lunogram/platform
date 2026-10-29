@@ -1,6 +1,5 @@
-import { Controller, useForm, type UseFormReturn } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import type { Campaign, Template, User } from "@/types"
+import { Controller, type UseFormReturn } from "react-hook-form"
+import type { Campaign, User } from "@/types"
 import { Rocket } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { useContext, useState } from "react"
@@ -27,26 +26,7 @@ import { useCampaignVariableContext } from "../../CampaignVariableContext"
 import { InboxNotificationCenter } from "./InboxNotificationCenter"
 import { useSendTestInbox } from "./useSendTestInbox"
 
-import { inboxSetupFormSchema } from "@/validation/campaign/template/inbox/setup"
-
-export function InboxForm(_campaign: Campaign, template?: Template) {
-    const formSchema = inboxSetupFormSchema.extend({})
-
-    const defaultValues: z.infer<typeof inboxSetupFormSchema> = {
-        title: "",
-        body: "",
-    }
-
-    if (template && template.type == "inbox") {
-        defaultValues.title = template.data.title
-        defaultValues.body = template.data.body
-    }
-
-    return useForm({
-        resolver: zodResolver(formSchema),
-        defaultValues,
-    })
-}
+import type { inboxSetupFormSchema } from "@/validation/campaign/template/inbox/setup"
 
 interface InboxFormControlProps {
     campaign: Campaign

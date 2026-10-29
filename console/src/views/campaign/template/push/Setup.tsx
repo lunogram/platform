@@ -1,6 +1,5 @@
-import { Controller, useForm, type UseFormReturn } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import type { Campaign, Template, User, Device } from "@/types"
+import { Controller, type UseFormReturn } from "react-hook-form"
+import type { Campaign, User, Device } from "@/types"
 import { Rocket } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { useContext, useState, useEffect } from "react"
@@ -26,28 +25,7 @@ import { useSendTestPush } from "./useSendTestPush"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { PushFrame } from "@/components/preview/PushFrame"
 
-import { pushSetupFormSchema } from "@/validation/campaign/template/push/setup"
-
-export function PushForm(_campaign: Campaign, template?: Template) {
-    const formSchema = pushSetupFormSchema.extend({})
-
-    const defaultValues: z.infer<typeof pushSetupFormSchema> = {
-        title: "",
-        body: "",
-        custom: undefined,
-    }
-
-    if (template && template.type == "push") {
-        defaultValues.title = template.data.title
-        defaultValues.body = template.data.body
-        defaultValues.custom = template.data.custom
-    }
-
-    return useForm({
-        resolver: zodResolver(formSchema),
-        defaultValues,
-    })
-}
+import type { pushSetupFormSchema } from "@/validation/campaign/template/push/setup"
 
 interface PushFormControlProps {
     campaign: Campaign

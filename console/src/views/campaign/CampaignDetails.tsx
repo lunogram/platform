@@ -47,8 +47,8 @@ function DetailsPreview({
     template: Template
     config: NonNullable<(typeof channels)[keyof typeof channels]>
 }) {
-    const channelForm = config.form(campaign, template)
-    const { ContentPreview } = config
+    const { useForm: useChannelForm, ContentPreview } = config
+    const channelForm = useChannelForm(campaign, template)
     return <ContentPreview campaign={campaign} form={channelForm} edit />
 }
 
