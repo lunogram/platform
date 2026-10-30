@@ -179,7 +179,7 @@ export function useImportUsers() {
     return useMutation({
         mutationFn: (file: File) => api.users.addImport(project.id, file),
         onSuccess: () => invalidateUserLists(queryClient, project.id),
-        meta: { errorMessage: t("user_import_failed", "Couldn't import the users") },
+        meta: { errorMessage: t("user_import_failed", "Couldn't import the users.") },
     })
 }
 

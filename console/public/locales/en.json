@@ -1146,7 +1146,7 @@
     "user_create_failed": "Couldn't create the user",
     "user_delete_failed": "Couldn't delete the user",
     "user_events_load_failed": "Couldn't load events.",
-    "user_import_failed": "Couldn't import the users",
+    "user_import_failed": "Couldn't import the users.",
     "user_journeys_load_failed": "Couldn't load journeys.",
     "user_organizations_load_failed": "Couldn't load organizations.",
     "user_subscriptions_load_failed": "Couldn't load subscriptions.",
