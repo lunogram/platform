@@ -43,6 +43,7 @@
         "@rehookify/datepicker": "^3.2.0",
         "@tailwindcss/vite": "^4.1.18",
         "@tanstack/react-hotkeys": "^0.4.1",
+        "@tanstack/react-query": "^5.105.0",
         "@tanstack/react-table": "^8.21.3",
         "@textea/json-viewer": "^4.0.1",
         "@tiptap/core": "3.20.1",
