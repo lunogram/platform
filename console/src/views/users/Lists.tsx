@@ -1,6 +1,7 @@
-import { useCallback, useContext, useState, useRef } from "react"
+import { useCallback, useState, useRef } from "react"
 import { useNavigate, useParams } from "react-router"
 import { useTranslation } from "react-i18next"
+import { useQuery } from "@tanstack/react-query"
 import {
     Plus,
     Search,
@@ -10,23 +11,22 @@ import {
     ListFilter,
     Users,
     Settings,
-    MoreHorizontal,
-    Copy,
-    Archive,
     ArchiveRestore,
 } from "lucide-react"
 import { NIL } from "uuid"
 
-import api from "../../api"
-import { oapiClient } from "@/oapi/client"
-import { useResolver } from "../../hooks"
-import { formatDate, snakeToTitle } from "../../utils"
-import { getRandomColor } from "@/lib/colors"
-import { PreferencesContext } from "@/contexts/PreferencesContext"
 import { ListCreateForm } from "./ListCreateForm"
+import { ListRow } from "./ListRow"
+import { LoadErrorRow } from "./LoadErrorRow"
+import {
+    LIST_PAGE_SIZE,
+    listPageQuery,
+    useArchiveList,
+    useDuplicateList,
+    useUnarchiveList,
+} from "./listQueries"
 import { ListsIcon as ListsPageIcon } from "@/components/icons"
 
-import type { List, ListState } from "../../types"
 import type { UUID } from "@/types/common"
 
 import { Button } from "@/components/ui/button"
@@ -47,35 +47,16 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Badge } from "@/components/ui/badge"
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-
-function getStateBadge(state: ListState, t: (key: string) => string) {
-    const config: Record<ListState, { label: string; className: string }> = {
-        draft: { label: t("draft"), className: "bg-secondary text-secondary-foreground" },
-        loading: { label: t("loading"), className: "bg-blue-100 text-blue-700" },
-        ready: { label: t("ready"), className: "bg-green-100 text-green-700" },
-    }
-    const { label, className } = config[state] ?? config.draft
-    return (
-        <Badge variant="outline" className={`border-0 ${className}`}>
-            {label}
-        </Badge>
-    )
-}
 
 export default function Lists() {
     const { projectId = NIL as UUID } = useParams<{ projectId: UUID }>()
-    const [preferences] = useContext(PreferencesContext)
     const { t } = useTranslation()
     const navigate = useNavigate()
+    const duplicateList = useDuplicateList()
+    const archiveList = useArchiveList()
+    const unarchiveList = useUnarchiveList()
 
-    const pageSize = 15
+    const pageSize = LIST_PAGE_SIZE
     const [searchQuery, setSearchQuery] = useState("")
     const [debouncedQuery, setDebouncedQuery] = useState("")
     const [isCreateOpen, setIsCreateOpen] = useState(false)
@@ -94,42 +75,17 @@ export default function Lists() {
         }, 300)
     }, [])
 
-    const [result, , reload] = useResolver(
-        useCallback(async () => {
-            return await api.lists.search(projectId, {
-                limit: pageSize,
-                offset,
-                search: debouncedQuery || undefined,
-            })
-        }, [projectId, debouncedQuery, offset]),
-    )
-
-    const [archivedResult, , reloadArchived] = useResolver(
-        useCallback(async () => {
-            if (!showArchived) return null
-            const response = await oapiClient.GET("/api/admin/projects/{projectID}/lists", {
-                params: {
-                    path: {
-                        projectID: projectId,
-                    },
-                    query: {
-                        limit: pageSize,
-                        offset: archivedOffset,
-                        include_deleted: true,
-                        search: debouncedQuery || undefined,
-                    },
-                },
-            })
-            if (response.error || !response.data) return null
-            return response.data
-        }, [projectId, debouncedQuery, showArchived, archivedOffset]),
-    )
-
     const isArchivedView = showArchived
-    const lists = (isArchivedView ? archivedResult?.results : result?.results) ?? []
-    const total = isArchivedView ? (archivedResult?.total ?? 0) : (result?.total ?? 0)
-    const isLoading = isArchivedView ? archivedResult === null : !result
     const currentOffset = isArchivedView ? archivedOffset : offset
+    const result = useQuery(
+        listPageQuery(projectId, {
+            offset: currentOffset,
+            search: debouncedQuery,
+            archived: isArchivedView,
+        }),
+    )
+    const lists = result.data?.results ?? []
+    const total = result.data?.total ?? 0
     const hasNextPage = currentOffset + pageSize < total
     const hasPrevPage = currentOffset > 0
 
@@ -143,41 +99,27 @@ export default function Lists() {
         setter((prev) => Math.max(0, prev - pageSize))
     }
 
-    const handleRowClick = (list: List) => {
-        navigate(list.id.toString())
+    const handleRowClick = (id: UUID) => {
+        navigate(id.toString())
     }
 
-    const handleDuplicateList = async (e: React.MouseEvent, id: UUID) => {
+    const handleDuplicateList = (e: React.MouseEvent, id: UUID) => {
         e.stopPropagation()
-        const list = await api.lists.duplicate(projectId, id)
-        await navigate(list.id.toString())
+        duplicateList.mutate(id, { onSuccess: (list) => navigate(list.id.toString()) })
     }
 
-    const handleArchiveList = async (e: React.MouseEvent, id: UUID) => {
+    const handleArchiveList = (e: React.MouseEvent, id: UUID) => {
         e.stopPropagation()
-        await api.lists.delete(projectId, id)
-        await reload()
+        archiveList.mutate(id)
     }
 
-    const handleUnarchiveList = async (id: UUID) => {
-        const response = await oapiClient.POST(
-            "/api/admin/projects/{projectID}/lists/{listID}/unarchive",
-            {
-                params: {
-                    path: {
-                        projectID: projectId,
-                        listID: id,
-                    },
-                },
+    const handleUnarchiveList = (id: UUID) => {
+        unarchiveList.mutate(id, {
+            onSuccess: () => {
+                setShowArchived(false)
+                setArchivedOffset(0)
             },
-        )
-        if (response.error) {
-            throw response.error
-        }
-
-        setShowArchived(false)
-        setArchivedOffset(0)
-        await Promise.all([reload(), reloadArchived()])
+        })
     }
 
     return (
@@ -256,7 +198,7 @@ export default function Lists() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {isLoading ? (
+                        {result.isPending ? (
                             Array.from({ length: 5 }).map((_, i) => (
                                 <TableRow key={i}>
                                     <TableCell>
@@ -285,6 +227,12 @@ export default function Lists() {
                                     </TableCell>
                                 </TableRow>
                             ))
+                        ) : result.isError ? (
+                            <LoadErrorRow
+                                colSpan={7}
+                                message={t("lists_load_failed", "Couldn't load lists.")}
+                                onRetry={() => result.refetch()}
+                            />
                         ) : lists.length === 0 ? (
                             <TableRow>
                                 <TableCell colSpan={7} className="h-32 text-center">
@@ -292,10 +240,7 @@ export default function Lists() {
                                         <ListFilter className="h-8 w-8" />
                                         <p>
                                             {isArchivedView
-                                                ? t(
-                                                      "no_archived_lists",
-                                                      "No archived lists",
-                                                  )
+                                                ? t("no_archived_lists", "No archived lists")
                                                 : debouncedQuery
                                                   ? t("no_lists_found", "No lists found")
                                                   : t("no_lists_yet", "No lists yet")}
@@ -319,95 +264,17 @@ export default function Lists() {
                                 </TableCell>
                             </TableRow>
                         ) : (
-                            lists.map((list) => {
-                                const listColor = getRandomColor(list.name ?? list.id)
-                                return (
-                                    <TableRow
-                                        key={list.id}
-                                        className="cursor-pointer"
-                                        onClick={() => handleRowClick(list)}
-                                    >
-                                        <TableCell>
-                                            <div className="flex items-center gap-3">
-                                                <div
-                                                    className="flex h-8 w-8 items-center justify-center rounded-md shrink-0"
-                                                    style={{ backgroundColor: listColor }}
-                                                >
-                                                    <ListFilter className="h-4 w-4 text-white" />
-                                                </div>
-                                                <div className="font-medium">{list.name}</div>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className="hidden sm:table-cell text-muted-foreground">
-                                            {snakeToTitle(list.type)}
-                                        </TableCell>
-                                        <TableCell className="hidden sm:table-cell text-muted-foreground">
-                                            {list.users_count?.toLocaleString() ?? "—"}
-                                        </TableCell>
-                                        <TableCell>{getStateBadge(list.state, t)}</TableCell>
-                                        <TableCell className="hidden md:table-cell text-muted-foreground">
-                                            {formatDate(preferences, list.created_at, "PP")}
-                                        </TableCell>
-                                        <TableCell className="hidden md:table-cell text-muted-foreground">
-                                            {formatDate(preferences, list.updated_at, "PP")}
-                                        </TableCell>
-                                        <TableCell>
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger asChild>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        className="h-8 w-8 p-0"
-                                                        onClick={(e) => e.stopPropagation()}
-                                                    >
-                                                        <MoreHorizontal className="h-4 w-4" />
-                                                    </Button>
-                                                </DropdownMenuTrigger>
-                                                <DropdownMenuContent align="end">
-                                                    <DropdownMenuItem
-                                                        onClick={(e) => {
-                                                            e.stopPropagation()
-                                                            handleRowClick(list)
-                                                        }}
-                                                    >
-                                                        <ListFilter className="mr-2 h-4 w-4" />
-                                                        {t("edit")}
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuItem
-                                                        onClick={(e) =>
-                                                            handleDuplicateList(e, list.id)
-                                                        }
-                                                    >
-                                                        <Copy className="mr-2 h-4 w-4" />
-                                                        {t("duplicate")}
-                                                    </DropdownMenuItem>
-                                                    {isArchivedView ? (
-                                                        <DropdownMenuItem
-                                                            onClick={(e) => {
-                                                                e.stopPropagation()
-                                                                handleUnarchiveList(list.id)
-                                                            }}
-                                                        >
-                                                            <ArchiveRestore className="mr-2 h-4 w-4" />
-                                                            {t("unarchive", "Unarchive")}
-                                                        </DropdownMenuItem>
-                                                    ) : (
-                                                        <DropdownMenuItem
-                                                            onClick={(e) =>
-                                                                handleArchiveList(e, list.id)
-                                                            }
-                                                            className="text-destructive"
-                                                        >
-                                                            <Archive className="mr-2 h-4 w-4" />
-                                                            {t("archive")}
-                                                        </DropdownMenuItem>
-                                                    )}
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
-                                        </TableCell>
-                                    </TableRow>
-                                )
-                            })
+                            lists.map((list) => (
+                                <ListRow
+                                    key={list.id}
+                                    list={list}
+                                    archived={isArchivedView}
+                                    onOpen={() => handleRowClick(list.id)}
+                                    onDuplicate={(e) => handleDuplicateList(e, list.id)}
+                                    onArchive={(e) => handleArchiveList(e, list.id)}
+                                    onUnarchive={() => handleUnarchiveList(list.id)}
+                                />
+                            ))
                         )}
                     </TableBody>
                 </Table>
@@ -490,7 +357,6 @@ export default function Lists() {
                     </div>
                 </div>
             </div>
-
 
             {/* Create List Dialog */}
             <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>

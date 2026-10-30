@@ -1,11 +1,12 @@
-import { useCallback, useContext, useState } from "react"
+import { useContext, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { useQuery } from "@tanstack/react-query"
 import { Search, User, Mail } from "lucide-react"
 import type { User as UserType } from "../../types"
 import { getUserDisplayName, getUserInitials } from "@/lib/name"
 import { ProjectContext } from "../../contexts"
-import api from "../../api"
-import { useResolver } from "../../hooks"
+import { LoadErrorRow } from "./LoadErrorRow"
+import { userSearchQuery } from "./queries"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -37,24 +38,15 @@ export const UserLookup = ({ open, onClose, onSelected }: UserLookupProps) => {
     const { t } = useTranslation()
     const [searchQuery, setSearchQuery] = useState("")
     const [debouncedQuery, setDebouncedQuery] = useState("")
-    const [isSearching, setIsSearching] = useState(false)
     const [isSelecting, setIsSelecting] = useState(false)
 
-    const [users] = useResolver(
-        useCallback(async () => {
-            if (!open) return []
-            setIsSearching(true)
-            try {
-                const result = await api.users.search(project.id, {
-                    search: debouncedQuery || undefined,
-                    limit: 20,
-                })
-                return result.results
-            } finally {
-                setIsSearching(false)
-            }
-        }, [project.id, debouncedQuery, open]),
-    )
+    const result = useQuery({
+        ...userSearchQuery(project.id, { limit: 20, offset: 0, search: debouncedQuery }),
+        enabled: open,
+    })
+    const users = result.data?.results ?? []
+    // A new search shows the skeleton rather than the previous search's results.
+    const isSearching = result.isPending || (result.isFetching && result.isPlaceholderData)
 
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault()
@@ -122,7 +114,7 @@ export const UserLookup = ({ open, onClose, onSelected }: UserLookupProps) => {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {isSearching || users == null ? (
+                            {isSearching ? (
                                 // Loading skeleton
                                 Array.from({ length: 3 }).map((_, i) => (
                                     <TableRow key={i}>
@@ -137,6 +129,12 @@ export const UserLookup = ({ open, onClose, onSelected }: UserLookupProps) => {
                                         </TableCell>
                                     </TableRow>
                                 ))
+                            ) : result.isError ? (
+                                <LoadErrorRow
+                                    colSpan={2}
+                                    message={t("users_load_failed", "Couldn't load users.")}
+                                    onRetry={() => result.refetch()}
+                                />
                             ) : users.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={2} className="h-32 text-center">
@@ -147,7 +145,7 @@ export const UserLookup = ({ open, onClose, onSelected }: UserLookupProps) => {
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                users?.map((user) => (
+                                users.map((user) => (
                                     <TableRow
                                         key={user.id}
                                         className="cursor-pointer hover:bg-muted/50"

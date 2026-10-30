@@ -12,25 +12,16 @@ import {
     Building2,
     ChevronRight,
     MoreHorizontal,
-    Globe,
     Mail,
     Phone,
-    Languages,
-    Pencil,
-    Check,
     Inbox,
 } from "lucide-react"
 import { ProjectContext, UserContext } from "../../contexts"
 import { PreferencesContext } from "@/contexts/PreferencesContext"
 import { getRandomColor } from "@/lib/colors"
 import { getUserDisplayName, getUserInitials, getPrimaryExternalId } from "@/lib/name"
-import { formatDate, cn } from "../../utils"
-import api from "../../api"
-import {
-    getTimezoneCoordinates,
-    getLocalTimeInTimezone,
-    getTimezoneOffset,
-} from "@/lib/timezone-coordinates"
+import { formatDate } from "../../utils"
+import { getTimezoneCoordinates } from "@/lib/timezone-coordinates"
 
 import { Button } from "@/components/ui/button"
 import { Map, MapMarker, MarkerContent } from "@/components/ui/map"
@@ -48,29 +39,12 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { NavTabs } from "@/components/ui/nav-tabs"
-import {
-    Command,
-    CommandEmpty,
-    CommandGroup,
-    CommandInput,
-    CommandItem,
-    CommandList,
-} from "@/components/ui/command"
 import { InlineEdit } from "@/components/ui/inline-edit"
 import { optionalPhoneSchema } from "@/validation/phone"
-import type { User } from "../../types"
-
-// eslint-disable-next-line @typescript-eslint/no-namespace
-declare namespace Intl {
-    type Key = "calendar" | "collation" | "currency" | "numberingSystem" | "timeZone" | "unit"
-    function supportedValuesOf(input: Key): string[]
-    class DisplayNames {
-        constructor(locales: string[], options: { type: string })
-        of(code: string): string | undefined
-    }
-}
+import { useDeleteUser, useUpdateUser } from "./queries"
+import { UserLocaleEdit } from "./UserLocaleEdit"
+import { UserTimezoneEdit } from "./UserTimezoneEdit"
 
 export default function UserDetail() {
     const { t } = useTranslation()
@@ -78,49 +52,30 @@ export default function UserDetail() {
     const location = useLocation()
     const [preferences] = useContext(PreferencesContext)
     const [project] = useContext(ProjectContext)
-    const [user, setUser] = useContext(UserContext)
+    const [user] = useContext(UserContext)
     const [isDeleteOpen, setIsDeleteOpen] = useState(false)
-    const [isDeleting, setIsDeleting] = useState(false)
-    const [isTimezoneOpen, setIsTimezoneOpen] = useState(false)
-    const [isSavingTimezone, setIsSavingTimezone] = useState(false)
-    const [isLocaleOpen, setIsLocaleOpen] = useState(false)
-    const [isSavingLocale, setIsSavingLocale] = useState(false)
+    const deleteUserMutation = useDeleteUser()
+    const isDeleting = deleteUserMutation.isPending
+    const updateEmail = useUpdateUser(t("email_update_error", "Couldn't update the email"))
+    const updatePhone = useUpdateUser(t("phone_update_error", "Couldn't update the phone"))
 
-    const timeZones = Intl.supportedValuesOf("timeZone")
-
-    const handleTimezoneChange = async (newTimezone: string) => {
-        setIsSavingTimezone(true)
+    // InlineEdit does not catch a rejected save, so a throw here would go
+    // unhandled. The mutation cache has already shown the error.
+    const saveEmail = async (value: string) => {
         try {
-            const updatedUser = await api.users.update(project.id, user.id, {
-                timezone: newTimezone,
-            } as User)
-            if (updatedUser) {
-                setUser(updatedUser)
-                toast.success(t("timezone_updated", "Timezone updated"))
-            }
-            setIsTimezoneOpen(false)
+            await updateEmail.mutateAsync({ email: value || undefined })
+            toast.success(t("email_updated", "Email updated"))
         } catch {
-            toast.error(t("timezone_update_error", "Failed to update timezone"))
-        } finally {
-            setIsSavingTimezone(false)
+            // Reported by the mutation cache.
         }
     }
 
-    const handleLocaleChange = async (newLocale: string) => {
-        setIsSavingLocale(true)
+    const savePhone = async (value: string) => {
         try {
-            const updatedUser = await api.users.update(project.id, user.id, {
-                locale: newLocale,
-            } as User)
-            if (updatedUser) {
-                setUser(updatedUser)
-                toast.success(t("locale_updated", "Locale updated"))
-            }
-            setIsLocaleOpen(false)
+            await updatePhone.mutateAsync({ phone: value || undefined })
+            toast.success(t("phone_updated", "Phone updated"))
         } catch {
-            toast.error(t("locale_update_error", "Failed to update locale"))
-        } finally {
-            setIsSavingLocale(false)
+            // Reported by the mutation cache.
         }
     }
 
@@ -135,23 +90,26 @@ export default function UserDetail() {
     // Determine active tab
     const basePath = `/projects/${project.id}/users/${user.id}`
     const currentPath = location.pathname
-    const activeTab = currentPath === basePath ? "details" : currentPath.replace(basePath + "/", "").split("/")[0]
+    const activeTab =
+        currentPath === basePath ? "details" : currentPath.replace(basePath + "/", "").split("/")[0]
 
-    const deleteUser = async () => {
-        setIsDeleting(true)
-        try {
-            await api.users.delete(project.id, user.id)
-            await navigate(`/projects/${project.id}/users`)
-        } finally {
-            setIsDeleting(false)
-        }
+    const deleteUser = () => {
+        // The dialog stays open on failure; the mutation cache reports the error.
+        deleteUserMutation.mutate(undefined, {
+            onSuccess: () => navigate(`/projects/${project.id}/users`),
+        })
     }
 
     const tabs = [
         { key: "details", to: "", label: t("details"), icon: FileText },
         { key: "inbox", to: "inbox", label: t("inbox", "Inbox"), icon: Inbox },
         { key: "events", to: "events", label: t("events"), icon: Activity },
-        { key: "scheduled", to: "scheduled", label: t("scheduled", "Scheduled"), icon: CalendarClock },
+        {
+            key: "scheduled",
+            to: "scheduled",
+            label: t("scheduled", "Scheduled"),
+            icon: CalendarClock,
+        },
         { key: "subscriptions", to: "subscriptions", label: t("subscriptions"), icon: Bell },
         { key: "journeys", to: "journeys", label: t("journeys"), icon: Route },
         { key: "organizations", to: "organizations", label: t("organizations"), icon: Building2 },
@@ -226,19 +184,7 @@ export default function UserDetail() {
                                     {/* 1. Email */}
                                     <InlineEdit
                                         value={user.email ?? ""}
-                                        onSave={async (value) => {
-                                            const updatedUser = await api.users.update(
-                                                project.id,
-                                                user.id,
-                                                {
-                                                    email: value || undefined,
-                                                } as User,
-                                            )
-                                            if (updatedUser) {
-                                                setUser(updatedUser)
-                                                toast.success(t("email_updated", "Email updated"))
-                                            }
-                                        }}
+                                        onSave={saveEmail}
                                         icon={<Mail className="h-3 w-3" />}
                                         placeholder={t("set_email", "Set email")}
                                         type="email"
@@ -252,19 +198,7 @@ export default function UserDetail() {
                                     <InlineEdit
                                         value={user.phone ?? ""}
                                         validate={optionalPhoneSchema}
-                                        onSave={async (value) => {
-                                            const updatedUser = await api.users.update(
-                                                project.id,
-                                                user.id,
-                                                {
-                                                    phone: value || undefined,
-                                                } as User,
-                                            )
-                                            if (updatedUser) {
-                                                setUser(updatedUser)
-                                                toast.success(t("phone_updated", "Phone updated"))
-                                            }
-                                        }}
+                                        onSave={savePhone}
                                         icon={<Phone className="h-3 w-3" />}
                                         placeholder={t("set_phone", "Set phone")}
                                         type="tel"
@@ -274,491 +208,8 @@ export default function UserDetail() {
                                         )}
                                     />
                                     <span className="mx-2">·</span>
-                                    {/* 3. Locale */}
-                                    {user.locale ? (
-                                        <>
-                                            <Popover
-                                                open={isLocaleOpen}
-                                                onOpenChange={setIsLocaleOpen}
-                                            >
-                                                <PopoverTrigger asChild>
-                                                    <button
-                                                        type="button"
-                                                        className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 -mx-1.5 -my-0.5 hover:bg-muted transition-colors group"
-                                                    >
-                                                        <Languages className="h-3 w-3" />
-                                                        <span>{user.locale}</span>
-                                                        <Pencil className="h-2.5 w-2.5 opacity-0 group-hover:opacity-60 transition-opacity" />
-                                                    </button>
-                                                </PopoverTrigger>
-                                                <PopoverContent className="w-72 p-0" align="start">
-                                                    <Command>
-                                                        <CommandInput
-                                                            placeholder={t(
-                                                                "search_locale",
-                                                                "Search locale...",
-                                                            )}
-                                                        />
-                                                        <CommandList>
-                                                            <CommandEmpty>
-                                                                {t(
-                                                                    "no_locale_found",
-                                                                    "No locale found.",
-                                                                )}
-                                                            </CommandEmpty>
-                                                            <CommandGroup>
-                                                                {(() => {
-                                                                    const locales = [
-                                                                        ...new Set([
-                                                                            ...navigator.languages,
-                                                                            "en",
-                                                                            "en",
-                                                                            "en-GB",
-                                                                            "es",
-                                                                            "es-ES",
-                                                                            "es-MX",
-                                                                            "fr",
-                                                                            "fr-FR",
-                                                                            "de",
-                                                                            "de-DE",
-                                                                            "it",
-                                                                            "it-IT",
-                                                                            "pt",
-                                                                            "pt-BR",
-                                                                            "pt-PT",
-                                                                            "nl",
-                                                                            "nl-NL",
-                                                                            "ja",
-                                                                            "ja-JP",
-                                                                            "ko",
-                                                                            "ko-KR",
-                                                                            "zh",
-                                                                            "zh-CN",
-                                                                            "zh-TW",
-                                                                            "ar",
-                                                                            "ar-SA",
-                                                                            "hi",
-                                                                            "hi-IN",
-                                                                            "ru",
-                                                                            "ru-RU",
-                                                                            "pl",
-                                                                            "pl-PL",
-                                                                            "tr",
-                                                                            "tr-TR",
-                                                                            "sv",
-                                                                            "sv-SE",
-                                                                            "da",
-                                                                            "da-DK",
-                                                                            "no",
-                                                                            "nb-NO",
-                                                                            "fi",
-                                                                            "fi-FI",
-                                                                            "th",
-                                                                            "th-TH",
-                                                                            "vi",
-                                                                            "vi-VN",
-                                                                            "id",
-                                                                            "id-ID",
-                                                                            "ms",
-                                                                            "ms-MY",
-                                                                            "uk",
-                                                                            "uk-UA",
-                                                                            "cs",
-                                                                            "cs-CZ",
-                                                                            "ro",
-                                                                            "ro-RO",
-                                                                            "hu",
-                                                                            "hu-HU",
-                                                                            "el",
-                                                                            "el-GR",
-                                                                            "he",
-                                                                            "he-IL",
-                                                                            "bg",
-                                                                            "bg-BG",
-                                                                            "hr",
-                                                                            "hr-HR",
-                                                                            "sk",
-                                                                            "sk-SK",
-                                                                            "sl",
-                                                                            "sl-SI",
-                                                                            "lt",
-                                                                            "lt-LT",
-                                                                            "lv",
-                                                                            "lv-LV",
-                                                                            "et",
-                                                                            "et-EE",
-                                                                            "ca",
-                                                                            "ca-ES",
-                                                                            "fil",
-                                                                            "fil-PH",
-                                                                            "sw",
-                                                                            "sw-KE",
-                                                                            "af",
-                                                                            "af-ZA",
-                                                                        ]),
-                                                                    ].sort()
-                                                                    return locales.map((loc) => {
-                                                                        let label = loc
-                                                                        try {
-                                                                            const dn =
-                                                                                new Intl.DisplayNames(
-                                                                                    ["en"],
-                                                                                    {
-                                                                                        type: "language",
-                                                                                    },
-                                                                                )
-                                                                            label =
-                                                                                dn.of(loc) ?? loc
-                                                                        } catch {
-                                                                            // keep raw code
-                                                                        }
-                                                                        return (
-                                                                            <CommandItem
-                                                                                key={loc}
-                                                                                value={`${loc} ${label}`}
-                                                                                onSelect={() =>
-                                                                                    handleLocaleChange(
-                                                                                        loc,
-                                                                                    )
-                                                                                }
-                                                                                disabled={
-                                                                                    isSavingLocale
-                                                                                }
-                                                                            >
-                                                                                <Check
-                                                                                    className={cn(
-                                                                                        "mr-2 h-4 w-4",
-                                                                                        user.locale ===
-                                                                                            loc
-                                                                                            ? "opacity-100"
-                                                                                            : "opacity-0",
-                                                                                    )}
-                                                                                />
-                                                                                <span>{label}</span>
-                                                                                {label !== loc && (
-                                                                                    <span className="ml-1 text-muted-foreground">
-                                                                                        {loc}
-                                                                                    </span>
-                                                                                )}
-                                                                            </CommandItem>
-                                                                        )
-                                                                    })
-                                                                })()}
-                                                            </CommandGroup>
-                                                        </CommandList>
-                                                    </Command>
-                                                </PopoverContent>
-                                            </Popover>
-                                            <span className="mx-2">·</span>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Popover
-                                                open={isLocaleOpen}
-                                                onOpenChange={setIsLocaleOpen}
-                                            >
-                                                <PopoverTrigger asChild>
-                                                    <button
-                                                        type="button"
-                                                        className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 -mx-1.5 -my-0.5 hover:bg-muted transition-colors text-muted-foreground/60 hover:text-muted-foreground group"
-                                                    >
-                                                        <Languages className="h-3 w-3" />
-                                                        {t("set_locale", "Set locale")}
-                                                        <Pencil className="h-2.5 w-2.5 opacity-0 group-hover:opacity-60 transition-opacity" />
-                                                    </button>
-                                                </PopoverTrigger>
-                                                <PopoverContent className="w-72 p-0" align="start">
-                                                    <Command>
-                                                        <CommandInput
-                                                            placeholder={t(
-                                                                "search_locale",
-                                                                "Search locale...",
-                                                            )}
-                                                        />
-                                                        <CommandList>
-                                                            <CommandEmpty>
-                                                                {t(
-                                                                    "no_locale_found",
-                                                                    "No locale found.",
-                                                                )}
-                                                            </CommandEmpty>
-                                                            <CommandGroup>
-                                                                {(() => {
-                                                                    const locales = [
-                                                                        ...new Set([
-                                                                            ...navigator.languages,
-                                                                            "en",
-                                                                            "en",
-                                                                            "en-GB",
-                                                                            "es",
-                                                                            "es-ES",
-                                                                            "es-MX",
-                                                                            "fr",
-                                                                            "fr-FR",
-                                                                            "de",
-                                                                            "de-DE",
-                                                                            "it",
-                                                                            "it-IT",
-                                                                            "pt",
-                                                                            "pt-BR",
-                                                                            "pt-PT",
-                                                                            "nl",
-                                                                            "nl-NL",
-                                                                            "ja",
-                                                                            "ja-JP",
-                                                                            "ko",
-                                                                            "ko-KR",
-                                                                            "zh",
-                                                                            "zh-CN",
-                                                                            "zh-TW",
-                                                                            "ar",
-                                                                            "ar-SA",
-                                                                            "hi",
-                                                                            "hi-IN",
-                                                                            "ru",
-                                                                            "ru-RU",
-                                                                            "pl",
-                                                                            "pl-PL",
-                                                                            "tr",
-                                                                            "tr-TR",
-                                                                            "sv",
-                                                                            "sv-SE",
-                                                                            "da",
-                                                                            "da-DK",
-                                                                            "no",
-                                                                            "nb-NO",
-                                                                            "fi",
-                                                                            "fi-FI",
-                                                                            "th",
-                                                                            "th-TH",
-                                                                            "vi",
-                                                                            "vi-VN",
-                                                                            "id",
-                                                                            "id-ID",
-                                                                            "ms",
-                                                                            "ms-MY",
-                                                                            "uk",
-                                                                            "uk-UA",
-                                                                            "cs",
-                                                                            "cs-CZ",
-                                                                            "ro",
-                                                                            "ro-RO",
-                                                                            "hu",
-                                                                            "hu-HU",
-                                                                            "el",
-                                                                            "el-GR",
-                                                                            "he",
-                                                                            "he-IL",
-                                                                            "bg",
-                                                                            "bg-BG",
-                                                                            "hr",
-                                                                            "hr-HR",
-                                                                            "sk",
-                                                                            "sk-SK",
-                                                                            "sl",
-                                                                            "sl-SI",
-                                                                            "lt",
-                                                                            "lt-LT",
-                                                                            "lv",
-                                                                            "lv-LV",
-                                                                            "et",
-                                                                            "et-EE",
-                                                                            "ca",
-                                                                            "ca-ES",
-                                                                            "fil",
-                                                                            "fil-PH",
-                                                                            "sw",
-                                                                            "sw-KE",
-                                                                            "af",
-                                                                            "af-ZA",
-                                                                        ]),
-                                                                    ].sort()
-                                                                    return locales.map((loc) => {
-                                                                        let label = loc
-                                                                        try {
-                                                                            const dn =
-                                                                                new Intl.DisplayNames(
-                                                                                    ["en"],
-                                                                                    {
-                                                                                        type: "language",
-                                                                                    },
-                                                                                )
-                                                                            label =
-                                                                                dn.of(loc) ?? loc
-                                                                        } catch {
-                                                                            // keep raw code
-                                                                        }
-                                                                        return (
-                                                                            <CommandItem
-                                                                                key={loc}
-                                                                                value={`${loc} ${label}`}
-                                                                                onSelect={() =>
-                                                                                    handleLocaleChange(
-                                                                                        loc,
-                                                                                    )
-                                                                                }
-                                                                                disabled={
-                                                                                    isSavingLocale
-                                                                                }
-                                                                            >
-                                                                                <span>{label}</span>
-                                                                                {label !== loc && (
-                                                                                    <span className="ml-1 text-muted-foreground">
-                                                                                        {loc}
-                                                                                    </span>
-                                                                                )}
-                                                                            </CommandItem>
-                                                                        )
-                                                                    })
-                                                                })()}
-                                                            </CommandGroup>
-                                                        </CommandList>
-                                                    </Command>
-                                                </PopoverContent>
-                                            </Popover>
-                                            <span className="mx-2">·</span>
-                                        </>
-                                    )}
-
-                                    {/* 5. Timezone */}
-                                    {user.timezone
-                                        ? (() => {
-                                              const localTime = getLocalTimeInTimezone(
-                                                  user.timezone,
-                                              )
-                                              const utcOffset = getTimezoneOffset(user.timezone)
-                                              return (
-                                                  <>
-                                                      <Popover
-                                                          open={isTimezoneOpen}
-                                                          onOpenChange={setIsTimezoneOpen}
-                                                      >
-                                                          <PopoverTrigger asChild>
-                                                              <button
-                                                                  type="button"
-                                                                  className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 -mx-1.5 -my-0.5 hover:bg-muted transition-colors group"
-                                                              >
-                                                                  <Globe className="h-3 w-3" />
-                                                                  {localTime}
-                                                                  <span className="text-muted-foreground/60">
-                                                                      {utcOffset &&
-                                                                          `(${utcOffset})`}
-                                                                  </span>
-                                                                  <Pencil className="h-2.5 w-2.5 opacity-0 group-hover:opacity-60 transition-opacity" />
-                                                              </button>
-                                                          </PopoverTrigger>
-                                                          <PopoverContent
-                                                              className="w-72 p-0"
-                                                              align="start"
-                                                          >
-                                                              <Command>
-                                                                  <CommandInput
-                                                                      placeholder={t(
-                                                                          "search_timezone",
-                                                                          "Search timezone...",
-                                                                      )}
-                                                                  />
-                                                                  <CommandList>
-                                                                      <CommandEmpty>
-                                                                          {t(
-                                                                              "no_timezone_found",
-                                                                              "No timezone found.",
-                                                                          )}
-                                                                      </CommandEmpty>
-                                                                      <CommandGroup>
-                                                                          {timeZones.map((tz) => (
-                                                                              <CommandItem
-                                                                                  key={tz}
-                                                                                  value={tz}
-                                                                                  onSelect={() =>
-                                                                                      handleTimezoneChange(
-                                                                                          tz,
-                                                                                      )
-                                                                                  }
-                                                                                  disabled={
-                                                                                      isSavingTimezone
-                                                                                  }
-                                                                              >
-                                                                                  <Check
-                                                                                      className={cn(
-                                                                                          "mr-2 h-4 w-4",
-                                                                                          user.timezone ===
-                                                                                              tz
-                                                                                              ? "opacity-100"
-                                                                                              : "opacity-0",
-                                                                                      )}
-                                                                                  />
-                                                                                  {tz}
-                                                                              </CommandItem>
-                                                                          ))}
-                                                                      </CommandGroup>
-                                                                  </CommandList>
-                                                              </Command>
-                                                          </PopoverContent>
-                                                      </Popover>
-                                                      <span className="mx-2">·</span>
-                                                  </>
-                                              )
-                                          })()
-                                        : (() => (
-                                              <>
-                                                  <Popover
-                                                      open={isTimezoneOpen}
-                                                      onOpenChange={setIsTimezoneOpen}
-                                                  >
-                                                      <PopoverTrigger asChild>
-                                                          <button
-                                                              type="button"
-                                                              className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 -mx-1.5 -my-0.5 hover:bg-muted transition-colors text-muted-foreground/60 hover:text-muted-foreground group"
-                                                          >
-                                                              <Globe className="h-3 w-3" />
-                                                              {t("set_timezone", "Set timezone")}
-                                                              <Pencil className="h-2.5 w-2.5 opacity-0 group-hover:opacity-60 transition-opacity" />
-                                                          </button>
-                                                      </PopoverTrigger>
-                                                      <PopoverContent
-                                                          className="w-72 p-0"
-                                                          align="start"
-                                                      >
-                                                          <Command>
-                                                              <CommandInput
-                                                                  placeholder={t(
-                                                                      "search_timezone",
-                                                                      "Search timezone...",
-                                                                  )}
-                                                              />
-                                                              <CommandList>
-                                                                  <CommandEmpty>
-                                                                      {t(
-                                                                          "no_timezone_found",
-                                                                          "No timezone found.",
-                                                                      )}
-                                                                  </CommandEmpty>
-                                                                  <CommandGroup>
-                                                                      {timeZones.map((tz) => (
-                                                                          <CommandItem
-                                                                              key={tz}
-                                                                              value={tz}
-                                                                              onSelect={() =>
-                                                                                  handleTimezoneChange(
-                                                                                      tz,
-                                                                                  )
-                                                                              }
-                                                                              disabled={
-                                                                                  isSavingTimezone
-                                                                              }
-                                                                          >
-                                                                              {tz}
-                                                                          </CommandItem>
-                                                                      ))}
-                                                                  </CommandGroup>
-                                                              </CommandList>
-                                                          </Command>
-                                                      </PopoverContent>
-                                                  </Popover>
-                                                  <span className="mx-2">·</span>
-                                              </>
-                                          ))()}
+                                    <UserLocaleEdit />
+                                    <UserTimezoneEdit />
                                     {/* 6. Created at */}
                                     <span>
                                         Created {formatDate(preferences, user.created_at, "PP")}
