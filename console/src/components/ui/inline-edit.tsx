@@ -81,6 +81,10 @@ export function InlineEdit({
         try {
             await onSave(trimmed)
             setIsOpen(false)
+        } catch (err) {
+            // The caller reports the failure; the editor stays open with the
+            // user's value so they can retry.
+            console.error(err)
         } finally {
             setIsSaving(false)
         }

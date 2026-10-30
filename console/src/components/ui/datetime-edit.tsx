@@ -54,6 +54,10 @@ export function DateTimeEdit({
         try {
             await onSave(newIso)
             setIsOpen(false)
+        } catch (err) {
+            // The caller reports the failure; the editor stays open with the
+            // chosen time so the user can retry.
+            console.error(err)
         } finally {
             setIsSaving(false)
         }
