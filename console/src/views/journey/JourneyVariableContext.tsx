@@ -1,18 +1,10 @@
-import {
-    createContext,
-    useCallback,
-    useContext,
-    useEffect,
-    useMemo,
-    useState,
-    type PropsWithChildren,
-} from "react"
+import { createContext, useCallback, useContext, useMemo, type PropsWithChildren } from "react"
+import { useQuery } from "@tanstack/react-query"
 import type { Edge, Node } from "@xyflow/react"
 import type { JourneyNodeData } from "./editor/JourneyEditor.types"
-import type { VariableSuggestions } from "@/types"
 import { getUpstreamDataKeys } from "./editor/JourneyEditor.utils"
 import { ProjectContext } from "@/contexts"
-import { fetchPathSuggestions } from "@/lib/path-suggestions"
+import { pathSuggestionsQuery } from "./queries"
 import { snakeToTitle } from "@/utils"
 
 export interface Variable {
@@ -67,20 +59,7 @@ export function JourneyVariableProvider({
     children,
 }: PropsWithChildren<JourneyVariableProviderProps>) {
     const [project] = useContext(ProjectContext)
-    const [suggestions, setSuggestions] = useState<VariableSuggestions | null>(null)
-
-    // Fetch user/event path suggestions once per project
-    useEffect(() => {
-        let cancelled = false
-        fetchPathSuggestions(project.id)
-            .then((s) => {
-                if (!cancelled) setSuggestions(s)
-            })
-            .catch(console.error)
-        return () => {
-            cancelled = true
-        }
-    }, [project.id])
+    const { data: suggestions } = useQuery(pathSuggestionsQuery(project.id))
 
     const getVariablesForNode = useCallback(
         (nodeId: string): VariableGroup[] => {
