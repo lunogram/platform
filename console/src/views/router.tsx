@@ -12,7 +12,6 @@ import {
     JourneyContext,
     ListContext,
     ProjectContext,
-    UserContext,
     OrganizationContext,
 } from "../contexts"
 import ClientList from "./settings/clients/ClientList"
@@ -24,7 +23,9 @@ import Users from "./users/Users"
 import Subscriptions from "./settings/Subscriptions"
 import EventSchemas from "./settings/EventSchemas"
 import PushProviders from "./settings/PushProviders"
-import UserDetail from "./users/UserDetail"
+import UserRoute from "./users/UserRoute"
+import { userQuery } from "./users/queries"
+import { queryClient } from "@/lib/query"
 import { createStatefulRoute } from "./createStatefulRoute"
 import UserDetailAttrs from "./users/UserDetailAttrs"
 import UserDetailEvents from "./users/UserDetailEvents"
@@ -489,17 +490,25 @@ export const createRouter = ({
                                             },
                                         ],
                                     }),
-                                    createStatefulRoute({
+                                    {
                                         path: "users",
-                                        apiPath: api.users,
                                         element: <Users />,
-                                    }),
-                                    createStatefulRoute({
+                                        errorElement: <ErrorPage />,
+                                    },
+                                    {
                                         path: "users/:entityId",
-                                        apiPath: api.users,
-                                        paramName: "entityId",
-                                        context: UserContext,
-                                        element: <UserDetail />,
+                                        // Waits for the user, so the page renders with it.
+                                        loader: async ({ params }) => {
+                                            await queryClient.ensureQueryData(
+                                                userQuery(
+                                                    params.projectId as UUID,
+                                                    params.entityId as UUID,
+                                                ),
+                                            )
+                                            return null
+                                        },
+                                        element: <UserRoute />,
+                                        errorElement: <ErrorPage />,
                                         children: [
                                             {
                                                 index: true,
@@ -530,7 +539,7 @@ export const createRouter = ({
                                                 element: <UserDetailOrganizations />,
                                             },
                                         ],
-                                    }),
+                                    },
                                     createStatefulRoute({
                                         path: "lists",
                                         apiPath: api.lists,

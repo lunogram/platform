@@ -1,8 +1,7 @@
-import { useCallback, useMemo, useState, useRef, useContext } from "react"
-import { Controller, useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
+import { useCallback, useState, useRef, useContext } from "react"
 import { useParams } from "react-router"
 import { useTranslation } from "react-i18next"
+import { useQuery } from "@tanstack/react-query"
 import {
     Plus,
     UserCircle2,
@@ -13,33 +12,23 @@ import {
     Upload,
     Mail,
     Database,
-    Check,
 } from "lucide-react"
 import { UserImportDialog } from "@/components/ui/user-import-dialog"
 import { NIL } from "uuid"
 import { useRoute } from "@/hooks/use-route"
-import { useResolver } from "../../hooks"
-import { formatDate, cn } from "../../utils"
+import { formatDate } from "../../utils"
 import { getRandomColor } from "@/lib/colors"
 import { getUserDisplayName, getUserInitials, getPrimaryExternalId } from "@/lib/name"
 import { PreferencesContext } from "@/contexts/PreferencesContext"
 import { UsersIcon as UsersPageIcon } from "@/components/icons"
-import api from "../../api"
 import type { UUID } from "@/types/common"
 import type { User } from "../../types"
-import { createUserSchema, type CreateUserFormValues } from "@/validation/users/create-user"
+import { CreateUserDialog } from "./CreateUserDialog"
+import { LoadErrorRow } from "./LoadErrorRow"
+import { useImportUsers, userSearchQuery } from "./queries"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import {
-    Command,
-    CommandEmpty,
-    CommandGroup,
-    CommandInput,
-    CommandItem,
-    CommandList,
-} from "@/components/ui/command"
 import {
     Table,
     TableBody,
@@ -48,42 +37,7 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table"
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
-import { AttributeEditor } from "@/components/ui/attribute-editor"
-import { LocalePicker } from "@/components/locale/picker"
-
-// eslint-disable-next-line @typescript-eslint/no-namespace
-export declare namespace Intl {
-    type Key = "calendar" | "collation" | "currency" | "numberingSystem" | "timeZone" | "unit"
-    function supportedValuesOf(input: Key): string[]
-
-    interface DateTimeFormat {
-        format(date?: Date | number): string
-
-        resolvedOptions(): ResolvedDateTimeFormatOptions
-    }
-
-    interface ResolvedDateTimeFormatOptions {
-        locale: string
-        timeZone: string
-        timeZoneName?: string
-    }
-
-    // eslint-disable-next-line no-var
-    var DateTimeFormat: {
-        new (locales?: string | string[]): DateTimeFormat
-        (locales?: string | string[]): DateTimeFormat
-    }
-}
 
 export default function Users() {
     const { projectId = NIL as UUID } = useParams<{ projectId: UUID }>()
@@ -94,25 +48,12 @@ export default function Users() {
     const [searchQuery, setSearchQuery] = useState("")
     const [debouncedQuery, setDebouncedQuery] = useState("")
     const [isCreateOpen, setIsCreateOpen] = useState(false)
-    const [isCreating, setIsCreating] = useState(false)
     const [isBulkImportOpen, setIsBulkImportOpen] = useState(false)
-    const [isNewUserTimezoneOpen, setIsNewUserTimezoneOpen] = useState(false)
-    const timezones = useMemo(() => Intl.supportedValuesOf("timeZone"), [])
-    const [newUserData, setNewUserData] = useState<Record<string, unknown>>({})
+    const importUsers = useImportUsers()
 
-    const form = useForm<CreateUserFormValues>({
-        resolver: zodResolver(createUserSchema),
-        defaultValues: {
-            external_id: "",
-            email: "",
-            phone: "",
-            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-            locale: navigator.languages[0]?.split("-")[0] ?? "en",
-        },
-    })
     const [page, setPage] = useState(1)
     const limit = 15
-    const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>()
+    const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
     // Debounce search
     const handleSearch = useCallback((value: string) => {
@@ -124,51 +65,28 @@ export default function Users() {
         }, 300)
     }, [])
 
-    const [result, , reload] = useResolver(
-        useCallback(async () => {
-            return await api.users.search(projectId, {
-                limit,
-                offset: (page - 1) * limit,
-                search: debouncedQuery || undefined,
-            })
-        }, [projectId, debouncedQuery, page]),
+    const result = useQuery(
+        userSearchQuery(projectId, {
+            limit,
+            offset: (page - 1) * limit,
+            search: debouncedQuery,
+        }),
     )
 
-    const users = result?.results
-    const total = result?.total ?? 0
+    const users = result.data?.results ?? []
+    const total = result.data?.total ?? 0
     const totalPages = Math.ceil(total / limit)
     const hasNextPage = page < totalPages
     const hasPrevPage = page > 1
 
-    const createUser = async (data: CreateUserFormValues) => {
-        if (!data.external_id?.trim() && !data.email) return
-
-        setIsCreating(true)
-        try {
-            const newUser: User = {
-                identifier: data.external_id?.trim()
-                    ? [{ source: "default", external_id: data.external_id.trim() }]
-                    : [{ source: "anonymous", external_id: crypto.randomUUID() }],
-                email: data.email?.trim() || undefined,
-                phone: data.phone?.trim() || undefined,
-                timezone: data.timezone?.trim() || undefined,
-                locale: data.locale?.trim() || undefined,
-                data: newUserData,
-            } as User
-
-            await api.users.create(projectId, newUser)
-            await reload()
-            setIsCreateOpen(false)
-            form.reset()
-            setNewUserData({})
-        } finally {
-            setIsCreating(false)
-        }
-    }
-
+    // UserImportDialog does not catch a rejected import, so a throw here would
+    // go unhandled. The mutation cache has already shown the error.
     const handleImportUsers = async (file: File) => {
-        await api.users.addImport(projectId, file)
-        await reload()
+        try {
+            await importUsers.mutateAsync(file)
+        } catch {
+            // Reported by the mutation cache.
+        }
     }
 
     const handleRowClick = (user: User) => {
@@ -240,7 +158,7 @@ export default function Users() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {!users ? (
+                        {result.isPending ? (
                             // Loading skeleton
                             Array.from({ length: 5 }).map((_, i) => (
                                 <TableRow key={i}>
@@ -262,6 +180,12 @@ export default function Users() {
                                     </TableCell>
                                 </TableRow>
                             ))
+                        ) : result.isError ? (
+                            <LoadErrorRow
+                                colSpan={3}
+                                message={t("users_load_failed", "Couldn't load users.")}
+                                onRetry={() => result.refetch()}
+                            />
                         ) : users.length === 0 ? (
                             <TableRow>
                                 <TableCell colSpan={3} className="h-32 text-center">
@@ -417,172 +341,7 @@ export default function Users() {
                 </div>
             </div>
 
-            {/* Create User Dialog */}
-            <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-                <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-                    <DialogHeader>
-                        <DialogTitle>{t("create_user")}</DialogTitle>
-                        <DialogDescription>
-                            {t(
-                                "create_user_description",
-                                "Create a new user to track and engage with.",
-                            )}
-                        </DialogDescription>
-                    </DialogHeader>
-                    <form id="create-user-form" onSubmit={form.handleSubmit(createUser)}>
-                        <div className="grid gap-4 py-4">
-                            <div className="grid gap-2">
-                                <Label htmlFor="external_id">{t("identifier", "Identifier")}</Label>
-                                <Input
-                                    id="external_id"
-                                    placeholder={t("enter_identifier", "e.g., usr_123")}
-                                    {...form.register("external_id")}
-                                />
-                                {form.formState.errors.external_id && (
-                                    <p className="text-sm text-destructive">
-                                        {form.formState.errors.external_id.message}
-                                    </p>
-                                )}
-                            </div>
-                            <div className="grid sm:grid-cols-2 gap-4">
-                                <div className="grid gap-2 content-start">
-                                    <Label htmlFor="email">{t("email")}</Label>
-                                    <Input
-                                        id="email"
-                                        type="email"
-                                        placeholder={t("enter_email", "e.g., john@example.com")}
-                                        {...form.register("email")}
-                                    />
-                                    {form.formState.errors.email && (
-                                        <p className="text-sm text-destructive">
-                                            {form.formState.errors.email.message}
-                                        </p>
-                                    )}
-                                </div>
-                                <div className="grid gap-2 content-start">
-                                    <Label htmlFor="phone">{t("phone")}</Label>
-                                    <Input
-                                        id="phone"
-                                        placeholder={t("enter_phone", "e.g., +1 555 0123")}
-                                        {...form.register("phone")}
-                                    />
-                                    {form.formState.errors.phone && (
-                                        <p className="text-sm text-destructive">
-                                            {form.formState.errors.phone.message}
-                                        </p>
-                                    )}
-                                </div>
-                            </div>
-                            <div className="grid sm:grid-cols-2 gap-4">
-                                <div className="grid gap-2 content-start">
-                                    <Label htmlFor="timezone">{t("timezone")}</Label>
-                                    <Controller
-                                        control={form.control}
-                                        name="timezone"
-                                        render={({ field }) => (
-                                            <Popover
-                                                open={isNewUserTimezoneOpen}
-                                                onOpenChange={setIsNewUserTimezoneOpen}
-                                            >
-                                                <PopoverTrigger asChild>
-                                                    <Button
-                                                        variant="outline"
-                                                        role="combobox"
-                                                        id="timezone"
-                                                        className="justify-between"
-                                                    >
-                                                        {field.value ||
-                                                            t("select_timezone", "Select timezone")}
-                                                    </Button>
-                                                </PopoverTrigger>
-                                                <PopoverContent className="w-72 p-0" align="start">
-                                                    <Command>
-                                                        <CommandInput
-                                                            placeholder={t(
-                                                                "search_timezone",
-                                                                "Search timezone...",
-                                                            )}
-                                                        />
-                                                        <CommandList>
-                                                            <CommandEmpty>
-                                                                {t(
-                                                                    "no_timezone_found",
-                                                                    "No timezone found.",
-                                                                )}
-                                                            </CommandEmpty>
-                                                            <CommandGroup>
-                                                                {timezones.map((tz) => (
-                                                                    <CommandItem
-                                                                        key={tz}
-                                                                        value={tz}
-                                                                        onSelect={() => {
-                                                                            field.onChange(tz)
-                                                                            setIsNewUserTimezoneOpen(
-                                                                                false,
-                                                                            )
-                                                                        }}
-                                                                    >
-                                                                        <Check
-                                                                            className={cn(
-                                                                                "mr-2 h-4 w-4",
-                                                                                field.value === tz
-                                                                                    ? "opacity-100"
-                                                                                    : "opacity-0",
-                                                                            )}
-                                                                        />
-                                                                        {tz}
-                                                                    </CommandItem>
-                                                                ))}
-                                                            </CommandGroup>
-                                                        </CommandList>
-                                                    </Command>
-                                                </PopoverContent>
-                                            </Popover>
-                                        )}
-                                    />
-                                </div>
-                                <div className="grid gap-2 content-start">
-                                    <Label>{t("locale.singular")}</Label>
-                                    <Controller
-                                        control={form.control}
-                                        name="locale"
-                                        render={({ field }) => (
-                                            <LocalePicker
-                                                value={field.value ?? ""}
-                                                onChange={field.onChange}
-                                            />
-                                        )}
-                                    />
-                                </div>
-                            </div>
-                            <div className="grid gap-2">
-                                <Label>{t("data", "Data")}</Label>
-                                <AttributeEditor
-                                    value={newUserData}
-                                    onChange={setNewUserData}
-                                    emptyTitle={t("no_data", "No data")}
-                                    emptyDescription={t(
-                                        "no_data_description",
-                                        "Add custom attributes to this user.",
-                                    )}
-                                />
-                            </div>
-                        </div>
-                        <DialogFooter>
-                            <Button
-                                variant="outline"
-                                onClick={() => setIsCreateOpen(false)}
-                                disabled={isCreating}
-                            >
-                                {t("cancel")}
-                            </Button>
-                            <Button type="submit" disabled={isCreating}>
-                                {isCreating ? t("creating") : t("create")}
-                            </Button>
-                        </DialogFooter>
-                    </form>
-                </DialogContent>
-            </Dialog>
+            <CreateUserDialog open={isCreateOpen} onOpenChange={setIsCreateOpen} />
 
             <UserImportDialog
                 open={isBulkImportOpen}

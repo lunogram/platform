@@ -1129,5 +1129,18 @@
     "sso_error_email": "Your identity provider returned no email address.",
     "sso_error_failed": "Single sign-on failed. Please try again.",
     "sso_choose_provider": "Choose how you would like to sign in.",
-    "sso_error_domain": "Your identity provider returned an address it is not configured to sign in."
+    "sso_error_domain": "Your identity provider returned an address it is not configured to sign in.",
+    "devices_load_failed": "Couldn't load devices.",
+    "email_update_error": "Couldn't update the email",
+    "phone_update_error": "Couldn't update the phone",
+    "subscription_update_failed": "Couldn't change the subscription",
+    "unsubscribe_all_failed": "Couldn't unsubscribe the user",
+    "user_create_failed": "Couldn't create the user",
+    "user_delete_failed": "Couldn't delete the user",
+    "user_events_load_failed": "Couldn't load events.",
+    "user_import_failed": "Couldn't import the users",
+    "user_journeys_load_failed": "Couldn't load journeys.",
+    "user_organizations_load_failed": "Couldn't load organizations.",
+    "user_subscriptions_load_failed": "Couldn't load subscriptions.",
+    "users_load_failed": "Couldn't load users."
 }

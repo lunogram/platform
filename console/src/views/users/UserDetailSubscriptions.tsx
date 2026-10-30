@@ -1,12 +1,13 @@
-import { useCallback, useContext, useState } from "react"
+import { useContext, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { useQuery } from "@tanstack/react-query"
 import { Bell, BellOff, Link2 } from "lucide-react"
 import { toast } from "sonner"
 import { ProjectContext, UserContext } from "../../contexts"
-import { useResolver } from "../../hooks"
 import { snakeToTitle } from "../../utils"
-import { oapiClient } from "@/oapi/client"
-import type { SubscriptionParams, SubscriptionState } from "../../types"
+import type { SubscriptionState } from "../../types"
+import { LoadErrorRow } from "./LoadErrorRow"
+import { useUnsubscribeAll, useUpdateUserSubscription, userSubscriptionsQuery } from "./queries"
 import type { UUID } from "@/types/common"
 
 import { Button } from "@/components/ui/button"
@@ -40,24 +41,14 @@ export default function UserDetailSubscriptions() {
         newState?: SubscriptionState
     } | null>(null)
 
-    const [search, , reload] = useResolver(
-        useCallback(async () => {
-            const { data } = await oapiClient.GET(
-                "/api/admin/projects/{projectID}/subjects/users/{userID}/subscriptions",
-                {
-                    params: {
-                        path: { projectID: project.id, userID: user.id },
-                        query: { limit: 100 },
-                    },
-                },
-            )
-            return data ?? null
-        }, [project.id, user.id]),
-    )
+    const search = useQuery(userSubscriptionsQuery(project.id, user.id))
+    const updateSubscription = useUpdateUserSubscription()
+    const unsubscribeAll = useUnsubscribeAll()
+    const isSaving = updateSubscription.isPending || unsubscribeAll.isPending
 
-    const subscriptions = search?.results
+    const subscriptions = search.data?.results ?? []
 
-    const handleToggle = async (subscriptionId: UUID, newState: SubscriptionState) => {
+    const handleToggle = (subscriptionId: UUID, newState: SubscriptionState) => {
         setConfirmAction({ type: "toggle", subscriptionId, newState })
     }
 
@@ -65,39 +56,22 @@ export default function UserDetailSubscriptions() {
         setConfirmAction({ type: "unsubscribe_all" })
     }
 
-    const executeAction = async () => {
+    // The dialog stays open on failure; the mutation cache reports the error.
+    const executeAction = () => {
         if (!confirmAction) return
+        const onSuccess = () => setConfirmAction(null)
 
         if (confirmAction.type === "toggle" && confirmAction.subscriptionId) {
-            await oapiClient.PATCH(
-                "/api/admin/projects/{projectID}/subjects/users/{userID}/subscriptions",
+            updateSubscription.mutate(
                 {
-                    params: { path: { projectID: project.id, userID: user.id } },
-                    body: [
-                        {
-                            subscription_id: confirmAction.subscriptionId,
-                            state: confirmAction.newState!,
-                        },
-                    ],
+                    subscription_id: confirmAction.subscriptionId,
+                    state: confirmAction.newState!,
                 },
+                { onSuccess },
             )
         } else if (confirmAction.type === "unsubscribe_all") {
-            const params: SubscriptionParams[] =
-                subscriptions?.map((item) => ({
-                    subscription_id: item.subscription_id,
-                    state: "unsubscribed" as SubscriptionState,
-                })) ?? []
-            await oapiClient.PATCH(
-                "/api/admin/projects/{projectID}/subjects/users/{userID}/subscriptions",
-                {
-                    params: { path: { projectID: project.id, userID: user.id } },
-                    body: params,
-                },
-            )
+            unsubscribeAll.mutate(undefined, { onSuccess })
         }
-
-        await reload()
-        setConfirmAction(null)
     }
 
     return (
@@ -127,7 +101,7 @@ export default function UserDetailSubscriptions() {
                         <Link2 className="mr-2 h-4 w-4" />
                         {t("copy_preferences_link", "Copy preferences link")}
                     </Button>
-                    {subscriptions && subscriptions.length > 0 && (
+                    {subscriptions.length > 0 && (
                         <Button
                             variant="outline"
                             size="sm"
@@ -152,7 +126,7 @@ export default function UserDetailSubscriptions() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {subscriptions === undefined ? (
+                        {search.isPending ? (
                             Array.from({ length: 3 }).map((_, i) => (
                                 <TableRow key={i}>
                                     <TableCell>
@@ -166,6 +140,15 @@ export default function UserDetailSubscriptions() {
                                     </TableCell>
                                 </TableRow>
                             ))
+                        ) : search.isError ? (
+                            <LoadErrorRow
+                                colSpan={3}
+                                message={t(
+                                    "user_subscriptions_load_failed",
+                                    "Couldn't load subscriptions.",
+                                )}
+                                onRetry={() => search.refetch()}
+                            />
                         ) : subscriptions.length === 0 ? (
                             <TableRow>
                                 <TableCell colSpan={3} className="h-48">
@@ -231,10 +214,16 @@ export default function UserDetailSubscriptions() {
                         </DialogDescription>
                     </DialogHeader>
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setConfirmAction(null)}>
+                        <Button
+                            variant="outline"
+                            onClick={() => setConfirmAction(null)}
+                            disabled={isSaving}
+                        >
                             {t("cancel")}
                         </Button>
-                        <Button onClick={executeAction}>{t("confirm")}</Button>
+                        <Button onClick={executeAction} disabled={isSaving}>
+                            {t("confirm")}
+                        </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
