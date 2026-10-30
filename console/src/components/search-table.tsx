@@ -55,6 +55,11 @@ export interface SearchTableProps<T extends Record<string, any>> {
     emptyMessage?: ReactNode
     selectedRow?: Key
     onSelectRow?: (row: T) => void
+    /** Overrides the default of showing the skeleton while `results` is null. */
+    isLoading?: boolean
+    /** Shows a failed load (with Retry when `onRetry` is set) instead of the rows. */
+    isError?: boolean
+    onRetry?: () => void
 }
 
 const DEFAULT_ITEMS_PER_PAGE = 15
@@ -128,7 +133,7 @@ export function useSearchTableState<T>(
         ...(initialParams ?? {}),
     })
 
-    const [results, , reload] = useResolver(
+    const [results, , reload, loading, error] = useResolver(
         useCallback(async () => await loader(params), [loader, params]),
     )
 
@@ -137,6 +142,8 @@ export function useSearchTableState<T>(
         reload,
         results,
         setParams,
+        loading,
+        error,
     }
 }
 
@@ -145,6 +152,8 @@ export interface SearchTableQueryState<T> {
     params: SearchParams
     reload: () => Promise<void>
     setParams: (params: SearchParams) => void
+    loading: boolean
+    error: unknown
 }
 
 /**
@@ -157,7 +166,7 @@ export function useSearchTableQueryState<T>(
 ): SearchTableQueryState<T> {
     const [params, setParams] = useTableSearchParams(initialParams)
 
-    const [results, , reload] = useResolver(
+    const [results, , reload, loading, error] = useResolver(
         useCallback(async () => await loader(params), [loader, params]),
     )
 
@@ -166,6 +175,8 @@ export function useSearchTableQueryState<T>(
         reload,
         results,
         setParams,
+        loading,
+        error,
     }
 }
 
@@ -230,12 +241,17 @@ export function SearchTable<T extends Record<string, any>>({
     setParams,
     tagEntity: _tagEntity,
     title,
+    isLoading: isLoadingProp,
+    isError = false,
+    onRetry,
 }: SearchTableProps<T>) {
     const { t } = useTranslation()
     const [preferences] = useContext(PreferencesContext)
 
+    // A new search starts again from the first page: the cursor belongs to the
+    // previous search's results.
     const [search, setSearch] = useDebounceControl(params.search ?? "", (search) =>
-        setParams({ ...params, search }),
+        setParams({ ...params, search, cursor: undefined, page: "next" }),
     )
 
     const columnSort = params.sort
@@ -248,7 +264,7 @@ export function SearchTable<T extends Record<string, any>>({
         setParams({ ...prevParams, ...onSort })
     }
 
-    const isLoading = !results
+    const isLoading = isLoadingProp ?? !results
     const items = results?.results
 
     // Build the filter bar (search + any extra filters)
@@ -304,7 +320,25 @@ export function SearchTable<T extends Record<string, any>>({
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {items && items.length > 0 ? (
+                        {isError ? (
+                            <TableRow>
+                                <TableCell colSpan={columns.length} className="h-24 text-center">
+                                    <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                                        <p>
+                                            {t(
+                                                "search_table.load_failed",
+                                                "Couldn't load results.",
+                                            )}
+                                        </p>
+                                        {onRetry && (
+                                            <Button variant="outline" size="sm" onClick={onRetry}>
+                                                {t("retry", "Retry")}
+                                            </Button>
+                                        )}
+                                    </div>
+                                </TableCell>
+                            </TableRow>
+                        ) : items && items.length > 0 ? (
                             items.map((item) => {
                                 const args = { item }
                                 const key = itemKey
@@ -377,7 +411,7 @@ export function SearchTable<T extends Record<string, any>>({
             </div>
 
             {/* Pagination */}
-            {results && (
+            {results && !isError && (
                 <div>
                     <CursorPagination
                         nextCursor={results.nextCursor}
