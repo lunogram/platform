@@ -1,31 +1,22 @@
 import * as React from "react"
 import { useForm } from "react-hook-form"
-import { Check, ChevronsUpDown, Loader2, Mail, Phone, Plus, ArrowLeft } from "lucide-react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { ChevronsUpDown, Loader2, Mail, Phone } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import * as z from "zod"
 import { cn } from "@/utils"
 import { Button } from "@/components/ui/button"
-import {
-    Command,
-    CommandGroup,
-    CommandInput,
-    CommandItem,
-    CommandList,
-} from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Input } from "@/components/ui/input"
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select"
 import oapiClient, { type SenderIdentity } from "@/oapi/client"
-import type { components } from "@/oapi/management.generated"
 import { phoneSchema } from "@/validation/phone"
-
-type Provider = components["schemas"]["Provider"]
+import { CreateView } from "./sender-identity/create-view"
+import { ListView } from "./sender-identity/list-view"
+import {
+    channelProvidersQuery,
+    invalidateSenderIdentities,
+    senderIdentitiesQuery,
+    senderIdentityKeys,
+} from "./sender-identity/queries"
 
 interface SenderIdentityComboboxProps {
     projectId: string
@@ -58,20 +49,30 @@ export function SenderIdentityCombobox({
     const { t } = useTranslation()
     const [open, setOpen] = React.useState(false)
     const [search, setSearch] = React.useState("")
-    const [identities, setIdentities] = React.useState<SenderIdentity[]>([])
-    const [loading, setLoading] = React.useState(false)
-    const fetchedRef = React.useRef(false)
+    const queryClient = useQueryClient()
 
     // Inline creation state
     const [view, setView] = React.useState<PopoverView>("list")
-    const [providers, setProviders] = React.useState<Provider[]>([])
-    const [providersLoading, setProvidersLoading] = React.useState(false)
     const [creating, setCreating] = React.useState(false)
     const [createError, setCreateError] = React.useState<string | null>(null)
 
     const createForm = useForm<{ address: string; name: string; provider_id: string }>({
         defaultValues: { address: "", name: "", provider_id: "" },
     })
+
+    // All identities for the project+channel (no provider filter), loaded once a
+    // value needs resolving or the popover opens, and shared with other pickers.
+    const identitiesQuery = useQuery({
+        ...senderIdentitiesQuery(projectId, { channel }),
+        enabled: open || !!value,
+    })
+    const identities = React.useMemo(() => identitiesQuery.data ?? [], [identitiesQuery.data])
+
+    const providersQuery = useQuery({
+        ...channelProvidersQuery(projectId, channel),
+        enabled: open && view === "create",
+    })
+    const providers = providersQuery.data ?? []
 
     const isEmail = channel === "email"
     const Icon = isEmail ? Mail : Phone
@@ -102,72 +103,26 @@ export function SenderIdentityCombobox({
         return (resolvedIdentity.traits?.address as string) ?? ""
     }, [resolvedIdentity, value])
 
-    // Fetch all identities for the project+channel (no provider filter)
-    const fetchIdentities = React.useCallback(async () => {
-        if (fetchedRef.current) return
-        setLoading(true)
-        try {
-            const { data, error } = await oapiClient.GET(
-                "/api/admin/projects/{projectID}/sender-identities",
-                {
-                    params: {
-                        path: { projectID: projectId },
-                        query: { channel },
-                    },
-                },
-            )
-            if (error) throw error
-            setIdentities(data?.results ?? [])
-            fetchedRef.current = true
-        } catch (err) {
-            console.error("Failed to fetch sender identities:", err)
-        } finally {
-            setLoading(false)
-        }
-    }, [projectId, channel])
+    // A value the identities have not resolved (yet) is still a selected
+    // sender: say it is loading or failed instead of showing the placeholder.
+    const unresolvedId = !!value && UUID_REGEX.test(value) && !resolvedIdentity
 
-    // Fetch providers for the create view
-    const fetchProviders = React.useCallback(async () => {
-        setProvidersLoading(true)
-        try {
-            const { data } = await oapiClient.GET("/api/admin/projects/{projectID}/providers", {
-                params: {
-                    path: { projectID: projectId },
-                },
-            })
-            const allProviders = data?.results ?? []
-            const filtered = allProviders.filter((p) => p.channels?.includes(channel))
-            setProviders(filtered)
-            // Auto-select the first provider if only one exists
-            if (filtered.length === 1) {
-                createForm.setValue("provider_id", filtered[0].id)
-            }
-        } finally {
-            setProvidersLoading(false)
-        }
-    }, [projectId, channel])
-
-    // Refetch when filters change
+    // Auto-select the provider when only one can send on this channel
+    const onlyProviderId = providersQuery.data?.length === 1 ? providersQuery.data[0].id : null
     React.useEffect(() => {
-        fetchedRef.current = false
-    }, [projectId, channel])
-
-    // Fetch on mount when a value is already set so the display resolves
-    React.useEffect(() => {
-        if (value && !fetchedRef.current) {
-            fetchIdentities()
+        if (view === "create" && onlyProviderId && !createForm.getValues("provider_id")) {
+            createForm.setValue("provider_id", onlyProviderId)
         }
-    }, [value, fetchIdentities])
+    }, [view, onlyProviderId, createForm])
 
-    // Fetch when popover opens, reset view
+    // Reset the view when the popover opens
     React.useEffect(() => {
         if (open) {
-            fetchIdentities()
             setSearch("")
             setView("list")
             resetCreateForm()
         }
-    }, [open, fetchIdentities])
+    }, [open])
 
     // Client-side filtering
     const filteredIdentities = React.useMemo(() => {
@@ -197,7 +152,6 @@ export function SenderIdentityCombobox({
     const handleSwitchToCreate = () => {
         resetCreateForm()
         setView("create")
-        fetchProviders()
     }
 
     const handleCancelCreate = () => {
@@ -256,7 +210,13 @@ export function SenderIdentityCombobox({
                 )
                 return
             }
-            setIdentities((prev) => [...prev, newIdentity])
+            // Show the new identity right away, then refresh every list of the
+            // project (e.g. the integration's sender list) in the background.
+            queryClient.setQueryData(
+                senderIdentityKeys.list(projectId, { channel }),
+                (prev: SenderIdentity[] | undefined) => [...(prev ?? []), newIdentity],
+            )
+            void invalidateSenderIdentities(queryClient, projectId)
             onChange(newIdentity.id)
             onIdentitySelect?.(newIdentity)
             onCreateIdentity?.()
@@ -294,6 +254,18 @@ export function SenderIdentityCombobox({
                                     {displayAddress}
                                 </span>
                             </span>
+                        ) : unresolvedId && identitiesQuery.isError ? (
+                            <span className="font-sans text-destructive">
+                                {t(
+                                    "sender_identity_selected_load_failed",
+                                    "Couldn't load the selected sender",
+                                )}
+                            </span>
+                        ) : unresolvedId && identitiesQuery.isPending ? (
+                            <span className="font-sans">
+                                <Loader2 className="inline h-3 w-3 animate-spin mr-1.5" />
+                                {t("loading", "Loading...")}
+                            </span>
                         ) : (
                             <span className="font-sans">{placeholder || defaultPlaceholder}</span>
                         )}
@@ -309,7 +281,10 @@ export function SenderIdentityCombobox({
                 {view === "list" ? (
                     <ListView
                         channel={channel}
-                        loading={loading}
+                        loading={identitiesQuery.isPending}
+                        onRetry={
+                            identitiesQuery.isError ? () => identitiesQuery.refetch() : undefined
+                        }
                         identities={filteredIdentities}
                         allIdentities={identities}
                         value={value}
@@ -329,7 +304,10 @@ export function SenderIdentityCombobox({
                         providerId={createForm.watch("provider_id")}
                         onProviderChange={(v) => createForm.setValue("provider_id", v)}
                         providers={providers}
-                        providersLoading={providersLoading}
+                        providersLoading={providersQuery.isPending}
+                        onRetryProviders={
+                            providersQuery.isError ? () => providersQuery.refetch() : undefined
+                        }
                         onSave={createForm.handleSubmit(handleCreate)}
                         onCancel={handleCancelCreate}
                         creating={creating}
@@ -339,300 +317,5 @@ export function SenderIdentityCombobox({
                 )}
             </PopoverContent>
         </Popover>
-    )
-}
-
-interface ListViewProps {
-    channel: "email" | "sms"
-    loading: boolean
-    identities: SenderIdentity[]
-    allIdentities: SenderIdentity[]
-    value?: string
-    search: string
-    onSearchChange: (value: string) => void
-    onSelect: (id: string) => void
-    onAddNew: () => void
-    t: ReturnType<typeof useTranslation>["t"]
-}
-
-function ListView({
-    channel,
-    loading,
-    identities,
-    allIdentities,
-    value,
-    search,
-    onSearchChange,
-    onSelect,
-    onAddNew,
-    t,
-}: ListViewProps) {
-    const isEmail = channel === "email"
-    const Icon = isEmail ? Mail : Phone
-
-    return (
-        <div>
-            <Command shouldFilter={false}>
-                <CommandInput
-                    placeholder={
-                        isEmail
-                            ? t("search_addresses", "Search addresses...")
-                            : t("search_numbers", "Search numbers...")
-                    }
-                    value={search}
-                    onValueChange={onSearchChange}
-                />
-                <CommandList>
-                    {loading ? (
-                        <div className="flex items-center justify-center py-6">
-                            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                        </div>
-                    ) : (
-                        <>
-                            {identities.length === 0 && (
-                                <div className="py-6 text-center">
-                                    {allIdentities.length === 0 ? (
-                                        <div className="flex flex-col items-center gap-1">
-                                            <Icon className="h-5 w-5 text-muted-foreground/50" />
-                                            <p className="text-sm text-muted-foreground">
-                                                {t(
-                                                    "no_sender_addresses_configured",
-                                                    "No sender addresses configured yet.",
-                                                )}
-                                            </p>
-                                            <p className="text-xs text-muted-foreground">
-                                                {t("add_one_to_start", "Add one to start sending.")}
-                                            </p>
-                                        </div>
-                                    ) : (
-                                        <p className="text-sm text-muted-foreground">
-                                            {t("no_matching_addresses", "No matching addresses.")}
-                                        </p>
-                                    )}
-                                </div>
-                            )}
-
-                            {identities.length > 0 && (
-                                <CommandGroup className="max-h-64 overflow-y-auto">
-                                    {identities.map((identity) => (
-                                        <CommandItem
-                                            key={identity.id}
-                                            value={identity.id}
-                                            onSelect={() => onSelect(identity.id)}
-                                            className="cursor-pointer"
-                                        >
-                                            <div className="flex items-center gap-2 w-full">
-                                                <Check
-                                                    className={cn(
-                                                        "h-4 w-4 shrink-0",
-                                                        value === identity.id
-                                                            ? "opacity-100"
-                                                            : "opacity-0",
-                                                    )}
-                                                />
-                                                <span className="truncate flex-1 text-sm">
-                                                    {isEmail && identity.traits?.name ? (
-                                                        <span className="flex flex-col">
-                                                            <span>
-                                                                {identity.traits.name as string}
-                                                            </span>
-                                                            <span className="font-mono text-xs text-muted-foreground">
-                                                                {identity.traits?.address as string}
-                                                            </span>
-                                                        </span>
-                                                    ) : (
-                                                        <span className="font-mono">
-                                                            {identity.traits?.address as string}
-                                                        </span>
-                                                    )}
-                                                </span>
-                                            </div>
-                                        </CommandItem>
-                                    ))}
-                                </CommandGroup>
-                            )}
-                        </>
-                    )}
-                </CommandList>
-            </Command>
-            <div className="border-t p-1">
-                <button
-                    type="button"
-                    onClick={onAddNew}
-                    className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground cursor-pointer"
-                >
-                    <Plus className="h-4 w-4" />
-                    {t("add_new_address", "Add new address...")}
-                </button>
-            </div>
-        </div>
-    )
-}
-
-interface CreateViewProps {
-    channel: "email" | "sms"
-    address: string
-    onAddressChange: (value: string) => void
-    name: string
-    onNameChange: (value: string) => void
-    providerId: string
-    onProviderChange: (value: string) => void
-    providers: Provider[]
-    providersLoading: boolean
-    onSave: () => void
-    onCancel: () => void
-    creating: boolean
-    error: string | null
-    t: ReturnType<typeof useTranslation>["t"]
-}
-
-function CreateView({
-    channel,
-    address,
-    onAddressChange,
-    name,
-    onNameChange,
-    providerId,
-    onProviderChange,
-    providers,
-    providersLoading,
-    onSave,
-    onCancel,
-    creating,
-    error,
-    t,
-}: CreateViewProps) {
-    const isEmail = channel === "email"
-
-    const handleKeyDown = (e: React.KeyboardEvent) => {
-        if (e.key === "Enter") {
-            e.preventDefault()
-            if (address.trim() && providerId) handleSave()
-        }
-        if (e.key === "Escape") {
-            e.preventDefault()
-            onCancel()
-        }
-    }
-
-    const handleSave = () => {
-        if (!address.trim() || !providerId || creating) return
-        onSave()
-    }
-
-    return (
-        <div className="p-3 space-y-3">
-            <div className="flex items-center gap-2">
-                <button
-                    type="button"
-                    onClick={onCancel}
-                    className="p-1 rounded-sm hover:bg-accent text-muted-foreground cursor-pointer"
-                >
-                    <ArrowLeft className="h-4 w-4" />
-                </button>
-                <span className="text-sm font-medium">
-                    {isEmail
-                        ? t("add_email_address", "Add email address")
-                        : t("add_phone_number", "Add phone number")}
-                </span>
-            </div>
-
-            <div className="space-y-3">
-                <div className="space-y-1">
-                    <label
-                        htmlFor="new-sender-provider"
-                        className="text-xs font-medium text-foreground"
-                    >
-                        {t("integration", "Integration")}
-                    </label>
-                    {providersLoading ? (
-                        <div className="flex items-center gap-2 h-8 px-3 text-sm text-muted-foreground">
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                            {t("loading", "Loading...")}
-                        </div>
-                    ) : (
-                        <Select value={providerId} onValueChange={onProviderChange}>
-                            <SelectTrigger className="h-8 w-full">
-                                <SelectValue
-                                    placeholder={t("select_integration", "Select integration...")}
-                                />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {providers.length === 0 ? (
-                                    <div className="py-2 px-2 text-sm text-muted-foreground">
-                                        {t(
-                                            "no_integrations_found",
-                                            "No integrations found for this channel.",
-                                        )}
-                                    </div>
-                                ) : (
-                                    providers.map((provider) => (
-                                        <SelectItem key={provider.id} value={provider.id}>
-                                            {provider.name}
-                                        </SelectItem>
-                                    ))
-                                )}
-                            </SelectContent>
-                        </Select>
-                    )}
-                </div>
-                {isEmail && (
-                    <div className="space-y-1">
-                        <label
-                            htmlFor="new-sender-name"
-                            className="text-xs font-medium text-foreground"
-                        >
-                            {t("from_name", "From name")}
-                        </label>
-                        <Input
-                            id="new-sender-name"
-                            type="text"
-                            value={name}
-                            onChange={(e) => onNameChange(e.target.value)}
-                            onKeyDown={handleKeyDown}
-                            placeholder={t("from_name_placeholder", "e.g. Acme Support")}
-                            className="h-8"
-                        />
-                    </div>
-                )}
-                <div className="space-y-1">
-                    <label
-                        htmlFor="new-sender-address"
-                        className="text-xs font-medium text-foreground"
-                    >
-                        {isEmail
-                            ? t("email_address", "Email address")
-                            : t("phone_number", "Phone number")}
-                    </label>
-                    <Input
-                        id="new-sender-address"
-                        type={isEmail ? "email" : "tel"}
-                        value={address}
-                        onChange={(e) => {
-                            onAddressChange(e.target.value)
-                        }}
-                        onKeyDown={handleKeyDown}
-                        placeholder={isEmail ? "hello@example.com" : "+1234567890"}
-                        autoFocus
-                        className="h-8"
-                    />
-                </div>
-            </div>
-
-            {error && <p className="text-xs text-destructive">{error}</p>}
-
-            <Button
-                type="button"
-                size="sm"
-                onClick={handleSave}
-                disabled={!address.trim() || !providerId || creating}
-                className="h-8"
-            >
-                {creating && <Loader2 className="h-3 w-3 animate-spin mr-1.5" />}
-                {isEmail
-                    ? t("add_email_address", "Add email address")
-                    : t("add_phone_number", "Add phone number")}
-            </Button>
-        </div>
     )
 }
