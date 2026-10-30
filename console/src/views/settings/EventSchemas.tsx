@@ -1,10 +1,9 @@
-import { useCallback, useContext, useMemo, useState } from "react"
+import { useContext, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Search, Zap, MoreHorizontal, Trash2, ChevronRight } from "lucide-react"
+import { useQuery } from "@tanstack/react-query"
 import { ProjectContext } from "../../contexts"
-import { useResolver } from "../../hooks"
-import { oapiClient } from "../../oapi/client"
-import type { components } from "../../oapi/management.generated"
+import { eventSchemasQuery, useDeleteEventSchema, type EventSchemaItem } from "./eventSchemaQueries"
 
 import { Input } from "@/components/ui/input"
 import {
@@ -34,12 +33,6 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 
-type EventWithSchema = components["schemas"]["EventWithSchema"]
-
-interface EventSchemaItem extends EventWithSchema {
-    subject_type: "user" | "organization" | "scheduled"
-}
-
 export default function EventSchemas() {
     const { t } = useTranslation()
     const [project] = useContext(ProjectContext)
@@ -59,58 +52,11 @@ export default function EventSchemas() {
         })
     }
 
-    const [userResult, , reloadUser] = useResolver(
-        useCallback(async () => {
-            const { data } = await oapiClient.GET(
-                "/api/admin/projects/{projectID}/subjects/user/events/schema",
-                { params: { path: { projectID: project.id } } },
-            )
-            return data
-        }, [project.id]),
-    )
-
-    const [orgResult, , reloadOrg] = useResolver(
-        useCallback(async () => {
-            const { data } = await oapiClient.GET(
-                "/api/admin/projects/{projectID}/subjects/organization/events/schema",
-                { params: { path: { projectID: project.id } } },
-            )
-            return data
-        }, [project.id]),
-    )
-
-    const [scheduledResult, , reloadScheduled] = useResolver(
-        useCallback(async () => {
-            const { data } = await oapiClient.GET(
-                "/api/admin/projects/{projectID}/subjects/user/scheduled/schema",
-                { params: { path: { projectID: project.id } } },
-            )
-            return data ?? { results: [] as EventWithSchema[] }
-        }, [project.id]),
-    )
-
-    const reload = useCallback(async () => {
-        await Promise.all([reloadUser(), reloadOrg(), reloadScheduled()])
-    }, [reloadUser, reloadOrg, reloadScheduled])
-
-    const isLoading = !userResult && !orgResult && !scheduledResult
+    const schemas = useQuery(eventSchemasQuery(project.id))
+    const deleteSchema = useDeleteEventSchema(project.id)
 
     const events = useMemo(() => {
-        const userEvents: EventSchemaItem[] = (userResult?.results ?? []).map((e) => ({
-            ...e,
-            subject_type: "user" as const,
-        }))
-        const orgEvents: EventSchemaItem[] = (orgResult?.results ?? []).map((e) => ({
-            ...e,
-            subject_type: "organization" as const,
-        }))
-        const scheduledEvents: EventSchemaItem[] = (scheduledResult?.results ?? []).map((e) => ({
-            ...e,
-            subject_type: "scheduled" as const,
-        }))
-        const all = [...userEvents, ...orgEvents, ...scheduledEvents].sort((a, b) =>
-            a.name.localeCompare(b.name),
-        )
+        const all = [...(schemas.data ?? [])].sort((a, b) => a.name.localeCompare(b.name))
         if (!searchQuery) return all
         const query = searchQuery.toLowerCase()
         return all.filter(
@@ -118,46 +64,18 @@ export default function EventSchemas() {
                 e.name.toLowerCase().includes(query) ||
                 e.subject_type.toLowerCase().includes(query),
         )
-    }, [userResult, orgResult, scheduledResult, searchQuery])
+    }, [schemas.data, searchQuery])
 
     const handleDelete = async (e: React.MouseEvent, event: EventSchemaItem) => {
         e.stopPropagation()
         setDeleteTarget(event)
     }
 
-    const confirmDelete = async () => {
+    const confirmDelete = () => {
         if (!deleteTarget) return
         const event = deleteTarget
         setDeleteTarget(null)
-        if (event.subject_type === "user") {
-            await oapiClient.DELETE(
-                "/api/admin/projects/{projectID}/subjects/user/events/schema/{eventID}",
-                {
-                    params: {
-                        path: { projectID: project.id, eventID: event.id },
-                    },
-                },
-            )
-        } else if (event.subject_type === "organization") {
-            await oapiClient.DELETE(
-                "/api/admin/projects/{projectID}/subjects/organization/events/schema/{eventID}",
-                {
-                    params: {
-                        path: { projectID: project.id, eventID: event.id },
-                    },
-                },
-            )
-        } else {
-            await oapiClient.DELETE(
-                "/api/admin/projects/{projectID}/subjects/user/scheduled/schema/{scheduledID}",
-                {
-                    params: {
-                        path: { projectID: project.id, scheduledID: event.id },
-                    },
-                },
-            )
-        }
-        await reload()
+        deleteSchema.mutate(event)
     }
 
     return (
@@ -201,7 +119,7 @@ export default function EventSchemas() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {isLoading ? (
+                        {schemas.isPending ? (
                             Array.from({ length: 3 }).map((_, i) => (
                                 <TableRow key={i}>
                                     <TableCell />
@@ -219,6 +137,21 @@ export default function EventSchemas() {
                                     </TableCell>
                                 </TableRow>
                             ))
+                        ) : schemas.isError ? (
+                            <TableRow>
+                                <TableCell colSpan={5} className="h-32 text-center">
+                                    <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                                        <p>{t("schemas_load_failed", "Couldn't load schemas.")}</p>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => schemas.refetch()}
+                                        >
+                                            {t("retry", "Retry")}
+                                        </Button>
+                                    </div>
+                                </TableCell>
+                            </TableRow>
                         ) : events.length === 0 ? (
                             <TableRow>
                                 <TableCell colSpan={5} className="h-32 text-center">

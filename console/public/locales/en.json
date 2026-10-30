@@ -1139,5 +1139,12 @@
     "push_providers_load_failed": "Couldn't load push providers.",
     "push_provider_save_failed": "Failed to save push provider",
     "push_provider_remove_failed": "Failed to remove push provider",
-    "onboarding_journey_create_failed": "Couldn't create the journey"
+    "onboarding_journey_create_failed": "Couldn't create the journey",
+    "subscription_save_failed": "Couldn't save the subscription",
+    "subscriptions_load_failed": "Couldn't load subscriptions.",
+    "schema_delete_failed": "Couldn't delete the schema",
+    "schemas_load_failed": "Couldn't load schemas.",
+    "invite_revoke_failed": "Couldn't revoke the invite",
+    "members_load_failed": "Couldn't load members.",
+    "invite_list_load_failed": "Couldn't load invites."
 }

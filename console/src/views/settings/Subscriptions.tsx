@@ -1,12 +1,13 @@
-import { useCallback, useContext, useMemo, useState } from "react"
+import { useContext, useMemo, useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useTranslation } from "react-i18next"
 import { subscriptionSchema } from "@/validation/settings/subscriptions"
 import { Plus, Search, Bell, MoreHorizontal } from "lucide-react"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import api from "../../api"
 import { ProjectContext } from "../../contexts"
-import { useResolver } from "../../hooks"
+import { subscriptionsQuery } from "./queries"
 import { snakeToTitle } from "../../utils"
 import type { Subscription } from "../../types"
 
@@ -53,18 +54,26 @@ export default function Subscriptions() {
     const [searchQuery, setSearchQuery] = useState("")
     const [editing, setEditing] = useState<null | Partial<Subscription>>(null)
 
-    const [result, , reload] = useResolver(
-        useCallback(async () => {
-            return await api.subscriptions.search(project.id, { limit: 50 })
-        }, [project.id]),
-    )
+    const queryClient = useQueryClient()
+    // Shared with the campaign editor's subscription picker.
+    const list = useQuery(subscriptionsQuery(project.id))
 
     const subscriptions = useMemo(() => {
-        const all = result?.results ?? []
+        const all = list.data ?? []
         if (!searchQuery) return all
         const query = searchQuery.toLowerCase()
         return all.filter((sub) => sub.name.toLowerCase().includes(query))
-    }, [result, searchQuery])
+    }, [list.data, searchQuery])
+
+    const save = useMutation({
+        mutationFn: async ({ id, name, channel, is_public }: Partial<Subscription>) =>
+            id
+                ? await api.subscriptions.update(project.id, id, { name, is_public })
+                : await api.subscriptions.create(project.id, { name, channel, is_public }),
+        onSuccess: () =>
+            queryClient.invalidateQueries({ queryKey: subscriptionsQuery(project.id).queryKey }),
+        meta: { errorMessage: t("subscription_save_failed", "Couldn't save the subscription") },
+    })
 
     return (
         <div className="flex flex-col gap-6">
@@ -103,7 +112,7 @@ export default function Subscriptions() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {!result ? (
+                        {list.isPending ? (
                             Array.from({ length: 3 }).map((_, i) => (
                                 <TableRow key={i}>
                                     <TableCell>
@@ -120,6 +129,26 @@ export default function Subscriptions() {
                                     </TableCell>
                                 </TableRow>
                             ))
+                        ) : list.isError ? (
+                            <TableRow>
+                                <TableCell colSpan={4} className="h-32 text-center">
+                                    <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                                        <p>
+                                            {t(
+                                                "subscriptions_load_failed",
+                                                "Couldn't load subscriptions.",
+                                            )}
+                                        </p>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => list.refetch()}
+                                        >
+                                            {t("retry", "Retry")}
+                                        </Button>
+                                    </div>
+                                </TableCell>
+                            </TableRow>
                         ) : subscriptions.length === 0 ? (
                             <TableRow>
                                 <TableCell colSpan={4} className="h-32 text-center">
@@ -207,14 +236,12 @@ export default function Subscriptions() {
                 editing={editing}
                 onClose={() => setEditing(null)}
                 onSave={async (data) => {
-                    const { id, name, channel, is_public } = data
-                    if (id) {
-                        await api.subscriptions.update(project.id, id, { name, is_public })
-                    } else {
-                        await api.subscriptions.create(project.id, { name, channel, is_public })
-                    }
-                    await reload()
-                    setEditing(null)
+                    // A failure is reported by the mutation cache; the dialog
+                    // stays open so nothing typed is lost.
+                    await save
+                        .mutateAsync(data)
+                        .then(() => setEditing(null))
+                        .catch(() => {})
                 }}
             />
         </div>
