@@ -1,10 +1,7 @@
 import { useCallback, useState, useRef } from "react"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
 import { useParams } from "react-router"
 import { useTranslation } from "react-i18next"
-import type { OrganizationFormValues } from "@/validation/organizations/organization-form"
-import { organizationFormSchema } from "@/validation/organizations/organization-form"
+import { useQuery } from "@tanstack/react-query"
 import {
     Plus,
     Building2,
@@ -17,7 +14,6 @@ import {
 } from "lucide-react"
 import { NIL } from "uuid"
 import { useRoute } from "@/hooks/use-route"
-import { useResolver } from "../../hooks"
 import { formatDate } from "../../utils"
 import { getRandomColor } from "@/lib/colors"
 import { getPrimaryExternalId } from "@/lib/name"
@@ -25,7 +21,10 @@ import { PreferencesContext } from "@/contexts/PreferencesContext"
 import { useContext } from "react"
 import { BuildingIcon } from "@/components/icons"
 import type { UUID } from "@/types/common"
-import oapiClient, { type Organization, type UpsertOrganization } from "../../oapi/client"
+import type { Organization } from "../../oapi/client"
+import { CreateOrganizationDialog } from "./CreateOrganizationDialog"
+import { LoadErrorRow } from "./LoadErrorRow"
+import { organizationListQuery } from "./queries"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -37,17 +36,7 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table"
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
-import { AttributeEditor } from "@/components/ui/attribute-editor"
 
 export default function Organizations() {
     const { projectId = NIL as UUID } = useParams<{ projectId: UUID }>()
@@ -58,16 +47,6 @@ export default function Organizations() {
     const [searchQuery, setSearchQuery] = useState("")
     const [debouncedQuery, setDebouncedQuery] = useState("")
     const [isCreateOpen, setIsCreateOpen] = useState(false)
-    const [isCreating, setIsCreating] = useState(false)
-    const [newOrgData, setNewOrgData] = useState<Record<string, unknown>>({})
-
-    const orgForm = useForm<OrganizationFormValues>({
-        resolver: zodResolver(organizationFormSchema),
-        defaultValues: {
-            external_id: "",
-            name: "",
-        },
-    })
     const [page, setPage] = useState(1)
     const limit = 15
     const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined)
@@ -82,50 +61,19 @@ export default function Organizations() {
         }, 300)
     }, [])
 
-    const [result, , reload] = useResolver(
-        useCallback(async () => {
-            const { data } = await oapiClient.GET(
-                "/api/admin/projects/{projectID}/subjects/organizations",
-                {
-                    params: {
-                        path: { projectID: projectId },
-                        query: {
-                            limit,
-                            offset: (page - 1) * limit,
-                            search: debouncedQuery || undefined,
-                        },
-                    },
-                },
-            )
-            return data ?? null
-        }, [projectId, debouncedQuery, page]),
+    const list = useQuery(
+        organizationListQuery(projectId, {
+            limit,
+            offset: (page - 1) * limit,
+            search: debouncedQuery,
+        }),
     )
 
-    const organizations = result?.results
-    const total = result?.total ?? 0
+    const organizations = list.data?.results ?? []
+    const total = list.data?.total ?? 0
     const totalPages = Math.ceil(total / limit)
     const hasNextPage = page < totalPages
     const hasPrevPage = page > 1
-
-    const createOrganization = async (formData: OrganizationFormValues) => {
-        setIsCreating(true)
-        try {
-            await oapiClient.POST("/api/admin/projects/{projectID}/subjects/organizations", {
-                params: { path: { projectID: projectId } },
-                body: {
-                    identifier: [{ source: "default", external_id: formData.external_id.trim() }],
-                    name: formData.name?.trim() || undefined,
-                    data: Object.keys(newOrgData).length > 0 ? newOrgData : undefined,
-                } as UpsertOrganization,
-            })
-            await reload()
-            setIsCreateOpen(false)
-            orgForm.reset()
-            setNewOrgData({})
-        } finally {
-            setIsCreating(false)
-        }
-    }
 
     const handleRowClick = (org: Organization) => {
         route(`organizations/${org.id}`)
@@ -188,8 +136,7 @@ export default function Organizations() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {!organizations ? (
-                            // Loading skeleton
+                        {list.isPending ? (
                             Array.from({ length: 5 }).map((_, i) => (
                                 <TableRow key={i}>
                                     <TableCell>
@@ -209,6 +156,15 @@ export default function Organizations() {
                                     </TableCell>
                                 </TableRow>
                             ))
+                        ) : list.isError ? (
+                            <LoadErrorRow
+                                colSpan={3}
+                                message={t(
+                                    "organizations_load_failed",
+                                    "Couldn't load organizations.",
+                                )}
+                                onRetry={() => list.refetch()}
+                            />
                         ) : organizations.length === 0 ? (
                             <TableRow>
                                 <TableCell colSpan={3} className="h-32 text-center">
@@ -374,77 +330,7 @@ export default function Organizations() {
                 </div>
             </div>
 
-            {/* Create Organization Dialog */}
-            <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-                <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-                    <DialogHeader>
-                        <DialogTitle>{t("create_organization")}</DialogTitle>
-                        <DialogDescription>
-                            {t(
-                                "create_organization_description",
-                                "Create a new organization to group users together.",
-                            )}
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                        <div className="grid sm:grid-cols-2 gap-4">
-                            <div className="grid gap-2 content-start">
-                                <Label htmlFor="external_id">
-                                    {t("identifier", "Identifier")} *
-                                </Label>
-                                <Input
-                                    id="external_id"
-                                    placeholder={t("enter_identifier", "e.g., org-123")}
-                                    {...orgForm.register("external_id")}
-                                />
-                                {orgForm.formState.errors.external_id && (
-                                    <p className="text-sm text-destructive">
-                                        {orgForm.formState.errors.external_id.message}
-                                    </p>
-                                )}
-                                <p className="text-xs text-muted-foreground">
-                                    {t("identifier_help", "A unique identifier from your system")}
-                                </p>
-                            </div>
-                            <div className="grid gap-2 content-start">
-                                <Label htmlFor="name">{t("name")}</Label>
-                                <Input
-                                    id="name"
-                                    placeholder={t("enter_organization_name", "e.g., Acme Corp")}
-                                    {...orgForm.register("name")}
-                                />
-                            </div>
-                        </div>
-                        <div className="grid gap-2">
-                            <Label>{t("data", "Data")}</Label>
-                            <AttributeEditor
-                                value={newOrgData}
-                                onChange={setNewOrgData}
-                                emptyTitle={t("no_data", "No data")}
-                                emptyDescription={t(
-                                    "no_data_description_org",
-                                    "Add custom attributes to this organization.",
-                                )}
-                            />
-                        </div>
-                    </div>
-                    <DialogFooter>
-                        <Button
-                            variant="outline"
-                            onClick={() => setIsCreateOpen(false)}
-                            disabled={isCreating}
-                        >
-                            {t("cancel")}
-                        </Button>
-                        <Button
-                            onClick={orgForm.handleSubmit(createOrganization)}
-                            disabled={isCreating}
-                        >
-                            {isCreating ? t("creating") : t("create")}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+            <CreateOrganizationDialog open={isCreateOpen} onOpenChange={setIsCreateOpen} />
         </div>
     )
 }
