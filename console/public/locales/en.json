@@ -1049,7 +1049,10 @@
         "upload": "Upload",
         "emptyTitle": "No images yet",
         "emptyDescription": "Drag and drop images here, or click Upload to get started.",
-        "imageCount": "{{count}} image(s)"
+        "imageCount": "{{count}} image(s)",
+        "uploadFailed": "Couldn't upload the image.",
+        "deleteFailed": "Couldn't delete the image.",
+        "loadFailed": "Couldn't load images."
     },
     "all": "All",
     "creating": "Creating...",
