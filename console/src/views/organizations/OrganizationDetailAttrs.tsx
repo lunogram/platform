@@ -1,9 +1,9 @@
-import { useContext, useState } from "react"
+import { useContext, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Save, Braces } from "lucide-react"
 import { toast } from "sonner"
-import { ProjectContext, OrganizationContext } from "../../contexts"
-import oapiClient from "../../oapi/client"
+import { OrganizationContext } from "../../contexts"
+import { useUpdateOrganization } from "./queries"
 
 import { Button } from "@/components/ui/button"
 import { AttributeEditor } from "@/components/ui/attribute-editor"
@@ -11,49 +11,30 @@ import OrganizationDetailIdentifiers from "./OrganizationDetailIdentifiers"
 
 export default function OrganizationDetailAttrs() {
     const { t } = useTranslation()
-    const [project] = useContext(ProjectContext)
-    const [organization, setOrganization] = useContext(OrganizationContext)
+    const [organization] = useContext(OrganizationContext)
+    const updateOrganization = useUpdateOrganization(t("save_error", "Failed to save attributes"))
 
-    const initialData = (organization.data as Record<string, unknown>) ?? {}
-    const [data, setData] = useState<Record<string, unknown>>(initialData)
-    const [isDirty, setIsDirty] = useState(false)
-    const [isSaving, setIsSaving] = useState(false)
+    const savedData = useMemo(
+        () => (organization.data as Record<string, unknown>) ?? {},
+        [organization.data],
+    )
+    // Only unsaved edits are kept here; without any, the editor shows the
+    // organization as cached, so it follows a refetch or a save elsewhere.
+    const [edited, setEdited] = useState<Record<string, unknown> | null>(null)
+    const data = edited ?? savedData
+    const isDirty = edited !== null && JSON.stringify(edited) !== JSON.stringify(savedData)
+    const isSaving = updateOrganization.isPending
 
-    const handleChange = (newData: Record<string, unknown>) => {
-        setData(newData)
-        setIsDirty(JSON.stringify(newData) !== JSON.stringify(organization.data ?? {}))
-    }
-
-    const handleSave = async () => {
-        setIsSaving(true)
-        try {
-            const { data: responseData, error } = await oapiClient.PATCH(
-                "/api/admin/projects/{projectID}/subjects/organizations/{organizationID}",
-                {
-                    params: {
-                        path: {
-                            projectID: project.id,
-                            organizationID: organization.id,
-                        },
-                    },
-                    body: { data },
+    const handleSave = () =>
+        updateOrganization.mutate(
+            { data },
+            {
+                onSuccess: () => {
+                    setEdited(null)
+                    toast.success(t("save_success", "Attributes saved successfully"))
                 },
-            )
-            if (error) {
-                toast.error(t("save_error", "Failed to save attributes"))
-                return
-            }
-            if (responseData) {
-                setOrganization(responseData)
-                setIsDirty(false)
-                toast.success(t("save_success", "Attributes saved successfully"))
-            }
-        } catch {
-            toast.error(t("save_error", "Failed to save attributes"))
-        } finally {
-            setIsSaving(false)
-        }
-    }
+            },
+        )
 
     return (
         <div className="space-y-8">
@@ -89,8 +70,8 @@ export default function OrganizationDetailAttrs() {
 
             {/* Attribute Editor */}
             <AttributeEditor
-                value={initialData}
-                onChange={handleChange}
+                value={data}
+                onChange={setEdited}
                 emptyTitle={t("no_attributes", "No attributes yet")}
                 emptyDescription={t(
                     "no_organization_data_description",
