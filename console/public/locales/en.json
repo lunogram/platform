@@ -1129,5 +1129,10 @@
     "sso_error_email": "Your identity provider returned no email address.",
     "sso_error_failed": "Single sign-on failed. Please try again.",
     "sso_choose_provider": "Choose how you would like to sign in.",
-    "sso_error_domain": "Your identity provider returned an address it is not configured to sign in."
+    "sso_error_domain": "Your identity provider returned an address it is not configured to sign in.",
+    "broadcast_load_failed": "Couldn't load the broadcast.",
+    "broadcast_recipients_load_failed": "Couldn't load recipients.",
+    "broadcasts_load_failed": "Couldn't load broadcasts.",
+    "broadcast_campaigns_load_failed": "Couldn't load campaigns.",
+    "broadcast_lists_load_failed": "Couldn't load lists."
 }

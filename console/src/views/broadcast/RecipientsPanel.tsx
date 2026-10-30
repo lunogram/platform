@@ -37,6 +37,9 @@ import {
 interface RecipientsPanelProps {
     broadcast: Broadcast
     users: RecipientRow[] | null
+    /** The recipients couldn't be loaded. */
+    usersError: boolean
+    onRetryUsers: () => void
     displayTotal: number | null
     usersTotal: number | null
     isPreview: boolean
@@ -51,6 +54,8 @@ interface RecipientsPanelProps {
 export function RecipientsPanel({
     broadcast,
     users,
+    usersError,
+    onRetryUsers,
     displayTotal,
     usersTotal,
     isPreview,
@@ -134,7 +139,23 @@ export function RecipientsPanel({
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {!users ? (
+                        {!users && usersError ? (
+                            <TableRow>
+                                <TableCell colSpan={isPreview ? 3 : 4} className="h-32 text-center">
+                                    <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                                        <p>
+                                            {t(
+                                                "broadcast_recipients_load_failed",
+                                                "Couldn't load recipients.",
+                                            )}
+                                        </p>
+                                        <Button variant="outline" size="sm" onClick={onRetryUsers}>
+                                            {t("retry", "Retry")}
+                                        </Button>
+                                    </div>
+                                </TableCell>
+                            </TableRow>
+                        ) : !users ? (
                             Array.from({ length: 5 }).map((_, i) => (
                                 <TableRow key={i}>
                                     <TableCell>
