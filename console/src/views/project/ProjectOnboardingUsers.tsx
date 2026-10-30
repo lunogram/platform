@@ -1,6 +1,5 @@
 import { useNavigate, useParams } from "react-router"
 import { useTranslation } from "react-i18next"
-import { AxiosError } from "axios"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import {
@@ -14,6 +13,8 @@ import {
 import { UserImportForm } from "@/components/ui/user-import-dialog"
 import api from "../../api"
 import { oapiClient } from "@/oapi/client"
+import { unwrap } from "@/oapi/unwrap"
+import { problemDetail } from "@/utils"
 import type { UUID } from "@/types/common"
 import { useContext, useState } from "react"
 import { NIL } from "uuid"
@@ -28,35 +29,30 @@ export default function ProjectOnboardingUsers() {
     const [nextLoading, setNextLoading] = useState(false)
     const [skipLoading, setSkipLoading] = useState(false)
 
+    // Throws when either request is rejected. Moving on without the admin user
+    // only sent people back here, as the onboarding route checks for it.
     async function createInitialUser() {
-        const { data: admin } = await oapiClient.GET("/api/admin/tenant/whoami")
-        if (!admin) return
+        const admin = unwrap(await oapiClient.GET("/api/admin/tenant/whoami"))
 
         let fullName
         if (admin.first_name || admin.last_name) {
             fullName = admin.last_name ? admin.first_name + " " + admin.last_name : admin.first_name
         }
 
-        await oapiClient.POST("/api/admin/projects/{projectID}/subjects/users", {
-            params: { path: { projectID: projectId } },
-            body: {
-                identifier: [{ source: "admin", external_id: admin.id }],
-                data: {
-                    full_name: fullName,
-                    admin: true,
+        unwrap(
+            await oapiClient.POST("/api/admin/projects/{projectID}/subjects/users", {
+                params: { path: { projectID: projectId } },
+                body: {
+                    identifier: [{ source: "admin", external_id: admin.id }],
+                    data: {
+                        full_name: fullName,
+                        admin: true,
+                    },
+                    email: admin.email,
+                    timezone: project.timezone,
                 },
-                email: admin.email,
-                timezone: project.timezone,
-            },
-        })
-    }
-
-    function getErrorDetail(err: unknown) {
-        if (err instanceof AxiosError && typeof err.response?.data?.detail === "string") {
-            return err.response.data.detail
-        }
-
-        return null
+            }),
+        )
     }
 
     const next = async () => {
@@ -67,7 +63,7 @@ export default function ProjectOnboardingUsers() {
                     await api.users.addImport(projectId, file)
                 } catch (err) {
                     toast.error(
-                        getErrorDetail(err) ||
+                        problemDetail(err) ||
                             t("onboarding_users_import_failed", "Failed to import users from CSV."),
                     )
                     return
@@ -78,7 +74,7 @@ export default function ProjectOnboardingUsers() {
                 await createInitialUser()
             } catch (err) {
                 toast.error(
-                    getErrorDetail(err) ||
+                    problemDetail(err) ||
                         t(
                             "onboarding_users_default_user_create_failed",
                             "Failed to create the default admin user.",
@@ -100,7 +96,7 @@ export default function ProjectOnboardingUsers() {
                 await createInitialUser()
             } catch (err) {
                 toast.error(
-                    getErrorDetail(err) ||
+                    problemDetail(err) ||
                         t(
                             "onboarding_users_default_user_create_failed",
                             "Failed to create the default admin user.",

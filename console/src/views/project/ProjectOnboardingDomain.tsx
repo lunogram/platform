@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react"
+import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useNavigate, useParams } from "react-router"
@@ -8,9 +8,11 @@ import { NIL } from "uuid"
 import { toast } from "sonner"
 import { courierApi } from "@lunogram-enterprise/oapi-client/courier"
 import type { Domain } from "@lunogram-enterprise/oapi-client/courier"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import oapiClient from "@/oapi/client"
-import { useResolver } from "../../hooks"
+import { unwrap } from "@/oapi/unwrap"
 import { StatusBadge, DNSRecordsTable } from "../settings/Domains"
+import { providersQuery } from "../settings/queries"
 import {
     onboardingDomainSchema,
     type OnboardingDomainFormValues,
@@ -82,40 +84,38 @@ export default function ProjectOnboardingDomain() {
     const [activeSenderIdentityId, setActiveSenderIdentityId] = useState<string | null>(null)
     const [activeEmail, setActiveEmail] = useState<{ address: string; name?: string } | null>(null)
 
+    const queryClient = useQueryClient()
+
     // --- Provider gate: find the courier provider ---
-    const [courierProvider] = useResolver(
-        useCallback(async () => {
-            const { data } = await oapiClient.GET("/api/admin/projects/{projectID}/providers", {
-                params: { path: { projectID: projectId } },
-            })
-            const providers = data?.results ?? []
-            return providers.find((p) => p.module === "courier") ?? null
-        }, [projectId]),
-    )
+    const courierQuery = useQuery({
+        ...providersQuery(projectId),
+        select: (providers) => providers.find((p) => p.module === "courier") ?? null,
+    })
+    const courierProvider = courierQuery.data
 
     // --- Load existing domains (returning user) ---
-    const [existingDomains] = useResolver(
-        useCallback(async () => {
-            return await courierApi.domains.list(projectId)
-        }, [projectId]),
-    )
+    const domainsKey = ["projects", projectId, "courier", "domains"]
+    const domainsQuery = useQuery({
+        queryKey: domainsKey,
+        queryFn: (): Promise<Domain[]> => courierApi.domains.list(projectId),
+    })
+    const existingDomains = domainsQuery.data
 
     // --- Load sender identities so we can show from name/email on refresh ---
-    const [senderIdentities] = useResolver(
-        useCallback(async () => {
-            if (!courierProvider) return null
-            const { data } = await oapiClient.GET(
-                "/api/admin/projects/{projectID}/sender-identities",
-                {
+    const senderIdentitiesKey = ["projects", projectId, "sender-identities", courierProvider?.id]
+    const { data: senderIdentities } = useQuery({
+        queryKey: senderIdentitiesKey,
+        queryFn: async () =>
+            unwrap(
+                await oapiClient.GET("/api/admin/projects/{projectID}/sender-identities", {
                     params: {
                         path: { projectID: projectId },
-                        query: { provider_id: courierProvider.id, channel: "email" },
+                        query: { provider_id: courierProvider!.id, channel: "email" },
                     },
-                },
-            )
-            return data?.results ?? []
-        }, [projectId, courierProvider]),
-    )
+                }),
+            ).results ?? [],
+        enabled: !!courierProvider,
+    })
 
     // Show an existing domain if one was already added
     const domain = activeDomain ?? (existingDomains?.length ? existingDomains[0] : null)
@@ -187,6 +187,8 @@ export default function ProjectOnboardingDomain() {
             setActiveDomain(created)
             setActiveSenderIdentityId(senderIdentity?.id ?? null)
             setActiveEmail({ address, name: name || undefined })
+            queryClient.setQueryData<Domain[]>(domainsKey, (prev) => [created, ...(prev ?? [])])
+            void queryClient.invalidateQueries({ queryKey: senderIdentitiesKey })
             form.reset()
         } catch {
             toast.error(t("domain_create_failed", "Failed to add domain"))
@@ -239,6 +241,13 @@ export default function ProjectOnboardingDomain() {
             // Delete domain
             await courierApi.domains.delete(projectId, domain.id)
 
+            // Drop it from the loaded list too: falling back to that list is
+            // what brought a removed domain back on screen.
+            queryClient.setQueryData<Domain[]>(domainsKey, (prev) =>
+                prev?.filter((d) => d.id !== domain.id),
+            )
+            void queryClient.invalidateQueries({ queryKey: domainsKey })
+            void queryClient.invalidateQueries({ queryKey: senderIdentitiesKey })
             setActiveDomain(null)
             setActiveSenderIdentityId(null)
             setActiveEmail(null)
@@ -256,19 +265,13 @@ export default function ProjectOnboardingDomain() {
     const isValidEmail = form.formState.isValid
 
     // --- Provider gate: no courier provider ---
-    // courierProvider is null initially (loading), and null if not found.
-    // We distinguish: undefined = still loading, null = not found.
-    // useResolver returns null on initial load AND when resolver returns null.
-    // To differentiate, we check if providers have been fetched at all.
-    const providersLoaded = courierProvider !== null || courierProvider === null
-    const hasCourierProvider = courierProvider != null
-
-    // If providers are loaded and no courier provider exists, show info message
+    // Only once both lists have loaded, so the message doesn't flash while
+    // they are still on their way.
     if (
-        providersLoaded &&
-        !hasCourierProvider &&
-        existingDomains !== null &&
-        existingDomains.length === 0
+        courierQuery.isSuccess &&
+        !courierProvider &&
+        domainsQuery.isSuccess &&
+        domainsQuery.data.length === 0
     ) {
         return (
             <Card className="w-full max-w-[600px]">

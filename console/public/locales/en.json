@@ -1138,5 +1138,6 @@
     "integration_save_failed": "Failed to save integration",
     "push_providers_load_failed": "Couldn't load push providers.",
     "push_provider_save_failed": "Failed to save push provider",
-    "push_provider_remove_failed": "Failed to remove push provider"
+    "push_provider_remove_failed": "Failed to remove push provider",
+    "onboarding_journey_create_failed": "Couldn't create the journey"
 }

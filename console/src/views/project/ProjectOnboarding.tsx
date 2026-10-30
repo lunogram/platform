@@ -1,9 +1,10 @@
-import { useCallback, useContext } from "react"
+import { useContext } from "react"
 import { Outlet, useLocation, useParams } from "react-router"
+import { useQuery } from "@tanstack/react-query"
 import { ProjectContext } from "../../contexts"
-import { cn, hasCourierProvider } from "@/utils"
-import { useResolver } from "@/hooks"
+import { cn } from "@/utils"
 import { isEnterprise } from "@/config/enterprise"
+import { providersQuery } from "../settings/queries"
 
 export default function ProjectOnboarding() {
     const location = useLocation()
@@ -13,15 +14,14 @@ export default function ProjectOnboarding() {
 
     const hasIntegrations = (project?.integrations_count ?? 0) > 0
 
-    // Check whether a courier provider exists so we can show the domain
-    // step consistently across all onboarding pages.
-    // useResolver returns null while loading, then true/false once resolved.
-    const [hasProvider] = useResolver(
-        useCallback(async () => {
-            if (!isEnterprise) return false
-            return await hasCourierProvider(projectId)
-        }, [projectId]),
-    )
+    // Whether a courier provider exists decides if the domain step is shown on
+    // every onboarding page. Read from the shared providers query, so creating
+    // one in the first step adds the step right away.
+    const { data: hasProvider } = useQuery({
+        ...providersQuery(projectId),
+        enabled: isEnterprise,
+        select: (providers) => providers.some((p) => p.module === "courier"),
+    })
     const showDomainStep = hasProvider === true
 
     const steps = hasIntegrations
