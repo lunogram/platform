@@ -10,7 +10,6 @@ import {
     CampaignContext,
     TemplateContext,
     JourneyContext,
-    ListContext,
     ProjectContext,
     OrganizationContext,
 } from "../contexts"
@@ -18,7 +17,8 @@ import ClientList from "./settings/clients/ClientList"
 import { NewClientRoute, EditClientRoute } from "./settings/clients/ClientEditorLayout"
 import Members from "./settings/Members"
 import Lists from "./users/Lists"
-import ListDetail from "./users/ListDetail"
+import ListRoute from "./users/ListRoute"
+import { listQuery } from "./users/listQueries"
 import Users from "./users/Users"
 import Subscriptions from "./settings/Subscriptions"
 import EventSchemas from "./settings/EventSchemas"
@@ -540,18 +540,26 @@ export const createRouter = ({
                                             },
                                         ],
                                     },
-                                    createStatefulRoute({
+                                    {
                                         path: "lists",
-                                        apiPath: api.lists,
                                         element: <Lists />,
-                                    }),
-                                    createStatefulRoute({
+                                        errorElement: <ErrorPage />,
+                                    },
+                                    {
                                         path: "lists/:entityId",
-                                        apiPath: api.lists,
-                                        paramName: "entityId",
-                                        context: ListContext,
-                                        element: <ListDetail />,
-                                    }),
+                                        // Waits for the list, so the page renders with it.
+                                        loader: async ({ params }) => {
+                                            await queryClient.ensureQueryData(
+                                                listQuery(
+                                                    params.projectId as UUID,
+                                                    params.entityId as UUID,
+                                                ),
+                                            )
+                                            return null
+                                        },
+                                        element: <ListRoute />,
+                                        errorElement: <ErrorPage />,
+                                    },
                                     {
                                         path: "organizations",
                                         element: <Organizations />,
