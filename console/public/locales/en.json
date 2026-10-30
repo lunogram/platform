@@ -1129,5 +1129,17 @@
     "sso_error_email": "Your identity provider returned no email address.",
     "sso_error_failed": "Single sign-on failed. Please try again.",
     "sso_choose_provider": "Choose how you would like to sign in.",
-    "sso_error_domain": "Your identity provider returned an address it is not configured to sign in."
+    "sso_error_domain": "Your identity provider returned an address it is not configured to sign in.",
+    "journey_create_failed": "Couldn't create the journey",
+    "journey_save_failed": "Couldn't save the journey",
+    "journey_duplicate_failed": "Couldn't duplicate the journey",
+    "journey_archive_failed": "Couldn't archive the journey",
+    "journey_unarchive_failed": "Couldn't unarchive the journey",
+    "journey_save_steps_failed": "Couldn't save the journey",
+    "journey_publish_failed": "Couldn't publish the journey",
+    "journey_actions_load_failed": "Couldn't load actions.",
+    "journeys_load_failed": "Couldn't load journeys.",
+    "journey_events_load_failed": "Couldn't load events.",
+    "journey_lists_load_failed": "Couldn't load lists.",
+    "journey_users_load_failed": "Couldn't load users."
 }
