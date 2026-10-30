@@ -22,7 +22,9 @@ export default function ProjectOnboarding() {
         enabled: isEnterprise,
         select: (providers) => providers.some((p) => p.module === "courier"),
     })
-    const showDomainStep = hasProvider === true
+    // The domain route only lets people in when the provider exists, so being
+    // on it settles the question while the query is still loading.
+    const showDomainStep = hasProvider === true || location.pathname.endsWith("/domain")
 
     const steps = hasIntegrations
         ? showDomainStep
