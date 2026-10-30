@@ -1132,5 +1132,7 @@
     "sso_error_domain": "Your identity provider returned an address it is not configured to sign in.",
     "search_table": {
         "load_failed": "Couldn't load results."
-    }
+    },
+    "scheduled_load_failed": "Couldn't load scheduled items.",
+    "scheduled_schemas_load_failed": "Couldn't load schedule names."
 }
