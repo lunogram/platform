@@ -6,7 +6,8 @@ import { Zap, Webhook, Play, Loader2, CheckCircle2, XCircle } from "lucide-react
 import type { JourneyStepType } from "../../../types"
 import type { UUID } from "@/types/common"
 import type { TestActionFunctionResult } from "@/oapi/client"
-import { useResolver } from "../../../hooks"
+import { useQuery } from "@tanstack/react-query"
+import { actionMetaQuery, actionQuery } from "../queries"
 import { useJourneyVariableContext } from "../JourneyVariableContext"
 import { Combobox } from "@/components/ui/combobox"
 import { JsonView } from "@/components/ui/json-view"
@@ -70,39 +71,12 @@ export const actionStep: JourneyStepType<ActionConfig> = {
 
     Describe({ project: { id: projectId }, value: { action_id, function_id, input } }) {
         const { t } = useTranslation()
-        const [action] = useResolver(
-            useCallback(async () => {
-                if (action_id && action_id !== NIL) {
-                    const { data } = await oapiClient.GET(
-                        "/api/admin/projects/{projectID}/actions/{actionID}",
-                        {
-                            params: {
-                                path: { projectID: projectId, actionID: action_id },
-                            },
-                        },
-                    )
-                    return data ?? null
-                }
-                return null
-            }, [projectId, action_id]),
-        )
-
-        const [actionMeta] = useResolver(
-            useCallback(async () => {
-                if (action) {
-                    const { data } = await oapiClient.GET(
-                        "/api/admin/projects/{projectID}/actions/meta",
-                        {
-                            params: {
-                                path: { projectID: projectId },
-                            },
-                        },
-                    )
-                    return data ?? null
-                }
-                return null
-            }, [projectId, action]),
-        )
+        // Every node of the same action, and its editor, share these requests.
+        const { data: action } = useQuery(actionQuery(projectId, action_id))
+        const { data: actionMeta } = useQuery({
+            ...actionMetaQuery(projectId),
+            enabled: !!action,
+        })
 
         const functionTitle = useMemo(() => {
             if (!action || !actionMeta || !function_id) return null
@@ -166,36 +140,8 @@ export const actionStep: JourneyStepType<ActionConfig> = {
         const [isTesting, setIsTesting] = useState(false)
         const [testResult, setTestResult] = useState<TestActionFunctionResult | null>(null)
 
-        const [currentAction] = useResolver(
-            useCallback(async () => {
-                if (value.action_id && value.action_id !== NIL) {
-                    const { data } = await oapiClient.GET(
-                        "/api/admin/projects/{projectID}/actions/{actionID}",
-                        {
-                            params: {
-                                path: { projectID: projectId, actionID: value.action_id },
-                            },
-                        },
-                    )
-                    return data ?? null
-                }
-                return null
-            }, [projectId, value.action_id]),
-        )
-
-        const [actionMetaList] = useResolver(
-            useCallback(async () => {
-                const { data } = await oapiClient.GET(
-                    "/api/admin/projects/{projectID}/actions/meta",
-                    {
-                        params: {
-                            path: { projectID: projectId },
-                        },
-                    },
-                )
-                return data ?? null
-            }, [projectId]),
-        )
+        const { data: currentAction } = useQuery(actionQuery(projectId, value.action_id))
+        const { data: actionMetaList } = useQuery(actionMetaQuery(projectId))
 
         const availableFunctions = useMemo(() => {
             if (!currentAction || !actionMetaList) return []

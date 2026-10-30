@@ -1,32 +1,17 @@
 import { useCallback, useContext, useState, useRef } from "react"
 import { useNavigate } from "react-router"
 import { useTranslation } from "react-i18next"
-import {
-    Plus,
-    Search,
-    ChevronLeft,
-    ChevronRight,
-    ArrowRight,
-    GitBranch,
-    Workflow,
-    Zap,
-    MoreHorizontal,
-    Copy,
-    Archive,
-    ArchiveRestore,
-} from "lucide-react"
+import { useQuery } from "@tanstack/react-query"
+import { Plus, Search, ChevronLeft, ChevronRight, GitBranch, ArchiveRestore } from "lucide-react"
 
-import api from "../../api"
-import { oapiClient } from "@/oapi/client"
-import { useResolver } from "../../hooks"
-import { formatDate } from "../../utils"
-import { getRandomColor } from "@/lib/colors"
 import { ProjectContext } from "../../contexts"
-import { PreferencesContext } from "@/contexts/PreferencesContext"
 import { JourneyForm } from "./JourneyForm"
+import { JourneyRow } from "./JourneyRow"
+import { JourneyTipCard } from "./JourneyTipCard"
 import { JourneysIcon } from "@/components/icons"
+import { archivedJourneyListQuery, JOURNEY_PAGE_SIZE, journeyListQuery } from "./queries"
+import { useArchiveJourney, useDuplicateJourney, useUnarchiveJourney } from "./mutations"
 
-import type { Journey } from "../../types"
 import type { UUID } from "@/types/common"
 
 import { Button } from "@/components/ui/button"
@@ -47,35 +32,14 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Badge } from "@/components/ui/badge"
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-
-type JourneyStatus = "draft" | "published" | "archived"
-
-function getStatusBadge(status: JourneyStatus, t: (key: string) => string) {
-    const config: Record<JourneyStatus, { label: string; className: string }> = {
-        draft: { label: t("draft"), className: "bg-secondary text-secondary-foreground" },
-        published: { label: t("published"), className: "bg-green-100 text-green-700" },
-        archived: { label: t("archived"), className: "bg-secondary text-secondary-foreground" },
-    }
-    const { label, className } = config[status] ?? config.draft
-    return (
-        <Badge variant="outline" className={`border-0 ${className}`}>
-            {label}
-        </Badge>
-    )
-}
 
 export default function Journeys() {
     const [project] = useContext(ProjectContext)
-    const [preferences] = useContext(PreferencesContext)
     const { t } = useTranslation()
     const navigate = useNavigate()
+    const duplicateJourney = useDuplicateJourney()
+    const archiveJourney = useArchiveJourney()
+    const unarchiveJourney = useUnarchiveJourney()
 
     const [searchQuery, setSearchQuery] = useState("")
     const [debouncedQuery, setDebouncedQuery] = useState("")
@@ -85,9 +49,9 @@ export default function Journeys() {
     const [cursorHistory, setCursorHistory] = useState<string[]>([])
     const [archivedOffset, setArchivedOffset] = useState(0)
     const [showArchived, setShowArchived] = useState(false)
-    const searchTimeoutRef = useRef<number>()
+    const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
-    const archivedPageSize = 15
+    const archivedPageSize = JOURNEY_PAGE_SIZE
 
     const handleSearch = useCallback((value: string) => {
         setSearchQuery(value)
@@ -101,42 +65,22 @@ export default function Journeys() {
         }, 300)
     }, [])
 
-    const [result, , reload] = useResolver(
-        useCallback(async () => {
-            return await api.journeys.search(project.id, {
-                limit: 15,
-                cursor,
-                page: pageDirection,
-                search: debouncedQuery || undefined,
-            })
-        }, [project.id, debouncedQuery, cursor, pageDirection]),
-    )
-
-    const [archivedResult, , reloadArchived] = useResolver(
-        useCallback(async () => {
-            if (!showArchived) return null
-            const response = await oapiClient.GET("/api/admin/projects/{projectID}/journeys", {
-                params: {
-                    path: {
-                        projectID: project.id,
-                    },
-                    query: {
-                        limit: archivedPageSize,
-                        offset: archivedOffset,
-                        include_deleted: true,
-                        search: debouncedQuery || undefined,
-                    },
-                },
-            })
-            if (response.error || !response.data) return null
-            return response.data
-        }, [project.id, debouncedQuery, showArchived, archivedOffset]),
-    )
-
     const isArchivedView = showArchived
-    const journeys = (isArchivedView ? archivedResult?.results : result?.results) ?? []
-    const total = isArchivedView ? (archivedResult?.total ?? 0) : (result?.total ?? 0)
-    const isLoading = isArchivedView ? archivedResult === null : !result
+    // Only the list on screen is fetched. Its params are in the query key, so a
+    // slow response for an earlier search or page can't replace a newer one.
+    const active = useQuery({
+        ...journeyListQuery(project.id, { search: debouncedQuery, cursor, page: pageDirection }),
+        enabled: !isArchivedView,
+    })
+    const archived = useQuery({
+        ...archivedJourneyListQuery(project.id, { search: debouncedQuery, offset: archivedOffset }),
+        enabled: isArchivedView,
+    })
+    const list = isArchivedView ? archived : active
+    const result = active.data
+
+    const journeys = (isArchivedView ? archived.data?.results : result?.results) ?? []
+    const total = list.data?.total ?? 0
     const hasNextPage = isArchivedView
         ? archivedOffset + archivedPageSize < total
         : !!result?.nextCursor
@@ -172,41 +116,29 @@ export default function Journeys() {
         }
     }
 
-    const handleRowClick = (journey: Journey) => {
-        navigate(journey.id.toString())
+    const handleRowClick = (id: UUID) => {
+        navigate(id.toString())
     }
 
-    const handleDuplicateJourney = async (e: React.MouseEvent, id: UUID) => {
+    const handleDuplicateJourney = (e: React.MouseEvent, id: UUID) => {
         e.stopPropagation()
-        const journey = await api.journeys.duplicate(project.id, id)
-        await navigate(journey.id.toString())
+        duplicateJourney.mutate(id, {
+            onSuccess: (journey) => navigate(journey.id.toString()),
+        })
     }
 
-    const handleArchiveJourney = async (e: React.MouseEvent, id: UUID) => {
+    const handleArchiveJourney = (e: React.MouseEvent, id: UUID) => {
         e.stopPropagation()
-        await api.journeys.delete(project.id, id)
-        await reload()
+        archiveJourney.mutate(id)
     }
 
-    const handleUnarchiveJourney = async (id: UUID) => {
-        const response = await oapiClient.POST(
-            "/api/admin/projects/{projectID}/journeys/{journeyID}/unarchive",
-            {
-                params: {
-                    path: {
-                        projectID: project.id,
-                        journeyID: id,
-                    },
-                },
+    const handleUnarchiveJourney = (id: UUID) => {
+        unarchiveJourney.mutate(id, {
+            onSuccess: () => {
+                setShowArchived(false)
+                setArchivedOffset(0)
             },
-        )
-        if (response.error) {
-            throw response.error
-        }
-
-        setShowArchived(false)
-        setArchivedOffset(0)
-        await Promise.all([reload(), reloadArchived()])
+        })
     }
 
     return (
@@ -280,7 +212,7 @@ export default function Journeys() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {isLoading ? (
+                        {list.isPending ? (
                             Array.from({ length: 5 }).map((_, i) => (
                                 <TableRow key={i}>
                                     <TableCell>
@@ -306,6 +238,23 @@ export default function Journeys() {
                                     </TableCell>
                                 </TableRow>
                             ))
+                        ) : list.isError ? (
+                            <TableRow>
+                                <TableCell colSpan={5} className="h-32 text-center">
+                                    <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                                        <p>
+                                            {t("journeys_load_failed", "Couldn't load journeys.")}
+                                        </p>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => list.refetch()}
+                                        >
+                                            {t("retry", "Retry")}
+                                        </Button>
+                                    </div>
+                                </TableCell>
+                            </TableRow>
                         ) : journeys.length === 0 ? (
                             <TableRow>
                                 <TableCell colSpan={5} className="h-32 text-center">
@@ -313,10 +262,7 @@ export default function Journeys() {
                                         <GitBranch className="h-8 w-8" />
                                         <p>
                                             {isArchivedView
-                                                ? t(
-                                                      "no_archived_journeys",
-                                                      "No archived journeys",
-                                                  )
+                                                ? t("no_archived_journeys", "No archived journeys")
                                                 : debouncedQuery
                                                   ? t("no_journeys_found", "No journeys found")
                                                   : t("no_journeys_yet", "No journeys yet")}
@@ -340,110 +286,17 @@ export default function Journeys() {
                                 </TableCell>
                             </TableRow>
                         ) : (
-                            journeys.map((journey) => {
-                                const journeyColor = getRandomColor(journey.name ?? journey.id)
-                                return (
-                                    <TableRow
-                                        key={journey.id}
-                                        className="cursor-pointer"
-                                        onClick={() => handleRowClick(journey)}
-                                    >
-                                        <TableCell>
-                                            <button
-                                                type="button"
-                                                className="flex w-full items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                                                onClick={(e) => {
-                                                    e.stopPropagation()
-                                                    handleRowClick(journey)
-                                                }}
-                                            >
-                                                <div
-                                                    className="flex h-8 w-8 items-center justify-center rounded-md shrink-0"
-                                                    style={{ backgroundColor: journeyColor }}
-                                                >
-                                                    <GitBranch className="h-4 w-4 text-white" />
-                                                </div>
-                                                <div>
-                                                    <div className="font-medium">
-                                                        {journey.name}
-                                                    </div>
-                                                    {journey.description && (
-                                                        <div className="text-sm text-muted-foreground truncate max-w-[300px]">
-                                                            {journey.description}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </button>
-                                        </TableCell>
-                                        <TableCell>
-                                            {getStatusBadge(journey.status as JourneyStatus, t)}
-                                        </TableCell>
-                                        <TableCell className="hidden sm:table-cell text-muted-foreground">
-                                            {formatDate(preferences, journey.created_at, "PP")}
-                                        </TableCell>
-                                        <TableCell className="hidden md:table-cell text-muted-foreground">
-                                            {formatDate(preferences, journey.updated_at, "PP")}
-                                        </TableCell>
-                                        <TableCell>
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger asChild>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        className="h-8 w-8 p-0"
-                                                        onClick={(e) => e.stopPropagation()}
-                                                    >
-                                                        <MoreHorizontal className="h-4 w-4" />
-                                                    </Button>
-                                                </DropdownMenuTrigger>
-                                                <DropdownMenuContent align="end">
-                                                    <DropdownMenuItem
-                                                        onClick={(e) => {
-                                                            e.stopPropagation()
-                                                            handleRowClick(journey)
-                                                        }}
-                                                    >
-                                                        <GitBranch className="mr-2 h-4 w-4" />
-                                                        {t("edit")}
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuItem
-                                                        onClick={(e) =>
-                                                            handleDuplicateJourney(e, journey.id)
-                                                        }
-                                                    >
-                                                        <Copy className="mr-2 h-4 w-4" />
-                                                        {t("duplicate")}
-                                                    </DropdownMenuItem>
-                                                    {isArchivedView ? (
-                                                        <DropdownMenuItem
-                                                            onClick={(e) => {
-                                                                e.stopPropagation()
-                                                                handleUnarchiveJourney(journey.id)
-                                                            }}
-                                                        >
-                                                            <ArchiveRestore className="mr-2 h-4 w-4" />
-                                                            {t("unarchive", "Unarchive")}
-                                                        </DropdownMenuItem>
-                                                    ) : (
-                                                        <DropdownMenuItem
-                                                            onClick={(e) =>
-                                                                handleArchiveJourney(
-                                                                    e,
-                                                                    journey.id,
-                                                                )
-                                                            }
-                                                            className="text-destructive"
-                                                        >
-                                                            <Archive className="mr-2 h-4 w-4" />
-                                                            {t("archive")}
-                                                        </DropdownMenuItem>
-                                                    )}
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
-                                        </TableCell>
-                                    </TableRow>
-                                )
-                            })
+                            journeys.map((journey) => (
+                                <JourneyRow
+                                    key={journey.id}
+                                    journey={journey}
+                                    isArchivedView={isArchivedView}
+                                    onOpen={() => handleRowClick(journey.id)}
+                                    onDuplicate={(e) => handleDuplicateJourney(e, journey.id)}
+                                    onArchive={(e) => handleArchiveJourney(e, journey.id)}
+                                    onUnarchive={() => handleUnarchiveJourney(journey.id)}
+                                />
+                            ))
                         )}
                     </TableBody>
                 </Table>
@@ -482,51 +335,7 @@ export default function Journeys() {
                 )}
             </div>
 
-            {/* Tip Card */}
-            <div className="group relative overflow-hidden rounded-lg bg-gradient-to-br from-primary/10 via-primary/5 to-transparent border p-6">
-                <div className="relative z-10 max-w-md">
-                    <h3 className="font-semibold text-foreground">
-                        {t("journey_tip_title", "Design automated journeys")}
-                    </h3>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                        {t(
-                            "journey_tip_description",
-                            "Create multi-step automated workflows to engage users at the right moment with the right message.",
-                        )}
-                    </p>
-                    <Button
-                        variant="link"
-                        className="mt-2 h-auto p-0 text-primary"
-                        onClick={() => window.open("/api/", "_blank")}
-                    >
-                        {t("view_api_docs", "View API documentation")}
-                        <ArrowRight className="ml-1 h-3 w-3 transition-transform duration-300 group-hover:translate-x-1" />
-                    </Button>
-                </div>
-
-                {/* Decorative elements */}
-                <div className="absolute -right-6 -bottom-6 flex gap-4">
-                    <div className="hidden sm:flex h-20 w-20 items-center justify-center rounded-xl bg-primary/10 rotate-12 transition-all duration-500 ease-out group-hover:rotate-6 group-hover:-translate-y-2 group-hover:bg-primary/15">
-                        <GitBranch
-                            className="h-10 w-10 text-primary/40 transition-all duration-500 group-hover:text-primary/60 group-hover:scale-110"
-                            strokeWidth={1.25}
-                        />
-                    </div>
-                    <div className="flex h-20 w-20 items-center justify-center rounded-xl bg-primary/10 -rotate-6 translate-y-4 transition-all duration-500 ease-out delay-75 group-hover:rotate-3 group-hover:translate-y-0 group-hover:bg-primary/15">
-                        <Workflow
-                            className="h-10 w-10 text-primary/40 transition-all duration-500 delay-75 group-hover:text-primary/60 group-hover:scale-110"
-                            strokeWidth={1.25}
-                        />
-                    </div>
-                    <div className="flex h-20 w-20 items-center justify-center rounded-xl bg-primary/10 rotate-12 -translate-y-2 transition-all duration-500 ease-out delay-150 group-hover:-rotate-6 group-hover:-translate-y-4 group-hover:bg-primary/15">
-                        <Zap
-                            className="h-10 w-10 text-primary/40 transition-all duration-500 delay-150 group-hover:text-primary/60 group-hover:scale-110"
-                            strokeWidth={1.25}
-                        />
-                    </div>
-                </div>
-            </div>
-
+            <JourneyTipCard />
 
             {/* Create Journey Dialog */}
             <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
