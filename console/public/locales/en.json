@@ -237,7 +237,10 @@
                 "cancel": "Cancel",
                 "create": "Create Locale"
             }
-        }
+        },
+        "load_failed": "Couldn't load locales.",
+        "create_failed": "Couldn't create the locale",
+        "delete_failed": "Couldn't delete the locale"
     },
     "provider": {
         "select": {
@@ -1129,5 +1132,19 @@
     "sso_error_email": "Your identity provider returned no email address.",
     "sso_error_failed": "Single sign-on failed. Please try again.",
     "sso_choose_provider": "Choose how you would like to sign in.",
-    "sso_error_domain": "Your identity provider returned an address it is not configured to sign in."
+    "sso_error_domain": "Your identity provider returned an address it is not configured to sign in.",
+    "integration_archive_failed": "Couldn't archive the integration",
+    "integrations_load_failed": "Couldn't load integrations.",
+    "integration_save_failed": "Failed to save integration",
+    "push_providers_load_failed": "Couldn't load push providers.",
+    "push_provider_save_failed": "Failed to save push provider",
+    "push_provider_remove_failed": "Failed to remove push provider",
+    "onboarding_journey_create_failed": "Couldn't create the journey",
+    "subscription_save_failed": "Couldn't save the subscription",
+    "subscriptions_load_failed": "Couldn't load subscriptions.",
+    "schema_delete_failed": "Couldn't delete the schema",
+    "schemas_load_failed": "Couldn't load schemas.",
+    "invite_revoke_failed": "Couldn't revoke the invite",
+    "members_load_failed": "Couldn't load members.",
+    "invite_list_load_failed": "Couldn't load invites."
 }

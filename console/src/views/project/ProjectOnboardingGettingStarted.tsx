@@ -9,50 +9,18 @@ import {
     CardHeader,
     CardTitle,
 } from "@/components/ui/card"
-import { oapiClient } from "@/oapi/client"
-import type { components } from "@/oapi/management.generated"
 import type { UUID } from "@/types/common"
-import { useState } from "react"
 import { NIL } from "uuid"
 import { Megaphone, Route, Loader2 } from "lucide-react"
+import { useCreateOnboardingJourney } from "./useCreateOnboardingJourney"
 
 export default function ProjectOnboardingGettingStarted() {
     const navigate = useNavigate()
     const { t } = useTranslation()
     const { projectId = NIL as UUID } = useParams<{ projectId: UUID }>()
-    const [isJourneyLoading, setIsJourneyLoading] = useState(false)
-
-    async function createOnboardingJourney() {
-        setIsJourneyLoading(true)
-        try {
-            const { data: journeys } = await oapiClient.GET(
-                "/api/admin/projects/{projectID}/journeys",
-                { params: { path: { projectID: projectId }, query: { limit: 1 } } },
-            )
-            const existing = journeys?.results ?? []
-            if (existing.length > 0) {
-                await navigate(`/projects/${projectId}/journeys/${existing[0].id}`)
-                return
-            }
-
-            const { data: journey } = await oapiClient.POST(
-                "/api/admin/projects/{projectID}/journeys",
-                {
-                    params: { path: { projectID: projectId } },
-                    body: {
-                        name: "Onboarding",
-                        description: "Getting started with your first journey",
-                        template_id: "onboarding",
-                        status: "draft",
-                    } as components["schemas"]["CreateJourney"],
-                },
-            )
-
-            if (journey) await navigate(`/projects/${projectId}/journeys/${journey.id}`)
-        } finally {
-            setIsJourneyLoading(false)
-        }
-    }
+    const createJourney = useCreateOnboardingJourney(projectId, { reuseExisting: true })
+    const isJourneyLoading = createJourney.isPending
+    const createOnboardingJourney = () => createJourney.mutate()
 
     async function createCampaign() {
         await navigate(`/projects/${projectId}/campaigns/new`)

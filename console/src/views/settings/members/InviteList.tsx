@@ -16,12 +16,13 @@ import {
     X,
 } from "lucide-react"
 import { toast } from "sonner"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import api from "@/api"
 import { ProjectContext } from "@/contexts"
-import { useResolver } from "@/hooks"
 import { snakeToTitle } from "@/utils"
 import { projectRoles, type ProjectInvite, type ProjectRole } from "@/types"
 import { copyInviteLink } from "./inviteLink"
+import { allMembersQuery, invitesPageQuery, memberKeys } from "./queries"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -119,51 +120,49 @@ const InviteList = forwardRef<InviteListHandle, InviteListProps>(function Invite
     const hasActiveFilters =
         statusFilter || roleFilter || expiresAfter || expiresBefore || inviterAdminFilter
 
-    const [adminsResult] = useResolver(
-        useCallback(async () => {
-            return await api.projectAdmins.search(project.id, { limit: 100 })
-        }, [project.id]),
+    const queryClient = useQueryClient()
+    const { data: adminsResult } = useQuery(allMembersQuery(project.id))
+
+    const list = useQuery(
+        invitesPageQuery(project.id, {
+            limit,
+            offset: (page - 1) * limit,
+            search: debouncedQuery || undefined,
+            status: statusFilter,
+            role: roleFilter,
+            expires_after: expiresAfter || undefined,
+            expires_before: expiresBefore || undefined,
+            inviter_admin_id: inviterAdminFilter,
+        }),
     )
 
-    const [result, , reload] = useResolver(
-        useCallback(async () => {
-            return await api.invites.list(project.id, {
-                limit,
-                offset: (page - 1) * limit,
-                search: debouncedQuery || undefined,
-                status: statusFilter,
-                role: roleFilter,
-                expires_after: expiresAfter || undefined,
-                expires_before: expiresBefore || undefined,
-                inviter_admin_id: inviterAdminFilter,
-            })
-        }, [
-            project.id,
-            debouncedQuery,
-            statusFilter,
-            roleFilter,
-            expiresAfter,
-            expiresBefore,
-            inviterAdminFilter,
-            page,
-        ]),
+    const reload = useCallback(
+        () => queryClient.invalidateQueries({ queryKey: memberKeys.invites(project.id) }),
+        [queryClient, project.id],
     )
 
     useImperativeHandle(ref, () => ({ reload }), [reload])
 
-    const invites = result?.results ?? []
-    const total = result?.total ?? 0
+    const revoke = useMutation({
+        mutationFn: (invite: ProjectInvite) => api.invites.revoke(project.id, invite.id),
+        onSuccess: async () => {
+            toast.success(t("invite_revoked", "Invite revoked"))
+            await reload()
+        },
+        meta: { errorMessage: t("invite_revoke_failed", "Couldn't revoke the invite") },
+    })
+
+    const invites = list.data?.results ?? []
+    const total = list.data?.total ?? 0
     const totalPages = Math.ceil(total / limit)
     const hasNextPage = page < totalPages
     const hasPrevPage = page > 1
 
-    const handleRevoke = async (invite: ProjectInvite) => {
+    const handleRevoke = (invite: ProjectInvite) => {
         if (
             confirm(t("revoke_invite_confirmation", "Are you sure you want to revoke this invite?"))
         ) {
-            await api.invites.revoke(project.id, invite.id)
-            toast.success(t("invite_revoked", "Invite revoked"))
-            await reload()
+            revoke.mutate(invite)
         }
     }
 
@@ -346,7 +345,7 @@ const InviteList = forwardRef<InviteListHandle, InviteListProps>(function Invite
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {!result ? (
+                        {list.isPending ? (
                             Array.from({ length: 3 }).map((_, i) => (
                                 <TableRow key={i} className="hover:bg-transparent">
                                     <TableCell>
@@ -369,6 +368,23 @@ const InviteList = forwardRef<InviteListHandle, InviteListProps>(function Invite
                                     </TableCell>
                                 </TableRow>
                             ))
+                        ) : list.isError ? (
+                            <TableRow className="hover:bg-transparent">
+                                <TableCell colSpan={6} className="h-32 text-center">
+                                    <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                                        <p className="text-sm">
+                                            {t("invite_list_load_failed", "Couldn't load invites.")}
+                                        </p>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => list.refetch()}
+                                        >
+                                            {t("retry", "Retry")}
+                                        </Button>
+                                    </div>
+                                </TableCell>
+                            </TableRow>
                         ) : invites.length === 0 ? (
                             <TableRow className="hover:bg-transparent">
                                 <TableCell colSpan={6} className="h-32 text-center">
