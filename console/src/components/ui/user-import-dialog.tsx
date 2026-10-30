@@ -2,6 +2,8 @@ import { useState, useRef } from "react"
 import { useTranslation, Trans } from "react-i18next"
 import { Upload, FileText, X, Download } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { wasReported } from "@/lib/query"
+import { problemDetail } from "@/utils"
 import {
     Dialog,
     DialogContent,
@@ -139,21 +141,37 @@ export function UserImportDialog({ open, onOpenChange, onImport }: UserImportDia
     const { t } = useTranslation()
     const [file, setFile] = useState<File | null>(null)
     const [isImporting, setIsImporting] = useState(false)
+    const [importError, setImportError] = useState<string | null>(null)
 
     const handleOpenChange = (open: boolean) => {
         if (!open) {
             setFile(null)
             setIsImporting(false)
+            setImportError(null)
         }
         onOpenChange(open)
     }
 
+    const handleFileChange = (next: File | null) => {
+        setFile(next)
+        setImportError(null)
+    }
+
+    // A failed import keeps the dialog and its file so the user can retry.
+    // An error the mutation cache already toasted isn't repeated here.
     const handleImport = async () => {
         if (!file) return
         setIsImporting(true)
+        setImportError(null)
         try {
             await onImport(file)
             handleOpenChange(false)
+        } catch (err) {
+            if (!wasReported(err)) {
+                setImportError(
+                    problemDetail(err) ?? t("user_import_failed", "Couldn't import the users."),
+                )
+            }
         } finally {
             setIsImporting(false)
         }
@@ -167,7 +185,8 @@ export function UserImportDialog({ open, onOpenChange, onImport }: UserImportDia
                     <DialogDescription>{t("upload_instructions")}</DialogDescription>
                 </DialogHeader>
                 <div className="py-4">
-                    <UserImportForm file={file} onFileChange={setFile} />
+                    <UserImportForm file={file} onFileChange={handleFileChange} />
+                    {importError && <p className="mt-3 text-sm text-destructive">{importError}</p>}
                 </div>
                 <DialogFooter>
                     <Button

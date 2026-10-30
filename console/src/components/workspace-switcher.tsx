@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Check, ChevronsUpDown, Loader2, Plus } from "lucide-react"
+import { Check, ChevronsUpDown, Loader2, Plus, RotateCw } from "lucide-react"
 import { useNavigate } from "react-router"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
@@ -28,6 +28,9 @@ interface WorkspaceSwitcherProps {
     organizations: AdminOrganization[]
     projects: Project[]
     currentProject: Project
+    /** The project or organization list failed to load; the menu offers a retry. */
+    loadFailed?: boolean
+    onRetry?: () => void
 }
 
 // WorkspaceSwitcher is the sidebar's single header control: where you are, and
@@ -42,6 +45,8 @@ export function WorkspaceSwitcher({
     organizations,
     projects,
     currentProject,
+    loadFailed = false,
+    onRetry,
 }: WorkspaceSwitcherProps) {
     const { t } = useTranslation()
     const navigate = useNavigate()
@@ -121,6 +126,22 @@ export function WorkspaceSwitcher({
                         <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
                             {t("projects", "Projects")}
                         </DropdownMenuLabel>
+                        {loadFailed && (
+                            <DropdownMenuItem
+                                onSelect={(e) => {
+                                    // Stay open so the reloaded lists show up here.
+                                    e.preventDefault()
+                                    onRetry?.()
+                                }}
+                                className="cursor-pointer gap-2 text-destructive"
+                            >
+                                <RotateCw className="size-4" />
+                                {t(
+                                    "workspace_lists_load_failed",
+                                    "Couldn't load your projects. Retry",
+                                )}
+                            </DropdownMenuItem>
+                        )}
                         {projects.map((project) => (
                             <DropdownMenuItem
                                 key={project.id}

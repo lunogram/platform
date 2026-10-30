@@ -1144,5 +1144,8 @@
     "sender_identities_load_failed": "Couldn't load sender addresses.",
     "integrations_load_failed": "Couldn't load integrations.",
     "sender_identity_selected_load_failed": "Couldn't load the selected sender",
-    "inbox_load_failed": "Couldn't load inbox messages."
+    "inbox_load_failed": "Couldn't load inbox messages.",
+    "workspace_lists_load_failed": "Couldn't load your projects. Retry",
+    "user_import_failed": "Couldn't import the users.",
+    "action_preview_load_failed": "Couldn't load the preview."
 }
