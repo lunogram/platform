@@ -339,13 +339,15 @@ export function getPageNumbers(current: number, total: number): (number | "...")
 }
 
 /**
- * Check if a project has a courier provider configured.
+ * Check if a project has a courier provider configured. Reads the shared
+ * providers query, so every provider is considered (not only the first page)
+ * and the answer refreshes when a provider is created. A failed request reads
+ * as "no provider", as it always has.
  */
 export async function hasCourierProvider(projectId: string): Promise<boolean> {
-    const { default: oapiClient } = await import("@/oapi/client")
-    const { data } = await oapiClient.GET("/api/admin/projects/{projectID}/providers", {
-        params: { path: { projectID: projectId } },
-    })
-    const providers = data?.results ?? []
-    return providers.some((p) => p.module === "courier")
+    const [{ queryClient }, { fetchHasCourierProvider }] = await Promise.all([
+        import("@/lib/query"),
+        import("@/views/settings/queries"),
+    ])
+    return fetchHasCourierProvider(queryClient, projectId).catch(() => false)
 }

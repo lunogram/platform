@@ -3,10 +3,10 @@ import { useNavigate } from "react-router"
 import { useTranslation } from "react-i18next"
 import { ArrowLeft, ArrowRight, Puzzle, Search } from "lucide-react"
 
-import oapiClient from "@/oapi/client"
+import { useQuery } from "@tanstack/react-query"
 import type { ActionMeta, ProviderMeta } from "@/oapi/client"
 import { ProjectContext } from "../../contexts"
-import { useResolver } from "../../hooks"
+import { actionsMetaQuery, providersMetaQuery } from "./queries"
 import { snakeToTitle } from "../../utils"
 
 import { Button } from "@/components/ui/button"
@@ -35,43 +35,36 @@ export default function NewIntegration() {
     const [hoveredMeta, setHoveredMeta] = useState<IntegrationOption | null>(null)
     const [searchQuery, setSearchQuery] = useState("")
 
-    const [options] = useResolver(
-        useCallback(async () => {
-            const [{ data: providers }, { data: actions }] = await Promise.all([
-                oapiClient.GET("/api/admin/projects/{projectID}/providers/meta", {
-                    params: { path: { projectID: project.id } },
-                }),
-                oapiClient.GET("/api/admin/projects/{projectID}/actions/meta", {
-                    params: { path: { projectID: project.id } },
-                }),
-            ])
+    const providers = useQuery(providersMetaQuery(project.id))
+    const actions = useQuery(actionsMetaQuery(project.id))
+    const isError = providers.isError || actions.isError
 
-            const providerOptions: IntegrationOption[] = (providers ?? []).map(
-                (provider: ProviderMeta) => ({
-                    kind: "provider",
-                    type: provider.type,
-                    name: provider.name,
-                    description: provider.description,
-                    icon: provider.icon,
-                    color: provider.color,
-                    channels: provider.channels,
-                }),
-            )
+    const options = useMemo(() => {
+        if (!providers.data || !actions.data) return null
 
-            const actionOptions: IntegrationOption[] = (actions ?? []).map(
-                (action: ActionMeta) => ({
-                    kind: "action",
-                    type: action.type,
-                    name: action.name,
-                    description: action.description,
-                    icon: action.icon,
-                    color: action.color,
-                }),
-            )
+        const providerOptions: IntegrationOption[] = providers.data.map(
+            (provider: ProviderMeta) => ({
+                kind: "provider",
+                type: provider.type,
+                name: provider.name,
+                description: provider.description,
+                icon: provider.icon,
+                color: provider.color,
+                channels: provider.channels,
+            }),
+        )
 
-            return [...providerOptions, ...actionOptions]
-        }, [project]),
-    )
+        const actionOptions: IntegrationOption[] = actions.data.map((action: ActionMeta) => ({
+            kind: "action",
+            type: action.type,
+            name: action.name,
+            description: action.description,
+            icon: action.icon,
+            color: action.color,
+        }))
+
+        return [...providerOptions, ...actionOptions]
+    }, [providers.data, actions.data])
 
     const filteredOptions = useMemo(() => {
         if (!options) return null
@@ -158,7 +151,23 @@ export default function NewIntegration() {
                     />
                 </div>
 
-                {!filteredOptions ? (
+                {isError ? (
+                    <div className="flex flex-col items-center justify-center gap-3 h-32 text-muted-foreground">
+                        <p className="text-sm">
+                            {t("integrations_load_failed", "Couldn't load integrations.")}
+                        </p>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                                void providers.refetch()
+                                void actions.refetch()
+                            }}
+                        >
+                            {t("retry", "Retry")}
+                        </Button>
+                    </div>
+                ) : !filteredOptions ? (
                     <div className="flex items-center justify-center h-32 text-muted-foreground">
                         <p className="text-sm">{t("loading", "Loading...")}</p>
                     </div>
