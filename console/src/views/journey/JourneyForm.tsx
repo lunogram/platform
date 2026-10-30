@@ -1,9 +1,6 @@
-import { useContext } from "react"
 import { Controller, useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { toast } from "sonner"
-import api from "../../api"
-import { ProjectContext } from "../../contexts"
 import type { Journey } from "../../types"
 import { useTranslation } from "react-i18next"
 import { Input } from "@/components/ui/input"
@@ -12,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { journeyFormSchema, type JourneyFormValues } from "@/validation/journey/journey-form"
+import { useCreateJourney, useUpdateJourney } from "./mutations"
 
 interface JourneyFormProps {
     journey?: Journey
@@ -20,7 +18,8 @@ interface JourneyFormProps {
 
 export function JourneyForm({ journey, onSaved }: JourneyFormProps) {
     const { t } = useTranslation()
-    const [project] = useContext(ProjectContext)
+    const createJourney = useCreateJourney()
+    const updateJourney = useUpdateJourney()
 
     const form = useForm<JourneyFormValues>({
         resolver: zodResolver(journeyFormSchema),
@@ -35,24 +34,20 @@ export function JourneyForm({ journey, onSaved }: JourneyFormProps) {
     const isPublished = isCreated && journey?.status !== "draft"
 
     const handleSubmit = form.handleSubmit(async (data) => {
+        const params = {
+            name: data.name,
+            description: data.description,
+            status: data.status,
+            tags: journey?.tags,
+        }
         try {
             const saved = journey?.id
-                ? await api.journeys.update(project.id, journey.id, {
-                      name: data.name,
-                      description: data.description,
-                      status: data.status,
-                      tags: journey.tags,
-                  })
-                : await api.journeys.create(project.id, {
-                      name: data.name,
-                      description: data.description,
-                      status: data.status,
-                      tags: journey?.tags,
-                  })
+                ? await updateJourney.mutateAsync({ journeyId: journey.id, params })
+                : await createJourney.mutateAsync(params)
             toast.success(t("journey_saved"))
             onSaved?.(saved)
         } catch {
-            // form handleSubmit catches errors
+            // The mutation cache has shown the error; the form stays open to retry.
         }
     })
 
