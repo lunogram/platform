@@ -1,57 +1,15 @@
-import React, { useCallback, useContext, useRef, useState } from "react"
+import { useCallback, useContext, useRef, useState } from "react"
+import { useQuery } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
-import type { TFunction } from "i18next"
-import {
-    Archive,
-    ArchiveRestore,
-    CalendarClock,
-    Check,
-    ChevronDown,
-    ChevronLeft,
-    ChevronRight,
-    EyeOff,
-    Inbox,
-    Info,
-    Loader2,
-    MoreHorizontal,
-    Plus,
-    Search,
-} from "lucide-react"
+import { ChevronLeft, ChevronRight, Inbox, Plus, Search } from "lucide-react"
 import { toast } from "sonner"
 import { ProjectContext } from "../contexts"
-import { PreferencesContext } from "@/contexts/PreferencesContext"
-import { useResolver } from "../hooks"
-import { formatDate, getPageNumbers, cn } from "../utils"
-import oapiClient from "../oapi/client"
-import type { components } from "../oapi/management.generated"
-import { MessageExpandedRow } from "@/components/message-expanded-row"
-import { getChannelMeta } from "@/components/inbox-channel-meta"
-import { failureBadgeClassName, getMessageFailure } from "@/components/inbox-failure-meta"
-import { DEFAULT_TIME_INPUT_VALUE, toIsoFromDateAndTime } from "@/lib/date-time"
+import { getPageNumbers } from "../utils"
 
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { SenderIdentityCombobox } from "@/components/sender-identity-combobox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Textarea } from "@/components/ui/textarea"
-import { DateTimeEdit } from "@/components/ui/datetime-edit"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from "@/components/ui/dialog"
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import {
     Select,
     SelectContent,
@@ -67,35 +25,32 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table"
-
-type InboxMessage = components["schemas"]["InboxMessage"]
-type InboxStatus = "all" | "unread" | "read" | "archived" | "failed"
-type InboxChannel = components["schemas"]["Channel"]
+import { CreateInboxMessageDialog } from "./inbox/create-dialog"
+import { InboxMessageRow } from "./inbox/message-row"
+import {
+    INBOX_PAGE_SIZE,
+    inboxListQuery,
+    useUpdateInboxMessage,
+    type InboxEvent,
+    type InboxMessage,
+    type InboxStatus,
+} from "./inbox/queries"
 
 interface InboxDetailTableProps {
     subjectId: string
     subjectType: "users" | "organizations"
 }
 
-const limit = 15
+const limit = INBOX_PAGE_SIZE
 
 export default function InboxDetailTable({ subjectId, subjectType }: InboxDetailTableProps) {
     const { t } = useTranslation()
     const [project] = useContext(ProjectContext)
-    const [preferences] = useContext(PreferencesContext)
     const [page, setPage] = useState(1)
     const [status, setStatus] = useState<InboxStatus>("all")
     const [searchQuery, setSearchQuery] = useState("")
     const [debouncedQuery, setDebouncedQuery] = useState("")
     const [isCreateOpen, setIsCreateOpen] = useState(false)
-    const [isCreating, setIsCreating] = useState(false)
-    const [channel, setChannel] = useState<InboxChannel>("inbox")
-    const [senderIdentityId, setSenderIdentityId] = useState("")
-    const [title, setTitle] = useState("")
-    const [body, setBody] = useState("")
-    const [tags, setTags] = useState("")
-    const [scheduledDate, setScheduledDate] = useState("")
-    const [scheduledTime, setScheduledTime] = useState(DEFAULT_TIME_INPUT_VALUE)
     const [expandedMessageId, setExpandedMessageId] = useState<string | null>(null)
     const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
@@ -112,297 +67,39 @@ export default function InboxDetailTable({ subjectId, subjectType }: InboxDetail
         }, 300)
     }
 
-    const resetForm = () => {
-        setChannel("inbox")
-        setSenderIdentityId("")
-        setTitle("")
-        setBody("")
-        setTags("")
-        setScheduledDate("")
-        setScheduledTime(DEFAULT_TIME_INPUT_VALUE)
-    }
-
-    const handleScheduledDateChange = (nextDate: string) => {
-        setScheduledDate(nextDate)
-        if (!nextDate) {
-            setScheduledTime(DEFAULT_TIME_INPUT_VALUE)
-        }
-    }
-
-    const [result, , reload] = useResolver(
-        useCallback(async () => {
-            const params = {
-                limit,
-                offset: (page - 1) * limit,
-                search: debouncedQuery || undefined,
-                status: status === "all" ? undefined : status,
-                include_archived: status === "all" ? true : undefined,
-                include_scheduled: true,
-            }
-
-            if (subjectType === "users") {
-                const { data, error } = await oapiClient.GET(
-                    "/api/admin/projects/{projectID}/subjects/users/{userID}/inbox",
-                    {
-                        params: {
-                            path: { projectID: project.id, userID: subjectId },
-                            query: params,
-                        },
-                    },
-                )
-                if (error) throw error
-                return data ?? { results: [], total: 0 }
-            }
-
-            const { data, error } = await oapiClient.GET(
-                "/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/inbox",
-                {
-                    params: {
-                        path: { projectID: project.id, organizationID: subjectId },
-                        query: params,
-                    },
-                },
-            )
-            if (error) throw error
-            return data ?? { results: [], total: 0 }
-        }, [page, project.id, debouncedQuery, status, subjectId, subjectType]),
+    // Keyed by page, search and status, so a slow response for an old search
+    // or filter can't replace the current one.
+    const list = useQuery(
+        inboxListQuery(project.id, subjectType, subjectId, {
+            page,
+            search: debouncedQuery,
+            status,
+        }),
     )
+    const result = list.data
 
-    const createMessage = async () => {
-        if (channel === "sms" ? !body.trim() : !title.trim()) return
-        if ((channel === "email" || channel === "sms") && !senderIdentityId) return
+    const update = useUpdateInboxMessage(subjectType, subjectId)
 
-        setIsCreating(true)
-        try {
-            const dedupedTags = Array.from(
-                new Set(
-                    tags
-                        .split(",")
-                        .map((tag) => tag.trim())
-                        .filter(Boolean),
-                ),
-            )
+    const successMessage = (event: InboxEvent) =>
+        event === "scheduled"
+            ? t("inbox_message_scheduled", "Message schedule updated")
+            : event === "archived"
+              ? t("inbox_message_archived", "Message archived")
+              : event === "unarchived"
+                ? t("inbox_message_unarchived", "Message unarchived")
+                : event === "unread"
+                  ? t("inbox_message_unread", "Message marked unread")
+                  : t("inbox_message_opened", "Message marked opened")
 
-            const payload = {
-                channel,
-                sender_identity_id:
-                    channel === "push" || channel === "inbox" ? undefined : senderIdentityId,
-                content:
-                    channel === "sms"
-                        ? { body: body.trim() }
-                        : {
-                              title: title.trim(),
-                              body: body.trim() || undefined,
-                          },
-                tags: dedupedTags,
-                priority: 3,
-                scheduled_at: toIsoFromDateAndTime(scheduledDate, scheduledTime),
-            }
+    const updateMessage = (message: InboxMessage, event: Exclude<InboxEvent, "scheduled">) =>
+        update.mutate(
+            { messageId: message.id, event },
+            { onSuccess: () => toast.success(successMessage(event)) },
+        )
 
-            if (subjectType === "users") {
-                const { error } = await oapiClient.POST(
-                    "/api/admin/projects/{projectID}/subjects/users/{userID}/inbox",
-                    {
-                        params: { path: { projectID: project.id, userID: subjectId } },
-                        body: payload,
-                    },
-                )
-                if (error) throw error
-            } else {
-                const { error } = await oapiClient.POST(
-                    "/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/inbox",
-                    {
-                        params: { path: { projectID: project.id, organizationID: subjectId } },
-                        body: payload,
-                    },
-                )
-                if (error) throw error
-            }
-
-            toast.success(t("inbox_message_created", "Inbox message created"))
-            resetForm()
-            setIsCreateOpen(false)
-            await reload()
-        } catch {
-            toast.error(t("inbox_message_create_failed", "Failed to create inbox message"))
-        } finally {
-            setIsCreating(false)
-        }
-    }
-
-    const updateMessage = async (
-        message: InboxMessage,
-        event: "opened" | "archived" | "scheduled" | "unarchived" | "unread",
-        newScheduledAt?: string,
-    ) => {
-        try {
-            if (subjectType === "users") {
-                if (event === "scheduled") {
-                    if (!newScheduledAt) return
-
-                    const { error } = await oapiClient.POST(
-                        "/api/admin/projects/{projectID}/subjects/users/{userID}/inbox/{messageID}/schedule",
-                        {
-                            params: {
-                                path: {
-                                    projectID: project.id,
-                                    userID: subjectId,
-                                    messageID: message.id,
-                                },
-                            },
-                            body: { scheduled_at: newScheduledAt },
-                        },
-                    )
-                    if (error) throw error
-                } else if (event === "opened") {
-                    const { error } = await oapiClient.POST(
-                        "/api/admin/projects/{projectID}/subjects/users/{userID}/inbox/{messageID}/read",
-                        {
-                            params: {
-                                path: {
-                                    projectID: project.id,
-                                    userID: subjectId,
-                                    messageID: message.id,
-                                },
-                            },
-                        },
-                    )
-                    if (error) throw error
-                } else if (event === "archived") {
-                    const { error } = await oapiClient.POST(
-                        "/api/admin/projects/{projectID}/subjects/users/{userID}/inbox/{messageID}/archive",
-                        {
-                            params: {
-                                path: {
-                                    projectID: project.id,
-                                    userID: subjectId,
-                                    messageID: message.id,
-                                },
-                            },
-                        },
-                    )
-                    if (error) throw error
-                } else if (event === "unarchived") {
-                    const { error } = await oapiClient.POST(
-                        "/api/admin/projects/{projectID}/subjects/users/{userID}/inbox/{messageID}/unarchive",
-                        {
-                            params: {
-                                path: {
-                                    projectID: project.id,
-                                    userID: subjectId,
-                                    messageID: message.id,
-                                },
-                            },
-                        },
-                    )
-                    if (error) throw error
-                } else if (event === "unread") {
-                    const { error } = await oapiClient.POST(
-                        "/api/admin/projects/{projectID}/subjects/users/{userID}/inbox/{messageID}/unread",
-                        {
-                            params: {
-                                path: {
-                                    projectID: project.id,
-                                    userID: subjectId,
-                                    messageID: message.id,
-                                },
-                            },
-                        },
-                    )
-                    if (error) throw error
-                }
-            } else {
-                if (event === "scheduled") {
-                    if (!newScheduledAt) return
-
-                    const { error } = await oapiClient.POST(
-                        "/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/inbox/{messageID}/schedule",
-                        {
-                            params: {
-                                path: {
-                                    projectID: project.id,
-                                    organizationID: subjectId,
-                                    messageID: message.id,
-                                },
-                            },
-                            body: { scheduled_at: newScheduledAt },
-                        },
-                    )
-                    if (error) throw error
-                } else if (event === "opened") {
-                    const { error } = await oapiClient.POST(
-                        "/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/inbox/{messageID}/read",
-                        {
-                            params: {
-                                path: {
-                                    projectID: project.id,
-                                    organizationID: subjectId,
-                                    messageID: message.id,
-                                },
-                            },
-                        },
-                    )
-                    if (error) throw error
-                } else if (event === "archived") {
-                    const { error } = await oapiClient.POST(
-                        "/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/inbox/{messageID}/archive",
-                        {
-                            params: {
-                                path: {
-                                    projectID: project.id,
-                                    organizationID: subjectId,
-                                    messageID: message.id,
-                                },
-                            },
-                        },
-                    )
-                    if (error) throw error
-                } else if (event === "unarchived") {
-                    const { error } = await oapiClient.POST(
-                        "/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/inbox/{messageID}/unarchive",
-                        {
-                            params: {
-                                path: {
-                                    projectID: project.id,
-                                    organizationID: subjectId,
-                                    messageID: message.id,
-                                },
-                            },
-                        },
-                    )
-                    if (error) throw error
-                } else if (event === "unread") {
-                    const { error } = await oapiClient.POST(
-                        "/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/inbox/{messageID}/unread",
-                        {
-                            params: {
-                                path: {
-                                    projectID: project.id,
-                                    organizationID: subjectId,
-                                    messageID: message.id,
-                                },
-                            },
-                        },
-                    )
-                    if (error) throw error
-                }
-            }
-
-            toast.success(
-                event === "scheduled"
-                    ? t("inbox_message_scheduled", "Message schedule updated")
-                    : event === "archived"
-                      ? t("inbox_message_archived", "Message archived")
-                      : event === "unarchived"
-                        ? t("inbox_message_unarchived", "Message unarchived")
-                        : event === "unread"
-                          ? t("inbox_message_unread", "Message marked unread")
-                          : t("inbox_message_opened", "Message marked opened"),
-            )
-            await reload()
-        } catch {
-            toast.error(t("inbox_message_update_failed", "Failed to update inbox message"))
-        }
+    const rescheduleMessage = async (message: InboxMessage, scheduledAt: string) => {
+        await update.mutateAsync({ messageId: message.id, event: "scheduled", scheduledAt })
+        toast.success(successMessage("scheduled"))
     }
 
     const total = result?.total ?? 0
@@ -479,7 +176,7 @@ export default function InboxDetailTable({ subjectId, subjectType }: InboxDetail
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {result === null ? (
+                        {list.isPending ? (
                             Array.from({ length: 5 }).map((_, index) => (
                                 <TableRow key={index}>
                                     <TableCell className="p-0 pl-2">
@@ -508,6 +205,26 @@ export default function InboxDetailTable({ subjectId, subjectType }: InboxDetail
                                     </TableCell>
                                 </TableRow>
                             ))
+                        ) : list.isError || !result ? (
+                            <TableRow>
+                                <TableCell colSpan={7} className="h-32 text-center">
+                                    <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                                        <p>
+                                            {t(
+                                                "inbox_load_failed",
+                                                "Couldn't load inbox messages.",
+                                            )}
+                                        </p>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => list.refetch()}
+                                        >
+                                            {t("retry", "Retry")}
+                                        </Button>
+                                    </div>
+                                </TableCell>
+                            </TableRow>
                         ) : result.results.length === 0 ? (
                             <TableRow>
                                 <TableCell colSpan={7} className="h-48">
@@ -531,243 +248,16 @@ export default function InboxDetailTable({ subjectId, subjectType }: InboxDetail
                                 </TableCell>
                             </TableRow>
                         ) : (
-                            result.results.map((message) => {
-                                const visible = isMessageVisible(message)
-                                const settled = !!message.failed_at
-                                const channelMeta = getChannelMeta(message.channel, t)
-                                const ChannelIcon = channelMeta.icon
-                                const isExpanded = expandedMessageId === message.id
-                                const messageTitle =
-                                    typeof message.content?.title === "string"
-                                        ? message.content.title
-                                        : ""
-                                const messageBody =
-                                    typeof message.content?.body === "string"
-                                        ? message.content.body
-                                        : ""
-
-                                return (
-                                    <React.Fragment key={message.id}>
-                                        <TableRow
-                                            className={cn(
-                                                "cursor-pointer",
-                                                isExpanded && "bg-muted/50",
-                                            )}
-                                            onClick={() => toggleExpanded(message.id)}
-                                        >
-                                            <TableCell className="p-0 pl-3">
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    className="h-8 w-8 p-0"
-                                                    aria-expanded={isExpanded}
-                                                    aria-label={t(
-                                                        "toggle_message_details",
-                                                        "Toggle message details",
-                                                    )}
-                                                    onClick={(e) => {
-                                                        e.stopPropagation()
-                                                        toggleExpanded(message.id)
-                                                    }}
-                                                >
-                                                    {isExpanded ? (
-                                                        <ChevronDown
-                                                            className="h-4 w-4 text-muted-foreground"
-                                                            aria-hidden="true"
-                                                        />
-                                                    ) : (
-                                                        <ChevronRight
-                                                            className="h-4 w-4 text-muted-foreground"
-                                                            aria-hidden="true"
-                                                        />
-                                                    )}
-                                                </Button>
-                                            </TableCell>
-                                            <TableCell>
-                                                <div className="space-y-1">
-                                                    {messageTitle && (
-                                                        <div className="font-medium">
-                                                            {messageTitle}
-                                                        </div>
-                                                    )}
-                                                    {messageBody && (
-                                                        <div
-                                                            className={cn(
-                                                                "line-clamp-2 max-w-xl text-sm",
-                                                                messageTitle
-                                                                    ? "text-muted-foreground"
-                                                                    : "font-medium",
-                                                            )}
-                                                        >
-                                                            {messageBody}
-                                                        </div>
-                                                    )}
-                                                    {!messageTitle && !messageBody && (
-                                                        <span className="text-muted-foreground">
-                                                            —
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
-                                                    <ChannelIcon
-                                                        aria-hidden="true"
-                                                        className="h-3.5 w-3.5"
-                                                    />
-                                                    {channelMeta.label}
-                                                </span>
-                                            </TableCell>
-                                            <TableCell>{statusBadge(message, t)}</TableCell>
-                                            <TableCell>
-                                                {message.tags.length > 0 ? (
-                                                    <div className="flex flex-wrap gap-1">
-                                                        {message.tags.map((tag) => (
-                                                            <Badge key={tag} variant="outline">
-                                                                {tag}
-                                                            </Badge>
-                                                        ))}
-                                                    </div>
-                                                ) : (
-                                                    <span className="text-muted-foreground">—</span>
-                                                )}
-                                            </TableCell>
-                                            <TableCell className="text-muted-foreground whitespace-nowrap">
-                                                {!settled &&
-                                                new Date(message.scheduled_at) > new Date() ? (
-                                                    <DateTimeEdit
-                                                        value={message.scheduled_at}
-                                                        onSave={(newIso) =>
-                                                            updateMessage(
-                                                                message,
-                                                                "scheduled",
-                                                                newIso,
-                                                            )
-                                                        }
-                                                    >
-                                                        <span className="inline-flex items-center gap-1.5 text-sm">
-                                                            {formatDate(
-                                                                preferences,
-                                                                message.scheduled_at,
-                                                                "Pp",
-                                                            )}
-                                                        </span>
-                                                    </DateTimeEdit>
-                                                ) : (
-                                                    <span className="inline-flex items-center gap-1.5 text-sm">
-                                                        {formatDate(
-                                                            preferences,
-                                                            message.scheduled_at,
-                                                            "Pp",
-                                                        )}
-                                                    </span>
-                                                )}
-                                            </TableCell>
-                                            <TableCell>
-                                                <DropdownMenu modal={false}>
-                                                    <DropdownMenuTrigger asChild>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            className="h-8 w-8 p-0"
-                                                            aria-label={t("open_menu", "Open menu")}
-                                                            onClick={(e) => e.stopPropagation()}
-                                                        >
-                                                            <MoreHorizontal
-                                                                aria-hidden="true"
-                                                                className="h-4 w-4"
-                                                            />
-                                                        </Button>
-                                                    </DropdownMenuTrigger>
-                                                    <DropdownMenuContent align="end">
-                                                        {!message.read_at &&
-                                                            !message.archived_at &&
-                                                            visible &&
-                                                            !settled && (
-                                                                <DropdownMenuItem
-                                                                    onClick={() =>
-                                                                        updateMessage(
-                                                                            message,
-                                                                            "opened",
-                                                                        ).catch(console.error)
-                                                                    }
-                                                                >
-                                                                    <Check
-                                                                        aria-hidden="true"
-                                                                        className="mr-2 h-4 w-4"
-                                                                    />
-                                                                    {t("mark_read", "Mark as read")}
-                                                                </DropdownMenuItem>
-                                                            )}
-                                                        {!message.archived_at && visible && (
-                                                            <DropdownMenuItem
-                                                                onClick={() =>
-                                                                    updateMessage(
-                                                                        message,
-                                                                        "archived",
-                                                                    ).catch(console.error)
-                                                                }
-                                                            >
-                                                                <Archive
-                                                                    aria-hidden="true"
-                                                                    className="mr-2 h-4 w-4"
-                                                                />
-                                                                {t("archive", "Archive")}
-                                                            </DropdownMenuItem>
-                                                        )}
-                                                        {message.archived_at && visible && (
-                                                            <DropdownMenuItem
-                                                                onClick={() =>
-                                                                    updateMessage(
-                                                                        message,
-                                                                        "unarchived",
-                                                                    ).catch(console.error)
-                                                                }
-                                                            >
-                                                                <ArchiveRestore
-                                                                    aria-hidden="true"
-                                                                    className="mr-2 h-4 w-4"
-                                                                />
-                                                                {t("unarchive", "Unarchive")}
-                                                            </DropdownMenuItem>
-                                                        )}
-                                                        {message.read_at &&
-                                                            !message.archived_at &&
-                                                            visible &&
-                                                            !settled && (
-                                                                <DropdownMenuItem
-                                                                    onClick={() =>
-                                                                        updateMessage(
-                                                                            message,
-                                                                            "unread",
-                                                                        ).catch(console.error)
-                                                                    }
-                                                                >
-                                                                    <EyeOff
-                                                                        aria-hidden="true"
-                                                                        className="mr-2 h-4 w-4"
-                                                                    />
-                                                                    {t(
-                                                                        "mark_unread",
-                                                                        "Mark unread",
-                                                                    )}
-                                                                </DropdownMenuItem>
-                                                            )}
-                                                    </DropdownMenuContent>
-                                                </DropdownMenu>
-                                            </TableCell>
-                                        </TableRow>
-
-                                        {/* Expanded Row */}
-                                        {isExpanded && (
-                                            <MessageExpandedRow
-                                                key={`${message.id}-expanded`}
-                                                message={message}
-                                            />
-                                        )}
-                                    </React.Fragment>
-                                )
-                            })
+                            result.results.map((message) => (
+                                <InboxMessageRow
+                                    key={message.id}
+                                    message={message}
+                                    isExpanded={expandedMessageId === message.id}
+                                    onToggle={() => toggleExpanded(message.id)}
+                                    onUpdate={(event) => updateMessage(message, event)}
+                                    onReschedule={(newIso) => rescheduleMessage(message, newIso)}
+                                />
+                            ))
                         )}
                     </TableBody>
                 </Table>
@@ -826,291 +316,12 @@ export default function InboxDetailTable({ subjectId, subjectType }: InboxDetail
                 </div>
             </div>
 
-            {/* Create Inbox Message Dialog */}
-            <Dialog
+            <CreateInboxMessageDialog
                 open={isCreateOpen}
-                onOpenChange={(open) => {
-                    setIsCreateOpen(open)
-                    if (!open) resetForm()
-                }}
-            >
-                <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-                    <DialogHeader>
-                        <DialogTitle>{t("new_inbox_message", "New inbox message")}</DialogTitle>
-                        <DialogDescription>
-                            {t(
-                                "new_inbox_message_description",
-                                "Create a message that appears in this subject inbox.",
-                            )}
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                        <div className="grid sm:grid-cols-2 gap-4">
-                            <div className="grid gap-2 content-start">
-                                <Label htmlFor="inbox-channel">{t("channel", "Channel")} *</Label>
-                                <Select
-                                    value={channel}
-                                    onValueChange={(value) => {
-                                        setChannel(value as InboxChannel)
-                                        setSenderIdentityId("")
-                                    }}
-                                >
-                                    <SelectTrigger id="inbox-channel">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="inbox">{t("inbox", "Inbox")}</SelectItem>
-                                        <SelectItem value="email">{t("email", "Email")}</SelectItem>
-                                        <SelectItem value="sms">{t("sms", "SMS")}</SelectItem>
-                                        <SelectItem value="push">{t("push", "Push")}</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                <p className="text-xs text-muted-foreground">
-                                    {t(
-                                        "inbox_channel_help",
-                                        "Delivery channel the message represents.",
-                                    )}
-                                </p>
-                            </div>
-                            <div className="grid gap-2 content-start">
-                                {channel === "push" || channel === "inbox" ? (
-                                    <>
-                                        <Label>{t("sender", "Sender")}</Label>
-                                        <div className="flex items-start gap-2 rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
-                                            <Info
-                                                aria-hidden="true"
-                                                className="mt-0.5 h-4 w-4 shrink-0"
-                                            />
-                                            <span>
-                                                {channel === "inbox"
-                                                    ? t(
-                                                          "inbox_no_sender_needed",
-                                                          "Inbox messages do not require a sender identity.",
-                                                      )
-                                                    : t(
-                                                          "push_uses_project_settings",
-                                                          "Push messages use the project's push provider settings.",
-                                                      )}
-                                            </span>
-                                        </div>
-                                    </>
-                                ) : (
-                                    <>
-                                        <Label htmlFor="inbox-sender-identity">
-                                            {channel === "email"
-                                                ? t("from_address", "From address")
-                                                : t("from_number", "From number")}{" "}
-                                            *
-                                        </Label>
-                                        <SenderIdentityCombobox
-                                            projectId={project.id}
-                                            channel={channel === "email" ? "email" : "sms"}
-                                            value={senderIdentityId}
-                                            onChange={setSenderIdentityId}
-                                            placeholder={
-                                                channel === "email"
-                                                    ? t(
-                                                          "select_from_address",
-                                                          "Select from address...",
-                                                      )
-                                                    : t(
-                                                          "select_from_number",
-                                                          "Select from number...",
-                                                      )
-                                            }
-                                        />
-                                        <p className="text-xs text-muted-foreground">
-                                            {channel === "email"
-                                                ? t(
-                                                      "inbox_from_address_help",
-                                                      "Verified sender to use as the from address.",
-                                                  )
-                                                : t(
-                                                      "inbox_from_number_help",
-                                                      "Verified sender number to use.",
-                                                  )}
-                                        </p>
-                                    </>
-                                )}
-                            </div>
-                        </div>
-
-                        {channel !== "sms" && (
-                            <div className="grid gap-2">
-                                <Label htmlFor="inbox-title">
-                                    {channel === "email"
-                                        ? t("subject", "Subject")
-                                        : t("title", "Title")}{" "}
-                                    *
-                                </Label>
-                                <Input
-                                    id="inbox-title"
-                                    value={title}
-                                    onChange={(event) => setTitle(event.target.value)}
-                                    placeholder={
-                                        channel === "email"
-                                            ? t("inbox_subject_placeholder", "Message subject")
-                                            : t("inbox_title_placeholder", "Message title")
-                                    }
-                                />
-                            </div>
-                        )}
-
-                        <div className="grid gap-2">
-                            <Label htmlFor="inbox-body">
-                                {t("body", "Body")}
-                                {channel === "sms" ? " *" : ""}
-                            </Label>
-                            <Textarea
-                                id="inbox-body"
-                                value={body}
-                                onChange={(event) => setBody(event.target.value)}
-                                rows={4}
-                                placeholder={t(
-                                    "inbox_body_placeholder",
-                                    "Message body shown to the recipient",
-                                )}
-                            />
-                        </div>
-
-                        <div className="grid sm:grid-cols-2 gap-4">
-                            <div className="grid gap-2 content-start">
-                                <Label htmlFor="inbox-tags">{t("tags", "Tags")}</Label>
-                                <Input
-                                    id="inbox-tags"
-                                    value={tags}
-                                    onChange={(event) => setTags(event.target.value)}
-                                    placeholder={t("inbox_tags_placeholder", "billing, onboarding")}
-                                />
-                                <p className="text-xs text-muted-foreground">
-                                    {t(
-                                        "inbox_tags_help",
-                                        "Comma separated. Duplicates are removed.",
-                                    )}
-                                </p>
-                            </div>
-                            <div className="grid gap-2 content-start">
-                                <Label htmlFor="inbox-scheduled-at">
-                                    {t("scheduled_at", "Scheduled at")}
-                                </Label>
-                                <div className="flex gap-2">
-                                    <Input
-                                        id="inbox-scheduled-at"
-                                        type="date"
-                                        value={scheduledDate}
-                                        onChange={(event) =>
-                                            handleScheduledDateChange(event.target.value)
-                                        }
-                                    />
-                                    <Input
-                                        id="inbox-scheduled-time"
-                                        type="time"
-                                        value={scheduledTime}
-                                        onChange={(event) => setScheduledTime(event.target.value)}
-                                        disabled={!scheduledDate}
-                                    />
-                                </div>
-                                <p className="text-xs text-muted-foreground">
-                                    {t(
-                                        "inbox_scheduled_at_hint",
-                                        "Leave empty to publish the inbox message immediately.",
-                                    )}
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                    <DialogFooter>
-                        <Button
-                            variant="ghost"
-                            onClick={() => {
-                                setIsCreateOpen(false)
-                                resetForm()
-                            }}
-                            disabled={isCreating}
-                        >
-                            {t("cancel", "Cancel")}
-                        </Button>
-                        <Button
-                            onClick={createMessage}
-                            disabled={
-                                isCreating ||
-                                (channel === "sms" ? !body.trim() : !title.trim()) ||
-                                ((channel === "email" || channel === "sms") && !senderIdentityId)
-                            }
-                        >
-                            {isCreating ? t("creating", "Creating...") : t("create", "Create")}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+                onOpenChange={setIsCreateOpen}
+                subjectType={subjectType}
+                subjectId={subjectId}
+            />
         </div>
     )
-}
-
-function statusBadge(message: InboxMessage, t: TFunction) {
-    const failure = getMessageFailure(message, t)
-    if (failure) {
-        const FailureIcon = failure.icon
-        return (
-            <Tooltip>
-                <TooltipTrigger asChild>
-                    <div className="flex flex-col items-start gap-1">
-                        <Badge
-                            variant="outline"
-                            className={cn("gap-1", failureBadgeClassName(failure.kind))}
-                        >
-                            <FailureIcon aria-hidden="true" className="h-3 w-3" />
-                            {failure.label}
-                        </Badge>
-                        <span className="text-xs text-muted-foreground">{failure.reason}</span>
-                    </div>
-                </TooltipTrigger>
-                <TooltipContent className="max-w-xs">{failure.description}</TooltipContent>
-            </Tooltip>
-        )
-    }
-    if (!isMessageVisible(message)) {
-        return (
-            <Badge variant="outline" className="gap-1">
-                <CalendarClock aria-hidden="true" className="h-3 w-3" />
-                {t("scheduled", "Scheduled")}
-            </Badge>
-        )
-    }
-    if (!message.sent_at && new Date(message.scheduled_at) <= new Date()) {
-        return (
-            <Tooltip>
-                <TooltipTrigger asChild>
-                    <Badge
-                        variant="outline"
-                        className="border-0 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 gap-1"
-                    >
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                        {t("sending", "Sending")}
-                    </Badge>
-                </TooltipTrigger>
-                <TooltipContent>
-                    {t(
-                        "scheduled_sending_tooltip",
-                        "This message is scheduled to be sent out. It could take up to 1 minute to process.",
-                    )}
-                </TooltipContent>
-            </Tooltip>
-        )
-    }
-    if (message.archived_at) {
-        return (
-            <Badge variant="outline" className="border-0 bg-muted text-muted-foreground">
-                {t("archived", "Archived")}
-            </Badge>
-        )
-    }
-    if (message.read_at) {
-        return <Badge variant="secondary">{t("opened", "Opened")}</Badge>
-    }
-    return <Badge>{t("unread", "Unread")}</Badge>
-}
-
-function isMessageVisible(message: InboxMessage) {
-    return new Date(message.scheduled_at) <= new Date()
 }
