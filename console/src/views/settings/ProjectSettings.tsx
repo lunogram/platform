@@ -42,7 +42,10 @@ export default function ProjectSettings() {
 
     return (
         <>
+            {/* Keyed so moving to another project starts a fresh form instead of
+                keeping the values the previous project filled in. */}
             <ProjectForm
+                key={project.id}
                 project={project}
                 onSave={(project) => {
                     setProject(project)

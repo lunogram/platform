@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import api from "../../api"
 import type { Project } from "../../types"
 import { useTranslation } from "react-i18next"
@@ -66,6 +67,7 @@ interface ProjectFormProps {
 export default function ProjectForm({ project, onSave }: ProjectFormProps) {
     const { t } = useTranslation()
     const [saveError, setSaveError] = useState<string | null>(null)
+    const queryClient = useQueryClient()
     const timeZones = Intl.supportedValuesOf("timeZone")
     const browserLocale = navigator.languages[0] ?? "en"
     const defaults = project ?? {
@@ -99,6 +101,8 @@ export default function ProjectForm({ project, onSave }: ProjectFormProps) {
                 const updatedProject = id
                     ? await api.projects.update(id, params)
                     : await api.projects.create(params)
+                // The sidebar's project switcher lists names from this query.
+                void queryClient.invalidateQueries({ queryKey: ["projects", "list"] })
                 onSave?.(updatedProject)
             } catch (error) {
                 console.error("Failed to save project", error)
