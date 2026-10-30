@@ -237,7 +237,10 @@
                 "cancel": "Cancel",
                 "create": "Create Locale"
             }
-        }
+        },
+        "load_failed": "Couldn't load locales.",
+        "create_failed": "Couldn't create the locale",
+        "delete_failed": "Couldn't delete the locale"
     },
     "provider": {
         "select": {

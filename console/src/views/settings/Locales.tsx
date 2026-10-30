@@ -1,9 +1,11 @@
-import { useCallback, useContext, useState } from "react"
+import { useContext, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Globe, Plus, Search, MoreHorizontal } from "lucide-react"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { oapiClient } from "@/oapi/client"
+import { unwrap } from "@/oapi/unwrap"
+import { projectLocalesQuery } from "@/hooks/use-project-locales"
 import { ProjectContext } from "../../contexts"
-import { useResolver } from "../../hooks"
 import type { Locale } from "../../types"
 
 import { Button } from "@/components/ui/button"
@@ -41,18 +43,10 @@ export default function Locales() {
     const [open, setOpen] = useState(false)
     const [searchQuery, setSearchQuery] = useState("")
     const [selectedLocaleKey, setSelectedLocaleKey] = useState<string | undefined>()
-    const [isCreating, setIsCreating] = useState(false)
+    const queryClient = useQueryClient()
 
-    const [result, , reload] = useResolver(
-        useCallback(async () => {
-            const { data } = await oapiClient.GET("/api/admin/projects/{projectID}/locales", {
-                params: { path: { projectID: project.id }, query: { limit: 100 } },
-            })
-            return data ?? null
-        }, [project.id]),
-    )
-
-    const locales = result?.results ?? []
+    const list = useQuery(projectLocalesQuery(project.id))
+    const locales = list.data ?? []
     const filteredLocales = searchQuery
         ? locales.filter(
               (l) =>
@@ -64,29 +58,46 @@ export default function Locales() {
     // Keys already added to the project — exclude from picker
     const existingKeys = locales.map((l) => l.key)
 
-    const handleDeleteLocale = async (locale: Locale) => {
-        if (!confirm(t("locale.delete_confirmation"))) return
-        await oapiClient.DELETE("/api/admin/projects/{projectID}/locales/{localeID}", {
-            params: { path: { projectID: project.id, localeID: locale.id } },
-        })
-        await reload()
-    }
+    // Every locale picker reads this key, so they all see the change.
+    const invalidateLocales = () =>
+        queryClient.invalidateQueries({ queryKey: projectLocalesQuery(project.id).queryKey })
 
-    const handleCreate = async () => {
-        if (!selectedLocaleKey) return
-        setIsCreating(true)
-        try {
-            const label = resolveLocaleName(selectedLocaleKey)
-            await oapiClient.POST("/api/admin/projects/{projectID}/locales", {
-                params: { path: { projectID: project.id } },
-                body: { key: selectedLocaleKey, label },
-            })
-            await reload()
+    const deleteLocale = useMutation({
+        mutationFn: async (locale: Locale) =>
+            unwrap(
+                await oapiClient.DELETE("/api/admin/projects/{projectID}/locales/{localeID}", {
+                    params: { path: { projectID: project.id, localeID: locale.id } },
+                }),
+            ),
+        onSuccess: invalidateLocales,
+        meta: { errorMessage: t("locale.delete_failed", "Couldn't delete the locale") },
+    })
+
+    const createLocale = useMutation({
+        mutationFn: async (key: string) =>
+            unwrap(
+                await oapiClient.POST("/api/admin/projects/{projectID}/locales", {
+                    params: { path: { projectID: project.id } },
+                    body: { key, label: resolveLocaleName(key) },
+                }),
+            ),
+        onSuccess: async () => {
+            await invalidateLocales()
             setOpen(false)
             setSelectedLocaleKey(undefined)
-        } finally {
-            setIsCreating(false)
-        }
+        },
+        meta: { errorMessage: t("locale.create_failed", "Couldn't create the locale") },
+    })
+    const isCreating = createLocale.isPending
+
+    const handleDeleteLocale = (locale: Locale) => {
+        if (!confirm(t("locale.delete_confirmation"))) return
+        deleteLocale.mutate(locale)
+    }
+
+    const handleCreate = () => {
+        if (!selectedLocaleKey) return
+        createLocale.mutate(selectedLocaleKey)
     }
 
     return (
@@ -126,7 +137,7 @@ export default function Locales() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {result === null ? (
+                        {list.isPending ? (
                             Array.from({ length: 3 }).map((_, i) => (
                                 <TableRow key={i}>
                                     <TableCell>
@@ -140,6 +151,21 @@ export default function Locales() {
                                     </TableCell>
                                 </TableRow>
                             ))
+                        ) : list.isError ? (
+                            <TableRow>
+                                <TableCell colSpan={3} className="h-32 text-center">
+                                    <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                                        <p>{t("locale.load_failed", "Couldn't load locales.")}</p>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => list.refetch()}
+                                        >
+                                            {t("retry", "Retry")}
+                                        </Button>
+                                    </div>
+                                </TableCell>
+                            </TableRow>
                         ) : filteredLocales.length === 0 ? (
                             <TableRow>
                                 <TableCell colSpan={3} className="h-32 text-center">
@@ -193,9 +219,7 @@ export default function Locales() {
                                             <DropdownMenuContent align="end">
                                                 <DropdownMenuItem
                                                     className="text-destructive"
-                                                    onClick={async () =>
-                                                        await handleDeleteLocale(locale)
-                                                    }
+                                                    onClick={() => handleDeleteLocale(locale)}
                                                 >
                                                     {t("delete")}
                                                 </DropdownMenuItem>
