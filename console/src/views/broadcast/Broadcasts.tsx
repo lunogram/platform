@@ -1,11 +1,11 @@
-import { useCallback, useContext, useEffect, useState, useRef } from "react"
+import { useCallback, useContext, useState, useRef } from "react"
 import { useNavigate } from "react-router"
 import { useTranslation } from "react-i18next"
+import { useQuery } from "@tanstack/react-query"
 import {
     Search,
     ChevronLeft,
     ChevronRight,
-    ArrowRight,
     Radio,
     Mail,
     Smartphone,
@@ -14,14 +14,14 @@ import {
     CalendarClock,
 } from "lucide-react"
 
-import oapiClient from "../../oapi/client"
-import { useResolver } from "../../hooks"
 import { formatDate } from "../../utils"
 import { getRandomColor } from "@/lib/colors"
 import { ProjectContext } from "../../contexts"
 import { PreferencesContext } from "@/contexts/PreferencesContext"
 
 import { CreateBroadcastDialog } from "./CreateBroadcastDialog"
+import { BroadcastTipCard } from "./BroadcastTipCard"
+import { BROADCAST_PAGE_SIZE, broadcastListQuery } from "./queries"
 
 import type { Broadcast, BroadcastState, ChannelType } from "@/types"
 
@@ -91,7 +91,7 @@ export default function Broadcasts() {
     const [isCreateOpen, setIsCreateOpen] = useState(false)
     const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>()
 
-    const pageSize = 15
+    const pageSize = BROADCAST_PAGE_SIZE
     const [offset, setOffset] = useState(0)
 
     const handleSearch = useCallback((value: string) => {
@@ -103,37 +103,12 @@ export default function Broadcasts() {
         }, 300)
     }, [])
 
-    const [result, , reload] = useResolver(
-        useCallback(async () => {
-            const { data } = await oapiClient.GET("/api/admin/projects/{projectID}/broadcasts", {
-                params: {
-                    path: { projectID: project.id },
-                    query: {
-                        limit: pageSize,
-                        offset,
-                        search: debouncedQuery || undefined,
-                    },
-                },
-            })
-            return data
-                ? { results: (data.results ?? []) as Broadcast[], total: data.total ?? 0 }
-                : { results: [] as Broadcast[], total: 0 }
-        }, [project.id, debouncedQuery, offset]),
-    )
-
-    const broadcasts = result?.results
-    const total = result?.total ?? 0
+    // Polls while a broadcast is sending or scheduled (see broadcastListQuery).
+    const list = useQuery(broadcastListQuery(project.id, { offset, search: debouncedQuery }))
+    const broadcasts = list.data?.results
+    const total = list.data?.total ?? 0
     const hasNextPage = offset + pageSize < total
     const hasPrevPage = offset > 0
-
-    // Poll every 5s when any broadcast is in "sending" or "scheduled" state
-    useEffect(() => {
-        if (!broadcasts?.some((b) => b.state === "sending" || b.state === "scheduled")) return
-        const interval = setInterval(() => {
-            reload()
-        }, 5000)
-        return () => clearInterval(interval)
-    }, [broadcasts, reload])
 
     const handleNextPage = () => {
         setOffset((prev) => prev + pageSize)
@@ -213,7 +188,7 @@ export default function Broadcasts() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {!broadcasts ? (
+                        {list.isPending ? (
                             Array.from({ length: 5 }).map((_, i) => (
                                 <TableRow key={i}>
                                     <TableCell>
@@ -239,6 +214,26 @@ export default function Broadcasts() {
                                     </TableCell>
                                 </TableRow>
                             ))
+                        ) : !broadcasts ? (
+                            <TableRow>
+                                <TableCell colSpan={5} className="h-32 text-center">
+                                    <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                                        <p>
+                                            {t(
+                                                "broadcasts_load_failed",
+                                                "Couldn't load broadcasts.",
+                                            )}
+                                        </p>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => list.refetch()}
+                                        >
+                                            {t("retry", "Retry")}
+                                        </Button>
+                                    </div>
+                                </TableCell>
+                            </TableRow>
                         ) : broadcasts.length === 0 ? (
                             <TableRow>
                                 <TableCell colSpan={5} className="h-32 text-center">
@@ -386,50 +381,7 @@ export default function Broadcasts() {
                 )}
             </div>
 
-            {/* Tip Card */}
-            <div className="group relative overflow-hidden rounded-lg bg-gradient-to-br from-primary/10 via-primary/5 to-transparent border p-4 sm:p-6">
-                <div className="relative z-10 max-w-md">
-                    <h3 className="font-semibold text-foreground">
-                        {t("broadcast_tip_title", "Send campaigns to lists")}
-                    </h3>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                        {t(
-                            "broadcast_tip_description",
-                            "Broadcasts let you send a campaign to an entire list at once. Perfect for newsletters, announcements, and promotions.",
-                        )}
-                    </p>
-                    <Button
-                        variant="link"
-                        className="mt-2 h-auto p-0 text-primary"
-                        onClick={() => window.open("/api/", "_blank")}
-                    >
-                        {t("view_api_docs", "View API documentation")}
-                        <ArrowRight className="ml-1 h-3 w-3 transition-transform duration-300 group-hover:translate-x-1" />
-                    </Button>
-                </div>
-
-                {/* Decorative elements */}
-                <div className="absolute -right-6 -bottom-6 flex gap-4">
-                    <div className="hidden sm:flex h-20 w-20 items-center justify-center rounded-xl bg-primary/10 rotate-12 transition-all duration-500 ease-out group-hover:rotate-6 group-hover:-translate-y-2 group-hover:bg-primary/15">
-                        <Radio
-                            className="h-10 w-10 text-primary/40 transition-all duration-500 group-hover:text-primary/60 group-hover:scale-110"
-                            strokeWidth={1.25}
-                        />
-                    </div>
-                    <div className="flex h-20 w-20 items-center justify-center rounded-xl bg-primary/10 -rotate-6 translate-y-4 transition-all duration-500 ease-out delay-75 group-hover:rotate-3 group-hover:translate-y-0 group-hover:bg-primary/15">
-                        <Mail
-                            className="h-10 w-10 text-primary/40 transition-all duration-500 delay-75 group-hover:text-primary/60 group-hover:scale-110"
-                            strokeWidth={1.25}
-                        />
-                    </div>
-                    <div className="flex h-20 w-20 items-center justify-center rounded-xl bg-primary/10 rotate-12 -translate-y-2 transition-all duration-500 ease-out delay-150 group-hover:-rotate-6 group-hover:-translate-y-4 group-hover:bg-primary/15">
-                        <Smartphone
-                            className="h-10 w-10 text-primary/40 transition-all duration-500 delay-150 group-hover:text-primary/60 group-hover:scale-110"
-                            strokeWidth={1.25}
-                        />
-                    </div>
-                </div>
-            </div>
+            <BroadcastTipCard />
         </div>
     )
 }
