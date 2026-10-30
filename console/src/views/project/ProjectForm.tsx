@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next"
 import type { UseFormReturn } from "react-hook-form"
 import { Controller, FormProvider, useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { projectFormSchema } from "@/validation/project/project-form"
+import { projectFormSchema, type ProjectFormValues } from "@/validation/project/project-form"
 import { Globe, MessageSquareText } from "lucide-react"
 
 import { Input } from "@/components/ui/input"
@@ -70,17 +70,16 @@ export default function ProjectForm({ project, onSave }: ProjectFormProps) {
     const queryClient = useQueryClient()
     const timeZones = Intl.supportedValuesOf("timeZone")
     const browserLocale = navigator.languages[0] ?? "en"
-    const defaults = project ?? {
+    const defaults: Partial<ProjectFormValues> = project ?? {
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         locale: browserLocale,
     }
-    const form = useForm<Project>({
+    const form = useForm<ProjectFormValues>({
         resolver: zodResolver(projectFormSchema),
         defaultValues: defaults,
     })
     const handleSubmit = form.handleSubmit(
         async ({
-            id,
             name,
             description,
             locale,
@@ -98,8 +97,8 @@ export default function ProjectForm({ project, onSave }: ProjectFormProps) {
             }
 
             try {
-                const updatedProject = id
-                    ? await api.projects.update(id, params)
+                const updatedProject = project?.id
+                    ? await api.projects.update(project.id, params)
                     : await api.projects.create(params)
                 // The sidebar's project switcher lists names from this query.
                 void queryClient.invalidateQueries({ queryKey: ["projects", "list"] })
@@ -374,7 +373,7 @@ export default function ProjectForm({ project, onSave }: ProjectFormProps) {
     )
 }
 
-export function ProjectSettingsFields({ form }: { form: UseFormReturn<Project> }) {
+export function ProjectSettingsFields({ form }: { form: UseFormReturn<ProjectFormValues> }) {
     const { t } = useTranslation()
     return (
         <>
