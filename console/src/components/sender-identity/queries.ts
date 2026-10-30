@@ -1,6 +1,6 @@
 import { queryOptions, useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query"
 import { t } from "i18next"
-import { oapiClient } from "@/oapi/client"
+import { oapiClient, type Provider } from "@/oapi/client"
 import { unwrap } from "@/oapi/unwrap"
 
 type SenderChannel = "email" | "sms"
@@ -50,16 +50,32 @@ export function senderIdentityQuery(projectId: string, senderIdentityId: string)
     })
 }
 
-/** The project's providers (integrations) that can send on a channel. */
+/**
+ * The project's providers (integrations) that can send on a channel.
+ *
+ * The cache entry holds every provider of the project: the settings pages read
+ * the same key, so it must never hold just the first page.
+ */
 export function channelProvidersQuery(projectId: string, channel: SenderChannel) {
     return queryOptions({
         queryKey: ["projects", projectId, "providers", "list"] as const,
-        queryFn: async () =>
-            unwrap(
-                await oapiClient.GET("/api/admin/projects/{projectID}/providers", {
-                    params: { path: { projectID: projectId } },
-                }),
-            ).results ?? [],
+        queryFn: async () => {
+            const providers: Provider[] = []
+            for (;;) {
+                const page = unwrap(
+                    await oapiClient.GET("/api/admin/projects/{projectID}/providers", {
+                        params: {
+                            path: { projectID: projectId },
+                            // The API's maximum page size.
+                            query: { limit: 100, offset: providers.length },
+                        },
+                    }),
+                )
+                const results = page.results ?? []
+                providers.push(...results)
+                if (results.length === 0 || providers.length >= page.total) return providers
+            }
+        },
         select: (providers) => providers.filter((p) => p.channels?.includes(channel)),
     })
 }
