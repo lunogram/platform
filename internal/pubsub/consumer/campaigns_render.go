@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lunogram/platform/internal/node/metrics"
 	"github.com/lunogram/platform/internal/providers/channels"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
@@ -56,31 +57,98 @@ func userToMap(user *subjects.User) map[string]any {
 	return m
 }
 
-// selectTemplate picks the best template for a user based on locale.
-// Priority: user's locale → project's default locale → first template.
-func selectTemplate(templates management.Templates, user *subjects.User, project *management.Project) management.Template {
-	if len(templates) == 1 {
-		return templates[0]
+// resolveVariant works out which template variant a send must use.
+//
+// A selector on the event wins - a journey step or a broadcast has decided for
+// this send in particular. Otherwise the campaign's own selector runs, against
+// the same context the templates render against, so a project can drive
+// branding off recipient data such as "{{ user.data.tenant }}" without
+// configuring anything per send. Neither present means the default variant.
+//
+// A selector that fails to resolve also yields the default variant. Expressions
+// are customer-authored and a broken one must not take a campaign down; the
+// fallback is counted where the template is selected.
+func resolveVariant(logger *zap.Logger, campaign *management.Campaign, event schemas.SendCampaign, data map[string]any) string {
+	selector := event.Variant
+	if selector == nil {
+		selector = campaign.Variants.Data.Selector
 	}
 
-	byLocale := make(map[string]management.Template, len(templates))
-	for _, t := range templates {
+	if selector == nil {
+		return ""
+	}
+
+	resolved, err := selector.Resolve(data)
+	if err != nil {
+		logger.Warn("failed to resolve variant selector, using default variant",
+			zap.Error(err),
+			zap.String("selector_type", string(selector.Type)))
+		return ""
+	}
+
+	return resolved
+}
+
+// selectTemplate picks the template for a send, narrowing by variant before
+// applying the locale rules.
+//
+// Locale priority within a variant is unchanged: user's locale → project's
+// default locale → first template. A variant carrying no template for this
+// campaign falls back to the default variant rather than failing, because a
+// missing white-label template must not stop a message going out; callers see
+// that happened by comparing the returned template's Variant against the one
+// they asked for.
+func selectTemplate(templates management.Templates, variant string, user *subjects.User, project *management.Project) (management.Template, error) {
+	if len(templates) == 0 {
+		return management.Template{}, Permanentf("campaign has no templates")
+	}
+
+	candidates := templatesForVariant(templates, variant)
+	if len(candidates) == 0 {
+		candidates = templatesForVariant(templates, "")
+	}
+
+	// Neither the requested variant nor the default has a template - the
+	// default one can be deleted, so this is reachable. Every remaining
+	// template belongs to some other variant, and sending one would put another
+	// client's wording and sending domain in front of this recipient. Refuse:
+	// crossing a variant boundary is worse than not sending.
+	if len(candidates) == 0 {
+		return management.Template{}, Permanentf("campaign has no template for variant %q and none for the default variant", variant)
+	}
+
+	if len(candidates) == 1 {
+		return candidates[0], nil
+	}
+
+	byLocale := make(map[string]management.Template, len(candidates))
+	for _, t := range candidates {
 		byLocale[t.Locale] = t
 	}
 
 	if user != nil && user.Locale != nil {
 		if t, ok := byLocale[*user.Locale]; ok {
-			return t
+			return t, nil
 		}
 	}
 
 	if project != nil {
 		if t, ok := byLocale[project.Locale]; ok {
-			return t
+			return t, nil
 		}
 	}
 
-	return templates[0]
+	return candidates[0], nil
+}
+
+func templatesForVariant(templates management.Templates, variant string) management.Templates {
+	matched := make(management.Templates, 0, len(templates))
+	for _, template := range templates {
+		if template.Variant == variant {
+			matched = append(matched, template)
+		}
+	}
+	return matched
 }
 
 // buildRenderData builds the Liquid render context for a campaign send.
@@ -127,7 +195,12 @@ type renderedCampaignInboxMessage struct {
 	Channel          providers.Channel
 	SenderIdentityID *uuid.UUID
 	TemplateID       uuid.UUID
-	RenderedPayload  json.RawMessage
+	// Variant is the variant actually rendered, which is not always the one
+	// the send asked for: a missing white-label template falls back to the
+	// default. Recording it makes the branding a recipient received auditable
+	// without re-deriving it from the template.
+	Variant         string
+	RenderedPayload json.RawMessage
 }
 
 type renderedPushDispatch struct {
@@ -146,13 +219,27 @@ type renderedPushPayload struct {
 }
 
 func renderCampaignInboxMessages(ctx context.Context, logger *zap.Logger, mgmt *management.State, usrs *subjects.State, renderer *pubsub.EmailRenderer, publicURL string, linkKey []byte, trackingURL string, event schemas.SendCampaign, campaign *management.Campaign, project *management.Project, user *subjects.User) ([]renderedCampaignInboxMessage, error) {
-	template := selectTemplate(campaign.Templates, user, project)
 	channel := providers.Channel(campaign.Channel)
 	data := buildRenderData(publicURL, user, campaign, event.Variables)
 
+	variant := resolveVariant(logger, campaign, event, data)
+	template, err := selectTemplate(campaign.Templates, variant, user, project)
+	if err != nil {
+		return nil, err
+	}
+
+	outcome := "matched"
+	if template.Variant != variant {
+		outcome = "fallback"
+		logger.Warn("no template for requested variant, falling back",
+			zap.String("requested_variant", variant),
+			zap.String("selected_variant", template.Variant),
+			zap.Stringer("template_id", template.ID))
+	}
+	metrics.CampaignVariantSelectionsTotal.WithLabelValues(event.ProjectID.String(), outcome).Inc()
+
 	switch channel {
 	case providers.ChannelEmail:
-		var err error
 		template.Data, err = channels.ComposeEmailTemplateData(ctx, renderer, event.ProjectID, template.Data, data)
 		if err != nil {
 			return nil, fmt.Errorf("compose email template data: %w", err)
@@ -163,7 +250,6 @@ func renderCampaignInboxMessages(ctx context.Context, logger *zap.Logger, mgmt *
 			return nil, Permanent(err)
 		}
 	case providers.ChannelSMS, providers.ChannelPush, providers.ChannelInbox:
-		var err error
 		template.Data, err = render.RenderJSON(template.Data, data)
 		if err != nil {
 			return nil, Permanent(err)
@@ -180,6 +266,7 @@ func renderCampaignInboxMessages(ctx context.Context, logger *zap.Logger, mgmt *
 		return []renderedCampaignInboxMessage{{
 			Channel:         channel,
 			TemplateID:      template.ID,
+			Variant:         template.Variant,
 			RenderedPayload: template.Data,
 		}}, nil
 	}
@@ -236,6 +323,7 @@ func renderCampaignInboxMessages(ctx context.Context, logger *zap.Logger, mgmt *
 		return []renderedCampaignInboxMessage{{
 			Channel:         channel,
 			TemplateID:      template.ID,
+			Variant:         template.Variant,
 			RenderedPayload: payload,
 		}}, nil
 	}
@@ -275,6 +363,7 @@ func renderCampaignInboxMessages(ctx context.Context, logger *zap.Logger, mgmt *
 		Channel:          channel,
 		SenderIdentityID: template.SenderIdentityID,
 		TemplateID:       template.ID,
+		Variant:          template.Variant,
 		RenderedPayload:  request.Payload,
 	}}, nil
 }

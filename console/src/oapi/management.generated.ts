@@ -3039,6 +3039,7 @@ export interface components {
              * @example 52f3f921-1343-48af-b795-87c0fd3b44aa
              */
             campaign_id: string;
+            variant?: components["schemas"]["VariantSelector"];
         };
         /** @description Data for action step - execute WASM action */
         ActionStepData: {
@@ -3330,6 +3331,7 @@ export interface components {
             /** @example false */
             transactional?: boolean;
             variables?: components["schemas"]["CampaignVariable"][];
+            variants?: components["schemas"]["CampaignVariants"];
         };
         CampaignVariable: {
             /**
@@ -3343,12 +3345,54 @@ export interface components {
              */
             default?: string;
         };
+        CampaignVariant: {
+            /**
+             * @description The value a send resolves against to pick this variant's templates. Lowercase letters, digits, dashes and underscores, starting with a letter or digit. The empty key is the default variant and is never declared here.
+             * @example acme
+             */
+            key: string;
+            /**
+             * @description Human readable name shown in the console
+             * @example Acme Corp
+             */
+            label?: string;
+        };
+        /** @description Decides which template variant a send uses. The same shape appears on a campaign, on a journey campaign step and on a broadcast; the most specific layer wins. A static selector pins one variant for every recipient and is rejected when the campaign does not declare its key. An expression selector resolves a variant per recipient and can only be judged at send time, so one that resolves to an unknown variant falls back to the default variant. */
+        VariantSelector: {
+            /**
+             * @description Whether the variant is pinned or resolved per recipient
+             * @example expression
+             * @enum {string}
+             */
+            type: "static" | "expression";
+            /**
+             * @description Variant key, used when type is static. An empty key pins the default variant, which is how one send is forced back to house branding past a campaign that resolves a client brand per recipient. That differs from omitting the selector entirely, which defers to the campaign.
+             * @example acme
+             */
+            key?: string;
+            /**
+             * @description Liquid expression. Required when type is expression.
+             * @example {{ user.data.tenant }}
+             */
+            expression?: string;
+        };
+        /** @description A campaign's declared variants together with the rule that picks between them when a send does not pick one itself. */
+        CampaignVariants: {
+            selector?: components["schemas"]["VariantSelector"];
+            /** @description The variants this campaign declares. The default variant is always available and is not listed here. */
+            options?: components["schemas"]["CampaignVariant"][];
+        };
         CreateTemplate: {
             /**
              * @description The locale/language code for the template
              * @example en
              */
             locale: string;
+            /**
+             * @description The variant this template belongs to. Empty selects the default variant, which is the branding every campaign starts with.
+             * @example acme
+             */
+            variant?: string;
             /** @description Template-specific data based on type. Structure varies by template type. */
             data?: {
                 [key: string]: unknown;
@@ -3413,6 +3457,7 @@ export interface components {
             transactional: boolean;
             templates: components["schemas"]["Template"][];
             variables?: components["schemas"]["CampaignVariable"][];
+            variants?: components["schemas"]["CampaignVariants"];
             delivery: components["schemas"]["Delivery"];
             /**
              * @description Whether the campaign has been archived
@@ -3691,6 +3736,11 @@ export interface components {
             data: components["schemas"]["EmailTemplateData"] | components["schemas"]["SmsTemplateData"] | components["schemas"]["PushTemplateData"];
             /** @example en */
             locale: string;
+            /**
+             * @description The variant this template belongs to. Empty is the default variant.
+             * @example acme
+             */
+            variant: string;
             /**
              * Format: uuid
              * @description The ID of the sender identity to use for this template
@@ -5433,6 +5483,7 @@ export interface components {
              * @description Optional scheduled send time. If provided, the broadcast is created in 'scheduled' state.
              */
             scheduled_at?: string;
+            variant?: components["schemas"]["VariantSelector"];
         };
         UpdateBroadcast: {
             /**
@@ -5454,6 +5505,7 @@ export interface components {
             list_name: string;
             /** @description Snapshot of the list type at broadcast creation time */
             list_type: string;
+            variant?: components["schemas"]["VariantSelector"];
             state: components["schemas"]["BroadcastState"];
             /**
              * @description Total number of users in the audience at send time

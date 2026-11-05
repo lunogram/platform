@@ -228,10 +228,13 @@ type DelayStepData struct {
 	ExclusionDays *[]int              `json:"exclusion_days,omitempty"`
 }
 
-// CampaignStepData represents data for campaign step - send campaign
+// CampaignStepData represents data for campaign step - send campaign.
+// Variant overrides the campaign's own selector for this step; an expression is
+// resolved against the journey context.
 type CampaignStepData struct {
 	CampaignId uuid.UUID         `json:"campaign_id" yaml:"campaign_id"`
 	Data       map[string]string `json:"data,omitempty" yaml:"data,omitempty"`
+	Variant    *VariantSelector  `json:"variant,omitempty" yaml:"variant,omitempty"`
 }
 
 // ActionStepData represents data for action step - execute WASM action

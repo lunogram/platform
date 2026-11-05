@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -151,7 +152,25 @@ func (srv *TemplatesController) CreateTemplate(w http.ResponseWriter, r *http.Re
 		senderIdentityID = &id
 	}
 
-	templateID, err := srv.store.TemplatesStore.CreateTemplate(ctx, projectID, campaignID, campaign.Channel, body.Locale, senderIdentityID)
+	variant := ""
+	if body.Variant != nil {
+		variant = strings.TrimSpace(*body.Variant)
+	}
+
+	if variant != "" && !variantsAvailable {
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("template variants are not available in the open-source version")))
+		return
+	}
+
+	// A template for a variant the campaign never declared is unreachable: no
+	// send resolves to it, and the console has no name to show it under. Reject
+	// it here rather than letting it accumulate as a template nobody can find.
+	if !campaign.Variants.Data.Has(variant) {
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("campaign does not declare variant "+variant)))
+		return
+	}
+
+	templateID, err := srv.store.TemplatesStore.CreateTemplate(ctx, projectID, campaignID, campaign.Channel, body.Locale, variant, senderIdentityID)
 	if err != nil {
 		logger.Error("failed to create template", zap.Error(err))
 		oapi.WriteProblem(w, err)

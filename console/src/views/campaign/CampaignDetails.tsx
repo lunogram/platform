@@ -11,6 +11,7 @@ import { useResolver } from "@/hooks"
 
 import { channels } from "./template/channels"
 import { CampaignVariables } from "./CampaignVariables"
+import { CampaignVariants } from "./CampaignVariants"
 
 import { CampaignVariableProvider } from "./CampaignVariableContext"
 import { Tabs, TabsContent } from "@/components/ui/tabs"
@@ -39,6 +40,7 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
     const [isBroadcastOpen, setIsBroadcastOpen] = useState(false)
     const [isTransactional, setTransactional] = useState(campaign.transactional ?? false)
     const [subscriptionId, setSubscriptionId] = useState<string>(campaign.subscription_id ?? "")
+    const [variants, setVariants] = useState(campaign.variants ?? {})
 
     const [subscriptions] = useResolver(
         useCallback(async (): Promise<Subscription[]> => {
@@ -89,6 +91,12 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
                 transactional: isTransactional,
                 subscription_id: isTransactional ? undefined : effectiveSubscriptionId || undefined,
                 variables: data.variables.filter((v) => v.name),
+                ...(isEnterprise && {
+                    variants: {
+                        ...variants,
+                        options: (variants.options ?? []).filter((v) => v.key),
+                    },
+                }),
             })
 
             setCampaign(updatedCampaign)
@@ -158,6 +166,27 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
                                     )}
                                 />
                             </FieldGroup>
+
+                            {isEnterprise && (
+                                <FieldGroup>
+                                    <Field className="gap-2">
+                                        <FieldLabel>
+                                            {t("campaign.variants.label", "Variants")}
+                                        </FieldLabel>
+                                        <FieldDescription>
+                                            {t(
+                                                "campaign.variants.description",
+                                                "Give a client this campaign in their own design or wording. Each variant gets its own templates.",
+                                            )}
+                                        </FieldDescription>
+                                        <CampaignVariants
+                                            value={variants}
+                                            templates={campaign.templates ?? []}
+                                            onChange={setVariants}
+                                        />
+                                    </Field>
+                                </FieldGroup>
+                            )}
 
                             <div className="flex items-center justify-between rounded-md border p-3">
                                 <div className="space-y-1">

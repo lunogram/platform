@@ -741,6 +741,28 @@ export interface CampaignVariable {
     default?: string
 }
 
+export interface CampaignVariant {
+    key: string
+    label?: string
+}
+
+export type VariantSelectorType = "static" | "expression"
+
+/**
+ * Decides which template variant a send uses. The same shape appears on a
+ * campaign, a journey campaign step and a broadcast; the most specific wins.
+ */
+export interface VariantSelector {
+    type: VariantSelectorType
+    key?: string
+    expression?: string
+}
+
+export interface CampaignVariants {
+    selector?: VariantSelector
+    options?: CampaignVariant[]
+}
+
 export interface Campaign {
     id: UUID
     project_id: UUID
@@ -752,6 +774,7 @@ export interface Campaign {
     transactional?: boolean
     templates: Template[]
     variables: CampaignVariable[]
+    variants: CampaignVariants
     created_at: string
     updated_at: string
 }
@@ -861,6 +884,7 @@ export type Template<
     campaign_id: UUID
     type: ChannelType
     locale: string
+    variant: string
     sender_identity_id: UUID | null
     data: DataObjectType
     screenshot_url: string
@@ -885,9 +909,8 @@ export type Template<
       }
 )
 
-export type TemplateCreateParams = Pick<Template, "data" | "locale">
+export type TemplateCreateParams = Pick<Template, "data" | "locale"> & { variant?: string }
 export type TemplateUpdateParams = Pick<Template, "data" | "sender_identity_id">
-export type VariantUpdateParams = { id?: UUID }
 
 export interface TemplatePreviewParams {
     user: Record<string, unknown>

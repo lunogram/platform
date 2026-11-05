@@ -111,6 +111,10 @@ func BroadcastBatchHandler(logger *zap.Logger, mgmt *management.State, usrs *sub
 				UserID:      userID,
 				CampaignID:  broadcast.CampaignID,
 				BroadcastID: &event.BroadcastID,
+				// Passed through unresolved: an expression selector here has
+				// to run once per recipient, and only the render step has the
+				// context to do that. Nil defers to the campaign's selector.
+				Variant: broadcast.Variant.Data,
 			}
 
 			// Deterministic message ID so that if NATS redelivers this batch

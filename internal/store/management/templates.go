@@ -27,6 +27,7 @@ type Template struct {
 	Type             string          `db:"type"`
 	Data             json.RawMessage `db:"data"`
 	Locale           string          `db:"locale"`
+	Variant          string          `db:"variant"`
 	SenderIdentityID *uuid.UUID      `db:"sender_identity_id"`
 	CreatedAt        time.Time       `db:"created_at"`
 	UpdatedAt        time.Time       `db:"updated_at"`
@@ -39,6 +40,7 @@ func (template Template) OAPI() oapi.Template {
 		Type:             oapi.Channel(template.Type),
 		Data:             template.Data,
 		Locale:           template.Locale,
+		Variant:          template.Variant,
 		SenderIdentityId: template.SenderIdentityID,
 		ProjectId:        template.ProjectID,
 		UpdatedAt:        template.UpdatedAt,
@@ -54,15 +56,15 @@ type TemplatesStore struct {
 	db store.DB
 }
 
-func (s *TemplatesStore) CreateTemplate(ctx context.Context, projectID, campaignID uuid.UUID, channel string, locale string, senderIdentityID *uuid.UUID) (uuid.UUID, error) {
+func (s *TemplatesStore) CreateTemplate(ctx context.Context, projectID, campaignID uuid.UUID, channel string, locale string, variant string, senderIdentityID *uuid.UUID) (uuid.UUID, error) {
 	// TODO: remove channel type, this type is needed within the "legacy" NodeJS back-end
 	stmt := `
-	INSERT INTO templates (project_id, campaign_id, type, locale, sender_identity_id)
-	VALUES ($1, $2, $3, $4, $5)
+	INSERT INTO templates (project_id, campaign_id, type, locale, variant, sender_identity_id)
+	VALUES ($1, $2, $3, $4, $5, $6)
 	RETURNING id`
 
 	var id uuid.UUID
-	err := s.db.QueryRowContext(ctx, stmt, projectID, campaignID, channel, locale, senderIdentityID).Scan(&id)
+	err := s.db.QueryRowContext(ctx, stmt, projectID, campaignID, channel, locale, variant, senderIdentityID).Scan(&id)
 	if err != nil {
 		return uuid.Nil, err
 	}
@@ -72,7 +74,7 @@ func (s *TemplatesStore) CreateTemplate(ctx context.Context, projectID, campaign
 
 func (s *TemplatesStore) GetTemplate(ctx context.Context, projectID, templateID uuid.UUID) (*Template, error) {
 	query := `
-	SELECT templates.id, templates.project_id, templates.campaign_id, campaigns.channel AS type, templates.data, templates.locale, templates.sender_identity_id, templates.created_at, templates.updated_at
+	SELECT templates.id, templates.project_id, templates.campaign_id, campaigns.channel AS type, templates.data, templates.locale, templates.variant, templates.sender_identity_id, templates.created_at, templates.updated_at
 	FROM templates
 	JOIN campaigns ON templates.campaign_id = campaigns.id
 	WHERE templates.project_id = $1
@@ -89,7 +91,7 @@ func (s *TemplatesStore) GetTemplate(ctx context.Context, projectID, templateID 
 
 func (s *TemplatesStore) ListTemplates(ctx context.Context, projectID, campaignID uuid.UUID) ([]Template, error) {
 	query := `
-	SELECT templates.id, templates.project_id, templates.campaign_id, campaigns.channel AS type, templates.data, templates.locale, templates.sender_identity_id, templates.created_at, templates.updated_at
+	SELECT templates.id, templates.project_id, templates.campaign_id, campaigns.channel AS type, templates.data, templates.locale, templates.variant, templates.sender_identity_id, templates.created_at, templates.updated_at
 	FROM templates
 	JOIN campaigns ON templates.campaign_id = campaigns.id
 	WHERE templates.project_id = $1
@@ -139,8 +141,8 @@ func (s *TemplatesStore) DeleteTemplate(ctx context.Context, projectID, template
 
 func (s *TemplatesStore) DuplicateTemplate(ctx context.Context, projectID, templateID, newCampaignID uuid.UUID) error {
 	query := `
-	INSERT INTO templates (project_id, campaign_id, type, data, locale, sender_identity_id)
-	SELECT project_id, $1, type, data, locale, sender_identity_id
+	INSERT INTO templates (project_id, campaign_id, type, data, locale, variant, sender_identity_id)
+	SELECT project_id, $1, type, data, locale, variant, sender_identity_id
 	FROM templates
 	WHERE project_id = $2
 	AND id = $3`
