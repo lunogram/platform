@@ -1,4 +1,4 @@
-import { useCallback, useContext, useEffect, useMemo, useState } from "react"
+import { useContext, useEffect, useMemo, useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { providerFormSchema } from "@/validation/settings/integration-modal"
@@ -6,8 +6,10 @@ import { useTranslation } from "react-i18next"
 import { ChevronLeft } from "lucide-react"
 import oapiClient from "@/oapi/client"
 import type { Provider, ProviderMeta, CreateProvider } from "@/oapi/client"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { unwrap } from "@/oapi/unwrap"
 import { ProjectContext } from "../../contexts"
-import { useResolver } from "../../hooks"
+import { providerKeys, providersMetaQuery } from "./queries"
 import { snakeToTitle } from "../../utils"
 import type { Project } from "../../types"
 import type { Schema } from "@/components/schema-fields"
@@ -57,7 +59,7 @@ export function IntegrationForm({
 }: IntegrationFormParams) {
     const { t } = useTranslation()
     const [provider, setProvider] = useState<ProviderWithExtras | undefined>(defaultProvider)
-    const [isSaving, setIsSaving] = useState(false)
+    const queryClient = useQueryClient()
 
     const module = meta.type
 
@@ -92,47 +94,43 @@ export function IntegrationForm({
             : { name: "", data: {}, module, link_wrap: false },
     })
 
-    const handleSubmit = async (values: ProviderFormValues) => {
-        setIsSaving(true)
-        try {
-            const { name, data, link_wrap } = values
+    // A rejected save is reported by the mutation cache and keeps the form open.
+    const save = useMutation({
+        mutationFn: async ({ name, data, link_wrap }: ProviderFormValues) => {
             const body = { name, data, link_wrap }
-            let result: Provider | undefined
             if (provider?.id) {
-                const { data: updated } = await oapiClient.PATCH(
-                    "/api/admin/projects/{projectID}/providers/{type}/{providerID}",
-                    {
-                        params: {
-                            path: {
-                                projectID: project.id,
-                                type: module,
-                                providerID: provider.id,
+                return unwrap(
+                    await oapiClient.PATCH(
+                        "/api/admin/projects/{projectID}/providers/{type}/{providerID}",
+                        {
+                            params: {
+                                path: {
+                                    projectID: project.id,
+                                    type: module,
+                                    providerID: provider.id,
+                                },
                             },
+                            body,
                         },
-                        body,
-                    },
+                    ),
                 )
-                result = updated
-            } else {
-                const { data: created } = await oapiClient.POST(
-                    "/api/admin/projects/{projectID}/providers/{type}",
-                    {
-                        params: {
-                            path: {
-                                projectID: project.id,
-                                type: module,
-                            },
-                        },
-                        body,
-                    },
-                )
-                result = created
             }
-            if (result) onChange(result)
-        } finally {
-            setIsSaving(false)
-        }
-    }
+            return unwrap(
+                await oapiClient.POST("/api/admin/projects/{projectID}/providers/{type}", {
+                    params: { path: { projectID: project.id, type: module } },
+                    body,
+                }),
+            )
+        },
+        onSuccess: async (result) => {
+            await queryClient.invalidateQueries({ queryKey: providerKeys.all(project.id) })
+            onChange(result)
+        },
+        meta: { errorMessage: t("integration_save_failed", "Failed to save integration") },
+    })
+    const isSaving = save.isPending
+
+    const handleSubmit = (values: ProviderFormValues) => save.mutate(values)
 
     const dataSchema = extractDataSchema(meta)
 
@@ -171,9 +169,7 @@ export function IntegrationForm({
                 </Label>
                 <Input {...form.register("name")} />
                 {form.formState.errors.name && (
-                    <p className="text-sm text-destructive">
-                        {form.formState.errors.name.message}
-                    </p>
+                    <p className="text-sm text-destructive">{form.formState.errors.name.message}</p>
                 )}
             </div>
 
@@ -207,17 +203,7 @@ export default function IntegrationModal({
 }: IntegrationModalProps) {
     const { t } = useTranslation()
     const [project] = useContext(ProjectContext)
-    const [options] = useResolver(
-        useCallback(async () => {
-            const { data } = await oapiClient.GET(
-                "/api/admin/projects/{projectID}/providers/meta",
-                {
-                    params: { path: { projectID: project.id } },
-                },
-            )
-            return data
-        }, [project]),
-    )
+    const { data: options } = useQuery(providersMetaQuery(project.id))
     const [meta, setMeta] = useState<ProviderMeta | undefined>()
 
     const derivedMeta = useMemo(

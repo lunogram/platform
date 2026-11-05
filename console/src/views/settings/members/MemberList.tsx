@@ -2,11 +2,12 @@ import { useCallback, useContext, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Search, Users, MoreHorizontal, Trash2, ChevronLeft, ChevronRight } from "lucide-react"
 import { toast } from "sonner"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import api from "@/api"
 import { AdminContext, ProjectContext } from "@/contexts"
-import { useResolver } from "@/hooks"
 import { assignableProjectRoles, checkProjectRole, problemDetail, snakeToTitle } from "@/utils"
 import type { ProjectAdmin, ProjectRole } from "@/types"
+import { memberKeys, membersPageQuery } from "./queries"
 
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -81,18 +82,18 @@ export default function MemberList({ canManage }: MemberListProps) {
         searchTimeoutRef.current = setTimeout(() => setDebouncedQuery(value), 300)
     }, [])
 
-    const [result, , reload] = useResolver(
-        useCallback(async () => {
-            return await api.projectAdmins.search(project.id, {
-                limit,
-                offset: (page - 1) * limit,
-                search: debouncedQuery || undefined,
-            })
-        }, [project.id, debouncedQuery, page]),
+    const queryClient = useQueryClient()
+    const list = useQuery(
+        membersPageQuery(project.id, {
+            limit,
+            offset: (page - 1) * limit,
+            search: debouncedQuery || undefined,
+        }),
     )
+    const reload = () => queryClient.invalidateQueries({ queryKey: memberKeys.all(project.id) })
 
-    const members = result?.results ?? []
-    const total = result?.total ?? 0
+    const members = list.data?.results ?? []
+    const total = list.data?.total ?? 0
     const totalPages = Math.ceil(total / limit)
 
     const assignableRoles = assignableProjectRoles(project.role)
@@ -177,7 +178,7 @@ export default function MemberList({ canManage }: MemberListProps) {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {!result ? (
+                        {list.isPending ? (
                             Array.from({ length: 3 }).map((_, i) => (
                                 <TableRow key={i} className="hover:bg-transparent">
                                     <TableCell>
@@ -194,6 +195,23 @@ export default function MemberList({ canManage }: MemberListProps) {
                                     </TableCell>
                                 </TableRow>
                             ))
+                        ) : list.isError ? (
+                            <TableRow className="hover:bg-transparent">
+                                <TableCell colSpan={4} className="h-32 text-center">
+                                    <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                                        <p className="text-sm">
+                                            {t("members_load_failed", "Couldn't load members.")}
+                                        </p>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => list.refetch()}
+                                        >
+                                            {t("retry", "Retry")}
+                                        </Button>
+                                    </div>
+                                </TableCell>
+                            </TableRow>
                         ) : members.length === 0 ? (
                             <TableRow className="hover:bg-transparent">
                                 <TableCell colSpan={4} className="h-32 text-center">

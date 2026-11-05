@@ -1,3 +1,4 @@
+import { useEffect } from "react"
 import { useTranslation } from "react-i18next"
 import { useForm } from "react-hook-form"
 import { Check, Eye, Smartphone, Pencil, Shield } from "lucide-react"
@@ -84,12 +85,19 @@ export default function InviteDialog({
 }: InviteDialogProps) {
     const { t } = useTranslation()
     const allowedRoles = assignableProjectRoles(userRole)
+    const defaultRole: ProjectRole = allowedRoles.includes("admin")
+        ? "admin"
+        : allowedRoles[0] || "support"
     const form = useForm<InviteFormData>({
-        values: {
-            role: allowedRoles.includes("admin") ? "admin" : allowedRoles[0] || "support",
-            email: "",
-        },
+        defaultValues: { role: defaultRole, email: "" },
     })
+
+    // Start every invite from an empty form; it used to reopen with the
+    // address of the previous invite.
+    const { reset } = form
+    useEffect(() => {
+        if (isOpen) reset({ role: defaultRole, email: "" })
+    }, [isOpen, defaultRole, reset])
 
     // eslint-disable-next-line react-hooks/incompatible-library
     const selectedRole = form.watch("role") ?? allowedRoles[0]

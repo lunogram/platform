@@ -2,11 +2,9 @@ import { useCallback, useContext, useMemo, useRef, useState } from "react"
 import { useNavigate } from "react-router"
 import { useTranslation } from "react-i18next"
 import { Plus, Search, Puzzle, MoreHorizontal } from "lucide-react"
-import oapiClient from "@/oapi/client"
-import type { Action, ActionMeta, Provider, ProviderMeta } from "@/oapi/client"
 import { ProjectContext } from "../../contexts"
-import { useResolver } from "../../hooks"
 import { snakeToTitle } from "../../utils"
+import { useArchiveIntegration, useIntegrations, type IntegrationRow } from "./useIntegrations"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -29,30 +27,6 @@ import { Badge } from "@/components/ui/badge"
 import { StaggeredMosaic } from "@/components/icon-mosaic"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
-type IntegrationRow =
-    | {
-          id: string
-          kind: "provider"
-          module: string
-          name: string
-          channels?: string[]
-      }
-    | {
-          id: string
-          kind: "action"
-          module: string
-          name: string
-      }
-
-type IntegrationMeta = {
-    kind: "provider" | "action"
-    type: string
-    name: string
-    icon?: string
-    color?: string
-    locked?: boolean
-}
-
 export default function Integrations() {
     const { t } = useTranslation()
     const [project] = useContext(ProjectContext)
@@ -60,7 +34,7 @@ export default function Integrations() {
 
     const [searchQuery, setSearchQuery] = useState("")
     const [debouncedQuery, setDebouncedQuery] = useState("")
-    const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>()
+    const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined)
     const [hoveredIntegration, setHoveredIntegration] = useState<IntegrationRow | null>(null)
 
     const handleSearch = useCallback((value: string) => {
@@ -71,99 +45,7 @@ export default function Integrations() {
         }, 300)
     }, [])
 
-    const [result, , reload] = useResolver(
-        useCallback(async () => {
-            const query = debouncedQuery ? { search: debouncedQuery } : {}
-
-            const [{ data: providers }, { data: actions }] = await Promise.all([
-                oapiClient.GET("/api/admin/projects/{projectID}/providers", {
-                    params: {
-                        path: { projectID: project.id },
-                        query: { limit: 50 },
-                    },
-                }),
-                oapiClient.GET("/api/admin/projects/{projectID}/actions", {
-                    params: {
-                        path: { projectID: project.id },
-                        query: { limit: 50, offset: 0, ...query },
-                    },
-                }),
-            ])
-
-            return {
-                providers: providers?.results ?? [],
-                actions: actions?.results ?? [],
-            }
-            // eslint-disable-next-line react-hooks/exhaustive-deps
-        }, [project.id, debouncedQuery]),
-    )
-
-    const [metas] = useResolver(
-        useCallback(async () => {
-            const [{ data: providerMetas }, { data: actionMetas }] = await Promise.all([
-                oapiClient.GET("/api/admin/projects/{projectID}/providers/meta", {
-                    params: { path: { projectID: project.id } },
-                }),
-                oapiClient.GET("/api/admin/projects/{projectID}/actions/meta", {
-                    params: { path: { projectID: project.id } },
-                }),
-            ])
-
-            const providerOptions: IntegrationMeta[] = (providerMetas ?? []).map(
-                (m: ProviderMeta) => ({
-                    kind: "provider",
-                    type: m.type,
-                    name: m.name,
-                    icon: m.icon,
-                    color: m.color,
-                    locked: m.locked,
-                }),
-            )
-
-            const actionOptions: IntegrationMeta[] = (actionMetas ?? []).map((m: ActionMeta) => ({
-                kind: "action",
-                type: m.type,
-                name: m.name,
-                icon: m.icon,
-                color: m.color,
-                locked: false,
-            }))
-
-            return [...providerOptions, ...actionOptions]
-        }, [project.id]),
-    )
-
-    const integrations = useMemo<IntegrationRow[]>(() => {
-        if (!result) return []
-
-        const providerRows: IntegrationRow[] = result.providers.map((p: Provider) => ({
-            id: p.id,
-            kind: "provider",
-            module: p.module,
-            name: p.name,
-            channels: p.channels,
-        }))
-
-        const actionRows: IntegrationRow[] = result.actions.map((a: Action) => ({
-            id: a.id,
-            kind: "action",
-            module: a.type,
-            name: a.name,
-        }))
-
-        const rows = [...providerRows, ...actionRows]
-        if (!debouncedQuery) return rows
-
-        const q = debouncedQuery.toLowerCase()
-        return rows.filter((row) => {
-            const byName = row.name.toLowerCase().includes(q)
-            const byType = row.module.toLowerCase().includes(q)
-            const byKind = row.kind.toLowerCase().includes(q)
-            const byChannel =
-                row.kind === "provider" && row.channels?.some((ch) => ch.toLowerCase().includes(q))
-            return byName || byType || byKind || !!byChannel
-        })
-    }, [result, debouncedQuery])
+    const { integrations, metas, isPending, isError, refetch } = useIntegrations(debouncedQuery)
 
     const findMeta = useCallback(
         (integration: IntegrationRow) => {
@@ -193,29 +75,11 @@ export default function Integrations() {
         [findMeta],
     )
 
-    const handleArchive = async (integration: IntegrationRow) => {
+    const archive = useArchiveIntegration()
+
+    const handleArchive = (integration: IntegrationRow) => {
         if (!confirm(t("delete_integration_confirmation"))) return
-
-        if (integration.kind === "action") {
-            await oapiClient.DELETE("/api/admin/projects/{projectID}/actions/{actionID}", {
-                params: { path: { projectID: project.id, actionID: integration.id } },
-            })
-        } else {
-            await oapiClient.DELETE(
-                "/api/admin/projects/{projectID}/providers/{type}/{providerID}",
-                {
-                    params: {
-                        path: {
-                            projectID: project.id,
-                            type: integration.module,
-                            providerID: integration.id,
-                        },
-                    },
-                },
-            )
-        }
-
-        await reload()
+        archive.mutate(integration)
     }
 
     return (
@@ -285,7 +149,7 @@ export default function Integrations() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {!result ? (
+                            {isPending ? (
                                 Array.from({ length: 3 }).map((_, i) => (
                                     <TableRow key={i}>
                                         <TableCell>
@@ -305,6 +169,26 @@ export default function Integrations() {
                                         </TableCell>
                                     </TableRow>
                                 ))
+                            ) : isError ? (
+                                <TableRow>
+                                    <TableCell colSpan={5} className="h-32 text-center">
+                                        <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                                            <p>
+                                                {t(
+                                                    "integrations_load_failed",
+                                                    "Couldn't load integrations.",
+                                                )}
+                                            </p>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => refetch()}
+                                            >
+                                                {t("retry", "Retry")}
+                                            </Button>
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
                             ) : integrations.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={5} className="h-32 text-center">
@@ -418,9 +302,9 @@ export default function Integrations() {
                                                     ) : (
                                                         <DropdownMenuItem
                                                             className="text-destructive"
-                                                            onClick={async (e) => {
+                                                            onClick={(e) => {
                                                                 e.stopPropagation()
-                                                                await handleArchive(integration)
+                                                                handleArchive(integration)
                                                             }}
                                                         >
                                                             {t("archive")}

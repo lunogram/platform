@@ -1,10 +1,12 @@
-import { useCallback, useContext, useEffect, useState } from "react"
+import { useContext, useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Trash2, Loader2, Smartphone } from "lucide-react"
-import { toast } from "sonner"
+import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { ProjectContext } from "../../contexts"
-import { useResolver } from "../../hooks"
 import oapiClient from "@/oapi/client"
+import { unwrap } from "@/oapi/unwrap"
+import { providersMetaQuery, providersQuery } from "./queries"
+import { Button } from "@/components/ui/button"
 import type { components } from "@/oapi/management.generated"
 
 import {
@@ -81,42 +83,33 @@ const PLATFORMS: {
     },
 ]
 
+function pushProvidersQuery(projectId: string) {
+    return queryOptions({
+        queryKey: ["projects", projectId, "push-providers"],
+        queryFn: async () =>
+            unwrap(
+                await oapiClient.GET("/api/admin/projects/{projectID}/push-providers", {
+                    params: { path: { projectID: projectId } },
+                }),
+            ).results ?? [],
+    })
+}
+
 export default function PushProviders() {
     const { t } = useTranslation()
     const [project] = useContext(ProjectContext)
 
-    const [pushProviders, , reloadPushProviders] = useResolver(
-        useCallback(async () => {
-            const { data } = await oapiClient.GET(
-                "/api/admin/projects/{projectID}/push-providers",
-                { params: { path: { projectID: project.id } } },
-            )
-            return data?.results ?? []
-        }, [project.id]),
+    const pushProvidersResult = useQuery(pushProvidersQuery(project.id))
+    const providersResult = useQuery(providersQuery(project.id))
+    const metasResult = useQuery(providersMetaQuery(project.id))
+    const pushProviders = pushProvidersResult.data
+    const providers = providersResult.data?.filter((p: Provider) => p.channels?.includes("push"))
+    const providerMetas = metasResult.data?.filter((m: ProviderMeta) =>
+        m.channels?.includes("push"),
     )
 
-    const [providers] = useResolver(
-        useCallback(async () => {
-            const { data } = await oapiClient.GET("/api/admin/projects/{projectID}/providers", {
-                params: { path: { projectID: project.id } },
-            })
-            return (data?.results ?? []).filter((p: Provider) => p.channels?.includes("push"))
-        }, [project.id]),
-    )
-
-    const [providerMetas] = useResolver(
-        useCallback(async () => {
-            const { data } = await oapiClient.GET(
-                "/api/admin/projects/{projectID}/providers/meta",
-                {
-                    params: { path: { projectID: project.id } },
-                },
-            )
-            return (data ?? []).filter((m: ProviderMeta) => m.channels?.includes("push"))
-        }, [project.id]),
-    )
-
-    const loading = !pushProviders || !providers || !providerMetas
+    const failed = pushProvidersResult.isError || providersResult.isError || metasResult.isError
+    const loading = !failed && (!pushProviders || !providers || !providerMetas)
     const configuredCount =
         pushProviders?.filter((pp: ProjectPushProvider) => pp.provider_id).length ?? 0
 
@@ -138,41 +131,59 @@ export default function PushProviders() {
                         )}
                     </p>
                 </div>
-                {!loading && (
+                {!loading && !failed && (
                     <Badge variant="secondary" className="tabular-nums">
                         {configuredCount}/{PLATFORMS.length} configured
                     </Badge>
                 )}
             </div>
 
+            {failed && (
+                <div className="flex flex-col items-center gap-3 rounded-lg border p-6 text-sm text-muted-foreground">
+                    <p>{t("push_providers_load_failed", "Couldn't load push providers.")}</p>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                            void pushProvidersResult.refetch()
+                            void providersResult.refetch()
+                            void metasResult.refetch()
+                        }}
+                    >
+                        {t("retry", "Retry")}
+                    </Button>
+                </div>
+            )}
+
             {/* Platform cards */}
             <div className="grid gap-4 sm:grid-cols-3">
-                {loading
-                    ? Array.from({ length: 3 }).map((_, i) => (
-                          <div key={i} className="rounded-lg border bg-card p-4 space-y-3">
-                              <div className="flex items-center gap-3">
-                                  <Skeleton className="h-9 w-9 rounded-lg" />
-                                  <div className="space-y-1.5">
-                                      <Skeleton className="h-4 w-16" />
-                                      <Skeleton className="h-3 w-28" />
-                                  </div>
-                              </div>
-                              <Skeleton className="h-9 w-full rounded-md" />
-                          </div>
-                      ))
-                    : PLATFORMS.map((platform) => (
-                          <PlatformCard
-                              key={platform.key}
-                              platform={platform}
-                              projectId={project.id}
-                              providers={providers ?? []}
-                              providerMetas={providerMetas ?? []}
-                              pushProvider={pushProviders?.find(
-                                  (pp: ProjectPushProvider) => pp.platform === platform.key,
-                              )}
-                              onChanged={reloadPushProviders}
-                          />
-                      ))}
+                {failed
+                    ? null
+                    : loading
+                      ? Array.from({ length: 3 }).map((_, i) => (
+                            <div key={i} className="rounded-lg border bg-card p-4 space-y-3">
+                                <div className="flex items-center gap-3">
+                                    <Skeleton className="h-9 w-9 rounded-lg" />
+                                    <div className="space-y-1.5">
+                                        <Skeleton className="h-4 w-16" />
+                                        <Skeleton className="h-3 w-28" />
+                                    </div>
+                                </div>
+                                <Skeleton className="h-9 w-full rounded-md" />
+                            </div>
+                        ))
+                      : PLATFORMS.map((platform) => (
+                            <PlatformCard
+                                key={platform.key}
+                                platform={platform}
+                                projectId={project.id}
+                                providers={providers ?? []}
+                                providerMetas={providerMetas ?? []}
+                                pushProvider={pushProviders?.find(
+                                    (pp: ProjectPushProvider) => pp.platform === platform.key,
+                                )}
+                            />
+                        ))}
             </div>
         </div>
     )
@@ -184,7 +195,6 @@ interface PlatformCardProps {
     providers: Provider[]
     providerMetas: ProviderMeta[]
     pushProvider?: ProjectPushProvider
-    onChanged: () => void
 }
 
 function PlatformCard({
@@ -193,10 +203,9 @@ function PlatformCard({
     providers,
     providerMetas,
     pushProvider,
-    onChanged,
 }: PlatformCardProps) {
     const { t } = useTranslation()
-    const [saving, setSaving] = useState(false)
+    const queryClient = useQueryClient()
     const [logoFailed, setLogoFailed] = useState(false)
     const Icon = platform.icon
 
@@ -209,38 +218,39 @@ function PlatformCard({
         setLogoFailed(false)
     }, [selectedProviderIcon])
 
-    const handleSelect = async (providerId: string) => {
-        setSaving(true)
-        try {
-            await oapiClient.PUT("/api/admin/projects/{projectID}/push-providers/{platform}", {
-                params: {
-                    path: { projectID: projectId, platform: platform.key },
-                },
-                body: { provider_id: providerId },
-            })
-            onChanged()
-        } catch {
-            toast.error(t("push_provider_save_failed", "Failed to save push provider"))
-        } finally {
-            setSaving(false)
-        }
-    }
+    const onSuccess = () =>
+        queryClient.invalidateQueries({ queryKey: pushProvidersQuery(projectId).queryKey })
+    const path = { projectID: projectId, platform: platform.key }
 
-    const handleRemove = async () => {
-        setSaving(true)
-        try {
-            await oapiClient.DELETE("/api/admin/projects/{projectID}/push-providers/{platform}", {
-                params: {
-                    path: { projectID: projectId, platform: platform.key },
-                },
-            })
-            onChanged()
-        } catch {
-            toast.error(t("push_provider_remove_failed", "Failed to remove push provider"))
-        } finally {
-            setSaving(false)
-        }
-    }
+    const assign = useMutation({
+        mutationFn: async (providerId: string) =>
+            unwrap(
+                await oapiClient.PUT("/api/admin/projects/{projectID}/push-providers/{platform}", {
+                    params: { path },
+                    body: { provider_id: providerId },
+                }),
+            ),
+        onSuccess,
+        meta: { errorMessage: t("push_provider_save_failed", "Failed to save push provider") },
+    })
+
+    const remove = useMutation({
+        mutationFn: async () =>
+            unwrap(
+                await oapiClient.DELETE(
+                    "/api/admin/projects/{projectID}/push-providers/{platform}",
+                    { params: { path } },
+                ),
+            ),
+        onSuccess,
+        meta: {
+            errorMessage: t("push_provider_remove_failed", "Failed to remove push provider"),
+        },
+    })
+
+    const saving = assign.isPending || remove.isPending
+    const handleSelect = (providerId: string) => assign.mutate(providerId)
+    const handleRemove = () => remove.mutate()
 
     return (
         <div className="rounded-lg border bg-card">
