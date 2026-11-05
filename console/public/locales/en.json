@@ -1121,7 +1121,7 @@
     "rule_step_visit_this_step": "this step",
     "rule_step_visit_times": "times",
     "rule_step_visit_hint": "The visit in progress is counted, so a user standing on this step for the third time compares against 3.",
-    "auth_driver_oidc": "Continue with single sign-on",
+    "auth_driver_sso": "Continue with single sign-on",
     "sso_instructions": "You will be sent to your organization's identity provider to sign in.",
     "sso_continue": "Continue with single sign-on",
     "sso_error_expired": "That sign-in request has expired or was already answered in another browser. Please start again.",
@@ -1129,5 +1129,6 @@
     "sso_error_email": "Your identity provider returned no email address.",
     "sso_error_failed": "Single sign-on failed. Please try again.",
     "sso_choose_provider": "Choose how you would like to sign in.",
-    "sso_error_domain": "Your identity provider returned an address it is not configured to sign in."
+    "sso_error_domain": "Your identity provider returned an address it is not configured to sign in.",
+    "sso_error_transient": "Your identity provider returned a temporary identifier rather than a lasting one, so there is no account to sign in to. Ask your administrator to send a persistent NameID or an email address."
 }

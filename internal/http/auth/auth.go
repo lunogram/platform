@@ -473,6 +473,61 @@ func oidcBindingCookieName(r *http.Request) string {
 	return OIDCBindingCookieInsecure
 }
 
+// SAMLBindingCookie ties a SAML authentication request to the browser that
+// started it, as [OIDCBindingCookieSecure] does for OpenID Connect.
+//
+// There is only the `__Host-` name and no plaintext fallback, because this
+// cookie has to be SameSite=None and browsers refuse a SameSite=None cookie
+// that is not Secure. A deployment whose public URL is not https is refused the
+// SAML driver at boot rather than handed a binding that silently never arrives.
+const SAMLBindingCookie = "__Host-lunogram_saml_binding"
+
+// SetSAMLBindingCookie stores the browser's half of the binding.
+//
+// SameSite=None, where the OpenID Connect twin is Lax, and the difference is
+// forced by the protocol rather than chosen. A browser returns from an OpenID
+// Connect provider by GET, which Lax allows. It returns from a SAML identity
+// provider by the HTTP-POST binding -- a cross-site top-level form POST, which
+// Lax does NOT send cookies on. A Lax cookie here would be missing from every
+// assertion this deployment ever received, so the binding would be dead code
+// that failed open or refused every login depending on how it was read.
+//
+// Secure is set unconditionally rather than from [requestIsSecure]. The cookie
+// is invalid without it and the deployment is already known to be https, so a
+// reverse proxy that forwards no X-Forwarded-Proto must not be able to turn the
+// binding off.
+func SetSAMLBindingCookie(w http.ResponseWriter, binding string, ttl time.Duration) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     SAMLBindingCookie,
+		Value:    binding,
+		Path:     "/",
+		Expires:  time.Now().Add(ttl),
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteNoneMode,
+	})
+}
+
+// GetSAMLBinding returns the browser binding presented at the assertion
+// consumer service, or "".
+func GetSAMLBinding(r *http.Request) string {
+	cookie, err := r.Cookie(SAMLBindingCookie)
+	if err != nil || cookie.Value == "" {
+		return ""
+	}
+	return cookie.Value
+}
+
+// SAMLBrowserBinding returns the binding to record against a new flow: the one
+// this browser already carries, or a fresh one. It is shared across a browser's
+// outstanding flows for the reason [BrowserBinding] is.
+func SAMLBrowserBinding(r *http.Request, mint func() (string, error)) (string, error) {
+	if existing := GetSAMLBinding(r); existing != "" {
+		return existing, nil
+	}
+	return mint()
+}
+
 // requestIsSecure reports whether the original client request reached us over
 // HTTPS. In the common deployment a reverse proxy terminates TLS and forwards
 // plaintext, so r.TLS is nil; we then trust X-Forwarded-Proto. Trusting that

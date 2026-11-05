@@ -107,6 +107,72 @@ func TestOIDCProviderForms(t *testing.T) {
 	})
 }
 
+// The SAML forms follow the same rule as the OpenID Connect ones, and for the
+// same reason.
+func TestSAMLProviderForms(t *testing.T) {
+	t.Parallel()
+
+	t.Run("nothing configured resolves to nothing", func(t *testing.T) {
+		providers, err := Defaults().Auth.SAML.Resolve()
+		require.NoError(t, err)
+		assert.Empty(t, providers)
+		assert.False(t, Defaults().Auth.SAML.Configured())
+	})
+
+	t.Run("the environment form becomes one provider", func(t *testing.T) {
+		cfg := SAMLAuth{Provider: SAMLProvider{EntityID: "urn:idp", MetadataURL: "https://idp.test/metadata"}}
+		providers, err := cfg.Resolve()
+		require.NoError(t, err)
+		require.Len(t, providers, 1)
+		assert.Equal(t, DefaultSAMLProviderID, providers[0].ID,
+			"the id appears in the assertion consumer service URL an operator registers")
+	})
+
+	t.Run("the list is taken in declaration order", func(t *testing.T) {
+		cfg := SAMLAuth{Providers: []SAMLProvider{
+			{ID: "okta", EntityID: "urn:okta"},
+			{ID: "entra", EntityID: "urn:entra"},
+		}}
+		providers, err := cfg.Resolve()
+		require.NoError(t, err)
+		require.Len(t, providers, 2)
+		assert.Equal(t, "okta", providers[0].ID)
+		assert.Equal(t, "entra", providers[1].ID)
+	})
+
+	t.Run("mixing the two forms is refused", func(t *testing.T) {
+		for name, single := range map[string]SAMLProvider{
+			"an entity id":         {EntityID: "urn:idp"},
+			"a metadata url":       {MetadataURL: "https://idp.test/metadata"},
+			"a certificate":        {Certificate: "-----BEGIN CERTIFICATE-----"},
+			"an attribute mapping": {EmailAttribute: "mail"},
+		} {
+			t.Run(name, func(t *testing.T) {
+				cfg := SAMLAuth{
+					Providers: []SAMLProvider{{ID: "okta", EntityID: "urn:okta"}},
+					Provider:  single,
+				}
+				_, err := cfg.Resolve()
+				assert.ErrorIs(t, err, ErrSAMLProviderFormsMixed)
+			})
+		}
+	})
+
+	// The service provider key material is shared by both forms, so a list
+	// declared alongside it is a correct configuration rather than a mixed one.
+	t.Run("the service provider key material belongs to neither form", func(t *testing.T) {
+		cfg := SAMLAuth{
+			Providers:   []SAMLProvider{{ID: "okta", EntityID: "urn:okta"}},
+			EntityID:    "https://console.example.test/saml",
+			Certificate: "-----BEGIN CERTIFICATE-----",
+			PrivateKey:  "-----BEGIN PRIVATE KEY-----",
+		}
+		providers, err := cfg.Resolve()
+		require.NoError(t, err)
+		assert.Len(t, providers, 1)
+	})
+}
+
 // The mail defaults changed shape deliberately, so they are pinned here rather
 // than against the snapshot.
 func TestMailDefaults(t *testing.T) {

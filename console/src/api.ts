@@ -42,6 +42,7 @@ import type {
     SubjectOrganizationCreateParams,
     SubjectOrganizationUpdateParams,
     SubscriptionUpdateParams,
+    SsoDriver,
     Template,
     TemplateCreateParams,
     TemplateUpdateParams,
@@ -223,16 +224,21 @@ const api = {
         changePassword: async (current_password: string, password: string) => {
             await client.post("/admin/profile/password", { current_password, password })
         },
-        ssoProviders: async () =>
+        // Providers are listed per protocol, because the two are separate
+        // drivers a deployment enables independently and each answers 404 when
+        // its own is off.
+        ssoProviders: async (driver: SsoDriver) =>
             await client
-                .get<Array<{ id: string; name: string }>>("/auth/oidc/providers")
+                .get<Array<{ id: string; name: string }>>(`/auth/${driver}/providers`)
                 .then((r) => r.data),
         // ssoStart is a full-page navigation rather than an XHR: the browser has
         // to follow the redirect to the identity provider and come back with a
-        // session cookie.
-        ssoStart: (provider: string, redirect: string) => {
+        // session cookie. A SAML provider that only takes the HTTP-POST binding
+        // answers with a self-submitting form instead of a redirect, which the
+        // same navigation renders.
+        ssoStart: (driver: SsoDriver, provider: string, redirect: string) => {
             const base = env.api.baseURL.replace(/\/$/, "")
-            window.location.href = `${base}/auth/oidc/${encodeURIComponent(provider)}/start?r=${encodeURIComponent(redirect)}`
+            window.location.href = `${base}/auth/${driver}/${encodeURIComponent(provider)}/start?r=${encodeURIComponent(redirect)}`
         },
         clerkAuth: async (token: string) => {
             await client.post(

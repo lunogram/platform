@@ -53,12 +53,22 @@ type Deps struct {
 	Mgmt        *management.State
 	Logger      *zap.Logger
 	Provisioner Provisioner
-	// Keys, Flows and HTTPClient are only read by the oidc driver. A deployment
-	// that does not configure it may leave them nil.
+	// Keys, Flows, Discovery and HTTPClient are only read by the oidc driver. A
+	// deployment that does not configure it may leave them nil.
 	Keys       *jwks.Cache
 	Flows      *sso.FlowStore
 	Discovery  *sso.Discovery
 	HTTPClient *http.Client
+	// SAMLFlows, Assertions and SAMLMetadata are only read by the saml driver,
+	// and may be nil for the same reason.
+	//
+	// The flow store is a separate one from Flows rather than a shared store
+	// holding both protocols' flows. They key on different values -- a state
+	// parameter and a RelayState -- and keeping the keyspaces apart is what
+	// stops a value issued for one protocol being redeemable in the other.
+	SAMLFlows    *sso.SAMLFlowStore
+	Assertions   *sso.AssertionReplayStore
+	SAMLMetadata *sso.SAMLMetadata
 	// BaseURL is the deployment's public URL, which the OpenID Connect
 	// redirect_uri is derived from.
 	BaseURL string
@@ -86,23 +96,40 @@ func New(driver string, cfg config.Auth, deps Deps) (auth.Verifier, error) {
 	}
 }
 
-// Build constructs every verifier the deployment has configured, keyed by
-// driver, and separately the OpenID Connect providers.
+// Federated is the deployment's redirect-based logins, one set per protocol.
 //
-// The providers come back on their own because they are not verifiers in the
-// same sense: a federated credential arrives as a browser navigation naming a
+// They are held apart rather than merged into one list because the protocols
+// have nothing in common past the identity they produce: they are started at
+// different endpoints, completed by different methods, and proved against
+// different key material. What they share -- turning a proved identity into a
+// session -- is [auth.Exchanger]'s and is already shared.
+type Federated struct {
+	OIDC *OIDCSet
+	SAML *SAMLSet
+}
+
+// Any reports whether the deployment offers any federated login at all.
+func (f *Federated) Any() bool {
+	return f != nil && (f.OIDC != nil || f.SAML != nil)
+}
+
+// Build constructs every verifier the deployment has configured, keyed by
+// driver, and separately the federated providers.
+//
+// The federated providers come back on their own because they are not verifiers
+// in the same sense: such a credential arrives as a browser navigation naming a
 // provider, not as something to prove on the request in hand. Keeping them out
 // of the map is also what makes the generic login callback answer 404 for
-// `oidc` without a special case asking it to.
+// `oidc` and `saml` without a special case asking it to.
 //
 // Several drivers may be enabled at once -- an organization migrating from a
 // shared basic credential to per-admin passwords needs both live at the same
 // time -- so this returns a set rather than the single verifier the platform
 // used to allow. Each one lands on its own callback and all of them are offered
 // by GET /api/auth/methods.
-func Build(cfg config.Auth, deps Deps) (map[string]auth.Verifier, *OIDCSet, error) {
+func Build(cfg config.Auth, deps Deps) (map[string]auth.Verifier, *Federated, error) {
 	built := make(map[string]auth.Verifier, len(cfg.Drivers))
-	var federated *OIDCSet
+	federated := &Federated{}
 	seen := make(map[string]bool, len(cfg.Drivers))
 
 	for _, driver := range cfg.Drivers {
@@ -112,7 +139,8 @@ func Build(cfg config.Auth, deps Deps) (map[string]auth.Verifier, *OIDCSet, erro
 		}
 		seen[driver] = true
 
-		if driver == OIDCDriver {
+		switch driver {
+		case OIDCDriver:
 			set, err := NewOIDCSet(cfg.OIDC, OIDCOptions{
 				Flows:      deps.Flows,
 				Discovery:  deps.Discovery,
@@ -124,15 +152,28 @@ func Build(cfg config.Auth, deps Deps) (map[string]auth.Verifier, *OIDCSet, erro
 			if err != nil {
 				return nil, nil, err
 			}
-			federated = set
-			continue
-		}
+			federated.OIDC = set
 
-		verifier, err := New(driver, cfg, deps)
-		if err != nil {
-			return nil, nil, err
+		case SAMLDriver:
+			set, err := NewSAMLSet(cfg.SAML, SAMLOptions{
+				Flows:      deps.SAMLFlows,
+				Assertions: deps.Assertions,
+				Metadata:   deps.SAMLMetadata,
+				BaseURL:    deps.BaseURL,
+				Logger:     deps.Logger.Named("saml"),
+			})
+			if err != nil {
+				return nil, nil, err
+			}
+			federated.SAML = set
+
+		default:
+			verifier, err := New(driver, cfg, deps)
+			if err != nil {
+				return nil, nil, err
+			}
+			built[driver] = verifier
 		}
-		built[driver] = verifier
 	}
 
 	return built, federated, nil

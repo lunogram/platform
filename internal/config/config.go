@@ -65,6 +65,7 @@ type Auth struct {
 	Basic   BasicAuth   `envPrefix:"BASIC_" yaml:"basic"`
 	Clerk   ClerkAuth   `envPrefix:"CLERK_" yaml:"clerk"`
 	OIDC    OIDCAuth    `envPrefix:"OIDC_" yaml:"oidc"`
+	SAML    SAMLAuth    `envPrefix:"SAML_" yaml:"saml"`
 	Console ConsoleAuth `envPrefix:"CONSOLE_" yaml:"console"`
 
 	// LegacyIdentityAdoption lets an upstream identity claim a
@@ -281,6 +282,141 @@ func (o OIDCAuth) Resolve() ([]OIDCProvider, error) {
 		single.ID = DefaultOIDCProviderID
 	}
 	return []OIDCProvider{single}, nil
+}
+
+// SAMLAuth configures the deployment's SAML 2.0 identity providers. It has the
+// same two forms as [OIDCAuth] and the same rule: set one of them.
+//
+// The service provider key material sits here rather than on a provider,
+// because a deployment is one service provider however many identity providers
+// it federates with. Every provider sees the same entity id and the same
+// certificate, which is what an operator registers on each side.
+type SAMLAuth struct {
+	Providers []SAMLProvider `yaml:"providers"`
+
+	// Provider is the single-provider form, reading AUTH_SAML_ENTITY_ID and its
+	// siblings.
+	Provider SAMLProvider `yaml:",inline"`
+
+	// EntityID is this deployment's own entity id. Empty means the metadata
+	// endpoint's URL, which is what most identity providers expect and what the
+	// published metadata says either way.
+	EntityID string `env:"SP_ENTITY_ID" yaml:"sp_entity_id"`
+	// Certificate and PrivateKey are this deployment's own PEM key pair. They
+	// sign AuthnRequests and decrypt encrypted assertions -- separately
+	// optional in the protocol, but an identity provider that wants either
+	// wants the same key for both, so they are configured as a pair.
+	//
+	// This is deliberately not the console session signing key. That key mints
+	// credentials for this deployment; this one is published to third parties
+	// in metadata, and a key an identity provider holds the public half of must
+	// not also be the key that signs sessions.
+	Certificate string `env:"SP_CERTIFICATE" yaml:"sp_certificate"`
+	PrivateKey  string `env:"SP_PRIVATE_KEY" yaml:"sp_private_key"`
+}
+
+// SAMLProvider is one identity provider.
+type SAMLProvider struct {
+	// ID names the provider in its login URLs, so it has to survive a URL path
+	// segment. The single-provider form has none and is given "default".
+	ID string `yaml:"id"`
+	// Name is what the login page calls it. Empty falls back to the id.
+	Name string `yaml:"name"`
+	// EntityID is the identity provider's own entity id, compared exactly
+	// against the Issuer of every response. It is an opaque URI: Entra
+	// publishes an https URL, others publish a urn: with no host, so it is
+	// never parsed or normalised.
+	EntityID string `env:"ENTITY_ID" yaml:"entity_id"`
+	// MetadataURL is where the provider publishes its metadata. It is fetched
+	// under the deployment's outbound policy and re-read as it expires, so a
+	// certificate roll is picked up without a restart.
+	//
+	// Set this or the SSOURL/Certificate pair below. The URL is preferred where
+	// a deployment can reach it, because it is the only form that survives a
+	// rotation on its own.
+	MetadataURL string `env:"METADATA_URL" yaml:"metadata_url"`
+	// SSOURL is where an AuthnRequest is sent, for a deployment that cannot
+	// fetch the metadata. Certificate holds the provider's signing certificates
+	// as PEM -- two of them across a rotation, concatenated.
+	SSOURL      string `env:"SSO_URL" yaml:"sso_url"`
+	Certificate string `env:"CERTIFICATE" yaml:"certificate"`
+	// AllowedDomains bounds the email domains this provider may assert, for the
+	// reason it does on an OpenID Connect provider: an address links a login to
+	// an existing admin whichever provider asserted it. Empty means any.
+	AllowedDomains []string `env:"ALLOWED_DOMAINS" envSeparator:"," yaml:"allowed_domains"`
+	// The assertion attributes carrying the profile. SAML has no equivalent of
+	// the standard OpenID Connect claim names -- every provider ships its own
+	// URNs -- so these have defaults that cover the common ones and are
+	// expected to be set on anything unusual.
+	EmailAttribute      string `env:"EMAIL_ATTRIBUTE" yaml:"email_attribute"`
+	GivenNameAttribute  string `env:"GIVEN_NAME_ATTRIBUTE" yaml:"given_name_attribute"`
+	FamilyNameAttribute string `env:"FAMILY_NAME_ATTRIBUTE" yaml:"family_name_attribute"`
+	// NameIDFormat is what the AuthnRequest asks for. Empty asks for nothing,
+	// which lets the provider use whatever it is configured for.
+	NameIDFormat string `env:"NAME_ID_FORMAT" yaml:"name_id_format"`
+	// TrustEmail decides whether an address this provider asserts may link the
+	// login to an admin that already exists.
+	//
+	// SAML has no email_verified. There is no attribute an assertion can carry
+	// that attests an address the way an OpenID Connect provider's claim does,
+	// so the attestation has to come from configuration: the operator is saying
+	// this identity provider is authoritative for the addresses it asserts.
+	// That is true of a corporate directory and is why it defaults to true;
+	// pair it with AllowedDomains to say which addresses it speaks for. Set it
+	// false for a provider whose users can edit their own address, and logins
+	// through it will only ever reach an admin it provisioned itself.
+	TrustEmail *bool `env:"TRUST_EMAIL" yaml:"trust_email"`
+	// SignRequests overrides whether AuthnRequests are signed. Empty signs them
+	// whenever the deployment has a key, which is what a provider asking for
+	// signed requests needs and what one that does not care ignores.
+	SignRequests *bool `env:"SIGN_REQUESTS" yaml:"sign_requests"`
+}
+
+// DefaultSAMLProviderID is the id the single-provider form logs in under. It
+// appears in that deployment's login URLs, so it is part of the assertion
+// consumer service URL an operator registers with their provider.
+const DefaultSAMLProviderID = "default"
+
+// ErrSAMLProviderFormsMixed reports that both configuration forms are populated.
+var ErrSAMLProviderFormsMixed = errors.New("configure AUTH_SAML_* or auth.saml.providers, not both")
+
+// Configured reports whether the deployment has anything to build a SAML login
+// from. AUTH_DRIVER=saml without it is refused at boot.
+func (s SAMLAuth) Configured() bool {
+	return len(s.Providers) > 0 || !s.Provider.empty()
+}
+
+// empty reports whether the operator set nothing on this provider. The service
+// provider key material is not part of it: that is shared by both forms, so a
+// list declared alongside AUTH_SAML_SP_CERTIFICATE is a correct configuration
+// rather than a mixed one.
+func (p SAMLProvider) empty() bool {
+	return p.ID == "" && p.Name == "" && p.EntityID == "" && p.MetadataURL == "" &&
+		p.SSOURL == "" && p.Certificate == "" && len(p.AllowedDomains) == 0 &&
+		p.EmailAttribute == "" && p.GivenNameAttribute == "" &&
+		p.FamilyNameAttribute == "" && p.NameIDFormat == "" &&
+		p.TrustEmail == nil && p.SignRequests == nil
+}
+
+// Resolve returns the providers the deployment configured, in the order it
+// declared them.
+func (s SAMLAuth) Resolve() ([]SAMLProvider, error) {
+	single := s.Provider
+	if len(s.Providers) > 0 && !single.empty() {
+		return nil, ErrSAMLProviderFormsMixed
+	}
+
+	if len(s.Providers) > 0 {
+		return s.Providers, nil
+	}
+	if single.empty() {
+		return nil, nil
+	}
+
+	if single.ID == "" {
+		single.ID = DefaultSAMLProviderID
+	}
+	return []SAMLProvider{single}, nil
 }
 
 type ClerkAuth struct {

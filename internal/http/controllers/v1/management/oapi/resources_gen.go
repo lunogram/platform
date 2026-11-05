@@ -1963,6 +1963,15 @@ type RescheduleInboxMessageRequest struct {
 	ScheduledAt time.Time `json:"scheduled_at"`
 }
 
+// SAMLProvider defines model for SAMLProvider.
+type SAMLProvider struct {
+	// Id Names the provider in its login URLs
+	Id string `json:"id"`
+
+	// Name What the login page calls it
+	Name string `json:"name"`
+}
+
 // ScheduleOffset defines model for ScheduleOffset.
 type ScheduleOffset struct {
 	CreatedAt time.Time `json:"created_at"`
@@ -2550,6 +2559,9 @@ type OIDCProviderID = string
 
 // Offset defines model for Offset.
 type Offset = PaginationOffset
+
+// SAMLProviderID defines model for SAMLProviderID.
+type SAMLProviderID = string
 
 // Search defines model for Search.
 type Search = PaginationSearch
@@ -3205,6 +3217,18 @@ type StartOIDCLoginParams struct {
 	R *string `form:"r,omitempty" json:"r,omitempty"`
 }
 
+// CompleteSAMLLoginFormdataBody defines parameters for CompleteSAMLLogin.
+type CompleteSAMLLoginFormdataBody struct {
+	RelayState   *string `form:"RelayState,omitempty" json:"RelayState,omitempty"`
+	SAMLResponse *string `form:"SAMLResponse,omitempty" json:"SAMLResponse,omitempty"`
+}
+
+// StartSAMLLoginParams defines parameters for StartSAMLLogin.
+type StartSAMLLoginParams struct {
+	// R Where the console should land once the session exists. Reduced to a same-site path.
+	R *string `form:"r,omitempty" json:"r,omitempty"`
+}
+
 // AuthWebhookParamsDriver defines parameters for AuthWebhook.
 type AuthWebhookParamsDriver string
 
@@ -3393,6 +3417,9 @@ type ConfirmPasswordResetJSONRequestBody = PasswordResetConfirmRequest
 
 // RegisterWithPasswordJSONRequestBody defines body for RegisterWithPassword for application/json ContentType.
 type RegisterWithPasswordJSONRequestBody = RegisterRequest
+
+// CompleteSAMLLoginFormdataRequestBody defines body for CompleteSAMLLogin for application/x-www-form-urlencoded ContentType.
+type CompleteSAMLLoginFormdataRequestBody CompleteSAMLLoginFormdataBody
 
 // VerifyEmailJSONRequestBody defines body for VerifyEmail for application/json ContentType.
 type VerifyEmailJSONRequestBody = ActionTokenRequest
@@ -4142,6 +4169,20 @@ type ClientInterface interface {
 	RegisterWithPasswordWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	RegisterWithPassword(ctx context.Context, body RegisterWithPasswordJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListSAMLProviders request
+	ListSAMLProviders(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CompleteSAMLLoginWithBody request with any body
+	CompleteSAMLLoginWithBody(ctx context.Context, provider SAMLProviderID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CompleteSAMLLoginWithFormdataBody(ctx context.Context, provider SAMLProviderID, body CompleteSAMLLoginFormdataRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetSAMLMetadata request
+	GetSAMLMetadata(ctx context.Context, provider SAMLProviderID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// StartSAMLLogin request
+	StartSAMLLogin(ctx context.Context, provider SAMLProviderID, params *StartSAMLLoginParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// VerifyEmailWithBody request with any body
 	VerifyEmailWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -7076,6 +7117,66 @@ func (c *Client) RegisterWithPasswordWithBody(ctx context.Context, contentType s
 
 func (c *Client) RegisterWithPassword(ctx context.Context, body RegisterWithPasswordJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewRegisterWithPasswordRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListSAMLProviders(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListSAMLProvidersRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CompleteSAMLLoginWithBody(ctx context.Context, provider SAMLProviderID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCompleteSAMLLoginRequestWithBody(c.Server, provider, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CompleteSAMLLoginWithFormdataBody(ctx context.Context, provider SAMLProviderID, body CompleteSAMLLoginFormdataRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCompleteSAMLLoginRequestWithFormdataBody(c.Server, provider, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetSAMLMetadata(ctx context.Context, provider SAMLProviderID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetSAMLMetadataRequest(c.Server, provider)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) StartSAMLLogin(ctx context.Context, provider SAMLProviderID, params *StartSAMLLoginParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStartSAMLLoginRequest(c.Server, provider, params)
 	if err != nil {
 		return nil, err
 	}
@@ -17091,6 +17192,175 @@ func NewRegisterWithPasswordRequestWithBody(server string, contentType string, b
 	return req, nil
 }
 
+// NewListSAMLProvidersRequest generates requests for ListSAMLProviders
+func NewListSAMLProvidersRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/auth/saml/providers")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCompleteSAMLLoginRequestWithFormdataBody calls the generic CompleteSAMLLogin builder with application/x-www-form-urlencoded body
+func NewCompleteSAMLLoginRequestWithFormdataBody(server string, provider SAMLProviderID, body CompleteSAMLLoginFormdataRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	bodyStr, err := runtime.MarshalForm(body, nil)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = strings.NewReader(bodyStr.Encode())
+	return NewCompleteSAMLLoginRequestWithBody(server, provider, "application/x-www-form-urlencoded", bodyReader)
+}
+
+// NewCompleteSAMLLoginRequestWithBody generates requests for CompleteSAMLLogin with any type of body
+func NewCompleteSAMLLoginRequestWithBody(server string, provider SAMLProviderID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "provider", provider, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/auth/saml/%s/acs", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetSAMLMetadataRequest generates requests for GetSAMLMetadata
+func NewGetSAMLMetadataRequest(server string, provider SAMLProviderID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "provider", provider, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/auth/saml/%s/metadata", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewStartSAMLLoginRequest generates requests for StartSAMLLogin
+func NewStartSAMLLoginRequest(server string, provider SAMLProviderID, params *StartSAMLLoginParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "provider", provider, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/auth/saml/%s/start", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.R != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "r", *params.R, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewVerifyEmailRequest calls the generic VerifyEmail builder with application/json body
 func NewVerifyEmailRequest(server string, body VerifyEmailJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -17941,6 +18211,20 @@ type ClientWithResponsesInterface interface {
 	RegisterWithPasswordWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RegisterWithPasswordResponse, error)
 
 	RegisterWithPasswordWithResponse(ctx context.Context, body RegisterWithPasswordJSONRequestBody, reqEditors ...RequestEditorFn) (*RegisterWithPasswordResponse, error)
+
+	// ListSAMLProvidersWithResponse request
+	ListSAMLProvidersWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListSAMLProvidersResponse, error)
+
+	// CompleteSAMLLoginWithBodyWithResponse request with any body
+	CompleteSAMLLoginWithBodyWithResponse(ctx context.Context, provider SAMLProviderID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CompleteSAMLLoginResponse, error)
+
+	CompleteSAMLLoginWithFormdataBodyWithResponse(ctx context.Context, provider SAMLProviderID, body CompleteSAMLLoginFormdataRequestBody, reqEditors ...RequestEditorFn) (*CompleteSAMLLoginResponse, error)
+
+	// GetSAMLMetadataWithResponse request
+	GetSAMLMetadataWithResponse(ctx context.Context, provider SAMLProviderID, reqEditors ...RequestEditorFn) (*GetSAMLMetadataResponse, error)
+
+	// StartSAMLLoginWithResponse request
+	StartSAMLLoginWithResponse(ctx context.Context, provider SAMLProviderID, params *StartSAMLLoginParams, reqEditors ...RequestEditorFn) (*StartSAMLLoginResponse, error)
 
 	// VerifyEmailWithBodyWithResponse request with any body
 	VerifyEmailWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*VerifyEmailResponse, error)
@@ -23706,6 +23990,127 @@ func (r RegisterWithPasswordResponse) ContentType() string {
 	return ""
 }
 
+type ListSAMLProvidersResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]SAMLProvider
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListSAMLProvidersResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListSAMLProvidersResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListSAMLProvidersResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CompleteSAMLLoginResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CompleteSAMLLoginResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CompleteSAMLLoginResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CompleteSAMLLoginResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetSAMLMetadataResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetSAMLMetadataResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetSAMLMetadataResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetSAMLMetadataResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type StartSAMLLoginResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r StartSAMLLoginResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r StartSAMLLoginResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r StartSAMLLoginResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type VerifyEmailResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -25965,6 +26370,50 @@ func (c *ClientWithResponses) RegisterWithPasswordWithResponse(ctx context.Conte
 		return nil, err
 	}
 	return ParseRegisterWithPasswordResponse(rsp)
+}
+
+// ListSAMLProvidersWithResponse request returning *ListSAMLProvidersResponse
+func (c *ClientWithResponses) ListSAMLProvidersWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListSAMLProvidersResponse, error) {
+	rsp, err := c.ListSAMLProviders(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListSAMLProvidersResponse(rsp)
+}
+
+// CompleteSAMLLoginWithBodyWithResponse request with arbitrary body returning *CompleteSAMLLoginResponse
+func (c *ClientWithResponses) CompleteSAMLLoginWithBodyWithResponse(ctx context.Context, provider SAMLProviderID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CompleteSAMLLoginResponse, error) {
+	rsp, err := c.CompleteSAMLLoginWithBody(ctx, provider, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCompleteSAMLLoginResponse(rsp)
+}
+
+func (c *ClientWithResponses) CompleteSAMLLoginWithFormdataBodyWithResponse(ctx context.Context, provider SAMLProviderID, body CompleteSAMLLoginFormdataRequestBody, reqEditors ...RequestEditorFn) (*CompleteSAMLLoginResponse, error) {
+	rsp, err := c.CompleteSAMLLoginWithFormdataBody(ctx, provider, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCompleteSAMLLoginResponse(rsp)
+}
+
+// GetSAMLMetadataWithResponse request returning *GetSAMLMetadataResponse
+func (c *ClientWithResponses) GetSAMLMetadataWithResponse(ctx context.Context, provider SAMLProviderID, reqEditors ...RequestEditorFn) (*GetSAMLMetadataResponse, error) {
+	rsp, err := c.GetSAMLMetadata(ctx, provider, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetSAMLMetadataResponse(rsp)
+}
+
+// StartSAMLLoginWithResponse request returning *StartSAMLLoginResponse
+func (c *ClientWithResponses) StartSAMLLoginWithResponse(ctx context.Context, provider SAMLProviderID, params *StartSAMLLoginParams, reqEditors ...RequestEditorFn) (*StartSAMLLoginResponse, error) {
+	rsp, err := c.StartSAMLLogin(ctx, provider, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStartSAMLLoginResponse(rsp)
 }
 
 // VerifyEmailWithBodyWithResponse request with arbitrary body returning *VerifyEmailResponse
@@ -31812,6 +32261,117 @@ func ParseRegisterWithPasswordResponse(rsp *http.Response) (*RegisterWithPasswor
 	return response, nil
 }
 
+// ParseListSAMLProvidersResponse parses an HTTP response from a ListSAMLProvidersWithResponse call
+func ParseListSAMLProvidersResponse(rsp *http.Response) (*ListSAMLProvidersResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListSAMLProvidersResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []SAMLProvider
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCompleteSAMLLoginResponse parses an HTTP response from a CompleteSAMLLoginWithResponse call
+func ParseCompleteSAMLLoginResponse(rsp *http.Response) (*CompleteSAMLLoginResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CompleteSAMLLoginResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetSAMLMetadataResponse parses an HTTP response from a GetSAMLMetadataWithResponse call
+func ParseGetSAMLMetadataResponse(rsp *http.Response) (*GetSAMLMetadataResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetSAMLMetadataResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseStartSAMLLoginResponse parses an HTTP response from a StartSAMLLoginWithResponse call
+func ParseStartSAMLLoginResponse(rsp *http.Response) (*StartSAMLLoginResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &StartSAMLLoginResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseVerifyEmailResponse parses an HTTP response from a VerifyEmailWithResponse call
 func ParseVerifyEmailResponse(rsp *http.Response) (*VerifyEmailResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -32489,6 +33049,18 @@ type ServerInterface interface {
 	// Register with an email address and password
 	// (POST /api/auth/register)
 	RegisterWithPassword(w http.ResponseWriter, r *http.Request)
+	// List the deployment's SAML providers
+	// (GET /api/auth/saml/providers)
+	ListSAMLProviders(w http.ResponseWriter, r *http.Request)
+	// Complete a SAML login
+	// (POST /api/auth/saml/{provider}/acs)
+	CompleteSAMLLogin(w http.ResponseWriter, r *http.Request, provider SAMLProviderID)
+	// This deployment's SAML service provider metadata
+	// (GET /api/auth/saml/{provider}/metadata)
+	GetSAMLMetadata(w http.ResponseWriter, r *http.Request, provider SAMLProviderID)
+	// Begin a SAML login
+	// (GET /api/auth/saml/{provider}/start)
+	StartSAMLLogin(w http.ResponseWriter, r *http.Request, provider SAMLProviderID, params StartSAMLLoginParams)
 	// Confirm an email address
 	// (POST /api/auth/verify)
 	VerifyEmail(w http.ResponseWriter, r *http.Request)
@@ -33614,6 +34186,30 @@ func (_ Unimplemented) RefreshSession(w http.ResponseWriter, r *http.Request) {
 // Register with an email address and password
 // (POST /api/auth/register)
 func (_ Unimplemented) RegisterWithPassword(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// List the deployment's SAML providers
+// (GET /api/auth/saml/providers)
+func (_ Unimplemented) ListSAMLProviders(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Complete a SAML login
+// (POST /api/auth/saml/{provider}/acs)
+func (_ Unimplemented) CompleteSAMLLogin(w http.ResponseWriter, r *http.Request, provider SAMLProviderID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// This deployment's SAML service provider metadata
+// (GET /api/auth/saml/{provider}/metadata)
+func (_ Unimplemented) GetSAMLMetadata(w http.ResponseWriter, r *http.Request, provider SAMLProviderID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Begin a SAML login
+// (GET /api/auth/saml/{provider}/start)
+func (_ Unimplemented) StartSAMLLogin(w http.ResponseWriter, r *http.Request, provider SAMLProviderID, params StartSAMLLoginParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -42315,6 +42911,114 @@ func (siw *ServerInterfaceWrapper) RegisterWithPassword(w http.ResponseWriter, r
 	handler.ServeHTTP(w, r)
 }
 
+// ListSAMLProviders operation middleware
+func (siw *ServerInterfaceWrapper) ListSAMLProviders(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListSAMLProviders(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CompleteSAMLLogin operation middleware
+func (siw *ServerInterfaceWrapper) CompleteSAMLLogin(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "provider" -------------
+	var provider SAMLProviderID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "provider", chi.URLParam(r, "provider"), &provider, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "provider", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CompleteSAMLLogin(w, r, provider)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetSAMLMetadata operation middleware
+func (siw *ServerInterfaceWrapper) GetSAMLMetadata(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "provider" -------------
+	var provider SAMLProviderID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "provider", chi.URLParam(r, "provider"), &provider, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "provider", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetSAMLMetadata(w, r, provider)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// StartSAMLLogin operation middleware
+func (siw *ServerInterfaceWrapper) StartSAMLLogin(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "provider" -------------
+	var provider SAMLProviderID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "provider", chi.URLParam(r, "provider"), &provider, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "provider", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params StartSAMLLoginParams
+
+	// ------------- Optional query parameter "r" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "r", r.URL.Query(), &params.R, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "r"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "r", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.StartSAMLLogin(w, r, provider, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // VerifyEmail operation middleware
 func (siw *ServerInterfaceWrapper) VerifyEmail(w http.ResponseWriter, r *http.Request) {
 
@@ -43074,6 +43778,18 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/auth/register", wrapper.RegisterWithPassword)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/auth/saml/providers", wrapper.ListSAMLProviders)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/auth/saml/{provider}/acs", wrapper.CompleteSAMLLogin)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/auth/saml/{provider}/metadata", wrapper.GetSAMLMetadata)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/auth/saml/{provider}/start", wrapper.StartSAMLLogin)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/auth/verify", wrapper.VerifyEmail)
