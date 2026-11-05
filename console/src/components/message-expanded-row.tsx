@@ -1,9 +1,9 @@
-import React, { useContext, useEffect, useState } from "react"
+import React, { useContext } from "react"
+import { useQuery } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
 import { ProjectContext } from "../contexts"
 import { PreferencesContext } from "@/contexts/PreferencesContext"
 import { formatDate } from "../utils"
-import oapiClient from "../oapi/client"
 import type { components } from "../oapi/management.generated"
 import Preview from "@/components/preview"
 import { JsonView } from "@/components/ui/json-view"
@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { TableRow, TableCell } from "@/components/ui/table"
 import { getChannelMeta } from "./inbox-channel-meta"
 import { getMessageFailure } from "./inbox-failure-meta"
+import { senderIdentityQuery } from "./sender-identity/queries"
 
 type InboxMessage = components["schemas"]["InboxMessage"]
 
@@ -18,39 +19,19 @@ export function MessageExpandedRow({ message }: { message: InboxMessage }) {
     const { t } = useTranslation()
     const [preferences] = useContext(PreferencesContext)
     const [project] = useContext(ProjectContext)
-    const [senderName, setSenderName] = useState<string | undefined>(undefined)
-
-    useEffect(() => {
-        if (!message.sender_identity_id) return
-        let cancelled = false
-        oapiClient
-            .GET("/api/admin/projects/{projectID}/sender-identities/{senderIdentityID}", {
-                params: {
-                    path: {
-                        projectID: project.id,
-                        senderIdentityID: message.sender_identity_id,
-                    },
-                },
-            })
-            .then(({ data }) => {
-                if (cancelled) return
-                const name =
-                    typeof data?.traits?.name === "string"
-                        ? data.traits.name
-                        : typeof data?.traits?.address === "string"
-                          ? data.traits.address
-                          : undefined
-                setSenderName(name)
-            })
-            .catch(() => {
-                if (!cancelled) {
-                    setSenderName(undefined)
-                }
-            })
-        return () => {
-            cancelled = true
-        }
-    }, [message.sender_identity_id, project.id])
+    // Shared across rows, so expanding another message from the same sender
+    // doesn't fetch it again. Without it the preview just omits the name.
+    const sender = useQuery({
+        ...senderIdentityQuery(project.id, message.sender_identity_id ?? ""),
+        enabled: !!message.sender_identity_id,
+    })
+    const traits = sender.data?.traits
+    const senderName =
+        typeof traits?.name === "string"
+            ? traits.name
+            : typeof traits?.address === "string"
+              ? traits.address
+              : undefined
 
     const channelMeta = getChannelMeta(message.channel, t)
     const failure = getMessageFailure(message, t)

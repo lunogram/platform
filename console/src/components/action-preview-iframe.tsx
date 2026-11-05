@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react"
+import { useQuery } from "@tanstack/react-query"
+import { useTranslation } from "react-i18next"
 import oapiClient from "@/oapi/client"
+import { unwrap } from "@/oapi/unwrap"
+import { Button } from "@/components/ui/button"
 
 export type PreviewMode = "action-config" | "function-call"
 
@@ -30,26 +34,33 @@ export function ActionPreviewIframe({
     data,
     className,
 }: ActionPreviewIframeProps) {
+    const { t } = useTranslation()
     const iframeRef = useRef<HTMLIFrameElement>(null)
     const [iframeHeight, setIframeHeight] = useState(0)
-    const [previewHtml, setPreviewHtml] = useState<string | null>(null)
     const iframeLoadedRef = useRef(false)
 
-    // Fetch preview HTML when action type changes
+    // Keyed by action type, so switching types quickly can't show the preview
+    // of a type that was left.
+    const preview = useQuery({
+        queryKey: ["projects", projectId, "actions", "preview", actionType],
+        queryFn: async () =>
+            unwrap(
+                await oapiClient.GET(
+                    "/api/admin/projects/{projectID}/actions/meta/{actionType}/preview",
+                    {
+                        params: { path: { projectID: projectId, actionType: actionType ?? "" } },
+                        parseAs: "text",
+                    },
+                ),
+            ) as unknown as string,
+        enabled: !!actionType,
+    })
+    const previewHtml = actionType ? (preview.data ?? null) : null
+
+    // A new document has to announce itself again before it is posted to.
     useEffect(() => {
-        if (!actionType) {
-            setPreviewHtml(null)
-            return
-        }
         iframeLoadedRef.current = false
-        oapiClient
-            .GET("/api/admin/projects/{projectID}/actions/meta/{actionType}/preview", {
-                params: { path: { projectID: projectId, actionType } },
-                parseAs: "text",
-            })
-            .then(({ data }) => setPreviewHtml((data as unknown as string) ?? null))
-            .catch(() => setPreviewHtml(null))
-    }, [actionType, projectId])
+    }, [previewHtml])
 
     // Serialize to JSON so the effect fires on deep changes
     const previewPayload = JSON.stringify({
@@ -94,6 +105,19 @@ export function ActionPreviewIframe({
         window.addEventListener("message", handler)
         return () => window.removeEventListener("message", handler)
     }, [])
+
+    if (actionType && preview.isError) {
+        return (
+            <div className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
+                <span className="text-sm text-destructive">
+                    {t("action_preview_load_failed", "Couldn't load the preview.")}
+                </span>
+                <Button type="button" variant="outline" size="sm" onClick={() => preview.refetch()}>
+                    {t("retry", "Retry")}
+                </Button>
+            </div>
+        )
+    }
 
     if (!previewHtml) return null
 

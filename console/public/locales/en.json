@@ -1049,7 +1049,10 @@
         "upload": "Upload",
         "emptyTitle": "No images yet",
         "emptyDescription": "Drag and drop images here, or click Upload to get started.",
-        "imageCount": "{{count}} image(s)"
+        "imageCount": "{{count}} image(s)",
+        "uploadFailed": "Couldn't upload the image.",
+        "deleteFailed": "Couldn't delete the image.",
+        "loadFailed": "Couldn't load images."
     },
     "all": "All",
     "creating": "Creating...",
@@ -1129,5 +1132,20 @@
     "sso_error_email": "Your identity provider returned no email address.",
     "sso_error_failed": "Single sign-on failed. Please try again.",
     "sso_choose_provider": "Choose how you would like to sign in.",
-    "sso_error_domain": "Your identity provider returned an address it is not configured to sign in."
+    "sso_error_domain": "Your identity provider returned an address it is not configured to sign in.",
+    "search_table": {
+        "load_failed": "Couldn't load results."
+    },
+    "scheduled_load_failed": "Couldn't load scheduled items.",
+    "scheduled_schemas_load_failed": "Couldn't load schedule names.",
+    "sender_identity_delete_failed": "Couldn't remove the address.",
+    "sender_addresses_load_failed": "Couldn't load sender addresses.",
+    "sender_numbers_load_failed": "Couldn't load sender numbers.",
+    "sender_identities_load_failed": "Couldn't load sender addresses.",
+    "integrations_load_failed": "Couldn't load integrations.",
+    "sender_identity_selected_load_failed": "Couldn't load the selected sender",
+    "inbox_load_failed": "Couldn't load inbox messages.",
+    "workspace_lists_load_failed": "Couldn't load your projects. Retry",
+    "user_import_failed": "Couldn't import the users.",
+    "action_preview_load_failed": "Couldn't load the preview."
 }
