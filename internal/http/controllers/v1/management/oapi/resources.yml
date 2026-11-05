@@ -330,12 +330,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - data
-                properties:
-                  data:
-                    $ref: "#/components/schemas/Campaign"
+                $ref: "#/components/schemas/Campaign"
         default:
           $ref: "#/components/responses/Error"
 
@@ -514,12 +509,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - data
-                properties:
-                  data:
-                    $ref: "#/components/schemas/Template"
+                $ref: "#/components/schemas/Template"
         default:
           $ref: "#/components/responses/Error"
 
@@ -7600,6 +7590,14 @@ components:
         transactional:
           type: boolean
           example: false
+        create_default_template:
+          type: boolean
+          example: false
+          description: >
+            Whether to create an empty template in the project's locale along with
+            the campaign. Defaults to true. Set to false when creating the
+            campaign's templates yourself, so the campaign has no blank template
+            next to them.
 
     UpdateCampaign:
       type: object

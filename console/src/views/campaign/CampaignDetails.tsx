@@ -1,15 +1,21 @@
-import { useCallback, useContext, useEffect, useMemo, useState } from "react"
-import { CampaignContext, ProjectContext, TemplateContext } from "@/contexts"
-import type { Campaign, Template, Subscription } from "@/types"
+import { useContext, useMemo, useState } from "react"
+import { useQuery } from "@tanstack/react-query"
+import { CampaignContext, ProjectContext } from "@/contexts"
+import type { Campaign, Template } from "@/types"
+import type { UUID } from "@/types/common"
 import { useTranslation } from "react-i18next"
-import { Controller, useForm } from "react-hook-form"
+import { Controller, useForm, type FieldValues } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import api from "@/api"
+import { useNavigate } from "react-router"
+import { defaultTemplateData } from "@/validation/campaign/template/data"
 import { Radio } from "lucide-react"
 import { isEnterprise } from "@/config/enterprise"
-import { useResolver } from "@/hooks"
 
-import { channels } from "./template/channels"
+import { subscriptionsQuery, useCreateTemplate, useUpdateCampaign } from "./queries"
+import { SubscriptionSelect } from "./SubscriptionSelect"
+import { withChannel, type ChannelConfig } from "./template/channels"
+import { TemplateProvider } from "./template/TemplateProvider"
+import { UnsupportedChannel } from "./template/UnsupportedChannel"
 import { CampaignVariables } from "./CampaignVariables"
 
 import { CampaignVariableProvider } from "./CampaignVariableContext"
@@ -19,34 +25,43 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select"
 import { CreateBroadcastDialog } from "@/views/broadcast/CreateBroadcastDialog"
 
 import { campaignSchema, type CampaignReviewFormData } from "@/validation/campaign/campaign-details"
 
-function CampaignReview({ campaign, template }: { campaign: Campaign; template: Template }) {
+// DetailsPreview owns the channel form the preview reads from. It is keyed by
+// template, so switching locale seeds subject, sender and body from the same template.
+function DetailsPreview<T extends FieldValues>({
+    campaign,
+    template,
+    config,
+}: {
+    campaign: Campaign
+    template: Template
+    config: ChannelConfig<T>
+}) {
+    const { useForm: useChannelForm, ContentPreview } = config
+    const channelForm = useChannelForm(campaign, template)
+    return <ContentPreview campaign={campaign} form={channelForm} edit />
+}
+
+function CampaignReview({
+    campaign,
+    template,
+    onSelectTemplate,
+}: {
+    campaign: Campaign
+    template: Template
+    onSelectTemplate: (templateId: UUID) => void
+}) {
     const { t } = useTranslation()
     const [project] = useContext(ProjectContext)
-    const [, setCampaign] = useContext(CampaignContext)
-    const templateState = useState<Template>(template)
-    const [isSubmitting, setIsSubmitting] = useState(false)
+    const updateCampaign = useUpdateCampaign()
     const [isBroadcastOpen, setIsBroadcastOpen] = useState(false)
     const [isTransactional, setTransactional] = useState(campaign.transactional ?? false)
     const [subscriptionId, setSubscriptionId] = useState<string>(campaign.subscription_id ?? "")
 
-    const [subscriptions] = useResolver(
-        useCallback(async (): Promise<Subscription[]> => {
-            if (!project?.id) return []
-            const result = await api.subscriptions.search(project.id, { limit: 100 })
-            return result.results ?? []
-        }, [project?.id]),
-    )
+    const { data: subscriptions } = useQuery(subscriptionsQuery(project.id))
 
     const filteredSubscriptions = useMemo(() => {
         if (!subscriptions) return []
@@ -71,35 +86,25 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
         },
     })
 
-    const config = channels[campaign.channel]
-    if (!config) {
-        return null
+    const preview = withChannel(campaign.channel, (config) => (
+        <DetailsPreview key={template.id} campaign={campaign} template={template} config={config} />
+    ))
+    if (!preview) {
+        return <UnsupportedChannel />
     }
 
-    const channelForm = config.form(campaign, template)
-    const { ContentPreview } = config
-
-    const onSubmit = async (data: CampaignReviewFormData) => {
-        if (!project) return
-
-        setIsSubmitting(true)
-        try {
-            const updatedCampaign = await api.campaigns.update(project.id, campaign.id, {
-                name: data.name,
-                transactional: isTransactional,
-                subscription_id: isTransactional ? undefined : effectiveSubscriptionId || undefined,
-                variables: data.variables.filter((v) => v.name),
-            })
-
-            setCampaign(updatedCampaign)
-        } finally {
-            setIsSubmitting(false)
-        }
+    const onSubmit = (data: CampaignReviewFormData) => {
+        updateCampaign.mutate({
+            name: data.name,
+            transactional: isTransactional,
+            subscription_id: isTransactional ? undefined : effectiveSubscriptionId || undefined,
+            variables: data.variables.filter((v) => v.name),
+        })
     }
 
     return (
         <CampaignVariableProvider>
-            <TemplateContext.Provider value={templateState}>
+            <TemplateProvider template={template} onSelect={onSelectTemplate}>
                 <div className="flex h-screen bg-muted/20 overflow-hidden">
                     <div className="h-full overflow-y-auto w-2/5 bg-background p-8">
                         <div className="mb-6">
@@ -187,37 +192,12 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
                                         <FieldLabel htmlFor="subscription-select">
                                             {t("campaign.subscription", "Subscription")}
                                         </FieldLabel>
-                                        <Select
+                                        <SubscriptionSelect
+                                            id="subscription-select"
+                                            channel={campaign.channel}
                                             value={effectiveSubscriptionId}
-                                            onValueChange={setSubscriptionId}
-                                        >
-                                            <SelectTrigger id="subscription-select">
-                                                <SelectValue
-                                                    placeholder={t(
-                                                        "campaign.subscription.placeholder",
-                                                        "Select subscription",
-                                                    )}
-                                                />
-                                            </SelectTrigger>
-                                            <SelectContent className="z-[1100]">
-                                                {filteredSubscriptions.length === 0 && (
-                                                    <SelectItem value="__empty" disabled>
-                                                        {t(
-                                                            "campaign.subscription.empty",
-                                                            "No subscriptions for this channel",
-                                                        )}
-                                                    </SelectItem>
-                                                )}
-                                                {filteredSubscriptions.map((subscription) => (
-                                                    <SelectItem
-                                                        key={subscription.id}
-                                                        value={subscription.id}
-                                                    >
-                                                        {subscription.name}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                            onChange={setSubscriptionId}
+                                        />
                                     </Field>
                                 </FieldGroup>
                             )}
@@ -225,8 +205,8 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
                             <div className="flex items-center gap-2">
                                 <Button
                                     type="submit"
-                                    disabled={isSubmitting}
-                                    isLoading={isSubmitting}
+                                    disabled={updateCampaign.isPending}
+                                    isLoading={updateCampaign.isPending}
                                 >
                                     {t("actions.save")}
                                 </Button>
@@ -251,31 +231,74 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
                     <div className="w-3/5 bg-background p-8 pb-0 border-l">
                         <Tabs defaultValue="preview" className="h-full flex flex-col">
                             <TabsContent value="preview" className="flex-1">
-                                <ContentPreview campaign={campaign} form={channelForm} edit />
+                                {preview}
                             </TabsContent>
                         </Tabs>
                     </div>
                 </div>
-            </TemplateContext.Provider>
+            </TemplateProvider>
         </CampaignVariableProvider>
+    )
+}
+
+// NoTemplates is shown for a campaign whose template was never created, for
+// example when creating the campaign failed halfway through.
+function NoTemplates({ campaign }: { campaign: Campaign }) {
+    const { t } = useTranslation()
+    const [project] = useContext(ProjectContext)
+    const navigate = useNavigate()
+    const createTemplate = useCreateTemplate()
+
+    const create = () =>
+        createTemplate.mutate(
+            { locale: project.locale, data: defaultTemplateData(campaign.channel) },
+            {
+                onSuccess: (template) =>
+                    navigate(
+                        `/projects/${project.id}/campaigns/${campaign.id}/templates/${template.id}`,
+                    ),
+            },
+        )
+
+    return (
+        <div className="flex h-screen items-center justify-center bg-muted/20">
+            <div className="flex flex-col items-center gap-4 text-center">
+                <p className="text-muted-foreground">
+                    {t("campaign.details.no_templates", "This campaign has no template yet.")}
+                </p>
+                <Button
+                    onClick={create}
+                    isLoading={createTemplate.isPending}
+                    disabled={createTemplate.isPending}
+                >
+                    {t("campaign.details.create_template", "Create template")}
+                </Button>
+            </div>
+        </div>
     )
 }
 
 export default function CampaignDetails() {
     const [campaign] = useContext(CampaignContext)
     const [project] = useContext(ProjectContext)
-    const [template, setTemplate] = useState<Template | null>(null)
+    // Only the choice is kept here; the template itself is always read from the
+    // cached campaign, so it reflects the latest save.
+    const [selectedTemplateId, setSelectedTemplateId] = useState<UUID>()
 
-    useEffect(() => {
-        if (!campaign || campaign.templates.length === 0) return
-        const selected =
-            campaign.templates.find((t) => t.locale === project.locale) ?? campaign.templates[0]
-        setTemplate((prev) => (prev?.id !== selected.id ? selected : prev))
-    }, [campaign, project.locale])
-
-    if (!campaign || !project || !template) {
-        return null
+    if (campaign.templates.length === 0) {
+        return <NoTemplates campaign={campaign} />
     }
 
-    return <CampaignReview campaign={campaign} template={template} />
+    const template =
+        campaign.templates.find((t) => t.id === selectedTemplateId) ??
+        campaign.templates.find((t) => t.locale === project.locale) ??
+        campaign.templates[0]
+
+    return (
+        <CampaignReview
+            campaign={campaign}
+            template={template}
+            onSelectTemplate={setSelectedTemplateId}
+        />
+    )
 }

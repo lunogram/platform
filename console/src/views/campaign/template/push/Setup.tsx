@@ -1,6 +1,5 @@
-import { Controller, useForm, type UseFormReturn } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import type { Campaign, Template, User, Device, Locale } from "@/types"
+import { Controller, type UseFormReturn } from "react-hook-form"
+import type { Campaign, User, Device } from "@/types"
 import { Rocket } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { useContext, useState, useEffect } from "react"
@@ -8,8 +7,7 @@ import { ProjectContext, TemplateContext } from "@/contexts"
 import { useNavigate } from "react-router"
 import { Button } from "@/components/ui/button"
 import { oapiClient } from "@/oapi/client"
-import api from "@/api"
-import type { z } from "zod"
+import { useProjectLocales } from "@/hooks/use-project-locales"
 
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { TemplateInput } from "@/components/ui/template-input"
@@ -26,32 +24,11 @@ import { useSendTestPush } from "./useSendTestPush"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { PushFrame } from "@/components/preview/PushFrame"
 
-import { pushSetupFormSchema } from "@/validation/campaign/template/push/setup"
-
-export function PushForm(_campaign: Campaign, template?: Template) {
-    const formSchema = pushSetupFormSchema.extend({})
-
-    const defaultValues: z.infer<typeof pushSetupFormSchema> = {
-        title: "",
-        body: "",
-        custom: undefined,
-    }
-
-    if (template && template.type == "push") {
-        defaultValues.title = template.data.title
-        defaultValues.body = template.data.body
-        defaultValues.custom = template.data.custom
-    }
-
-    return useForm({
-        resolver: zodResolver(formSchema),
-        defaultValues,
-    })
-}
+import type { PushFormValues } from "@/validation/campaign/template/push/setup"
 
 interface PushFormControlProps {
     campaign: Campaign
-    form: UseFormReturn<z.infer<typeof pushSetupFormSchema>>
+    form: UseFormReturn<PushFormValues>
     disabled?: boolean
 }
 
@@ -125,7 +102,7 @@ function randomNotification() {
 
 export interface PushSetupProps {
     campaign: Campaign
-    form: UseFormReturn<z.infer<typeof pushSetupFormSchema>>
+    form: UseFormReturn<PushFormValues>
     edit?: boolean
 }
 
@@ -135,7 +112,7 @@ export function PushPreview({ campaign, form, edit = false }: PushSetupProps) {
     const { t } = useTranslation()
     const [selectedUser, setSelectedUser] = useState<User | null>(null)
     const [selectedLocale, setSelectedLocale] = useState(template.locale)
-    const [locales, setLocales] = useState<Locale[]>([])
+    const locales = useProjectLocales(project.id)
     const [devices, setDevices] = useState<Device[]>([])
     const [selectedDevice, setSelectedDevice] = useState<Device | null>(null)
     const navigate = useNavigate()
@@ -147,23 +124,13 @@ export function PushPreview({ campaign, form, edit = false }: PushSetupProps) {
     })
 
     useEffect(() => {
-        const fetchLocales = async () => {
-            if (project?.id) {
-                const result = await api.locales.search(project.id, { limit: 100 })
-                setLocales(result.results)
-            }
-        }
-        fetchLocales()
-    }, [project?.id])
-
-    useEffect(() => {
         const fetchDevices = async () => {
             if (!project?.id || !selectedUser?.id) {
                 setDevices([])
                 setSelectedDevice(null)
                 return
             }
-            const { data } = await oapiClient.GET(
+            const { data, error } = await oapiClient.GET(
                 "/api/admin/projects/{projectID}/subjects/users/{userID}/devices",
                 {
                     params: {
@@ -171,6 +138,7 @@ export function PushPreview({ campaign, form, edit = false }: PushSetupProps) {
                     },
                 },
             )
+            if (error) console.error(error)
             const results = data?.results ?? []
             setDevices(results as Device[])
             setSelectedDevice(results.length > 0 ? (results[0] as Device) : null)

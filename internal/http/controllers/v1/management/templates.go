@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"net/http"
@@ -151,24 +152,46 @@ func (srv *TemplatesController) CreateTemplate(w http.ResponseWriter, r *http.Re
 		senderIdentityID = &id
 	}
 
-	templateID, err := srv.store.TemplatesStore.CreateTemplate(ctx, projectID, campaignID, campaign.Channel, body.Locale, senderIdentityID)
+	data, err := srv.compileTemplateData(ctx, logger, projectID, body.Data)
+	if err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	// The template and its data are stored together, so a failure can't leave
+	// an empty template behind.
+	tx, err := srv.db.BeginTxx(ctx, nil)
+	if err != nil {
+		logger.Error("unexpected error while attempting to start a transaction", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	defer tx.Rollback() //nolint:errcheck
+
+	templates := management.NewTemplatesStore(tx)
+
+	templateID, err := templates.CreateTemplate(ctx, projectID, campaignID, campaign.Channel, body.Locale, senderIdentityID)
 	if err != nil {
 		logger.Error("failed to create template", zap.Error(err))
 		oapi.WriteProblem(w, err)
 		return
 	}
 
-	if body.Data != nil {
-		update := management.TemplateUpdate{
-			Data: body.Data,
-		}
-
-		err = srv.store.TemplatesStore.UpdateTemplate(ctx, projectID, templateID, update)
+	if data != nil {
+		err = templates.UpdateTemplate(ctx, projectID, templateID, management.TemplateUpdate{Data: data})
 		if err != nil {
-			logger.Error("failed to update template data", zap.Error(err))
+			logger.Error("failed to store template data", zap.Error(err))
 			oapi.WriteProblem(w, err)
 			return
 		}
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		logger.Error("unexpected error while attempting to commit transaction", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
 	}
 
 	logger.Info("template created")
@@ -180,6 +203,40 @@ func (srv *TemplatesController) CreateTemplate(w http.ResponseWriter, r *http.Re
 	}
 
 	json.Write(w, http.StatusCreated, template.OAPI())
+}
+
+// compileTemplateData compiles the React Email source in template data, if it
+// has any, via the Deno renderer service and returns the data with the compiled
+// JS stored alongside the source. Creating and updating a template both go
+// through it, so a template's code is compiled however it was saved.
+//
+// Extra fields stored by the frontend (e.g. blocks, editorMode) are preserved
+// through the marshal/unmarshal round-trip via templateDataEnvelope.
+func (srv *TemplatesController) compileTemplateData(ctx context.Context, logger *zap.Logger, projectID uuid.UUID, data *json.RawMessage) (*json.RawMessage, error) {
+	if data == nil {
+		return nil, nil
+	}
+
+	var envelope templateDataEnvelope
+	if err := json.Unmarshal(*data, &envelope); err != nil {
+		logger.Error("failed to unmarshal template data", zap.Error(err))
+		return nil, problem.ErrInternal(problem.Describe("failed to unmarshal template data"))
+	}
+
+	if envelope.Code.Source == "" {
+		return data, nil
+	}
+
+	var err error
+	envelope.Code.Bundle, envelope.Code.BundleHash, err = srv.renderer.Compile(ctx, projectID, envelope.Code.Source)
+	if err != nil {
+		logger.Error("failed to compile template", zap.Error(err))
+		return nil, problem.ErrInternal(problem.Describe("failed to compile email template"))
+	}
+
+	compiled, _ := json.Marshal(envelope) //nolint:errcheck
+	raw := json.RawMessage(compiled)
+	return &raw, nil
 }
 
 func (srv *TemplatesController) DeleteTemplate(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, campaignID uuid.UUID, templateID uuid.UUID) {
@@ -245,34 +302,14 @@ func (srv *TemplatesController) UpdateTemplate(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	// If the template data contains React Email source code, compile it via
-	// the Deno renderer service and store the compiled JS alongside the source.
-	// Extra fields stored by the frontend (e.g. blocks, editorMode) are
-	// preserved through the marshal/unmarshal round-trip via templateDataEnvelope.
-	if body.Data != nil {
-		var envelope templateDataEnvelope
-		if err := json.Unmarshal(*body.Data, &envelope); err != nil {
-			logger.Error("failed to unmarshal template data", zap.Error(err))
-			oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("failed to unmarshal template data")))
-			return
-		}
-
-		if envelope.Code.Source != "" {
-			envelope.Code.Bundle, envelope.Code.BundleHash, err = srv.renderer.Compile(ctx, projectID, envelope.Code.Source)
-			if err != nil {
-				logger.Error("failed to compile template", zap.Error(err))
-				oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("failed to compile email template")))
-				return
-			}
-
-			updated, _ := json.Marshal(envelope) //nolint:errcheck
-			raw := json.RawMessage(updated)
-			body.Data = &raw
-		}
+	data, err := srv.compileTemplateData(ctx, logger, projectID, body.Data)
+	if err != nil {
+		oapi.WriteProblem(w, err)
+		return
 	}
 
 	updated := management.TemplateUpdate{
-		Data: body.Data,
+		Data: data,
 	}
 
 	// Handle sender_identity_id: the field is nullable, so we need to distinguish

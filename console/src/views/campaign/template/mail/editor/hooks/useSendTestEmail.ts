@@ -1,9 +1,11 @@
-import { useCallback, useContext, useState } from "react"
+import { useCallback, useState } from "react"
 import { toast } from "sonner"
 import { oapiClient } from "@/oapi/client"
-import { TemplateWorkflowContext } from "../../../contexts"
+import type { SaveStep } from "../../../contexts"
 
 interface UseSendTestEmailOptions {
+    /** The editor step's save, run first so the test uses the latest content. */
+    save: SaveStep
     previewProps: Record<string, unknown>
     projectId: string
     campaignId: string
@@ -23,13 +25,13 @@ export interface UseSendTestEmailResult {
  * content (subject, html, code, etc.).
  */
 export function useSendTestEmail({
+    save,
     previewProps,
     projectId,
     campaignId,
     templateId,
 }: UseSendTestEmailOptions): UseSendTestEmailResult {
     const [sending, setSending] = useState(false)
-    const { save } = useContext(TemplateWorkflowContext)
 
     const handleSendTest = useCallback(async () => {
         const userProps = previewProps.user as Record<string, unknown> | undefined
@@ -43,9 +45,12 @@ export function useSendTestEmail({
         try {
             // Persist the current editor state so the backend has up-to-date
             // template data (html, text, code source, subject, etc.).
+            // A failed save was already reported; only invalid content needs saying here.
             const saved = await save()
-            if (!saved) {
-                toast.error("Failed to save template before sending test email")
+            if (!saved.ok) {
+                if (saved.reason === "invalid") {
+                    toast.error("Fix the template's errors before sending a test email")
+                }
                 return
             }
 

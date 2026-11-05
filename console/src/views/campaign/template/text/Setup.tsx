@@ -1,11 +1,9 @@
-import { Controller, useForm, type UseFormReturn } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
+import { Controller, type UseFormReturn } from "react-hook-form"
 import { Ellipsis, Rocket } from "lucide-react"
-import type { Campaign, Template, User, Locale } from "@/types"
+import type { Campaign, User } from "@/types"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router"
-import api from "@/api"
-import type * as z from "zod"
+import { useProjectLocales } from "@/hooks/use-project-locales"
 
 import { Render } from "@/renderTemplates"
 import { PhoneFrame } from "@/components/preview/PhoneFrame"
@@ -21,35 +19,16 @@ import {
     SelectValue,
 } from "@/components/ui/select"
 import { UserSelection } from "../UserSelection"
-import { useContext, useState, useEffect } from "react"
+import { useContext, useState } from "react"
 import { ProjectContext, TemplateContext } from "@/contexts"
 import { useCampaignVariableContext } from "../../CampaignVariableContext"
 import { useSendTestSMS } from "./useSendTestSMS"
 
-import { textSetupFormSchema } from "@/validation/campaign/template/text/setup"
-
-export function TextForm(_campaign: Campaign, template?: Template) {
-    const formSchema = textSetupFormSchema
-
-    const defaultValues: z.infer<typeof textSetupFormSchema> = {
-        sender_identity_id: "",
-        body: "",
-    }
-
-    if (template && template.type === "sms") {
-        defaultValues.sender_identity_id = template.sender_identity_id ?? ""
-        defaultValues.body = template.data.body
-    }
-
-    return useForm({
-        resolver: zodResolver(formSchema),
-        defaultValues: defaultValues,
-    })
-}
+import type { TextFormValues } from "@/validation/campaign/template/text/setup"
 
 interface TextFormControlProps {
     campaign: Campaign
-    form: UseFormReturn<z.infer<typeof textSetupFormSchema>>
+    form: UseFormReturn<TextFormValues>
     disabled?: boolean
 }
 
@@ -111,7 +90,7 @@ export function TextFormControl({
 
 export interface TextSetupProps {
     campaign: Campaign
-    form: UseFormReturn<z.infer<typeof textSetupFormSchema>>
+    form: UseFormReturn<TextFormValues>
     edit?: boolean
 }
 
@@ -121,7 +100,7 @@ export function TextPreview({ campaign, form, edit = false }: TextSetupProps) {
     const { t } = useTranslation()
     const [selectedUser, setSelectedUser] = useState<User | null>(null)
     const [selectedLocale, setSelectedLocale] = useState(template.locale)
-    const [locales, setLocales] = useState<Locale[]>([])
+    const locales = useProjectLocales(project.id)
     const navigate = useNavigate()
 
     const { sending, handleSendTest } = useSendTestSMS({
@@ -129,16 +108,6 @@ export function TextPreview({ campaign, form, edit = false }: TextSetupProps) {
         campaignId: campaign.id,
         templateId: template.id,
     })
-
-    useEffect(() => {
-        const fetchLocales = async () => {
-            if (project?.id) {
-                const result = await api.locales.search(project.id, { limit: 100 })
-                setLocales(result.results)
-            }
-        }
-        fetchLocales()
-    }, [project?.id])
 
     const rawMessage = form.watch("body")
     const message = selectedUser ? Render(rawMessage, { user: selectedUser }) : rawMessage

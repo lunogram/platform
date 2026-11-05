@@ -3321,6 +3321,11 @@ export interface components {
             subscription_id?: string;
             /** @example false */
             transactional?: boolean;
+            /**
+             * @description Whether to create an empty template in the project's locale along with the campaign. Defaults to true. Set to false when creating the campaign's templates yourself, so the campaign has no blank template next to them.
+             * @example false
+             */
+            create_default_template?: boolean;
         };
         UpdateCampaign: {
             /** @example epic hopper */
@@ -6096,9 +6101,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        data: components["schemas"]["Campaign"];
-                    };
+                    "application/json": components["schemas"]["Campaign"];
                 };
             };
             default: components["responses"]["Error"];
@@ -6234,9 +6237,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        data: components["schemas"]["Template"];
-                    };
+                    "application/json": components["schemas"]["Template"];
                 };
             };
             default: components["responses"]["Error"];

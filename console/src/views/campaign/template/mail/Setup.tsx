@@ -1,36 +1,21 @@
-import { useContext, useState, useEffect, useRef } from "react"
-import { Controller, useForm, type UseFormReturn } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import type { Campaign, Template, User, Locale, EmailTemplateData } from "@/types"
+import { useContext, useState } from "react"
+import { Controller, type UseFormReturn } from "react-hook-form"
+import type { Campaign, User } from "@/types"
 import { useTranslation } from "react-i18next"
 import { ProjectContext, TemplateContext } from "@/contexts"
-import { useNavigate } from "react-router"
-import oapiClient from "@/oapi/client"
-import * as z from "zod"
 import { Render } from "@/renderTemplates"
-import { compileEmail } from "./editor/codeEditor/compileEmail"
-import { getSystemPreviewProps } from "./editor/variableScope"
 
 import { Input } from "@/components/ui/input"
 import { TemplateInput } from "@/components/ui/template-input"
-import { Button } from "@/components/ui/button"
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select"
 
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
-import { EmailFrame } from "@/components/preview/EmailFrame"
 
 import { UserSelection } from "../UserSelection"
 import { SenderIdentityCombobox } from "@/components/sender-identity-combobox"
 import type { SenderIdentity } from "@/oapi/client"
 import { useCampaignVariableContext } from "../../CampaignVariableContext"
 
-import { emailSetupFormSchema } from "@/validation/campaign/template/mail/setup"
+import type { EmailFormValues } from "@/validation/campaign/template/mail/setup"
 
 const randomSubjects = [
     "You won't believe what we have for you...",
@@ -50,29 +35,9 @@ function randomSubject() {
     return randomSubjects[index]
 }
 
-export function EmailForm(_campaign: Campaign, template?: Template<EmailTemplateData>) {
-    const formSchema = emailSetupFormSchema.extend({
-        sender_identity_id: z.string("From address is required").min(1),
-    })
-
-    const form = useForm({
-        resolver: zodResolver(formSchema),
-        defaultValues: {
-            sender_identity_id: template?.sender_identity_id ?? "",
-            from: {
-                name: template?.data.from?.name ?? "",
-            },
-            subject: template?.data.subject ?? randomSubject(),
-            replyTo: template?.data.reply_to ?? "",
-        },
-    })
-
-    return form
-}
-
 interface EmailFormControlProps {
     campaign: Campaign
-    form: UseFormReturn<z.infer<typeof emailSetupFormSchema>>
+    form: UseFormReturn<EmailFormValues>
     disabled?: boolean
 }
 
@@ -84,6 +49,9 @@ export function EmailFormControl({
     const { t } = useTranslation()
     const [project] = useContext(ProjectContext)
     const { variableGroups } = useCampaignVariableContext()
+    // Only a suggestion: it must never become the form value, or an
+    // untouched form would save a random subject.
+    const [subjectPlaceholder] = useState(randomSubject)
 
     return (
         <FieldGroup className="mt-7">
@@ -99,7 +67,7 @@ export function EmailFormControl({
                             value={field.value}
                             onChange={field.onChange}
                             id="form-rhf-demo-subject"
-                            placeholder=""
+                            placeholder={subjectPlaceholder}
                             disabled={disabled}
                             variables={variableGroups}
                         />
@@ -157,7 +125,7 @@ export function EmailFormControl({
                 )}
             />
             <Controller
-                name="replyTo"
+                name="reply_to"
                 control={form.control}
                 render={({ field, fieldState }) => (
                     <Field data-invalid={fieldState.invalid}>
@@ -183,7 +151,7 @@ export function EmailFormControl({
 
 export interface EmailSetupProps {
     campaign: Campaign
-    form: UseFormReturn<z.infer<typeof emailSetupFormSchema>>
+    form: UseFormReturn<EmailFormValues>
     edit?: boolean
 }
 
@@ -303,164 +271,5 @@ function ChevronIcon() {
         >
             <path d="M9 5l7 7-7 7" />
         </svg>
-    )
-}
-
-export function EmailContentPreview({ campaign, form, edit = false }: EmailSetupProps) {
-    const [project] = useContext(ProjectContext)
-    const [template, setTemplate] = useContext(TemplateContext)
-    const { t } = useTranslation()
-    const [selectedUser, setSelectedUser] = useState<User | null>(null)
-    const [selectedLocale, setSelectedLocale] = useState(template.locale)
-    const [locales, setLocales] = useState<Locale[]>([])
-    const [compiledHtml, setCompiledHtml] = useState<string>("")
-    const navigate = useNavigate()
-    const abortRef = useRef<AbortController | null>(null)
-
-    useEffect(() => {
-        const fetchLocales = async () => {
-            if (project?.id) {
-                const { data } = await oapiClient.GET("/api/admin/projects/{projectID}/locales", {
-                    params: {
-                        path: { projectID: project.id },
-                        query: { limit: 100 },
-                    },
-                })
-                setLocales(data?.results ?? [])
-            }
-        }
-        fetchLocales()
-    }, [project?.id])
-
-    // Compile code.source to HTML whenever the template or selected user changes.
-    // The user is passed as a prop so JSX expressions like `props.user.data.first_name`
-    // resolve with real values at React render time.
-    useEffect(() => {
-        if (template.type != "email") {
-            setCompiledHtml("")
-            return
-        }
-
-        const source = template?.data?.code?.source
-        if (!source) {
-            setCompiledHtml("")
-            return
-        }
-
-        if (abortRef.current) {
-            abortRef.current.abort()
-        }
-        const abortController = new AbortController()
-        abortRef.current = abortController
-
-        const previewProps: Record<string, unknown> = {
-            ...getSystemPreviewProps(),
-            ...(selectedUser ? { user: selectedUser } : {}),
-        }
-
-        compileEmail(source, previewProps, abortController.signal)
-            .then((result) => {
-                if (!abortController.signal.aborted) {
-                    setCompiledHtml(result.html)
-                }
-            })
-            .catch((err) => {
-                if (err instanceof DOMException && err.name === "AbortError") return
-                if (!abortController.signal.aborted) {
-                    setCompiledHtml("")
-                }
-            })
-
-        return () => {
-            abortController.abort()
-        }
-        // @ts-expect-error template.data.code can not be undefined here because this page doesn't load without the email being selected,
-        // and the email template type requires code to be defined.
-    }, [template?.data?.code?.source, selectedUser, template?.type])
-
-    const { subject, from, replyTo } = form.watch()
-
-    // The useEffect above already clears compiledHtml when the template is not an
-    // email, so we only need to bail out of rendering the email preview here.
-    if (template.type != "email") {
-        return null
-    }
-
-    const rawFromName = from.name || template.data.from?.name || ""
-    const displayReplyTo = replyTo || template.data.reply_to || ""
-
-    const displaySubject = selectedUser ? Render(subject, { user: selectedUser }) : subject
-    const displayFromName = selectedUser ? Render(rawFromName, { user: selectedUser }) : rawFromName
-    // compiledHtml already has user data baked in from compileEmail (JSX expressions
-    // are evaluated at React render time), so no Handlebars post-processing needed.
-    const htmlTemplate = compiledHtml
-
-    const handleEditTemplate = () => {
-        navigate(`/projects/${project?.id}/campaigns/${campaign.id}/templates/${template.id}`)
-    }
-
-    const handleLocaleChange = async (locale: string) => {
-        setSelectedLocale(locale)
-        const newTemplate = campaign.templates.find((t) => t.locale === locale)
-        if (!newTemplate) {
-            return
-        }
-        setTemplate(newTemplate)
-    }
-
-    return (
-        <>
-            <div className="mb-4 flex items-center justify-between gap-4">
-                <div className="flex-1">
-                    <UserSelection
-                        projectId={project?.id}
-                        value={selectedUser}
-                        onChange={setSelectedUser}
-                    />
-                </div>
-                {edit && (
-                    <div className="flex items-center gap-2">
-                        <Select value={selectedLocale} onValueChange={handleLocaleChange}>
-                            <SelectTrigger className="w-[180px]">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {Array.from(
-                                    new Map(campaign.templates.map((t) => [t.locale, t])).values(),
-                                ).map((t) => {
-                                    const locale = locales.find((l) => l.key === t.locale)
-                                    return (
-                                        <SelectItem key={t.id} value={t.locale}>
-                                            {locale?.label || t.locale}
-                                        </SelectItem>
-                                    )
-                                })}
-                            </SelectContent>
-                        </Select>
-                        <Button onClick={handleEditTemplate}>{t("campaign.template.edit")}</Button>
-                    </div>
-                )}
-            </div>
-
-            <EmailFrame
-                subject={displaySubject}
-                fromName={displayFromName}
-                replyTo={displayReplyTo}
-                emptyLabel={t("campaign.setup.channels.email.no_content_available")}
-            >
-                {htmlTemplate ? (
-                    <iframe
-                        srcDoc={htmlTemplate}
-                        className="w-full border-0 h-[400px]"
-                        title="Email Preview"
-                        sandbox="allow-same-origin"
-                    />
-                ) : null}
-            </EmailFrame>
-
-            <p className="text-center leading-7 mt-4 text-muted-foreground text-sm">
-                {t("campaign.setup.channels.email.preview_disclaimer")}
-            </p>
-        </>
     )
 }

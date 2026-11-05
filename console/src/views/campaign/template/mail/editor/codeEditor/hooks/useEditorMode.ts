@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from "react"
 import type { editor } from "monaco-editor"
 import { isEnterprise } from "@/config/enterprise"
+import type { EmailTemplateData } from "@/types"
 
 /**
  * Minimal local type aliases for the block editor data model.
@@ -137,9 +138,9 @@ export function useEditorMode({
  * Compute the initial editor mode from template data.
  */
 export function getInitialEditorMode(
-    templateData: Record<string, unknown> | undefined,
+    templateData: Pick<EmailTemplateData, "editorMode"> | undefined,
 ): EditorMode {
-    const stored = templateData?.editorMode as EditorMode | undefined
+    const stored = templateData?.editorMode
     if (stored === "blocks" && isEnterprise) return "blocks"
     if (stored === "builder" && isEnterprise) return "builder"
     if (stored === "code") return "code"

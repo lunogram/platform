@@ -7,8 +7,6 @@ import ErrorPage from "./ErrorPage"
 import { LoaderContextProvider, StatefulLoaderContextProvider } from "./LoaderContextProvider"
 import {
     AdminContext,
-    CampaignContext,
-    TemplateContext,
     JourneyContext,
     ListContext,
     ProjectContext,
@@ -35,7 +33,9 @@ import Campaigns from "./campaign/Campaigns"
 import Campaign from "./campaign/Campaign"
 import CampaignDetails from "./campaign/CampaignDetails"
 import NewCampaign from "./campaign/NewCampaign"
-import Template from "./campaign/template/Template"
+import { TemplateRoute } from "./campaign/template/TemplateProvider"
+import { campaignQuery } from "./campaign/queries"
+import { queryClient } from "@/lib/query"
 import TemplateContent from "./campaign/template/Content"
 import TemplateReview from "./campaign/template/Review"
 import EmailEditor from "./campaign/template/mail/editor/Editor"
@@ -375,27 +375,37 @@ export const createRouter = ({
                                     {
                                         path: "campaigns",
                                         children: [
-                                            createStatefulRoute({
+                                            // The list page fetches its own data, so these
+                                            // routes need no loader.
+                                            {
                                                 path: "",
-                                                apiPath: api.campaigns,
                                                 element: <Campaigns />,
-                                            }),
-                                            createStatefulRoute({
+                                                errorElement: <ErrorPage />,
+                                            },
+                                            {
                                                 path: "new",
-                                                apiPath: api.campaigns,
                                                 element: <Campaigns create={true} />,
-                                            }),
+                                                errorElement: <ErrorPage />,
+                                            },
                                             {
                                                 path: "new/:channel",
                                                 element: <NewCampaign />,
                                                 errorElement: <ErrorPage />,
                                             },
-                                            createStatefulRoute({
+                                            {
                                                 path: ":entityId",
-                                                apiPath: api.campaigns,
-                                                paramName: "entityId",
-                                                context: CampaignContext,
+                                                // Waits for the campaign (with its templates)
+                                                // to be in the query cache before rendering.
+                                                loader: async ({ params }) => {
+                                                    const projectId = params.projectId as UUID
+                                                    const campaignId = params.entityId as UUID
+                                                    await queryClient.ensureQueryData(
+                                                        campaignQuery(projectId, campaignId),
+                                                    )
+                                                    return null
+                                                },
                                                 element: <Campaign />,
+                                                errorElement: <ErrorPage />,
                                                 children: [
                                                     {
                                                         index: true,
@@ -403,42 +413,7 @@ export const createRouter = ({
                                                     },
                                                     {
                                                         path: "templates/:templateId",
-                                                        loader: async ({ params }) => {
-                                                            const projectId = params.projectId as
-                                                                | UUID
-                                                                | undefined
-                                                            const campaignId = params.entityId as
-                                                                | UUID
-                                                                | undefined
-                                                            const templateId = params.templateId as
-                                                                | UUID
-                                                                | undefined
-
-                                                            if (!projectId || !campaignId) {
-                                                                throw new Error("Not Found")
-                                                            }
-
-                                                            if (!templateId) {
-                                                                return await api.campaigns.templates.search(
-                                                                    projectId,
-                                                                    campaignId,
-                                                                    { limit: 20 },
-                                                                )
-                                                            }
-
-                                                            return await api.campaigns.templates.get(
-                                                                projectId,
-                                                                campaignId,
-                                                                templateId,
-                                                            )
-                                                        },
-                                                        element: (
-                                                            <StatefulLoaderContextProvider
-                                                                context={TemplateContext}
-                                                            >
-                                                                <Template />
-                                                            </StatefulLoaderContextProvider>
-                                                        ),
+                                                        element: <TemplateRoute />,
                                                         errorElement: <ErrorPage />,
                                                         children: [
                                                             {
@@ -456,7 +431,7 @@ export const createRouter = ({
                                                         ],
                                                     },
                                                 ],
-                                            }),
+                                            },
                                         ],
                                     },
                                     ...(isEnterprise

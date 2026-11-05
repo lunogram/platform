@@ -117,11 +117,15 @@ func (srv *CampaignsController) CreateCampaign(w http.ResponseWriter, r *http.Re
 
 	// TODO: create audit log
 
-	_, err = templates.CreateTemplate(ctx, project.ID, campaignID, string(body.Channel), project.Locale, nil)
-	if err != nil {
-		logger.Error("failed to create template", zap.Error(err))
-		oapi.WriteProblem(w, err)
-		return
+	// A caller that creates the campaign's templates itself asks for none here,
+	// so the campaign doesn't carry a blank template next to them.
+	if body.CreateDefaultTemplate == nil || *body.CreateDefaultTemplate {
+		_, err = templates.CreateTemplate(ctx, project.ID, campaignID, string(body.Channel), project.Locale, nil)
+		if err != nil {
+			logger.Error("failed to create template", zap.Error(err))
+			oapi.WriteProblem(w, err)
+			return
+		}
 	}
 
 	err = tx.Commit()

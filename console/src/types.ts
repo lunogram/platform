@@ -817,15 +817,15 @@ export interface EmailTemplateData {
     reply_to?: string
     subject: string
     preheader?: string
-    editor: "code" | "visual"
     type?: "react-email"
+    editorMode?: "code" | "builder" | "blocks"
     code?: {
         source: string
         bundle?: string
         bundle_hash?: string
     }
+    blocks?: Record<string, unknown>
     plaintext?: {
-        generated?: string
         custom?: string
     }
 }
@@ -837,8 +837,8 @@ export interface TextTemplateData {
 export interface PushTemplateData {
     title: string
     body: string
-    url: string
-    custom: Record<string, unknown>
+    /** Sent to the device alongside the notification. */
+    data?: Record<string, unknown>
 }
 
 export interface InboxTemplateData {
@@ -886,7 +886,9 @@ export type Template<
 )
 
 export type TemplateCreateParams = Pick<Template, "data" | "locale">
-export type TemplateUpdateParams = Pick<Template, "data" | "sender_identity_id">
+// Leaving sender_identity_id out keeps the template's sender; null clears it.
+export type TemplateUpdateParams = Pick<Template, "data"> &
+    Partial<Pick<Template, "sender_identity_id">>
 export type VariantUpdateParams = { id?: UUID }
 
 export interface TemplatePreviewParams {

@@ -1,73 +1,55 @@
-import { useContext, useEffect } from "react"
-import {
-    CampaignContext,
-    ProjectContext,
-    TemplateContext as CurrentTemplateContext,
-} from "@/contexts"
+import { useCallback, useContext } from "react"
+import type { FieldValues } from "react-hook-form"
+import { CampaignContext, TemplateContext as CurrentTemplateContext } from "@/contexts"
 import { useTranslation } from "react-i18next"
-import api from "@/api"
+import { knownTemplateData } from "@/validation/campaign/template/data"
 
-import { channels } from "./channels"
-import { TemplateWorkflowContext } from "./contexts"
+import { useUpdateTemplate } from "../queries"
+import { withChannel, type ChannelConfig } from "./channels"
+import { saveWith, type SaveResult } from "./contexts"
+import { StepLayout } from "./StepLayout"
+import { UnsupportedChannel } from "./UnsupportedChannel"
 
 export default function TemplateContent() {
     const [campaign] = useContext(CampaignContext)
-    const { onSubmit } = useContext(TemplateWorkflowContext)
-    const [template, setTemplate] = useContext(CurrentTemplateContext)
-    const [project] = useContext(ProjectContext)
-    const { t } = useTranslation()
-
-    const config = channels[campaign.channel]
-
-    const form = config?.form(campaign, template)
-
-    useEffect(() => {
-        if (!config || !form) {
-            return
-        }
-
-        const unsubscribe = onSubmit(async () => {
-            if (!template) {
-                return false
-            }
-
-            const isValid = await form.trigger()
-            if (!isValid) {
-                return false
-            }
-
-            const { sender_identity_id, ...data } = form.getValues()
-            const updated = await api.campaigns.templates.update(
-                project.id,
-                campaign.id,
-                template.id,
-                {
-                    data: { ...template.data, ...data },
-                    sender_identity_id: sender_identity_id || null,
-                },
-            )
-
-            setTemplate(updated)
-            return true
-        })
-        return unsubscribe
-    })
-
-    if (!config || !form) {
-        return (
-            <div className="flex flex-1 items-center justify-center bg-muted/20">
-                <div className="text-center">
-                    <p className="text-muted-foreground">This channel type is not yet supported.</p>
-                </div>
-            </div>
-        )
-    }
-
-    const FormControlComponent = config.FormControl
-    const PreviewComponent = config.Preview
 
     return (
-        <div className="flex flex-1 bg-muted/20 overflow-hidden">
+        withChannel(campaign.channel, (config) => <ChannelContent config={config} />) ?? (
+            <StepLayout>
+                <UnsupportedChannel />
+            </StepLayout>
+        )
+    )
+}
+
+function ChannelContent<T extends FieldValues>({ config }: { config: ChannelConfig<T> }) {
+    const [campaign] = useContext(CampaignContext)
+    const [template] = useContext(CurrentTemplateContext)
+    const { mutateAsync: updateTemplate } = useUpdateTemplate()
+    const { t } = useTranslation()
+
+    const { useForm: useChannelForm, toTemplate, FormControl, Preview } = config
+    const form = useChannelForm(campaign, template)
+
+    const save = useCallback(async (): Promise<SaveResult> => {
+        if (!(await form.trigger())) {
+            return { ok: false, reason: "invalid" }
+        }
+
+        const changes = toTemplate(form.getValues())
+        return saveWith(() =>
+            updateTemplate({
+                templateId: template.id,
+                params: {
+                    data: knownTemplateData(template.type, { ...template.data, ...changes.data }),
+                    sender_identity_id: changes.sender_identity_id,
+                },
+            }),
+        )
+    }, [form, toTemplate, template, updateTemplate])
+
+    return (
+        <StepLayout save={save}>
             <div className="h-full overflow-y-auto w-2/5 bg-background p-8">
                 <div className="mb-6">
                     <h1 className="text-2xl font-semibold">{t("campaign.template.setup.title")}</h1>
@@ -76,12 +58,12 @@ export default function TemplateContent() {
                     </p>
                 </div>
 
-                <FormControlComponent campaign={campaign} form={form} />
+                <FormControl campaign={campaign} form={form} />
             </div>
 
             <div className="w-3/5 bg-background p-8 pb-0 flex flex-col border-l">
-                <PreviewComponent campaign={campaign} form={form} />
+                <Preview campaign={campaign} form={form} />
             </div>
-        </div>
+        </StepLayout>
     )
 }
