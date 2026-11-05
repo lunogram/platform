@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Collect Workflow Telemetry
-        uses: catchpoint/workflow-telemetry-action@f974e0c5942f8f37973c4cc395704165fbe629ba # v2
+        uses: step-security/workflow-telemetry-action@dbe3c1c09393511e90d52c6f49096984d1b7fe3b # v2.0.0
         with:
           comment_on_pr: false
       - uses: actions/checkout@v5
@@ -48,7 +48,7 @@ jobs:
             tags: enterprise
     steps:
       - name: Collect Workflow Telemetry
-        uses: catchpoint/workflow-telemetry-action@f974e0c5942f8f37973c4cc395704165fbe629ba # v2
+        uses: step-security/workflow-telemetry-action@dbe3c1c09393511e90d52c6f49096984d1b7fe3b # v2.0.0
         with:
           comment_on_pr: false
       - uses: actions/checkout@v5
