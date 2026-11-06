@@ -1,15 +1,18 @@
 import { Blocks, GripVertical, SquareFunction, Webhook, Zap } from "lucide-react"
 import { useTranslation } from "react-i18next"
+import { useQuery } from "@tanstack/react-query"
 
 import { NavTabs } from "@/components/ui/nav-tabs"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import type { Action } from "@/oapi/client"
+import { Button } from "@/components/ui/button"
+import type { UUID } from "@/types/common"
 import { cn, createComparator } from "@/utils"
 import { DATA_FORMAT, stepCategoryColors } from "../hooks/JourneyEditor.constants"
 import * as journeySteps from "../steps/index"
+import { actionListQuery } from "../queries"
 
 interface JourneyLibrarySidebarProps {
-    actions: Action[] | null
+    projectId: UUID
     sidebarTab: "components" | "actions"
     onSidebarTabChange: (tab: "components" | "actions") => void
 }
@@ -27,11 +30,13 @@ function setDragData(event: React.DragEvent<HTMLDivElement>, payload: Record<str
 }
 
 export function JourneyLibrarySidebar({
-    actions,
+    projectId,
     sidebarTab,
     onSidebarTabChange,
 }: JourneyLibrarySidebarProps) {
     const { t } = useTranslation()
+    const actionList = useQuery(actionListQuery(projectId))
+    const actions = actionList.data
 
     return (
         <>
@@ -102,7 +107,21 @@ export function JourneyLibrarySidebar({
                 )}
                 {sidebarTab === "actions" && (
                     <div className="p-4 space-y-2">
-                        {!actions ? (
+                        {actionList.isError ? (
+                            <div className="rounded-lg border border-dashed p-6 text-center">
+                                <p className="text-sm text-muted-foreground">
+                                    {t("journey_actions_load_failed", "Couldn't load actions.")}
+                                </p>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="mt-3"
+                                    onClick={() => actionList.refetch()}
+                                >
+                                    {t("retry", "Retry")}
+                                </Button>
+                            </div>
+                        ) : !actions ? (
                             Array.from({ length: 3 }).map((_, i) => (
                                 <div
                                     key={i}

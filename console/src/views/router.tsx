@@ -9,7 +9,6 @@ import {
     AdminContext,
     CampaignContext,
     TemplateContext,
-    JourneyContext,
     ProjectContext,
     OrganizationContext,
 } from "../contexts"
@@ -43,6 +42,8 @@ import EmailEditor from "./campaign/template/mail/editor/Editor"
 // EmailBuilder is now embedded within the Editor view (not a separate route)
 import Journeys from "./journey/Journeys"
 import JourneyEditor from "./journey/editor/JourneyEditor"
+import JourneyRoute from "./journey/JourneyRoute"
+import { journeyQuery } from "./journey/queries"
 import ProjectSettings from "./settings/ProjectSettings"
 import Integrations from "./settings/Integrations"
 import NewIntegration from "./settings/NewIntegration"
@@ -472,24 +473,31 @@ export const createRouter = ({
                                               },
                                           ]
                                         : []),
-                                    createStatefulRoute({
+                                    {
                                         path: "journeys",
-                                        apiPath: api.journeys,
                                         element: <Journeys />,
-                                    }),
-                                    createStatefulRoute({
+                                        errorElement: <ErrorPage />,
+                                    },
+                                    {
                                         path: "journeys/:entityId",
-                                        apiPath: api.journeys,
-                                        paramName: "entityId",
-                                        context: JourneyContext,
-                                        element: <Outlet />,
+                                        loader: async ({ params }) => {
+                                            await queryClient.ensureQueryData(
+                                                journeyQuery(
+                                                    params.projectId as UUID,
+                                                    params.entityId as UUID,
+                                                ),
+                                            )
+                                            return null
+                                        },
+                                        element: <JourneyRoute />,
+                                        errorElement: <ErrorPage />,
                                         children: [
                                             {
                                                 index: true,
                                                 element: <JourneyEditor />,
                                             },
                                         ],
-                                    }),
+                                    },
                                     {
                                         path: "users",
                                         element: <Users />,
