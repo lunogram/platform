@@ -1,9 +1,8 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate, useSearchParams as useRouterSearchParams } from "react-router"
+import { useQuery } from "@tanstack/react-query"
 import { JourneyContext, ProjectContext } from "../../../contexts"
 import api from "../../../api"
-import oapiClient from "@/oapi/client"
-import { useResolver } from "@/hooks"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { Button } from "@/components/ui/button"
 import { useTranslation } from "react-i18next"
@@ -22,12 +21,21 @@ import { JourneyTriggerSetup } from "../components/JourneyTriggerSetup"
 import { JourneyVariableProvider } from "../JourneyVariableContext"
 import { JourneyHintsContext } from "./JourneyHints"
 import { useJourneyEditorGraph } from "../hooks/useJourneyEditorGraph"
+import { journeyStepsQuery } from "../queries"
 
 export default function JourneyEditor() {
+    const [journey] = useContext(JourneyContext)
+    // Links between journeys keep this route mounted. Keying the editor by
+    // journey gives every journey its own canvas, history and load state, so
+    // one journey's steps can never be shown, or saved, as another's.
+    return <JourneyEditorView key={journey.id} />
+}
+
+function JourneyEditorView() {
     const navigate = useNavigate()
     const { t } = useTranslation()
     const [project] = useContext(ProjectContext)
-    const [journey, setJourney] = useContext(JourneyContext)
+    const [journey] = useContext(JourneyContext)
     const [routerSearchParams] = useRouterSearchParams()
     const entranceId = routerSearchParams.get("entrance")
     const replayUserId = routerSearchParams.get("user")
@@ -36,7 +44,7 @@ export default function JourneyEditor() {
     const isMobile = useIsMobile()
 
     const [stepsLoaded, setStepsLoaded] = useState(false)
-    const [stepsLoadError, setStepsLoadError] = useState<string | null>(null)
+    const steps = useQuery(journeyStepsQuery(project.id, journey.id))
 
     const isArchived = journey.status === "archived"
     const isEditable = !isArchived && !isMobile
@@ -60,23 +68,8 @@ export default function JourneyEditor() {
         resetRuntimeState,
     } = graph
 
-    // Fetch project actions for the sidebar
-    const [actions] = useResolver(
-        useCallback(async () => {
-            const { data } = await oapiClient.GET("/api/admin/projects/{projectID}/actions", {
-                params: {
-                    path: { projectID: project.id },
-                    query: { limit: 100 },
-                },
-            })
-            return data?.results ?? []
-        }, [project.id]),
-    )
-
     const { saving, publishing, saveSteps, publishJourney } = useJourneyPersistence(
-        project,
-        journey,
-        setJourney,
+        journey.id,
         setNodes,
         setEdges,
         hasUnsavedChanges,
@@ -190,31 +183,34 @@ export default function JourneyEditor() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [stepsLoaded])
 
+    // The canvas is filled once; later refetches must not overwrite edits. A
+    // cached copy older than the stale time is only used once it was refetched,
+    // so the editor never starts from steps someone else has since changed.
+    const stepsReady = !!steps.data && (!steps.isStale || steps.isFetchedAfterMount)
     useEffect(() => {
-        if (stepsLoaded || stepsLoadError) return
-        const load = async () => {
-            try {
-                const steps = await api.journeys.steps.get(project.id, journey.id)
-                const { edges, nodes } = stepsToNodes(steps, nodeActions)
-                setNodes(nodes)
-                setEdges(edges)
-                setStepsLoaded(true)
-            } catch (e) {
-                console.error("Failed to load journey steps:", e)
-                setStepsLoadError(t("journey_steps_load_error", "Failed to load journey steps."))
-            }
-        }
-        void load()
-    }, [project.id, journey.id, setNodes, setEdges, stepsLoaded, stepsLoadError, nodeActions, t])
+        if (stepsLoaded || !stepsReady || !steps.data) return
+        const { edges, nodes } = stepsToNodes(steps.data, nodeActions)
+        setNodes(nodes)
+        setEdges(edges)
+        setStepsLoaded(true)
+    }, [stepsLoaded, stepsReady, steps.data, nodeActions, setNodes, setEdges])
+    const stepsLoadFailed = !stepsLoaded && steps.isError
 
-    const handleSaveDraft = useCallback(async () => {
+    // Rejects when the save failed (the mutation cache has shown why), so a
+    // step that saves before leaving the editor stays put.
+    const saveDraft = useCallback(async () => {
         await saveSteps(nodes, edges, nodeActions)
         clearHistory()
     }, [saveSteps, nodes, edges, nodeActions, clearHistory])
 
-    const handlePublish = useCallback(async () => {
-        await publishJourney(nodes, edges, nodeActions)
-        clearHistory()
+    const handleSaveDraft = useCallback(() => {
+        saveDraft().catch(() => {})
+    }, [saveDraft])
+
+    const handlePublish = useCallback(() => {
+        publishJourney(nodes, edges, nodeActions)
+            .then(clearHistory)
+            .catch(() => {})
     }, [publishJourney, nodes, edges, nodeActions, clearHistory])
 
     const showTriggerSetup = isEditable && stepsLoaded && nodes.length === 0
@@ -222,7 +218,6 @@ export default function JourneyEditor() {
     return (
         <div className="journey-editor flex flex-col flex-1 h-svh min-h-0 overflow-hidden">
             <JourneyEditorToolbar
-                projectId={project.id}
                 journey={journey}
                 isArchived={isArchived}
                 isMobile={isMobile}
@@ -230,30 +225,24 @@ export default function JourneyEditor() {
                 saving={saving}
                 publishing={publishing}
                 onBack={() => navigate("../journeys")}
-                onJourneyChange={setJourney}
                 onSaveDraft={handleSaveDraft}
                 onPublish={handlePublish}
             />
 
             {/* Main content: canvas + sidebar */}
-            {stepsLoadError ? (
+            {stepsLoadFailed ? (
                 <div className="flex flex-1 items-center justify-center p-6">
                     <div className="max-w-sm rounded-lg border bg-background p-5 text-center shadow-sm">
-                        <p className="text-sm font-medium">{stepsLoadError}</p>
+                        <p className="text-sm font-medium">
+                            {t("journey_steps_load_error", "Failed to load journey steps.")}
+                        </p>
                         <p className="mt-1 text-sm text-muted-foreground">
                             {t(
                                 "journey_steps_load_error_desc",
                                 "Retry loading the editor before making changes.",
                             )}
                         </p>
-                        <Button
-                            type="button"
-                            className="mt-4"
-                            onClick={() => {
-                                setStepsLoadError(null)
-                                setStepsLoaded(false)
-                            }}
-                        >
+                        <Button type="button" className="mt-4" onClick={() => steps.refetch()}>
                             {t("retry", "Retry")}
                         </Button>
                     </div>
@@ -270,12 +259,11 @@ export default function JourneyEditor() {
                                 <JourneyCanvas
                                     project={project}
                                     journey={journey}
-                                    actions={actions}
                                     graph={graph}
                                     sidebar={{
                                         tab: sidebarTab,
                                         onTabChange: setSidebarTab,
-                                        onSaveDraft: handleSaveDraft,
+                                        onSaveDraft: saveDraft,
                                     }}
                                     runtime={{
                                         followingUserId,

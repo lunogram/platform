@@ -8,6 +8,7 @@ import type { SignOut } from "@clerk/types"
 import { clsx, type ClassValue } from "clsx"
 import { AxiosError } from "axios"
 import api from "./api"
+import { ApiError } from "./oapi/unwrap"
 import { twMerge } from "tailwind-merge"
 
 export function createUuid() {
@@ -219,6 +220,9 @@ export function assignableProjectRoles(currentRole: ProjectRole = "support"): Pr
 export function problemDetail(err: unknown): string | null {
     if (err instanceof AxiosError && typeof err.response?.data?.detail === "string") {
         return err.response.data.detail
+    }
+    if (err instanceof ApiError) {
+        return err.detail
     }
     return null
 }

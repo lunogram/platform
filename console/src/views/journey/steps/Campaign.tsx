@@ -5,7 +5,8 @@ import type { VariableGroup } from "../JourneyVariableContext"
 import { Combobox } from "@/components/ui/combobox"
 import { Label } from "@/components/ui/label"
 import { ActionStepIcon } from "../../../components/icons"
-import { useResolver } from "../../../hooks"
+import { useQuery } from "@tanstack/react-query"
+import { stepCampaignQuery } from "../queries"
 import { useTranslation } from "react-i18next"
 import { ChannelIcon } from "../../campaign/ChannelTag"
 import { CreateCampaign } from "../../campaign/CreateCampaign"
@@ -31,14 +32,7 @@ export const campaignStep: JourneyStepType<CampaignConfig> = {
     description: "send_desc",
     Describe({ project: { id: projectId }, value: { campaign_id } }) {
         const { t } = useTranslation()
-        const [campaign] = useResolver(
-            useCallback(async () => {
-                if (campaign_id) {
-                    return await api.campaigns.get(projectId, campaign_id)
-                }
-                return null
-            }, [projectId, campaign_id]),
-        )
+        const { data: campaign } = useQuery(stepCampaignQuery(projectId, campaign_id))
         const template = campaign?.templates?.[0]
 
         return (
@@ -69,14 +63,7 @@ export const campaignStep: JourneyStepType<CampaignConfig> = {
         const projectId = project.id
         const { getVariablesForNode } = useJourneyVariableContext()
 
-        const [campaign] = useResolver(
-            useCallback(async () => {
-                if (value.campaign_id && value.campaign_id !== NIL) {
-                    return await api.campaigns.get(projectId, value.campaign_id)
-                }
-                return null
-            }, [projectId, value.campaign_id]),
-        )
+        const { data: campaign } = useQuery(stepCampaignQuery(projectId, value.campaign_id))
 
         const handleSearch = useCallback(
             async (query: string): Promise<CampaignOption[]> => {
