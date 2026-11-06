@@ -1,7 +1,6 @@
 import type { RouteObject } from "react-router"
 import { createBrowserRouter, Navigate, Outlet, redirect } from "react-router"
 import api from "../api"
-import oapiClient from "../oapi/client"
 
 import ErrorPage from "./ErrorPage"
 import { LoaderContextProvider, StatefulLoaderContextProvider } from "./LoaderContextProvider"
@@ -10,6 +9,7 @@ import {
     CampaignContext,
     TemplateContext,
     ProjectContext,
+    UserContext,
     OrganizationContext,
 } from "../contexts"
 import ClientList from "./settings/clients/ClientList"
@@ -86,7 +86,8 @@ import { isEnterprise } from "@/config/enterprise"
 import UserDetailJourneys from "./users/UserDetailJourneys"
 import UserDetailOrganizations from "./users/UserDetailOrganizations"
 import Organizations from "./organizations/Organizations"
-import OrganizationDetail from "./organizations/OrganizationDetail"
+import Organization from "./organizations/Organization"
+import { organizationQuery } from "./organizations/queries"
 import OrganizationDetailAttrs from "./organizations/OrganizationDetailAttrs"
 import OrganizationDetailEvents from "./organizations/OrganizationDetailEvents"
 import OrganizationDetailInbox from "./organizations/OrganizationDetailInbox"
@@ -575,27 +576,15 @@ export const createRouter = ({
                                     {
                                         path: "organizations/:organizationId",
                                         loader: async ({ params }) => {
-                                            const { data, error } = await oapiClient.GET(
-                                                "/api/admin/projects/{projectID}/subjects/organizations/{organizationID}",
-                                                {
-                                                    params: {
-                                                        path: {
-                                                            projectID: params.projectId!,
-                                                            organizationID: params.organizationId!,
-                                                        },
-                                                    },
-                                                },
+                                            await queryClient.ensureQueryData(
+                                                organizationQuery(
+                                                    params.projectId as UUID,
+                                                    params.organizationId as UUID,
+                                                ),
                                             )
-                                            if (error) throw new Error("Organization not found")
-                                            return data
+                                            return null
                                         },
-                                        element: (
-                                            <StatefulLoaderContextProvider
-                                                context={OrganizationContext}
-                                            >
-                                                <OrganizationDetail />
-                                            </StatefulLoaderContextProvider>
-                                        ),
+                                        element: <Organization />,
                                         children: [
                                             {
                                                 index: true,
