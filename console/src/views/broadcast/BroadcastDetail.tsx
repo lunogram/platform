@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { useParams } from "react-router"
 import { useTranslation } from "react-i18next"
-import { Users, FileText } from "lucide-react"
+import { Users, FileText, AlertCircle } from "lucide-react"
 
 import type { User } from "@/types"
 import type { UUID } from "@/types/common"
@@ -9,6 +9,7 @@ import type { UUID } from "@/types/common"
 import { useBroadcastDetail } from "./hooks/useBroadcastDetail"
 
 import { Skeleton } from "@/components/ui/skeleton"
+import { Button } from "@/components/ui/button"
 import { NavTabs } from "@/components/ui/nav-tabs"
 
 import { BroadcastDetailHeader } from "./BroadcastDetailHeader"
@@ -44,13 +45,32 @@ function BroadcastDetailSkeleton() {
     )
 }
 
+// Shown instead of the page when the broadcast couldn't be loaded (e.g. it was
+// deleted or the request failed), so a failure doesn't look like loading.
+function BroadcastLoadError({ onRetry }: { onRetry: () => void }) {
+    const { t } = useTranslation()
+    return (
+        <div className="flex flex-col items-center gap-3 p-12 text-center text-muted-foreground">
+            <AlertCircle className="h-8 w-8" />
+            <p>{t("broadcast_load_failed", "Couldn't load the broadcast.")}</p>
+            <Button variant="outline" size="sm" onClick={onRetry}>
+                {t("retry", "Retry")}
+            </Button>
+        </div>
+    )
+}
+
 export default function BroadcastDetail({ broadcastId }: BroadcastDetailProps) {
     const { t } = useTranslation()
 
     const {
         broadcast,
+        broadcastError,
+        retryBroadcast,
         users,
         usersTotal,
+        usersError,
+        retryUsers,
         displayTotal,
         isPreview,
 
@@ -85,7 +105,11 @@ export default function BroadcastDetail({ broadcastId }: BroadcastDetailProps) {
     ]
 
     if (!broadcast) {
-        return <BroadcastDetailSkeleton />
+        return broadcastError ? (
+            <BroadcastLoadError onRetry={retryBroadcast} />
+        ) : (
+            <BroadcastDetailSkeleton />
+        )
     }
 
     const isEditable = broadcast.state === "pending" || broadcast.state === "scheduled"
@@ -144,6 +168,8 @@ export default function BroadcastDetail({ broadcastId }: BroadcastDetailProps) {
                     <RecipientsPanel
                         broadcast={broadcast}
                         users={users}
+                        usersError={usersError}
+                        onRetryUsers={retryUsers}
                         displayTotal={displayTotal}
                         usersTotal={usersTotal}
                         isPreview={isPreview}
