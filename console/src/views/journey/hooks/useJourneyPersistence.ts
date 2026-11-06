@@ -1,10 +1,10 @@
-import { useState, useCallback, type SetStateAction, type Dispatch } from "react"
-import api from "@/api"
+import { useCallback, type SetStateAction, type Dispatch } from "react"
 import { toast } from "sonner"
 import { useTranslation } from "react-i18next"
 import { stepsToNodes, nodesToSteps } from "../editor/JourneyEditor.utils"
 import type { JourneyEdge, JourneyNode } from "../editor/JourneyEditor.types"
-import type { Journey, Project } from "@/types"
+import { usePublishJourney, useSaveJourneySteps } from "../mutations"
+import type { JourneyStepMap } from "@/types"
 import type { UUID } from "@/types/common"
 
 type Actions = {
@@ -12,108 +12,52 @@ type Actions = {
     openUserModal?: (nodeId: string) => void
 }
 
+// Failures are reported by the mutation cache; saveSteps and publishJourney
+// still reject so callers can skip what should only follow a successful save.
 export function useJourneyPersistence(
-    project: Project,
-    journey: Journey,
-    setJourney: Dispatch<SetStateAction<Journey>>,
+    journeyId: UUID,
     setNodes: Dispatch<SetStateAction<JourneyNode[]>>,
     setEdges: Dispatch<SetStateAction<JourneyEdge[]>>,
     hasUnsavedChanges: boolean,
     setHasUnsavedChanges: Dispatch<SetStateAction<boolean>>,
 ) {
     const { t } = useTranslation()
-    const [saving, setSaving] = useState(false)
-    const [publishing, setPublishing] = useState(false)
+    const { mutateAsync: save, isPending: saving } = useSaveJourneySteps()
+    const { mutateAsync: publish, isPending: publishing } = usePublishJourney()
 
-    const saveDraft = useCallback(
-        async (nodes: JourneyNode[], edges: JourneyEdge[], actions: Actions) => {
-            const stepMap = await api.journeys.steps.set(
-                project.id,
-                journey.id,
-                nodesToSteps(nodes, edges),
-            )
-            return stepsToNodes(stepMap, actions)
+    // Shows the steps as the server saved them (with their new step ids).
+    const showSaved = useCallback(
+        (steps: JourneyStepMap, actions: Actions) => {
+            const refreshed = stepsToNodes(steps, actions)
+            setNodes(refreshed.nodes)
+            setEdges(refreshed.edges)
         },
-        [project.id, journey.id],
+        [setNodes, setEdges],
     )
 
     const saveSteps = useCallback(
         async (nodes: JourneyNode[], edges: JourneyEdge[], actions: Actions) => {
-            setSaving(true)
-            try {
-                const refreshed = await saveDraft(nodes, edges, actions)
-                setNodes(refreshed.nodes)
-                setEdges(refreshed.edges)
-                setHasUnsavedChanges(false)
-
-                // Refresh journey state so status reflects the draft
-                const updated = await api.journeys.get(project.id, journey.id)
-                setJourney(updated)
-
-                toast.success(t("journey_saved"))
-            } catch (e) {
-                toast.error(`Error: ${e}`)
-                throw e
-            } finally {
-                setSaving(false)
-            }
+            const { steps } = await save({ journeyId, steps: nodesToSteps(nodes, edges) })
+            showSaved(steps, actions)
+            setHasUnsavedChanges(false)
+            toast.success(t("journey_saved"))
         },
-        [
-            saveDraft,
-            setNodes,
-            setEdges,
-            setJourney,
-            setHasUnsavedChanges,
-            project.id,
-            journey.id,
-            t,
-        ],
+        [save, journeyId, showSaved, setHasUnsavedChanges, t],
     )
 
     const publishJourney = useCallback(
         async (nodes: JourneyNode[], edges: JourneyEdge[], actions: Actions) => {
             if (!confirm(t("journey_publish_confirmation"))) return
-            setPublishing(true)
-            try {
-                if (hasUnsavedChanges) {
-                    const refreshed = await saveDraft(nodes, edges, actions)
-                    setNodes(refreshed.nodes)
-                    setEdges(refreshed.edges)
-                }
-                await api.journeys.publish(project.id, journey.id)
-
-                // Refresh journey state to reflect published status
-                const updated = await api.journeys.get(project.id, journey.id)
-                setJourney(updated)
-                setHasUnsavedChanges(false)
-                toast.success(t("journey_published", "Journey published"))
-            } catch (e) {
-                toast.error(`Error: ${e}`)
-                throw e
-            } finally {
-                setPublishing(false)
-            }
+            const { steps } = await publish({
+                journeyId,
+                steps: hasUnsavedChanges ? nodesToSteps(nodes, edges) : undefined,
+            })
+            if (steps) showSaved(steps, actions)
+            setHasUnsavedChanges(false)
+            toast.success(t("journey_published", "Journey published"))
         },
-        [
-            project.id,
-            journey.id,
-            hasUnsavedChanges,
-            saveDraft,
-            setNodes,
-            setEdges,
-            setJourney,
-            setHasUnsavedChanges,
-            t,
-        ],
+        [publish, journeyId, hasUnsavedChanges, showSaved, setHasUnsavedChanges, t],
     )
 
-    return {
-        saving,
-        publishing,
-        hasUnsavedChanges,
-        setHasUnsavedChanges,
-        saveDraft,
-        saveSteps,
-        publishJourney,
-    }
+    return { saving, publishing, saveSteps, publishJourney }
 }
