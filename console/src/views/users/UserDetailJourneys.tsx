@@ -1,12 +1,14 @@
-import { useCallback, useContext, useState } from "react"
+import { useContext, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router"
+import { useQuery } from "@tanstack/react-query"
 import { Route, ChevronLeft, ChevronRight, ExternalLink, Eye } from "lucide-react"
 import { ProjectContext, UserContext } from "../../contexts"
 import { PreferencesContext } from "@/contexts/PreferencesContext"
-import { useResolver } from "../../hooks"
 import { formatDate } from "../../utils"
-import { oapiClient } from "@/oapi/client"
+import { LoadErrorRow } from "./LoadErrorRow"
+import { getPageNumbers } from "./pageNumbers"
+import { userJourneysQuery } from "./queries"
 
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -19,19 +21,6 @@ import {
     TableRow,
 } from "@/components/ui/table"
 
-function getPageNumbers(current: number, total: number): (number | "...")[] {
-    if (total <= 7) {
-        return Array.from({ length: total }, (_, i) => i + 1)
-    }
-    if (current <= 3) {
-        return [1, 2, 3, 4, 5, "...", total]
-    }
-    if (current >= total - 2) {
-        return [1, "...", total - 4, total - 3, total - 2, total - 1, total]
-    }
-    return [1, "...", current - 1, current, current + 1, "...", total]
-}
-
 export default function UserDetailJourneys() {
     const { t } = useTranslation()
     const navigate = useNavigate()
@@ -42,23 +31,10 @@ export default function UserDetailJourneys() {
     const [page, setPage] = useState(1)
     const limit = 25
 
-    const [result] = useResolver(
-        useCallback(async () => {
-            const { data } = await oapiClient.GET(
-                "/api/admin/projects/{projectID}/subjects/users/{userID}/journeys",
-                {
-                    params: {
-                        path: { projectID: project.id, userID: user.id },
-                        query: { limit, offset: (page - 1) * limit },
-                    },
-                },
-            )
-            return data ?? null
-        }, [project.id, user.id, page]),
-    )
+    const result = useQuery(userJourneysQuery(project.id, user.id, { page, limit }))
 
-    const journeys = result?.results
-    const total = result?.total ?? 0
+    const journeys = result.data?.results ?? []
+    const total = result.data?.total ?? 0
     const totalPages = Math.ceil(total / limit)
     const hasNextPage = page < totalPages
     const hasPrevPage = page > 1
@@ -77,7 +53,7 @@ export default function UserDetailJourneys() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {journeys === undefined ? (
+                        {result.isPending ? (
                             Array.from({ length: 5 }).map((_, i) => (
                                 <TableRow key={i}>
                                     <TableCell>
@@ -92,6 +68,12 @@ export default function UserDetailJourneys() {
                                     <TableCell></TableCell>
                                 </TableRow>
                             ))
+                        ) : result.isError ? (
+                            <LoadErrorRow
+                                colSpan={4}
+                                message={t("user_journeys_load_failed", "Couldn't load journeys.")}
+                                onRetry={() => result.refetch()}
+                            />
                         ) : journeys.length === 0 ? (
                             <TableRow>
                                 <TableCell colSpan={4} className="h-48">
