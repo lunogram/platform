@@ -1,11 +1,9 @@
-import { useContext } from "react"
 import { Controller, useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import api from "../../api"
-import { ProjectContext } from "../../contexts"
 import type { List } from "../../types"
 import { useTranslation } from "react-i18next"
 import { createWrapperRule } from "./rules/RuleHelpers"
+import { useCreateList } from "./listQueries"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
@@ -21,7 +19,7 @@ interface ListCreateFormProps {
 
 export function ListCreateForm({ onCreated }: ListCreateFormProps) {
     const { t } = useTranslation()
-    const [project] = useContext(ProjectContext)
+    const createList = useCreateList()
 
     const form = useForm<ListCreateFormValues>({
         resolver: zodResolver(listCreateFormSchema),
@@ -33,13 +31,17 @@ export function ListCreateForm({ onCreated }: ListCreateFormProps) {
 
     const handleSubmit = form.handleSubmit(async (data) => {
         const rule = createWrapperRule()
-        const created = await api.lists.create(project.id, {
-            name: data.name,
-            type: data.type,
-            rule: data.type === "dynamic" ? rule : undefined,
-            is_visible: true,
-        })
-        onCreated?.(created)
+        try {
+            const created = await createList.mutateAsync({
+                name: data.name,
+                type: data.type,
+                rule: data.type === "dynamic" ? rule : undefined,
+                is_visible: true,
+            })
+            onCreated?.(created)
+        } catch {
+            // Reported by the mutation cache; the form stays open to try again.
+        }
     })
 
     return (
