@@ -266,6 +266,57 @@ func TestGetAuthMethodHandler(t *testing.T) {
 	})
 }
 
+// --- Current API key --------------------------------------------------------
+
+func TestGetCurrentAPIKeyHandler(t *testing.T) {
+	t.Parallel()
+
+	f, ctx := setupAuthMethodsController(t, "admin")
+	method := f.createAPIKey(t, ctx, "editor")
+
+	// keyCtx mirrors the actor auth.WithKey attaches for an authenticated key.
+	keyCtx := func(id uuid.UUID) context.Context {
+		return rbac.WithActor(ctx, rbac.NewActor(rbac.ActorAPIKey, id.String(),
+			rbac.WithOrganizationID(f.orgID),
+			rbac.WithProjectID(f.projectID),
+		))
+	}
+
+	t.Run("api key", func(t *testing.T) {
+		res := httptest.NewRecorder()
+		req := httptest.NewRequest("GET", "/api/admin/auth/key", nil)
+		req = req.WithContext(keyCtx(method.ID))
+		f.controller.GetCurrentAPIKey(res, req)
+
+		require.Equal(t, 200, res.Code, res.Body.String())
+		var out oapi.CurrentAPIKey
+		require.NoError(t, json.Unmarshal(res.Body.Bytes(), &out))
+		assert.Equal(t, method.ID, out.Id)
+		assert.Equal(t, method.Name, out.Name)
+		assert.Equal(t, f.projectID, out.ProjectId)
+		assert.Equal(t, f.orgID, out.OrganizationId)
+		assert.Equal(t, oapi.ProjectRoleEditor, out.Role)
+	})
+
+	t.Run("admin is refused", func(t *testing.T) {
+		res := httptest.NewRecorder()
+		req := httptest.NewRequest("GET", "/api/admin/auth/key", nil)
+		req = req.WithContext(ctx)
+		f.controller.GetCurrentAPIKey(res, req)
+
+		require.Equal(t, 403, res.Code, res.Body.String())
+	})
+
+	t.Run("revoked key", func(t *testing.T) {
+		res := httptest.NewRecorder()
+		req := httptest.NewRequest("GET", "/api/admin/auth/key", nil)
+		req = req.WithContext(keyCtx(uuid.New()))
+		f.controller.GetCurrentAPIKey(res, req)
+
+		require.Equal(t, 404, res.Code, res.Body.String())
+	})
+}
+
 // --- Update -----------------------------------------------------------------
 
 func TestUpdateAuthMethodHandler(t *testing.T) {

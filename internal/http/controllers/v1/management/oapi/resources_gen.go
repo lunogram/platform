@@ -1265,6 +1265,17 @@ type CreateUserEventRequest struct {
 	Name string `json:"name"`
 }
 
+// CurrentAPIKey The API key that authenticated the request.
+type CurrentAPIKey struct {
+	Id             openapi_types.UUID `json:"id"`
+	Name           string             `json:"name"`
+	OrganizationId openapi_types.UUID `json:"organization_id"`
+	ProjectId      openapi_types.UUID `json:"project_id"`
+
+	// Role Role within a project
+	Role ProjectRole `json:"role"`
+}
+
 // Delivery defines model for Delivery.
 type Delivery struct {
 	Clicks int `json:"clicks"`
@@ -3475,6 +3486,9 @@ type ClientInterface interface {
 
 	SetActiveOrganization(ctx context.Context, body SetActiveOrganizationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetCurrentAPIKey request
+	GetCurrentAPIKey(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListMyOrganizations request
 	ListMyOrganizations(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -4172,6 +4186,18 @@ func (c *Client) SetActiveOrganizationWithBody(ctx context.Context, contentType 
 
 func (c *Client) SetActiveOrganization(ctx context.Context, body SetActiveOrganizationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewSetActiveOrganizationRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetCurrentAPIKey(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetCurrentAPIKeyRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -7182,6 +7208,33 @@ func NewSetActiveOrganizationRequestWithBody(server string, contentType string, 
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetCurrentAPIKeyRequest generates requests for GetCurrentAPIKey
+func NewGetCurrentAPIKeyRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/auth/key")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -17274,6 +17327,9 @@ type ClientWithResponsesInterface interface {
 
 	SetActiveOrganizationWithResponse(ctx context.Context, body SetActiveOrganizationJSONRequestBody, reqEditors ...RequestEditorFn) (*SetActiveOrganizationResponse, error)
 
+	// GetCurrentAPIKeyWithResponse request
+	GetCurrentAPIKeyWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetCurrentAPIKeyResponse, error)
+
 	// ListMyOrganizationsWithResponse request
 	ListMyOrganizationsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListMyOrganizationsResponse, error)
 
@@ -17981,6 +18037,37 @@ func (r SetActiveOrganizationResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r SetActiveOrganizationResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetCurrentAPIKeyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *CurrentAPIKey
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetCurrentAPIKeyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetCurrentAPIKeyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetCurrentAPIKeyResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -23847,6 +23934,15 @@ func (c *ClientWithResponses) SetActiveOrganizationWithResponse(ctx context.Cont
 	return ParseSetActiveOrganizationResponse(rsp)
 }
 
+// GetCurrentAPIKeyWithResponse request returning *GetCurrentAPIKeyResponse
+func (c *ClientWithResponses) GetCurrentAPIKeyWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetCurrentAPIKeyResponse, error) {
+	rsp, err := c.GetCurrentAPIKey(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetCurrentAPIKeyResponse(rsp)
+}
+
 // ListMyOrganizationsWithResponse request returning *ListMyOrganizationsResponse
 func (c *ClientWithResponses) ListMyOrganizationsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListMyOrganizationsResponse, error) {
 	rsp, err := c.ListMyOrganizations(ctx, reqEditors...)
@@ -26025,6 +26121,39 @@ func ParseSetActiveOrganizationResponse(rsp *http.Response) (*SetActiveOrganizat
 	}
 
 	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetCurrentAPIKeyResponse parses an HTTP response from a GetCurrentAPIKeyWithResponse call
+func ParseGetCurrentAPIKeyResponse(rsp *http.Response) (*GetCurrentAPIKeyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetCurrentAPIKeyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest CurrentAPIKey
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -31937,6 +32066,9 @@ type ServerInterface interface {
 	// Set active organization
 	// (POST /api/admin/active-organization)
 	SetActiveOrganization(w http.ResponseWriter, r *http.Request)
+	// Get the calling API key
+	// (GET /api/admin/auth/key)
+	GetCurrentAPIKey(w http.ResponseWriter, r *http.Request)
 	// List my organizations
 	// (GET /api/admin/organizations)
 	ListMyOrganizations(w http.ResponseWriter, r *http.Request)
@@ -32510,6 +32642,12 @@ type Unimplemented struct{}
 // Set active organization
 // (POST /api/admin/active-organization)
 func (_ Unimplemented) SetActiveOrganization(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Get the calling API key
+// (GET /api/admin/auth/key)
+func (_ Unimplemented) GetCurrentAPIKey(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -33661,6 +33799,26 @@ func (siw *ServerInterfaceWrapper) SetActiveOrganization(w http.ResponseWriter, 
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.SetActiveOrganization(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetCurrentAPIKey operation middleware
+func (siw *ServerInterfaceWrapper) GetCurrentAPIKey(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetCurrentAPIKey(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -42522,6 +42680,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/admin/active-organization", wrapper.SetActiveOrganization)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/auth/key", wrapper.GetCurrentAPIKey)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/organizations", wrapper.ListMyOrganizations)

@@ -2130,6 +2130,30 @@ export interface paths {
         patch: operations["updateProjectAdmin"];
         trace?: never;
     };
+    "/api/admin/auth/key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the calling API key
+         * @description Returns the identity of the API key that authenticated the request: the
+         *     project and organization it is scoped to, and its role. A key learns
+         *     nothing beyond the project it already has access to, so an integration
+         *     holding only a key can discover which project to address. Only API keys
+         *     may call this endpoint; any other caller is refused.
+         */
+        get: operations["getCurrentAPIKey"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/auth-methods": {
         parameters: {
             query?: never;
@@ -4871,6 +4895,18 @@ export interface components {
             created_at: string;
             /** Format: date-time */
             updated_at: string;
+        };
+        /** @description The API key that authenticated the request. */
+        CurrentAPIKey: {
+            /** Format: uuid */
+            id: string;
+            /** @example Production key */
+            name: string;
+            /** Format: uuid */
+            project_id: string;
+            /** Format: uuid */
+            organization_id: string;
+            role: components["schemas"]["ProjectRole"];
         };
         CreateAuthMethod: {
             type: components["schemas"]["AuthMethodType"];
@@ -9771,6 +9807,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProjectAdmin"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getCurrentAPIKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The calling API key */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CurrentAPIKey"];
                 };
             };
             default: components["responses"]["Error"];
