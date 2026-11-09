@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { useTranslation } from "react-i18next"
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query"
 import {
     Dialog,
     DialogContent,
@@ -20,12 +21,9 @@ import {
 } from "./components/userUtils"
 import { getRandomColor } from "@/lib/colors"
 import { useDebounceControl } from "@/hooks"
-import oapiClient from "@/oapi/client"
 import type { User } from "@/types"
-import { fetchPathSuggestions } from "@/lib/path-suggestions"
 import type { UUID } from "@/types/common"
-
-const PAGE_SIZE = 25
+import { pathSuggestionsQuery, userPagesQuery } from "./queries"
 
 interface UserSelectionModalProps {
     isOpen: boolean
@@ -44,63 +42,30 @@ export function UserSelectionModal({
 }: UserSelectionModalProps) {
     const { t } = useTranslation()
     const [selectedUser, setSelectedUser] = useState<User | null>(null)
-    const [schemaFields, setSchemaFields] = useState<{ path: string; types: string[] }[]>([])
     const [jsonValue, setJsonValue] = useState("")
     const [jsonError, setJsonError] = useState<string | undefined>(undefined)
 
-    // Infinite scroll state
-    const [users, setUsers] = useState<User[]>([])
-    const [total, setTotal] = useState(0)
-    const [loading, setLoading] = useState(false)
     const [search, setSearch] = useState("")
     const scrollRef = useRef<HTMLDivElement>(null)
-    const loadingRef = useRef(false)
-
-    const fetchUsers = useCallback(
-        async (searchTerm: string, offset: number, append: boolean) => {
-            if (loadingRef.current) return
-            loadingRef.current = true
-            setLoading(true)
-
-            try {
-                const { data } = await oapiClient.GET(
-                    "/api/admin/projects/{projectID}/subjects/users",
-                    {
-                        params: {
-                            path: { projectID: projectId },
-                            query: {
-                                limit: PAGE_SIZE,
-                                offset,
-                                ...(searchTerm ? { search: searchTerm } : {}),
-                            },
-                        },
-                    },
-                )
-                if (data) {
-                    const results = (data.results ?? []) as User[]
-                    setUsers((prev) => (append ? [...prev, ...results] : results))
-                    setTotal(data.total ?? 0)
-                }
-            } finally {
-                setLoading(false)
-                loadingRef.current = false
-            }
-        },
-        [projectId],
-    )
 
     // Debounced search — triggers server-side search
     const [searchInput, setSearchInput] = useDebounceControl(search, (value) => {
         setSearch(value)
     })
 
-    // Fetch on open and when search changes
-    useEffect(() => {
-        if (isOpen) {
-            setUsers([])
-            fetchUsers(search, 0, false)
-        }
-    }, [isOpen, search, fetchUsers])
+    // Pages are keyed by search, so a search typed while a page loads is
+    // fetched too, and an older search's pages never show for a newer one.
+    const userPages = useInfiniteQuery({
+        ...userPagesQuery(projectId, search),
+        enabled: isOpen,
+    })
+    const { hasNextPage, isFetchingNextPage, fetchNextPage } = userPages
+    const users = useMemo(
+        () => userPages.data?.pages.flatMap((page) => page.results) ?? [],
+        [userPages.data],
+    )
+    const total = userPages.data?.pages.at(-1)?.total ?? 0
+    const loading = userPages.isFetching
 
     // Reset state when modal closes
     useEffect(() => {
@@ -110,47 +75,28 @@ export function UserSelectionModal({
             setJsonError(undefined)
             setSearchInput("")
             setSearch("")
-            setUsers([])
-            setTotal(0)
         }
     }, [isOpen, setSearchInput])
 
     // Infinite scroll handler
     const handleScroll = useCallback(() => {
         const el = scrollRef.current
-        if (!el || loadingRef.current) return
+        if (!el || !hasNextPage || isFetchingNextPage) return
 
         const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 100
-        if (nearBottom && users.length < total) {
-            fetchUsers(search, users.length, true)
-        }
-    }, [users.length, total, search, fetchUsers])
+        if (nearBottom) void fetchNextPage()
+    }, [hasNextPage, isFetchingNextPage, fetchNextPage])
 
-    // Fetch the event schema for the entrance's event_name
-    useEffect(() => {
-        if (!isOpen || !eventName) {
-            setSchemaFields([])
-            return
-        }
-
-        let cancelled = false
-        fetchPathSuggestions(projectId)
-            .then((suggestions) => {
-                if (cancelled) return
-                const match = suggestions.eventPaths.find((e) => e.name === eventName)
-                if (match?.schema) {
-                    const dataFields = match.schema.filter((f) => f.path.startsWith(".data."))
-                    setSchemaFields(dataFields)
-                } else {
-                    setSchemaFields([])
-                }
-            })
-            .catch(console.error)
-
-        return () => {
-            cancelled = true
-        }
-    }, [isOpen, eventName, projectId])
+    // The event schema for the entrance's event_name
+    const suggestions = useQuery({
+        ...pathSuggestionsQuery(projectId),
+        enabled: isOpen && !!eventName,
+    })
+    const schemaFields = useMemo(() => {
+        if (!isOpen || !eventName) return []
+        const match = suggestions.data?.eventPaths.find((e) => e.name === eventName)
+        return match?.schema?.filter((f) => f.path.startsWith(".data.")) ?? []
+    }, [isOpen, eventName, suggestions.data])
 
     const handleUserClick = useCallback(
         (user: User) => {
@@ -197,7 +143,7 @@ export function UserSelectionModal({
         setJsonError(undefined)
     }, [])
 
-    const hasMore = users.length < total
+    const hasMore = !!hasNextPage
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -323,6 +269,17 @@ export function UserSelectionModal({
                             ) : loading ? (
                                 <div className="flex justify-center py-16">
                                     <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                                </div>
+                            ) : userPages.isError ? (
+                                <div className="flex flex-col items-center gap-3 py-16 text-muted-foreground">
+                                    <p>{t("journey_users_load_failed", "Couldn't load users.")}</p>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => userPages.refetch()}
+                                    >
+                                        {t("retry", "Retry")}
+                                    </Button>
                                 </div>
                             ) : (
                                 <div className="flex flex-col items-center gap-2 py-16 text-muted-foreground">

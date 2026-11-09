@@ -1,6 +1,7 @@
 import { useContext, useState } from "react"
 import { Outlet, useNavigate, useLocation, Link } from "react-router"
 import { useTranslation } from "react-i18next"
+import { useQueryClient } from "@tanstack/react-query"
 import {
     Building2,
     Trash2,
@@ -17,8 +18,8 @@ import { PreferencesContext } from "@/contexts/PreferencesContext"
 import { getRandomColor } from "@/lib/colors"
 import { getPrimaryExternalId } from "@/lib/name"
 import { formatDate } from "../../utils"
-import oapiClient from "../../oapi/client"
 import { toast } from "sonner"
+import { organizationKeys, useDeleteOrganization, useUpdateOrganization } from "./queries"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -41,12 +42,17 @@ import { NavTabs } from "@/components/ui/nav-tabs"
 export default function OrganizationDetail() {
     const { t } = useTranslation()
     const navigate = useNavigate()
+    const queryClient = useQueryClient()
     const location = useLocation()
     const [preferences] = useContext(PreferencesContext)
     const [project] = useContext(ProjectContext)
-    const [organization, setOrganization] = useContext(OrganizationContext)
+    const [organization] = useContext(OrganizationContext)
     const [isDeleteOpen, setIsDeleteOpen] = useState(false)
-    const [isDeleting, setIsDeleting] = useState(false)
+    const deleteMutation = useDeleteOrganization()
+    const isDeleting = deleteMutation.isPending
+    const updateOrganization = useUpdateOrganization(
+        t("organization_update_failed", "Couldn't update the organization"),
+    )
 
     const orgColor = getRandomColor(
         getPrimaryExternalId(organization as unknown as Record<string, unknown>) ?? organization.id,
@@ -55,25 +61,29 @@ export default function OrganizationDetail() {
     // Determine active tab
     const basePath = `/projects/${project.id}/organizations/${organization.id}`
     const currentPath = location.pathname
-    const activeTab = currentPath === basePath ? "details" : currentPath.replace(basePath + "/", "").split("/")[0]
+    const activeTab =
+        currentPath === basePath ? "details" : currentPath.replace(basePath + "/", "").split("/")[0]
 
-    const deleteOrganization = async () => {
-        setIsDeleting(true)
+    // On failure the mutation cache shows the error and the dialog stays open.
+    const deleteOrganization = () =>
+        deleteMutation.mutate(undefined, {
+            onSuccess: async () => {
+                await navigate(`/projects/${project.id}/organizations`)
+                // Dropped only once this page is gone, so it doesn't refetch the
+                // deleted organization while still on screen.
+                queryClient.removeQueries({
+                    queryKey: organizationKeys.detail(project.id, organization.id),
+                })
+            },
+        })
+
+    const saveName = async (name: string) => {
         try {
-            await oapiClient.DELETE(
-                "/api/admin/projects/{projectID}/subjects/organizations/{organizationID}",
-                {
-                    params: {
-                        path: {
-                            projectID: project.id,
-                            organizationID: organization.id,
-                        },
-                    },
-                },
-            )
-            await navigate(`/projects/${project.id}/organizations`)
-        } finally {
-            setIsDeleting(false)
+            await updateOrganization.mutateAsync({ name })
+            toast.success(t("organization_updated", "Organization updated"))
+        } catch {
+            // The mutation cache already showed the error. Resolving lets
+            // InlineEdit close; the header keeps showing the saved name.
         }
     }
 
@@ -124,26 +134,7 @@ export default function OrganizationDetail() {
                             <div className="space-y-1 min-w-0">
                                 <InlineEdit
                                     value={organization.name ?? ""}
-                                    onSave={async (name) => {
-                                        const { data } = await oapiClient.PATCH(
-                                            "/api/admin/projects/{projectID}/subjects/organizations/{organizationID}",
-                                            {
-                                                params: {
-                                                    path: {
-                                                        projectID: project.id,
-                                                        organizationID: organization.id,
-                                                    },
-                                                },
-                                                body: { name },
-                                            },
-                                        )
-                                        if (data) {
-                                            setOrganization(data)
-                                            toast.success(
-                                                t("organization_updated", "Organization updated"),
-                                            )
-                                        }
-                                    }}
+                                    onSave={saveName}
                                     placeholder={getPrimaryExternalId(
                                         organization as unknown as Record<string, unknown>,
                                     )}

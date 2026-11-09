@@ -1,67 +1,30 @@
-import { useCallback, useContext, useEffect, useState, useRef } from "react"
-import { Link, useNavigate } from "react-router"
+import { useContext, useEffect, useState } from "react"
+import { Link, useBlocker, useNavigate } from "react-router"
 import { useTranslation } from "react-i18next"
 import {
     ListFilter,
     ChevronRight,
-    ChevronLeft,
     MoreHorizontal,
     Send,
     Upload,
     RefreshCw,
     Archive,
-    Search,
     AlertCircle,
-    Users,
-    Eye,
     Radio,
 } from "lucide-react"
-import api from "../../api"
-import oapiClient from "../../oapi/client"
 import { ListContext, ProjectContext } from "../../contexts"
 import { PreferencesContext } from "@/contexts/PreferencesContext"
 import { isEnterprise } from "@/config/enterprise"
-import type { DynamicList, ListUpdateParams, Rule, WrapperRule } from "../../types"
-
-/** Subset of user fields used by the list detail view, compatible with both the local User type and the OAPI-generated User type. */
-interface ListUser {
-    id: string
-    full_name?: string
-    identifier?: Array<{
-        source: string
-        external_id: string
-        metadata?: Record<string, unknown> | null
-    }>
-    email?: string
-    phone?: string
-}
-import { formatDate, snakeToTitle } from "../../utils"
+import type { DynamicList, List, ListUpdateParams, WrapperRule } from "../../types"
+import { formatDate, problemDetail, snakeToTitle } from "../../utils"
 import { getRandomColor } from "@/lib/colors"
-import { getUserDisplayName } from "@/lib/name"
-import RuleBuilder from "./rules/RuleBuilder"
-import { useRoute } from "@/hooks/use-route"
-import { useBlocker } from "react-router"
+import { ListRuleSection } from "./ListRuleSection"
+import { ListUploadDialog } from "./ListUploadDialog"
+import { ListUsersTable } from "./ListUsersTable"
+import { useArchiveList, useUpdateList } from "./listQueries"
 
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Skeleton } from "@/components/ui/skeleton"
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table"
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from "@/components/ui/dialog"
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -69,7 +32,6 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Label } from "@/components/ui/label"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { InlineEdit } from "@/components/ui/inline-edit"
 import { CreateBroadcastDialog } from "@/views/broadcast/CreateBroadcastDialog"
@@ -99,144 +61,22 @@ function getStateBadge(state: ListState, t: (key: string) => string) {
     )
 }
 
-interface RuleSectionProps {
-    list: DynamicList
-    isSaving: boolean
-    onRuleSave: (rule: Rule) => void
-    onChange?: (rule: Rule) => void
-}
-
-function RuleSection({ list, isSaving, onRuleSave, onChange }: RuleSectionProps) {
-    const { t } = useTranslation()
-    // Display draft_rule if available, otherwise fall back to published rule
-    const displayRule = list.draft_rule ?? list.rule
-    const [rule, setRule] = useState<Rule | null>(displayRule)
-    const [hasLocalEdits, setHasLocalEdits] = useState(false)
-    const onSetRule = (rule: Rule) => {
-        setRule(rule)
-        setHasLocalEdits(true)
-        onChange?.(rule)
-    }
-    return (
-        <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                    <h3 className="text-base font-semibold">{t("rules")}</h3>
-                    <p className="text-sm text-muted-foreground">
-                        {t(
-                            "rules_description",
-                            "Define conditions to dynamically include users in this list.",
-                        )}
-                    </p>
-                </div>
-                <div className="flex items-center gap-2">
-                    {hasLocalEdits && (
-                        <span className="text-xs text-amber-600 dark:text-amber-500">
-                            {t("unsaved_changes", "Unsaved changes")}
-                        </span>
-                    )}
-                    <Button
-                        size="sm"
-                        onClick={() => {
-                            if (rule) {
-                                setHasLocalEdits(false)
-                                onRuleSave(rule)
-                            }
-                        }}
-                        disabled={isSaving || !rule}
-                    >
-                        {isSaving ? <RefreshCw className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
-                        {t("rules_save")}
-                    </Button>
-                </div>
-            </div>
-            <div className="rounded-lg border bg-card p-4">
-                {rule && <RuleBuilder rule={rule} setRule={onSetRule} />}
-            </div>
-        </div>
-    )
-}
-
 export default function ListDetail() {
     const { t } = useTranslation()
     const navigate = useNavigate()
     const [project] = useContext(ProjectContext)
     const [preferences] = useContext(PreferencesContext)
-    const [list, setList] = useContext(ListContext)
+    const [list] = useContext(ListContext)
+    const updateList = useUpdateList()
+    const archiveList = useArchiveList()
     const [isUploadOpen, setIsUploadOpen] = useState(false)
     const [isBroadcastOpen, setIsBroadcastOpen] = useState(false)
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
-    const [isSaving, setIsSaving] = useState(false)
+    const isSaving = updateList.isPending
     const [savingAction, setSavingAction] = useState<"rule" | "publish" | "other" | null>(null)
     const [error, setError] = useState<string | undefined>()
 
-    // Users table state
-    const [users, setUsers] = useState<ListUser[] | null>(null)
-    const [searchQuery, setSearchQuery] = useState("")
-    const [debouncedQuery, setDebouncedQuery] = useState("")
-    const [offset, setOffset] = useState(0)
-    const [total, setTotal] = useState<number | null>(null)
-    const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>()
-    const route = useRoute()
-
-    const isPreviewMode = list.type === "dynamic" && !!list.draft_rule
-
     const listColor = getRandomColor(list.name ?? list.id)
-
-    const pageSize = 25
-
-    const loadUsers = useCallback(async () => {
-        try {
-            if (isPreviewMode) {
-                const { data } = await oapiClient.GET(
-                    "/api/admin/projects/{projectID}/lists/{listID}/users/preview",
-                    {
-                        params: {
-                            path: { projectID: project.id, listID: list.id },
-                            query: { limit: pageSize },
-                        },
-                    },
-                )
-                setUsers((data?.results as ListUser[]) ?? [])
-                setTotal(data?.total ?? data?.results?.length ?? 0)
-            } else {
-                const result = await api.lists.users(project.id, list.id, {
-                    limit: pageSize,
-                    offset,
-                    search: debouncedQuery || undefined,
-                })
-                setUsers(result.results)
-                setTotal(result.total ?? null)
-            }
-        } catch {
-            setUsers([])
-            setTotal(null)
-        }
-    }, [project.id, list.id, offset, debouncedQuery, isPreviewMode])
-
-    useEffect(() => {
-        loadUsers()
-    }, [loadUsers])
-
-    const refreshList = useCallback(() => {
-        api.lists
-            .get(project.id, list.id)
-            .then(setList)
-            .then(() => loadUsers())
-            .catch(() => {})
-    }, [project.id, list.id, setList, loadUsers])
-
-    useEffect(() => {
-        if (list.state !== "loading") return
-        const complete = list.progress?.complete ?? 0
-        const total = list.progress?.total ?? 0
-        const percent = total > 0 ? (complete / total) * 100 : 0
-        const refreshRate = percent < 5 ? 1000 : 5000
-        const interval = setInterval(refreshList, refreshRate)
-        refreshList()
-
-        return () => clearInterval(interval)
-    }, [list.state, list.progress?.complete, list.progress?.total, refreshList])
 
     const blocker = useBlocker(
         ({ currentLocation, nextLocation }) =>
@@ -252,66 +92,35 @@ export default function ListDetail() {
         }
     }, [blocker, t])
 
-    const handleSearch = useCallback((value: string) => {
-        setSearchQuery(value)
-        setOffset(0)
-        clearTimeout(searchTimeoutRef.current)
-        searchTimeoutRef.current = setTimeout(() => {
-            setDebouncedQuery(value)
-        }, 300)
-    }, [])
-
-    const hasPrevPage = offset > 0
-    const hasNextPage = total != null && offset + pageSize < total
-
-    const handleNextPage = () => {
-        if (hasNextPage) {
-            setOffset((prev) => prev + pageSize)
-        }
-    }
-
-    const handlePrevPage = () => {
-        if (hasPrevPage) {
-            setOffset((prev) => Math.max(0, prev - pageSize))
-        }
-    }
-
+    /**
+     * Saves the list and shows a failure in the page's error alert (as well as
+     * the mutation cache's toast).
+     * @returns the saved list, or null when the save failed.
+     */
     const saveList = async (
         { name, rule, published, tags }: ListUpdateParams,
         action: "rule" | "publish" | "other" = "other",
-    ) => {
-        setIsSaving(true)
+    ): Promise<List | null> => {
         setSavingAction(action)
         try {
-            const value = await api.lists.update(project.id, list.id, {
-                name,
-                rule,
-                published,
-                tags,
-            })
+            const value = await updateList.mutateAsync({ name, rule, published, tags })
             setError(undefined)
-            setList(value)
-            setHasUnsavedChanges(false)
-            loadUsers()
+            return value
         } catch (error: unknown) {
-            const errorMessage =
-                error instanceof Error ? error.message : "An unexpected error occurred"
-            setError(errorMessage)
+            setError(
+                problemDetail(error) ??
+                    (error instanceof Error ? error.message : "An unexpected error occurred"),
+            )
+            return null
         } finally {
-            setIsSaving(false)
             setSavingAction(null)
         }
     }
 
-    const uploadUsers = async (file: File) => {
-        await api.lists.upload(project.id, list.id, file)
-        refreshList()
-        setIsUploadOpen(false)
-    }
-
-    const handleArchiveList = async () => {
-        await api.lists.delete(project.id, list.id)
-        await navigate(`/projects/${project.id}/lists`)
+    const handleArchiveList = () => {
+        archiveList.mutate(list.id, {
+            onSuccess: () => navigate(`/projects/${project.id}/lists`),
+        })
     }
 
     const progress =
@@ -500,221 +309,24 @@ export default function ListDetail() {
 
                 {/* Rules Section (Dynamic Lists) */}
                 {list.type === "dynamic" && (
-                    <RuleSection
+                    <ListRuleSection
                         list={list}
                         isSaving={savingAction === "rule"}
                         onRuleSave={async (rule) =>
-                            await saveList({ name: list.name, rule: rule as WrapperRule }, "rule")
+                            (await saveList(
+                                { name: list.name, rule: rule as WrapperRule },
+                                "rule",
+                            )) as DynamicList | null
                         }
-                        onChange={() => setHasUnsavedChanges(true)}
+                        onDirtyChange={setHasUnsavedChanges}
                     />
                 )}
 
                 {/* Users Table */}
-                <div className="space-y-4">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
-                        <h3 className="text-base font-semibold">{t("users")}</h3>
-                        <div className="flex items-center gap-3 flex-wrap">
-                            {isPreviewMode && (
-                                <div className="flex items-center gap-1.5 rounded-md border border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-950/20 px-2.5 py-1.5">
-                                    <Eye className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
-                                    <span className="text-xs text-amber-700 dark:text-amber-300 whitespace-nowrap">
-                                        {t("preview_mode", "Preview mode")}
-                                        {total != null && (
-                                            <>
-                                                {" · "}
-                                                <span className="font-medium">
-                                                    {total.toLocaleString()}{" "}
-                                                    {t("matching", "matching")}
-                                                </span>
-                                            </>
-                                        )}
-                                    </span>
-                                </div>
-                            )}
-                            {isPreviewMode ? (
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <div className="relative max-w-xs flex-1">
-                                            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/50" />
-                                            <Input
-                                                placeholder={t("search_users", "Search users...")}
-                                                aria-label={t("search_users", "Search users")}
-                                                disabled
-                                                className="pl-9 h-8"
-                                            />
-                                        </div>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                        {t(
-                                            "search_disabled_preview",
-                                            "Search is not available in preview mode",
-                                        )}
-                                    </TooltipContent>
-                                </Tooltip>
-                            ) : (
-                                <div className="relative max-w-xs flex-1">
-                                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                                    <Input
-                                        placeholder={t("search_users", "Search users...")}
-                                        aria-label={t("search_users", "Search users")}
-                                        value={searchQuery}
-                                        onChange={(e) => handleSearch(e.target.value)}
-                                        className="pl-9 h-8"
-                                    />
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    <div className="rounded-lg border bg-card">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>{t("name")}</TableHead>
-                                    <TableHead>{t("email")}</TableHead>
-                                    <TableHead className="hidden sm:table-cell">
-                                        {t("phone")}
-                                    </TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {!users ? (
-                                    Array.from({ length: 5 }).map((_, i) => (
-                                        <TableRow key={i}>
-                                            <TableCell>
-                                                <Skeleton className="h-4 w-32" />
-                                            </TableCell>
-                                            <TableCell>
-                                                <Skeleton className="h-4 w-36" />
-                                            </TableCell>
-                                            <TableCell className="hidden sm:table-cell">
-                                                <Skeleton className="h-4 w-24" />
-                                            </TableCell>
-                                        </TableRow>
-                                    ))
-                                ) : users.length === 0 ? (
-                                    <TableRow>
-                                        <TableCell colSpan={3} className="h-32 text-center">
-                                            <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                                                <Users className="h-8 w-8" />
-                                                <p>
-                                                    {debouncedQuery
-                                                        ? t("no_users_found", "No users found")
-                                                        : t(
-                                                              "no_users_yet",
-                                                              "No users in this list yet",
-                                                          )}
-                                                </p>
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
-                                ) : (
-                                    users.map((user) => (
-                                        <TableRow
-                                            key={user.id}
-                                            className="cursor-pointer"
-                                            onClick={() => route(`users/${user.id}`)}
-                                        >
-                                            <TableCell className="font-medium">
-                                                {getUserDisplayName(user, "—")}
-                                            </TableCell>
-                                            <TableCell className="text-muted-foreground">
-                                                {user.email || "—"}
-                                            </TableCell>
-                                            <TableCell className="text-muted-foreground hidden sm:table-cell">
-                                                {user.phone || "—"}
-                                            </TableCell>
-                                        </TableRow>
-                                    ))
-                                )}
-                            </TableBody>
-                        </Table>
-
-                        {/* Pagination */}
-                        {users && users.length > 0 && !isPreviewMode && (
-                            <div className="flex items-center justify-between border-t px-4 py-3">
-                                <p className="text-sm text-muted-foreground">
-                                    {total != null
-                                        ? `${(offset + 1).toLocaleString()}–${Math.min(offset + pageSize, total).toLocaleString()} of ${total.toLocaleString()} ${t("users").toLowerCase()}`
-                                        : `${users.length} ${t("users").toLowerCase()}`}
-                                </p>
-                                {(hasPrevPage || hasNextPage) && (
-                                    <div className="flex items-center gap-2">
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={handlePrevPage}
-                                            disabled={!hasPrevPage}
-                                            aria-label={t("previous")}
-                                        >
-                                            <ChevronLeft className="h-4 w-4 sm:mr-1" />
-                                            <span className="hidden sm:inline">
-                                                {t("previous")}
-                                            </span>
-                                        </Button>
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={handleNextPage}
-                                            disabled={!hasNextPage}
-                                            aria-label={t("next")}
-                                        >
-                                            <span className="hidden sm:inline">{t("next")}</span>
-                                            <ChevronRight className="h-4 w-4 sm:ml-1" />
-                                        </Button>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                    </div>
-                </div>
+                <ListUsersTable list={list} />
             </div>
 
-            {/* Upload Users Dialog */}
-            <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>{t("import_users")}</DialogTitle>
-                        <DialogDescription>{t("upload_instructions")}</DialogDescription>
-                    </DialogHeader>
-                    <form
-                        onSubmit={async (e) => {
-                            e.preventDefault()
-                            const formData = new FormData(e.currentTarget)
-                            const file = formData.get("file") as File
-                            if (file) await uploadUsers(file)
-                        }}
-                    >
-                        <div className="grid gap-4 py-4">
-                            <div className="grid gap-2">
-                                <Label htmlFor="upload-file">{t("file")}</Label>
-                                <Input
-                                    id="upload-file"
-                                    name="file"
-                                    type="file"
-                                    accept=".csv,.txt"
-                                    required
-                                    className="cursor-pointer"
-                                />
-                            </div>
-                        </div>
-                        <DialogFooter>
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => setIsUploadOpen(false)}
-                            >
-                                {t("cancel")}
-                            </Button>
-                            <Button type="submit">
-                                <Upload className="mr-2 h-3.5 w-3.5" />
-                                {t("upload")}
-                            </Button>
-                        </DialogFooter>
-                    </form>
-                </DialogContent>
-            </Dialog>
+            <ListUploadDialog open={isUploadOpen} onOpenChange={setIsUploadOpen} />
 
             <CreateBroadcastDialog
                 open={isBroadcastOpen}
