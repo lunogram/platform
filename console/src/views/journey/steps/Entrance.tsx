@@ -1,7 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import type {
     JourneyStepType,
-    List,
     Rule,
     RulePath,
     ScheduledSchema,
@@ -15,27 +14,13 @@ import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { Combobox } from "@/components/ui/combobox"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import api from "../../../api"
 import { Button } from "@/components/ui/button"
-import { Command, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { env } from "../../../config/env"
 import { useTranslation, Trans } from "react-i18next"
 import { createSimpleEventRule, isEventWrapper } from "../../users/rules/RuleHelpers"
 import { ruleDescription } from "../../users/rules/RuleDescriptions"
 import { Badge } from "@/components/ui/badge"
-import {
-    Webhook,
-    Zap,
-    Copy,
-    Check,
-    CalendarClock,
-    ChevronsUpDown,
-    Loader2,
-    Plus,
-    ArrowLeft,
-    ListChecks,
-    LogOut,
-} from "lucide-react"
+import { Webhook, Zap, Copy, Check, CalendarClock, ListChecks, LogOut } from "lucide-react"
 import {
     Select,
     SelectContent,
@@ -45,11 +30,11 @@ import {
 } from "@/components/ui/select"
 import { ScheduleOffsetCombobox } from "@/components/schedule-offset-combobox"
 import { formatOffset } from "@/utils"
-import { cn } from "@/utils"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Input } from "@/components/ui/input"
 
 import { Link } from "react-router"
+import { useQueryClient } from "@tanstack/react-query"
+import { pathSuggestionsQuery } from "../queries"
+import { EventNameCombobox, ListSelector } from "./EntrancePickers"
 import type { UUID } from "@/types/common"
 
 type ListDirection = "joins" | "leaves"
@@ -94,9 +79,6 @@ interface EntranceConfig {
 }
 
 const triggers = ["none", "event", "scheduled", "list"] as const
-
-type EventOption = Pick<RulePath, "name" | "path">
-type EventComboboxView = "list" | "create"
 
 const triggerConfig = {
     none: { icon: Webhook, label: "API" },
@@ -255,327 +237,6 @@ function ApiTriggerSection({ journeyId, stepId }: { journeyId: UUID; stepId: UUI
     )
 }
 
-interface EventNameComboboxProps {
-    value?: string
-    onChange: (eventName: string) => void
-    onSearch: (query: string) => Promise<EventOption[]>
-}
-
-function EventNameCombobox({ value, onChange, onSearch }: EventNameComboboxProps) {
-    const { t } = useTranslation()
-    const [open, setOpen] = useState(false)
-    const [view, setView] = useState<EventComboboxView>("list")
-    const [search, setSearch] = useState("")
-    const [results, setResults] = useState<EventOption[]>([])
-    const [loading, setLoading] = useState(false)
-    const [newEventName, setNewEventName] = useState("")
-    const debounceRef = useRef<ReturnType<typeof setTimeout>>()
-
-    const resetCreateForm = useCallback((seedName = "") => {
-        setNewEventName(seedName)
-    }, [])
-
-    useEffect(() => {
-        if (!open || view !== "list") return
-        if (debounceRef.current) clearTimeout(debounceRef.current)
-
-        setLoading(true)
-        debounceRef.current = setTimeout(async () => {
-            try {
-                setResults(await onSearch(search))
-            } finally {
-                setLoading(false)
-            }
-        }, 250)
-
-        return () => {
-            if (debounceRef.current) clearTimeout(debounceRef.current)
-        }
-    }, [open, view, search, onSearch])
-
-    useEffect(() => {
-        if (!open) return
-        setView("list")
-        setSearch("")
-        resetCreateForm()
-    }, [open, resetCreateForm])
-
-    const handleSelect = (eventName: string) => {
-        onChange(eventName)
-        setOpen(false)
-    }
-
-    const handleSwitchToCreate = () => {
-        resetCreateForm(search || value || "")
-        setView("create")
-    }
-
-    const handleUseEvent = () => {
-        const name = newEventName.trim()
-        if (!name) return
-        onChange(name)
-        setOpen(false)
-    }
-
-    return (
-        <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger asChild>
-                <Button
-                    variant="outline"
-                    role="combobox"
-                    aria-expanded={open}
-                    type="button"
-                    className={cn(
-                        "h-9 w-full justify-between shadow-none font-normal",
-                        !value && "text-muted-foreground",
-                    )}
-                >
-                    <span className="flex items-center gap-2 truncate">
-                        <Zap className="h-4 w-4 shrink-0 text-muted-foreground" />
-                        <span className="truncate font-mono text-sm">
-                            {value || t("select_or_create_event", "Select or create event...")}
-                        </span>
-                    </span>
-                    <ChevronsUpDown className="h-4 w-4 shrink-0 text-muted-foreground" />
-                </Button>
-            </PopoverTrigger>
-            <PopoverContent
-                className="w-[var(--radix-popover-trigger-width)] p-0"
-                align="start"
-                onOpenAutoFocus={(e) => e.preventDefault()}
-            >
-                {view === "list" ? (
-                    <div>
-                        <Command shouldFilter={false}>
-                            <CommandInput
-                                placeholder={t(
-                                    "search_or_type_event",
-                                    "Search or type an event...",
-                                )}
-                                value={search}
-                                onValueChange={setSearch}
-                            />
-                            <CommandList>
-                                {loading ? (
-                                    <div className="flex items-center justify-center py-6">
-                                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                                    </div>
-                                ) : results.length === 0 ? (
-                                    <div className="py-6 text-center text-sm text-muted-foreground">
-                                        {t("no_events_found", "No events found.")}
-                                    </div>
-                                ) : (
-                                    <div className="max-h-64 overflow-y-auto p-1">
-                                        {results.map((event) => (
-                                            <CommandItem
-                                                key={event.path}
-                                                value={event.path}
-                                                onSelect={() => handleSelect(event.name)}
-                                                className="cursor-pointer"
-                                            >
-                                                <Check
-                                                    className={cn(
-                                                        "mr-2 h-4 w-4 shrink-0",
-                                                        value === event.name
-                                                            ? "opacity-100"
-                                                            : "opacity-0",
-                                                    )}
-                                                />
-                                                <span className="truncate font-mono text-sm">
-                                                    {event.name}
-                                                </span>
-                                            </CommandItem>
-                                        ))}
-                                    </div>
-                                )}
-                            </CommandList>
-                        </Command>
-                        <div className="border-t p-1">
-                            <button
-                                type="button"
-                                onClick={handleSwitchToCreate}
-                                className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground cursor-pointer"
-                            >
-                                <Plus className="h-4 w-4" />
-                                {t("create_event_inline", "Create event...")}
-                            </button>
-                        </div>
-                    </div>
-                ) : (
-                    <div className="p-3 space-y-3">
-                        <div className="flex items-center gap-2">
-                            <button
-                                type="button"
-                                onClick={() => setView("list")}
-                                className="p-1 rounded-sm hover:bg-accent text-muted-foreground cursor-pointer"
-                            >
-                                <ArrowLeft className="h-4 w-4" />
-                            </button>
-                            <span className="text-sm font-medium">
-                                {t("create_event", "Create Event")}
-                            </span>
-                        </div>
-
-                        <div className="space-y-1">
-                            <Label htmlFor="new-entrance-event" className="text-xs font-medium">
-                                {t("event_name", "Event Name")}
-                            </Label>
-                            <Input
-                                id="new-entrance-event"
-                                value={newEventName}
-                                onChange={(e) => setNewEventName(e.target.value)}
-                                onKeyDown={(e) => {
-                                    if (e.key === "Enter") {
-                                        e.preventDefault()
-                                        handleUseEvent()
-                                    }
-                                    if (e.key === "Escape") {
-                                        e.preventDefault()
-                                        setView("list")
-                                    }
-                                }}
-                                placeholder="product.purchased"
-                                autoFocus
-                                className="h-8 font-mono"
-                            />
-                        </div>
-
-                        <p className="text-xs text-muted-foreground">
-                            {t(
-                                "create_entrance_event_hint",
-                                "This adds the event name to the entrance. Save the draft to persist it for this project.",
-                            )}
-                        </p>
-
-                        <Button
-                            type="button"
-                            size="sm"
-                            onClick={handleUseEvent}
-                            disabled={!newEventName.trim()}
-                            className="h-8"
-                        >
-                            {t("create", "Create")}
-                        </Button>
-                    </div>
-                )}
-            </PopoverContent>
-        </Popover>
-    )
-}
-
-interface ListSelectorProps {
-    projectId: UUID
-    value?: UUID
-    displayName?: string
-    onChange: (list: { id: UUID; name: string }) => void
-}
-
-function ListSelector({ projectId, value, displayName, onChange }: ListSelectorProps) {
-    const { t } = useTranslation()
-    const [open, setOpen] = useState(false)
-    const [search, setSearch] = useState("")
-    const [results, setResults] = useState<List[]>([])
-    const [loading, setLoading] = useState(false)
-    const debounceRef = useRef<ReturnType<typeof setTimeout>>()
-
-    useEffect(() => {
-        if (!open) return
-        if (debounceRef.current) clearTimeout(debounceRef.current)
-
-        setLoading(true)
-        debounceRef.current = setTimeout(async () => {
-            try {
-                const res = await api.lists.search(projectId, { limit: 50, search })
-                setResults(res.results)
-            } finally {
-                setLoading(false)
-            }
-        }, 250)
-
-        return () => {
-            if (debounceRef.current) clearTimeout(debounceRef.current)
-        }
-    }, [open, search, projectId])
-
-    useEffect(() => {
-        if (!open) setSearch("")
-    }, [open])
-
-    return (
-        <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger asChild>
-                <Button
-                    variant="outline"
-                    role="combobox"
-                    aria-expanded={open}
-                    type="button"
-                    className={cn(
-                        "h-9 w-full justify-between shadow-none font-normal",
-                        !value && "text-muted-foreground",
-                    )}
-                >
-                    <span className="flex items-center gap-2 truncate">
-                        <ListChecks className="h-4 w-4 shrink-0 text-muted-foreground" />
-                        <span className="truncate text-sm">
-                            {displayName || t("select_list", "Select a list...")}
-                        </span>
-                    </span>
-                    <ChevronsUpDown className="h-4 w-4 shrink-0 text-muted-foreground" />
-                </Button>
-            </PopoverTrigger>
-            <PopoverContent
-                className="w-[var(--radix-popover-trigger-width)] p-0"
-                align="start"
-                onOpenAutoFocus={(e) => e.preventDefault()}
-            >
-                <Command shouldFilter={false}>
-                    <CommandInput
-                        placeholder={t("search_lists", "Search lists...")}
-                        value={search}
-                        onValueChange={setSearch}
-                    />
-                    <CommandList>
-                        {loading ? (
-                            <div className="flex items-center justify-center py-6">
-                                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                            </div>
-                        ) : results.length === 0 ? (
-                            <div className="py-6 text-center text-sm text-muted-foreground">
-                                {t("no_lists_found", "No lists found.")}
-                            </div>
-                        ) : (
-                            <div className="max-h-64 overflow-y-auto p-1">
-                                {results.map((list) => (
-                                    <CommandItem
-                                        key={list.id}
-                                        value={list.id}
-                                        onSelect={() => {
-                                            onChange({ id: list.id, name: list.name })
-                                            setOpen(false)
-                                        }}
-                                        className="cursor-pointer"
-                                    >
-                                        <Check
-                                            className={cn(
-                                                "mr-2 h-4 w-4 shrink-0",
-                                                value === list.id ? "opacity-100" : "opacity-0",
-                                            )}
-                                        />
-                                        <span className="truncate text-sm">{list.name}</span>
-                                        <Badge variant="secondary" className="ml-auto shrink-0">
-                                            {list.type}
-                                        </Badge>
-                                    </CommandItem>
-                                ))}
-                            </div>
-                        )}
-                    </CommandList>
-                </Command>
-            </PopoverContent>
-        </Popover>
-    )
-}
-
 export const entranceStep: JourneyStepType<EntranceConfig> = {
     name: "entrance",
     icon: <EntranceStepIcon />,
@@ -700,6 +361,7 @@ export const entranceStep: JourneyStepType<EntranceConfig> = {
     },
     Edit({ onChange, project: { id: projectId }, journey: { id: journeyId }, stepId, value }) {
         const { t } = useTranslation()
+        const queryClient = useQueryClient()
 
         const cacheRef = useRef<RulePath[] | null>(null)
         const scheduledCacheRef = useRef<ScheduledSchema[] | null>(null)
@@ -707,7 +369,8 @@ export const entranceStep: JourneyStepType<EntranceConfig> = {
 
         const ensureSuggestionsLoaded = useCallback(async () => {
             if (cacheRef.current && scheduledCacheRef.current) return
-            const suggestions = await api.projects.pathSuggestions(projectId)
+            // Shared with the variable pickers, so this is usually already cached.
+            const suggestions = await queryClient.fetchQuery(pathSuggestionsQuery(projectId))
             if (!cacheRef.current) {
                 cacheRef.current = Array.isArray(suggestions?.eventPaths)
                     ? suggestions.eventPaths.map((event, index) => ({
@@ -725,7 +388,7 @@ export const entranceStep: JourneyStepType<EntranceConfig> = {
                     ? suggestions.scheduledPaths
                     : []
             }
-        }, [projectId])
+        }, [projectId, queryClient])
 
         // Eagerly load suggestions on mount when trigger is scheduled
         // so that the offset selector has data immediately (not just on search)

@@ -3,7 +3,6 @@ import { Info } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
 import { cn } from "@/utils"
-import type { Action } from "@/oapi/client"
 import type { Journey, Project } from "@/types"
 import { JourneyConnectionLine } from "./JourneyConnectionLine"
 import { JourneyLibrarySidebar } from "./JourneyLibrarySidebar"
@@ -27,7 +26,6 @@ type JourneyCanvasGraph = Pick<
 interface JourneyCanvasProps {
     project: Project
     journey: Journey
-    actions: Action[] | null
     graph: JourneyCanvasGraph
     sidebar: {
         tab: "components" | "actions"
@@ -49,7 +47,6 @@ interface JourneyCanvasProps {
 export function JourneyCanvas({
     project,
     journey,
-    actions,
     graph,
     sidebar,
     runtime,
@@ -167,7 +164,7 @@ export function JourneyCanvas({
                         />
                     ) : (
                         <JourneyLibrarySidebar
-                            actions={actions}
+                            projectId={project.id}
                             sidebarTab={sidebar.tab}
                             onSidebarTabChange={sidebar.onTabChange}
                         />

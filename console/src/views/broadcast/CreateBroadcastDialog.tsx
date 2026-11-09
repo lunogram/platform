@@ -1,15 +1,14 @@
-import { useCallback, useContext, useEffect, useState } from "react"
+import { useContext, useEffect } from "react"
 import { Controller, useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
+import { useQuery } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
 import { Radio, Mail, Smartphone, MessageSquareDot, Inbox, Info, Calendar } from "lucide-react"
 
 import { toast } from "sonner"
 
-import api from "../../api"
-import oapiClient from "../../oapi/client"
-import { useResolver } from "../../hooks"
 import { ProjectContext } from "../../contexts"
+import { campaignPickerQuery, listPickerQuery, useCreateBroadcast } from "./queries"
 
 import type { Broadcast, Campaign, List, ChannelType } from "@/types"
 import type { UUID } from "@/types/common"
@@ -38,7 +37,20 @@ import {
     createBroadcastSchema,
     type CreateBroadcastFormValues,
 } from "@/validation/broadcast/create-broadcast"
-import { broadcastResponseSchema } from "@/validation/broadcast/broadcast-response"
+
+// Takes the place of a picker whose options couldn't be loaded, so a failure
+// doesn't look like there is nothing to pick.
+function PickerLoadError({ message, onRetry }: { message: string; onRetry: () => void }) {
+    const { t } = useTranslation()
+    return (
+        <div className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
+            <span className="text-sm text-destructive">{message}</span>
+            <Button type="button" variant="outline" size="sm" onClick={onRetry}>
+                {t("retry", "Retry")}
+            </Button>
+        </div>
+    )
+}
 
 const channelIcons: Record<ChannelType, typeof Mail> = {
     email: Mail,
@@ -68,7 +80,8 @@ export function CreateBroadcastDialog({
     const [project] = useContext(ProjectContext)
     const { t } = useTranslation()
 
-    const [isSubmitting, setIsSubmitting] = useState(false)
+    const createBroadcast = useCreateBroadcast()
+    const isSubmitting = createBroadcast.isPending
 
     const form = useForm<CreateBroadcastFormValues>({
         resolver: zodResolver(createBroadcastSchema),
@@ -93,22 +106,13 @@ export function CreateBroadcastDialog({
         if (preselectedListId) form.setValue("list_id", preselectedListId)
     }, [preselectedListId, form])
 
-    // Load campaigns
-    const [campaignsResult] = useResolver(
-        useCallback(async () => {
-            return await api.campaigns.search(project.id, { limit: 100 })
-        }, [project.id]),
-    )
+    // Loaded only while the dialog is open, so the host page doesn't pay for
+    // them and each opening shows current campaigns and lists.
+    const campaignsResult = useQuery(campaignPickerQuery(project.id, open))
+    const listsResult = useQuery(listPickerQuery(project.id, open))
 
-    // Load lists (only ready/published)
-    const [listsResult] = useResolver(
-        useCallback(async () => {
-            return await api.lists.search(project.id, { limit: 100 })
-        }, [project.id]),
-    )
-
-    const campaigns = campaignsResult?.results ?? []
-    const fetchedLists = (listsResult?.results ?? []).filter((l: List) => l.state === "ready")
+    const campaigns = campaignsResult.data ?? []
+    const fetchedLists = (listsResult.data ?? []).filter((l: List) => l.state === "ready")
 
     // If a pre-selected list was passed but isn't in the fetched results (e.g. just published),
     // merge it in so the Select component can render its name.
@@ -136,35 +140,17 @@ export function CreateBroadcastDialog({
             }
         }
 
-        setIsSubmitting(true)
-        try {
-            const { data: broadcast, error } = await oapiClient.POST(
-                "/api/admin/projects/{projectID}/broadcasts",
-                {
-                    params: {
-                        path: { projectID: project.id },
-                    },
-                    body: {
-                        campaign_id: values.campaign_id,
-                        list_id: values.list_id,
-                        ...(values.is_scheduled && values.scheduled_at
-                            ? { scheduled_at: new Date(values.scheduled_at).toISOString() }
-                            : {}),
-                    },
-                },
-            )
-            if (error) throw error
-            if (!broadcast) throw new Error("Unexpected empty response")
-            onCreated?.(broadcastResponseSchema.parse(broadcast))
-        } catch (err) {
-            const detail =
-                err instanceof Object && "detail" in err && typeof err.detail === "string"
-                    ? err.detail
-                    : null
-            toast.error(detail || t("broadcast_create_error", "Failed to create broadcast"))
-        } finally {
-            setIsSubmitting(false)
-        }
+        // A failure is toasted by the mutation cache.
+        createBroadcast.mutate(
+            {
+                campaign_id: values.campaign_id,
+                list_id: values.list_id,
+                ...(values.is_scheduled && values.scheduled_at
+                    ? { scheduled_at: new Date(values.scheduled_at).toISOString() }
+                    : {}),
+            },
+            { onSuccess: (broadcast) => onCreated?.(broadcast) },
+        )
     }
 
     const handleOpenChange = (value: boolean) => {
@@ -193,52 +179,64 @@ export function CreateBroadcastDialog({
                     {/* Campaign Selector */}
                     <div className="grid gap-2">
                         <Label>{t("campaign.singular", "Campaign")}</Label>
-                        <Controller
-                            control={form.control}
-                            name="campaign_id"
-                            render={({ field }) => (
-                                <Select
-                                    value={field.value}
-                                    onValueChange={field.onChange}
-                                    disabled={!!preselectedCampaignId}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue
-                                            placeholder={t(
-                                                "select_campaign",
-                                                "Select a campaign...",
-                                            )}
-                                        />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {campaigns.length === 0 ? (
-                                            <div className="px-2 py-4 text-center text-sm text-muted-foreground">
-                                                {t(
-                                                    "no_campaigns_available",
-                                                    "No campaigns available. Create a campaign first.",
+                        {campaignsResult.isError ? (
+                            <PickerLoadError
+                                message={t(
+                                    "broadcast_campaigns_load_failed",
+                                    "Couldn't load campaigns.",
+                                )}
+                                onRetry={() => campaignsResult.refetch()}
+                            />
+                        ) : (
+                            <Controller
+                                control={form.control}
+                                name="campaign_id"
+                                render={({ field }) => (
+                                    <Select
+                                        value={field.value}
+                                        onValueChange={field.onChange}
+                                        disabled={!!preselectedCampaignId}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue
+                                                placeholder={t(
+                                                    "select_campaign",
+                                                    "Select a campaign...",
                                                 )}
-                                            </div>
-                                        ) : (
-                                            campaigns.map((campaign: Campaign) => {
-                                                const ChannelIcon =
-                                                    channelIcons[campaign.channel] ?? Mail
-                                                return (
-                                                    <SelectItem
-                                                        key={campaign.id}
-                                                        value={campaign.id}
-                                                    >
-                                                        <div className="flex items-center gap-2">
-                                                            <ChannelIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                                                            <span>{campaign.name}</span>
-                                                        </div>
-                                                    </SelectItem>
-                                                )
-                                            })
-                                        )}
-                                    </SelectContent>
-                                </Select>
-                            )}
-                        />
+                                            />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {campaigns.length === 0 ? (
+                                                <div className="px-2 py-4 text-center text-sm text-muted-foreground">
+                                                    {campaignsResult.isPending
+                                                        ? t("loading", "Loading")
+                                                        : t(
+                                                              "no_campaigns_available",
+                                                              "No campaigns available. Create a campaign first.",
+                                                          )}
+                                                </div>
+                                            ) : (
+                                                campaigns.map((campaign: Campaign) => {
+                                                    const ChannelIcon =
+                                                        channelIcons[campaign.channel] ?? Mail
+                                                    return (
+                                                        <SelectItem
+                                                            key={campaign.id}
+                                                            value={campaign.id}
+                                                        >
+                                                            <div className="flex items-center gap-2">
+                                                                <ChannelIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                                                                <span>{campaign.name}</span>
+                                                            </div>
+                                                        </SelectItem>
+                                                    )
+                                                })
+                                            )}
+                                        </SelectContent>
+                                    </Select>
+                                )}
+                            />
+                        )}
                         {form.formState.errors.campaign_id && (
                             <p className="text-sm text-destructive">
                                 {form.formState.errors.campaign_id.message}
@@ -249,47 +247,56 @@ export function CreateBroadcastDialog({
                     {/* List Selector */}
                     <div className="grid gap-2">
                         <Label>{t("list", "List")}</Label>
-                        <Controller
-                            control={form.control}
-                            name="list_id"
-                            render={({ field }) => (
-                                <Select
-                                    value={field.value}
-                                    onValueChange={field.onChange}
-                                    disabled={!!preselectedListId}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue
-                                            placeholder={t("select_list", "Select a list...")}
-                                        />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {lists.length === 0 ? (
-                                            <div className="px-2 py-4 text-center text-sm text-muted-foreground">
-                                                {t(
-                                                    "no_lists_available",
-                                                    "No published lists available. Publish a list first.",
-                                                )}
-                                            </div>
-                                        ) : (
-                                            lists.map((list: List) => (
-                                                <SelectItem key={list.id} value={list.id}>
-                                                    <div className="flex items-center gap-2">
-                                                        <span>{list.name}</span>
-                                                        <span className="text-muted-foreground text-xs">
-                                                            (
-                                                            {list.users_count?.toLocaleString() ??
-                                                                0}{" "}
-                                                            {t("users").toLowerCase()})
-                                                        </span>
-                                                    </div>
-                                                </SelectItem>
-                                            ))
-                                        )}
-                                    </SelectContent>
-                                </Select>
-                            )}
-                        />
+                        {listsResult.isError ? (
+                            <PickerLoadError
+                                message={t("broadcast_lists_load_failed", "Couldn't load lists.")}
+                                onRetry={() => listsResult.refetch()}
+                            />
+                        ) : (
+                            <Controller
+                                control={form.control}
+                                name="list_id"
+                                render={({ field }) => (
+                                    <Select
+                                        value={field.value}
+                                        onValueChange={field.onChange}
+                                        disabled={!!preselectedListId}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue
+                                                placeholder={t("select_list", "Select a list...")}
+                                            />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {lists.length === 0 ? (
+                                                <div className="px-2 py-4 text-center text-sm text-muted-foreground">
+                                                    {listsResult.isPending
+                                                        ? t("loading", "Loading")
+                                                        : t(
+                                                              "no_lists_available",
+                                                              "No published lists available. Publish a list first.",
+                                                          )}
+                                                </div>
+                                            ) : (
+                                                lists.map((list: List) => (
+                                                    <SelectItem key={list.id} value={list.id}>
+                                                        <div className="flex items-center gap-2">
+                                                            <span>{list.name}</span>
+                                                            <span className="text-muted-foreground text-xs">
+                                                                (
+                                                                {list.users_count?.toLocaleString() ??
+                                                                    0}{" "}
+                                                                {t("users").toLowerCase()})
+                                                            </span>
+                                                        </div>
+                                                    </SelectItem>
+                                                ))
+                                            )}
+                                        </SelectContent>
+                                    </Select>
+                                )}
+                            />
+                        )}
                         {form.formState.errors.list_id && (
                             <p className="text-sm text-destructive">
                                 {form.formState.errors.list_id.message}
