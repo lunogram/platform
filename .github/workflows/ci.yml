@@ -78,7 +78,10 @@ jobs:
           path: bin
           key: ${{ runner.os }}-bin-${{ hashFiles('**/go.sum') }}
       - name: Run tests
-        run: make test TAGS=${{ matrix.tags }}
+        # Keep Go's per-binary timeout well under the job's timeout-minutes so a
+        # hung test panics with a goroutine dump instead of the runner killing
+        # the job with a bare "Terminated".
+        run: make test TAGS=${{ matrix.tags }} TEST_TIMEOUT=12m
 
   build:
     runs-on: ubuntu-latest

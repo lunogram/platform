@@ -68,11 +68,15 @@ func startAzurite(ctx context.Context) (string, error) {
 		testcontainers.WithAdditionalWaitStrategy(blobServiceServing()),
 	)
 	if err != nil {
+		// A container that started but failed its wait strategy is still
+		// returned; remove it so retries do not pile up running containers.
+		_ = testcontainers.TerminateContainer(container)
 		return "", err
 	}
 
 	blobServiceURL, err := container.BlobServiceURL(ctx)
 	if err != nil {
+		_ = testcontainers.TerminateContainer(container)
 		return "", err
 	}
 
