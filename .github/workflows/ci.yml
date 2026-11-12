@@ -36,7 +36,9 @@ jobs:
 
   tests:
     name: tests (${{ matrix.edition }})
-    runs-on: ubuntu-latest
+    # Pinned: since ubuntu-latest started migrating to Ubuntu 26 the test step
+    # gets SIGTERMed (exit 143) mid-run, well before timeout-minutes.
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -82,6 +84,13 @@ jobs:
         # hung test panics with a goroutine dump instead of the runner killing
         # the job with a bare "Terminated".
         run: make test TAGS=${{ matrix.tags }} TEST_TIMEOUT=12m
+      - name: Diagnose killed tests
+        if: failure() || cancelled()
+        run: |
+          cat /etc/os-release | head -2
+          free -m
+          sudo dmesg -T | grep -iE "oom|killed process|out of memory" | tail -20 || true
+          sudo journalctl --no-pager --since "-40min" | grep -iE "oom|SIGTERM|killed|memory pressure" | tail -40 || true
 
   build:
     runs-on: ubuntu-latest
