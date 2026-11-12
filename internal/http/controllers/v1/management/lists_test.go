@@ -54,7 +54,7 @@ func TestListCreation(t *testing.T) {
 	jet, err := pubsub.New(ctx, cfg)
 	require.NoError(t, err)
 
-	err = ensureDefaultPubsubBootstrapped(ctx, logger, jet)
+	err = consumer.Bootstrap(ctx, logger, jet, "")
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet, "")
@@ -131,7 +131,7 @@ func TestListLists(t *testing.T) {
 	jet, err := pubsub.New(ctx, cfg)
 	require.NoError(t, err)
 
-	err = ensureDefaultPubsubBootstrapped(ctx, logger, jet)
+	err = consumer.Bootstrap(ctx, logger, jet, "")
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet, "")
@@ -242,7 +242,7 @@ func TestGetList(t *testing.T) {
 	jet, err := pubsub.New(ctx, cfg)
 	require.NoError(t, err)
 
-	err = ensureDefaultPubsubBootstrapped(ctx, logger, jet)
+	err = consumer.Bootstrap(ctx, logger, jet, "")
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet, "")
@@ -296,7 +296,7 @@ func TestUpdateList(t *testing.T) {
 	jet, err := pubsub.New(ctx, cfg)
 	require.NoError(t, err)
 
-	err = ensureDefaultPubsubBootstrapped(ctx, logger, jet)
+	err = consumer.Bootstrap(ctx, logger, jet, "")
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet, "")
@@ -356,7 +356,7 @@ func TestDeleteList(t *testing.T) {
 	jet, err := pubsub.New(ctx, cfg)
 	require.NoError(t, err)
 
-	err = ensureDefaultPubsubBootstrapped(ctx, logger, jet)
+	err = consumer.Bootstrap(ctx, logger, jet, "")
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet, "")
@@ -407,7 +407,7 @@ func TestDuplicateList(t *testing.T) {
 	jet, err := pubsub.New(ctx, cfg)
 	require.NoError(t, err)
 
-	err = ensureDefaultPubsubBootstrapped(ctx, logger, jet)
+	err = consumer.Bootstrap(ctx, logger, jet, "")
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet, "")
@@ -489,7 +489,7 @@ func TestImportListUsers(t *testing.T) {
 			jet, err := pubsub.New(ctx, cfg)
 			require.NoError(t, err)
 
-			err = ensureDefaultPubsubBootstrapped(ctx, logger, jet)
+			err = consumer.Bootstrap(ctx, logger, jet, "")
 			require.NoError(t, err)
 
 			pub := pubsub.NewPublisher(jet, "")
@@ -566,7 +566,7 @@ func TestCreateListWithOrganizationEvents(t *testing.T) {
 	jet, err := pubsub.New(ctx, cfg)
 	require.NoError(t, err)
 
-	err = ensureDefaultPubsubBootstrapped(ctx, logger, jet)
+	err = consumer.Bootstrap(ctx, logger, jet, "")
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet, "")
@@ -689,7 +689,7 @@ func TestUpdateListWithOrganizationEvents(t *testing.T) {
 	jet, err := pubsub.New(ctx, cfg)
 	require.NoError(t, err)
 
-	err = ensureDefaultPubsubBootstrapped(ctx, logger, jet)
+	err = consumer.Bootstrap(ctx, logger, jet, "")
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet, "")
@@ -798,7 +798,7 @@ func TestCreateDynamicListWithRule_IsDraft(t *testing.T) {
 	jet, err := pubsub.New(ctx, cfg)
 	require.NoError(t, err)
 
-	err = ensureDefaultPubsubBootstrapped(ctx, logger, jet)
+	err = consumer.Bootstrap(ctx, logger, jet, "")
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet, "")
@@ -867,7 +867,7 @@ func TestUpdateListSavesRuleToDraft(t *testing.T) {
 	jet, err := pubsub.New(ctx, cfg)
 	require.NoError(t, err)
 
-	err = ensureDefaultPubsubBootstrapped(ctx, logger, jet)
+	err = consumer.Bootstrap(ctx, logger, jet, "")
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet, "")
@@ -944,7 +944,7 @@ func TestUpdateListPublish(t *testing.T) {
 	jet, err := pubsub.New(ctx, cfg)
 	require.NoError(t, err)
 
-	err = ensureDefaultPubsubBootstrapped(ctx, logger, jet)
+	err = consumer.Bootstrap(ctx, logger, jet, "")
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet, "")
@@ -1034,7 +1034,7 @@ func TestPreviewListUsers(t *testing.T) {
 	jet, err := pubsub.New(ctx, cfg)
 	require.NoError(t, err)
 
-	err = ensureDefaultPubsubBootstrapped(ctx, logger, jet)
+	err = consumer.Bootstrap(ctx, logger, jet, "")
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet, "")

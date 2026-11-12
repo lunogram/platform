@@ -36,13 +36,12 @@ jobs:
 
   tests:
     name: tests (${{ matrix.edition }})
-    # Pinned: since ubuntu-latest started migrating to Ubuntu 26 the test step
-    # gets SIGTERMed (exit 143) mid-run, well before timeout-minutes.
+    # Pinned: on the Ubuntu 26 ubuntu-latest image the test step gets SIGTERMed
+    # (exit 143) mid-run.
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     strategy:
       fail-fast: false
-      max-parallel: 1
       matrix:
         include:
           - edition: oss
@@ -80,17 +79,7 @@ jobs:
           path: bin
           key: ${{ runner.os }}-bin-${{ hashFiles('**/go.sum') }}
       - name: Run tests
-        # Keep Go's per-binary timeout well under the job's timeout-minutes so a
-        # hung test panics with a goroutine dump instead of the runner killing
-        # the job with a bare "Terminated".
-        run: make test TAGS=${{ matrix.tags }} TEST_TIMEOUT=12m
-      - name: Diagnose killed tests
-        if: failure() || cancelled()
-        run: |
-          cat /etc/os-release | head -2
-          free -m
-          sudo dmesg -T | grep -iE "oom|killed process|out of memory" | tail -20 || true
-          sudo journalctl --no-pager --since "-40min" | grep -iE "oom|SIGTERM|killed|memory pressure" | tail -40 || true
+        run: make test TAGS=${{ matrix.tags }}
 
   build:
     runs-on: ubuntu-latest
