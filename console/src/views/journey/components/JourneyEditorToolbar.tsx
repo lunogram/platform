@@ -1,15 +1,13 @@
 import { ChevronLeft, PenLine } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
-import api from "@/api"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { InlineEdit } from "@/components/ui/inline-edit"
 import type { Journey } from "@/types"
-import type { UUID } from "@/types/common"
+import { useUpdateJourney } from "../mutations"
 
 interface JourneyEditorToolbarProps {
-    projectId: UUID
     journey: Journey
     isArchived: boolean
     isMobile: boolean
@@ -17,13 +15,11 @@ interface JourneyEditorToolbarProps {
     saving: boolean
     publishing: boolean
     onBack: () => void
-    onJourneyChange: (journey: Journey) => void
     onSaveDraft: () => void
     onPublish: () => void
 }
 
 export function JourneyEditorToolbar({
-    projectId,
     journey,
     isArchived,
     isMobile,
@@ -31,11 +27,11 @@ export function JourneyEditorToolbar({
     saving,
     publishing,
     onBack,
-    onJourneyChange,
     onSaveDraft,
     onPublish,
 }: JourneyEditorToolbarProps) {
     const { t } = useTranslation()
+    const updateJourney = useUpdateJourney()
 
     return (
         <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2.5 sm:py-2.5 border-b bg-background shrink-0">
@@ -55,13 +51,20 @@ export function JourneyEditorToolbar({
                 <InlineEdit
                     value={journey.name}
                     onSave={async (name) => {
-                        const updated = await api.journeys.update(projectId, journey.id, {
-                            name,
-                            description: journey.description,
-                            status: journey.status,
-                            tags: journey.tags,
-                        })
-                        onJourneyChange(updated)
+                        // A failed rename is shown by the mutation cache. Not
+                        // rethrowing closes the popover on the unchanged name;
+                        // InlineEdit has no catch, so a rethrow would go unhandled.
+                        await updateJourney
+                            .mutateAsync({
+                                journeyId: journey.id,
+                                params: {
+                                    name,
+                                    description: journey.description,
+                                    status: journey.status,
+                                    tags: journey.tags,
+                                },
+                            })
+                            .catch(() => {})
                     }}
                     required
                     triggerClassName="gap-1.5 max-w-full"

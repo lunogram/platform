@@ -1,5 +1,6 @@
-import React, { useCallback, useContext, useState } from "react"
+import React, { useContext, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { useQuery } from "@tanstack/react-query"
 import {
     Building2,
     ChevronDown,
@@ -10,12 +11,14 @@ import {
 } from "lucide-react"
 import { ProjectContext, UserContext } from "../../contexts"
 import { PreferencesContext } from "@/contexts/PreferencesContext"
-import { useResolver } from "../../hooks"
 import { useRoute } from "@/hooks/use-route"
 import { formatDate, cn } from "../../utils"
 import { getRandomColor } from "@/lib/colors"
 import { getPrimaryExternalId } from "@/lib/name"
-import oapiClient, { type Organization } from "../../oapi/client"
+import { type Organization } from "../../oapi/client"
+import { LoadErrorRow } from "./LoadErrorRow"
+import { getPageNumbers } from "./pageNumbers"
+import { userOrganizationsQuery } from "./queries"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -29,19 +32,6 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table"
-
-function getPageNumbers(current: number, total: number): (number | "...")[] {
-    if (total <= 7) {
-        return Array.from({ length: total }, (_, i) => i + 1)
-    }
-    if (current <= 3) {
-        return [1, 2, 3, 4, 5, "...", total]
-    }
-    if (current >= total - 2) {
-        return [1, "...", total - 4, total - 3, total - 2, total - 1, total]
-    }
-    return [1, "...", current - 1, current, current + 1, "...", total]
-}
 
 interface OrgExpandedRowProps {
     organization: Organization
@@ -100,7 +90,7 @@ export default function UserDetailOrganizations() {
     const [searchQuery, setSearchQuery] = useState("")
     const [debouncedQuery, setDebouncedQuery] = useState("")
     const [expandedOrgId, setExpandedOrgId] = useState<string | null>(null)
-    const searchTimeoutRef = React.useRef<ReturnType<typeof setTimeout>>()
+    const searchTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
     const limit = 25
 
     const handleSearch = (value: string) => {
@@ -112,34 +102,12 @@ export default function UserDetailOrganizations() {
         }, 300)
     }
 
-    const [result] = useResolver(
-        useCallback(async () => {
-            const { data } = await oapiClient.GET(
-                "/api/admin/projects/{projectID}/subjects/users/{userID}/subject-organizations",
-                {
-                    params: {
-                        path: {
-                            projectID: project.id,
-                            userID: user.id,
-                        },
-                        query: {
-                            limit,
-                            offset: (page - 1) * limit,
-                            search: debouncedQuery || undefined,
-                        },
-                    },
-                },
-            )
-            if (!data) return null
-            return {
-                results: data.results,
-                total: data.total ?? 0,
-            }
-        }, [project.id, user.id, page, debouncedQuery]),
+    const result = useQuery(
+        userOrganizationsQuery(project.id, user.id, { page, limit, search: debouncedQuery }),
     )
 
-    const organizations = result?.results
-    const total = result?.total ?? 0
+    const organizations = result.data?.results ?? []
+    const total = result.data?.total ?? 0
     const totalPages = Math.ceil(total / limit)
     const hasNextPage = page < totalPages
     const hasPrevPage = page > 1
@@ -187,7 +155,7 @@ export default function UserDetailOrganizations() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {organizations === undefined ? (
+                        {result.isPending ? (
                             Array.from({ length: 5 }).map((_, i) => (
                                 <TableRow key={i}>
                                     <TableCell className="p-0 pl-2">
@@ -205,6 +173,15 @@ export default function UserDetailOrganizations() {
                                     </TableCell>
                                 </TableRow>
                             ))
+                        ) : result.isError ? (
+                            <LoadErrorRow
+                                colSpan={3}
+                                message={t(
+                                    "user_organizations_load_failed",
+                                    "Couldn't load organizations.",
+                                )}
+                                onRetry={() => result.refetch()}
+                            />
                         ) : organizations.length === 0 ? (
                             <TableRow>
                                 <TableCell colSpan={3} className="h-48">
