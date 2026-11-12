@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -36,6 +37,13 @@ type broadcastTestEnv struct {
 	broadcastsStore *management.BroadcastsStore
 	mgmtState       *management.State
 	actorCtx        func(r *http.Request) *http.Request
+}
+
+func uniqueNamespace(t *testing.T, suffix string) consumer.Namespace {
+	t.Helper()
+	name := strings.ReplaceAll(t.Name(), "/", "_")
+	name = strings.ReplaceAll(name, ".", "_")
+	return consumer.Namespace("enterprise_" + name + "_" + suffix)
 }
 
 func newBroadcastTestEnv(t *testing.T) broadcastTestEnv {
@@ -101,7 +109,7 @@ func newBroadcastTestEnv(t *testing.T) broadcastTestEnv {
 		require.NoError(t, err)
 	}
 
-	ns := consumer.Namespace("test_broadcasts")
+	ns := uniqueNamespace(t, "broadcasts")
 
 	err = consumer.Bootstrap(ctx, logger, jet, ns)
 	require.NoError(t, err)
@@ -265,7 +273,7 @@ func TestCreateBroadcastCampaignWithoutProvider(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	ns := consumer.Namespace("test_no_provider")
+	ns := uniqueNamespace(t, "no_provider")
 	pub := pubsub.NewPublisher(jet, string(ns))
 
 	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
