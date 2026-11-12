@@ -21,10 +21,11 @@ const (
 )
 
 var azuriteOnce struct {
-	sync.Once
+	sync.Mutex
 	endpoint string
-	err      error
 }
+
+const azuriteStartAttempts = 3
 
 // RunAzurite runs an Azurite container for testing and returns the blob
 // service endpoint. Azurite is Microsoft's Azure Storage emulator. The
@@ -37,30 +38,45 @@ var azuriteOnce struct {
 func RunAzurite(t *testing.T) (endpoint string) {
 	t.Helper()
 
-	azuriteOnce.Do(func() {
-		ctx := context.Background()
+	azuriteOnce.Lock()
+	defer azuriteOnce.Unlock()
 
-		container, err := azurite.Run(ctx,
-			"mcr.microsoft.com/azure-storage/azurite:3.37.0",
-			azurite.WithEnabledServices(azurite.BlobService),
-			testcontainers.WithAdditionalWaitStrategy(blobServiceServing()),
-		)
-		if err != nil {
-			azuriteOnce.err = err
-			return
+	if azuriteOnce.endpoint != "" {
+		return azuriteOnce.endpoint
+	}
+
+	var err error
+	for attempt := 1; attempt <= azuriteStartAttempts; attempt++ {
+		endpoint, err = startAzurite(context.Background())
+		if err == nil {
+			azuriteOnce.endpoint = endpoint
+			return azuriteOnce.endpoint
 		}
 
-		blobServiceURL, err := container.BlobServiceURL(ctx)
-		if err != nil {
-			azuriteOnce.err = err
-			return
-		}
+		t.Logf("azurite startup attempt %d/%d failed: %v", attempt, azuriteStartAttempts, err)
+		time.Sleep(time.Duration(attempt) * time.Second)
+	}
 
-		azuriteOnce.endpoint = blobServiceURL + "/" + AzuriteAccount
-	})
-
-	require.NoError(t, azuriteOnce.err)
+	require.NoError(t, err)
 	return azuriteOnce.endpoint
+}
+
+func startAzurite(ctx context.Context) (string, error) {
+	container, err := azurite.Run(ctx,
+		"mcr.microsoft.com/azure-storage/azurite:3.37.0",
+		azurite.WithEnabledServices(azurite.BlobService),
+		testcontainers.WithAdditionalWaitStrategy(blobServiceServing()),
+	)
+	if err != nil {
+		return "", err
+	}
+
+	blobServiceURL, err := container.BlobServiceURL(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	return blobServiceURL + "/" + AzuriteAccount, nil
 }
 
 // blobServiceServing waits until Azurite answers an HTTP request, rather than

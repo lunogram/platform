@@ -14,7 +14,6 @@ import (
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/ptr"
 	"github.com/lunogram/platform/internal/pubsub"
-	"github.com/lunogram/platform/internal/pubsub/consumer"
 	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/rules"
 	"github.com/lunogram/platform/internal/store/management"
@@ -48,7 +47,7 @@ func setupOrganizationsController(t *testing.T) *testOrganizationsController {
 	jet, err := pubsub.New(gracefulCtx, cfg)
 	require.NoError(t, err)
 
-	err = consumer.Bootstrap(gracefulCtx, logger, jet, "")
+	err = ensureDefaultPubsubBootstrapped(gracefulCtx, logger, jet)
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet, "")
