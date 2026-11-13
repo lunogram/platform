@@ -1,12 +1,13 @@
-import { useCallback, useContext, useState } from "react"
+import { useContext, useState } from "react"
 import { useNavigate, useParams } from "react-router"
 import { useTranslation } from "react-i18next"
 import { ChevronLeft } from "lucide-react"
 import { NIL } from "uuid"
 import { oapiClient } from "@/oapi/client"
+import { useQuery } from "@tanstack/react-query"
 import { ProjectContext } from "../../contexts"
-import { useResolver } from "../../hooks"
 import { snakeToTitle, hasCourierProvider } from "../../utils"
+import { providersMetaQuery, providersQuery } from "../settings/queries"
 import { IntegrationForm } from "../settings/IntegrationModal"
 import { Button } from "@/components/ui/button"
 import {
@@ -29,19 +30,13 @@ export default function ProjectOnboardingIntegration() {
     const [project, setProject] = useContext(ProjectContext)
     const [meta, setMeta] = useState<ProviderMeta | undefined>()
 
-    const [options] = useResolver(
-        useCallback(async () => {
-            const { data } = await oapiClient.GET(
-                "/api/admin/projects/{projectID}/providers/meta",
-                {
-                    params: { path: { projectID: projectId } },
-                },
-            )
-            return data
-        }, [projectId]),
-    )
+    const metas = useQuery(providersMetaQuery(projectId))
+    const options = metas.data
 
-    const [hasProvider] = useResolver(useCallback(() => hasCourierProvider(projectId), [projectId]))
+    const { data: hasProvider } = useQuery({
+        ...providersQuery(projectId),
+        select: (providers) => providers.some((p) => p.module === "courier"),
+    })
     const nextStep = isEnterprise && hasProvider === true ? "domain" : "users"
 
     async function handleSkip() {
@@ -55,7 +50,14 @@ export default function ProjectOnboardingIntegration() {
                 <CardDescription>{t("onboarding_integration_description")}</CardDescription>
             </CardHeader>
             <CardContent>
-                {!meta ? (
+                {!meta && metas.isError ? (
+                    <div className="flex flex-col items-center gap-3 py-6 text-sm text-muted-foreground">
+                        <p>{t("integrations_load_failed", "Couldn't load integrations.")}</p>
+                        <Button variant="outline" size="sm" onClick={() => metas.refetch()}>
+                            {t("retry", "Retry")}
+                        </Button>
+                    </div>
+                ) : !meta ? (
                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                         {options?.map((option) => (
                             <button

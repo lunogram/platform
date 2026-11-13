@@ -1,4 +1,4 @@
-import { useCallback, useContext, useEffect, useMemo, useState } from "react"
+import { useContext, useEffect, useMemo, useState } from "react"
 import type { FieldPath } from "react-hook-form"
 import { Controller, useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -22,8 +22,15 @@ import type {
     UpdateAction,
     UpdateProvider,
 } from "@/oapi/client"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { ProjectContext } from "../../contexts"
-import { useResolver } from "../../hooks"
+import {
+    actionKeys,
+    actionsMetaQuery,
+    providerKeys,
+    providerQuery,
+    providersMetaQuery,
+} from "./queries"
 import type { SchemaProperty, Schema } from "@/components/schema-fields"
 
 import { Button } from "@/components/ui/button"
@@ -133,26 +140,9 @@ export default function IntegrationSetup() {
     const [isSaving, setIsSaving] = useState(false)
     const [listKey] = useState(0)
 
-    const [providerOptions] = useResolver(
-        useCallback(async () => {
-            const { data } = await oapiClient.GET(
-                "/api/admin/projects/{projectID}/providers/meta",
-                {
-                    params: { path: { projectID: project.id } },
-                },
-            )
-            return data ?? []
-        }, [project.id]),
-    )
-
-    const [actionOptions] = useResolver(
-        useCallback(async () => {
-            const { data } = await oapiClient.GET("/api/admin/projects/{projectID}/actions/meta", {
-                params: { path: { projectID: project.id } },
-            })
-            return data ?? []
-        }, [project.id]),
-    )
+    const queryClient = useQueryClient()
+    const { data: providerOptions } = useQuery(providersMetaQuery(project.id))
+    const { data: actionOptions } = useQuery(actionsMetaQuery(project.id))
 
     useEffect(() => {
         if (!isEdit || !id) return
@@ -178,35 +168,19 @@ export default function IntegrationSetup() {
             return
         }
 
-        oapiClient
-            .GET("/api/admin/projects/{projectID}/providers", {
-                params: {
-                    path: { projectID: project.id },
-                    query: { limit: 100 },
-                },
-            })
-            .then(({ data }) => {
-                const found = data?.results?.find((p) => p.id === id)
+        // Looked up among all providers, not the first page of them, so any
+        // provider can be opened.
+        queryClient
+            .fetchQuery(providerQuery(queryClient, project.id, id))
+            .then((found) => {
                 if (!found) {
                     navigate(`/projects/${project.id}/integrations`)
                     return
                 }
-
-                oapiClient
-                    .GET("/api/admin/projects/{projectID}/providers/{type}/{providerID}", {
-                        params: {
-                            path: {
-                                projectID: project.id,
-                                type: found.module,
-                                providerID: found.id,
-                            },
-                        },
-                    })
-                    .then(({ data: full }) => setProvider((full as ProviderWithExtras) ?? found))
-                    .catch(() => setProvider(found))
+                setProvider(found as ProviderWithExtras)
             })
             .catch(() => navigate(`/projects/${project.id}/integrations`))
-    }, [isEdit, id, kind, project.id, navigate])
+    }, [isEdit, id, kind, project.id, navigate, queryClient])
 
     const activeMeta = useMemo<IntegrationMeta | undefined>(() => {
         if (kind === "action") {
@@ -397,12 +371,14 @@ export default function IntegrationSetup() {
                         )
                         return
                     }
+                    await queryClient.invalidateQueries({ queryKey: actionKeys.list(project.id) })
                     if (created) {
                         navigate(`/projects/${project.id}/integrations/action/${created.id}`)
                         return
                     }
                 }
 
+                await queryClient.invalidateQueries({ queryKey: actionKeys.list(project.id) })
                 navigate(`/projects/${project.id}/integrations`)
                 return
             }
@@ -463,12 +439,15 @@ export default function IntegrationSetup() {
                     return
                 }
 
+                await queryClient.invalidateQueries({ queryKey: providerKeys.all(project.id) })
                 if (created) {
                     navigate(`/projects/${project.id}/integrations/provider/${created.id}`)
                     return
                 }
             }
 
+            // The lists, and this provider's cached copy, are outdated now.
+            await queryClient.invalidateQueries({ queryKey: providerKeys.all(project.id) })
             navigate(`/projects/${project.id}/integrations`)
         } finally {
             setIsSaving(false)

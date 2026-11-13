@@ -1,4 +1,4 @@
-import { useContext, useEffect, useState } from "react"
+import { useContext, useEffect } from "react"
 
 import {
     BookIcon,
@@ -17,8 +17,8 @@ import type { UUID } from "@/types/common"
 import type { Project } from "@/types"
 import { NIL } from "uuid"
 import { oapiClient } from "@/oapi/client"
-import type { components } from "@/oapi/management.generated"
 import { cn } from "@/utils"
+import { useCreateOnboardingJourney } from "./useCreateOnboardingJourney"
 import { t } from "i18next"
 import { Puzzle } from "lucide-react"
 
@@ -26,7 +26,8 @@ export default function ProjectGettingStarted() {
     const navigate = useNavigate()
     const { projectId = NIL as UUID } = useParams<{ projectId: UUID }>()
     const [project, setProject] = useContext(ProjectContext)
-    const [isJourneyLoading, setIsJourneyLoading] = useState(false)
+    const createJourney = useCreateOnboardingJourney(projectId)
+    const isJourneyLoading = createJourney.isPending
 
     useEffect(() => {
         const loadProject = async () => {
@@ -44,26 +45,7 @@ export default function ProjectGettingStarted() {
     const hasLists = (project.lists_count ?? 0) > 0
     const hasIntegrations = (project.integrations_count ?? 0) > 0
 
-    async function createOnboardingJourney() {
-        setIsJourneyLoading(true)
-        try {
-            const { data: journey } = await oapiClient.POST(
-                "/api/admin/projects/{projectID}/journeys",
-                {
-                    params: { path: { projectID: projectId } },
-                    body: {
-                        name: "Onboarding",
-                        description: "Getting started with your first journey",
-                        template_id: "onboarding",
-                        status: "draft",
-                    } as components["schemas"]["CreateJourney"],
-                },
-            )
-            if (journey) await navigate(`/projects/${projectId}/journeys/${journey.id}`)
-        } finally {
-            setIsJourneyLoading(false)
-        }
-    }
+    const createOnboardingJourney = () => createJourney.mutate()
 
     const checklistItems = [
         {

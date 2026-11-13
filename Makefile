@@ -58,6 +58,10 @@ TOOLCHAIN = $(STRINGER) $(MINIMOCK) $(OAPI_CODEGEN) $(TAILWINDCSS)
 .PHONY: build
 build: modules console lunogram ## Build all services
 
+.PHONY: bootstrap
+bootstrap: ; $(info $(M) bootstrapping env files…) @ ## Create local env files for development
+	$Q ./etc/bootstrap-env.sh
+
 .PHONY: lunogram
 lunogram: ; $(info $(M) building lunogram…)
 	$Q CGO_ENABLED=0 $(GO) build -ldflags='$(LDFLAGS)' -o $(BIN)/lunogram ./cmd/lunogram

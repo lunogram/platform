@@ -49,6 +49,7 @@ export default function Login() {
     const { t } = useTranslation()
     const [searchParams] = useSearchParams()
     const [drivers, setDrivers] = useState<AuthDriver[]>()
+    const [driversFailed, setDriversFailed] = useState(false)
     const [selectedDriver, setSelectedDriver] = useState<AuthDriver>()
     const [error, setError] = useState<string>()
     const [isSubmitting, setIsSubmitting] = useState(false)
@@ -110,6 +111,7 @@ export default function Login() {
             })
             .catch((err) => {
                 console.error("Failed to fetch auth methods:", err)
+                setDriversFailed(true)
                 setError(t("login_methods_error"))
             })
     }, [t])
@@ -132,8 +134,25 @@ export default function Login() {
             })
     }, [drivers, t])
 
+    // Checked before the loading state, as on the register page: a failed
+    // request (or a deployment offering nothing this console supports) used to
+    // read as "still loading" and spin forever with the error hidden.
+    if (driversFailed || drivers?.length === 0) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-muted/40">
+                <Card className="w-full max-w-sm">
+                    <CardContent className="flex flex-col items-center justify-center py-12">
+                        <p role="alert" className="text-sm text-destructive">
+                            {error ?? t("login_methods_error")}
+                        </p>
+                    </CardContent>
+                </Card>
+            </div>
+        )
+    }
+
     // Loading state
-    if (!drivers || drivers.length === 0) {
+    if (!drivers) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-muted/40">
                 <Card className="w-full max-w-sm">
