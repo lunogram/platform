@@ -1,3 +1,6 @@
+allowBuilds:
+  '@clerk/shared': false
+  esbuild: false
 onlyBuiltDependencies:
   - '@clerk/shared'
   - esbuild

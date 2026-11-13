@@ -147,11 +147,13 @@ func TestLocalStorageMultipleFiles(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify others still exist
-	_, err = storage.Read(ctx, files[0].key)
+	reader, err := storage.Read(ctx, files[0].key)
 	require.NoError(t, err)
+	require.NoError(t, reader.Close())
 
-	_, err = storage.Read(ctx, files[2].key)
+	reader, err = storage.Read(ctx, files[2].key)
 	require.NoError(t, err)
+	require.NoError(t, reader.Close())
 
 	// Deleted one should not exist
 	_, err = storage.Read(ctx, files[1].key)
