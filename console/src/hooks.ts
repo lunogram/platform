@@ -3,24 +3,46 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 export function useResolver<T>(resolver: () => Promise<T>) {
     const [value, setValue] = useState<null | T>(null)
     // loading tracks whether a request is in flight. It starts true so the first
-    // render shows a loading state, and â€” crucially â€” flips to false once the
+    // render shows a loading state, and — crucially — flips to false once the
     // request settles even when it resolves empty or rejects, so callers never
     // get stuck on a skeleton when there is no data or the request fails.
     const [loading, setLoading] = useState(true)
+    // error is the rejection of the latest request, cleared once one succeeds.
+    const [error, setError] = useState<unknown>(undefined)
+    // Only the latest call may commit: a slow response for old params (or an
+    // old resolver) must not overwrite a newer one.
+    const latestCall = useRef(0)
     const reload = useCallback(async () => {
+        const call = ++latestCall.current
         setLoading(true)
         try {
-            setValue(await resolver())
+            const next = await resolver()
+            if (call !== latestCall.current) return
+            setValue(next)
+            setError(undefined)
         } catch (err) {
+            if (call !== latestCall.current) return
             console.error(err)
+            setError(err)
         } finally {
-            setLoading(false)
+            if (call === latestCall.current) setLoading(false)
         }
     }, [resolver])
     useEffect(() => {
         reload().catch((err) => console.error(err))
     }, [reload])
-    return useMemo(() => [value, setValue, reload, loading] as const, [value, reload, loading])
+    useEffect(
+        () => () => {
+            // Nothing may commit after unmount.
+            latestCall.current++
+        },
+        [],
+    )
+    // error is last so existing callers' destructuring keeps working.
+    return useMemo(
+        () => [value, setValue, reload, loading, error] as const,
+        [value, reload, loading, error],
+    )
 }
 
 export function useDebounceControl<T>(value: T, onChange: (value: T) => void, ms = 400) {

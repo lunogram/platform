@@ -36,7 +36,9 @@ jobs:
 
   tests:
     name: tests (${{ matrix.edition }})
-    runs-on: ubuntu-latest
+    # Pinned: on the Ubuntu 26 ubuntu-latest image the test step gets SIGTERMed
+    # (exit 143) mid-run.
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     strategy:
       fail-fast: false

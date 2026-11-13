@@ -1,4 +1,5 @@
 import * as React from "react"
+import { useQuery } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
 
 import { WorkspaceSwitcher } from "@/components/workspace-switcher"
@@ -20,7 +21,6 @@ import { Link, useLocation } from "react-router"
 import type { SidebarLink } from "@/types/sidebar"
 import { useContext } from "react"
 import { AdminContext, ProjectContext } from "@/contexts"
-import { useResolver } from "@/hooks"
 import api from "@/api"
 import { UserDropdown } from "./user-dropdown"
 import { getUserDisplayName } from "@/lib/name"
@@ -40,36 +40,31 @@ export function AppSidebar({
     const location = useLocation()
     const { setOpenMobile } = useSidebar()
 
-    const [allProjects] = useResolver(
-        React.useCallback(async () => {
-            try {
-                return (await api.projects.all()).results
-            } catch (error) {
-                console.error("Failed to fetch projects:", error)
-                return []
-            }
-        }, []),
-    )
-
-    const [organizations] = useResolver(
-        React.useCallback(async () => {
-            try {
-                return (await api.adminOrganizations.mine()).results
-            } catch (error) {
-                console.error("Failed to fetch organizations:", error)
-                return []
-            }
-        }, []),
-    )
+    // Shared keys: pages that create or rename a project or organization
+    // invalidate these so the switcher shows the change.
+    const allProjects = useQuery({
+        queryKey: ["projects", "list"],
+        queryFn: async () => (await api.projects.all()).results,
+    })
+    const organizations = useQuery({
+        queryKey: ["organizations", "list"],
+        queryFn: async () => (await api.adminOrganizations.mine()).results,
+    })
+    const listsFailed = allProjects.isError || organizations.isError
 
     return (
         <Sidebar {...props}>
             <SidebarHeader>
-                {organizations && allProjects && project && (
+                {!allProjects.isPending && !organizations.isPending && project && (
                     <WorkspaceSwitcher
-                        organizations={organizations}
-                        projects={allProjects}
+                        organizations={organizations.data ?? []}
+                        projects={allProjects.data ?? []}
                         currentProject={project}
+                        loadFailed={listsFailed}
+                        onRetry={() => {
+                            if (allProjects.isError) void allProjects.refetch()
+                            if (organizations.isError) void organizations.refetch()
+                        }}
                     />
                 )}
             </SidebarHeader>

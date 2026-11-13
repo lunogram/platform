@@ -1,11 +1,11 @@
-import { useCallback, useState } from "react"
+import { useState } from "react"
 import { useForm } from "react-hook-form"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
 import { Loader2, Trash2 } from "lucide-react"
 import * as z from "zod"
 
 import oapiClient, { type SenderIdentity } from "@/oapi/client"
-import { useResolver } from "@/hooks"
 import { phoneSchema } from "@/validation/phone"
 
 import { Button } from "@/components/ui/button"
@@ -22,6 +22,11 @@ import {
     TableRow,
 } from "@/components/ui/table"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+    invalidateSenderIdentities,
+    senderIdentitiesQuery,
+    useDeleteSenderIdentity,
+} from "./sender-identity/queries"
 
 interface SenderIdentityListProps {
     projectId: string
@@ -51,25 +56,10 @@ export function SenderIdentityList({
     })
     const newAddress = addressForm.watch("address")
     const newName = addressForm.watch("name")
-    const [isDeleting, setIsDeleting] = useState(false)
-
-    const [result, , reload] = useResolver(
-        useCallback(async () => {
-            const { data, error } = await oapiClient.GET(
-                "/api/admin/projects/{projectID}/sender-identities",
-                {
-                    params: {
-                        path: { projectID: projectId },
-                        query: { provider_id: providerId, channel },
-                    },
-                },
-            )
-            if (error) throw error
-            return data?.results ?? []
-        }, [projectId, providerId, channel]),
-    )
-
-    const identities: SenderIdentity[] | undefined = result ?? undefined
+    const queryClient = useQueryClient()
+    const list = useQuery(senderIdentitiesQuery(projectId, { channel, providerId }))
+    const identities: SenderIdentity[] | undefined = list.data
+    const remove = useDeleteSenderIdentity(projectId)
 
     const isValidAddress = (address: string) => {
         if (!address.trim()) return false
@@ -107,7 +97,7 @@ export function SenderIdentityList({
             }
             addressForm.reset()
             setHasAttempted(false)
-            await reload()
+            await invalidateSenderIdentities(queryClient, projectId)
         } catch {
             setCreateError(t("sender_identity_create_error_generic", "Failed to add address."))
         } finally {
@@ -115,28 +105,11 @@ export function SenderIdentityList({
         }
     }
 
-    const handleDelete = async (identity: SenderIdentity) => {
-        setIsDeleting(true)
-        try {
-            await oapiClient.DELETE(
-                "/api/admin/projects/{projectID}/sender-identities/{senderIdentityID}",
-                {
-                    params: {
-                        path: {
-                            projectID: projectId,
-                            senderIdentityID: identity.id,
-                        },
-                    },
-                },
-            )
-            setConfirmDeleteId(null)
-            await reload()
-        } catch (err) {
-            console.error("Failed to delete sender identity:", err)
-        } finally {
-            setIsDeleting(false)
-        }
-    }
+    // On failure the mutation cache reports the error and the confirmation
+    // stays, so the user can retry or cancel.
+    const handleDelete = (identity: SenderIdentity) =>
+        remove.mutate(identity.id, { onSuccess: () => setConfirmDeleteId(null) })
+    const isDeleting = remove.isPending
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === "Enter") {
@@ -222,7 +195,26 @@ export function SenderIdentityList({
 
             {/* Bottom zone — table or empty state */}
             <div className="bg-muted/50 rounded-b-xl">
-                {identities === undefined ? (
+                {list.isError ? (
+                    <div className="flex flex-col items-center gap-3 py-8 px-4 text-center">
+                        <p className="text-sm text-muted-foreground">
+                            {channel === "email"
+                                ? t(
+                                      "sender_addresses_load_failed",
+                                      "Couldn't load sender addresses.",
+                                  )
+                                : t("sender_numbers_load_failed", "Couldn't load sender numbers.")}
+                        </p>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => list.refetch()}
+                        >
+                            {t("retry", "Retry")}
+                        </Button>
+                    </div>
+                ) : identities === undefined ? (
                     <div className="px-6 py-6">
                         <div className="space-y-3">
                             {Array.from({ length: 2 }).map((_, i) => (
