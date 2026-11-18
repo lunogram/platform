@@ -1,0 +1,32 @@
+# Development configuration, layered over the compiled defaults like any
+# CONFIG_FILE (see lunogram.example.yaml). `devenv up` points the server at it
+# and supplies the connection settings (databases, Redis, NATS, the Mailpit
+# address) itself, from the ports it allocated; see devenv.nix.
+#
+# Everything here is PUBLICLY KNOWN: the credentials and signing key are fit for
+# a laptop and nothing else. Put personal overrides in devenv.local.nix rather
+# than editing this file.
+
+auth:
+  drivers:
+    - basic
+  basic:
+    email: admin@localhost
+    password: change-this-development-password
+  console:
+    # The development key docker-compose.yml also ships.
+    signing_key: |
+      -----BEGIN EC PRIVATE KEY-----
+      MHcCAQEEIG6W7Oa4GaiOyuS/Fo18FOUVb840oWDlAC8cJuB2IuW8oAoGCCqGSM49
+      AwEHoUQDQgAEwXeD5bykWmYlPbqqoxk0hUjxwp+DEyU+HPo0q/OCly3HHGk+yS9w
+      ck0TgwNlj1B6bKTJwKVmkeL76aKDuBFmQg==
+      -----END EC PRIVATE KEY-----
+
+# Mailpit, readable at http://localhost:8025. It offers no TLS.
+mail:
+  channel: smtp
+  from:
+    address: no-reply@localhost
+    name: Lunogram
+  smtp:
+    tls: none

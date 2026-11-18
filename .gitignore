@@ -109,3 +109,9 @@ bin/
 build/
 
 uploads/documents/
+
+# devenv
+.devenv*
+devenv.local.nix
+devenv.local.yaml
+.direnv
