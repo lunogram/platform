@@ -48,8 +48,7 @@ func setupOrganizationsController(t *testing.T) *testOrganizationsController {
 	jet, err := pubsub.New(gracefulCtx, cfg)
 	require.NoError(t, err)
 
-	err = consumer.Bootstrap(gracefulCtx, logger, jet, "")
-	require.NoError(t, err)
+	consumer.TestBootstrap(t, gracefulCtx, logger, jet)
 
 	pub := pubsub.NewPublisher(jet, "")
 
