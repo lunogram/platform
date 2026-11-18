@@ -1,13 +1,13 @@
 # Working in Lunogram
 
-This file is the entry point for coding agents. Read it before changing the repository.
+This file is the entry point for coding agents. Read it before changing the repository, then read the nearest nested `AGENTS.md` for the files you will touch.
 
 ## Sources of truth
 
 Use this precedence when guidance conflicts:
 
 1. The user's current request.
-2. This file.
+2. The nearest `AGENTS.md`, then this file.
 3. The OpenAPI specifications: `internal/http/controllers/v1/management/oapi/resources.yml`, `internal/http/controllers/v1/client/oapi/resources.yml`, and `oapi/webhooks.yml`.
 4. [`internal/pubsub/README.md`](internal/pubsub/README.md) for the event pipeline and [`console/DESIGN.md`](console/DESIGN.md) for the console design system.
 5. Existing code and tests.
@@ -26,7 +26,7 @@ If code conflicts with an OpenAPI specification, preserve the specification and 
 - `internal/wasm/`, `internal/providers/`, `internal/actions/`, `internal/integrations/`: hosts for WASM modules.
 - `modules/`: TinyGo WASM providers and actions; `pkg/modules/` is the SDK they compile against. See [`modules/README.md`](modules/README.md).
 - `internal/outbound/` and `internal/ssrf/`: outbound HTTP client and SSRF policy.
-- `console/`: React and Vite operator console. Follow [`console/DESIGN.md`](console/DESIGN.md) and the primitives in `console/src/components/ui/` before adding or changing UI.
+- `console/`: React and Vite operator console. Its Storybook stories in `console/stories/` are the visual design reference; follow [`console/DESIGN.md`](console/DESIGN.md) and the console UI rules in [`console/AGENTS.md`](console/AGENTS.md) before adding or changing UI.
 - `renderer/`: Deno service that compiles and renders React Email templates over NATS.
 - `docs/`: Fumadocs user documentation, with content in `docs/content/docs/`.
 - `.github/workflows/`: required CI checks.
@@ -85,6 +85,8 @@ make generate
 cd console
 pnpm build
 pnpm vitest run <file>
+pnpm storybook        # design notebook on http://localhost:6006
+pnpm storybook:build
 ```
 
 Tests and generators can be expensive or require services. Run them when the task requests them or when required by a changed source file, and state exactly what was and was not run.
@@ -98,7 +100,7 @@ Keep PR descriptions proportional to the change. A simple PR should use a few li
 - **Scope**: affected components and, when useful, explicit non-goals.
 - **Alternatives**: optional; include only when a meaningful approach was tried or rejected.
 - **Diagram**: optional; use a small Mermaid diagram only when it clarifies a flow or boundary.
-- **Screenshots**: required when a PR adds or changes console UI components or pages. Include one screenshot per affected state at desktop width (1280px), plus a narrow-width (390px) shot for responsive layouts. Take them from the running console, cropped to the component. Never commit screenshots to the repository; upload them with `gh pr create --attach` or `gh pr edit --attach` (gh 2.102+). Reference each file in the body as `![state](./state-1280.png)` and pass `--attach './state-1280.png#state'`; `gh` rewrites the reference to the uploaded asset. Update the screenshots when review changes alter the UI.
+- **Screenshots**: required when a PR adds or changes console UI components or pages. Include one screenshot per affected story or state at desktop width (1280px), plus a narrow-width (390px) shot for responsive layouts. Take them from Storybook, cropped to the component. Never commit screenshots to the repository; upload them with `gh pr create --attach` or `gh pr edit --attach` (gh 2.102+). Reference each file in the body as `![state](./state-1280.png)` and pass `--attach './state-1280.png#state'`; `gh` rewrites the reference to the uploaded asset. Update the screenshots when review changes alter the UI.
 
 Do not generate long summaries, exhaustive change lists, or boilerplate sections.
 

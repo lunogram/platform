@@ -51,4 +51,11 @@ export default defineConfig([
             globals: globals.browser,
         },
     },
+    {
+        // Story files export meta and story objects, not just components.
+        files: ["stories/**/*.{ts,tsx}", ".storybook/**/*.{ts,tsx}"],
+        rules: {
+            "react-refresh/only-export-components": "off",
+        },
+    },
 ])
