@@ -15,7 +15,8 @@ Sandboxed, portable, fast. Write in any language that compiles to WASM.
 Providers integrate communication channels. Each provider implements:
 
 - `manifest()` — Returns metadata and config schema
-- `send()` — Sends a message via the provider's API
+- `provider_send()` — Sends a message via the provider's API
+- `provider_webhook()` — Optional. Receives the provider's delivery webhook (the raw HTTP body, base64-encoded as `body` in the JSON input, plus lowercased headers and the URL), verifies it, and returns canonical events
 
 ### Built-in
 
