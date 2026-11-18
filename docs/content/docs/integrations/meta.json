@@ -6,6 +6,7 @@
     "mailgun",
     "sendgrid",
     "ses",
+    "ahasend",
     "smtp",
     "---SMS---",
     "twilio",

@@ -46,4 +46,4 @@ Any SMTP-compatible service works. See [Sending mail](/settings/mail) for the fu
 
 Project providers are WASM modules, and a module reaches the network through the host's HTTP function. The sandbox offers no raw TCP socket, so a provider module cannot speak SMTP.
 
-Configure an HTTP provider instead — [Resend](/integrations/resend), [Mailgun](/integrations/mailgun), [SendGrid](/integrations/sendgrid) or [Amazon SES](/integrations/ses) — or the webhook provider, which posts each message to an endpoint of yours that may relay it however you like, SMTP included.
+Configure an HTTP provider instead — [Resend](/integrations/resend), [Mailgun](/integrations/mailgun), [SendGrid](/integrations/sendgrid), [Amazon SES](/integrations/ses) or [AhaSend](/integrations/ahasend) — or the webhook provider, which posts each message to an endpoint of yours that may relay it however you like, SMTP included.

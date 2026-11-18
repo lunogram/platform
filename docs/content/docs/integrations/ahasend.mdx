@@ -1,0 +1,99 @@
+---
+title: AhaSend
+description: Configure AhaSend for email sending in Lunogram
+---
+
+[AhaSend](https://ahasend.com/) is a European transactional email service that stores message data in the EU. Lunogram delivers email through the AhaSend API v2 and ingests AhaSend's webhooks for delivery, bounce, complaint, and engagement events.
+
+## Features
+
+- Email sending via the AhaSend API v2, including cc, bcc, and reply-to
+- Webhook ingestion for delivery, bounce, suppression, complaint, open, click, and unsubscribe events
+- Optional webhook signature verification
+
+## Setup
+
+### 1. Create an AhaSend Account
+
+Create an account at [ahasend.com](https://ahasend.com/). The free plan includes 1,000 emails per month.
+
+### 2. Add and Verify Your Domain
+
+1. Add your sending domain in the [AhaSend dashboard](https://dash.ahasend.com)
+2. Publish the SPF, DKIM, and return-path DNS records AhaSend shows
+3. Run the DNS check until the domain is verified
+
+See [AhaSend's domain setup guide](https://ahasend.com/docs/domains) for details.
+
+### 3. Create an API Key
+
+1. Open **Credentials** in the AhaSend dashboard and click **Add**
+2. Create an **API Key v2** scoped to `messages:send:{your-domain}`
+3. Copy the key; it starts with `aha-sk-`
+
+Note your **account ID** from the dashboard's account settings as well.
+
+### 4. Configure in Lunogram
+
+1. Open your Lunogram project settings
+2. Navigate to **Integrations** and click **Add Integration**
+3. Select **AhaSend** from the list of providers
+4. Enter your configuration:
+   - **AhaSend API Key**: Your API key
+   - **Account ID**: Your AhaSend account ID
+   - **Webhook Secret** (optional): Used to verify incoming webhooks
+5. Click **Save** to create the provider
+
+## Configuration Options
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| AhaSend API Key | Yes | API key v2 with the `messages:send` scope for your sending domain |
+| Account ID | Yes | Your AhaSend account ID |
+| Webhook Secret | No | AhaSend webhook secret (`aha-whsec-…`) used to verify webhook signatures |
+
+## Webhooks
+
+Lunogram exposes a webhook endpoint for your AhaSend integration that maps AhaSend message events to delivery status updates:
+
+| AhaSend event | Lunogram event |
+|---------------|----------------|
+| `message.reception` | sent |
+| `message.delivered` | delivered |
+| `message.transient_error` | deferred |
+| `message.bounced` | bounced |
+| `message.failed` | bounced |
+| `message.suppressed` | dropped |
+| `message.opened` | opened |
+| `message.clicked` | clicked |
+| `message.complained` | complained |
+| `message.unsubscribed` | unsubscribed |
+
+Other AhaSend events, such as suppression, domain, and contact events, are acknowledged and ignored.
+
+To enable webhooks:
+
+1. Copy the webhook URL shown for the AhaSend integration in Lunogram
+2. In AhaSend, open **Webhooks**, click **Add Webhook**, and enter the URL
+3. Select the message events you want to track
+4. (Recommended) Copy the **Webhook Secret** from the webhook's details page into the integration's **Webhook Secret** field so Lunogram can verify that incoming requests originate from AhaSend
+
+## Troubleshooting
+
+### Emails Not Sending
+
+1. Verify your API key is correct and scoped to the domain of the "from" address
+2. Confirm the **Account ID** matches the account the key belongs to
+3. Ensure the domain is verified and sending from it is not paused
+
+### Webhooks Not Updating Status
+
+1. Confirm the webhook URL is registered in AhaSend for the relevant events
+2. If you set a webhook secret in Lunogram, make sure it is the complete secret, including the `aha-whsec-` prefix
+3. Check the webhook's delivery log in the AhaSend dashboard
+
+## Related Links
+
+- [AhaSend Documentation](https://ahasend.com/docs)
+- [Send Email with the REST API](https://ahasend.com/docs/send-api/send-email)
+- [AhaSend Webhooks](https://ahasend.com/docs/integrations/webhooks)

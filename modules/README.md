@@ -26,6 +26,7 @@ Providers integrate communication channels. Each provider implements:
 | `sendgrid` | email | [SendGrid](https://sendgrid.com) integration |
 | `mailgun` | email | [Mailgun](https://mailgun.com) integration |
 | `amazon_ses` | email | [Amazon SES](https://aws.amazon.com/ses/) integration |
+| `ahasend` | email | [AhaSend](https://ahasend.com) integration |
 | `twilio` | email, sms | [Twilio](https://twilio.com) integration |
 
 ### Creating a Provider
