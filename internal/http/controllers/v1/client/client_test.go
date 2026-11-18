@@ -77,8 +77,7 @@ func setupClientController(t *testing.T) *testClientController {
 	jet, err := pubsub.New(ctx, cfg)
 	require.NoError(t, err)
 
-	err = consumer.Bootstrap(ctx, logger, jet, "")
-	require.NoError(t, err)
+	consumer.TestBootstrap(t, ctx, logger, jet)
 
 	pub := pubsub.NewPublisher(jet, "")
 	usersState := subjects.NewState(usrs, zap.NewNop())

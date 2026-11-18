@@ -55,8 +55,7 @@ func TNewUsersController(t *testing.T) (*UsersController, uuid.UUID, context.Con
 	jet, err := pubsub.New(gracefulCtx, cfg)
 	require.NoError(t, err)
 
-	err = consumer.Bootstrap(gracefulCtx, logger, jet, "")
-	require.NoError(t, err)
+	consumer.TestBootstrap(t, gracefulCtx, logger, jet)
 
 	pub := pubsub.NewPublisher(jet, "")
 
@@ -956,8 +955,7 @@ func TestImportUsers(t *testing.T) {
 			jet, err := pubsub.New(gracefulCtx, cfg)
 			require.NoError(t, err)
 
-			err = consumer.Bootstrap(gracefulCtx, logger, jet, "")
-			require.NoError(t, err)
+			consumer.TestBootstrap(t, gracefulCtx, logger, jet)
 
 			pub := pubsub.NewPublisher(jet, "")
 
