@@ -10,35 +10,13 @@ Thank you for your interest in contributing to Lunogram! We're excited to have y
 
 ## Prerequisites
 
-- [Nix](https://nixos.org/download/) and [devenv](https://devenv.sh/getting-started/),
-  which provide everything else: Go, Node.js, pnpm, TinyGo, PostgreSQL, Redis,
-  NATS and Mailpit
+- [Nix](https://nixos.org/download/) and [devenv](https://devenv.sh/getting-started/).
+  They provide everything else: Go, Node.js, pnpm, TinyGo, PostgreSQL, Redis,
+  NATS and Mailpit.
 - Optionally [direnv](https://direnv.net), to load the toolchain whenever you `cd`
-  into the repository
-
-Without Nix, install [Go](https://go.dev/dl/) (1.25+),
-[Node.js](https://nodejs.org/) (24+), [pnpm](https://pnpm.io/installation),
-[Docker](https://docs.docker.com/get-docker/) with Docker Compose and
-[TinyGo](https://tinygo.org/getting-started/install/) (0.40+, for building WASM
-modules) yourself.
+  into the repository.
 
 ## Development Setup
-
-### Option 1: Docker (Quickest)
-
-Run everything in Docker, including the Go backend:
-
-```bash
-# Clone your fork and cd into it
-cd platform
-
-# Start all services (with rebuild)
-docker compose up -d --build
-```
-
-The app will be available at http://localhost:8080.
-
-### Option 2: devenv (Recommended for Development)
 
 ```bash
 devenv up
@@ -63,40 +41,16 @@ When a default port is already taken, devenv moves that service to the next
 free one and points the server at it. Mail lands in Mailpit at
 http://localhost:8025, or the next free port.
 
-### Option 3: Without Nix
-
-Start the backing services in Docker:
-
-```bash
-docker compose up -d postgres redis nats mailpit
-```
-
-Run the console in one terminal:
-
-```bash
-cd console
-pnpm install
-VITE_PROXY_URL=http://localhost:8080 pnpm dev
-```
-
-And the Go backend in another:
-
-```bash
-CONFIG_FILE=etc/lunogram.dev.yaml go run ./cmd/lunogram
-```
-
 ### Configuration
 
 [`etc/lunogram.dev.yaml`](etc/lunogram.dev.yaml) holds the development
-settings: the databases, Redis, NATS, a password login seeded with
-`admin@localhost` / `change-this-development-password`, a console signing key and
-Mailpit for mail. Every value in it is published, so it is fit for a laptop and
-nothing else.
+settings: a password login seeded with `admin@localhost` /
+`change-this-development-password`, a console signing key and Mailpit for mail.
+Where the services listen comes from [`devenv.nix`](devenv.nix). Every value is
+published, so it is fit for a laptop and nothing else.
 
-Environment variables win over the file, so override a single setting by
-exporting its variable (`AUTH_DRIVER=basic,clerk`, `PUBLIC_URL=…`) rather than
-editing it. With devenv, put personal overrides in a `devenv.local.nix`, which
-git ignores:
+Environment variables win over the file. Put personal overrides in a
+`devenv.local.nix`, which git ignores:
 
 ```nix
 { env.AUTH_DRIVER = "basic,clerk"; }

@@ -1,9 +1,10 @@
 { pkgs, lib, config, ... }:
 let
+  # Where the services listen is decided here, not in etc/lunogram.dev.yaml:
   # devenv moves a service to the next free port when its default is taken, so
-  # the connection settings follow the allocated ports instead of the defaults
-  # in etc/lunogram.dev.yaml. They are exported to the processes only: in the
-  # shell they would override the configuration the Go tests expect.
+  # the connection settings are built from the allocated ports. They are
+  # exported to the processes only: in the shell they would override the
+  # configuration the Go tests expect.
   port = process: name: toString config.processes.${process}.ports.${name}.value;
   postgres = database: "postgres://postgres:postgrespw@127.0.0.1:${port "postgres" "main"}/${database}?sslmode=disable";
   exports = vars: lib.concatLines (lib.mapAttrsToList (name: value: "export ${name}=${lib.escapeShellArg value}") vars);
@@ -63,6 +64,7 @@ in
           RBAC_POSTGRES_URI = postgres "rbac";
           REDIS_ADDRESS = "redis://127.0.0.1:${port "redis" "main"}";
           NATS_URL = "nats://127.0.0.1:${port "nats" "main"}";
+          MAIL_SMTP_HOST = "127.0.0.1";
           MAIL_SMTP_PORT = port "mailpit" "smtp";
         }}
         exec go run ./cmd/lunogram

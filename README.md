@@ -300,9 +300,6 @@ There is no setup step to run, or to run again after `git pull`; restart
 path for `make generate`, `make test` and `make lint`. Personal overrides go in
 a git-ignored `devenv.local.nix`.
 
-Not using Nix? The [Contributing Guide](CONTRIBUTING.md#option-3-without-nix)
-runs the same setup with Docker for the backing services.
-
 ### Contributing
 
 We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) to get started.
