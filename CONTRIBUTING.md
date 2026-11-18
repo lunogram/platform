@@ -10,11 +10,17 @@ Thank you for your interest in contributing to Lunogram! We're excited to have y
 
 ## Prerequisites
 
-- [Go](https://go.dev/dl/) (1.25+)
-- [Node.js](https://nodejs.org/) (24+)
-- [pnpm](https://pnpm.io/installation)
-- [Docker](https://docs.docker.com/get-docker/) and Docker Compose
-- [TinyGo](https://tinygo.org/getting-started/install/) (0.40+, for building WASM modules)
+- [Nix](https://nixos.org/download/) and [devenv](https://devenv.sh/getting-started/),
+  which provide everything else: Go, Node.js, pnpm, TinyGo, PostgreSQL, Redis,
+  NATS and Mailpit
+- Optionally [direnv](https://direnv.net), to load the toolchain whenever you `cd`
+  into the repository
+
+Without Nix, install [Go](https://go.dev/dl/) (1.25+),
+[Node.js](https://nodejs.org/) (24+), [pnpm](https://pnpm.io/installation),
+[Docker](https://docs.docker.com/get-docker/) with Docker Compose and
+[TinyGo](https://tinygo.org/getting-started/install/) (0.40+, for building WASM
+modules) yourself.
 
 ## Development Setup
 
@@ -32,80 +38,76 @@ docker compose up -d --build
 
 The app will be available at http://localhost:8080.
 
-### Option 2: Local Development (Recommended for Development)
-
-Run the Go backend and console locally for faster iteration:
-
-#### 1. Start Dependencies
-
-First, start the required services (PostgreSQL, Redis, NATS):
+### Option 2: devenv (Recommended for Development)
 
 ```bash
-docker compose -f docker-compose.deps.yml up -d
+devenv up
 ```
 
-#### 2. Run the Console (Frontend)
+This starts PostgreSQL, Redis, NATS, Mailpit, the Go backend
+(http://localhost:8080) and the console (http://localhost:5173). There is no
+setup step to repeat after pulling:
 
-In a separate terminal:
+- the databases come from [`docker/postgres/init.sql`](docker/postgres/init.sql),
+  which runs on every start and creates only what is missing
+- the console's dependencies are installed again whenever
+  `console/pnpm-lock.yaml` changes
+- the server reads [`etc/lunogram.dev.yaml`](etc/lunogram.dev.yaml) on every
+  start, so a change to it applies on the next restart
+
+`devenv shell` (or `direnv allow` once) gives you the same toolchain for
+`make generate`, `make test` and friends. Service data lives in `.devenv/state`;
+delete it for a clean database.
+
+When a default port is already taken, devenv moves that service to the next
+free one and points the server at it. Mail lands in Mailpit at
+http://localhost:8025, or the next free port.
+
+### Option 3: Without Nix
+
+Start the backing services in Docker:
+
+```bash
+docker compose up -d postgres redis nats mailpit
+```
+
+Run the console in one terminal:
 
 ```bash
 cd console
 pnpm install
-pnpm dev
+VITE_PROXY_URL=http://localhost:8080 pnpm dev
 ```
 
-The console will be available at http://localhost:5173.
-
-#### 3. Run the Go Backend
-
-In another terminal:
+And the Go backend in another:
 
 ```bash
-# Install dependencies and build
-make generate
-
-# Run the server
-go run ./cmd/lunogram
+CONFIG_FILE=etc/lunogram.dev.yaml go run ./cmd/lunogram
 ```
 
-The API will be available at http://localhost:8080.
+### Configuration
 
-### Environment Variables
+[`etc/lunogram.dev.yaml`](etc/lunogram.dev.yaml) holds the development
+settings: the databases, Redis, NATS, a password login seeded with
+`admin@localhost` / `change-this-development-password`, a console signing key and
+Mailpit for mail. Every value in it is published, so it is fit for a laptop and
+nothing else.
 
-```bash
-MANAGEMENT_POSTGRES_URI=postgres://postgres:postgrespw@localhost:5432/management?sslmode=disable
-USERS_POSTGRES_URI=postgres://postgres:postgrespw@localhost:5432/users?sslmode=disable
-JOURNEY_POSTGRES_URI=postgres://postgres:postgrespw@localhost:5432/journey?sslmode=disable
-REDIS_ADDRESS=redis://localhost:6379
-NATS_URL=nats://localhost:4222
-AUTH_DRIVER=basic
-AUTH_BASIC_EMAIL=admin@localhost
-AUTH_BASIC_PASSWORD=change-this-development-password
+Environment variables win over the file, so override a single setting by
+exporting its variable (`AUTH_DRIVER=basic,clerk`, `PUBLIC_URL=…`) rather than
+editing it. With devenv, put personal overrides in a `devenv.local.nix`, which
+git ignores:
 
-# Mail goes to the Mailpit the dependency stack runs; read it at
-# http://localhost:8025. Mailpit's SMTP listener speaks plaintext, so the
-# default of starttls has to be turned off for it.
-MAIL_CHANNEL=smtp
-MAIL_FROM_ADDRESS=no-reply@localhost
-MAIL_SMTP_HOST=localhost
-MAIL_SMTP_PORT=1025
-MAIL_SMTP_TLS=none
-
-# Signs the console session token. Required whenever AUTH_DRIVER is set; the
-# server refuses to start without it rather than generating a throwaway key,
-# which would log everyone out on each restart. Generate one with:
-#   openssl ecparam -name prime256v1 -genkey -noout
-AUTH_CONSOLE_SIGNING_KEY="$(openssl ecparam -name prime256v1 -genkey -noout)"
+```nix
+{ env.AUTH_DRIVER = "basic,clerk"; }
 ```
 
 `AUTH_DRIVER` accepts a comma-separated list, so `basic,clerk` gives you local
 accounts and SSO at once. `AUTH_BASIC_EMAIL` / `AUTH_BASIC_PASSWORD` seed the
 first account rather than being compared against on every login. Password reset
-and project invitation mail goes to the Mailpit container the dependency stack
-starts; read it at <http://localhost:8025>. The mail settings above are not optional: a
-deployment offering password logins with nowhere to send mail is refused at
-boot. Reach Mailpit at `localhost` rather than at `mailpit`, which only resolves
-inside the compose network.
+and project invitation mail goes to Mailpit. The mail settings are not optional:
+a deployment offering password logins with nowhere to send mail is refused at
+boot.
 
 ## How to Contribute
 

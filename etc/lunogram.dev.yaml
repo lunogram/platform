@@ -1,0 +1,51 @@
+# Local development configuration, layered over the compiled defaults like any
+# CONFIG_FILE (see lunogram.example.yaml). `devenv up` points the server at it;
+# without Nix, start the backing services with
+#
+#   docker compose up -d postgres redis nats mailpit
+#
+# and run the server with CONFIG_FILE=etc/lunogram.dev.yaml go run ./cmd/lunogram.
+#
+# Everything here is PUBLICLY KNOWN: the credentials and signing key are fit for
+# a laptop and nothing else. Override a single setting with its environment
+# variable rather than editing this file.
+
+store:
+  management_uri: postgres://postgres:postgrespw@localhost:5432/management?sslmode=disable
+  subjects_uri: postgres://postgres:postgrespw@localhost:5432/subjects?sslmode=disable
+  journey_uri: postgres://postgres:postgrespw@localhost:5432/journey?sslmode=disable
+
+rbac:
+  postgres_uri: postgres://postgres:postgrespw@localhost:5432/rbac?sslmode=disable
+
+redis:
+  address: redis://localhost:6379
+
+nats:
+  url: nats://localhost:4222
+
+auth:
+  drivers:
+    - basic
+  basic:
+    email: admin@localhost
+    password: change-this-development-password
+  console:
+    # The development key docker-compose.yml also ships.
+    signing_key: |
+      -----BEGIN EC PRIVATE KEY-----
+      MHcCAQEEIG6W7Oa4GaiOyuS/Fo18FOUVb840oWDlAC8cJuB2IuW8oAoGCCqGSM49
+      AwEHoUQDQgAEwXeD5bykWmYlPbqqoxk0hUjxwp+DEyU+HPo0q/OCly3HHGk+yS9w
+      ck0TgwNlj1B6bKTJwKVmkeL76aKDuBFmQg==
+      -----END EC PRIVATE KEY-----
+
+# Mailpit, readable at http://localhost:8025. It offers no TLS.
+mail:
+  channel: smtp
+  from:
+    address: no-reply@localhost
+    name: Lunogram
+  smtp:
+    host: localhost
+    port: 1025
+    tls: none

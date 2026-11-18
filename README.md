@@ -49,12 +49,11 @@ docker compose up -d
 ```
 
 This single command builds and runs Lunogram along with its backing services —
-PostgreSQL, Redis, NATS and Mailpit. Those are defined in
-[`docker-compose.deps.yml`](docker-compose.deps.yml), which the root
-[`docker-compose.yml`](docker-compose.yml) pulls in automatically.
+PostgreSQL, Redis, NATS and Mailpit — all defined in
+[`docker-compose.yml`](docker-compose.yml).
 
-If you'd rather run Lunogram from source and only need the backing services in Docker,
-see the [Contributing Guide](CONTRIBUTING.md) for the local development setup.
+If you'd rather run Lunogram from source, see the
+[Contributing Guide](CONTRIBUTING.md) for the local development setup.
 
 Login to the web app at http://localhost:8080 using the default credentials:
 

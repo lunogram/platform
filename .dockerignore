@@ -34,3 +34,5 @@ docs
 
 # Development files
 docker-compose.yml
+.devenv*
+.direnv
