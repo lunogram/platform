@@ -17,8 +17,11 @@ type WebhookRequest struct {
 	// Headers contains the HTTP request headers with lowercased keys.
 	Headers map[string]string `json:"headers"`
 
-	// Body is the raw HTTP request body.
-	Body json.RawMessage `json:"body"`
+	// Body is the raw HTTP request body, unaltered so signatures over it
+	// verify. It is base64-encoded on the wire; a json.RawMessage would be
+	// compacted and HTML-escaped by encoding/json, and could not carry a
+	// form-encoded body at all.
+	Body []byte `json:"body"`
 
 	// URL is the full request URL including scheme, host, path, and query string.
 	// Some providers (e.g., Twilio) include the callback URL in their HMAC signature.
