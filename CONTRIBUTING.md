@@ -56,6 +56,8 @@ pnpm dev
 
 The console will be available at http://localhost:5173.
 
+To work on UI without a backend, run `pnpm storybook` in `console/` and open http://localhost:6006. Its stories in `console/stories/` render the console components with fixture data.
+
 #### 3. Run the Go Backend
 
 In another terminal:
