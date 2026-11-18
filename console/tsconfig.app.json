@@ -34,6 +34,8 @@
         "noUncheckedSideEffectImports": true
     },
     "include": [
-        "src"
+        "src",
+        "stories",
+        ".storybook"
     ]
 }

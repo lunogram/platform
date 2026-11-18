@@ -96,6 +96,8 @@ jobs:
         run: cd console && pnpm install
       - name: Build Console
         run: cd console && pnpm build
+      - name: Build Storybook
+        run: cd console && pnpm storybook:build
 
   docs:
     runs-on: ubuntu-latest
