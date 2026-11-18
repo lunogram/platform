@@ -37,7 +37,8 @@
 
 ## 🚀 Deployment
 
-You can run Lunogram locally or in the cloud easily using Docker.
+Docker Compose runs a complete Lunogram instance: the quickest way to try it
+or to self-host it. To work on Lunogram itself, see [Development](#-development).
 
 ### Docker Compose
 
@@ -51,9 +52,6 @@ docker compose up -d
 This single command builds and runs Lunogram along with its backing services —
 PostgreSQL, Redis, NATS and Mailpit — all defined in
 [`docker-compose.yml`](docker-compose.yml).
-
-If you'd rather run Lunogram from source, see the
-[Contributing Guide](CONTRIBUTING.md) for the local development setup.
 
 Login to the web app at http://localhost:8080 using the default credentials:
 
@@ -267,6 +265,43 @@ editable claim such as `preferred_username` or `upn` leaves addresses unverified
 For full documentation on the platform and more information on deployment, check out our docs.
 
 **[Explore the Docs »](https://docs.lunogram.com)**
+
+## 🛠 Development
+
+The development environment is declared with [devenv](https://devenv.sh), so one
+command provides the toolchain and every service. Install
+[Nix](https://nixos.org/download/) and
+[devenv](https://devenv.sh/getting-started/), then:
+
+```
+git clone https://github.com/lunogram/platform.git
+cd platform
+devenv up
+```
+
+| What | Where |
+| --- | --- |
+| Console, with hot reload | http://localhost:5173 |
+| API | http://localhost:8080 |
+| Mailpit, every mail the platform sends | http://localhost:8025 |
+
+Sign in with `admin@localhost` / `change-this-development-password`. When a
+default port is already taken, devenv moves that service to the next free one.
+
+There is no setup step to run, or to run again after `git pull`; restart
+`devenv up` and it catches up:
+
+- the server reads [`etc/lunogram.dev.yaml`](etc/lunogram.dev.yaml) on every start
+- [`docker/postgres/init.sql`](docker/postgres/init.sql) creates any database
+  that is missing
+- the console's dependencies reinstall when `console/pnpm-lock.yaml` changes
+
+`devenv shell` (or `direnv allow`, once) puts Go, Node.js, pnpm and TinyGo on your
+path for `make generate`, `make test` and `make lint`. Personal overrides go in
+a git-ignored `devenv.local.nix`.
+
+Not using Nix? The [Contributing Guide](CONTRIBUTING.md#option-3-without-nix)
+runs the same setup with Docker for the backing services.
 
 ### Contributing
 
